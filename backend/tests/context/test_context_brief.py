@@ -134,18 +134,76 @@ def test_an_edge_recorded_the_other_way_round_reads_the_other_way() -> None:
 def test_the_budget_drops_descriptions_far_away_first_and_says_so() -> None:
     full = _brief()
     assert full.dropped == ()
-    tight = _brief(budget=520)
+    tight = _brief(budget=760)
     text = tight.text
+    assert len(text) <= 760
     # Titles, kinds and relations of every level stay.
     assert '"In een keer goed"' in text and '"Motie over hergebruik"' in text
-    # The political origin always keeps its description.
+    # The political origin keeps its description before anything else does.
     assert "Verzoekt de regering hergebruik de norm te maken." in text
     assert "De overheid regelt het in een keer goed." in text
-    # The nearest goes before the furthest.
-    assert "Minder dubbel werk." not in text or "een keer te doen" not in text
     assert "een keer te doen" not in text
-    assert len(tight.dropped) == 1 and "weggelaten" in tight.dropped[0]
+    assert any("weggelaten" in line for line in tight.dropped)
     assert len(text) < len(full.text)
+
+
+def _long_block(number: int) -> context_brief.LinkedNode:
+    """A referenced node with two branches up, each ending in a political
+    input, and a long description on every node."""
+    text = f"Beschrijving {number} " + "van beleid dat veel woorden nodig heeft " * 30
+
+    def node(key: str, kind: str, title: str, **extra) -> dict:
+        return _node(f"{number}-{key}", kind, f"{title} {number}", text, **extra)
+
+    start = node("i", "instrument", "Instrument", type_details={"soort": "overig"})
+    left, right = node("l", "doel", "Linkerdoel"), node("r", "doel", "Rechterdoel")
+    top_left = node("pl", "politieke_input", "Motie", type_details={"soort": "motie"})
+    top_right = node(
+        "pr", "politieke_input", "Brief", type_details={"soort": "kamerbrief"}
+    )
+    return context_brief.LinkedNode(
+        node=start,
+        chain={
+            "start": start["uri"],
+            "nodes": [start, left, right, top_left, top_right],
+            "edges": [
+                _edge(start, "implementeert", left),
+                _edge(start, "draagt_bij_aan", right),
+                _edge(left, "vloeit_voort_uit", top_left),
+                _edge(right, "vloeit_voort_uit", top_right),
+            ],
+        },
+    )
+
+
+@pytest.mark.parametrize("budget", [6000, 3000, 1500, 700, 300, 120])
+def test_the_block_that_is_sent_never_exceeds_the_budget(budget: int) -> None:
+    linked = [_long_block(number) for number in (1, 2, 3)]
+    brief = context_brief.build(linked, budget=budget)
+    assert len(brief.text) <= budget, (budget, len(brief.text))
+    # Fifteen long descriptions do not fit in any of these: the block says so.
+    assert brief.dropped
+    assert all(line.endswith(".") for line in brief.dropped)
+
+
+def test_a_full_budget_keeps_every_level_and_says_what_went() -> None:
+    linked = [_long_block(number) for number in (1, 2, 3)]
+    brief = context_brief.build(linked, budget=6000)
+    text = brief.text
+    for number in (1, 2, 3):
+        for title in ("Instrument", "Linkerdoel", "Rechterdoel", "Motie", "Brief"):
+            assert f'"{title} {number}"' in text
+    # Six political inputs come first; the rest follows while there is room.
+    assert text.count("Omschrijving:") >= 6
+    assert any("omschrijving van" in line.lower() for line in brief.dropped)
+
+
+def test_a_tiny_budget_cuts_the_furthest_levels_and_names_them() -> None:
+    linked = [_long_block(number) for number in (1, 2, 3)]
+    brief = context_brief.build(linked, budget=300)
+    assert len(brief.text) <= 300
+    assert '"Instrument 1"' in brief.text
+    assert any("het verst van de opdracht" in line for line in brief.dropped)
 
 
 def test_a_long_description_is_trimmed_at_a_word() -> None:

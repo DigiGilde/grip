@@ -235,15 +235,60 @@ def _flatten(entries: list[_Entry]) -> list[_Entry]:
     return flat
 
 
+def _description_line(entry: _Entry, text: str | None = None) -> str:
+    """The line a description takes, exactly as it is sent."""
+    pad = "  " if entry.depth == 0 else "  " * (entry.indent + 1) + "  "
+    return f"{pad}Omschrijving: {entry.description if text is None else text}"
+
+
 def _render(entries: list[_Entry]) -> list[str]:
     lines: list[str] = []
     for entry in entries:
         pad = "  " * (entry.indent + 1)
         lines.append(f"{pad}- {entry.head}")
         if entry.include_description and entry.description:
-            lines.append(f"{pad}  Omschrijving: {entry.description}")
+            lines.append(_description_line(entry))
         lines.extend(_render(entry.children))
     return lines
+
+
+def _lines(blocks: list[tuple[_Entry, list[_Entry]]]) -> list[str]:
+    lines: list[str] = []
+    for top, chain in blocks:
+        lines.append(top.head)
+        if top.facts:
+            lines.append(f"  {top.facts}")
+        if top.include_description and top.description:
+            lines.append(_description_line(top))
+        if chain:
+            lines.append("  Waar dit uit voortkomt:")
+            lines.extend(_render(chain))
+    return lines
+
+
+def _size(lines: list[str]) -> int:
+    """The number of characters of the block as sent: lines and line ends."""
+    return sum(len(line) for line in lines) + max(len(lines) - 1, 0)
+
+
+def _prune_deepest(chain: list[_Entry]) -> int:
+    """Take away the entries at the deepest level. Returns how many went."""
+    flat = _flatten(chain)
+    if not flat:
+        return 0
+    deepest = max(entry.depth for entry in flat)
+
+    def prune(entries: list[_Entry]) -> int:
+        gone = 0
+        for entry in list(entries):
+            if entry.depth == deepest:
+                entries.remove(entry)
+                gone += 1 + len(_flatten(entry.children))
+            else:
+                gone += prune(entry.children)
+        return gone
+
+    return prune(chain)
 
 
 def build(
@@ -252,7 +297,14 @@ def build(
     corpus_name: Callable[[str], str | None] = lambda uri: None,
     budget: int = DEFAULT_BUDGET,
 ) -> ContextBrief:
-    """The context of an assignment as a block of text within the budget."""
+    """The context of an assignment as a block of text within the budget.
+
+    The block that is returned is never longer than ``budget`` characters,
+    counted as it is sent. Titles, kinds and relations go in first; when
+    even those do not fit, the levels furthest from the assignment go. Then
+    the descriptions: those of the political inputs first (shortened if
+    need be), then the node itself, then level by level.
+    """
     if not linked_nodes:
         return ContextBrief()
 
@@ -269,39 +321,70 @@ def build(
         )
         blocks.append((top, _chain_entries(linked, corpus_name)))
 
+    # 1. The skeleton must fit. Cut the furthest level of the longest chain
+    #    until it does.
+    cut = 0
+    while _size(_lines(blocks)) > budget:
+        candidates = [chain for _top, chain in blocks if chain]
+        if not candidates:
+            break
+        deepest = max(
+            candidates, key=lambda chain: max(e.depth for e in _flatten(chain))
+        )
+        cut += _prune_deepest(deepest)
+    if _size(_lines(blocks)) > budget:
+        # Not even the referenced nodes themselves fit: keep the first ones.
+        while len(blocks) > 1 and _size(_lines(blocks)) > budget:
+            blocks.pop()
+            cut += 1
+        if _size(_lines(blocks)) > budget:
+            top = blocks[0][0]
+            top.facts = ""
+            top.head = top.head[: max(budget, 0)]
+
+    # 2. Descriptions, while there is room. Each is measured as its line.
     everything = [entry for top, chain in blocks for entry in (top, *_flatten(chain))]
-    used = sum(len(entry.head) + len(entry.facts) + 8 for entry in everything)
-    # The political origin first, then the node itself, then level by level.
+    used = _size(_lines(blocks))
     order = sorted(
         (entry for entry in everything if entry.description),
         key=lambda entry: (not entry.political, entry.depth),
     )
     left_out = 0
+    shortened = 0
     for entry in order:
-        cost = len(entry.description) + 16
-        if entry.political or used + cost <= budget:
+        cost = len(_description_line(entry)) + 1
+        room = budget - used
+        if cost <= room:
             entry.include_description = True
             used += cost
+            continue
+        # The political origin is worth having in part.
+        overhead = len(_description_line(entry, "")) + 1
+        if entry.political and room - overhead >= 80:
+            entry.description = _trim(entry.description, room - overhead - 4)
+            entry.include_description = True
+            used += len(_description_line(entry)) + 1
+            shortened += 1
         else:
             left_out += 1
 
-    lines: list[str] = []
-    for top, chain in blocks:
-        lines.append(top.head)
-        if top.facts:
-            lines.append(f"  {top.facts}")
-        if top.include_description and top.description:
-            lines.append(f"  Omschrijving: {top.description}")
-        if chain:
-            lines.append("  Waar dit uit voortkomt:")
-            lines.extend(_render(chain))
+    lines = _lines(blocks)
     dropped: list[str] = []
+    if cut:
+        dropped.append(
+            f"{cut} {'node' if cut == 1 else 'nodes'} het verst van de opdracht "
+            f"{'is' if cut == 1 else 'zijn'} weggelaten."
+        )
     if left_out:
         dropped.append(
             f"De omschrijving van {left_out} "
-            f"{'node' if left_out == 1 else 'nodes'} verder in de keten is "
-            "weggelaten om de context beknopt te houden."
+            f"{'node is' if left_out == 1 else 'nodes is'} weggelaten."
+        )
+    if shortened:
+        dropped.append(
+            f"De omschrijving van {shortened} politieke "
+            f"{'opdracht is' if shortened == 1 else 'opdrachten is'} ingekort."
         )
     return ContextBrief(
-        lines=tuple(lines), node_count=len(linked_nodes), dropped=tuple(dropped)
+        lines=tuple(lines), node_count=len(blocks), dropped=tuple(dropped)
     )
