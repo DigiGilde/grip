@@ -139,6 +139,18 @@ describe('OrganisationPicker', () => {
     );
   });
 
+  it('ignores the native input event that passes through the element', async () => {
+    const { container, api } = await renderPicker();
+    const combo = container.querySelector('nldd-combo-box')!;
+    fire(combo, 'input', 'communicatie');
+    act(() => {
+      combo.dispatchEvent(new Event('input'));
+    });
+    await waitFor(() =>
+      expect(api.calls.some((url) => url.includes('q=communicatie'))).toBe(true),
+    );
+  });
+
   it('hands the chosen organisation to the form', async () => {
     const { container, onChange } = await renderPicker();
     fire(container.querySelector('nldd-combo-box')!, 'change', 'o-2');

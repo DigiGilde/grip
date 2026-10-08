@@ -183,7 +183,10 @@ async def list_person_options(access: RequestAccess, db: DbSession) -> dict[str,
     permitted = frozenset({DataClass.STAFFING_ROSTER})
     return {
         "items": [
-            build_response(PersonOptionOut(id=p.person_id, name=p.name), permitted)
+            build_response(
+                PersonOptionOut(id=p.person_id, name=p.name, starts_on=p.starts_on),
+                permitted,
+            )
             for p in await views.person_options(db)
         ]
     }

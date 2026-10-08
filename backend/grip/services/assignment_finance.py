@@ -754,3 +754,58 @@ def months_csv(finance: AssignmentFinance) -> str:
             ]
         )
     return buffer.getvalue()
+
+
+# -- a budget line before it is saved -----------------------------------------
+
+
+@dataclass(frozen=True)
+class LinePreview:
+    # None when the line cannot be priced yet; ``reason`` then says why.
+    budgeted_cents: int | None
+    budgeted_by_year: dict[int, int]
+    reason: str | None
+
+
+async def preview_budget_line(
+    session: AsyncSession,
+    *,
+    kind: str,
+    fte: Decimal | None = None,
+    rate_category: str | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    amount_cents: int | None = None,
+    year: int | None = None,
+    options: PricingOptions = DEFAULT_OPTIONS,
+) -> LinePreview:
+    """What a line with these values would be budgeted at. Saves nothing.
+
+    The same calculation as for a saved line (R4, R5). A form that is not
+    complete yet gives no amount and no error.
+    """
+    from grip.services.pricing import load_rate_book
+
+    if kind == "fixed":
+        if amount_cents is None or year is None:
+            return LinePreview(None, {}, None)
+        return LinePreview(amount_cents, {year: amount_cents}, None)
+    if not (fte and rate_category and start_date and end_date) or end_date < start_date:
+        return LinePreview(None, {}, None)
+    line = calc.BudgetLine(
+        id="preview",
+        assignment_id="preview",
+        kind=calc.BudgetLineKind.PERSONNEL,
+        fte=fte,
+        rate_category=rate_category,
+        start_date=start_date,
+        end_date=end_date,
+    )
+    rates = await load_rate_book(session, include_draft=options.include_draft)
+    try:
+        by_year = calc.budgeted_by_year(
+            line, rates, partial_months=options.partial_months
+        )
+    except calc.CalcError as exc:
+        return LinePreview(None, {}, views.describe_calc_error(exc))
+    return LinePreview(sum(by_year.values()), dict(sorted(by_year.items())), None)

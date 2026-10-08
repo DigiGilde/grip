@@ -42,7 +42,15 @@ import { FunctionFrameworkPage } from '@/features/function-framework/FunctionFra
 import { WiesProposalsPage } from '@/features/wies/WiesProposalsPage';
 import { OpenRolesPage } from '@/features/vacancies/OpenRolesPage';
 import { VacanciesPage } from '@/features/vacancies/VacanciesPage';
-import { VacancyDetailPage } from '@/features/vacancies/VacancyDetailPage';
+import { VACANCY_TAB_SEGMENTS } from '@/features/vacancies/paths';
+import {
+  DecisionsTab,
+  FulfilmentTab,
+  ProcedureTab,
+  RequestTab,
+  TextTab,
+} from '@/features/vacancies/tabs/VacancyTabs';
+import { VacancyLayout } from '@/features/vacancies/VacancyLayout';
 import type { ReactElement } from 'react';
 
 /**
@@ -107,7 +115,14 @@ export function AppRoutes() {
         <Route path={PATHS.vacancyOpenRoles} element={<OpenRolesPage />} />
         <Route path={PATHS.vacancySetup} element={<VacancySetupPage />} />
         <Route path={PATHS.functionFramework} element={<FunctionFrameworkPage />} />
-        <Route path={PATHS.vacancyDetail} element={<VacancyDetailPage />} />
+        {/* One vacancy: a shared header with the steps, and a tab per concern. */}
+        <Route path={PATHS.vacancyDetail} element={<VacancyLayout />}>
+          <Route index element={<RequestTab />} />
+          <Route path={VACANCY_TAB_SEGMENTS.decisions} element={<DecisionsTab />} />
+          <Route path={VACANCY_TAB_SEGMENTS.text} element={<TextTab />} />
+          <Route path={VACANCY_TAB_SEGMENTS.procedure} element={<ProcedureTab />} />
+          <Route path={VACANCY_TAB_SEGMENTS.fulfilment} element={<FulfilmentTab />} />
+        </Route>
         <Route path={PATHS.clientRequest} element={<RequestQuotePage />} />
         <Route path={PATHS.clientAssignment} element={<ClientAssignmentPage />} />
         <Route path={PATHS.receivedQuote} element={<ReceivedQuotePage />} />

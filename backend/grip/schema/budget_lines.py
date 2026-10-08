@@ -25,7 +25,11 @@ SIGNAL = DataClass.RATE_MISMATCH_SIGNAL
 class BudgetLineOut(BaseModel):
     id: Annotated[UUID, in_class(A)]
     assignment_id: Annotated[UUID, in_class(A)]
+    # The name of the line as it is shown: the role plus the detail.
     description: Annotated[str, in_class(A)]
+    # The free text that tells the line apart; empty when the role says it
+    # all. This is what the form edits.
+    detail: Annotated[str, in_class(A)] = ""
     kind: Annotated[str, in_class(A)]
     position: Annotated[int, in_class(A)]
     role: Annotated[str | None, in_class(C)]
@@ -71,7 +75,8 @@ class BudgetOut(BaseModel):
 
 
 class BudgetLineCreate(BaseModel):
-    description: str = Field(min_length=1, max_length=500)
+    # Optional once a role is chosen: a line needs a role or a description.
+    description: str = Field(default="", max_length=500)
     kind: str
     position: int | None = Field(default=None, ge=1)
     role: str | None = Field(default=None, max_length=255)
@@ -91,7 +96,7 @@ class BudgetLineCreate(BaseModel):
 class BudgetLineUpdate(BaseModel):
     """Only the fields that are sent are changed. The kind cannot change."""
 
-    description: str | None = Field(default=None, min_length=1, max_length=500)
+    description: str | None = Field(default=None, max_length=500)
     position: int | None = Field(default=None, ge=1)
     role: str | None = Field(default=None, max_length=255)
     fte: Decimal | None = None
@@ -114,6 +119,8 @@ class DeriveRequest(BaseModel):
     start_date: date | None = None
     end_date: date | None = None
     fte: Decimal | None = Field(default=None, gt=0)
+    # The line being edited, so its own reservation does not count as busy.
+    budget_line_id: UUID | None = None
 
 
 class RateByYearOut(BaseModel):
@@ -121,17 +128,44 @@ class RateByYearOut(BaseModel):
     monthly_rate_cents: Annotated[int, in_class(B)]
 
 
+class RoleChoiceOut(BaseModel):
+    role: Annotated[str, in_class(C)]
+    role_id: Annotated[UUID | None, in_class(C)]
+
+
 class DerivationOut(BaseModel):
-    """Proposals for a budget line meant for a person. Nothing is saved."""
+    """Proposals for a budget line meant for a person. Nothing is saved.
+
+    Every value is a proposal with its source. Role, size and period are
+    staffing; scale, category, rate and amount say what the person bills and
+    are absent for a reader who may not see that.
+    """
 
     intended_person_id: Annotated[UUID, in_class(C)]
+    # Sentences for under the field, in plain Dutch.
+    summary: Annotated[list[str], in_class(C)]
+    # What needs attention.
+    notes: Annotated[list[str], in_class(C)]
+    role: Annotated[str | None, in_class(C)]
+    role_id: Annotated[UUID | None, in_class(C)]
+    # "history" (the role the person was last staffed in), or null.
+    role_source: Annotated[str | None, in_class(C)]
+    role_source_text: Annotated[str | None, in_class(C)]
+    role_alternatives: Annotated[list[RoleChoiceOut], nested()]
     start_date: Annotated[date | None, in_class(C)]
     end_date: Annotated[date | None, in_class(C)]
+    # "given", "assignment" or "person"; null when nothing could be proposed.
+    period_source: Annotated[str | None, in_class(C)]
+    period_source_text: Annotated[str | None, in_class(C)]
     # True when the period is a proposal and was not sent by the form.
     period_proposed: Annotated[bool, in_class(C)]
-    # Always null: grip does not know what someone has free.
+    # The room the person has over the period, at most 1; null without a
+    # period or without room.
     fte: Annotated[Decimal | None, in_class(C)]
-    notes: Annotated[list[str], in_class(C)]
+    free_pct: Annotated[Decimal | None, in_class(C)]
+    fte_source_text: Annotated[str | None, in_class(C)]
+    rate_summary: Annotated[str | None, in_class(D)]
+    billing_scale: Annotated[int | None, in_class(D)]
     rate_category: Annotated[str | None, in_class(D)]
     category_notes: Annotated[list[str], in_class(D)]
     monthly_rates: Annotated[list[RateByYearOut], nested()]

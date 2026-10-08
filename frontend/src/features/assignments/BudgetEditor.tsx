@@ -1,24 +1,30 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
-import { formatEuro, formatFte, formatPeriod } from '@/lib/format';
+import { RolePicker } from '@/features/roles';
+import { formatDate, formatEuro, formatFte, formatPeriod } from '@/lib/format';
 import {
   addBudgetLine,
   assignmentKeys,
   deleteBudgetLine,
+  deriveBudgetLine,
   fetchBudget,
+  fetchPersonOptions,
+  previewBudgetLine,
   updateBudgetLine,
   type Budget,
   type BudgetLine,
   type BudgetLineInput,
 } from './api';
-import { lineForm, lineInput, type LineForm } from './budgetForm';
+import { intendedText, lineForm, lineInput, previewInput, type LineForm } from './budgetForm';
+import { decimalToInput, parseDecimal } from './money';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { LINE_KIND_LABELS, RATE_CATEGORIES } from './labels';
 import {
   cardOfYear,
   categoryDiffers,
   categoryOptionText,
+  categoryText,
   useRateCards,
   type CategoryNamer,
 } from './rateText';
@@ -51,11 +57,14 @@ function LineSheet({
   const queryClient = useQueryClient();
   const [form, setForm] = useState<LineForm>(() => lineForm(line));
   const [problem, setProblem] = useState<string | null>(null);
+  // The person whose implications still have to be filled in; empty for none.
+  const [applyFor, setApplyFor] = useState('');
   const [seenSession, setSeenSession] = useState(session);
   if (seenSession !== session) {
     setSeenSession(session);
     setForm(lineForm(line));
     setProblem(null);
+    setApplyFor('');
   }
   const set = (patch: Partial<LineForm>) => setForm((current) => ({ ...current, ...patch }));
 
@@ -68,6 +77,58 @@ function LineSheet({
   const endYear = /^\d{4}/.test(form.endDate) ? Number(form.endDate.slice(0, 4)) : rateYear;
   const card = cardOfYear(rates.cards, rateYear);
   const endCard = endYear !== rateYear ? cardOfYear(rates.cards, endYear) : null;
+
+  const people = useQuery({
+    queryKey: assignmentKeys.personOptions,
+    queryFn: fetchPersonOptions,
+    enabled: open && form.kind === 'personnel',
+    retry: false,
+  });
+  // What follows from the intended person, asked again when the period or
+  // the size changes. Nothing is saved by asking.
+  const fteValue = parseDecimal(form.fte);
+  const derived = useQuery({
+    queryKey: ['budget-derive', assignmentId, form.personId, form.startDate, form.endDate, fteValue],
+    queryFn: () =>
+      deriveBudgetLine(assignmentId, {
+        intended_person_id: form.personId,
+        ...(form.startDate ? { start_date: form.startDate } : {}),
+        ...(form.endDate ? { end_date: form.endDate } : {}),
+        ...(fteValue !== null && Number(fteValue) > 0 ? { fte: fteValue } : {}),
+      }),
+    enabled: open && form.personId !== '',
+    retry: false,
+  });
+  const derivation = form.personId ? derived.data : undefined;
+  // A newly chosen person fills in what follows from them, once; after that
+  // the fields are the user's to change.
+  if (applyFor && derivation && derivation.intended_person_id === applyFor) {
+    setApplyFor('');
+    setForm((current) => ({
+      ...current,
+      ...(derivation.rate_category ? { category: derivation.rate_category } : {}),
+      ...(derivation.role && !current.role ? { role: derivation.role } : {}),
+      ...(derivation.fte && !current.fte ? { fte: decimalToInput(derivation.fte) } : {}),
+      ...(derivation.period_proposed && !current.startDate && derivation.start_date
+        ? { startDate: derivation.start_date }
+        : {}),
+      ...(derivation.period_proposed && !current.endDate && derivation.end_date
+        ? { endDate: derivation.end_date }
+        : {}),
+    }));
+  }
+  const impliedCategory = derivation?.rate_category ?? '';
+  const followsPerson = impliedCategory !== '' && form.category === impliedCategory;
+  const departsFromPerson = impliedCategory !== '' && form.category !== '' && !followsPerson;
+
+  // The outcome of the line as the server prices it, while it is filled in.
+  const toPrice = previewInput(form);
+  const preview = useQuery({
+    queryKey: ['budget-preview', assignmentId, toPrice],
+    queryFn: () => previewBudgetLine(assignmentId, toPrice),
+    enabled: open,
+    retry: false,
+  });
 
   const save = useMutation({
     mutationFn: (input: BudgetLineInput) =>
@@ -82,13 +143,43 @@ function LineSheet({
   });
 
   const submit = () => {
-    const input = lineInput(form, !line);
+    const input = lineInput(form, !line, line);
     if (typeof input === 'string') {
       setProblem(input);
       return;
     }
     save.mutate(input);
   };
+
+  // "Schaal 12 en 13 (categorie C), € 15.000 per maand", for who may see it.
+  const impliedText = impliedCategory ? categoryOptionText(card, impliedCategory) : '';
+  // Next to the person when one is chosen, so cause and effect are adjacent;
+  // otherwise after the period, where a user expects to choose it.
+  const scaleField = (
+    <>
+          <SelectInput
+        label="Schaal en tarief"
+        hint={
+          followsPerson
+            ? `Volgt uit de beoogde persoon. Tarievenkaart van ${rateYear}.`
+            : `Volgens de tarievenkaart van ${rateYear}.`
+        }
+        value={form.category}
+        onChange={(category) => set({ category })}
+        placeholder="Kies een schaal"
+        options={RATE_CATEGORIES.map((c) => ({ value: c, label: categoryOptionText(card, c) }))}
+        required={!form.personId}
+      />
+      {departsFromPerson && (
+        <nldd-banner
+          variant="warning"
+          size="sm"
+          text={`De beoogde persoon declareert in ${lower(categoryText(card, impliedCategory))}`}
+          supporting-text="Je kiest een andere schaal dan uit de persoon volgt. De regel wordt begroot met jouw keuze."
+        />
+      )}
+    </>
+  );
 
   return (
     <FormSheet
@@ -113,17 +204,47 @@ function LineSheet({
           {/* ROLE PICKER GOES HERE. Replace this text field by the RolePicker of
               features/roles once that folder exists; the role then becomes
               required and the description optional. */}
-          <TextInput label="Rol" optional value={form.role} onChange={(role) => set({ role })} />
-          {/* INTENDED PERSON GOES HERE: an optional "Beoogde persoon" picker,
-              once the budget line API accepts one and can say what follows
-              from the person. The name stays inside grip; the quote shows
-              only the role. */}
+          <RolePicker
+            label="Rol"
+            value={form.role || null}
+            onChange={(role) => set({ role: role?.name ?? '' })}
+          />
+          <SelectInput
+            label="Beoogde persoon"
+            hint="De naam komt niet in de offerte; daar staat alleen de rol."
+            optional
+            value={form.personId}
+            onChange={(personId) => {
+              set({ personId });
+              setApplyFor(personId);
+            }}
+            placeholder="Geen beoogde persoon"
+            options={(people.data ?? []).map((person) => ({
+              value: person.id,
+              label: person.starts_on
+                ? `${person.name}, start op ${formatDate(person.starts_on)}`
+                : person.name,
+            }))}
+          />
+          {derived.isError && form.personId && (
+            <nldd-banner variant="critical" size="sm" text={errorMessage(derived.error)} />
+          )}
+          {form.personId && derivation && (impliedText || derivation.summary) && (
+            // What follows from the person, right where the choice was made.
+            <nldd-banner
+              variant="accent"
+              size="sm"
+              text={impliedText ? `Volgt uit de beoogde persoon: ${impliedText}` : 'Volgt uit de beoogde persoon'}
+              {...(derivation.summary ? { 'supporting-text': derivation.summary } : {})}
+            />
+          )}
+          {form.personId && scaleField}
           <TextInput
             label="Omschrijving"
             hint="Wat deze regel onderscheidt van een andere met dezelfde rol, bijvoorbeeld: #2, vanaf Q2."
             value={form.description}
             onChange={(description) => set({ description })}
-            required
+            optional
           />
           <TextInput
             label="Omvang in FTE"
@@ -147,15 +268,7 @@ function LineSheet({
               required
             />
           </nldd-container>
-          <SelectInput
-            label="Schaal en tarief"
-            hint={`Volgens de tarievenkaart van ${rateYear}.`}
-            value={form.category}
-            onChange={(category) => set({ category })}
-            placeholder="Kies een schaal"
-            options={RATE_CATEGORIES.map((c) => ({ value: c, label: categoryOptionText(card, c) }))}
-            required
-          />
+          {!form.personId && scaleField}
           {rates.loaded && !card && (
             <RouterLinks>
               <nldd-banner
@@ -175,8 +288,6 @@ function LineSheet({
               supporting-text="De regel loopt over twee tariefjaren. Elke maand wordt geprijsd met de kaart van haar jaar."
             />
           )}
-          {/* LIVE AMOUNT GOES HERE: "Begroot voor deze regel", from the service,
-              once the budget line API can price a line before it is saved. */}
         </>
       ) : (
         <>
@@ -203,9 +314,18 @@ function LineSheet({
           />
         </>
       )}
+      {/* The outcome, priced by the server: never added up in the browser. */}
+      {preview.data?.budgeted_cents != null && (
+        <nldd-text>
+          Begroot voor deze regel: <strong>{formatEuro(preview.data.budgeted_cents)}</strong>
+        </nldd-text>
+      )}
+      {preview.data?.reason && <nldd-text color="secondary">{preview.data.reason}</nldd-text>}
     </FormSheet>
   );
 }
+
+const lower = (text: string) => text.charAt(0).toLowerCase() + text.slice(1);
 
 function lineSummary(line: BudgetLine, name: CategoryNamer): string {
   if (line.kind === 'fixed') return line.year ? `Vast bedrag, ${line.year}` : 'Vast bedrag';
@@ -288,7 +408,10 @@ export function BudgetEditor({ assignmentId }: { assignmentId: string }) {
             <nldd-table-row key={line.id}>
               <nldd-text-cell
                 text={line.description}
-                supporting-text={line.pricing_error ?? lineSummary(line, rates.name)}
+                supporting-text={
+                  line.pricing_error ??
+                  [lineSummary(line, rates.name), intendedText(line)].filter(Boolean).join('. ')
+                }
               />
               {showMoney && (
                 <nldd-text-cell

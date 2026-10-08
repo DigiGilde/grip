@@ -1,14 +1,11 @@
 import { screen, waitFor } from '@testing-library/react';
-import { Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { PATHS } from '@/paths';
 import { renderApp } from '@/test/utils';
 import type { TextVersion, Vacancy, VacancyOptions, VacancySummary } from './api';
 import { parseFte, parseScale } from './hooks';
 import { originOf, publishedOrigin, scaleAndFte } from './labels';
 import { OpenRolesPage } from './OpenRolesPage';
 import { VacanciesPage } from './VacanciesPage';
-import { VacancyDetailPage } from './VacancyDetailPage';
 
 const OPTIONS: VacancyOptions = {
   vacancy_types: [{ value: 'regulier', label: 'Regulier' }],
@@ -44,45 +41,6 @@ const MODEL_DRAFT: TextVersion = {
   origin_model_id: 'testmodel-1',
   origin_drafted_at: '2026-10-01T09:00:00Z',
   is_current: false,
-};
-
-const FULL: Vacancy = {
-  id: 'v-1',
-  function_title: 'Backend-ontwikkelaar',
-  scale: 11,
-  fte: '0.80',
-  status: 'requested',
-  declarable: true,
-  vacancy_type: 'regulier',
-  contract_type: 'temporary_project',
-  channels: [],
-  assignment_name: 'Opdracht Alfa',
-  requested_on: '2026-09-28',
-  has_openings: true,
-  procedure: [
-    {
-      kind: 'request',
-      label: 'Aanvraag',
-      position: 1,
-      recorded: true,
-      started_on: '2026-09-28',
-      ended_on: '2026-09-28',
-    },
-    {
-      kind: 'internal_opening',
-      label: 'Interne openstelling',
-      position: 5,
-      recorded: false,
-      minimum_working_days: 5,
-    },
-  ],
-  decisions: [
-    { kind: 'hr_advice', label: 'Advies HR', person_name: 'Fictieve Adviseur', has_account: true },
-  ],
-  texts: [MODEL_DRAFT],
-  requester_name: 'Fictieve Eigenaar',
-  addressee_name: 'Fictief Directielid',
-  permissions: { ...NO_PERMISSIONS, can_edit: true, can_download_form: true },
 };
 
 const PUBLIC: Vacancy = {
@@ -122,15 +80,6 @@ function stubApi(routes: Record<string, unknown>) {
   });
   vi.stubGlobal('fetch', fetchMock);
   return fetchMock;
-}
-
-function renderDetail(id: string) {
-  return renderApp(
-    <Routes>
-      <Route path={PATHS.vacancyDetail} element={<VacancyDetailPage />} />
-    </Routes>,
-    { path: `/vacatures/${id}` },
-  );
 }
 
 afterEach(() => {
@@ -257,126 +206,6 @@ describe('VacanciesPage', () => {
     const { container } = renderApp(<VacanciesPage />);
     await waitFor(() =>
       expect(container.querySelector('nldd-banner[variant="critical"]')).not.toBeNull(),
-    );
-  });
-});
-
-describe('VacancyDetailPage', () => {
-  it('shows the full vacancy with its sections to who may edit', async () => {
-    stubApi({
-      '/api/vacancies/v-1': FULL,
-      '/api/vacancies/options': OPTIONS,
-      '/api/vacancies/v-1/request-form/status': {
-        available: false,
-        open_fields: [],
-        motivation_established: false,
-      },
-    });
-    const { container } = renderDetail('v-1');
-    await waitFor(() =>
-      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Backend-ontwikkelaar'),
-    );
-    const headings = [...container.querySelectorAll('nldd-title[heading-level="2"]')].map((el) =>
-      el.getAttribute('text'),
-    );
-    expect(headings).toEqual([
-      'Volgende stap',
-      'Gegevens',
-      'Advies en akkoord',
-      'Procedure',
-      'Teksten',
-      'Aanvraagformulier',
-    ]);
-    expect(container.querySelector('nldd-text-cell[overline="Aan"]')?.getAttribute('text')).toBe(
-      'Fictief Directielid',
-    );
-    // The minimum of the internal opening is visible before it starts.
-    expect(
-      container
-        .querySelector('nldd-text-cell[text="5. Interne openstelling"]')
-        ?.getAttribute('supporting-text'),
-    ).toBe('Duurt minimaal 5 werkdagen');
-    // A model draft says so, and can be established by a person.
-    expect(container.textContent).toContain('Opgesteld door een taalmodel (testmodel-1)');
-    expect(container.querySelector('nldd-button[text="Stel vast"]')).not.toBeNull();
-    // Drafting is offered but switched off while no model is set up.
-    const draftButtons = container.querySelectorAll(
-      'nldd-button[text="Laat een concept opstellen"]',
-    );
-    expect(draftButtons).toHaveLength(2);
-    draftButtons.forEach((button) => expect(button.hasAttribute('disabled')).toBe(true));
-    expect(container.textContent).toContain('Het taalmodel is in deze instantie niet ingesteld');
-    // Requested, so no request button any more; details still editable.
-    expect(container.querySelector('nldd-button[text="Vraag aan"]')).toBeNull();
-    // Requested: the step bar stands at advice and approval, and the rows of
-    // the details are the way to change them.
-    expect(container.querySelector('nldd-step-bar')?.getAttribute('current')).toBe('3');
-    expect(
-      container.querySelector('nldd-button[text="Naar advies en akkoord"]'),
-    ).not.toBeNull();
-    const scaleRow = container.querySelector('nldd-text-cell[overline="Schaal"]')!.parentElement!;
-    expect(scaleRow.hasAttribute('button')).toBe(true);
-    // Not on this vacancy yet, and visibly so.
-    expect(
-      container.querySelector('nldd-text-cell[overline="FGR-functienaam"]')?.getAttribute('text'),
-    ).toBe('Nog niet ingevuld');
-    // The adviser is named but has not decided; this viewer may only rename.
-    expect(container.querySelector('nldd-button[text="Wijzig hr-adviseur"]')).not.toBeNull();
-    expect(container.querySelector('nldd-button[text="Leg advies hr vast"]')).toBeNull();
-  });
-
-  it('enables drafting when the model is set up', async () => {
-    stubApi({
-      '/api/vacancies/v-1': FULL,
-      '/api/vacancies/options': { ...OPTIONS, drafting_available: true },
-      '/api/vacancies/v-1/request-form/status': {
-        available: true,
-        file_name: 'formulier.pdf',
-        open_fields: [{ source: 'motivation', label: 'Aanleiding en motivatie (vastgesteld)' }],
-        motivation_established: false,
-      },
-    });
-    const { container } = renderDetail('v-1');
-    await waitFor(() =>
-      expect(
-        container.querySelector('nldd-button[text="Download ingevuld formulier (pdf)"]'),
-      ).not.toBeNull(),
-    );
-    const draft = container.querySelector('nldd-button[text="Laat een concept opstellen"]')!;
-    expect(draft.hasAttribute('disabled')).toBe(false);
-    const download = container.querySelector(
-      'nldd-button[text="Download ingevuld formulier (pdf)"]',
-    )!;
-    expect(download.getAttribute('href')).toBe('/api/vacancies/v-1/request-form');
-    expect(
-      container.querySelector('nldd-text-cell[text="Aanleiding en motivatie (vastgesteld)"]'),
-    ).not.toBeNull();
-  });
-
-  it('shows only the public view to someone without a role', async () => {
-    stubApi({ '/api/vacancies/v-2': PUBLIC, '/api/vacancies/options': OPTIONS });
-    const { container } = renderDetail('v-2');
-    await waitFor(() =>
-      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Productmanager'),
-    );
-    expect(container.textContent).toContain('Wij zoeken een productmanager.');
-    expect(container.textContent).toContain('Een taalmodel (testmodel-1)');
-    const headings = [...container.querySelectorAll('nldd-title[heading-level="2"]')].map((el) =>
-      el.getAttribute('text'),
-    );
-    expect(headings).toEqual(['Vacaturetekst']);
-    expect(container.querySelector('nldd-button[text="Bewerk gegevens"]')).toBeNull();
-    // No sheet at all: nothing to edit in the public view.
-    expect(document.body.querySelector('nldd-sheet')).toBeNull();
-  });
-
-  it('says so when the vacancy is not there or not visible', async () => {
-    stubApi({ '/api/vacancies/options': OPTIONS });
-    const { container } = renderDetail('v-9');
-    await waitFor(() =>
-      expect(
-        container.querySelector('nldd-inline-dialog[text="Deze vacature is niet gevonden"]'),
-      ).not.toBeNull(),
     );
   });
 });

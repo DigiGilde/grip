@@ -86,6 +86,8 @@ export interface Organisation {
 export interface PersonOption {
   id: string;
   name: string;
+  /** Set for a colleague who is hired but has not started yet. */
+  starts_on?: string | null;
 }
 
 export interface BudgetLine {
@@ -104,6 +106,17 @@ export interface BudgetLine {
   budgeted_cents?: number | null;
   budgeted_by_year?: Record<string, number>;
   pricing_error?: string | null;
+  /** The colleague the role is meant for. Never part of a quote. */
+  intended_person_id?: string | null;
+  intended_person_name?: string | null;
+  /** The reservation still follows the line (period and size). */
+  intended_in_step?: boolean | null;
+  intended_tentative?: boolean | null;
+  intended_notes?: string[];
+  /** The person bills in another category than the line assumes. */
+  intended_category_differs?: boolean | null;
+  intended_category?: string | null;
+  intended_category_notes?: string[];
 }
 
 export interface Budget {
@@ -127,6 +140,34 @@ export interface BudgetLineInput {
   end_date?: string | null;
   amount_cents?: number | null;
   year?: number | null;
+  /** A person names or replaces the intended person; null removes it. */
+  intended_person_id?: string | null;
+}
+
+/** What follows from an intended person. Nothing is saved by asking. */
+export interface Derivation {
+  intended_person_id: string;
+  start_date: string | null;
+  end_date: string | null;
+  /** The period is a proposal and was not sent by the form. */
+  period_proposed: boolean;
+  /** Proposals; absent or null when the server has none. */
+  role?: string | null;
+  fte?: string | null;
+  notes: string[];
+  /** What follows from the person in plain words, built by the server; absent until it does. */
+  summary?: string | null;
+  /** Absent for a reader who may not see categories. */
+  rate_category?: string | null;
+  category_notes?: string[];
+  monthly_rates?: { year: number; monthly_rate_cents: number }[];
+  budgeted_cents?: number | null;
+}
+
+export interface LinePreview {
+  budgeted_cents: number | null;
+  budgeted_by_year: Record<string, number>;
+  reason: string | null;
 }
 
 export const assignmentKeys = {
@@ -180,3 +221,12 @@ export const updateBudgetLine = (lineId: string, input: BudgetLineInput) =>
 
 export const deleteBudgetLine = (lineId: string) =>
   apiDelete<Budget>(`/api/budget-lines/${lineId}`);
+
+export const deriveBudgetLine = (
+  id: string,
+  body: { intended_person_id: string; start_date?: string; end_date?: string; fte?: string },
+) => apiPost<Derivation>(`/api/assignments/${id}/budget-lines/derive`, body);
+
+/** What a line with these values would be budgeted at; the server computes it. */
+export const previewBudgetLine = (id: string, body: BudgetLineInput) =>
+  apiPost<LinePreview>(`/api/assignments/${id}/budget-lines/preview`, body);

@@ -120,6 +120,8 @@ class RoleIn(BaseModel):
 class PersonOptionOut(BaseModel):
     id: Annotated[UUID, in_class(ROSTER)]
     name: Annotated[str, in_class(ROSTER)]
+    # Set for a colleague who is hired but has not started yet.
+    starts_on: Annotated[date | None, in_class(ROSTER)] = None
 
 
 class PersonOptionsOut(BaseModel):

@@ -12,15 +12,13 @@ import {
 import { useVacancyChange } from './hooks';
 import { TEXT_KIND_LABELS, originOf } from './labels';
 import { Button, Note, Paragraphs, TextInput } from './ui';
-import { ErrorNotice, FormSheet, SectionHeading } from '@/ui/layout';
+import { ErrorNotice, FormSheet, Quiet, Section, Stack } from '@/ui/layout';
 
 const KINDS: TextKind[] = ['vacancy_text', 'motivation'];
 
 const KIND_HELP: Record<TextKind, string> = {
-  vacancy_text:
-    'De tekst waarmee de vacature wordt opengesteld. Alleen een vastgestelde versie gaat grip uit.',
-  motivation:
-    'Waarom de vacature nodig is. De vastgestelde versie komt op het aanvraagformulier.',
+  vacancy_text: 'Alleen een vastgestelde versie gaat grip uit.',
+  motivation: 'De vastgestelde versie komt op het aanvraagformulier.',
 };
 
 function versionState(version: TextVersion): string {
@@ -52,43 +50,39 @@ function Version({ vacancy, version, onRewrite }: VersionProps) {
   const establish = useVacancyChange(vacancy.id, () => establishText(vacancy.id, version.id));
   const who = people(version);
   return (
-    <article>
-      <nldd-tag
-        color={version.is_current ? 'success' : version.source === 'model' ? 'warning' : 'neutral'}
-        text={versionState(version)}
-      />
-      <nldd-spacer size="8" />
+    <Stack gap="close">
+      <nldd-container layout="row" gap="8">
+        <nldd-tag
+          color={version.is_current ? 'success' : version.source === 'model' ? 'warning' : 'neutral'}
+          text={versionState(version)}
+        />
+      </nldd-container>
       <Paragraphs text={version.body} />
-      <nldd-spacer size="8" />
-      <Note>
+      <Quiet>
         {originOf(version)}.{who ? ` ${who}` : ''}
-      </Note>
+      </Quiet>
       {establish.error && <ErrorNotice message={establish.error} />}
       {vacancy.permissions.can_edit && (
-        <>
-          <nldd-spacer size="8" />
-          <nldd-button-group>
-            {!version.established_at && (
-              <Button
-                text="Stel vast"
-                size="sm"
-                loading={establish.busy}
-                accessibleLabel={`Stel deze versie van de ${TEXT_KIND_LABELS[version.kind].toLowerCase()} vast`}
-                onClick={() => establish.run(undefined)}
-              />
-            )}
+        <nldd-button-group>
+          {!version.established_at && (
             <Button
-              text="Herschrijf"
+              text="Stel vast"
               size="sm"
-              appearance="neutral-transparent"
-              accessibleLabel={`Herschrijf deze versie van de ${TEXT_KIND_LABELS[version.kind].toLowerCase()}`}
-              onClick={() => onRewrite(version)}
+              loading={establish.busy}
+              accessibleLabel={`Stel deze versie van de ${TEXT_KIND_LABELS[version.kind].toLowerCase()} vast`}
+              onClick={() => establish.run(undefined)}
             />
-          </nldd-button-group>
-        </>
+          )}
+          <Button
+            text="Herschrijf"
+            size="sm"
+            appearance="neutral-transparent"
+            accessibleLabel={`Herschrijf deze versie van de ${TEXT_KIND_LABELS[version.kind].toLowerCase()}`}
+            onClick={() => onRewrite(version)}
+          />
+        </nldd-button-group>
       )}
-      <nldd-spacer size="16" />
-    </article>
+    </Stack>
   );
 }
 
@@ -205,6 +199,7 @@ export function TextsSection({
   const [drafting, setDrafting] = useState(false);
   const canEdit = vacancy.permissions.can_edit;
   const draftingAvailable = options?.drafting_available ?? false;
+  const [expanded, setExpanded] = useState<TextKind | null>(null);
 
   function startWriting(kind: TextKind, basedOn: TextVersion | null) {
     setWrite({ kind, basedOn });
@@ -212,46 +207,58 @@ export function TextsSection({
   }
 
   return (
-    <>
-      <SectionHeading text="Teksten" />
-      {canEdit && !draftingAvailable && options !== undefined && (
-        <Note>
-          Het taalmodel is in deze instantie niet ingesteld. Een concept laten opstellen kan pas
-          als de beheerder dat heeft gedaan; zelf schrijven kan altijd.
-        </Note>
-      )}
+    <Stack gap="section">
       {KINDS.map((kind) => {
-        // Newest first: the version to act on is on top.
+        // Newest first: the version to act on is on top, the rest on request.
         const versions = vacancy.texts.filter((text) => text.kind === kind).reverse();
+        const [latest, ...earlier] = versions;
+        const showEarlier = expanded === kind;
         return (
-          <section key={kind}>
-            <nldd-spacer size="16" />
-            <SectionHeading text={TEXT_KIND_LABELS[kind]} level={3} />
-            <Note>{KIND_HELP[kind]}</Note>
-            <nldd-spacer size="8" />
-            {versions.length === 0 && <Note>Er is nog geen tekst.</Note>}
-            {versions.map((version) => (
+          <Section key={kind} title={TEXT_KIND_LABELS[kind]} description={KIND_HELP[kind]}>
+            {latest ? (
               <Version
-                key={version.id}
                 vacancy={vacancy}
-                version={version}
+                version={latest}
                 onRewrite={(base) => startWriting(kind, base)}
               />
-            ))}
-            {canEdit && (
+            ) : (
+              <Quiet>Nog geen tekst</Quiet>
+            )}
+            {(canEdit || earlier.length > 0) && (
               <nldd-button-group>
-                <Button text="Schrijf zelf" onClick={() => startWriting(kind, null)} />
-                <Button
-                  text="Laat een concept opstellen"
-                  disabled={!draftingAvailable}
-                  onClick={() => {
-                    setDraftKind(kind);
-                    setDrafting(true);
-                  }}
-                />
+                {canEdit && <Button text="Schrijf zelf" onClick={() => startWriting(kind, null)} />}
+                {canEdit && draftingAvailable && (
+                  <Button
+                    text="Laat een concept opstellen"
+                    onClick={() => {
+                      setDraftKind(kind);
+                      setDrafting(true);
+                    }}
+                  />
+                )}
+                {earlier.length > 0 && (
+                  <Button
+                    text={
+                      showEarlier
+                        ? 'Verberg eerdere versies'
+                        : `Toon eerdere versies (${earlier.length})`
+                    }
+                    appearance="neutral-transparent"
+                    onClick={() => setExpanded(showEarlier ? null : kind)}
+                  />
+                )}
               </nldd-button-group>
             )}
-          </section>
+            {showEarlier &&
+              earlier.map((version) => (
+                <Version
+                  key={version.id}
+                  vacancy={vacancy}
+                  version={version}
+                  onRewrite={(base) => startWriting(kind, base)}
+                />
+              ))}
+          </Section>
         );
       })}
       {canEdit && (
@@ -272,6 +279,6 @@ export function TextsSection({
           />
         </>
       )}
-    </>
+    </Stack>
   );
 }

@@ -31,6 +31,8 @@ class WiesColleague:
     active: bool
     suborganization: str | None = None
     skills: tuple[str, ...] = ()
+    # The public ids of those skills, from a Wies that sends them.
+    skill_ids: tuple[str, ...] = ()
     labels: tuple[tuple[str, str], ...] = ()
     # The URI grip minted for this person, when Wies holds it.
     grip_person_uri: str | None = None
@@ -75,6 +77,7 @@ def parse_colleagues(payload: object) -> list[WiesColleague]:
                 active=bool(item.get("active")),
                 suborganization=item.get("suborganization") or None,
                 skills=tuple(str(s) for s in item.get("skills") or ()),
+                skill_ids=tuple(str(s) for s in item.get("skill_ids") or ()),
                 labels=tuple(
                     (str(label.get("category") or ""), str(label.get("name") or ""))
                     for label in item.get("labels") or ()

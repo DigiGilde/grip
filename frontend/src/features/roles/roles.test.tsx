@@ -133,6 +133,16 @@ describe('RolePicker', () => {
     expect(itemTexts(off.container)).toEqual([]);
   });
 
+  it('ignores the native input event that passes through the element', async () => {
+    const { container } = await renderPicker();
+    const combo = container.querySelector('nldd-combo-box')!;
+    fire(combo, 'input', 'developer');
+    act(() => {
+      combo.dispatchEvent(new Event('input'));
+    });
+    expect(itemTexts(container)).toEqual(['Developer']);
+  });
+
   it('hands the chosen role to the form', async () => {
     const { container, onChange } = await renderPicker();
     fire(container.querySelector('nldd-combo-box')!, 'change', 'Developer');

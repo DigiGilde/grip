@@ -128,3 +128,22 @@ class AssignmentFinanceOut(BaseModel):
     budgeted_outside_months_cents: Annotated[int, in_class(B)]
     signals: Annotated[list[SignalOut], nested()]
     free_room_threshold_pct: Annotated[Decimal, in_class(B)]
+
+
+class LinePreviewIn(BaseModel):
+    """The values of a budget line form, as far as they are filled in."""
+
+    kind: str = "personnel"
+    fte: Decimal | None = None
+    rate_category: str | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+    amount_cents: int | None = None
+    year: int | None = None
+
+
+class LinePreviewOut(BaseModel):
+    # Null while the form is not complete or the line cannot be priced.
+    budgeted_cents: Annotated[int | None, in_class(B)]
+    budgeted_by_year: Annotated[dict[str, int], in_class(B)]
+    reason: Annotated[str | None, in_class(B)]

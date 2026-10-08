@@ -100,3 +100,33 @@ class CatalogueRoleSyncRun(Base):
         ForeignKey("person.id", ondelete="SET NULL"),
         nullable=True,
     )
+
+
+class PersonCatalogueRole(Base):
+    """A role a person can be staffed in.
+
+    From the skills of the person in Wies (source ``wies``) or set by the
+    beheerder (source ``manual``). What Wies says never overwrites a role set
+    by hand: a change in Wies is proposed and applied on confirmation, and it
+    only ever touches the links that came from Wies.
+    """
+
+    __tablename__ = "person_catalogue_role"
+    __table_args__ = (
+        UniqueConstraint("person_id", "role_id"),
+        CheckConstraint("source IN ('wies', 'manual')", name="source_valid"),
+    )
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    person_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("person.id", ondelete="CASCADE"), index=True
+    )
+    role_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("catalogue_role.id", ondelete="CASCADE"),
+        index=True,
+    )
+    source: Mapped[str] = mapped_column(
+        String(10), default=ROLE_SOURCE_MANUAL, server_default=ROLE_SOURCE_MANUAL
+    )
+    created_at: Mapped[datetime] = created_at()

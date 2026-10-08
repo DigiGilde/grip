@@ -16,6 +16,19 @@ function eventValue(event: Event): string {
   return value === undefined || value === null ? '' : String(value);
 }
 
+
+/**
+ * What was typed, from the combo box's own `input` event. The native event of
+ * the input inside it passes through the element as well, after the element's
+ * own, and carries no text: taking that one for an empty field wipes what was
+ * typed. It is skipped.
+ */
+function typedValue(event: Event): string | null {
+  const detail = (event as CustomEvent<{ value?: unknown }>).detail;
+  if (!detail || typeof detail !== 'object') return null;
+  return detail.value === undefined || detail.value === null ? '' : String(detail.value);
+}
+
 export interface RolePickerProps {
   /** The label of the field, for example "Rol". */
   label: string;
@@ -98,7 +111,9 @@ export function RolePicker({
   });
 
   useNlddEvent(ref, 'input', (event) => {
-    setTyped(eventValue(event));
+    const text = typedValue(event);
+    if (text === null) return;
+    setTyped(text);
     setProblem(null);
   });
   useNlddEvent(ref, 'change', (event) => {

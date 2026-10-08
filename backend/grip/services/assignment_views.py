@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -198,6 +198,8 @@ class AssignmentView:
 class PersonOption:
     person_id: UUID
     name: str
+    # The day a hired colleague starts; None for someone who already works here.
+    starts_on: date | None = None
 
 
 @dataclass(frozen=True)
@@ -338,13 +340,20 @@ async def organisations(session: AsyncSession) -> list[Organisation]:
 
 
 async def person_options(session: AsyncSession) -> list[PersonOption]:
-    """Active persons, for a picker."""
+    """Active persons, for a picker; a prospective colleague with the start date."""
+    from grip.models.person_standing import PersonStanding, Stage
+
     rows = await session.execute(
-        select(Person.id, Person.name)
+        select(Person.id, Person.name, PersonStanding.start_date)
+        .outerjoin(
+            PersonStanding,
+            (PersonStanding.person_id == Person.id)
+            & (PersonStanding.stage == Stage.prospective.value),
+        )
         .where(Person.is_active.is_(True))
         .order_by(Person.name, Person.id)
     )
-    return [PersonOption(row[0], row[1]) for row in rows]
+    return [PersonOption(row[0], row[1], row[2]) for row in rows]
 
 
 async def direct_report_ids(session: AsyncSession, person_id: UUID) -> set[UUID]:

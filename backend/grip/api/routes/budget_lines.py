@@ -16,6 +16,7 @@ from grip.schema.budget_lines import (
     DerivationOut,
     DeriveRequest,
     RateByYearOut,
+    RoleChoiceOut,
 )
 from grip.services import assignment_views as views
 from grip.services import assignments as service
@@ -63,6 +64,7 @@ def _line_out(
         id=line.id,
         assignment_id=line.assignment_id,
         description=line.description,
+        detail=line.detail,
         kind=line.kind,
         position=line.position,
         role=line.role,
@@ -172,6 +174,10 @@ async def derive_budget_line(
     resource = Resource.assignment(assignment_id)
     await access.require(Action.READ, resource, A, hide_existence=True)
     await _require_may_name(access, assignment_id, body.intended_person_id)
+
+    async def may_see(other_id: UUID) -> bool:
+        return await access.may(Action.READ, Resource.assignment(other_id), A)
+
     derived = await budget_intent.derive(
         db,
         assignment_id,
@@ -179,14 +185,31 @@ async def derive_budget_line(
         start_date=body.start_date,
         end_date=body.end_date,
         fte=body.fte,
+        exclude_line_id=body.budget_line_id,
+        may_see_assignment=may_see,
     )
     model = DerivationOut(
         intended_person_id=derived.person_id,
+        summary=list(derived.summary),
+        notes=list(derived.notes),
+        role=derived.role,
+        role_id=derived.role_id,
+        role_source=derived.role_source,
+        role_source_text=derived.role_source_text,
+        role_alternatives=[
+            RoleChoiceOut(role=choice.role, role_id=choice.role_id)
+            for choice in derived.role_alternatives
+        ],
         start_date=derived.start_date,
         end_date=derived.end_date,
+        period_source=derived.period_source,
+        period_source_text=derived.period_source_text,
         period_proposed=derived.period_proposed,
         fte=derived.fte,
-        notes=list(derived.notes),
+        free_pct=derived.free_pct,
+        fte_source_text=derived.fte_source_text,
+        rate_summary=derived.rate_summary,
+        billing_scale=derived.billing_scale,
         rate_category=derived.rate_category,
         category_notes=list(derived.category_notes),
         monthly_rates=[

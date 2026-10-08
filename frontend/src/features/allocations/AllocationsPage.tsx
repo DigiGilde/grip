@@ -1,3 +1,4 @@
+import { Page } from '@/ui/layout';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
@@ -8,7 +9,6 @@ import { VACANCY_KEYS, fetchUnfilledRoles, newVacancyPath } from '@/features/vac
 import { RouterLinks } from '@/layout/RouterLinks';
 import { useInstance } from '@/layout/useInstance';
 import { formatMonth } from '@/lib/format';
-import { PageHeading } from '@/pages/PageHeading';
 import { ActionBar } from '@/ui/ActionBar';
 import { AllocationSheet, type AllocationPreset } from './AllocationSheet';
 import { allocationKeys, fetchAllocationOptions, type Allocation } from './api';
@@ -171,9 +171,7 @@ export function AllocationsPage() {
   };
 
   return (
-    <nldd-simple-section>
-      <PageHeading text="Inzet" instanceName={instance?.name} />
-      <nldd-container gap="16">
+    <Page title="Inzet" instanceName={instance?.name}>
         <ActionBar
           label="Inzet: weergave en periode"
           filters={[
@@ -272,7 +270,6 @@ export function AllocationsPage() {
               : {})}
           />
         )}
-      </nldd-container>
       <AllocationSheet
         open={sheet.open}
         session={sheet.session}
@@ -281,6 +278,6 @@ export function AllocationsPage() {
         closedMonths={sheet.closedMonths}
         onClose={() => setSheet((current) => ({ ...current, open: false }))}
       />
-    </nldd-simple-section>
+    </Page>
   );
 }

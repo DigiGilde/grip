@@ -5,10 +5,9 @@ import { PHASE_LABELS, STATUS_COLORS, statusLabel, type Phase } from '@/features
 import { referenceText } from '@/features/assignments/financeText';
 import { assignmentTabPath } from '@/features/assignments/paths';
 import { FigureCells, FigureHeaderCells, FIGURE_COLUMNS } from '@/features/assignments/FigureCells';
-import { EmptyNotice, ErrorNotice, Loading, SectionHeading } from '@/features/assignments/ui';
+import { EmptyNotice, ErrorNotice, Loading, Page, Section, Stack } from '@/ui/layout';
 import { useInstance } from '@/layout/useInstance';
 import { useRouterLinks } from '@/layout/useRouterLinks';
-import { PageHeading } from '@/pages/PageHeading';
 import { ActionBar } from '@/ui/ActionBar';
 import { fetchOverview, hasFigures, overviewKeys, type Figures, type OverviewRow } from './api';
 import { YEAR_FILTER_LABEL, currentYearChoice, periodLabel, yearOptions } from './years';
@@ -35,9 +34,7 @@ function PhaseTable({
   const showAmounts = hasFigures(subtotal);
   const note = PHASE_NOTE[phase];
   return (
-    <nldd-container gap="8">
-      <SectionHeading text={PHASE_LABELS[phase]} />
-      {note && showAmounts && <nldd-text color="secondary">{note}</nldd-text>}
+    <Section title={PHASE_LABELS[phase]} {...(note && showAmounts ? { description: note } : {})}>
       <nldd-table
         accessible-label={`${PHASE_LABELS[phase]}, stand over ${period}`}
         columns={`minmax(220px,2fr) 170px${showAmounts ? ` ${FIGURE_COLUMNS}` : ' minmax(160px,1fr)'}`}
@@ -83,7 +80,7 @@ function PhaseTable({
           </nldd-table-row>
         )}
       </nldd-table>
-    </nldd-container>
+    </Section>
   );
 }
 
@@ -108,10 +105,9 @@ export function OverviewPage() {
   const period = periodLabel(year);
 
   return (
-    <nldd-simple-section>
-      <PageHeading text="Stand van zaken" instanceName={instance?.name} />
+    <Page title="Stand van zaken" instanceName={instance?.name} spacing="sections">
       <div ref={contentRef}>
-        <nldd-container gap="24">
+        <Stack gap="section">
           <ActionBar
             label="Stand van zaken: periode"
             filters={[
@@ -145,8 +141,8 @@ export function OverviewPage() {
               />
             );
           })}
-        </nldd-container>
+        </Stack>
       </div>
-    </nldd-simple-section>
+    </Page>
   );
 }

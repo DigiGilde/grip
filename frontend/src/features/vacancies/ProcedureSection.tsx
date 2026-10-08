@@ -11,7 +11,7 @@ import {
 } from './api';
 import { todayIso, useVacancyChange } from './hooks';
 import { CHANNEL_LABELS } from './labels';
-import { Button, CheckboxInput, DateInput, Note, TextInput } from './ui';
+import { Button, CheckboxInput, DateInput, TextInput } from './ui';
 import { FormSheet, Stack } from '@/ui/layout';
 import { useVacancyShell } from './shell';
 
@@ -148,10 +148,6 @@ export function PublishSheet({
       busy={change.busy}
       error={problem ?? change.error}
     >
-      <Note>
-        Openstellen kan als het akkoord is gegeven en de vacaturetekst is vastgesteld. Een
-        opengestelde vacature is met haar tekst zichtbaar voor iedereen in deze instantie.
-      </Note>
       <nldd-form-section text="Kanalen">
         {CHANNELS.map((channel) => (
           <CheckboxInput

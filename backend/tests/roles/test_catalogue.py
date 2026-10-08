@@ -140,11 +140,50 @@ async def test_changing_and_clearing_the_role_of_a_line(db_session, assignment):
 
 
 async def test_a_line_needs_a_role_or_a_description(db_session, assignment):
-    from sqlalchemy.exc import IntegrityError
+    with pytest.raises(
+        DomainValidationError, match="rol of geef de regel een omschrijving"
+    ):
+        async with db_session.begin_nested():
+            db_session.add(_line(assignment))
+            await db_session.flush()
 
-    db_session.add(_line(assignment))
-    with pytest.raises(IntegrityError):
-        await db_session.flush()
+
+async def test_budget_line_through_the_api_with_only_a_role(
+    client, db_session, create_person, assignment
+):
+    from grip.models.assignment import AssignmentRole
+
+    await create_person("beheerder@example.org", functions=["beheerder"])
+    owner = await create_person("eigenaar@example.org")
+    db_session.add(
+        AssignmentRole(assignment_id=assignment.id, person_id=owner.id, role="owner")
+    )
+    await service.create_role(db_session, name="Developer", actor=None)
+    client.cookies.set(DEV_PERSON_COOKIE, str(owner.id))
+    body = {
+        "kind": "personnel",
+        "role": "developer",
+        "fte": "1",
+        "rate_category": "D",
+        "start_date": "2026-01-01",
+        "end_date": "2026-12-31",
+    }
+    url = f"/api/assignments/{assignment.id}/budget-lines"
+
+    created = await client.post(url, json=body)
+    with_detail = await client.post(url, json={**body, "description": "#2, vanaf Q2"})
+    # The existing role was used; nothing was added to the catalogue.
+    assert list(await _roles(db_session)) == ["Developer"]
+    nameless = await client.post(url, json={**body, "role": None})
+
+    assert created.status_code == 201, created.text
+    lines = {line["detail"]: line for line in created.json()["lines"]} | {
+        line["detail"]: line for line in with_detail.json()["lines"]
+    }
+    assert (lines[""]["role"], lines[""]["description"]) == ("Developer", "Developer")
+    assert lines["#2, vanaf Q2"]["description"] == "Developer: #2, vanaf Q2"
+    assert nameless.status_code in (400, 409, 422)
+    assert "rol of geef de regel een omschrijving" in nameless.text
 
 
 async def test_description_can_be_searched_and_sorted_in_sql(db_session, assignment):

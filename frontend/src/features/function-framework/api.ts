@@ -119,3 +119,17 @@ export function parseScales(input: string): number[] | null {
   if (sorted.length === 0 || sorted.some((scale) => scale < 1 || scale > 19)) return null;
   return sorted;
 }
+
+/** "11 t/m 13": the scales of a group without the word in front. */
+export function scaleTag(group: FunctionGroup): string {
+  return group.scales_text.replace(/^schaal\s+/, '');
+}
+
+/** What a reload of the reference file did, in one line. */
+export function reloadSummary(result: ReloadResult): string {
+  const changed = result.groups_created + result.groups_updated + result.families_created;
+  const kept =
+    result.groups_kept > 0 ? ` ${result.groups_kept} met de hand gewijzigd en zo gelaten.` : '';
+  if (changed === 0) return `Opnieuw geladen: gelijk aan het referentiebestand.${kept}`;
+  return `Opnieuw geladen: ${result.groups_created} toegevoegd, ${result.groups_updated} bijgewerkt.${kept}`;
+}

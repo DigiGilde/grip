@@ -99,10 +99,6 @@ export function SubmitSheet({
       busy={change.busy}
       error={change.error}
     >
-      <Note>
-        Met de aanvraag vraag je akkoord om de vacature open te stellen. Daarna kunnen het advies
-        van HR en concern control en het akkoord worden vastgelegd.
-      </Note>
       {missing.length > 0 && (
         <Note>
           Het aanvraagformulier vraagt ook nog: {missing.join(', ')}. Je kunt nu aanvragen en dat

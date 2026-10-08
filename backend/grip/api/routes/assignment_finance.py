@@ -13,6 +13,8 @@ from grip.schema.finance import (
     FiguresOut,
     FinanceLineOut,
     KeyFiguresOut,
+    LinePreviewIn,
+    LinePreviewOut,
     MonthRowOut,
     PersonAmountOut,
     SignalOut,
@@ -207,4 +209,37 @@ async def get_assignment_finance_csv(
             ),
             "Cache-Control": "private, no-store",
         },
+    )
+
+
+@router.post("/assignments/{assignment_id}/budget-lines/preview", response_model=None)
+async def preview_budget_line(
+    assignment_id: UUID,
+    body: LinePreviewIn,
+    access: RequestAccess,
+    db: DbSession,
+) -> dict[str, Any]:
+    """What a budget line with these values would be budgeted at. Saves nothing.
+
+    The form shows this as the outcome while it is being filled in, so the
+    browser never computes an amount itself.
+    """
+    await _require_financial(assignment_id, access)
+    preview = await finance.preview_budget_line(
+        db,
+        kind=body.kind,
+        fte=body.fte,
+        rate_category=body.rate_category,
+        start_date=body.start_date,
+        end_date=body.end_date,
+        amount_cents=body.amount_cents,
+        year=body.year,
+    )
+    return build_response(
+        LinePreviewOut(
+            budgeted_cents=preview.budgeted_cents,
+            budgeted_by_year={str(y): c for y, c in preview.budgeted_by_year.items()},
+            reason=preview.reason,
+        ),
+        {B},
     )

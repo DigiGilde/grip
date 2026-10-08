@@ -5,7 +5,6 @@ import { errorMessage } from '@/api/client';
 import { formatFte, formatPeriod } from '@/lib/format';
 import { useInstance } from '@/layout/useInstance';
 import { useRouterLinks } from '@/layout/useRouterLinks';
-import { PageHeading } from '@/pages/PageHeading';
 import { PATHS } from '@/paths';
 import { ActionBar } from '@/ui/ActionBar';
 import {
@@ -23,7 +22,7 @@ import { parseFte, useVacancyOptions } from './hooks';
 import { STATUS_COLORS, VACANCY_TYPE_LABELS, scaleAndFte } from './labels';
 import { ORDER_OPTIONS, orderVacancies, standingOf, statusWord, type ListOrder } from './list';
 import { DateInput, Note, SelectInput, TextInput } from './ui';
-import { ErrorNotice, FormSheet, Loading } from '@/ui/layout';
+import { ErrorNotice, FormSheet, Loading, Page } from '@/ui/layout';
 
 const NO_BUDGET_LINE = 'none';
 
@@ -242,8 +241,7 @@ export function VacanciesPage() {
 
   return (
     <div ref={containerRef}>
-      <nldd-simple-section>
-        <PageHeading text="Vacatures" instanceName={instance?.name} />
+      <Page title="Vacatures" instanceName={instance?.name}>
         <ActionBar
           label="Vacatures ordenen en acties"
           filters={[
@@ -265,7 +263,6 @@ export function VacanciesPage() {
               : []),
           ]}
         />
-        <nldd-spacer size="16" />
         {vacancies.isPending && <Loading />}
         {vacancies.isError && <ErrorNotice message={errorMessage(vacancies.error)} />}
         {vacancies.data && (
@@ -278,7 +275,7 @@ export function VacanciesPage() {
             }
           />
         )}
-      </nldd-simple-section>
+      </Page>
       <CreateSheet
         open={creating}
         onClose={() => setCreating(false)}

@@ -128,10 +128,6 @@ export function PrepareRequestSheet({ vacancy, options, open, onClose }: Prepare
       busy={change.busy}
       error={problem ?? change.error}
     >
-      <Note>
-        Dit zijn de gegevens die het aanvraagformulier vraagt. Wat je nog niet weet, laat je
-        open; het formulier laat zien wat er nog ontbreekt.
-      </Note>
       {!notListed && (
         <FunctionGroupPicker
           label="FGR-functienaam"

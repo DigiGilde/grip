@@ -5,7 +5,7 @@ import { formatDate } from '@/lib/format';
 import { recordDecision, type Decision, type DecisionInput, type DecisionKind, type Vacancy } from './api';
 import { todayIso, useVacancyChange } from './hooks';
 import { Button, DateInput, Note, SelectInput, TextInput } from './ui';
-import { FormSheet, SectionHeading } from '@/ui/layout';
+import { FormSheet, Stack } from '@/ui/layout';
 
 const KINDS: { kind: DecisionKind; label: string; who: string }[] = [
   { kind: 'hr_advice', label: 'Advies HR', who: 'HR-adviseur' },
@@ -179,57 +179,64 @@ export function DecisionsSection({ vacancy }: { vacancy: Vacancy }) {
     setOpen(true);
   }
 
+  // While the vacancy waits for advice and approval, the first decision the
+  // reader can record is the one primary action of this view.
+  const waiting = vacancy.status === 'requested';
+  const firstToRecord = KINDS.find(({ kind }) => {
+    const decision = vacancy.decisions.find((entry) => entry.kind === kind);
+    return canRecord(vacancy, kind) && decision?.agreed !== true && decision?.agreed !== false;
+  })?.kind;
+
   return (
-    <>
-      <SectionHeading text="Advies en akkoord" />
-      {!requested && (
-        <Note>Advies en akkoord kunnen worden vastgelegd zodra de vacature is aangevraagd.</Note>
-      )}
-      <nldd-list appearance="box-base" accessible-label="Advies en akkoord">
-        {KINDS.map(({ kind, label }) => {
+    <Stack gap="group">
+      <nldd-table
+        accessible-label="Advies en akkoord"
+        columns="minmax(180px,1fr) 150px minmax(200px,1.5fr) 240px"
+        sm-columns="minmax(140px,1fr) minmax(140px,1fr)"
+      >
+        <nldd-table-row slot="header">
+          <nldd-text-cell text="Onderdeel" />
+          <nldd-text-cell text="Besluit" />
+          <nldd-text-cell text="Door" hide-below="md" />
+          <nldd-text-cell text="" hide-below="md" />
+        </nldd-table-row>
+        {KINDS.map(({ kind, label, who }) => {
           const decision = vacancy.decisions.find((entry) => entry.kind === kind);
-          const detail = supporting(decision);
+          const decided = decision?.agreed === true || decision?.agreed === false;
+          const records = requested && canRecord(vacancy, kind);
+          const names = requested && !records && vacancy.permissions.can_edit && !decided;
           return (
-            <nldd-list-item key={kind}>
+            <nldd-table-row key={kind}>
+              <nldd-text-cell text={label} />
               <nldd-text-cell
-                overline={label}
                 text={outcome(decision)}
-                {...(detail ? { 'supporting-text': detail } : {})}
+                color={decided ? 'content' : 'secondary'}
               />
-            </nldd-list-item>
-          );
-        })}
-      </nldd-list>
-      {requested && (
-        <>
-          <nldd-spacer size="8" />
-          <nldd-button-group>
-            {KINDS.map(({ kind, label, who }) => {
-              const decision = vacancy.decisions.find((entry) => entry.kind === kind);
-              const decided = decision?.agreed === true || decision?.agreed === false;
-              if (canRecord(vacancy, kind)) {
-                return (
+              <nldd-text-cell hide-below="md" text={supporting(decision) ?? ''} />
+              <nldd-cell hide-below="md">
+                {records && (
                   <Button
-                    key={kind}
-                    text={decided ? `Wijzig ${label.toLowerCase()}` : `Leg ${label.toLowerCase()} vast`}
+                    text={decided ? 'Wijzig' : 'Leg vast'}
+                    size="sm"
+                    appearance={waiting && kind === firstToRecord ? 'primary' : 'secondary'}
+                    accessibleLabel={`${decided ? 'Wijzig' : 'Leg vast'}: ${label.toLowerCase()}`}
                     onClick={() => show(kind, true)}
                   />
-                );
-              }
-              if (vacancy.permissions.can_edit && !decided) {
-                return (
+                )}
+                {names && (
                   <Button
-                    key={kind}
-                    text={`${decision ? 'Wijzig' : 'Noem'} ${who.toLowerCase()}`}
+                    text={decision ? 'Wijzig naam' : 'Noem iemand'}
+                    size="sm"
+                    appearance="neutral-transparent"
+                    accessibleLabel={`${decision ? 'Wijzig' : 'Noem'} ${who.toLowerCase()}`}
                     onClick={() => show(kind, false)}
                   />
-                );
-              }
-              return null;
-            })}
-          </nldd-button-group>
-        </>
-      )}
+                )}
+              </nldd-cell>
+            </nldd-table-row>
+          );
+        })}
+      </nldd-table>
       <DecisionSheet
         // A fresh form for each decision and each saved state of it.
         key={`${state.kind}-${state.deciding}-${JSON.stringify(vacancy.decisions.find((d) => d.kind === state.kind) ?? null)}`}
@@ -238,6 +245,6 @@ export function DecisionsSection({ vacancy }: { vacancy: Vacancy }) {
         open={open}
         onClose={() => setOpen(false)}
       />
-    </>
+    </Stack>
   );
 }

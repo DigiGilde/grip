@@ -1,6 +1,10 @@
 from grip.models.assignment import Allocation, Assignment, AssignmentRole, BudgetLine
 from grip.models.audit_log import AuditLog
-from grip.models.catalogue_role import CatalogueRole, CatalogueRoleSyncRun
+from grip.models.catalogue_role import (
+    CatalogueRole,
+    CatalogueRoleSyncRun,
+    PersonCatalogueRole,
+)
 from grip.models.cost import CostCoverage, CostItem, InvoiceLine
 from grip.models.http_session import HttpSession
 from grip.models.month_close import (
@@ -124,3 +128,5 @@ from grip.models.outgoing_invoice import (  # noqa: E402
 )
 
 __all__ += ["OutgoingInvoice", "OutgoingInvoiceDelivery"]
+
+__all__ += ["PersonCatalogueRole"]

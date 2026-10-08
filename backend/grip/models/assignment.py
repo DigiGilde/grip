@@ -341,16 +341,26 @@ def _resolve_budget_line_roles(
     hold becomes a manual entry marked for review, so no value is lost and
     the beheerder can merge it later. Deciding who may add a role is the
     business of the service layer; this only keeps the two columns in step.
+
+    A line with neither a role nor a description is refused here, with a
+    message for the person filling in the budget.
     """
+    touched = [o for o in (*session.new, *session.dirty) if isinstance(o, BudgetLine)]
+    lines = [o for o in touched if _role_changed(o)]
+    if lines:
+        _resolve_roles(session, lines)
+    for line in touched:
+        if not line.role and not (line.detail or "").strip():
+            from grip.services.errors import DomainValidationError
+
+            raise DomainValidationError(
+                "Kies een rol of geef de regel een omschrijving."
+            )
+
+
+def _resolve_roles(session: Session, lines: list["BudgetLine"]) -> None:
     from grip.models.catalogue_role import ROLE_SOURCE_MANUAL, CatalogueRole
 
-    lines = [
-        o
-        for o in (*session.new, *session.dirty)
-        if isinstance(o, BudgetLine) and _role_changed(o)
-    ]
-    if not lines:
-        return
     pending = {
         o.name.lower(): o
         for o in session.new

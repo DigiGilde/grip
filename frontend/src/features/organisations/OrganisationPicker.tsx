@@ -24,6 +24,19 @@ function eventValue(event: Event): string {
   return value === undefined || value === null ? '' : String(value);
 }
 
+
+/**
+ * What was typed, from the combo box's own `input` event. The native event of
+ * the input inside it passes through the element as well, after the element's
+ * own, and carries no text: taking that one for an empty field wipes what was
+ * typed. It is skipped.
+ */
+function typedValue(event: Event): string | null {
+  const detail = (event as CustomEvent<{ value?: unknown }>).detail;
+  if (!detail || typeof detail !== 'object') return null;
+  return detail.value === undefined || detail.value === null ? '' : String(detail.value);
+}
+
 function useDebounced(value: string, delay: number): string {
   const [debounced, setDebounced] = useState(value);
   useEffect(() => {
@@ -82,7 +95,10 @@ function SearchField({
     show(selected?.id ?? '', selectedText);
   }, [selected?.id, selectedText]);
 
-  useNlddEvent(ref, 'input', (event) => setTyped(eventValue(event)));
+  useNlddEvent(ref, 'input', (event) => {
+    const text = typedValue(event);
+    if (text !== null) setTyped(text);
+  });
   useNlddEvent(ref, 'change', (event) => {
     const value = eventValue(event);
     if (value === ADD_ACTION) {

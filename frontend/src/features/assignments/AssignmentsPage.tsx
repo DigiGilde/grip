@@ -1,3 +1,4 @@
+import { Page, Stack } from '@/ui/layout';
 import { useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
@@ -6,7 +7,6 @@ import { orUndef } from '@/components/nldd/events';
 import { useInstance } from '@/layout/useInstance';
 import { useRouterLinks } from '@/layout/useRouterLinks';
 import { formatEuro, formatPeriod } from '@/lib/format';
-import { PageHeading } from '@/pages/PageHeading';
 import { ActionBar } from '@/ui/ActionBar';
 import { assignmentKeys, fetchAssignments, type AssignmentSummary } from './api';
 import { AssignmentFormSheet } from './AssignmentFormSheet';
@@ -142,10 +142,9 @@ export function AssignmentsPage() {
   const items = all.filter((item) => item.phase === phase);
 
   return (
-    <nldd-simple-section>
-      <PageHeading text="Opdrachten" instanceName={instance?.name} />
+    <Page title="Opdrachten" instanceName={instance?.name}>
       <div ref={contentRef}>
-        <nldd-container gap="16">
+        <Stack gap="group">
           {query.data?.can_create && (
             <ActionBar
               label="Opdrachten"
@@ -187,7 +186,7 @@ export function AssignmentsPage() {
             ) : (
               <AssignmentTable items={items} label={PHASE_VIEW_LABELS[phase]} />
             ))}
-        </nldd-container>
+        </Stack>
       </div>
       <AssignmentFormSheet
         open={sheet.open}
@@ -198,6 +197,6 @@ export function AssignmentsPage() {
           navigate(assignmentPath(saved.id));
         }}
       />
-    </nldd-simple-section>
+    </Page>
   );
 }

@@ -3,8 +3,7 @@
  * They exist because nldd events are custom events on the element itself,
  * which a JSX `on*` prop never sees.
  */
-import { useId, useRef, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
+import { useRef } from 'react';
 import { orUndef, useNlddEvent } from '@/components/nldd/events';
 
 // Tests leave the nldd-* elements unregistered on purpose, so they read the
@@ -170,130 +169,14 @@ export function SelectInput({
   );
 }
 
-/** A select without a form field around it, for a filter above a table. */
-export function InlineSelect({
-  label,
-  value,
-  onChange,
-  options,
-  width,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  options: readonly Option[];
-  width?: string;
-}) {
-  const ref = useRef<HTMLElement>(null);
-  useNlddEvent(ref, 'change', (event) => onChange(eventValue(event)));
-  return (
-    <nldd-dropdown ref={ref} size="sm" accessible-label={label} {...(width ? { width } : {})}>
-      <select value={value} aria-label={label} onChange={(event) => onChange(event.target.value)}>
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </nldd-dropdown>
-  );
-}
-
-// The form's own messages are in English browser wording; each form checks
-// its fields itself and says what is wrong in the banner above it. Spread as
-// a plain attribute because the package types do not list it.
-const NO_NATIVE_VALIDATION: object = { novalidate: '' };
-
-interface FormSheetProps {
-  open: boolean;
-  /** Says what the sheet is about, e.g. "Opdracht Alfa bewerken". */
-  title: string;
-  submitText: string;
-  onSubmit: () => void;
-  onClose: () => void;
-  busy?: boolean;
-  error?: string | null;
-  children: ReactNode;
-}
-
-/**
- * A form in a sheet, following the design system's pattern: the way out in
- * the title bar, the primary action under the last field. The sheet stays in
- * the document while closed, so its animation runs and focus returns to the
- * button that opened it.
- */
-export function FormSheet({
-  open,
-  title,
-  submitText,
-  onSubmit,
-  onClose,
-  busy,
-  error,
-  children,
-}: FormSheetProps) {
-  const sheetRef = useRef<HTMLElement>(null);
-  const barRef = useRef<HTMLElement>(null);
-  const formRef = useRef<HTMLElement>(null);
-  const titleId = useId();
-  useNlddEvent(sheetRef, 'close', onClose);
-  useNlddEvent(barRef, 'dismiss', onClose);
-  useNlddEvent(formRef, 'submit', (event) => {
-    event.preventDefault();
-    if (!busy) onSubmit();
-  });
-
-  return createPortal(
-    <nldd-sheet ref={sheetRef} open={orUndef(open)} placement="right" width="480px">
-      <nldd-page>
-        <nldd-top-title-bar
-          ref={barRef}
-          slot="header"
-          text={title}
-          dismiss-text="Annuleer"
-          collapse-anchor={titleId}
-        />
-        <nldd-simple-section>
-          <nldd-title id={titleId} slot="header" size={2} text={title} heading-level={1} />
-          {error && <nldd-banner variant="critical" size="sm" text={error} />}
-          <nldd-form ref={formRef} {...NO_NATIVE_VALIDATION}>
-            {/* nldd-form moves its direct children into its own form element.
-                React then loses track of siblings it wants to insert before, and
-                a field that appears conditionally crashes the page. One stable
-                wrapper that React owns keeps the fields together. */}
-            <div className="form-fields">{children}</div>
-            <nldd-form-actions>
-              <nldd-button-group>
-                <Button text={submitText} appearance="primary" type="submit" loading={busy} />
-              </nldd-button-group>
-            </nldd-form-actions>
-          </nldd-form>
-        </nldd-simple-section>
-      </nldd-page>
-    </nldd-sheet>,
-    document.body,
-  );
-}
-
-/** What a screen shows while loading, on an error, or when there is nothing. */
-export function Loading({ text = 'Bezig met laden' }: { text?: string }) {
-  return <nldd-inline-dialog variant="loading" text={text} />;
-}
-
-export function ErrorNotice({ message }: { message: string }) {
-  return <nldd-banner variant="critical" size="sm" text={message} />;
-}
-
-export function EmptyNotice({ text, supportingText }: { text: string; supportingText?: string }) {
-  return (
-    <nldd-inline-dialog
-      text={text}
-      {...(supportingText ? { 'supporting-text': supportingText } : {})}
-    />
-  );
-}
-
-/** A section heading below the page's h1. */
-export function SectionHeading({ text, level = 2 }: { text: string; level?: 2 | 3 }) {
-  return <nldd-title size={level === 2 ? 3 : 4} text={text} heading-level={level} />;
-}
+// One form sheet, one set of states and one filter select for all of grip:
+// these come from the shared layout, and are passed on here for the screens
+// that still import them from this file.
+export {
+  EmptyNotice,
+  ErrorNotice,
+  FilterSelect as InlineSelect,
+  FormSheet,
+  Loading,
+  SectionHeading,
+} from '@/ui/layout';

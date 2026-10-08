@@ -1,21 +1,20 @@
 import { waitFor } from '@testing-library/react';
-import { Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { PATHS } from '@/paths';
 import { renderApp } from '@/test/utils';
 import type { Vacancy } from '@/features/vacancies/api';
 import { budgetLineWarning, missingRequestDetails } from '@/features/vacancies/labels';
 import { requestPrepared, vacancySteps } from '@/features/vacancies/steps';
 import { VacanciesPage } from '@/features/vacancies/VacanciesPage';
-import { VacancyDetailPage } from '@/features/vacancies/VacancyDetailPage';
 import {
   groupChoices,
   parseScales,
+  reloadSummary,
+  scaleTag,
   searchGroups,
   suggestedFirst,
   type FunctionFramework,
 } from './api';
-import { FunctionFrameworkSection } from './FunctionFrameworkSection';
+import { FunctionFrameworkPage } from './FunctionFrameworkPage';
 
 // Fictional entries in the shape of the real list.
 const FRAMEWORK: FunctionFramework = {
@@ -270,127 +269,64 @@ describe('creating a vacancy', () => {
   });
 });
 
-describe('preparing the request', () => {
-  function renderDetail() {
-    stubApi({
-      '/api/vacancies/v-1': VACANCY,
-      '/api/vacancies/options': OPTIONS,
-      '/api/function-framework': FRAMEWORK,
-      '/api/person-options': {
-        items: [{ id: 'p-9', name: 'Fictief Directielid' }],
-      },
-    });
-    return renderApp(
-      <Routes>
-        <Route path={PATHS.vacancyDetail} element={<VacancyDetailPage />} />
-      </Routes>,
-      { path: '/vacatures/v-1' },
-    );
-  }
-
-  it('shows the family, the warning and what is still missing', async () => {
-    const { container } = renderDetail();
-    await waitFor(() =>
-      expect(container.querySelector('nldd-text-cell[overline="FGR-functienaam"]')).not.toBeNull(),
-    );
-    expect(
-      container
-        .querySelector('nldd-text-cell[overline="FGR-functienaam"]')
-        ?.getAttribute('supporting-text'),
-    ).toBe('Functiefamilie Testadvisering');
-    expect(
-      container.querySelector('nldd-banner[variant="warning"]')?.getAttribute('text'),
-    ).toContain('Schaal 11 valt buiten de tariefcategorie van de begrotingsregel');
-    // The next step is unmistakable: step 1 is current and carries the primary button.
-    expect(container.querySelector('nldd-step-bar')?.getAttribute('current')).toBe('1');
-    const steps = [...container.querySelectorAll('nldd-step-bar-item')].map((el) =>
-      el.getAttribute('text'),
-    );
-    expect(steps).toEqual([
-      'Aanvraag voorbereiden',
-      'Aanvragen',
-      'Advies en akkoord',
-      'Openstellen',
-      'Vervullen',
-    ]);
-    const primary = container.querySelector('nldd-button[appearance="primary"]');
-    expect(primary?.getAttribute('text')).toBe('Bereid aanvraag voor');
-    // The checklist: ticked when filled, each line the way to fill it.
-    const checklist = container.querySelector(
-      'nldd-list[accessible-label="Voor het aanvraagformulier, nog 2 in te vullen"]',
-    )!;
-    const lines = [...checklist.querySelectorAll('nldd-list-item')].map((row) => ({
-      label: row.querySelector('nldd-text-cell')?.getAttribute('text'),
-      state: row.querySelector('nldd-text-cell')?.getAttribute('supporting-text'),
-      icon: row.querySelector('nldd-icon-cell')?.getAttribute('icon'),
-      button: row.hasAttribute('button'),
-    }));
-    expect(lines).toEqual([
-      { label: 'FGR-functienaam', state: 'Testadviseur', icon: 'check-circle-filled', button: true },
-      { label: 'Schaal', state: '11', icon: 'check-circle-filled', button: true },
-      { label: 'Type contract', state: 'Nog niet ingevuld', icon: 'circle', button: true },
-      { label: 'Aan', state: 'Nog niet ingevuld', icon: 'circle', button: true },
-      {
-        label: 'Aanleiding en motivatie',
-        state: 'Nog open; kan ook na de aanvraag',
-        icon: 'circle',
-        button: true,
-      },
-    ]);
-    // The details show the same fields, filled or visibly not.
-    const fact = (label: string) =>
-      container.querySelector(`nldd-text-cell[overline="${label}"]`)?.getAttribute('text');
-    expect(fact('Schaal')).toBe('11');
-    expect(fact('Type contract')).toBe('Nog niet ingevuld');
-    expect(fact('Aan')).toBe('Nog niet ingevuld');
-  });
-
-  it('offers the function groups to search, and narrows the scale to the group', async () => {
-    const { container } = renderDetail();
-    await waitFor(() =>
-      expect(container.querySelector('nldd-button[text="Bereid aanvraag voor"]')).not.toBeNull(),
-    );
-    // The sheets are in the document while closed; the lists load when one opens.
-    const sheets = [...document.body.querySelectorAll('nldd-sheet')];
-    const prepare = sheets.find((sheet) =>
-      sheet.querySelector('nldd-top-title-bar')?.getAttribute('text')?.includes('voorbereiden'),
-    )!;
-    expect(prepare).toBeDefined();
-    const combo = prepare.querySelector('nldd-combo-box')!;
-    expect(combo.getAttribute('value')).toBe('g-1');
-    // The scale is a choice from the scales of the group once the list is known;
-    // until then it is a plain field. Either way no free FGR text field.
-    const labels = [...prepare.querySelectorAll('nldd-form-field')].map((el) =>
-      el.getAttribute('label'),
-    );
-    expect(labels[0]).toBe('FGR-functienaam');
-    expect(labels).toContain('Schaal');
-    expect(labels).toContain('Type contract');
-    expect(prepare.querySelector('nldd-checkbox-field[label="De functiegroep staat niet in de lijst"]')).not.toBeNull();
-  });
-});
-
-describe('FunctionFrameworkSection', () => {
-  it('lists families and groups with their scales and where they come from', async () => {
+describe('FunctionFrameworkPage', () => {
+  it('fits a screen: families closed with their count, no group until asked', async () => {
     stubApi({ '/api/function-framework': FRAMEWORK });
-    const { container } = renderApp(<FunctionFrameworkSection />);
+    const { container } = renderApp(<FunctionFrameworkPage />);
     await waitFor(() =>
-      expect(container.querySelector('nldd-title[text="Testadvisering"]')).not.toBeNull(),
+      expect(container.querySelector('nldd-list[accessible-label="Functiefamilies"]')).not.toBeNull(),
     );
-    const line = (name: string) =>
-      container.querySelector(`nldd-text-cell[text="${name}"]`)?.getAttribute('supporting-text');
-    expect(line('Testadviseur')).toBe('schaal 11 t/m 13');
-    expect(line('Testverzorger')).toBe('schaal 12 · met de hand gewijzigd');
-    expect(line('Testmedewerker')).toContain('zelf toegevoegd');
-    expect(line('Testmedewerker')).toContain('beëindigd per');
+    const rows = [...container.querySelectorAll('nldd-list[accessible-label="Functiefamilies"] nldd-list-item')];
+    expect(
+      rows.map((row) => [...row.querySelectorAll('nldd-text-cell')].map((cell) => cell.getAttribute('text'))),
+    ).toEqual([
+      ['Testadvisering', '2 functiegroepen'],
+      ['Testuitvoering', '1 functiegroep'],
+    ]);
+    expect(rows.every((row) => !row.hasAttribute('expanded'))).toBe(true);
+    expect(container.querySelector('nldd-table')).toBeNull();
     expect(container.textContent).toContain('3 functiegroepen in 2 functiefamilies');
     expect(container.querySelector('a[href="https://bron.example/functiegebouw"]')).not.toBeNull();
-    expect(container.querySelector('nldd-button[text="Voeg functiegroep toe"]')).not.toBeNull();
+    // One primary action; the reload is the quiet one next to it.
+    const primary = container.querySelectorAll('nldd-button[appearance="primary"]');
+    expect([...primary].map((button) => button.getAttribute('text'))).toEqual([
+      'Voeg functiegroep toe',
+    ]);
     expect(
       container.querySelector('nldd-button[text="Laad referentiebestand opnieuw"]'),
     ).not.toBeNull();
+    expect(container.querySelector('nldd-search-field')).not.toBeNull();
+  });
+
+  it('shows no beheer actions to a reader who may not manage the list', async () => {
+    stubApi({ '/api/function-framework': { ...FRAMEWORK, can_manage: false } });
+    const { container } = renderApp(<FunctionFrameworkPage />);
+    await waitFor(() => expect(container.querySelector('nldd-list')).not.toBeNull());
+    expect(container.querySelector('nldd-button')).toBeNull();
+    expect(document.body.querySelector('nldd-sheet')).toBeNull();
+  });
+
+  it('writes scales as a compact tag and a reload as one line', () => {
+    const [adviser, single] = groupChoices(FRAMEWORK);
+    expect(scaleTag(adviser!)).toBe('11 t/m 13');
+    expect(scaleTag(single!)).toBe('12');
     expect(
-      container.querySelector('nldd-button[accessible-label="Wijzig de functiegroep Testadviseur"]'),
-    ).not.toBeNull();
+      reloadSummary({
+        families_created: 0,
+        families_updated: 0,
+        groups_created: 0,
+        groups_updated: 0,
+        groups_kept: 1,
+      }),
+    ).toBe('Opnieuw geladen: gelijk aan het referentiebestand. 1 met de hand gewijzigd en zo gelaten.');
+    expect(
+      reloadSummary({
+        families_created: 0,
+        families_updated: 0,
+        groups_created: 2,
+        groups_updated: 1,
+        groups_kept: 0,
+      }),
+    ).toBe('Opnieuw geladen: 2 toegevoegd, 1 bijgewerkt.');
   });
 });

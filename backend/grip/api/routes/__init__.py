@@ -22,6 +22,7 @@ from grip.api.routes.organisations import router as organisations_router
 from grip.api.routes.overview import router as overview_router
 from grip.api.routes.peers import router as peers_router
 from grip.api.routes.people import router as people_router
+from grip.api.routes.person_roles import router as person_roles_router
 from grip.api.routes.quotes import router as quotes_router
 from grip.api.routes.rates import router as rates_router
 from grip.api.routes.received_quotes import router as received_quotes_router
@@ -62,3 +63,4 @@ api_router.include_router(inspection_router)
 api_router.include_router(reports_router)
 api_router.include_router(function_framework_router)
 api_router.include_router(catalogue_roles_router)
+api_router.include_router(person_roles_router)

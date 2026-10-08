@@ -253,3 +253,43 @@ async def test_csv_has_stable_columns_and_the_same_figures(world, as_person):
     assert lines[0] == ",".join(finance.MONTH_CSV_COLUMNS)
     assert len(lines) == 13
     assert lines[1].split(",")[1:3] == ["2026-01", "false"]
+
+
+async def test_preview_prices_a_line_before_it_is_saved(world, as_person):
+    url = f"/api/assignments/{world.assignment.id}/budget-lines/preview"
+    client = as_person(world.owner)
+    body = (
+        await client.post(
+            url,
+            json={
+                "kind": "personnel",
+                "fte": "0.8",
+                "rate_category": "D",
+                "start_date": "2026-01-01",
+                "end_date": "2026-12-31",
+            },
+        )
+    ).json()
+    assert body == {
+        "budgeted_cents": PM_BUDGETED,
+        "budgeted_by_year": {"2026": PM_BUDGETED},
+        "reason": None,
+    }
+    # Not complete yet: no amount and no error.
+    incomplete = (await client.post(url, json={"kind": "personnel", "fte": "1"})).json()
+    assert incomplete["budgeted_cents"] is None and incomplete["reason"] is None
+    # A year without a rate card says so.
+    missing = (
+        await client.post(
+            url,
+            json={
+                "fte": "1",
+                "rate_category": "D",
+                "start_date": "2029-01-01",
+                "end_date": "2029-03-31",
+            },
+        )
+    ).json()
+    assert missing["budgeted_cents"] is None
+    assert "tarievenkaart" in missing["reason"]
+    assert (await as_person(world.planner).post(url, json={})).status_code == 403

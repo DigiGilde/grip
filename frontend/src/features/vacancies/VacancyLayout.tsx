@@ -185,9 +185,6 @@ export function VacancyLayout() {
       <nldd-simple-section>
         <PageHeading text={vacancy?.function_title ?? 'Vacature'} instanceName={instance?.name} />
         <Stack gap="related">
-          <RouterLinks>
-            <nldd-link href={PATHS.vacancies} text="Terug naar vacatures" size="md" />
-          </RouterLinks>
           {query.isPending && <Loading />}
           {query.isError && (
             <ErrorNotice
@@ -197,6 +194,11 @@ export function VacancyLayout() {
                   : errorMessage(query.error)
               }
             />
+          )}
+          {query.isError && (
+            <RouterLinks>
+              <nldd-link href={PATHS.vacancies} text="Naar alle vacatures" size="md" />
+            </RouterLinks>
           )}
           {vacancy && <Belonging vacancy={vacancy} />}
           {vacancy && whole && (

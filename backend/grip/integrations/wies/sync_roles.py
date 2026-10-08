@@ -1,6 +1,6 @@
 """Take over the skills of Wies into the role catalogue, from the command line.
 
-    python -m grip.integrations.wies.sync_roles
+python -m grip.integrations.wies.sync_roles
 """
 
 from __future__ import annotations

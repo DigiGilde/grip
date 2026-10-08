@@ -40,10 +40,11 @@ Rules that had to be chosen:
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
+from fractions import Fraction
 from typing import Any
 from uuid import UUID
 
@@ -271,7 +272,7 @@ async def _selectable_person(session: AsyncSession, person_id: UUID) -> Person:
     return person
 
 
-async def derive(
+async def derive_category(
     session: AsyncSession,
     assignment_id: UUID,
     person_id: UUID,
@@ -282,9 +283,10 @@ async def derive(
     today: date | None = None,
     options: PricingOptions = DEFAULT_OPTIONS,
 ) -> Derivation:
-    """What follows from naming this person on a line of this assignment.
+    """The category a line for this person gets, for a period that is known.
 
-    Nothing is saved. The form shows the result and the user may change it.
+    The part of the derivation that saving a line needs. ``derive`` adds the
+    proposals for role, size and period on top of it.
     """
     assignment = await assignments.get_assignment(session, assignment_id)
     await _selectable_person(session, person_id)
@@ -321,10 +323,6 @@ async def derive(
         # Without a period: what the person bills now, or on the first day.
         day = start or end or max(today, person_start or today)
         span = (day, day)
-        notes.append(
-            "Er is nog geen periode; de categorie is die van "
-            f"{_month_text(Month.of(day))}."
-        )
     runs, no_scale, unpriced_years = _runs_and_gaps(rates, scales, person_id, *span)
 
     category = runs[0].category if runs else None
@@ -550,7 +548,7 @@ async def add_line(
             )
         await _selectable_person(session, intended_person_id)
         if values.get("rate_category") is None:
-            derived = await derive(
+            derived = await derive_category(
                 session,
                 assignment_id,
                 intended_person_id,
@@ -612,7 +610,7 @@ async def update_line(
             raise DomainValidationError(
                 "Zonder beoogde persoon is er geen categorie om af te leiden."
             )
-        derived = await derive(
+        derived = await derive_category(
             session,
             line.assignment_id,
             person_id,
@@ -724,7 +722,7 @@ async def line_intents(
         person_id = line.intended_person_id
         assert person_id is not None
         derived = (
-            await derive(
+            await derive_category(
                 session,
                 line.assignment_id,
                 person_id,
@@ -791,3 +789,392 @@ async def line_intents(
 async def _is_active(session: AsyncSession, person_id: UUID) -> bool:
     person = await session.get(Person, person_id)
     return bool(person is not None and person.is_active)
+
+
+# -- proposals for the form ---------------------------------------------------------
+
+# Months looked ahead for free capacity when a period has no end.
+HORIZON_MONTHS = 6
+# Months searched for the first month in which a person has room.
+SEARCH_MONTHS = 12
+
+PERIOD_GIVEN = "given"
+PERIOD_FROM_ASSIGNMENT = "assignment"
+PERIOD_FROM_PERSON = "person"
+
+ROLE_FROM_HISTORY = "history"
+
+MaySeeAssignment = Callable[[UUID], Awaitable[bool]]
+
+
+@dataclass(frozen=True)
+class RoleChoice:
+    role: str
+    role_id: UUID | None
+
+
+@dataclass(frozen=True)
+class BusyOn:
+    """What an assignment already takes of the person in the period."""
+
+    assignment_id: UUID
+    assignment_name: str
+    pct: Decimal
+    tentative: bool
+
+
+@dataclass(frozen=True)
+class Proposal:
+    """Everything naming a person proposes for a line, each with its source.
+
+    Role, size and period are staffing (class C). The category, the scale,
+    the rate and the amount say what the person bills (class D).
+    """
+
+    person_id: UUID
+    person_name: str
+    # Role: the one this person was last staffed in.
+    role: str | None
+    role_id: UUID | None
+    role_source: str | None
+    role_source_text: str | None
+    role_alternatives: tuple[RoleChoice, ...]
+    # Period.
+    start_date: date | None
+    end_date: date | None
+    period_source: str | None
+    period_source_text: str | None
+    # Size: the room the person has over the period.
+    fte: Decimal | None
+    free_pct: Decimal | None
+    fte_source_text: str | None
+    busy_on: tuple[BusyOn, ...]
+    # What to show under the field, in plain Dutch.
+    summary: tuple[str, ...]
+    notes: tuple[str, ...]
+    # Class D.
+    billing_scale: int | None
+    rate_category: str | None
+    category_runs: tuple[CategoryRun, ...]
+    monthly_rate_by_year: dict[int, int]
+    budgeted_cents: int | None
+    rate_summary: str | None
+    category_notes: tuple[str, ...]
+
+    @property
+    def period_proposed(self) -> bool:
+        return self.period_source not in (None, PERIOD_GIVEN)
+
+
+def _euro(cents: int) -> str:
+    whole, rest = divmod(cents, 100)
+    text = f"{whole:,}".replace(",", ".")
+    return f"€ {text}" if rest == 0 else f"€ {text},{rest:02d}"
+
+
+def _pct_text(pct: Decimal) -> str:
+    return f"{format(pct.normalize(), 'f')}%"
+
+
+async def _role_history(session: AsyncSession, person_id: UUID) -> list[RoleChoice]:
+    """The roles of the lines this person was put on, most recent first."""
+    rows = (
+        await session.execute(
+            select(BudgetLine.role, BudgetLine.role_id, Allocation.start_date)
+            .join(Allocation, Allocation.budget_line_id == BudgetLine.id)
+            .where(Allocation.person_id == person_id, BudgetLine.role.is_not(None))
+            .order_by(Allocation.start_date.desc(), Allocation.created_at.desc())
+        )
+    ).all()
+    seen: set[str] = set()
+    result: list[RoleChoice] = []
+    for role, role_id, _ in rows:
+        key = role.strip().lower()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        result.append(RoleChoice(role=role, role_id=role_id))
+    return result
+
+
+def _add_months(month: Month, count: int) -> list[Month]:
+    months = [month]
+    while len(months) < count:
+        months.append(months[-1].next())
+    return months
+
+
+async def _used_by_month(
+    session: AsyncSession,
+    person_id: UUID,
+    months: list[Month],
+    *,
+    exclude_line_id: UUID | None,
+    options: PricingOptions,
+) -> dict[Month, tuple[Fraction, tuple[BusyOn, ...]]]:
+    """Percentage of the person taken per month, from the occupancy read model.
+
+    Firm and tentative inzet both count. The reservation of the line being
+    edited is taken out again, or the person's own line would eat the room
+    it is asking for.
+    """
+    # Imported here: the reports package imports from the services.
+    from grip.services.reports import steering
+
+    cells: dict[Month, Any] = {}
+    for row in await steering.occupancy(session, months, options=options):
+        if row.person_id == person_id:
+            cells = {cell.month: cell for cell in row.cells}
+    own: dict[Month, Fraction] = {}
+    own_assignment: UUID | None = None
+    if exclude_line_id is not None:
+        reservation = await reservation_of(session, exclude_line_id)
+        if reservation is not None and reservation.person_id == person_id:
+            line = await session.get(BudgetLine, exclude_line_id)
+            own_assignment = line.assignment_id if line is not None else None
+            for month, fraction in calc.month_fractions(
+                reservation.start_date, reservation.end_date, options.partial_months
+            ):
+                own[month] = Fraction(Decimal(reservation.fte_pct)) * fraction
+    result = {}
+    for month in months:
+        cell = cells.get(month)
+        mine = own.get(month, Fraction(0))
+        used = max(Fraction(0), (cell.exact if cell else Fraction(0)) - mine)
+        parts = []
+        for part in cell.parts if cell is not None else ():
+            exact = part.exact
+            if part.assignment_id == own_assignment:
+                exact -= mine
+            if exact > 0:
+                parts.append(
+                    BusyOn(
+                        assignment_id=part.assignment_id,
+                        assignment_name=part.assignment_name,
+                        pct=Decimal(int(exact)),
+                        tentative=part.tentative,
+                    )
+                )
+        result[month] = (used, tuple(parts))
+    return result
+
+
+def _free(used: Fraction) -> Fraction:
+    return max(Fraction(0), Fraction(100) - used)
+
+
+async def derive(
+    session: AsyncSession,
+    assignment_id: UUID,
+    person_id: UUID,
+    *,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    fte: Decimal | None = None,
+    exclude_line_id: UUID | None = None,
+    may_see_assignment: MaySeeAssignment | None = None,
+    today: date | None = None,
+    options: PricingOptions = DEFAULT_OPTIONS,
+) -> Proposal:
+    """What naming this person proposes for a line of this assignment.
+
+    Nothing is saved. Every value is a proposal with its source; the form
+    shows them and the user may change each one.
+
+    - Role: the role of the line this person was most recently put on. Other
+      roles from that history are the alternatives.
+    - Period: the one given; else that of the assignment, no earlier than the
+      person's start date; else, from the person's side, the first month in
+      which they have room, without an end.
+    - Size: the room the person has in every month of the period (or of the
+      six months from the start, when there is no end), counting firm and
+      tentative inzet alike, at most 1 FTE. Grip has no part-time factor, so
+      100 percent assumes a full-time person; the text says so.
+    - Category, rate and amount: see ``derive_category``.
+    """
+    assignment = await assignments.get_assignment(session, assignment_id)
+    person = await _selectable_person(session, person_id)
+    today = today or date.today()
+    person_start = (await standing.get_standing(session, person_id)).start_date
+    notes: list[str] = []
+
+    # Role.
+    history = await _role_history(session, person_id)
+    chosen_role = history[0] if history else None
+    role_text = (
+        f"laatst ingezet als {chosen_role.role}" if chosen_role is not None else None
+    )
+
+    # Period.
+    start, end = start_date, end_date
+    period_source: str | None = None
+    period_text: str | None = None
+    if start is not None or end is not None:
+        period_source, period_text = PERIOD_GIVEN, "opgegeven"
+    elif assignment.start_date is not None:
+        start, end = assignment.start_date, assignment.end_date
+        period_source, period_text = PERIOD_FROM_ASSIGNMENT, "periode van de opdracht"
+        if (
+            person_start is not None
+            and start < person_start
+            and (end is None or person_start <= end)
+        ):
+            start = person_start
+            period_text += (
+                f", vanaf de startdatum van deze persoon ({_date_text(start)})"
+            )
+    else:
+        first_day = max(today, person_start or today)
+        search = _add_months(Month.of(first_day), SEARCH_MONTHS)
+        used = await _used_by_month(
+            session, person_id, search, exclude_line_id=exclude_line_id, options=options
+        )
+        free_month = next((m for m in search if _free(used[m][0]) > 0), None)
+        if free_month is None:
+            notes.append(
+                "Deze persoon heeft in de komende twaalf maanden geen ruimte. Er is "
+                "geen periode voor te stellen; kies zelf een periode."
+            )
+        else:
+            start = max(free_month.first_day, first_day)
+            period_source = PERIOD_FROM_PERSON
+            period_text = (
+                "de opdracht heeft nog geen periode; dit is de eerste maand waarin "
+                "deze persoon ruimte heeft, zonder einddatum"
+            )
+    if start is not None and end is not None and end < start:
+        raise DomainValidationError("De einddatum ligt voor de begindatum.")
+
+    # Size: the room in every month of the period.
+    proposed_fte: Decimal | None = None
+    free_pct: Decimal | None = None
+    fte_text: str | None = None
+    busy: list[BusyOn] = []
+    if start is None:
+        notes.append(
+            "Voor een voorstel voor de omvang is een periode nodig: de ruimte van "
+            "iemand verschilt per maand."
+        )
+    else:
+        if end is not None:
+            months = list(months_between(start, end))
+            over = "in deze periode"
+        else:
+            months = _add_months(Month.of(start), HORIZON_MONTHS)
+            over = f"in de zes maanden vanaf {_date_text(start)}"
+        used = await _used_by_month(
+            session, person_id, months, exclude_line_id=exclude_line_id, options=options
+        )
+        counted = [
+            m for m in months if person_start is None or m.last_day >= person_start
+        ] or months
+        lowest = min(_free(used[m][0]) for m in counted)
+        free_pct = Decimal(int(lowest))
+        by_assignment: dict[UUID, BusyOn] = {}
+        for month in counted:
+            for part in used[month][1]:
+                known = by_assignment.get(part.assignment_id)
+                if known is None or part.pct > known.pct:
+                    by_assignment[part.assignment_id] = part
+        busy = sorted(by_assignment.values(), key=lambda b: (-b.pct, b.assignment_name))
+        fte_text = f"vrij {over}: {_pct_text(free_pct)}"
+        if busy:
+            visible = [
+                b
+                for b in busy
+                if may_see_assignment is None
+                or await may_see_assignment(b.assignment_id)
+            ]
+            parts = [
+                f"{b.assignment_name} ({_pct_text(b.pct)}"
+                + (", onder voorbehoud)" if b.tentative else ")")
+                for b in visible
+            ]
+            hidden = len(busy) - len(visible)
+            if hidden:
+                parts.append(
+                    "andere opdrachten"
+                    if parts
+                    else "opdrachten die u niet kunt inzien"
+                )
+            fte_text += "; al ingezet op " + ", ".join(parts)
+        fte_text += ". Uitgegaan van een voltijds aanstelling"
+        if free_pct > 0:
+            proposed_fte = (free_pct / _HUNDRED).quantize(Decimal("0.01"))
+        else:
+            notes.append(
+                f"Deze persoon is {over} in minstens een maand volledig ingezet. "
+                "Er is geen omvang voor te stellen."
+            )
+
+    # Category, rate and amount, for the period and size as they now stand.
+    size = fte if fte is not None else proposed_fte
+    category = await derive_category(
+        session,
+        assignment_id,
+        person_id,
+        start_date=start,
+        end_date=end,
+        fte=size,
+        today=today,
+        options=options,
+    )
+    notes.extend(category.notes)
+    scale = category.category_runs[0].billing_scale if category.category_runs else None
+    rate_summary = None
+    if category.rate_category is not None and scale is not None:
+        year = category.category_runs[0].first_month.year
+        rates = await load_rate_book(session, include_draft=options.include_draft)
+        try:
+            cents = rates.monthly_rate_cents(year, category.rate_category)
+            rate_summary = (
+                f"Schaal {scale} valt in categorie {category.rate_category}: "
+                f"{_euro(cents)} per maand per FTE in {year}."
+            )
+        except calc.CalcError:
+            rate_summary = (
+                f"Schaal {scale} valt in categorie {category.rate_category}; voor "
+                f"{year} is er geen tarief."
+            )
+
+    summary: list[str] = []
+    if chosen_role is not None:
+        summary.append(f"{person.name} is {role_text}.")
+    else:
+        summary.append(
+            f"Van {person.name} is geen eerdere rol bekend; kies zelf een rol."
+        )
+    if period_source == PERIOD_FROM_ASSIGNMENT:
+        summary.append(f"Periode: {period_text}.")
+    elif period_source == PERIOD_FROM_PERSON:
+        assert start is not None
+        summary.append(f"Vanaf {_date_text(start)}: {period_text}.")
+    if fte_text is not None:
+        summary.append(fte_text[0].upper() + fte_text[1:] + ".")
+
+    return Proposal(
+        person_id=person_id,
+        person_name=person.name,
+        role=chosen_role.role if chosen_role else None,
+        role_id=chosen_role.role_id if chosen_role else None,
+        role_source=ROLE_FROM_HISTORY if chosen_role else None,
+        role_source_text=role_text,
+        role_alternatives=tuple(history[1:6]),
+        start_date=start,
+        end_date=end,
+        period_source=period_source,
+        period_source_text=period_text,
+        fte=proposed_fte,
+        free_pct=free_pct,
+        fte_source_text=fte_text,
+        busy_on=tuple(busy),
+        summary=tuple(summary),
+        notes=tuple(notes),
+        billing_scale=scale,
+        rate_category=category.rate_category,
+        category_runs=category.category_runs,
+        monthly_rate_by_year=category.monthly_rate_by_year,
+        budgeted_cents=category.budgeted_cents,
+        rate_summary=rate_summary,
+        category_notes=category.category_notes,
+    )
