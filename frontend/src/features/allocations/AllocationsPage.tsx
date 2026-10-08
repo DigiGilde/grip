@@ -75,6 +75,8 @@ export function AllocationsPage() {
   // `?opdracht=<id>` opens the board on one assignment, as the Bemensing tab links to it.
   const [searchParams] = useSearchParams();
   const onlyAssignment = searchParams.get('opdracht');
+  // `?persoon=<id>` opens it on one person, as a person's page links to it.
+  const onlyPerson = searchParams.get('persoon');
   const [view, setView] = useState<View>(onlyAssignment ? 'assignment' : 'person');
   const [show, setShow] = useState<Show>('all');
   const [selected, setSelected] = useState<{ row: RowModel; column: number } | null>(null);
@@ -100,7 +102,14 @@ export function AllocationsPage() {
   const groups =
     view === 'assignment' && onlyAssignment
       ? allGroups.filter((group) => group.key === onlyAssignment)
-      : allGroups;
+      : view === 'person' && onlyPerson
+        ? allGroups
+            .map((group) => ({
+              ...group,
+              rows: group.rows.filter((row) => row.key === onlyPerson),
+            }))
+            .filter((group) => group.rows.length > 0)
+        : allGroups;
   const rowCount = groups.reduce((count, group) => count + group.rows.length, 0);
   // Adding needs a role to put someone on; without any, the action is not offered.
   const options = useQuery({

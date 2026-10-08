@@ -7,12 +7,12 @@ import { RouterLinks } from '@/layout/RouterLinks';
 import { useInstance } from '@/layout/useInstance';
 import { useRouterLinks } from '@/layout/useRouterLinks';
 import { formatEuro, formatPeriod } from '@/lib/format';
-import { PageHeading } from '@/pages/PageHeading';
+import { Page, Quiet, Stack } from '@/ui/layout';
 import { PATHS } from '@/paths';
 import { assignmentKeys, fetchAssignment, type AssignmentDetail } from './api';
 import { fetchAssignmentFinance, financeKeys } from './financeApi';
 import { FIGURE_LABELS, varianceText, varianceWord } from './financeText';
-import { STATUS_COLORS, statusLabel } from './labels';
+import { relationText, STATUS_COLORS, statusLabel } from './labels';
 import { assignmentTabPath, type AssignmentTabKey } from './paths';
 import { AssignmentShellContext, TAB_LABELS, visibleTabs } from './shell';
 import { ErrorNotice, Loading } from './ui';
@@ -108,11 +108,12 @@ export function AssignmentLayout() {
         .join(', ')
     : '';
 
+  const relation = relationText(assignment?.viewer_relations);
+
   return (
     <>
-      <nldd-simple-section>
-        <PageHeading text={assignment?.name ?? 'Opdracht'} instanceName={instance?.name} />
-        <nldd-container gap="16">
+      <Page title={assignment?.name ?? 'Opdracht'} instanceName={instance?.name}>
+        <Stack gap="related">
           <RouterLinks>
             <nldd-link href={PATHS.assignments} text="Terug naar opdrachten" size="md" />
           </RouterLinks>
@@ -138,12 +139,13 @@ export function AssignmentLayout() {
                 />
               </nldd-container>
               {facts && <nldd-text color="secondary">{facts}</nldd-text>}
+              {relation && <Quiet>{relation}</Quiet>}
               {assignment.permissions.read_financial && <KeyFigures assignment={assignment} />}
               <Tabs assignment={assignment} />
             </>
           )}
-        </nldd-container>
-      </nldd-simple-section>
+        </Stack>
+      </Page>
       {assignment && (
         <AssignmentShellContext.Provider value={assignment}>
           <Outlet />

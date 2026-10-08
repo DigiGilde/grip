@@ -185,3 +185,14 @@ async def test_list_says_phase_and_what_a_potential_assignment_may_be_worth(
     assert alfa["phase"] == "potential"
     assert "pipeline_amount_cents" not in alfa
     assert "pipeline_amount_source" not in alfa
+
+
+async def test_detail_says_how_the_reader_relates_to_the_assignment(world, as_person):
+    url = f"/api/assignments/{world.assignment.id}"
+    assert (await as_person(world.owner).get(url)).json()["viewer_relations"] == [
+        "owner"
+    ]
+    assert (await as_person(world.member).get(url)).json()["viewer_relations"] == [
+        "member"
+    ]
+    assert (await as_person(world.beheerder).get(url)).json()["viewer_relations"] == []

@@ -31,6 +31,7 @@ from grip.models.catalogue_role import (
     ROLE_SOURCE_WIES,
     CatalogueRole,
     CatalogueRoleSyncRun,
+    PersonCatalogueRole,
 )
 from grip.models.person import Person
 from grip.services.errors import DomainValidationError, NotFoundError
@@ -269,6 +270,24 @@ async def merge_roles(
     for obj in list(db.sync_session.identity_map.values()):
         if isinstance(obj, BudgetLine) and obj.role_id == source.id:
             await db.refresh(obj, ["role", "role_id"])
+    # People who had the source get the target, once.
+    has_target = select(PersonCatalogueRole.person_id).where(
+        PersonCatalogueRole.role_id == target.id
+    )
+    await db.execute(
+        delete(PersonCatalogueRole)
+        .where(
+            PersonCatalogueRole.role_id == source.id,
+            PersonCatalogueRole.person_id.in_(has_target),
+        )
+        .execution_options(synchronize_session=False)
+    )
+    people = await db.execute(
+        update(PersonCatalogueRole)
+        .where(PersonCatalogueRole.role_id == source.id)
+        .values(role_id=target.id)
+        .execution_options(synchronize_session=False)
+    )
     await db.execute(delete(CatalogueRole).where(CatalogueRole.id == source.id))
     await db.flush()
     db.sync_session.expunge(source)
@@ -288,6 +307,7 @@ async def merge_roles(
             "merged_into": str(target.id),
             "merged_into_name": target.name,
             "budget_lines_rewritten": moved,
+            "people_rewritten": people.rowcount or 0,
         },
     )
     return target, moved
@@ -305,7 +325,8 @@ class RoleSyncCounts:
     renamed: int = 0
     reactivated: int = 0
     unchanged: int = 0
-    # Gone from Wies and still on a budget line: switched off, kept.
+    # Gone from Wies and still on a budget line or held by a person:
+    # switched off, kept.
     deactivated: int = 0
     # Gone from Wies and used nowhere: removed.
     deleted: int = 0
@@ -390,8 +411,25 @@ async def apply_wies_skills(
 
     gone = [r for r in roles if r.wies_public_id and r.id not in seen_ids]
     usage = await _usage(db, [r.id for r in gone])
+    # A role people still have is kept too: taking it from them is proposed
+    # per person, not done by removing the role under them.
+    held = (
+        set(
+            (
+                await db.execute(
+                    select(PersonCatalogueRole.role_id)
+                    .where(PersonCatalogueRole.role_id.in_([r.id for r in gone]))
+                    .distinct()
+                )
+            )
+            .scalars()
+            .all()
+        )
+        if gone
+        else set()
+    )
     for role in gone:
-        if usage.get(role.id, 0) > 0:
+        if usage.get(role.id, 0) > 0 or role.id in held:
             if role.is_active:
                 role.is_active = False
                 counts.deactivated += 1

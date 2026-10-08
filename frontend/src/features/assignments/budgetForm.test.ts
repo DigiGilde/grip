@@ -7,6 +7,7 @@ const personnel = {
   role: 'Productmanager',
   fte: '0,8',
   category: 'D',
+  ownPeriod: true,
   startDate: '2026-01-01',
   endDate: '2026-12-31',
 };
@@ -89,5 +90,21 @@ describe('lineInput', () => {
   it('prices only what is filled in', () => {
     expect(previewInput({ ...lineForm(), fte: '0,8' })).toEqual({ kind: 'personnel', fte: '0.8' });
     expect(previewInput(personnel)).toMatchObject({ rate_category: 'D', start_date: '2026-01-01' });
+  });
+
+  it('follows the period of the assignment unless the line has its own', () => {
+    const parent = { start: '2026-03-01', end: '2026-09-30' };
+    const following = { ...personnel, ownPeriod: false, startDate: '', endDate: '' };
+    expect(lineInput(following, true, undefined, parent)).toMatchObject({
+      start_date: '2026-03-01',
+      end_date: '2026-09-30',
+    });
+    expect(lineInput(following, true, undefined, { start: null, end: null })).toContain(
+      'nog geen looptijd',
+    );
+    const base = { id: '1', assignment_id: 'a', description: 'x', kind: 'personnel', position: 1 };
+    expect(lineForm({ ...base, start_date: '2026-03-01', end_date: '2026-09-30' }, parent).ownPeriod).toBe(false);
+    expect(lineForm({ ...base, start_date: '2026-04-01', end_date: '2026-09-30' }, parent).ownPeriod).toBe(true);
+    expect(lineForm(undefined, parent).ownPeriod).toBe(false);
   });
 });

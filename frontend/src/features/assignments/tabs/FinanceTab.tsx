@@ -35,25 +35,20 @@ function KeyFigureTable({ finance }: { finance: AssignmentFinance }) {
     cents === null ? {} : { 'supporting-text': cents < 0 ? negative : cents > 0 ? positive : 'Gelijk' };
   return (
     <nldd-container gap="8">
-      <SectionHeading text="Kerncijfers over de hele looptijd" />
+      <SectionHeading text="Offerte en facturering" />
       <nldd-table
-        accessible-label="Offerte, begroting en verwacht totaal"
-        columns="repeat(5, minmax(140px, 1fr))"
+        accessible-label="Offerte tegenover de begroting"
+        columns="repeat(2, minmax(140px, 240px))"
       >
         <nldd-table-row slot="header">
           <nldd-text-cell text="Offerte met akkoord" horizontal-alignment="right" />
-          <nldd-text-cell text="Begroot" horizontal-alignment="right" />
-          <nldd-text-cell text="Verwacht totaal" horizontal-alignment="right" />
           <nldd-text-cell text="Offerte min begroot" horizontal-alignment="right" />
-          <nldd-text-cell text="Begroot min verwacht" horizontal-alignment="right" />
         </nldd-table-row>
         <nldd-table-row>
           <nldd-text-cell
             text={key.agreed_cents === null ? 'Nog geen akkoord' : formatEuro(key.agreed_cents)}
             horizontal-alignment="right"
           />
-          <nldd-text-cell text={money(key.budgeted_cents)} horizontal-alignment="right" />
-          <nldd-text-cell text={money(key.expected_total_cents)} horizontal-alignment="right" />
           <nldd-text-cell
             text={key.agreed_minus_budgeted_cents === null ? '' : formatEuro(key.agreed_minus_budgeted_cents)}
             {...difference(
@@ -62,16 +57,6 @@ function KeyFigureTable({ finance }: { finance: AssignmentFinance }) {
               'Begroting hoger dan de offerte',
             )}
             horizontal-alignment="right"
-          />
-          <nldd-text-cell
-            text={
-              key.budgeted_minus_expected_cents === null
-                ? ''
-                : formatEuro(key.budgeted_minus_expected_cents)
-            }
-            {...difference(key.budgeted_minus_expected_cents, 'Ruimte', 'Overschrijding')}
-            horizontal-alignment="right"
-            {...((key.budgeted_minus_expected_cents ?? 0) < 0 ? { color: 'critical' } : {})}
           />
         </nldd-table-row>
       </nldd-table>

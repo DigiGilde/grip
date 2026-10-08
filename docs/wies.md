@@ -38,7 +38,7 @@ In Wies: `GRIP_BASE_URL`, `GRIP_EXPORT_KEY`, `GRIP_READ_API_KEY` en eventueel `G
 `GET /api/integrations/wies/export` met `Authorization: Bearer <GRIP_EXPORT_KEY>`.
 
 Per opdracht: `id`, `url`, `name`, `status`, `start_date`, `end_date`, `client_tooi_uri`, `client_registry_id`, `owner_email` en `roles`.
-Per rol: `id`, `url`, `description`, `start_date`, `end_date`, `fte`, `open` en `placements`.
+Per rol: `id`, `url`, `description`, `role_name`, `role_wies_id`, `start_date`, `end_date`, `fte`, `open` en `placements`. `role_name` is de rol uit de catalogus en `role_wies_id` het kenmerk van de bijbehorende rol in Wies; Wies zoekt eerst op dat kenmerk en dan op de naam. Zie [rollen.md](rollen.md).
 Per plaatsing: `id`, `person_uri`, `person_email`, `start_date`, `end_date`. De URI is de sleutel; het adres ontbreekt bij een aanstaande collega.
 
 Wat erin zit:

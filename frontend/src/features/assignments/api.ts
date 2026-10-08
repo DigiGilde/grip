@@ -62,6 +62,8 @@ export interface AssignmentDetail extends AssignmentSummary {
   verbal_agreement_at?: string | null;
   roles: RoleHolder[];
   allowed_transitions: string[];
+  /** How the reader relates to the assignment: owner, manager, member. */
+  viewer_relations?: string[];
   permissions: AssignmentPermissions;
 }
 
@@ -144,22 +146,27 @@ export interface BudgetLineInput {
   intended_person_id?: string | null;
 }
 
-/** What follows from an intended person. Nothing is saved by asking. */
+/**
+ * What follows from an intended person: proposals, each with its source in
+ * words. Nothing is saved by asking.
+ */
 export interface Derivation {
   intended_person_id: string;
+  /** Sentences in plain Dutch, built by the server. */
+  summary?: string[];
+  role?: string | null;
+  role_source_text?: string | null;
   start_date: string | null;
   end_date: string | null;
   /** The period is a proposal and was not sent by the form. */
   period_proposed: boolean;
-  /** Proposals; absent or null when the server has none. */
-  role?: string | null;
+  period_source_text?: string | null;
+  /** The room the person has over the period. */
   fte?: string | null;
-  notes: string[];
-  /** What follows from the person in plain words, built by the server; absent until it does. */
-  summary?: string | null;
-  /** Absent for a reader who may not see categories. */
+  fte_source_text?: string | null;
+  /** Absent for a reader who may not see what a person bills. */
+  rate_summary?: string | null;
   rate_category?: string | null;
-  category_notes?: string[];
   monthly_rates?: { year: number; monthly_rate_cents: number }[];
   budgeted_cents?: number | null;
 }

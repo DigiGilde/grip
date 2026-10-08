@@ -2,7 +2,7 @@ import { waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderApp } from '@/test/utils';
 import { BudgetEditor } from './BudgetEditor';
-import { allText, mockApi, plain } from './testing';
+import { allText, assignment, mockApi, plain } from './testing';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -54,7 +54,25 @@ const CARDS = {
   ],
 };
 
-function renderEditor(derive: unknown = { intended_person_id: 'p2', start_date: null, end_date: null, period_proposed: false, notes: [], rate_category: 'B', category_notes: [], monthly_rates: [], budgeted_cents: null }) {
+const DERIVED = {
+  intended_person_id: 'p2',
+  summary: ['Rol van Voorbeeld Twee: Productmanager (uit Wies).', 'Heeft 60% vrij in deze periode.'],
+  notes: [],
+  role: 'Productmanager',
+  role_source_text: 'uit Wies',
+  start_date: '2026-12-01',
+  end_date: '2027-06-30',
+  period_proposed: true,
+  period_source_text: 'de looptijd van de opdracht',
+  fte: '0.600',
+  fte_source_text: '60% vrij in deze periode',
+  rate_summary: 'Schaal 10 valt in categorie B: € 13.125 per maand per FTE in 2026.',
+  rate_category: 'B',
+  monthly_rates: [],
+  budgeted_cents: null,
+};
+
+function renderEditor(derive: unknown = DERIVED, detail = assignment()) {
   const fetchMock = mockApi({
     '/api/assignments/a1/budget-lines/derive': derive,
     '/api/assignments/a1/budget-lines/preview': {
@@ -63,6 +81,7 @@ function renderEditor(derive: unknown = { intended_person_id: 'p2', start_date: 
       reason: null,
     },
     '/api/assignments/a1/budget': BUDGET,
+    '/api/assignments/a1': detail,
     '/api/person-options': {
       items: [
         { id: 'p1', name: 'Voorbeeld Een' },
@@ -134,9 +153,17 @@ describe('budget line sheet', () => {
     );
     const at = order.indexOf('Beoogde persoon');
     expect(plain(order[at + 1])).toBe(
-      'Volgt uit de beoogde persoon: Schaal 10 en 11 (categorie B), € 13.125 per maand',
+      'Schaal 10 valt in categorie B: € 13.125 per maand per FTE in 2026.',
     );
-    expect(order[at + 2]).toBe('Schaal en tarief');
+    expect(sheet.querySelector('nldd-banner[variant="accent"]')?.getAttribute('supporting-text')).toBe(
+      'Rol van Voorbeeld Twee: Productmanager (uit Wies). Heeft 60% vrij in deze periode.',
+    );
+    // The size is filled in as a proposal, with where it comes from.
+    const size = field(sheet, 'Omvang in FTE');
+    expect(size.querySelector('nldd-text-field')?.getAttribute('value')).toBe('0,6');
+    expect(size.getAttribute('supporting-label')).toBe('Voorstel: 60% vrij in deze periode');
+    // The assignment has a period, so the line keeps following it.
+    expect(sheet.querySelector('nldd-form-field[label="Begindatum"]')).toBeNull();
     const calls = (fetchMock.mock.calls as unknown[][]).map((call) => String(call[0]));
     expect(calls).toContain('/api/assignments/a1/budget-lines/derive');
 
@@ -148,7 +175,13 @@ describe('budget line sheet', () => {
   });
 
   it('shows nothing derived to a reader who gets no category', async () => {
-    const { container } = renderEditor({ intended_person_id: 'p2', start_date: null, end_date: null, period_proposed: false, notes: ['Start op 1 december 2026.'] });
+    const { container } = renderEditor({
+      intended_person_id: 'p2',
+      start_date: null,
+      end_date: null,
+      period_proposed: false,
+      notes: ['Start op 1 december 2026.'],
+    });
     const sheet = await openNewLine(container);
     field(sheet, 'Beoogde persoon')
       .querySelector('nldd-dropdown')
@@ -176,5 +209,31 @@ describe('budget line sheet', () => {
     expect(field(sheet, 'Beoogde persoon').querySelector('select')).toHaveValue('');
     expect(sheet.querySelector('nldd-banner')).toBeNull();
     expect(field(sheet, 'Schaal en tarief').querySelector('nldd-dropdown')).toHaveAttribute('required');
+  });
+
+  it('asks no dates: the period follows the assignment until it deviates', async () => {
+    const { container } = renderEditor();
+    const sheet = await openNewLine(container);
+    await waitFor(() =>
+      expect(plain(allText(sheet))).toContain(
+        'Periode: zelfde als de opdracht (1 jan 2026 t/m 31 dec 2026)',
+      ),
+    );
+    expect(sheet.querySelector('nldd-form-field[label="Begindatum"]')).toBeNull();
+    sheet.querySelector('nldd-button[text="Afwijkende periode"]')?.dispatchEvent(new Event('click'));
+    await waitFor(() => expect(field(sheet, 'Begindatum')).not.toBeNull());
+    sheet.querySelector('nldd-button[text="Zelfde als de opdracht"]')?.dispatchEvent(new Event('click'));
+    await waitFor(() =>
+      expect(sheet.querySelector('nldd-form-field[label="Begindatum"]')).toBeNull(),
+    );
+  });
+
+  it('offers to set the period of the assignment right there when it has none', async () => {
+    const { container } = renderEditor(DERIVED, assignment({ start_date: null, end_date: null }));
+    const sheet = await openNewLine(container);
+    await waitFor(() =>
+      expect(sheet.querySelector('nldd-button[text="Bewaar de looptijd van de opdracht"]')).not.toBeNull(),
+    );
+    expect(allText(sheet)).toContain('die nog geen looptijd heeft');
   });
 });

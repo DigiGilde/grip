@@ -148,7 +148,8 @@ class DerivationOut(BaseModel):
     notes: Annotated[list[str], in_class(C)]
     role: Annotated[str | None, in_class(C)]
     role_id: Annotated[UUID | None, in_class(C)]
-    # "history" (the role the person was last staffed in), or null.
+    # "wies" or "manual" (the one role recorded for the person), "history"
+    # (the role the person was last staffed in), or null.
     role_source: Annotated[str | None, in_class(C)]
     role_source_text: Annotated[str | None, in_class(C)]
     role_alternatives: Annotated[list[RoleChoiceOut], nested()]

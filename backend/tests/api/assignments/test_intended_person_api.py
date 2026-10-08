@@ -43,7 +43,7 @@ async def test_owner_sees_what_a_person_implies_before_saving(world, as_person):
     # The outsider has no billing scale: no category, and a note that says so.
     assert body["rate_category"] is None
     assert any("geen inzetschaal" in note for note in body["notes"])
-    assert body["fte"] is None
+    assert "rate_summary" in body and body["rate_summary"] is None
 
     body = (
         await as_person(world.owner).post(
@@ -57,9 +57,24 @@ async def test_owner_sees_what_a_person_implies_before_saving(world, as_person):
         )
     ).json()
     assert body["rate_category"] == "C"
+    assert body["billing_scale"] == 12
+    assert body["rate_summary"] == (
+        "Schaal 12 valt in categorie C: € 15.000 per maand per FTE in 2026."
+    )
     assert body["monthly_rates"] == [{"year": 2026, "monthly_rate_cents": 1500000}]
     assert body["budgeted_cents"] == 6 * 1500000
-    assert body["period_proposed"] is False
+    assert body["period_proposed"] is False and body["period_source"] == "given"
+    # The colleague is on the Productmanager line for 30 percent all year.
+    assert body["role"] == "Productmanager" and body["role_source"] == "history"
+    assert body["role_source_text"] == "laatst ingezet als Productmanager"
+    assert body["role_alternatives"] == []
+    assert Decimal(body["free_pct"]) == Decimal(70)
+    assert Decimal(body["fte"]) == Decimal("0.7")
+    assert body["fte_source_text"] == (
+        "vrij in deze periode: 70%; al ingezet op Opdracht Alfa 2026 (30%, onder "
+        "voorbehoud). Uitgegaan van een voltijds aanstelling"
+    )
+    assert body["summary"][0] == "Cas Collega is laatst ingezet als Productmanager."
 
     # Without a period the one of the assignment is proposed.
     body = (
@@ -69,7 +84,11 @@ async def test_owner_sees_what_a_person_implies_before_saving(world, as_person):
         )
     ).json()
     assert (body["start_date"], body["end_date"]) == ("2026-01-01", "2026-12-31")
-    assert body["period_proposed"] is True
+    assert body["period_proposed"] is True and body["period_source"] == "assignment"
+    assert body["period_source_text"] == "periode van de opdracht"
+    assert Decimal(body["fte"]) == Decimal("0.7")
+    # The proposed size prices the line.
+    assert body["budgeted_cents"] == round(12 * 1500000 * 0.7)
 
 
 async def test_derive_shows_a_planner_no_category_or_amount(world, as_person):
@@ -85,13 +104,24 @@ async def test_derive_shows_a_planner_no_category_or_amount(world, as_person):
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["intended_person_id"] == str(world.colleague.id)
+    # Role, size and period are staffing: the planner gets the proposals.
+    assert body["role"] == "Productmanager"
+    assert Decimal(body["fte"]) == Decimal("0.7")
+    assert body["period_source"] == "given"
+    assert "Opdracht Alfa 2026" in body["fte_source_text"]
+    assert body["summary"]
+    # What the person bills stays out.
     for hidden in (
         "rate_category",
         "category_notes",
         "monthly_rates",
         "budgeted_cents",
+        "rate_summary",
+        "billing_scale",
     ):
         assert hidden not in body
+    text = response.text
+    assert "categorie" not in text and "Schaal" not in text and "15.000" not in text
 
 
 async def test_who_may_ask_what_a_person_implies(world, as_person):

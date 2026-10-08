@@ -79,6 +79,10 @@ async def _detail(row: views.AssignmentRow, access: RequestAccess) -> dict[str, 
     a = row.assignment
     resource = Resource.assignment(a.id)
     edit_basic = await access.may(Action.EDIT, resource, A)
+    me = access.subject.person_id
+    relations = [r.role for r in row.roles if me is not None and r.person_id == me]
+    if not relations and a.id in await access.own_assignment_ids():
+        relations = ["member"]
     model = AssignmentDetailOut(
         **_summary_fields(row),
         contractor_organisation_id=a.contractor_organisation_id,
@@ -100,6 +104,7 @@ async def _detail(row: views.AssignmentRow, access: RequestAccess) -> dict[str, 
         allowed_transitions=sorted(service.allowed_transitions(a))
         if edit_basic
         else [],
+        viewer_relations=sorted(set(relations)),
         permissions=AssignmentPermissionsOut(
             edit_basic=edit_basic,
             edit_financial=await access.may(Action.EDIT, resource, B),

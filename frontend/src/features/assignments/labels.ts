@@ -78,3 +78,18 @@ export const RATE_CATEGORIES = ['A', 'B', 'C', 'D', 'E'] as const;
 export function statusLabel(status: string): string {
   return STATUS_LABELS[status] ?? status;
 }
+
+const RELATION_TEXT: Record<string, string> = {
+  owner: 'Je bent eigenaar van deze opdracht.',
+  manager: 'Je bent manager van deze opdracht.',
+  member: 'Je werkt aan deze opdracht.',
+};
+
+/** One quiet line saying why the reader sees this assignment; empty when there is nothing to say. */
+export function relationText(relations: readonly string[] | undefined): string {
+  if (!relations?.length) return '';
+  if (relations.includes('owner') && relations.includes('manager')) {
+    return 'Je bent eigenaar en manager van deze opdracht.';
+  }
+  return RELATION_TEXT[relations[0] ?? ''] ?? '';
+}

@@ -182,9 +182,21 @@ class BudgetLine(Base):
         CheckConstraint("kind IN ('personnel', 'fixed')", name="kind_valid"),
         CheckConstraint(
             "kind <> 'personnel' OR (fte IS NOT NULL AND rate_category IS NOT NULL "
-            "AND start_date IS NOT NULL AND end_date IS NOT NULL "
             "AND amount_cents IS NULL AND year IS NULL)",
             name="personnel_fields",
+        ),
+        CheckConstraint(
+            "period_source IN ('assignment', 'own')", name="period_source_valid"
+        ),
+        # A personnel line with a period of its own has both dates. A line
+        # that follows the assignment has them once the assignment has.
+        CheckConstraint(
+            "kind <> 'personnel' OR period_source = 'assignment' "
+            "OR (start_date IS NOT NULL AND end_date IS NOT NULL)",
+            name="own_period_complete",
+        ),
+        CheckConstraint(
+            "(start_date IS NULL) = (end_date IS NULL)", name="period_whole"
         ),
         CheckConstraint(
             "kind <> 'fixed' OR (amount_cents IS NOT NULL AND year IS NOT NULL "
@@ -244,6 +256,14 @@ class BudgetLine(Base):
     role: Mapped[str | None] = mapped_column(String(255), nullable=True)
     fte: Mapped[Decimal | None] = mapped_column(Numeric(6, 3), nullable=True)
     rate_category: Mapped[str | None] = mapped_column(String(1), nullable=True)
+    # Whose period the line has: that of the assignment (the default) or one
+    # of its own. For a line that follows, start_date and end_date hold the
+    # assignment's period, kept in step by grip.services.periods; they are
+    # empty as long as the assignment has no period. Readers use the two
+    # dates and need not know which case it is.
+    period_source: Mapped[str] = mapped_column(
+        String(12), default="own", server_default="own"
+    )
     start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     # The colleague the role is meant for, when that is already known. This
@@ -419,6 +439,7 @@ class Allocation(Base):
     __table_args__ = (
         CheckConstraint("end_date >= start_date", name="period_valid"),
         CheckConstraint("fte_pct > 0 AND fte_pct <= 100", name="pct_valid"),
+        CheckConstraint("period_source IN ('line', 'own')", name="period_source_valid"),
     )
 
     id: Mapped[uuid.UUID] = uuid_pk()
@@ -429,6 +450,11 @@ class Allocation(Base):
         UUID(as_uuid=True),
         ForeignKey("budget_line.id", ondelete="CASCADE"),
         index=True,
+    )
+    # Whose period the inzet has: that of its budget line, or one of its own.
+    # The two dates always hold the period in force (grip.services.periods).
+    period_source: Mapped[str] = mapped_column(
+        String(12), default="own", server_default="own"
     )
     start_date: Mapped[date] = mapped_column(Date)
     end_date: Mapped[date] = mapped_column(Date)

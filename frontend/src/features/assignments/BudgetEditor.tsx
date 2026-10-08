@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
 import { RolePicker } from '@/features/roles';
 import { formatDate, formatEuro, formatFte, formatPeriod } from '@/lib/format';
@@ -8,15 +8,28 @@ import {
   assignmentKeys,
   deleteBudgetLine,
   deriveBudgetLine,
+  fetchAssignment,
   fetchBudget,
   fetchPersonOptions,
   previewBudgetLine,
+  updateAssignment,
+  type AssignmentDetail,
   updateBudgetLine,
   type Budget,
   type BudgetLine,
   type BudgetLineInput,
 } from './api';
-import { intendedText, lineForm, lineInput, previewInput, type LineForm } from './budgetForm';
+import {
+  effectivePeriod,
+  hasOwnPeriod,
+  intendedText,
+  lineForm,
+  lineInput,
+  previewInput,
+  type LineForm,
+  type ParentPeriod,
+} from './budgetForm';
+import { PeriodChoice } from './PeriodChoice';
 import { decimalToInput, parseDecimal } from './money';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { LINE_KIND_LABELS, RATE_CATEGORIES } from './labels';
@@ -43,26 +56,30 @@ import {
 function LineSheet({
   assignmentId,
   line,
+  assignment,
   open,
   session,
   onClose,
 }: {
   assignmentId: string;
   line?: BudgetLine;
+  /** The assignment: its period is what a line follows by default. */
+  assignment?: AssignmentDetail;
   open: boolean;
   /** Changes each time the sheet is opened, so the form starts fresh. */
   session: number;
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
-  const [form, setForm] = useState<LineForm>(() => lineForm(line));
+  const parent = { start: assignment?.start_date, end: assignment?.end_date };
+  const [form, setForm] = useState<LineForm>(() => lineForm(line, parent));
   const [problem, setProblem] = useState<string | null>(null);
   // The person whose implications still have to be filled in; empty for none.
   const [applyFor, setApplyFor] = useState('');
   const [seenSession, setSeenSession] = useState(session);
   if (seenSession !== session) {
     setSeenSession(session);
-    setForm(lineForm(line));
+    setForm(lineForm(line, parent));
     setProblem(null);
     setApplyFor('');
   }
@@ -71,10 +88,11 @@ function LineSheet({
   // Scales and rates are per year: those of the year the line starts in, and
   // this year until a start date is entered.
   const rates = useRateCards(open);
-  const rateYear = /^\d{4}/.test(form.startDate)
-    ? Number(form.startDate.slice(0, 4))
+  const period = effectivePeriod(form, parent);
+  const rateYear = /^\d{4}/.test(period.start)
+    ? Number(period.start.slice(0, 4))
     : new Date().getFullYear();
-  const endYear = /^\d{4}/.test(form.endDate) ? Number(form.endDate.slice(0, 4)) : rateYear;
+  const endYear = /^\d{4}/.test(period.end) ? Number(period.end.slice(0, 4)) : rateYear;
   const card = cardOfYear(rates.cards, rateYear);
   const endCard = endYear !== rateYear ? cardOfYear(rates.cards, endYear) : null;
 
@@ -88,16 +106,18 @@ function LineSheet({
   // the size changes. Nothing is saved by asking.
   const fteValue = parseDecimal(form.fte);
   const derived = useQuery({
-    queryKey: ['budget-derive', assignmentId, form.personId, form.startDate, form.endDate, fteValue],
+    queryKey: ['budget-derive', assignmentId, form.personId, period.start, period.end, fteValue],
     queryFn: () =>
       deriveBudgetLine(assignmentId, {
         intended_person_id: form.personId,
-        ...(form.startDate ? { start_date: form.startDate } : {}),
-        ...(form.endDate ? { end_date: form.endDate } : {}),
+        ...(period.start ? { start_date: period.start } : {}),
+        ...(period.end ? { end_date: period.end } : {}),
         ...(fteValue !== null && Number(fteValue) > 0 ? { fte: fteValue } : {}),
       }),
     enabled: open && form.personId !== '',
     retry: false,
+    // Keep the last answer on screen while the period or size is being typed.
+    placeholderData: keepPreviousData,
   });
   const derivation = form.personId ? derived.data : undefined;
   // A newly chosen person fills in what follows from them, once; after that
@@ -109,11 +129,14 @@ function LineSheet({
       ...(derivation.rate_category ? { category: derivation.rate_category } : {}),
       ...(derivation.role && !current.role ? { role: derivation.role } : {}),
       ...(derivation.fte && !current.fte ? { fte: decimalToInput(derivation.fte) } : {}),
-      ...(derivation.period_proposed && !current.startDate && derivation.start_date
-        ? { startDate: derivation.start_date }
-        : {}),
-      ...(derivation.period_proposed && !current.endDate && derivation.end_date
-        ? { endDate: derivation.end_date }
+      // A proposed period only counts when the assignment has none to follow.
+      ...(derivation.period_proposed &&
+      derivation.start_date &&
+      derivation.end_date &&
+      !current.startDate &&
+      !current.endDate &&
+      !(parent.start && parent.end)
+        ? { ownPeriod: true, startDate: derivation.start_date, endDate: derivation.end_date }
         : {}),
     }));
   }
@@ -122,7 +145,7 @@ function LineSheet({
   const departsFromPerson = impliedCategory !== '' && form.category !== '' && !followsPerson;
 
   // The outcome of the line as the server prices it, while it is filled in.
-  const toPrice = previewInput(form);
+  const toPrice = previewInput(form, parent);
   const preview = useQuery({
     queryKey: ['budget-preview', assignmentId, toPrice],
     queryFn: () => previewBudgetLine(assignmentId, toPrice),
@@ -143,7 +166,7 @@ function LineSheet({
   });
 
   const submit = () => {
-    const input = lineInput(form, !line, line);
+    const input = lineInput(form, !line, line, parent);
     if (typeof input === 'string') {
       setProblem(input);
       return;
@@ -153,6 +176,27 @@ function LineSheet({
 
   // "Schaal 12 en 13 (categorie C), € 15.000 per maand", for who may see it.
   const impliedText = impliedCategory ? categoryOptionText(card, impliedCategory) : '';
+  // The server's own sentence when it sends one; never a raw condition.
+  const resultTitle = derivation?.rate_summary ?? impliedText;
+  const resultLines = derivation?.summary ?? [];
+  // A proposal stays marked as one for as long as the user leaves it.
+  const proposal = (applies: boolean, source: string | null | undefined) =>
+    applies ? `Voorstel${source ? `: ${source}` : ' op basis van de beoogde persoon'}` : '';
+  const proposed = {
+    role: proposal(!!derivation?.role && form.role === derivation.role, derivation?.role_source_text),
+    fte: proposal(
+      !!derivation?.fte && form.fte === decimalToInput(derivation.fte),
+      derivation?.fte_source_text,
+    ),
+    period: proposal(
+      !!derivation?.period_proposed &&
+        !!derivation.start_date &&
+        form.ownPeriod &&
+        form.startDate === derivation.start_date &&
+        form.endDate === (derivation.end_date ?? ''),
+      derivation?.period_source_text,
+    ),
+  };
   // Next to the person when one is chosen, so cause and effect are adjacent;
   // otherwise after the period, where a user expects to choose it.
   const scaleField = (
@@ -184,7 +228,7 @@ function LineSheet({
   return (
     <FormSheet
       open={open}
-      title={line ? `${line.description} bewerken` : 'Nieuwe begrotingsregel'}
+      title={line ? `${lineName(line)} bewerken` : 'Nieuwe begrotingsregel'}
       submitText="Bewaar"
       onSubmit={submit}
       onClose={onClose}
@@ -201,13 +245,11 @@ function LineSheet({
       )}
       {form.kind === 'personnel' ? (
         <>
-          {/* ROLE PICKER GOES HERE. Replace this text field by the RolePicker of
-              features/roles once that folder exists; the role then becomes
-              required and the description optional. */}
           <RolePicker
             label="Rol"
             value={form.role || null}
             onChange={(role) => set({ role: role?.name ?? '' })}
+            {...(proposed.role ? { supportingLabel: proposed.role } : {})}
           />
           <SelectInput
             label="Beoogde persoon"
@@ -229,46 +271,40 @@ function LineSheet({
           {derived.isError && form.personId && (
             <nldd-banner variant="critical" size="sm" text={errorMessage(derived.error)} />
           )}
-          {form.personId && derivation && (impliedText || derivation.summary) && (
+          {form.personId && derivation && (resultTitle || resultLines.length > 0) && (
             // What follows from the person, right where the choice was made.
             <nldd-banner
               variant="accent"
               size="sm"
-              text={impliedText ? `Volgt uit de beoogde persoon: ${impliedText}` : 'Volgt uit de beoogde persoon'}
-              {...(derivation.summary ? { 'supporting-text': derivation.summary } : {})}
+              text={resultTitle || 'Voorstel op basis van de beoogde persoon'}
+              {...(resultLines.length > 0 ? { 'supporting-text': resultLines.join(' ') } : {})}
             />
           )}
-          {form.personId && scaleField}
-          <TextInput
-            label="Omschrijving"
-            hint="Wat deze regel onderscheidt van een andere met dezelfde rol, bijvoorbeeld: #2, vanaf Q2."
-            value={form.description}
-            onChange={(description) => set({ description })}
-            optional
-          />
           <TextInput
             label="Omvang in FTE"
-            hint="Bijvoorbeeld 0,8"
+            hint={proposed.fte || 'Bijvoorbeeld 0,8'}
             keyboard="decimal"
             value={form.fte}
             onChange={(fte) => set({ fte })}
             required
           />
-          <nldd-container layout="grid" column-count={2} gap="12">
-            <DateInput
-              label="Begindatum"
-              value={form.startDate}
-              onChange={(startDate) => set({ startDate })}
-              required
-            />
-            <DateInput
-              label="Einddatum"
-              value={form.endDate}
-              onChange={(endDate) => set({ endDate })}
-              required
-            />
-          </nldd-container>
-          {!form.personId && scaleField}
+          <PeriodChoice
+            parent="de opdracht"
+            parentStart={parent.start}
+            parentEnd={parent.end}
+            own={form.ownPeriod}
+            onOwn={(ownPeriod) => set({ ownPeriod })}
+            startDate={form.startDate}
+            endDate={form.endDate}
+            onChange={set}
+            {...(proposed.period ? { hint: proposed.period } : {})}
+            whenMissing={
+              assignment?.permissions.edit_basic ? (
+                <AssignmentPeriodStep assignmentId={assignmentId} />
+              ) : undefined
+            }
+          />
+          {scaleField}
           {rates.loaded && !card && (
             <RouterLinks>
               <nldd-banner
@@ -288,6 +324,13 @@ function LineSheet({
               supporting-text="De regel loopt over twee tariefjaren. Elke maand wordt geprijsd met de kaart van haar jaar."
             />
           )}
+          <TextInput
+            label="Omschrijving"
+            hint="Wat deze regel onderscheidt van een andere met dezelfde rol, bijvoorbeeld: #2, vanaf Q2."
+            value={form.description}
+            onChange={(description) => set({ description })}
+            optional
+          />
         </>
       ) : (
         <>
@@ -325,9 +368,45 @@ function LineSheet({
   );
 }
 
+/** A personnel line is named by its role when it has no description of its own. */
+const lineName = (line: BudgetLine) => line.description || line.role || 'Begrotingsregel';
+
+/** Sets the assignment's period from inside the sheet, so the user need not leave it. */
+function AssignmentPeriodStep({ assignmentId }: { assignmentId: string }) {
+  const queryClient = useQueryClient();
+  const [start, setStart] = useState('');
+  const [end, setEnd] = useState('');
+  const save = useMutation({
+    mutationFn: () => updateAssignment(assignmentId, { start_date: start, end_date: end }),
+    onSuccess: (saved) => {
+      queryClient.setQueryData(assignmentKeys.detail(assignmentId), saved);
+      void queryClient.invalidateQueries({ queryKey: assignmentKeys.budget(assignmentId) });
+    },
+  });
+  return (
+    <nldd-container gap="8">
+      <nldd-container layout="grid" column-count={2} gap="12">
+        <DateInput label="Begin van de opdracht" value={start} onChange={setStart} />
+        <DateInput label="Einde van de opdracht" value={end} onChange={setEnd} />
+      </nldd-container>
+      {save.isError && (
+        <nldd-banner variant="critical" size="sm" text={errorMessage(save.error)} />
+      )}
+      <nldd-container layout="row">
+        <Button
+          text="Bewaar de looptijd van de opdracht"
+          disabled={!start || !end || end < start}
+          loading={save.isPending}
+          onClick={() => save.mutate()}
+        />
+      </nldd-container>
+    </nldd-container>
+  );
+}
+
 const lower = (text: string) => text.charAt(0).toLowerCase() + text.slice(1);
 
-function lineSummary(line: BudgetLine, name: CategoryNamer): string {
+function lineSummary(line: BudgetLine, name: CategoryNamer, parent?: ParentPeriod): string {
   if (line.kind === 'fixed') return line.year ? `Vast bedrag, ${line.year}` : 'Vast bedrag';
   const parts = [
     line.role,
@@ -335,7 +414,10 @@ function lineSummary(line: BudgetLine, name: CategoryNamer): string {
     line.rate_category
       ? name(line.rate_category, line.start_date ? Number(line.start_date.slice(0, 4)) : undefined)
       : '',
-    formatPeriod(line.start_date, line.end_date),
+    // Following the assignment is the normal case; only a deviation is said.
+    !parent || hasOwnPeriod(line, parent)
+      ? `afwijkende periode: ${formatPeriod(line.start_date, line.end_date)}`
+      : '',
   ];
   return parts.filter(Boolean).join(', ');
 }
@@ -363,6 +445,15 @@ export function BudgetEditor({ assignmentId }: { assignmentId: string }) {
     onError: (error) => setProblem(errorMessage(error)),
   });
 
+  // The assignment's period prices every line that follows it.
+  const assignment = useQuery({
+    queryKey: assignmentKeys.detail(assignmentId),
+    queryFn: () => fetchAssignment(assignmentId),
+    retry: false,
+  });
+  const parent = assignment.data
+    ? { start: assignment.data.start_date, end: assignment.data.end_date }
+    : undefined;
   const rates = useRateCards();
   const budget = query.data;
   const lines = budget?.lines ?? [];
@@ -407,10 +498,10 @@ export function BudgetEditor({ assignmentId }: { assignmentId: string }) {
           {lines.map((line) => (
             <nldd-table-row key={line.id}>
               <nldd-text-cell
-                text={line.description}
+                text={lineName(line)}
                 supporting-text={
                   line.pricing_error ??
-                  [lineSummary(line, rates.name), intendedText(line)].filter(Boolean).join('. ')
+                  [lineSummary(line, rates.name, parent), intendedText(line)].filter(Boolean).join('. ')
                 }
               />
               {showMoney && (
@@ -425,14 +516,14 @@ export function BudgetEditor({ assignmentId }: { assignmentId: string }) {
                     <Button
                       text="Bewerk"
                       size="sm"
-                      accessibleLabel={`Bewerk ${line.description}`}
+                      accessibleLabel={`Bewerk ${lineName(line)}`}
                       onClick={() => openSheet(line)}
                     />
                     <Button
                       text="Verwijder"
                       size="sm"
                       appearance="neutral-transparent"
-                      accessibleLabel={`Verwijder ${line.description}`}
+                      accessibleLabel={`Verwijder ${lineName(line)}`}
                       loading={remove.isPending && remove.variables === line.id}
                       onClick={() => remove.mutate(line.id)}
                     />
@@ -475,6 +566,7 @@ export function BudgetEditor({ assignmentId }: { assignmentId: string }) {
         session={sheet.key}
         assignmentId={assignmentId}
         line={sheet.line}
+        assignment={assignment.data}
         open={sheet.open}
         onClose={() => setSheet((current) => ({ ...current, open: false }))}
       />

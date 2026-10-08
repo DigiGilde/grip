@@ -57,10 +57,10 @@ describe('FinanceTab', () => {
     );
   });
 
-  it('puts the quote, the budget and the expected total next to each other, and what is left to bill', async () => {
+  it('puts the quote next to the budget, and says what is left to bill', async () => {
     const { container } = renderTab();
     await waitFor(() =>
-      expect(container.querySelector('nldd-table[accessible-label^="Offerte, begroting"]')).not.toBeNull(),
+      expect(container.querySelector('nldd-table[accessible-label="Offerte tegenover de begroting"]')).not.toBeNull(),
     );
     const text = allText(container);
     expect(text).toContain('€ 190.000');

@@ -226,7 +226,9 @@ def propose_role_changes(
     by_name = {r.name.lower(): r for r in roles}
     role_by_id = {r.id: r for r in roles}
     by_email = {c.email: c for c in colleagues}
-    links_by_person: dict[uuid.UUID, dict[uuid.UUID, PersonCatalogueRole]] = defaultdict(dict)
+    links_by_person: dict[uuid.UUID, dict[uuid.UUID, PersonCatalogueRole]] = (
+        defaultdict(dict)
+    )
     for link in links:
         links_by_person[link.person_id][link.role_id] = link
 

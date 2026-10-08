@@ -58,7 +58,9 @@ async def get_person_roles(
     person_id: UUID, access: RequestAccess, db: DbSession
 ) -> dict[str, Any]:
     """The roles of a person. For whoever may see that person's staffing."""
-    await access.require(Action.READ, Resource.person(person_id), C, hide_existence=True)
+    await access.require(
+        Action.READ, Resource.person(person_id), C, hide_existence=True
+    )
     if await db.get(Person, person_id) is None:
         raise NotFoundError("Persoon", person_id)
     return _out(person_id, await service.person_role_links(db, person_id))
@@ -72,7 +74,9 @@ async def set_person_roles(
     beheerder: Person = Depends(require_function(BEHEERDER)),
 ) -> dict[str, Any]:
     """Make the roles of a person exactly this set. A role added here is manual."""
-    links = await service.set_person_roles(db, person_id, body.role_ids, actor=beheerder)
+    links = await service.set_person_roles(
+        db, person_id, body.role_ids, actor=beheerder
+    )
     return _out(person_id, links)
 
 

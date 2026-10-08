@@ -10,14 +10,36 @@ export interface LineForm {
   personId: string;
   fte: string;
   category: string;
+  /** True when the line has its own period; otherwise it follows the assignment. */
+  ownPeriod: boolean;
   startDate: string;
   endDate: string;
   amount: string;
   year: string;
 }
 
-export function lineForm(line?: BudgetLine): LineForm {
+/** The period a line follows unless it has its own. */
+export interface ParentPeriod {
+  start: string | null | undefined;
+  end: string | null | undefined;
+}
+
+/** The dates a line runs over: its own, or those of the assignment. */
+export function effectivePeriod(form: LineForm, parent?: ParentPeriod) {
+  return form.ownPeriod
+    ? { start: form.startDate, end: form.endDate }
+    : { start: parent?.start ?? '', end: parent?.end ?? '' };
+}
+
+/** A saved line deviates when its dates are not those of the assignment. */
+export function hasOwnPeriod(line: BudgetLine | undefined, parent?: ParentPeriod): boolean {
+  if (!line?.start_date && !line?.end_date) return false;
+  return line.start_date !== parent?.start || line.end_date !== parent?.end;
+}
+
+export function lineForm(line?: BudgetLine, parent?: ParentPeriod): LineForm {
   return {
+    ownPeriod: line?.kind !== 'fixed' && hasOwnPeriod(line, parent),
     kind: line?.kind ?? 'personnel',
     description: line?.description ?? '',
     role: line?.role ?? '',
@@ -36,6 +58,7 @@ export function lineInput(
   form: LineForm,
   isNew: boolean,
   original?: BudgetLine,
+  parent?: ParentPeriod,
 ): BudgetLineInput | string {
   const personnel = form.kind === 'personnel';
   if (personnel && !form.role.trim()) return 'Kies een rol.';
@@ -48,15 +71,20 @@ export function lineInput(
     if (fte === null) return 'De omvang in FTE is een getal, bijvoorbeeld 0,8.';
     // With an intended person the server takes the category from them.
     if (!form.category && !form.personId) return 'Kies een schaal.';
-    if (!form.startDate || !form.endDate) return 'Vul de begin- en einddatum in.';
+    const period = effectivePeriod(form, parent);
+    if (!period.start || !period.end) {
+      return form.ownPeriod
+        ? 'Vul de begin- en einddatum in.'
+        : 'De opdracht heeft nog geen looptijd. Vul die in, of kies een afwijkende periode.';
+    }
     const personChanged = form.personId !== (original?.intended_person_id ?? '');
     return {
       ...input,
       role: form.role.trim() || null,
       fte,
       ...(form.category ? { rate_category: form.category } : {}),
-      start_date: form.startDate,
-      end_date: form.endDate,
+      start_date: period.start,
+      end_date: period.end,
       ...(personChanged ? { intended_person_id: form.personId || null } : {}),
     };
   }
@@ -67,7 +95,7 @@ export function lineInput(
 }
 
 /** The values to price, as far as the form is filled in. */
-export function previewInput(form: LineForm): BudgetLineInput {
+export function previewInput(form: LineForm, parent?: ParentPeriod): BudgetLineInput {
   if (form.kind === 'fixed') {
     const cents = parseEuroToCents(form.amount);
     return {
@@ -77,12 +105,13 @@ export function previewInput(form: LineForm): BudgetLineInput {
     };
   }
   const fte = parseDecimal(form.fte);
+  const period = effectivePeriod(form, parent);
   return {
     kind: 'personnel',
     ...(fte !== null && Number(fte) > 0 ? { fte } : {}),
     ...(form.category ? { rate_category: form.category } : {}),
-    ...(form.startDate ? { start_date: form.startDate } : {}),
-    ...(form.endDate ? { end_date: form.endDate } : {}),
+    ...(period.start ? { start_date: period.start } : {}),
+    ...(period.end ? { end_date: period.end } : {}),
   };
 }
 

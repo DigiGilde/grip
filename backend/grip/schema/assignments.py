@@ -79,6 +79,9 @@ class AssignmentDetailOut(AssignmentSummaryOut):
     verbal_agreement_at: Annotated[date | None, in_class(A)]
     roles: Annotated[list[RoleHolderOut], nested()]
     allowed_transitions: Annotated[list[str], in_class(A)]
+    # How the reader relates to the assignment: owner, manager, member. Empty
+    # for who reads it from a function in grip alone.
+    viewer_relations: Annotated[list[str], in_class(A)] = Field(default_factory=list)
     permissions: Annotated[AssignmentPermissionsOut, nested()]
 
 

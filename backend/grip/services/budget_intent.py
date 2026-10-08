@@ -48,7 +48,7 @@ from fractions import Fraction
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip import calc
@@ -56,6 +56,7 @@ from grip.calc import Month
 from grip.calc.periods import months_between, overlap
 from grip.core.audit import UPDATE, record_audit
 from grip.models.assignment import Allocation, Assignment, BudgetLine
+from grip.models.catalogue_role import CatalogueRole, PersonCatalogueRole
 from grip.models.person import Person
 from grip.repositories.domain import PersonDetailRepository
 from grip.services import assignments, standing
@@ -369,6 +370,10 @@ async def derive_category(
     )
 
 
+# ``update_line`` has a flag called derive_category.
+_category_for = derive_category
+
+
 # -- the reservation ------------------------------------------------------------
 
 
@@ -610,7 +615,7 @@ async def update_line(
             raise DomainValidationError(
                 "Zonder beoogde persoon is er geen categorie om af te leiden."
             )
-        derived = await derive_category(
+        derived = await _category_for(
             session,
             line.assignment_id,
             person_id,
@@ -803,6 +808,8 @@ PERIOD_FROM_ASSIGNMENT = "assignment"
 PERIOD_FROM_PERSON = "person"
 
 ROLE_FROM_HISTORY = "history"
+ROLE_FROM_WIES = "wies"
+ROLE_RECORDED = "manual"
 
 MaySeeAssignment = Callable[[UUID], Awaitable[bool]]
 
@@ -895,6 +902,27 @@ async def _role_history(session: AsyncSession, person_id: UUID) -> list[RoleChoi
         seen.add(key)
         result.append(RoleChoice(role=role, role_id=role_id))
     return result
+
+
+async def _recorded_roles(
+    session: AsyncSession, person_id: UUID
+) -> list[tuple[RoleChoice, str]]:
+    """The roles recorded for the person, with where each came from."""
+    rows = (
+        await session.execute(
+            select(CatalogueRole.name, CatalogueRole.id, PersonCatalogueRole.source)
+            .join(PersonCatalogueRole, PersonCatalogueRole.role_id == CatalogueRole.id)
+            .where(
+                PersonCatalogueRole.person_id == person_id,
+                CatalogueRole.is_active.is_(True),
+            )
+            .order_by(func.lower(CatalogueRole.name))
+        )
+    ).all()
+    return [
+        (RoleChoice(role=name, role_id=role_id), source)
+        for name, role_id, source in rows
+    ]
 
 
 def _add_months(month: Month, count: int) -> list[Month]:
@@ -998,12 +1026,27 @@ async def derive(
     person_start = (await standing.get_standing(session, person_id)).start_date
     notes: list[str] = []
 
-    # Role.
+    # Role: the one recorded for the person when there is exactly one; else
+    # the one they were last staffed in.
     history = await _role_history(session, person_id)
-    chosen_role = history[0] if history else None
-    role_text = (
-        f"laatst ingezet als {chosen_role.role}" if chosen_role is not None else None
-    )
+    recorded = await _recorded_roles(session, person_id)
+    chosen_role: RoleChoice | None = None
+    role_source: str | None = None
+    role_text: str | None = None
+    if len(recorded) == 1:
+        chosen_role, origin = recorded[0]
+        role_source = ROLE_FROM_WIES if origin == "wies" else ROLE_RECORDED
+        role_text = "uit Wies" if origin == "wies" else "vastgelegd bij deze persoon"
+    elif history:
+        chosen_role = history[0]
+        role_source = ROLE_FROM_HISTORY
+        role_text = f"laatst ingezet als {chosen_role.role}"
+    alternatives: list[RoleChoice] = []
+    for choice in [c for c, _ in recorded] + history:
+        if chosen_role is not None and choice.role.lower() == chosen_role.role.lower():
+            continue
+        if all(choice.role.lower() != a.role.lower() for a in alternatives):
+            alternatives.append(choice)
 
     # Period.
     start, end = start_date, end_date
@@ -1138,12 +1181,19 @@ async def derive(
             )
 
     summary: list[str] = []
-    if chosen_role is not None:
-        summary.append(f"{person.name} is {role_text}.")
-    else:
+    if chosen_role is None and alternatives:
+        summary.append(
+            f"Voor {person.name} zijn meer rollen bekend; kies er een: "
+            f"{', '.join(c.role for c in alternatives[:5])}."
+        )
+    elif chosen_role is None:
         summary.append(
             f"Van {person.name} is geen eerdere rol bekend; kies zelf een rol."
         )
+    elif role_source == ROLE_FROM_HISTORY:
+        summary.append(f"{person.name} is {role_text}.")
+    else:
+        summary.append(f"Rol van {person.name}: {chosen_role.role} ({role_text}).")
     if period_source == PERIOD_FROM_ASSIGNMENT:
         summary.append(f"Periode: {period_text}.")
     elif period_source == PERIOD_FROM_PERSON:
@@ -1157,9 +1207,9 @@ async def derive(
         person_name=person.name,
         role=chosen_role.role if chosen_role else None,
         role_id=chosen_role.role_id if chosen_role else None,
-        role_source=ROLE_FROM_HISTORY if chosen_role else None,
+        role_source=role_source,
         role_source_text=role_text,
-        role_alternatives=tuple(history[1:6]),
+        role_alternatives=tuple(alternatives[:5]),
         start_date=start,
         end_date=end,
         period_source=period_source,
