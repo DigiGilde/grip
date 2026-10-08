@@ -45,6 +45,8 @@ import {
   startTiles,
   type SortMode,
 } from './model';
+import { PATHS } from '@/paths';
+import { UpdateFeed } from '@/features/history/UpdateFeed';
 import { MyTasks } from './MyTasks';
 import './overview.css';
 import {
@@ -288,6 +290,12 @@ export function OverviewPage() {
               <MyTasks />
               <Attention rows={shownRows} />
             </div>
+          )}
+          {query.isSuccess && (
+            <Section title="Wat is er gebeurd">
+              <UpdateFeed limit={5} />
+              <nldd-link href={PATHS.updates} text="Toon alles wat er gebeurd is" size="md" />
+            </Section>
           )}
           {tiles.length > 0 && (
             <KeyFigures
