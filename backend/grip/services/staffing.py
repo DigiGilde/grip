@@ -23,6 +23,7 @@ from grip.services.phase import (
     commitment_of,
     is_tentative,
     phase_of,
+    statuses_with_commitment,
 )
 
 
@@ -65,7 +66,7 @@ async def staffed_allocations(
 ) -> list[StaffedAllocation]:
     """Allocations with their firmness, optionally for a period.
 
-    Inzet on an assignment that was rejected or cancelled is left out unless
+    Inzet on an assignment that was cancelled is left out unless
     ``include_closed`` is set: it will not happen. Inzet on a completed or
     accounted assignment is firm and always included.
     """
@@ -90,7 +91,9 @@ async def staffed_allocations(
     if end is not None:
         stmt = stmt.where(Allocation.start_date <= end)
     if not include_closed:
-        stmt = stmt.where(Assignment.status.notin_(("rejected", "cancelled")))
+        stmt = stmt.where(
+            Assignment.status.notin_(statuses_with_commitment(Commitment.NONE))
+        )
     return [
         StaffedAllocation(
             allocation_id=allocation.id,

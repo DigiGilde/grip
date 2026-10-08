@@ -29,7 +29,14 @@ import { openPlaces, VACANCY_TEXT_MARKS } from '@/ui/text/marks';
 import { TextEditor, type TextEditorHandle } from '@/ui/TextEditor';
 import { VACANCY_KEYS, fetchVacancy } from './api';
 import { vacancyTabPath } from './paths';
-import { TEXT_WORK_KEY, fetchTextWork, saveVersion } from './textWorkApi';
+import { TailoredSheet } from './TailoredSheet';
+import {
+  TEXT_WORK_KEY,
+  fetchTextWork,
+  saveVersion,
+  useStandardText as startFromStandardText,
+  type VacancyTextWork,
+} from './textWorkApi';
 
 const KIND = 'vacancy_text' as const;
 
@@ -131,6 +138,27 @@ export function VacancyTextPage() {
       }
     },
   });
+  // An empty text is not started in an empty field when there is something
+  // to start from: the standard text of the role, or a draft that fits.
+  const [ownStart, setOwnStart] = useState(false);
+  const [tailoring, setTailoring] = useState(false);
+  const takeOver = (next: VacancyTextWork) => {
+    const fresh = next.texts.find((item) => item.kind === KIND);
+    const version = fresh?.versions[fresh.versions.length - 1];
+    setBody(version?.body ?? '');
+    setBasedOn(version?.id ?? null);
+  };
+  const start = useMutation({
+    mutationFn: () => startFromStandardText(vacancyId),
+    onSuccess: (next) => {
+      queryClient.setQueryData(TEXT_WORK_KEY(vacancyId), next);
+      void queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      takeOver(next);
+    },
+  });
+  const standard = text?.standard_text;
+  const choosing =
+    Boolean(standard) && !latest && !restored && !ownStart && body !== null && !body.trim();
   const conflict = save.error instanceof ApiError && save.error.status === 409;
   const moved = conflict && latest !== undefined && latest.id !== basedOn;
 
@@ -162,7 +190,38 @@ export function VacancyTextPage() {
         {text && !text.may_write && (
           <NoAccess who="De tekst wijzigen kan wie de vacature beheert of er als schrijver bij is betrokken." />
         )}
-        {text && text.may_write && body !== null && (
+        {text && text.may_write && choosing && standard && (
+          <Stack gap="group">
+            <nldd-text>
+              {standard.match === 'function_group'
+                ? `Voor deze rol is geen standaardtekst. De tekst van ${standard.role} lijkt er het meest op.`
+                : `Er is een standaardtekst voor ${standard.role}.`}
+              {standard.unread ? ' Die tekst is afgeleid en nog niet nagelezen.' : ''}
+            </nldd-text>
+            {start.isError && <ErrorNotice message={errorMessage(start.error)} />}
+            <nldd-button-group>
+              <Button
+                appearance="primary"
+                text="Begin met de standaardtekst"
+                loading={start.isPending}
+                onClick={() => start.mutate()}
+              />
+              {work.data?.drafting_available && (
+                <Button text="Stel een tekst op maat op" onClick={() => setTailoring(true)} />
+              )}
+              <Button text="Schrijf zelf" onClick={() => setOwnStart(true)} />
+            </nldd-button-group>
+            {tailoring && (
+              <TailoredSheet
+                vacancyId={vacancyId}
+                note={work.data?.drafting_note}
+                onClose={() => setTailoring(false)}
+                onDrafted={takeOver}
+              />
+            )}
+          </Stack>
+        )}
+        {text && text.may_write && body !== null && !choosing && (
           <>
             {restored && (
               <Quiet>

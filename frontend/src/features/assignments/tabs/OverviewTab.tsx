@@ -297,6 +297,8 @@ function ContextRefs({ assignment }: { assignment: AssignmentDetail }) {
 
 /** The step that needs a word of explanation before it is taken. */
 const NEEDS_NOTE = 'verbally_agreed';
+/** Ending a potential assignment: it did not come to an assignment, and why. */
+const ENDS_WITHOUT = 'cancelled';
 
 /**
  * The status steps the reader may take, as actions for the bar at the top of
@@ -308,8 +310,11 @@ function useStatusActions(assignment: AssignmentDetail): {
   sheet: ReactNode;
 } {
   const [problem, setProblem] = useState<string | null>(null);
-  const [noting, setNoting] = useState({ open: false, session: 0 });
+  const [noting, setNoting] = useState({ open: false, session: 0, target: NEEDS_NOTE });
   const [note, setNote] = useState('');
+  // A potential assignment that stops did not come to an assignment: that
+  // is a decision with a reason, not a status to tick.
+  const without = assignment.phase === 'potential';
   const move = useAssignmentMutation(
     ({ target, reason }: { target: string; reason?: string }) =>
       transitionAssignment(assignment.id, target, reason),
@@ -317,12 +322,17 @@ function useStatusActions(assignment: AssignmentDetail): {
   );
   // Leaving the path of an assignment cannot be taken back with a click:
   // it is asked first. The other steps are a choice from the same menu.
-  const ENDS: Record<string, string> = {
-    cancelled: `${assignment.name} annuleren?`,
-    rejected: `${assignment.name} als afgewezen markeren?`,
-  };
-  const actions: RowAction[] = assignment.allowed_transitions.map((target) => ({
-    text: TRANSITION_LABELS[target] ?? statusLabel(target),
+  const ENDS: Record<string, string> = without
+    ? {}
+    : { cancelled: `${assignment.name} annuleren?` };
+  // That a quote was rejected is recorded at the quote, not ticked here.
+  const targets = assignment.allowed_transitions.filter((target) => target !== 'rejected');
+  const actions: RowAction[] = targets.map((target) => ({
+    text:
+      without && target === ENDS_WITHOUT
+        ? 'Sluit af zonder opdracht'
+        : (TRANSITION_LABELS[target] ?? statusLabel(target)),
+    ...(without && target === ENDS_WITHOUT ? { destructive: true } : {}),
     ...(ENDS[target]
       ? {
           destructive: true,
@@ -334,37 +344,50 @@ function useStatusActions(assignment: AssignmentDetail): {
         }
       : {}),
     onSelect: () => {
-      if (target === NEEDS_NOTE) {
+      if (target === NEEDS_NOTE || (without && target === ENDS_WITHOUT)) {
         setNote('');
         setProblem(null);
-        setNoting((current) => ({ open: true, session: current.session + 1 }));
+        setNoting((current) => ({ open: true, session: current.session + 1, target }));
       } else {
         move.mutate({ target });
       }
     },
   }));
+  const ending = noting.target === ENDS_WITHOUT;
   const sheet = (
     <FormSheet
       open={noting.open}
-      title={`Mondeling akkoord op ${assignment.name}`}
-      submitText="Leg vast"
+      title={
+        ending
+          ? `${assignment.name} afsluiten zonder opdracht`
+          : `Mondeling akkoord op ${assignment.name}`
+      }
+      submitText={ending ? 'Sluit af zonder opdracht' : 'Leg vast'}
       busy={move.isPending}
       error={noting.open ? problem : null}
       onClose={() => setNoting((current) => ({ ...current, open: false }))}
       onSubmit={() => {
         if (!note.trim()) {
-          setProblem('Schrijf op wie akkoord gaf en wat er is afgesproken.');
+          setProblem(
+            ending
+              ? 'Schrijf op waarom de opdracht niet doorgaat.'
+              : 'Schrijf op wie akkoord gaf en wat er is afgesproken.',
+          );
           return;
         }
         move.mutate(
-          { target: NEEDS_NOTE, reason: note.trim() },
+          { target: noting.target, reason: note.trim() },
           { onSuccess: () => setNoting((current) => ({ ...current, open: false })) },
         );
       }}
     >
       <TextInput
-        label="Wat is er afgesproken?"
-        hint="Wie gaf akkoord, wanneer, en onder welk voorbehoud. De opdracht blijft potentieel tot het getekende akkoord er is."
+        label={ending ? 'Waarom gaat de opdracht niet door?' : 'Wat is er afgesproken?'}
+        hint={
+          ending
+            ? 'De opdracht gaat naar Afgesloten als niet doorgegaan. Dit is niet terug te draaien.'
+            : 'Wie gaf akkoord, wanneer, en onder welk voorbehoud. De opdracht blijft potentieel tot het getekende akkoord er is.'
+        }
         multiline
         value={note}
         onChange={setNote}

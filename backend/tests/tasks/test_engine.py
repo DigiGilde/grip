@@ -98,8 +98,10 @@ async def test_a_rejection_opens_a_new_round(db_session, build, evaluate):
     waited = await tasks(db_session, key="offerte.wacht_op_akkoord")
     assert [task.status for task in waited] == ["obsolete"]
     assert (await one(db_session, "offerte.reactie_verwerken")).status == "todo"
+    # One task for the new quote, the one that says who said no and why:
+    # the plain "maak de offerte" does not open beside it.
     rounds = await tasks(db_session, key="offerte.opstellen")
-    assert {(task.repeat_key, task.status) for task in rounds} == {("ronde-2", "todo")}
+    assert [task for task in rounds if task.status == "todo"] == []
 
     await build.quote(assignment, issued_at=NOW + timedelta(hours=1))
     await evaluate()
@@ -109,7 +111,10 @@ async def test_a_rejection_opens_a_new_round(db_session, build, evaluate):
 async def test_an_internal_assignment_has_no_quote_track(db_session, build, evaluate):
     await build.assignment(kind="internal")
     await evaluate()
-    assert await tasks(db_session) == []
+    # No quote to make: its own short course starts at the budget.
+    assert [task.template_key for task in await tasks(db_session)] == [
+        "intern.begroten"
+    ]
 
 
 async def test_a_cancelled_assignment_drops_its_open_tasks(db_session, build, evaluate):

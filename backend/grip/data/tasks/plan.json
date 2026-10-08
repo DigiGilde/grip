@@ -48,7 +48,8 @@
             "contractor",
             "external",
             "potential",
-            "budget_has_line"
+            "budget_has_line",
+            "not quote_rejected_before"
           ],
           "done_when": "quote_fresh",
           "assignee": "owner",
@@ -141,7 +142,7 @@
           "for": "rejected_quote",
           "when": [
             "contractor",
-            "quoting"
+            "potential"
           ],
           "done_when": "quote_superseded",
           "assignee": "owner",
@@ -174,12 +175,43 @@
           "link": "/opdrachten/{assignment_id}/bemensing"
         },
         {
+          "key": "intern.begroten",
+          "track": "uitvoering",
+          "title": "Maak de begroting",
+          "for": "case",
+          "when": [
+            "contractor",
+            "not external",
+            "potential"
+          ],
+          "done_when": "budget_has_line",
+          "assignee": "owner",
+          "link": "/opdrachten/{assignment_id}/begroting"
+        },
+        {
+          "key": "intern.starten",
+          "track": "uitvoering",
+          "title": "Start de opdracht",
+          "for": "case",
+          "when": [
+            "contractor",
+            "not external",
+            "budget_has_line",
+            "not started",
+            "not closed"
+          ],
+          "done_when": "started",
+          "assignee": "owner",
+          "link": "/opdrachten/{assignment_id}"
+        },
+        {
           "key": "uitvoering.starten",
           "track": "uitvoering",
           "title": "Zet de opdracht in uitvoering",
           "for": "case",
           "when": [
             "contractor",
+            "external",
             "agreed"
           ],
           "done_when": "started",
@@ -261,7 +293,7 @@
         {
           "key": "financien.naverrekening_aanleveren",
           "track": "financien",
-          "title": "Lever de naverrekening van {maand} aan",
+          "title": "Lever de naverrekening over {periode} aan",
           "for": "correction_month",
           "when": [
             "contractor",
@@ -320,7 +352,8 @@
           "for": "case",
           "when": [
             "contractor",
-            "quoting"
+            "external",
+            "potential"
           ],
           "steps": [
             {
@@ -406,6 +439,52 @@
           ]
         },
         {
+          "key": "intern",
+          "label": "Interne opdracht",
+          "for": "case",
+          "when": [
+            "contractor",
+            "not external"
+          ],
+          "steps": [
+            {
+              "key": "begroting",
+              "label": "Begroting",
+              "done_when": [
+                "budget_has_line"
+              ],
+              "tasks": [
+                "intern.begroten"
+              ]
+            },
+            {
+              "key": "starten",
+              "label": "Starten",
+              "done_when": [
+                "started"
+              ],
+              "tasks": [
+                "intern.starten"
+              ]
+            },
+            {
+              "key": "uitvoeren",
+              "label": "Uitvoeren",
+              "done_when": [
+                "completed"
+              ],
+              "tasks": [
+                "bemensing.rol_invullen",
+                "uitvoering.maand_afsluiten",
+                "financien.factuurgegevens_aanleveren",
+                "financien.factuur_vastleggen",
+                "financien.naverrekening_aanleveren"
+              ],
+              "idle": "De opdracht loopt. Er is nu niets te doen."
+            }
+          ]
+        },
+        {
           "key": "uitvoering",
           "label": "Uitvoering",
           "for": "case",
@@ -462,32 +541,6 @@
           ]
         },
         {
-          "key": "intern",
-          "label": "Interne opdracht",
-          "for": "case",
-          "when": [
-            "contractor",
-            "not external",
-            "not agreed"
-          ],
-          "steps": [
-            {
-              "key": "begroting",
-              "label": "Begroting",
-              "done_when": [
-                "budget_has_line"
-              ]
-            },
-            {
-              "key": "starten",
-              "label": "Starten",
-              "done_when": [
-                "started"
-              ]
-            }
-          ]
-        },
-        {
           "key": "periode",
           "label": "Factuurperiode",
           "for": "billing_period",
@@ -533,6 +586,10 @@
         {
           "when": "declined",
           "label": "Afgewezen"
+        },
+        {
+          "when": "not_proceeded",
+          "label": "Niet doorgegaan"
         },
         {
           "when": "cancelled",

@@ -56,7 +56,7 @@ MAX_MONTHS_BACK = 36
 HIRE_FOLLOW_UP_DAYS = 180
 
 # Statuses in which nothing is left to do on a case.
-_ASSIGNMENT_DONE = ("accounted", "rejected", "cancelled")
+_ASSIGNMENT_DONE = ("accounted", "cancelled")
 _VACANCY_LIVE = ("draft", "requested", "approved", "open")
 _VACANCY_NEEDS_OPENING = ("regulier", "specialistisch")
 
@@ -352,6 +352,7 @@ async def load_assignment_cases(
         ]
         own_quotes = quotes_by_assignment.get(assignment.id, [])
         own_approvals = approvals_by_assignment.get(assignment.id, [])
+        ever_agreed = any(quote.status == "accepted" for quote in own_quotes)
         is_client = _same_base(
             client_uris.get(assignment.client_organisation_id)
             if assignment.client_organisation_id
@@ -380,9 +381,10 @@ async def load_assignment_cases(
             "rejected": status == "rejected",
             "cancelled": status == "cancelled",
             # A rejected quote is no end for who made it: the way on is a new
-            # quote, or cancelling. For the client the rejection is the end.
-            "quoting": case_phase is phase.Phase.POTENTIAL or status == "rejected",
+            # quote, or ending without an assignment. For the client who said
+            # no it is the end, until a new quote comes in.
             "declined": status == "rejected" and is_client,
+            "not_proceeded": status == "cancelled" and not ever_agreed,
         }
 
         rejected = [quote for quote in own_quotes if quote.status == "rejected"]

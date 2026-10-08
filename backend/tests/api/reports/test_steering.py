@@ -337,10 +337,20 @@ async def test_what_is_not_agreed_yet_is_pipeline(as_person, world, db_session):
         assert turnover["pipeline_cents"] == BETA_PIPELINE_2026
 
 
-async def test_a_rejected_or_cancelled_assignment_counts_for_nothing(
+async def test_a_rejected_quote_keeps_the_assignment_in_the_pipeline(
     as_person, world, db_session
 ):
-    for status in ("rejected", "cancelled"):
+    """Until someone ends it, a new quote can follow: it still counts as
+    potential, and its inzet as planned ahead."""
+    await _set_status(db_session, world.beta, "rejected")
+    turnover = (await _steering(as_person(world.beheerder))).json()["turnover"]
+    assert turnover["forecast_cents"] == ALFA_FORECAST_2026
+    assert turnover["verbal_cents"] == 0
+    assert turnover["pipeline_cents"] == BETA_PIPELINE_2026
+
+
+async def test_a_cancelled_assignment_counts_for_nothing(as_person, world, db_session):
+    for status in ("cancelled",):
         await _set_status(db_session, world.beta, status)
         turnover = (await _steering(as_person(world.beheerder))).json()["turnover"]
         assert turnover["forecast_cents"] == ALFA_FORECAST_2026

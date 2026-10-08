@@ -18,6 +18,8 @@ export interface CourseNext {
    * they run or work on, or only looking on.
    */
   part?: 'acts' | 'waits' | 'watches';
+  /** The reader runs the case and may do this step for the one at move. */
+  may_take_over?: boolean;
   headline: string;
   sentence: string;
   who?: string | null;

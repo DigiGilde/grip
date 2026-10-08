@@ -67,6 +67,7 @@ from grip.models.role import (
     AANVRAGER,
     BEHEERDER,
     LEZER,
+    OFFERTEGOEDKEURDER,
     PLANNER,
     TEKENBEVOEGDE,
     PersonRole,
@@ -159,7 +160,13 @@ PEOPLE: tuple[ExamplePerson, ...] = (
         "anna.analist", "Anna Analist", 12, manager="pim.planner", target_pct=90
     ),
     ExamplePerson(
-        "sem.senior", "Sem Senior", 15, manager="lotte.leiding", target_pct=90
+        "sem.senior",
+        "Sem Senior",
+        15,
+        manager="lotte.leiding",
+        target_pct=90,
+        # Approves quotes internally where the instance asks for that.
+        functions=(OFFERTEGOEDKEURDER,),
     ),
     ExamplePerson(
         "ilse.inhuur",

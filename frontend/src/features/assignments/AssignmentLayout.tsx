@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { errorMessage } from '@/api/client';
 import { useCaseCourse } from '@/features/tasks/course';
+import { TakeOverButton } from '@/features/tasks/TakeOver';
 import { useInstance } from '@/layout/useInstance';
 import { formatEuro, formatPeriod } from '@/lib/format';
 import { Button } from '@/ui/Button';
@@ -79,8 +80,11 @@ function Figures({ assignment }: { assignment: AssignmentDetail }) {
  * Steps that are one decision and nothing more: the head does them in place,
  * by the kind of work the server names, to the status they lead to.
  */
-const IN_PLACE: Record<string, string> = {
-  'uitvoering.starten': 'in_progress',
+const IN_PLACE: Record<string, readonly string[]> = {
+  'uitvoering.starten': ['in_progress'],
+  // An internal assignment has no quote and no agreement to wait for:
+  // starting it takes both status steps at once.
+  'intern.starten': ['accepted', 'in_progress'],
 };
 
 /**
@@ -123,14 +127,21 @@ export function AssignmentLayout() {
   const course = useCaseCourse('assignment', assignmentId, assignment !== undefined).data?.course;
   const next = courseAction(course);
   const here = pathname.replace(/\/$/, '');
-  const target = course?.next?.mine ? IN_PLACE[course.next.task_key ?? ''] : undefined;
-  const allowed = target !== undefined && (assignment?.allowed_transitions ?? []).includes(target);
+  const path = course?.next?.mine ? IN_PLACE[course.next.task_key ?? ''] : undefined;
+  // The status steps still to take: from the first one the assignment may take now.
+  const from = path?.findIndex((status) =>
+    (assignment?.allowed_transitions ?? []).includes(status),
+  );
+  const target = path && from !== undefined && from >= 0 ? path.slice(from) : undefined;
+  const allowed = target !== undefined;
   const elsewhere =
     next && (allowed || next.href.split('?')[0]?.replace(/\/$/, '') !== here) ? next : null;
   const queryClient = useQueryClient();
   const [problem, setProblem] = useState<string | null>(null);
   const step = useMutation({
-    mutationFn: (status: string) => transitionAssignment(assignmentId, status),
+    mutationFn: async (statuses: readonly string[]) => {
+      for (const status of statuses) await transitionAssignment(assignmentId, status);
+    },
     onSuccess: () => {
       setProblem(null);
       void queryClient.invalidateQueries({ queryKey: assignmentKeys.all });
@@ -182,6 +193,7 @@ export function AssignmentLayout() {
             {course && (
               <CourseNow course={course} tasksHref={assignmentTabPath(assignment.id, 'tasks')} />
             )}
+            <TakeOverButton course={course} />
             {course && !course.ended && (
               <CourseBar course={course} accessibleLabel={`Verloop van ${assignment.name}`} />
             )}
@@ -190,7 +202,7 @@ export function AssignmentLayout() {
               {(!course || course.ended) && (
                 <nldd-badge
                   color={STATUS_COLORS[assignment.status] ?? 'neutral'}
-                  text={statusLabel(assignment.status)}
+                  text={course?.ended ?? statusLabel(assignment.status)}
                 />
               )}
               {facts && <nldd-text color="secondary">{facts}</nldd-text>}

@@ -28,6 +28,7 @@ from grip.models.month_close import (
 )
 from grip.models.person import Person
 from grip.repositories.domain import AssignmentRepository, MonthCloseRepository
+from grip.services import billing_periods
 from grip.services.errors import DomainValidationError, NotFoundError
 from grip.services.guards import ensure_years_open
 from grip.services.phase import (
@@ -447,7 +448,8 @@ async def create_correction_export(
                 allocation_id=UUID(line.allocation_id),
                 person_id=UUID(line.person_id),
                 description=(
-                    f"Naverrekening {month}: {descriptions[line.budget_line_id]}"
+                    f"Naverrekening {billing_periods.month_name(month)}: "
+                    f"{descriptions[line.budget_line_id]}"
                 ),
                 fte_pct=line.fte_pct,
                 category=line.category,

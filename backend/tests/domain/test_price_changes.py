@@ -202,7 +202,7 @@ async def test_promotion_recorded_afterwards_is_billed_as_a_correction(
     assert correction.reason == "Promotie met ingang van 1 juli."
     (correction_line,) = correction.lines
     assert correction_line.amount_cents == C - B
-    assert correction_line.description == "Naverrekening 2026-07: Productmanager"
+    assert correction_line.description == "Naverrekening juli 2026: Productmanager"
     assert correction_line.category == "C"
     # Delivered now, and to invoice until an invoice is recorded on it.
     july = (await _position(db_session, assignment))["2026-07"]

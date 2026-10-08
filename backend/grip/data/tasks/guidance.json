@@ -189,11 +189,11 @@
     },
     "financien.naverrekening_aanleveren": {
       "title": "Lever de naverrekening over {periode} aan",
-      "awaited": "De naverrekening van {maand}",
-      "do": "De prijs van {maand} is veranderd nadat de maand was aangeleverd. Lever de naverrekening van {opdracht} aan.",
-      "wait": "Je wacht op {wie}, die de naverrekening van {maand} aanlevert. Jij hoeft nu niets te doen.",
+      "awaited": "De naverrekening over {periode}",
+      "do": "Na de aanlevering van {periode} is er iets gewijzigd. Lever de naverrekening van {opdracht} aan.",
+      "wait": "Je wacht op {wie}, die de naverrekening over {periode} aanlevert. Jij hoeft nu niets te doen.",
       "action": "Lever de naverrekening aan",
-      "why": "Na het aanleveren van {maand} is een tarief of een schaal gewijzigd.",
+      "why": "Na de aanlevering van {periode} is er iets gewijzigd; het verschil is {bedrag}.",
       "destination": "assignment.month"
     },
     "werving.aanvraag_voorbereiden": {
@@ -392,6 +392,26 @@
       "action": "Leg getekend formulier vast",
       "why": "Het akkoord op de vacature voor {functie} is vastgelegd en het getekende formulier ontbreekt nog.",
       "destination": "vacancy.request"
+    },
+    "intern.begroten": {
+      "title": "Maak de begroting",
+      "awaited": "De begroting",
+      "do": "Maak de begroting van {opdracht}: voeg de rollen en de vaste bedragen toe.",
+      "wait": "Je wacht op {wie}, die de begroting van {opdracht} maakt. Jij hoeft nu niets te doen.",
+      "action": "Maak de begroting",
+      "why": "{opdracht} is een interne opdracht en heeft nog geen begroting.",
+      "then": "Daarna start je de opdracht.",
+      "destination": "assignment.budget"
+    },
+    "intern.starten": {
+      "title": "Start de opdracht",
+      "awaited": "De start van de opdracht",
+      "do": "De begroting van {opdracht} staat. Start de opdracht, zodat je inzet kunt plannen en maanden kunt afsluiten. Een interne opdracht heeft geen offerte nodig.",
+      "wait": "Je wacht op {wie}, die {opdracht} start. Jij hoeft nu niets te doen.",
+      "action": "Start de opdracht",
+      "why": "{opdracht} is een interne opdracht met een begroting.",
+      "then": "Daarna sluit je elke maand de inzet af.",
+      "destination": "assignment.overview"
     }
   }
 }

@@ -29,10 +29,11 @@ Elk verloop dient een hoofdgeval en de varianten die echt voorkomen. De rol is e
 | Intern teruggestuurd | Offerte is weer de huidige stap | wie de offerte maakte | begroting aanpassen, nieuwe offerte | getest, niet in de browser |
 | Mondeling akkoord | stap Akkoord, met de zin dat het getekende akkoord nog moet | eigenaar | getekend akkoord vastleggen | nagelopen, werkt; de eigenaar leest waar het vast te leggen is en heeft hier geen knop |
 | De opdrachtgever heeft geen grip | geen verschil in het verloop; aanbieden als document of met een tekenlink | eigenaar | getekende pdf vastleggen | het verloop nagelopen, het tekenen zelf niet |
-| De offerte wordt afgewezen | Voor de opdrachtnemer is Offerte weer de huidige stap; de kop zegt wie afwees, wanneer en waarom. Voor de opdrachtgever eindigt de opdracht als Afgewezen | eigenaar | nieuwe offerte, of annuleren | nagelopen in de browser en getest |
+| De offerte wordt afgewezen | De opdracht blijft potentieel en staat terug op Offerte; de kop zegt wie afwees, wanneer en waarom. Stoppen is een eigen besluit: "Sluit af zonder opdracht" met een reden, einde "Niet doorgegaan". Voor de opdrachtgever die afwees eindigt het verloop als Afgewezen | eigenaar | nieuwe offerte, of afsluiten zonder opdracht | nagelopen in de browser en getest |
 | De eigenaar is weg | het verloop blijft; de zin noemt de eigenaar | beheerder wijst een eigenaar aan | Overzicht, eigenaar en managers | niet nagelopen |
 | Werven begint voor de handtekening | de vacature heeft een eigen verloop; de opdracht hoeft niet akkoord te zijn | planner of eigenaar | n.v.t. | getest in het plan, niet in de browser |
-| Een lezer kijkt mee | dezelfde stappen, de zin zegt op wie wordt gewacht, geen knop | niemand hier | n.v.t. | nagelopen, werkt |
+| Een lezer kijkt mee | dezelfde stappen; de zin zegt wie aan zet is, zonder "je wacht", zonder termijn en zonder knop | niemand hier | n.v.t. | nagelopen, werkt |
+| Een manager doet de stap van de eigenaar | wie de zaak beheert en niet aan zet is, ziet "Neem deze stap over"; daarna is de stap van haar en zegt een notitie op de taak van wie hij kwam | manager of beheerder | de eigenaar kan hem terugnemen | nagelopen, werkt |
 
 ### Een opdracht uitvoeren en factureren
 
@@ -40,13 +41,13 @@ Elk verloop dient een hoofdgeval en de varianten die echt voorkomen. De rol is e
 
 | Variant | Wat het verloop toont | Wie is aan zet | Status |
 |---|---|---|---|
-| Hoofdgeval | Uitvoeren, met de eerstvolgende taak als zin; per periode Maanden afsluiten, Aanleveren, Factuur | eigenaar of manager, planner | zaak nagelopen; het verloop per periode staat in de gegevens en nog niet op de tab |
+| Hoofdgeval | Uitvoeren, met de eerstvolgende taak als zin; per periode Maanden afsluiten, Aanleveren, Factuur | eigenaar of manager, planner | nagelopen: de kop, het werk van de stap op de tab en per periode wie aan zet is |
 | Een maand is te laat | de termijn staat rood onder de zin | eigenaar of manager | nagelopen, werkt |
 | Per kwartaal factureren, per maand afsluiten | aanleveren wordt pas gevraagd als de periode klaar is | eigenaar of manager | getest, niet in de browser |
-| Promotie midden in een maand, of een correctie na aanleveren | geen eigen stap; de taak "Lever de naverrekening aan" bestaat in het plan en wacht op een gebeurtenis die nog niet wordt vastgelegd | n.v.t. | **gat**, zie onder |
+| Promotie midden in een maand, of een correctie na aanleveren | geen eigen stap; de taak "Lever de naverrekening aan" bestaat in het plan en wacht op een gebeurtenis die nog niet wordt vastgelegd | n.v.t. | **gat**; woorden staan klaar, de taak ontstaat nog niet |
 | Iemand is dubbel geboekt | geen stap; een signaal op Bemensing | planner | buiten het verloop, bewust |
-| De opdracht wordt verlengd of de begroting groeit na akkoord | geen stap | eigenaar | **gat**, zie onder |
-| Interne opdracht | Akkoord, Starten, Uitvoeren, zonder Verantwoorden | eigenaar | nagelopen, werkt |
+| De opdracht wordt verlengd of de begroting groeit na akkoord | geen stap | eigenaar | **gat**; ontwerp hieronder, niet gebouwd |
+| Interne opdracht | een eigen kort verloop: Begroting, Starten, Uitvoeren; starten is een knop in de kop, zonder offerte of akkoord | eigenaar | nagelopen in de browser, werkt |
 
 ### Iemand werven
 
@@ -69,7 +70,7 @@ Elk verloop dient een hoofdgeval en de varianten die echt voorkomen. De rol is e
 
 | Variant | Wat het verloop toont | Status |
 |---|---|---|
-| Hoofdgeval | Schrijven, Beoordelen, Vaststellen | in de gegevens en getest; **nog niet op de tekstpagina**, die werd deze nacht door ander werk herbouwd |
+| Hoofdgeval | Schrijven, Beoordelen, Vaststellen | op de tab Tekst staat per tekst wie aan zet is; een lege tekstpagina biedt de standaardtekst, een tekst op maat of zelf schrijven. Nagelopen; het beoordelen zelf niet |
 | De tekst komt twee keer terug | Schrijven is weer de huidige stap, zo vaak als nodig | idem |
 | Vaststellen zonder oordeel | Beoordelen telt als gedaan zodra de tekst is vastgesteld | idem |
 
@@ -82,7 +83,7 @@ Een verloop is er waar meer stappen over de tijd lopen, meer mensen handelen en 
 | Potentiële opdracht tot akkoord | ja | dagen tot weken, eigenaar, goedkeurder en opdrachtgever |
 | Opdracht in uitvoering | ja | maanden, planner, manager, eigenaar |
 | Ontvangen offerte bij de opdrachtgever | ja | aanvrager wacht, tekenbevoegde besluit |
-| Offerte zelf | nee, eigen stappen op haar kaart | zij is de stappen Offerte tot Akkoord van de opdracht; een tweede balk zegt het twee keer |
+| Offerte zelf | nee; haar kaart toont een label en hoe ze is aangeboden | zij is de stappen Offerte tot Akkoord van de opdracht; een tweede balk zegt het twee keer |
 | Vacature | ja | weken, aanvrager, adviseurs, directie |
 | Vacaturetekst en motivatie | ja | rondes tussen schrijver en beoordelaars |
 | Factuurperiode | ja | afsluiten, aanleveren, factuur, over maanden |
@@ -158,8 +159,9 @@ Elke stap waar iemand moet handelen is een taak voor precies die persoon. De taa
 
 | Stap | Wie handelt | Taak | Knop | Waar | Sluit als |
 |---|---|---|---|---|---|
-| Begroting | niemand | | | | volgt uit de zaak zelf |
-| Starten | niemand | | | | volgt uit de zaak zelf |
+| Begroting | eigenaar | Maak de begroting | Maak de begroting | Begroting | de begroting heeft een regel |
+| Starten | eigenaar | Start de opdracht | Start de opdracht (in de kop, in een keer) | Overzicht | de opdracht is in uitvoering |
+| Uitvoeren | planner, eigenaar of manager | dezelfde taken als bij Uitvoering | | | de opdracht is afgerond |
 
 ### Factuurperiode (per factuurperiode)
 
@@ -203,11 +205,29 @@ Gaten die bij het opstellen van deze tabel zijn gevonden en gedicht:
 
 ## Wat nog niet wordt ondersteund
 
-- **Naverrekening als stap.** De taak staat in het plan en wacht op een vastgelegde gebeurtenis "er is een correctie ontstaan". Het kleinste ontwerp: een rij per ontstane correctie, geschreven wanneer een afgesloten maand anders geprijsd wordt; het feit en de taak volgen daaruit.
-- **Verlengen of groeien na akkoord.** De begroting kan wijzigen, het scherm zegt dat zij dan afwijkt van wat getekend is, maar er is geen weg naar een aanvullende offerte. Het kleinste ontwerp: een aanvullende offerte als nieuwe ronde op dezelfde opdracht, met dezelfde stappen Offerte tot Akkoord naast Uitvoeren.
-- **Een interne opdracht starten** heeft geen taak: het plan kent "Zet in uitvoering" alleen na een akkoord.
-- **Het verloop van een tekst en van een factuurperiode** staat in de gegevens en komt uit de server, maar staat nog niet op hun pagina.
-- **Een stap doen namens een ander** kan waar het toegangsmodel het toelaat (een manager voor de eigenaar, een beheerder voor een adviseur zonder account); het verloop zegt dan niet namens wie.
+- **Naverrekening als stap.** De taak "Lever de naverrekening over {periode} aan" staat in het plan met haar woorden ("Na de aanlevering van {periode} is er iets gewijzigd; het verschil is {bedrag}."), maar ontstaat nog niet: grip legt niet vast dat een correctie is ontstaan, en dat per evaluatie uitrekenen is te duur. Het kleinste ontwerp: een rij per ontstane correctie (opdracht, periode, verschil in centen, ontstaan op), geschreven op het moment dat een aangeleverde maand anders geprijsd wordt. Het feit, het bedrag in de zin en een vierde stap "Naverrekenen" in het verloop van de periode volgen daaruit.
+- **Het ontvangen verloop bij de opdrachtgever** staat in de kop van de aanvraag, maar is alleen bekeken met een nagemaakte aanvraag in een kopie, niet met twee gekoppelde instanties.
+
+## Ontwerp: verlengen of groeien na akkoord
+
+Niet gebouwd. Het voorstel is een aanvullende offerte op dezelfde opdracht.
+
+**Wat de gebruiker ziet.** De opdracht blijft in uitvoering: maanden sluiten en factureren gaan door op wat getekend is. Wijzigt de begroting na het akkoord (meer inzet, een latere einddatum), dan zegt de kop: "De begroting wijkt € X af van wat getekend is. Maak een aanvullende offerte." Onder het verloop van de uitvoering verschijnt een tweede, korte regel "Aanvulling: Offerte, daarna aanbieden", als onderdeel van de zaak, net als een factuurperiode. De eigenaar loopt Offerte, (Interne goedkeuring), Aanbieden en Akkoord nog een keer. Na het akkoord is de aanvulling getekend en verdwijnt de regel.
+
+**Waarom zo en niet anders.**
+
+- Een nieuwe opdracht voor de verlenging knipt de uitputting, de bemensing en de geschiedenis in tweeën, terwijl de opdrachtgever het als een opdracht ziet.
+- De opdracht terugzetten naar potentieel zou afsluiten en factureren blokkeren voor werk dat al getekend is.
+- Een offerte is een bevroren momentopname. De aanvullende offerte bevriest dus alleen het verschil met wat eerder getekend is, of de nieuwe stand met een verwijzing naar de vorige; de eerste blijft ongewijzigd geldig.
+
+**Wat het vraagt.**
+
+- Rekenen: "getekend" wordt de som van alle getekende offertes van de opdracht; het verschil tussen begroting en getekend is een afgeleide waarde in `grip.calc`.
+- Offertes: uitgeven mag ook bij een opdracht in uitvoering, als aanvulling; afwijzen van een aanvulling laat de status van de opdracht met rust.
+- Plan: een onderdeel `supplement` met het feit "begroting wijkt af van getekend" en een verloop van vier stappen; de bestaande taken voor offerte, goedkeuring en aanbieden gelden ook voor dit onderdeel.
+- Factureren: tot het akkoord op de aanvulling is het meerwerk niet aan te leveren. Dat is een regel die nu niet bestaat en die de opdrachtgever raakt.
+
+Het raakt rekenregels, de offerte als bevroren stuk en het contract met de opdrachtgever. Daarom eerst een besluit (ADR), dan bouwen.
 
 ## Voor wie het plan aanpast
 

@@ -520,6 +520,31 @@ describe('QuotePage', () => {
     ]);
   });
 
+  it('says who sent it back and why from the history, when no request is current', async () => {
+    const container = await renderTab({
+      quotes: [QUOTE],
+      approval: {
+        ...APPROVAL,
+        status: 'sent_back',
+        may_request_approval: false,
+        current: null,
+        history: [
+          {
+            id: 'r-1',
+            status: 'sent_back',
+            requested_at: '2026-02-02T09:30:00Z',
+            decided_at: '2026-02-03T11:00:00Z',
+            decided_by_name: 'Collega Goedkeurder',
+            decision_note: 'De looptijd klopt niet',
+          },
+        ],
+      },
+    });
+    expect(container.textContent).toMatch(
+      /Teruggestuurd op 3 feb 2026.*door Collega Goedkeurder: De looptijd klopt niet/,
+    );
+  });
+
   it('leads to a new quote when the approver sent it back, with the note', async () => {
     const container = await renderTab({
       quotes: [QUOTE],

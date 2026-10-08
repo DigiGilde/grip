@@ -412,3 +412,17 @@ async def test_unknown_right_is_named_as_a_right(client, world, as_person):
     resp = await client.put(f"/api/people/{world.report.id}/functions/koning")
     assert resp.status_code == 422
     assert "recht in grip" in resp.json()["detail"]
+
+
+async def test_the_internal_approver_of_quotes_is_a_right_that_can_be_granted(
+    client, world, as_person
+):
+    """Internal approval needs someone who may approve: the beheerder makes
+    someone that, like any other right in grip."""
+    as_person(world.beheerder)
+    url = f"/api/people/{world.report.id}/functions/offertegoedkeurder"
+    resp = await client.put(url)
+    assert resp.status_code == 200
+    assert resp.json()["functions"] == ["offertegoedkeurder"]
+    resp = await client.delete(url)
+    assert resp.status_code == 200 and resp.json()["functions"] == []

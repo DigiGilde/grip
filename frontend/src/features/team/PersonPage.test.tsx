@@ -499,6 +499,7 @@ describe('what the beheerder can do', () => {
       'lezer',
       'aanvrager',
       'tekenbevoegde',
+      'offertegoedkeurder',
     ]);
     fireEvent.change(select, { target: { value: 'tekenbevoegde' } });
     await waitFor(() =>

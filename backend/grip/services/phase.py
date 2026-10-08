@@ -1,8 +1,11 @@
 """The phase of an assignment, and what each status allows.
 
 An assignment starts as a potential one: something that may become work. It
-turns active when the client agrees, and closed when it ends, is rejected or
-is cancelled. The phase is derived from the status and never stored.
+turns active when the client agrees, and closed when it ends or is
+cancelled. A rejected quote does not close it: the assignment stays potential
+(status ``rejected``, "Offerte afgewezen") until a new quote is made or
+someone ends it without an assignment. The phase is derived from the status
+and never stored.
 
 Everything that needs to know "is this still potential?" or "may this be
 billed?" asks here. No other module tests lists of statuses for that.
@@ -29,7 +32,7 @@ class Commitment(StrEnum):
     VERBAL = "verbal"
     # Not agreed yet: pipeline.
     PIPELINE = "pipeline"
-    # Rejected or cancelled before acceptance: counts for nothing.
+    # Cancelled: counts for nothing.
     NONE = "none"
 
 
@@ -44,7 +47,8 @@ _PHASES: dict[str, Phase] = {
     "in_progress": Phase.ACTIVE,
     "completed": Phase.CLOSED,
     "accounted": Phase.CLOSED,
-    "rejected": Phase.CLOSED,
+    # The latest quote was rejected; a new quote can follow.
+    "rejected": Phase.POTENTIAL,
     "cancelled": Phase.CLOSED,
 }
 
@@ -57,7 +61,7 @@ _COMMITMENTS: dict[str, Commitment] = {
     "in_progress": Commitment.COMMITTED,
     "completed": Commitment.COMMITTED,
     "accounted": Commitment.COMMITTED,
-    "rejected": Commitment.NONE,
+    "rejected": Commitment.PIPELINE,
     "cancelled": Commitment.NONE,
 }
 
@@ -72,7 +76,7 @@ STATUS_LABELS: dict[str, str] = {
     "in_progress": "In uitvoering",
     "completed": "Afgerond",
     "accounted": "Verantwoord",
-    "rejected": "Afgewezen",
+    "rejected": "Offerte afgewezen",
     "cancelled": "Geannuleerd",
 }
 
@@ -150,8 +154,8 @@ def allows_billing(status: str) -> bool:
     """Whether billing data may be produced for an assignment in this status.
 
     Only once the quote is formally accepted. A verbal agreement is no
-    ground to bill on, and neither is an assignment that was rejected or
-    cancelled.
+    ground to bill on, and neither is an assignment whose quote was rejected
+    or that was cancelled.
     """
     return commitment_of(status) is Commitment.COMMITTED
 

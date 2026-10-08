@@ -32,12 +32,13 @@ def test_phases():
         "requested",
         "quoted",
         "verbally_agreed",
+        # A rejected quote does not close the assignment: a new one can follow.
+        "rejected",
     }
     assert phase.statuses_in_phase(Phase.ACTIVE) == {"accepted", "in_progress"}
     assert phase.statuses_in_phase(Phase.CLOSED) == {
         "completed",
         "accounted",
-        "rejected",
         "cancelled",
     }
     assert phase.statuses_in_phase(Phase.POTENTIAL, Phase.ACTIVE) == (
@@ -50,6 +51,7 @@ def test_commitment_for_forecasts():
         "draft",
         "requested",
         "quoted",
+        "rejected",
     }
     assert phase.statuses_with_commitment(Commitment.VERBAL) == {"verbally_agreed"}
     assert phase.statuses_with_commitment(Commitment.COMMITTED) == {
@@ -58,7 +60,7 @@ def test_commitment_for_forecasts():
         "completed",
         "accounted",
     }
-    assert phase.statuses_with_commitment(Commitment.NONE) == {"rejected", "cancelled"}
+    assert phase.statuses_with_commitment(Commitment.NONE) == {"cancelled"}
 
 
 def test_labels_and_counterparty_view():
@@ -87,6 +89,7 @@ def test_what_a_status_allows():
         "requested",
         "quoted",
         "verbally_agreed",
+        "rejected",
     ]
 
 
@@ -145,6 +148,32 @@ async def test_in_progress_needs_a_start_date(db_session, beheerder, make_assign
         db_session, assignment.id, "in_progress", actor=beheerder
     )
     assert assignment.status == "in_progress"
+
+
+async def test_a_rejected_quote_leaves_the_assignment_open_until_someone_ends_it(
+    db_session, beheerder, make_assignment
+):
+    assignment = await make_assignment()
+    for step in ("quoted", "rejected"):
+        await assignments.transition(db_session, assignment.id, step, actor=beheerder)
+    # Still a potential assignment: a new quote can follow.
+    assert phase.assignment_phase(assignment) is Phase.POTENTIAL
+    assert phase.status_label(assignment.status) == "Offerte afgewezen"
+    assert "quoted" in assignments.allowed_transitions(assignment)
+
+    # Ending it is a decision of its own, with a reason.
+    with pytest.raises(DomainValidationError, match="waarom"):
+        await assignments.transition(
+            db_session, assignment.id, "cancelled", actor=beheerder
+        )
+    await assignments.transition(
+        db_session,
+        assignment.id,
+        "cancelled",
+        actor=beheerder,
+        reason="De opdrachtgever heeft geen budget.",
+    )
+    assert phase.assignment_phase(assignment) is Phase.CLOSED
 
 
 async def test_verbal_agreement_needs_a_note_and_is_audited(

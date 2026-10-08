@@ -262,6 +262,7 @@ def _course_out(view: course.CourseView) -> CourseOut:
         next=CourseNextOut(
             mine=told.mine,
             part=told.part,
+            may_take_over=told.may_take_over,
             headline=told.headline,
             sentence=told.sentence,
             who=told.who,
@@ -512,6 +513,26 @@ async def update_task(
         )
     if body.status is not None:
         await service.set_status(db, task, body.status, actor=person)
+    return await _one(db, access, task)
+
+
+@router.post("/{task_id}/takeover", response_model=None)
+async def take_over_task(
+    task_id: UUID,
+    person: CurrentPerson,
+    subject: CurrentSubject,
+    decider: AccessDecider,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Do a step for the one whose move it is; only who runs the case."""
+    access = _access(db, decider, subject)
+    task, may_edit, _ = await _load(db, access, task_id)
+    if not may_edit:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Alleen wie de zaak beheert neemt een stap over",
+        )
+    await service.take_over(db, task, actor=person)
     return await _one(db, access, task)
 
 

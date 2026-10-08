@@ -9,7 +9,7 @@ export const STATUS_LABELS: Record<string, string> = {
   in_progress: 'In uitvoering',
   completed: 'Afgerond',
   accounted: 'Verantwoord',
-  rejected: 'Afgewezen',
+  rejected: 'Offerte afgewezen',
   cancelled: 'Geannuleerd',
 };
 
@@ -38,7 +38,8 @@ export const STATUS_COLORS: Record<string, BadgeColor> = {
   in_progress: 'success',
   completed: 'neutral',
   accounted: 'neutral',
-  rejected: 'critical',
+  // Not an end: a new quote can follow.
+  rejected: 'warning',
   cancelled: 'critical',
 };
 

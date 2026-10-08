@@ -11,7 +11,7 @@ ASSIGNMENT_STATUS_LABELS: dict[str, str] = {
     "in_progress": "In uitvoering",
     "completed": "Afgerond",
     "accounted": "Verantwoord",
-    "rejected": "Afgewezen",
+    "rejected": "Offerte afgewezen",
     "cancelled": "Geannuleerd",
 }
 

@@ -16,7 +16,17 @@ LEZER = "lezer"
 AANVRAGER = "aanvrager"
 TEKENBEVOEGDE = "tekenbevoegde"
 
-FUNCTIONS = (BEHEERDER, PLANNER, LEZER, AANVRAGER, TEKENBEVOEGDE)
+# Approves a made quote internally before it goes to the client.
+OFFERTEGOEDKEURDER = "offertegoedkeurder"
+
+FUNCTIONS = (
+    BEHEERDER,
+    PLANNER,
+    LEZER,
+    AANVRAGER,
+    TEKENBEVOEGDE,
+    OFFERTEGOEDKEURDER,
+)
 
 
 class Role(Base):

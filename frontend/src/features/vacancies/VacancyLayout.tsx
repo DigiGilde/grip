@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { assignmentTabPath } from '@/features/assignments/paths';
 import { useCaseCourse } from '@/features/tasks/course';
+import { TakeOverButton } from '@/features/tasks/TakeOver';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { useInstance } from '@/layout/useInstance';
 import { formatPeriod } from '@/lib/format';
@@ -180,6 +181,7 @@ function WholeHead({ vacancy, current, instanceName, course, step, onSheet }: Wh
       }}
     >
       {course && <CourseNow course={course} tasksHref={vacancyTabPath(vacancy.id, 'tasks')} />}
+      <TakeOverButton course={course} />
       {course && !course.ended && (
         <CourseBar
           course={course}

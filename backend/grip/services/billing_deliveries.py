@@ -790,6 +790,8 @@ async def document_content(
     from grip.services import quotes
 
     months = sorted({Month.of(e.month) for e in exports if e.kind != "correction"})
+    # Only differences: the months they are about, in words like any other.
+    months = months or sorted({Month.of(e.month) for e in exports})
     period_label = (
         f"{billing_periods.month_name(months[0])}"
         if len(months) == 1

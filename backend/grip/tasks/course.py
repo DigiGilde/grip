@@ -79,6 +79,9 @@ class NextView:
     # (someone else's move on a case the reader runs or works on) or
     # "watches" (no part in it: told where it stands, never "je wacht").
     part: str = "watches"
+    # The reader runs the case and may do this step for the one whose move
+    # it is. Never for a step that waits on someone outside.
+    may_take_over: bool = False
 
 
 @dataclass(frozen=True)
@@ -169,7 +172,11 @@ def _belongs(view: service.TaskView, course: Course, subject: Subject | None) ->
     if subject is None or course.subject == "case":
         return True
     own = subject.repeat_key
-    return task.repeat_key == own or task.repeat_key.startswith(f"{own}:")
+    if task.repeat_key == own or task.repeat_key.startswith(f"{own}:"):
+        return True
+    # A period is made of months: closing one of them is work of the period.
+    parts = (subject.subject_id or "").split(",")
+    return course.subject == "billing_period" and task.repeat_key in parts
 
 
 def _next(
@@ -253,6 +260,10 @@ def _next(
             blocked=told.blocked if part != WATCHES else None,
             task_id=task.id,
             task_key=task.template_key,
+            may_take_over=not mine
+            and first.can_change
+            and task.status != "waiting"
+            and not task.waiting_on,
         ),
         more_to_do,
         more_waiting,
@@ -341,6 +352,24 @@ def views_of(work: _CaseWork) -> list[CourseView]:
             continue
         for subject in case.subjects_of(course.subject):
             result.append(_view(course, case, subject, work.views, ended))
+    if ended and not case_course_taken:
+        # A case that ended outside every course still says how it ended.
+        result.insert(
+            0,
+            CourseView(
+                key="",
+                label="",
+                subject="case",
+                subject_key="",
+                subject_label=None,
+                steps=(),
+                current_key=None,
+                current_label=None,
+                position=None,
+                next=None,
+                ended=ended,
+            ),
+        )
     return result
 
 

@@ -211,6 +211,10 @@ async def _right(
     db: AsyncSession, person: Person, right: str, day: date
 ) -> tuple[str | None, str | None]:
     """Since when the person holds a right, and who granted it."""
+    # A grant starts on the local date (``team.grant_function``) and ``day``
+    # is the UTC date of the decision: after local midnight the first runs
+    # ahead of the second, and a right granted then has to count already.
+    day = max(day, date.today())
     result = await db.execute(
         select(PersonRole)
         .where(

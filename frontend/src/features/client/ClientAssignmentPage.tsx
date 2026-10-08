@@ -16,10 +16,13 @@ import {
 import { AssignmentContextView } from '@/features/nodes';
 import { QUOTE_STATUS_COLORS, QUOTE_STATUS_LABELS } from '@/features/quotes/api';
 import { formatDateTime } from '@/features/quotes/format';
+import { useCaseCourse } from '@/features/tasks/course';
 import { useInstance } from '@/layout/useInstance';
 import { useRouterLinks } from '@/layout/useRouterLinks';
 import { formatDate, formatEuro, formatPeriod } from '@/lib/format';
 import { PageHeading } from '@/pages/PageHeading';
+import { courseAction } from '@/ui/course';
+import { CourseBar, CourseNow } from '@/ui/Workflow';
 import {
   clientKeys,
   fetchClientAssignment,
@@ -283,6 +286,8 @@ export function ClientAssignmentPage() {
   });
 
   const notFound = query.error instanceof ApiError && query.error.status === 404;
+  const course = useCaseCourse('assignment', assignmentId, query.isSuccess).data?.course;
+  const step = courseAction(course);
 
   return (
     <div ref={ref}>
@@ -297,12 +302,24 @@ export function ClientAssignmentPage() {
           ) : null}
           {assignment ? (
             <>
-              <div>
-                <nldd-badge
-                  color={STATUS_COLORS[assignment.status] ?? 'neutral'}
-                  text={statusLabel(assignment.status)}
-                />
-              </div>
+              {/* Where the request stands and whose move it is, as on the
+                  contractor's side: the same course, read as the client. */}
+              {course ? <CourseNow course={course} /> : null}
+              {step ? (
+                <nldd-button-group>
+                  <Button appearance="primary" text={step.text} href={step.href} />
+                </nldd-button-group>
+              ) : null}
+              {course && !course.ended ? (
+                <CourseBar course={course} accessibleLabel={`Verloop van ${assignment.name}`} />
+              ) : (
+                <div>
+                  <nldd-badge
+                    color={STATUS_COLORS[assignment.status] ?? 'neutral'}
+                    text={course?.ended ?? statusLabel(assignment.status)}
+                  />
+                </div>
+              )}
               <Facts assignment={assignment} />
             </>
           ) : null}

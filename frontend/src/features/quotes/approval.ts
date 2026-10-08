@@ -156,7 +156,9 @@ export function awaitsApproval(approval: ApprovalState | null | undefined): bool
 /** Where the approval stands, in one sentence; null when there is nothing to say. */
 export function approvalLine(approval: ApprovalState | null | undefined): string | null {
   if (!approval?.approval_required) return null;
-  const current = approval.current;
+  // A request that was sent back or withdrawn is no longer the current one:
+  // the server keeps it in the history, and the sentence is about that one.
+  const current = approval.current ?? approval.history?.at(-1) ?? null;
   const by = (name: string | null | undefined) => (name ? ` door ${name}` : '');
   switch (approval.status) {
     case 'requested':

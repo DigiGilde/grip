@@ -26,7 +26,7 @@ events leads to a message to another instance.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -179,7 +179,10 @@ async def requirement_for(db: AsyncSession, quote: Quote) -> Requirement:
 
 async def approver_available(db: AsyncSession) -> bool:
     """Whether at least one active person holds the right to approve today."""
-    today = datetime.now(UTC).date()
+    # The same day a grant starts on (``team.grant_function``): the local
+    # date. A UTC date lags behind it after midnight, and a right granted
+    # then would not count until the UTC day turned.
+    today = date.today()
     count = await db.scalar(
         select(func.count())
         .select_from(PersonRole)

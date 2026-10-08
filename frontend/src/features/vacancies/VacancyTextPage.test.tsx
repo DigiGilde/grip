@@ -222,4 +222,63 @@ describe('VacancyTextPage', () => {
     expect(editorOf(container)).toBeNull();
     expect(container.querySelector('nldd-button[appearance="primary"]')).toBeNull();
   });
+
+  it('offers a start instead of an empty editor when there is a standard text', async () => {
+    const empty = WORK([]);
+    const withStandard = {
+      ...empty,
+      drafting_available: true,
+      texts: [{ ...empty.texts[0], standard_text: { role: 'Software engineer', match: 'role' } }],
+    };
+    const calls = stub({
+      ...VACANCY,
+      'GET /api/vacancies/v-1/text-work': [{ body: withStandard }],
+      'POST /api/vacancies/v-1/text-work/standard': [
+        { body: WORK([VERSION('t-1', 1, START)]) },
+      ],
+    });
+    const { container } = renderPage();
+    await waitFor(() =>
+      expect(
+        container.querySelector('nldd-button[text="Begin met de standaardtekst"]'),
+      ).not.toBeNull(),
+    );
+    expect(editorOf(container)).toBeNull();
+    expect(
+      [...container.querySelectorAll('nldd-button')].map((el) => el.getAttribute('text')),
+    ).toEqual(['Begin met de standaardtekst', 'Stel een tekst op maat op', 'Schrijf zelf']);
+    expect(
+      [...container.querySelectorAll('nldd-button[appearance="primary"]')].map((el) =>
+        el.getAttribute('text'),
+      ),
+    ).toEqual(['Begin met de standaardtekst']);
+
+    press(container, 'Begin met de standaardtekst');
+    await waitFor(() => expect(editorOf(container)).not.toBeNull());
+    expect(editorOf(container).value).toBe(START);
+    expect(calls.some((call) => call.method === 'POST')).toBe(true);
+  });
+
+  it('opens the editor straight away for who writes it themselves', async () => {
+    const empty = WORK([]);
+    stub({
+      ...VACANCY,
+      'GET /api/vacancies/v-1/text-work': [
+        {
+          body: {
+            ...empty,
+            texts: [
+              { ...empty.texts[0], standard_text: { role: 'Software engineer', match: 'role' } },
+            ],
+          },
+        },
+      ],
+    });
+    const { container } = renderPage();
+    await waitFor(() =>
+      expect(container.querySelector('nldd-button[text="Schrijf zelf"]')).not.toBeNull(),
+    );
+    press(container, 'Schrijf zelf');
+    await waitFor(() => expect(editorOf(container)).not.toBeNull());
+  });
 });

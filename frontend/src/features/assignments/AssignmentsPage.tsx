@@ -26,7 +26,7 @@ const EMPTY_TEXT: Record<Phase, { text: string; supporting: string }> = {
   },
   closed: {
     text: 'Er zijn geen afgesloten opdrachten',
-    supporting: 'Afgeronde, afgewezen en geannuleerde opdrachten komen hier te staan.',
+    supporting: 'Afgeronde en geannuleerde opdrachten komen hier te staan.',
   },
 };
 

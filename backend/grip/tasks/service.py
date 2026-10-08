@@ -625,6 +625,31 @@ async def assign(
     return task
 
 
+async def take_over(db: AsyncSession, task: Task, *, actor: Person) -> Task:
+    """Do someone else's step for them: the task becomes the actor's, and a
+    note on the task says from whom it was taken."""
+    if not task.is_open:
+        raise DomainValidationError("Deze taak is al afgerond.")
+    if task.assignee_person_id == actor.id:
+        return task
+    previous = (
+        await db.get(Person, task.assignee_person_id)
+        if task.assignee_person_id
+        else None
+    )
+    holder = (
+        previous.name
+        if previous is not None
+        else telling.role_words(task.assignee_role)
+    )
+    await assign(db, task, actor.id, actor=actor)
+    task.notes.append(
+        TaskNote(body=f"Overgenomen van {holder}.", created_by_id=actor.id)
+    )
+    await db.flush()
+    return task
+
+
 async def update_details(
     db: AsyncSession,
     task: Task,

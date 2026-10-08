@@ -127,7 +127,7 @@ De salarisschaal wordt niet opgeslagen. Het kenmerk `digi_gilde` heeft voor zove
 | `billing_export` | periode, regels, exportrun | nieuw |
 | `vacancy` | begrotingsregel, profiel, status, kanaal (intern, federatief, werving), stappen | nieuw |
 
-Statussen van een opdracht: concept, aangevraagd, offerte gemaakt, akkoord, in uitvoering, afgerond, verantwoord. Daarnaast afgewezen en geannuleerd.
+Statussen van een opdracht: concept, aangevraagd, offerte gemaakt, akkoord, in uitvoering, afgerond, verantwoord. Daarnaast offerte afgewezen en geannuleerd. Een afgewezen offerte sluit de opdracht niet: ze blijft potentieel tot er een nieuwe offerte is of iemand haar afsluit zonder opdracht (ADR 0045).
 
 ### Kosten
 

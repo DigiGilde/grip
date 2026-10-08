@@ -55,7 +55,7 @@ from grip.schema.integrations_wies import (
 )
 
 # Agreed work, running or done. Drafts, requests, quotes that are still out,
-# and rejected or cancelled assignments are no business of Wies.
+# rejected quotes and cancelled assignments are no business of Wies.
 EXPORTED_STATUSES = ("accepted", "in_progress", "completed", "accounted")
 # Below this an unfilled remainder is rounding, not a role someone can take.
 OPEN_THRESHOLD = Decimal("0.05")

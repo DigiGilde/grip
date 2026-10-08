@@ -706,7 +706,8 @@ function ActivateSheet({ card, busy, error, onClose, onActivate }: ActivateSheet
   const preview = useQuery({
     queryKey: activationKey(card?.id ?? ''),
     queryFn: () => fetchActivationPreview((card as RateCard).id),
-    enabled: card !== null,
+    // Only a draft can be activated: once it is, there is nothing to preview.
+    enabled: card !== null && card.status === 'draft',
     retry: false,
   });
   return (

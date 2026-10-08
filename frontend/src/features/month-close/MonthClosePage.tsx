@@ -4,6 +4,8 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { useNlddEvent } from '@/components/nldd/events';
 import { Button } from '@/features/assignments/ui';
 import { useAssignmentShell } from '@/features/assignments/shell';
+import { useCaseCourse } from '@/features/tasks/course';
+import { courseLine } from '@/ui/course';
 import { formatDate, formatEuro } from '@/lib/format';
 import { useInstance } from '@/layout/useInstance';
 import { PageHeading } from '@/pages/PageHeading';
@@ -148,6 +150,8 @@ interface PeriodRowsProps {
   period: BillingPeriod;
   /** The period the one thing to do now is in: the only row that stands out. */
   isNext: boolean;
+  /** Whose move the period is, from its course; the last step when nobody's. */
+  whose: string;
   expanded: boolean;
   onToggle: () => void;
   onMonth: (month: string) => void;
@@ -164,6 +168,7 @@ function PeriodRows({
   overview,
   period,
   isNext,
+  whose,
   expanded,
   onToggle,
   onMonth,
@@ -200,7 +205,12 @@ function PeriodRows({
             text={periodStateText(period)}
           />
         </nldd-cell>
-        <nldd-text-cell hide-below="md" size="sm" color="secondary" text={periodLine(period)} />
+        <nldd-text-cell
+          hide-below="md"
+          size="sm"
+          color="secondary"
+          text={whose || periodLine(period)}
+        />
         <nldd-text-cell
           horizontal-alignment="right"
           text={amount ? `**${euro(amount)}**` : ''}
@@ -252,6 +262,12 @@ function PeriodRows({
 export function MonthClosePage() {
   const { assignmentId = '' } = useParams();
   const shell = useAssignmentShell();
+  // Each period has its own course (afsluiten, aanleveren, factuur), from the
+  // same facts as the tasks: a row says whose move it is in the same words.
+  const parts = useCaseCourse('assignment', assignmentId).data?.parts ?? [];
+  const whoseOf = (key: string) =>
+    courseLine(parts.find((part) => part.subject === 'billing_period' && part.subject_key === key))
+      ?.who ?? '';
   const instance = useInstance();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -349,7 +365,7 @@ export function MonthClosePage() {
                   <nldd-table-row slot="header">
                     <nldd-text-cell text="Periode" />
                     <nldd-text-cell hide-below="md" text="Stand" />
-                    <nldd-text-cell hide-below="md" text="Laatste stap" />
+                    <nldd-text-cell hide-below="md" text="Stap" />
                     <nldd-text-cell text="Bedrag" horizontal-alignment="right" />
                     <nldd-cell />
                   </nldd-table-row>
@@ -359,6 +375,7 @@ export function MonthClosePage() {
                         overview={data}
                         period={period}
                         isNext={period.key === current && data.next_step.kind !== 'none'}
+                        whose={whoseOf(period.key)}
                         expanded={isExpanded(period.key)}
                         onToggle={() =>
                           setToggled((now) => ({ ...now, [period.key]: !isExpanded(period.key) }))

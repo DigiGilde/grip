@@ -214,7 +214,8 @@ def render_html(content: dict[str, Any], letterhead: Letterhead | None = None) -
         basis = (
             "Dit is het verschil dat is ontstaan nadat deze periode is "
             "aangeleverd. Het komt bovenop wat eerder over de periode is "
-            "aangeleverd; een negatief bedrag gaat eraf."
+            "aangeleverd; een negatief bedrag gaat eraf. Per regel staan de "
+            "inzet en het tarief zoals ze nu gelden; het bedrag is het verschil."
         )
     elif corrections:
         basis += (

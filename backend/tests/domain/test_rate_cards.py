@@ -289,3 +289,30 @@ async def test_any_date_is_accepted_for_a_card(db_session, beheerder):
             valid_to=date(2031, 1, 1),
             actor=beheerder,
         )
+
+
+async def test_a_card_after_a_draft_builds_on_that_draft(
+    db_session, rate_cards, beheerder
+):
+    """Two years ahead: the second new card continues from the first, which is
+    still a draft, and not from the last card that is in force."""
+    first = await rate_indexation.create_indexed_card(
+        db_session,
+        valid_from=date(2028, 1, 1),
+        valid_to=date(2028, 12, 31),
+        increase_pct=Decimal("10"),
+        rounding="euro",
+        actor=beheerder,
+    )
+    assert first.status == "draft"
+    base = await rates.previous_card(db_session, date(2029, 1, 1))
+    assert base is not None and base.id == first.id
+    second = await rate_indexation.create_indexed_card(
+        db_session,
+        valid_from=date(2029, 1, 1),
+        increase_pct=Decimal("0"),
+        rounding="euro",
+        actor=beheerder,
+    )
+    rate = {b.category: b.monthly_rate_cents for b in second.rate_bands}
+    assert rate == {b.category: b.monthly_rate_cents for b in first.rate_bands}

@@ -449,6 +449,88 @@ async def test_a_quote_that_expired_puts_the_course_back_at_the_quote(
     assert "verlopen" in found["next"]["sentence"]
 
 
+async def test_who_runs_the_case_can_do_a_step_for_the_one_at_move(
+    as_person, build, people, create_person, db_session
+):
+    """Visibly: the task becomes theirs, and a note says from whom."""
+    manager = await create_person("manager@example.org", name="Mila Manager")
+    assignment = await build.assignment(
+        status="draft", owner=people.owner, managers=(manager,)
+    )
+    waits = (await _course(as_person(manager), "assignment", assignment.id))["course"][
+        "next"
+    ]
+    assert waits["part"] == "waits"
+    assert waits["may_take_over"] is True
+
+    # A bystander is offered nothing, and is refused when trying.
+    watches = (await _course(as_person(people.reader), "assignment", assignment.id))[
+        "course"
+    ]["next"]
+    assert watches["may_take_over"] is False
+    refused = await as_person(people.reader).post(
+        f"/api/tasks/{waits['task_id']}/takeover"
+    )
+    assert refused.status_code in (403, 404)
+
+    taken = await as_person(manager).post(f"/api/tasks/{waits['task_id']}/takeover")
+    assert taken.status_code == 200, taken.text
+    assert [note["body"] for note in taken.json()["notes"]] == [
+        "Overgenomen van de eigenaar van de opdracht."
+    ]
+    mine = (await _course(as_person(manager), "assignment", assignment.id))["course"][
+        "next"
+    ]
+    assert mine["part"] == "acts"
+    assert mine["action_text"] == "Maak de begroting"
+    # The owner now sees who has it.
+    owner = (await _course(as_person(people.owner), "assignment", assignment.id))[
+        "course"
+    ]["next"]
+    assert owner["mine"] is False
+    assert owner["who"] == "Mila Manager"
+
+
+async def test_an_internal_assignment_has_a_short_course_of_its_own(
+    as_person, build, people, db_session
+):
+    """No quote and no agreement: budget, start, execute, each with its step."""
+    assignment = await build.assignment(
+        status="draft", kind="internal", owner=people.owner
+    )
+    owner = as_person(people.owner)
+    found = (await _course(owner, "assignment", assignment.id))["course"]
+    assert found["key"] == "intern"
+    assert list(_states(found)) == ["Begroting", "Starten", "Uitvoeren"]
+    assert found["next"]["action_text"] == "Maak de begroting"
+
+    await build.line(assignment)
+    found = (await _course(owner, "assignment", assignment.id))["course"]
+    assert found["current_label"] == "Starten"
+    assert found["next"]["mine"] is True
+    assert found["next"]["task_key"] == "intern.starten"
+    assert found["next"]["action_text"] == "Start de opdracht"
+    assert "offerte" in found["next"]["sentence"]
+
+    # Halfway the two status steps the same task still stands.
+    assignment.status = "accepted"
+    await db_session.flush()
+    found = (await _course(owner, "assignment", assignment.id))["course"]
+    assert found["key"] == "intern"
+    assert found["next"]["task_key"] == "intern.starten"
+
+    assignment.status = "in_progress"
+    await db_session.flush()
+    found = (await _course(owner, "assignment", assignment.id))["course"]
+    assert _states(found) == {
+        "Begroting": "done",
+        "Starten": "done",
+        "Uitvoeren": "current",
+    }
+    # From here the work of the execution: filling roles, closing months.
+    assert found["next"]["task_key"] != "intern.starten"
+
+
 async def test_an_assignment_that_ended_says_how_and_asks_nothing(
     as_person, build, people
 ):
@@ -456,9 +538,10 @@ async def test_an_assignment_that_ended_says_how_and_asks_nothing(
     found = (await _course(as_person(people.owner), "assignment", assignment.id))[
         "course"
     ]
-    assert found is None or found["ended"] == "Geannuleerd"
-    if found:
-        assert found["next"] is None
+    # Ended before there was an agreement: it did not come to an assignment.
+    assert found["ended"] == "Niet doorgegaan"
+    assert found["steps"] == []
+    assert found["next"] is None
 
 
 async def test_a_vacancy_walks_from_request_to_filled(

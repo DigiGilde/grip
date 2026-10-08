@@ -66,6 +66,8 @@ VARIABLES = frozenset(
         # A rejected quote: " op 8 okt 2026" and " De reden: ...", or nothing.
         "afgewezen_op",
         "reden_afwijzing",
+        # The difference of a correction after delivery, once grip keeps it.
+        "bedrag",
     }
 )
 # What stands in for a name the reader may not see or grip does not have.
@@ -115,6 +117,13 @@ _ROLE_WORDS = {
     "aanvrager": "een aanvrager",
     "offertegoedkeurder": "een offertegoedkeurder",
 }
+
+
+def role_words(role: str | None) -> str:
+    """Who holds a task that is nobody's in person, in words."""
+    return _ROLE_WORDS.get(role or "", "een ander")
+
+
 _DECISION_WORDS = {
     "hr_advice": "de HR-adviseur",
     "control_advice": "de controller",

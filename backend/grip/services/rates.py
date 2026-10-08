@@ -122,14 +122,18 @@ async def _check_start_free(session: AsyncSession, valid_from: date) -> None:
 
 
 async def previous_card(session: AsyncSession, valid_from: date) -> RateCard | None:
-    """The card that prices the day before ``valid_from``, or else the last
-    one that started before it."""
+    """The last card that starts before ``valid_from``, whatever its status.
+
+    A draft counts: a new card continues from the last one there is, so a
+    card made after a draft builds on the rates of that draft and not on the
+    card before it.
+    """
     before = [
         card
-        for card in await RateRepository(session).pricing_cards()
+        for card in await RateRepository(session).all_cards()
         if card.valid_from < valid_from
     ]
-    return before[-1] if before else None
+    return max(before, key=lambda card: card.valid_from) if before else None
 
 
 def _copy_bands(card: RateCard, source: RateCard) -> None:

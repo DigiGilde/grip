@@ -38,10 +38,16 @@ async def _read(
 
 def test_function_ids_match_the_seeded_roles() -> None:
     from grip.access import AANVRAGER, BEHEERDER, LEZER, PLANNER, TEKENBEVOEGDE
+    from grip.access.quote_approval import OFFERTEGOEDKEURDER
 
-    assert {BEHEERDER, PLANNER, LEZER, AANVRAGER, TEKENBEVOEGDE} == set(
-        role_model.FUNCTIONS
-    )
+    assert {
+        BEHEERDER,
+        PLANNER,
+        LEZER,
+        AANVRAGER,
+        TEKENBEVOEGDE,
+        OFFERTEGOEDKEURDER,
+    } == set(role_model.FUNCTIONS)
 
 
 # --- planner ---------------------------------------------------------------

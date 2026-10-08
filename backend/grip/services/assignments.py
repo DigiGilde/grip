@@ -368,6 +368,16 @@ def _check_ready_for(
         raise DomainValidationError(
             "Noteer bij een mondeling akkoord wie akkoord gaf en wanneer."
         )
+    if (
+        target == "cancelled"
+        and assignment.status == "rejected"
+        and not (reason and reason.strip())
+    ):
+        # Ending after a rejected quote is a decision of its own: say why.
+        raise DomainValidationError(
+            "Schrijf op waarom de opdracht niet doorgaat. Zonder reden blijft "
+            "ze openstaan voor een nieuwe offerte."
+        )
     if not enforce:
         return
     if (

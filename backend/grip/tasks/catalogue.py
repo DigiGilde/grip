@@ -62,8 +62,8 @@ CASE_FACTS: dict[str, frozenset[str]] = {
             "accounted",
             "rejected",
             "cancelled",
-            "quoting",
             "declined",
+            "not_proceeded",
         }
     ),
     "vacancy": frozenset(
@@ -205,7 +205,7 @@ STATUS_LABELS: dict[str, str] = {
 }
 
 FACT_LABELS: dict[str, str] = {
-    "quoting": "er wordt aan een offerte gewerkt, ook na een afwijzing",
+    "not_proceeded": "afgesloten zonder dat er een opdracht van kwam",
     "declined": "de opdrachtgever heeft de offerte afgewezen",
     "budget_has_line": "de begroting heeft een regel",
     "quote_issued": "de offerte is uitgegeven",

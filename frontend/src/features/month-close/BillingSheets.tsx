@@ -228,16 +228,28 @@ export function DeliverSheet({ overview, period, onClose }: DeliverSheetProps) {
       }}
     >
       <Stack gap="close">
-        <nldd-text>
-          Grip maakt een factuurverzoek: één document met het bedrag, de specificatie per maand en
-          het factuuradres. Daarmee maakt de financiële administratie de factuur.
-        </nldd-text>
-        {corrections.length > 0 ? (
-          <Quiet>
-            Hierin zit een naverrekening over {corrections.map((month) => month.label).join(' en ')}
-            : de prijs is na de aanlevering gewijzigd.
-          </Quiet>
-        ) : null}
+        {/* The words of the document that comes out: only differences is a naverrekening. */}
+        {shown?.correction ? (
+          <nldd-text>
+            Grip maakt een naverrekening: één document met het verschil over{' '}
+            {corrections.map((month) => month.label).join(' en ')} en het factuuradres. De prijs is
+            na de aanlevering gewijzigd; de financiële administratie verrekent het verschil.
+          </nldd-text>
+        ) : (
+          <>
+            <nldd-text>
+              Grip maakt een factuurverzoek: één document met het bedrag, de specificatie per maand
+              en het factuuradres. Daarmee maakt de financiële administratie de factuur.
+            </nldd-text>
+            {corrections.length > 0 ? (
+              <Quiet>
+                Hierin zit een naverrekening over{' '}
+                {corrections.map((month) => month.label).join(' en ')}: de prijs is na de
+                aanlevering gewijzigd.
+              </Quiet>
+            ) : null}
+          </>
+        )}
       </Stack>
       {asked ? (
         <>

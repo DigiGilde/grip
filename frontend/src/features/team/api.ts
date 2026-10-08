@@ -129,6 +129,13 @@ export const FUNCTIONS = [
     description: 'Tekent offertes namens de organisatie en bindt haar daarmee',
     farReaching: true,
   },
+  {
+    id: 'offertegoedkeurder',
+    label: 'Interne goedkeurder van offertes',
+    description:
+      'Keurt een gemaakte offerte intern goed of stuurt haar terug, voordat zij naar de opdrachtgever gaat',
+    farReaching: false,
+  },
 ] as const;
 
 export function functionLabel(id: string): string {

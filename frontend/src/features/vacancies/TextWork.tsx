@@ -8,13 +8,15 @@ import { ErrorNotice, FormSheet, LoadError, Loading, Quiet, Section, Stack } fro
 import { VACANCY_KEYS, type TextKind, type Vacancy } from './api';
 import { todayIso } from './hooks';
 import { TEXT_KIND_LABELS } from './labels';
+import { useCaseCourse } from '@/features/tasks/course';
+import { courseLine } from '@/ui/course';
+import { TailoredSheet } from './TailoredSheet';
 import { vacancyTextWritePath } from './paths';
 import { useVacancyShell } from './shell';
 import { StructuredText } from './StructuredText';
 import {
   TEXT_WORK_KEY,
   addRemark,
-  draftTailored,
   fetchTextWork,
   giveVerdict,
   offerForReview,
@@ -263,45 +265,6 @@ function JudgeSheet({
   );
 }
 
-function TailoredSheet({
-  vacancyId,
-  note,
-  onClose,
-}: {
-  vacancyId: string;
-  note: string | null | undefined;
-  onClose: () => void;
-}) {
-  const [instruction, setInstruction] = useState('');
-  const change = useWorkChange(vacancyId, () => draftTailored(vacancyId, instruction), onClose);
-  return (
-    <FormSheet
-      open
-      title="Stel een tekst op maat op"
-      submitText={change.busy ? 'Het concept wordt geschreven' : 'Stel een concept op'}
-      onSubmit={() => change.run(undefined)}
-      onClose={onClose}
-      busy={change.busy}
-      error={change.error}
-    >
-      <TextInput
-        label="Wat is bijzonder aan deze vacature"
-        hint="Bijvoorbeeld wat het team maakt en waar de nadruk op ligt. Noem geen personen."
-        value={instruction}
-        onChange={setInstruction}
-        multiline
-        optional
-      />
-      <Quiet>
-        {change.busy
-          ? 'Dit duurt ongeveer een halve minuut.'
-          : 'Het concept volgt de standaardtekst van de rol. Je leest het, past het aan en stelt het vast.'}
-        {note ? ` ${note}` : ''}
-      </Quiet>
-    </FormSheet>
-  );
-}
-
 function RemarkSheet({
   vacancyId,
   sheet,
@@ -465,10 +428,13 @@ function TextBlock({
   data,
   open,
   leading,
+  whose,
 }: {
   vacancy: Vacancy;
   work: Work;
   data: VacancyTextWork;
+  /** Whose move it is, from the course of this text; said when the text itself does not. */
+  whose?: string | undefined;
   open: (sheet: Sheet) => void;
   /**
    * The one text on the screen whose next step leads. The page header holds
@@ -561,7 +527,7 @@ function TextBlock({
     <Section title={label}>
       <nldd-container layout="row" gap="8" vertical-alignment="center">
         <nldd-tag color={STATE_COLORS[work.state]} text={work.state_text} />
-        {work.with_whom && <Quiet>{work.with_whom}</Quiet>}
+        {(work.with_whom ?? whose) && <Quiet>{work.with_whom ?? whose}</Quiet>}
       </nldd-container>
       {work.revising && settled && (
         <Quiet>
@@ -744,6 +710,12 @@ export function TextWork({ vacancy }: { vacancy: Vacancy }) {
   });
   const [sheet, setSheet] = useState<Sheet | null>(null);
   const [opened, setOpened] = useState(0);
+  // Each text has its own course (schrijven, beoordelen, vaststellen), from
+  // the same facts as its tasks.
+  const parts = useCaseCourse('vacancy', vacancy.id).data?.parts ?? [];
+  const whoseOf = (kind: TextKind) =>
+    courseLine(parts.find((part) => part.subject === 'text' && part.subject_key === kind))?.who ||
+    undefined;
   if (query.isPending) return <Loading />;
   if (query.isError) return <LoadError error={query.error} retry={() => void query.refetch()} />;
   const data = query.data;
@@ -771,6 +743,7 @@ export function TextWork({ vacancy }: { vacancy: Vacancy }) {
           data={data}
           open={open}
           leading={work.kind === leadingKind}
+          whose={whoseOf(work.kind)}
         />
       ))}
       <Publications

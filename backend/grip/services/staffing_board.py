@@ -23,7 +23,11 @@ from grip.calc import Month
 from grip.models.person import Person
 from grip.repositories.domain import MonthCloseRepository
 from grip.services import assignment_views as views
-from grip.services.phase import VERBALLY_AGREED
+from grip.services.phase import (
+    VERBALLY_AGREED,
+    Commitment,
+    statuses_with_commitment,
+)
 from grip.services.reports import steering
 from grip.services.vacancies import service as vacancies
 
@@ -156,11 +160,10 @@ async def board(
     statuses = await views.assignment_statuses(
         session, {view.assignment_id for view in allocations}
     )
-    # Inzet on an assignment that was rejected or cancelled will not happen.
+    # Inzet on an assignment that was cancelled will not happen.
+    gone = statuses_with_commitment(Commitment.NONE)
     allocations = [
-        view
-        for view in allocations
-        if statuses.get(view.assignment_id) not in ("rejected", "cancelled")
+        view for view in allocations if statuses.get(view.assignment_id) not in gone
     ]
     closed: dict[UUID, list[date]] = {}
     for allocation_id, month, _pct in await MonthCloseRepository(session).established(

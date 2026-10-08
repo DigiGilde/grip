@@ -347,7 +347,7 @@ async def occupancy(
 
     A person is available in a month with a billing scale valid in it, or
     with inzet in it. Persons with neither in the whole span are left out.
-    Inzet on a rejected or cancelled assignment does not count.
+    Inzet on a cancelled assignment does not count.
     """
     if not months:
         return []
@@ -564,7 +564,7 @@ async def last_inzet_end(
     """Per person the last day of inzet, on any assignment that still counts.
 
     For the line "vrij, laatste inzet tot ..." of a person without inzet.
-    Inzet on a rejected or cancelled assignment is left out.
+    Inzet on a cancelled assignment is left out.
     """
     latest: dict[UUID, date] = {}
     for allocation in await staffing.staffed_allocations(
