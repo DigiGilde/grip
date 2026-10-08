@@ -56,15 +56,24 @@ PERSON = (PersonScale("p", date(2025, 1, 1), 14),)
 
 def allocation(start, end, pct=100):
     return Allocation(
-        id="a", person_id="p", budget_line_id="line",
-        start_date=start, end_date=end, fte_pct=Decimal(pct),
+        id="a",
+        person_id="p",
+        budget_line_id="line",
+        start_date=start,
+        end_date=end,
+        fte_pct=Decimal(pct),
     )
 
 
 def line(start, end, fte="1", category="D"):
     return BudgetLine(
-        id="line", assignment_id="x", kind=BudgetLineKind.PERSONNEL,
-        fte=Decimal(fte), rate_category=category, start_date=start, end_date=end,
+        id="line",
+        assignment_id="x",
+        kind=BudgetLineKind.PERSONNEL,
+        fte=Decimal(fte),
+        rate_category=category,
+        start_date=start,
+        end_date=end,
     )
 
 
@@ -72,7 +81,9 @@ def test_card_change_on_1_july_inside_an_allocation():
     alloc = allocation(date(2026, 1, 1), date(2026, 12, 31))
     months = allocation_months(alloc, BOOK, PERSON)
 
-    assert [m.monthly_rate_cents for m in months] == [18_000 * EUR] * 6 + [19_000 * EUR] * 6
+    assert [m.monthly_rate_cents for m in months] == [18_000 * EUR] * 6 + [
+        19_000 * EUR
+    ] * 6
     assert allocation_amount(alloc, BOOK, PERSON) == (6 * 18_000 + 6 * 19_000) * EUR
     # Subtotals stay per calendar year: a way of presenting, not of pricing.
     assert allocation_amount(alloc, BOOK, PERSON, year=2026) == 222_000 * EUR
@@ -106,7 +117,10 @@ def test_scale_mapping_that_differs_between_two_cards_in_one_year():
     (mismatch,) = category_mismatches(
         line(date(2026, 1, 1), date(2026, 12, 31)), [alloc], book, PERSON
     )
-    assert (str(mismatch.first_month), str(mismatch.last_month)) == ("2026-07", "2026-12")
+    assert (str(mismatch.first_month), str(mismatch.last_month)) == (
+        "2026-07",
+        "2026-12",
+    )
     assert (mismatch.line_category, mismatch.person_category) == ("D", "C")
 
 
@@ -121,7 +135,9 @@ def test_gap_between_cards_is_an_error_never_zero():
             person_monthly_rate(book, PERSON, "p", month)
         assert error.value.month == month and error.value.year == 2026
     with pytest.raises(MissingRateCardError):
-        allocation_amount(allocation(date(2026, 1, 1), date(2026, 12, 31)), book, PERSON)
+        allocation_amount(
+            allocation(date(2026, 1, 1), date(2026, 12, 31)), book, PERSON
+        )
     with pytest.raises(MissingRateCardError):
         budgeted(line(date(2026, 6, 1), date(2026, 7, 31)), book)
     # Before the first card there is nothing either.
@@ -132,17 +148,18 @@ def test_gap_between_cards_is_an_error_never_zero():
 def test_kpi_target_and_realisation_over_a_year_with_two_cards():
     target = BillabilityTarget(person_id="p", year=2026, target_pct=Decimal(90))
     # The target stays a yearly agreement; the amount sums the monthly rates.
-    assert kpi_target(target, BOOK, PERSON) == round(0.9 * (6 * 18_000 + 6 * 19_000)) * EUR
+    assert (
+        kpi_target(target, BOOK, PERSON) == round(0.9 * (6 * 18_000 + 6 * 19_000)) * EUR
+    )
     alloc = allocation(date(2026, 1, 1), date(2026, 12, 31), pct=80)
-    assert kpi_realisation("p", 2026, [alloc], BOOK, PERSON) == round(
-        0.8 * (6 * 18_000 + 6 * 19_000)
-    ) * EUR
+    assert (
+        kpi_realisation("p", 2026, [alloc], BOOK, PERSON)
+        == round(0.8 * (6 * 18_000 + 6 * 19_000)) * EUR
+    )
 
 
 def test_draft_does_not_price_and_never_wins_over_an_active_card():
-    draft = card(
-        date(2026, 10, 1), None, {"D": 25_000}, status=RateCardStatus.DRAFT
-    )
+    draft = card(date(2026, 10, 1), None, {"D": 25_000}, status=RateCardStatus.DRAFT)
     book = RateBook(cards=(FIRST_HALF, FROM_JULY, draft))
     assert person_monthly_rate(book, PERSON, "p", Month(2026, 11)) == 19_000 * EUR
     with_draft = RateBook(cards=(FIRST_HALF, FROM_JULY, draft), include_draft=True)
@@ -150,7 +167,9 @@ def test_draft_does_not_price_and_never_wins_over_an_active_card():
     only_draft = RateBook(cards=(FIRST_HALF, draft), include_draft=True)
     assert person_monthly_rate(only_draft, PERSON, "p", Month(2026, 11)) == 25_000 * EUR
     with pytest.raises(MissingRateCardError):
-        person_monthly_rate(RateBook(cards=(FIRST_HALF, draft)), PERSON, "p", Month(2026, 11))
+        person_monthly_rate(
+            RateBook(cards=(FIRST_HALF, draft)), PERSON, "p", Month(2026, 11)
+        )
 
 
 def test_a_card_can_start_and_end_on_any_day():
@@ -221,7 +240,9 @@ def test_promotion_and_new_card_in_the_same_month():
     alloc = allocation(date(2026, 7, 1), date(2026, 7, 31))
     (july,) = allocation_months(alloc, MID_BOOK, promoted)
 
-    assert [(s.start, s.end, s.category, s.monthly_rate_cents) for s in july.stretches] == [
+    assert [
+        (s.start, s.end, s.category, s.monthly_rate_cents) for s in july.stretches
+    ] == [
         (date(2026, 7, 1), date(2026, 7, 9), "C", 15_000 * EUR),
         (date(2026, 7, 10), date(2026, 7, 14), "D", 18_000 * EUR),
         (date(2026, 7, 15), date(2026, 7, 31), "D", 19_000 * EUR),
@@ -249,7 +270,14 @@ def test_an_unchanged_month_is_priced_exactly_as_before():
     # A book whose cards change on month boundaries gives what a book with
     # year cards gives for the same rates.
     yearly = RateBook(
-        cards=(RateCard.for_year(2026, RateCardStatus.ACTIVE, FIRST_HALF.rate_bands, FIRST_HALF.scale_bands),)
+        cards=(
+            RateCard.for_year(
+                2026,
+                RateCardStatus.ACTIVE,
+                FIRST_HALF.rate_bands,
+                FIRST_HALF.scale_bands,
+            ),
+        )
     )
     split = RateBook(
         cards=(
@@ -288,10 +316,7 @@ def test_budget_line_across_a_card_change_inside_a_month():
 def test_kpi_target_by_day_inside_a_month_with_a_change():
     target = BillabilityTarget(person_id="p", year=2026, target_pct=Decimal(100))
     year_rate = (
-        6 * 18_000
-        + Fraction(14, 31) * 18_000
-        + Fraction(17, 31) * 19_000
-        + 5 * 19_000
+        6 * 18_000 + Fraction(14, 31) * 18_000 + Fraction(17, 31) * 19_000 + 5 * 19_000
     ) * EUR
     assert kpi_target(target, MID_BOOK, PERSON) == round(year_rate)
 
@@ -303,7 +328,10 @@ def test_gap_by_day_inside_a_month():
         allocation_months(allocation(date(2026, 7, 1), date(2026, 7, 31)), book, PERSON)
     assert error.value.day == date(2026, 7, 15)
     # Inzet that stays out of the gap prices.
-    assert allocation_amount(allocation(date(2026, 7, 1), date(2026, 7, 14)), book, PERSON) > 0
+    assert (
+        allocation_amount(allocation(date(2026, 7, 1), date(2026, 7, 14)), book, PERSON)
+        > 0
+    )
 
 
 def test_whole_month_strategy_spreads_a_month_over_its_stretches():
@@ -322,7 +350,8 @@ def test_partial_month_at_a_card_boundary():
     alloc = allocation(date(2026, 6, 16), date(2026, 7, 15))
     june, july = allocation_months(alloc, BOOK, PERSON)
     assert (june.monthly_rate_cents, july.monthly_rate_cents) == (
-        18_000 * EUR, 19_000 * EUR,
+        18_000 * EUR,
+        19_000 * EUR,
     )
     assert june.cents == 9_000 * EUR
     assert july.cents == round(19_000 * EUR * 15 / 31)

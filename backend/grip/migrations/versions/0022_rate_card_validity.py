@@ -121,7 +121,6 @@ def upgrade() -> None:
         )
         op.create_index(op.f(f"ix_{table}_rate_card_id"), table, ["rate_card_id"])
 
-
     # A delivery of billing data is the original of a month or a correction
     # on it (naverrekening).
     op.add_column(

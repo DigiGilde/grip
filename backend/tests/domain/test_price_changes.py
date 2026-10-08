@@ -33,8 +33,13 @@ JULY, AUGUST = Month(2026, 7), Month(2026, 8)
 
 @pytest.fixture
 async def work(
-    db_session, rate_cards, beheerder, make_person, make_assignment,
-    add_personnel_line, accept,
+    db_session,
+    rate_cards,
+    beheerder,
+    make_person,
+    make_assignment,
+    add_personnel_line,
+    accept,
 ):
     """A person at scale 11 on an assignment all year, on a line budgeted at B."""
     person = await make_person(11)
@@ -84,8 +89,7 @@ async def test_promoted_from_1_july_and_the_invoices_follow(
     (difference,) = await pricing.rate_differences(db_session, assignment.id)
     assert difference.cause == "promotion" and difference.since == date(2026, 7, 1)
     assert difference.text == (
-        "gepromoveerd per 1 juli 2026: vanaf dan categorie C, de regel is "
-        "begroot op B"
+        "gepromoveerd per 1 juli 2026: vanaf dan categorie C, de regel is begroot op B"
     )
     assert difference.generic_text == "tariefwijziging per 1 juli 2026"
 
@@ -100,8 +104,13 @@ async def test_promoted_from_1_july_and_the_invoices_follow(
         assert data.lines[0].category == ("B" if rate == B else "C")
     # And an invoice recorded for July compares at the new rate.
     await outgoing_invoices.record_invoice(
-        db_session, assignment.id, export_ids=[export.id], invoice_number="F-07",
-        invoice_date=date(2026, 8, 5), amount_cents=C, actor=beheerder,
+        db_session,
+        assignment.id,
+        export_ids=[export.id],
+        invoice_number="F-07",
+        invoice_date=date(2026, 8, 5),
+        amount_cents=C,
+        actor=beheerder,
         today=date(2026, 8, 5),
     )
     july = (await _position(db_session, assignment))["2026-07"]
@@ -123,18 +132,26 @@ async def test_promotion_recorded_afterwards_is_billed_as_a_correction(
         db_session, assignment.id, JULY, actor=beheerder
     )
     await outgoing_invoices.record_invoice(
-        db_session, assignment.id, export_ids=[original.id], invoice_number="F-07",
-        invoice_date=date(2026, 8, 5), amount_cents=B, actor=beheerder,
+        db_session,
+        assignment.id,
+        export_ids=[original.id],
+        invoice_number="F-07",
+        invoice_date=date(2026, 8, 5),
+        amount_cents=B,
+        actor=beheerder,
         today=date(2026, 8, 5),
     )
 
     # Before saving: what it touches.
-    impact = await rates.scale_change_preview(db_session, person.id, date(2026, 7, 1), 12)
+    impact = await rates.scale_change_preview(
+        db_session, person.id, date(2026, 7, 1), 12
+    )
     (touched,) = impact.assignments
     assert touched.assignment_id == assignment.id
     by_month = {str(m.month): m for m in touched.months}
     assert (by_month["2026-07"].state, by_month["2026-07"].invoice_number) == (
-        "invoiced", "F-07",
+        "invoiced",
+        "F-07",
     )
     assert by_month["2026-08"].state == "closed"
     assert by_month["2026-09"].state == "open"
@@ -144,7 +161,9 @@ async def test_promotion_recorded_afterwards_is_billed_as_a_correction(
     assert impact.open_difference_cents == 4 * (C - B)
     assert impact.reaches_into_the_past
     # Nothing was saved, and nothing was announced.
-    assert (await pricing.assignment_overview(db_session, assignment.id)).used_cents == 12 * B
+    assert (
+        await pricing.assignment_overview(db_session, assignment.id)
+    ).used_cents == 12 * B
     assert seen == []
 
     await rates.set_person_scale(
@@ -158,7 +177,9 @@ async def test_promotion_recorded_afterwards_is_billed_as_a_correction(
     # The difference is still to deliver, and the task layer hears of it.
     position = await _position(db_session, assignment)
     assert position["2026-07"].to_deliver_cents == C - B
-    arisen = [payload for kind, payload in seen if kind == events.BILLING_CORRECTION_AROSE]
+    arisen = [
+        payload for kind, payload in seen if kind == events.BILLING_CORRECTION_AROSE
+    ]
     assert len(arisen) == 1
     assert arisen[0]["month"] == "2026-07"
     assert arisen[0]["difference_cents"] == C - B
@@ -170,7 +191,10 @@ async def test_promotion_recorded_afterwards_is_billed_as_a_correction(
     assert august.total_cents == C
 
     correction = await month_close.create_correction_export(
-        db_session, assignment.id, JULY, actor=beheerder,
+        db_session,
+        assignment.id,
+        JULY,
+        actor=beheerder,
         reason="Promotie met ingang van 1 juli.",
     )
     await db_session.refresh(correction, ["lines"])
@@ -189,8 +213,13 @@ async def test_promotion_recorded_afterwards_is_billed_as_a_correction(
             db_session, assignment.id, JULY, actor=beheerder
         )
     await outgoing_invoices.record_invoice(
-        db_session, assignment.id, export_ids=[correction.id], invoice_number="F-07a",
-        invoice_date=date(2026, 9, 20), amount_cents=C - B, actor=beheerder,
+        db_session,
+        assignment.id,
+        export_ids=[correction.id],
+        invoice_number="F-07a",
+        invoice_date=date(2026, 9, 20),
+        amount_cents=C - B,
+        actor=beheerder,
         today=date(2026, 9, 20),
     )
     july = (await _position(db_session, assignment))["2026-07"]
@@ -233,7 +262,8 @@ async def test_a_scale_recorded_too_high_is_corrected_down(
         )
     ).all()
     assert [tuple(row) for row in exports] == [
-        ("original", 18_000_00), ("correction", -3_000_00),
+        ("original", 18_000_00),
+        ("correction", -3_000_00),
     ]
 
 
@@ -250,7 +280,10 @@ async def test_promotion_on_the_15th_prices_and_delivers_by_day(
 
     # The established percentage of a closed month applies to each stretch.
     await month_close.close_month(
-        db_session, assignment.id, JULY, actor=beheerder,
+        db_session,
+        assignment.id,
+        JULY,
+        actor=beheerder,
         established={allocation.id: Decimal(80)},
     )
     data = await month_close.billing_data(db_session, assignment.id, JULY)
@@ -275,8 +308,12 @@ async def test_rate_card_with_effect_in_the_past_follows_the_same_rule(
         db_session, assignment.id, JULY, actor=beheerder
     )
     card = await rate_indexation.create_indexed_card(
-        db_session, valid_from=date(2026, 7, 1), valid_to=date(2026, 12, 31),
-        increase_pct=Decimal("5"), rounding="euro", actor=beheerder,
+        db_session,
+        valid_from=date(2026, 7, 1),
+        valid_to=date(2026, 12, 31),
+        increase_pct=Decimal("5"),
+        rounding="euro",
+        actor=beheerder,
     )
     card_id = card.id
     more = 600_00  # 5 percent of 12,000
@@ -305,14 +342,20 @@ async def test_rate_card_with_effect_in_the_past_follows_the_same_rule(
     assert await price_changes.pending_corrections(db_session) == {}
 
 
-async def test_any_date_is_accepted_for_a_scale(db_session, rate_cards, beheerder, make_person):
+async def test_any_date_is_accepted_for_a_scale(
+    db_session, rate_cards, beheerder, make_person
+):
     from grip.repositories.domain import PersonDetailRepository
 
     person = await make_person(11)
-    await rates.set_person_scale(db_session, person.id, date(2026, 9, 1), 13, actor=beheerder)
+    await rates.set_person_scale(
+        db_session, person.id, date(2026, 9, 1), 13, actor=beheerder
+    )
     # Recorded afterwards, for a day inside the first period: that period is
     # cut, and the new one runs until the next.
-    await rates.set_person_scale(db_session, person.id, date(2026, 3, 17), 12, actor=beheerder)
+    await rates.set_person_scale(
+        db_session, person.id, date(2026, 3, 17), 12, actor=beheerder
+    )
     scales = await PersonDetailRepository(db_session).scales([person.id])
     assert [(s.valid_from, s.valid_to, s.billing_scale) for s in scales] == [
         (date(2026, 1, 1), date(2026, 3, 16), 11),
@@ -321,7 +364,11 @@ async def test_any_date_is_accepted_for_a_scale(db_session, rate_cards, beheerde
     ]
     with pytest.raises(DomainValidationError, match="overlapt"):
         await rates.set_person_scale(
-            db_session, person.id, date(2026, 5, 1), 12, actor=beheerder,
+            db_session,
+            person.id,
+            date(2026, 5, 1),
+            12,
+            actor=beheerder,
             valid_to=date(2026, 10, 31),
         )
     # The refusal changed nothing.

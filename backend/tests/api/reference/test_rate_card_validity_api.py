@@ -57,7 +57,9 @@ async def test_new_card_from_a_date_preview_and_activate(client, world, as_perso
     assert impact["correction_cents"] == 0
     assert impact["assignments"][0]["months"][0]["month"] == "2026-07"
     # Nothing was saved by looking.
-    assert (await client.get("/api/rates/cards/2026")).json()["valid_to"] == "2026-12-31"
+    assert (await client.get("/api/rates/cards/2026")).json()[
+        "valid_to"
+    ] == "2026-12-31"
 
     renamed = await client.patch(
         f"/api/rates/cards/{card['id']}", json={"name": "Tarieven tweede helft 2026"}
@@ -66,7 +68,9 @@ async def test_new_card_from_a_date_preview_and_activate(client, world, as_perso
     activated = await client.post(f"/api/rates/cards/{card['id']}/activate")
     assert activated.status_code == 200, activated.text
     assert activated.json()["status"] == "active"
-    assert (await client.get("/api/rates/cards/2026")).json()["valid_to"] == "2026-07-14"
+    assert (await client.get("/api/rates/cards/2026")).json()[
+        "valid_to"
+    ] == "2026-07-14"
     closed = await client.post("/api/rates/cards/2026/close")
     assert closed.json()["status"] == "closed"
 
@@ -100,12 +104,15 @@ async def test_rates_valid_on_a_date_and_over_a_period(client, world, as_person)
         ("2026-06-01", "2026-07-14"),
         ("2026-07-15", "2026-09-30"),
     ]
-    assert "Vanaf 15 juli 2026 geldt Tarieven vanaf 15 juli 2026 met andere tarieven" in (
-        period["summary"]
+    assert (
+        "Vanaf 15 juli 2026 geldt Tarieven vanaf 15 juli 2026 met andere tarieven"
+        in (period["summary"])
     )
 
 
-async def test_only_the_beheerder_starts_previews_and_activates(client, world, as_person):
+async def test_only_the_beheerder_starts_previews_and_activates(
+    client, world, as_person
+):
     as_person(world.beheerder)
     created = await client.post(
         "/api/rates/cards", json={"valid_from": "2026-07-15", "copy_previous": True}

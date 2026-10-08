@@ -1,5 +1,8 @@
 """Migration 0022: year cards become cards with a validity, up and down."""
 
+# The rows are SQL, one statement per line.
+# ruff: noqa: E501
+
 import os
 import subprocess
 import sys
@@ -38,7 +41,10 @@ async def test_year_cards_become_cards_with_a_validity_and_back():
     def alembic(*args, ok=True):
         result = subprocess.run(
             [sys.executable, "-m", "alembic", *args],
-            cwd=BACKEND, env=env, capture_output=True, text=True,
+            cwd=BACKEND,
+            env=env,
+            capture_output=True,
+            text=True,
         )
         assert (result.returncode == 0) is ok, result.stderr
         return result
@@ -129,20 +135,28 @@ async def test_year_cards_become_cards_with_a_validity_and_back():
         # ... and then back to what it was.
         alembic("downgrade", "0021_quote_reference")
         assert await rows("SELECT year, status FROM rate_card ORDER BY year") == [
-            (2025, "closed"), (2026, "active"), (2027, "draft"),
+            (2025, "closed"),
+            (2026, "active"),
+            (2027, "draft"),
         ]
         assert await rows(
             "SELECT year, category, monthly_rate_cents FROM rate_band ORDER BY year, category"
         ) == [
-            (2025, "D", 1700000), (2026, "C", 1500000),
-            (2026, "D", 1800000), (2027, "D", 1890000),
+            (2025, "D", 1700000),
+            (2026, "C", 1500000),
+            (2026, "D", 1800000),
+            (2027, "D", 1890000),
         ]
         assert dict(await rows("SELECT entity, entity_id FROM audit_log")) == {
-            "rate_card": "2026", "rate_band": "2026/D",
-            "scale_band": "2026/14", "assignment": "2026",
+            "rate_card": "2026",
+            "rate_band": "2026/D",
+            "scale_band": "2026/14",
+            "assignment": "2026",
         }
         alembic("upgrade", "0022_rate_card_validity")
     finally:
         async with admin.connect() as conn:
-            await conn.execute(text(f'DROP DATABASE IF EXISTS "{scratch}" WITH (FORCE)'))
+            await conn.execute(
+                text(f'DROP DATABASE IF EXISTS "{scratch}" WITH (FORCE)')
+            )
         await admin.dispose()

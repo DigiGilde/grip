@@ -26,7 +26,7 @@ from grip.models.audit_log import AuditLog
 from grip.models.cost import CostCoverage, CostItem, InvoiceLine
 from grip.models.person import Person
 from grip.models.person_details import BillabilityTarget, PersonScale
-from grip.models.rates import RateBand, RateCard, ScaleBand
+from grip.models.rates import RateBand, ScaleBand
 from grip.repositories.domain import RateRepository
 from grip.services import events, rates, team
 from tests.importers.grist.builder import build_grist

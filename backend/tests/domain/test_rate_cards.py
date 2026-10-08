@@ -16,7 +16,9 @@ from grip.services.errors import ClosedYearError, DomainValidationError
 MID = date(2026, 7, 15)
 
 
-async def _staffed(db_session, beheerder, make_person, make_assignment, add_personnel_line):
+async def _staffed(
+    db_session, beheerder, make_person, make_assignment, add_personnel_line
+):
     person = await make_person(14)  # category D
     assignment = await make_assignment(end_date=date(2026, 12, 31))
     line = await add_personnel_line(assignment, fte="1")
@@ -29,8 +31,12 @@ async def _staffed(db_session, beheerder, make_person, make_assignment, add_pers
 async def _new_card(db_session, beheerder, **kwargs):
     kwargs.setdefault("valid_to", date(2026, 12, 31))
     return await rate_indexation.create_indexed_card(
-        db_session, valid_from=MID, increase_pct=Decimal("4"), rounding="ten",
-        actor=beheerder, **kwargs,
+        db_session,
+        valid_from=MID,
+        increase_pct=Decimal("4"),
+        rounding="ten",
+        actor=beheerder,
+        **kwargs,
     )
 
 
@@ -105,7 +111,12 @@ async def test_preview_shows_what_activating_does_and_saves_nothing(
     (touched,) = impact.assignments
     assert touched.assignment_id == assignment.id
     assert [str(m.month) for m in touched.months] == [
-        "2026-07", "2026-08", "2026-09", "2026-10", "2026-11", "2026-12",
+        "2026-07",
+        "2026-08",
+        "2026-09",
+        "2026-10",
+        "2026-11",
+        "2026-12",
     ]
     # Nothing was saved.
     assert (await rates.get_card(db_session, card_id)).status == "draft"
@@ -140,8 +151,10 @@ async def test_activating_ends_the_previous_card_and_reprices_by_day(
     activation = [r for r in rows if (r.new_value or {}).get("shortened")]
     assert len(activation) == 1 and activation[0].entity_id == str(card.id)
     assert activation[0].new_value["shortened"] == {
-        "id": str(old.id), "name": "Tarieven 2026",
-        "old_valid_to": "2026-12-31", "new_valid_to": "2026-07-14",
+        "id": str(old.id),
+        "name": "Tarieven 2026",
+        "old_valid_to": "2026-12-31",
+        "new_valid_to": "2026-07-14",
     }
     # The budget and the inzet reprice from 15 July, by day.
     july = round(Fraction(14, 31) * 18_000_00 + Fraction(17, 31) * 18_720_00)
@@ -155,11 +168,13 @@ async def test_activating_ends_the_previous_card_and_reprices_by_day(
     (new_line,) = (await quotes.build_snapshot(db_session, assignment))["lines"]
     assert new_line["monthly_rate_periods"] == [
         {
-            "start_date": "2026-01-01", "end_date": "2026-07-14",
+            "start_date": "2026-01-01",
+            "end_date": "2026-07-14",
             "monthly_rate": {"amount_cents": 18_000_00, "currency": "EUR"},
         },
         {
-            "start_date": "2026-07-15", "end_date": "2026-12-31",
+            "start_date": "2026-07-15",
+            "end_date": "2026-12-31",
             "monthly_rate": {"amount_cents": 18_720_00, "currency": "EUR"},
         },
     ]
@@ -225,8 +240,12 @@ async def test_gap_between_cards_is_reported_and_never_priced(
     await rates.update_card(
         db_session, 2026, actor=beheerder, valid_to=date(2026, 10, 31)
     )
-    stretches = await rates.valid_rates(db_session, date(2026, 10, 1), date(2027, 1, 31))
-    assert [(s.start_date, s.end_date, s.card.name if s.card else None) for s in stretches] == [
+    stretches = await rates.valid_rates(
+        db_session, date(2026, 10, 1), date(2027, 1, 31)
+    )
+    assert [
+        (s.start_date, s.end_date, s.card.name if s.card else None) for s in stretches
+    ] == [
         (date(2026, 10, 1), date(2026, 10, 31), "Tarieven 2026"),
         (date(2026, 11, 1), date(2026, 12, 31), None),
         (date(2027, 1, 1), date(2027, 1, 31), "Tarieven 2027"),
@@ -257,12 +276,16 @@ async def test_valid_rates_for_a_form(db_session, rate_cards, beheerder):
 
 async def test_any_date_is_accepted_for_a_card(db_session, beheerder):
     card = await rates.create_card(
-        db_session, valid_from=date(2030, 5, 17), valid_to=date(2030, 11, 3),
+        db_session,
+        valid_from=date(2030, 5, 17),
+        valid_to=date(2030, 11, 3),
         actor=beheerder,
     )
     assert card.name == "Tarieven vanaf 17 mei 2030"
     with pytest.raises(DomainValidationError, match="einddatum"):
         await rates.create_card(
-            db_session, valid_from=date(2031, 5, 17), valid_to=date(2031, 1, 1),
+            db_session,
+            valid_from=date(2031, 5, 17),
+            valid_to=date(2031, 1, 1),
             actor=beheerder,
         )
