@@ -31,7 +31,9 @@ export const signingKeys = {
   quote: (quoteId: string) => ['signing', 'quote', quoteId] as const,
 };
 
-export function fetchSigningInvitations(): Promise<{ invitations: SigningInvitation[] }> {
+export function fetchSigningInvitations(): Promise<{
+  invitations: SigningInvitation[];
+}> {
   return apiGet('/api/signing/invitations');
 }
 

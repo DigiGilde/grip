@@ -17,6 +17,7 @@ from grip.models.quote import Quote, QuoteApproval, QuoteOffer
 from grip.services import events as domain_events
 from grip.services import instance_settings, quote_approval, terms
 from grip.services.quote_content import check_content
+from tests.api.quotes.conftest import document_text
 
 TOTAL_CENTS = 17_280_000  # 0.8 FTE, category D, twelve months of 2026
 
@@ -393,7 +394,7 @@ async def test_approver_reads_the_quote_in_full_and_nothing_else(
     document = await stranger.get(f"/api/quote-approvals/quotes/{quote['id']}/document")
     # The same page the client gets. What it prints of the hash is the
     # document's own concern and is tested there.
-    assert document.status_code == 200 and "Productmanager" in document.text
+    assert "Productmanager" in document_text(document)
 
     # Nothing else of the assignment opens up.
     for path in (
@@ -458,16 +459,24 @@ async def test_events_carry_ids_and_the_reference_and_no_amounts(
         "quote_approval.approved",
     ]
     stored = await db_session.get(Quote, uuid.UUID(quote["id"]))
-    for _, payload in seen:
-        assert set(payload) == {
-            "approval_id",
-            "quote_id",
-            "quote_reference",
-            "assignment_id",
-            "requested_by_id",
-            "decided_by_id",
-            "origin",
-        }
+    for name, payload in seen:
+        # A decision also refers to its statement, by hash and nothing more
+        # (grip.proof). None here: this decision went through the direct
+        # route, which makes no statement.
+        decided = {"statement_hash"} if name != "quote_approval.requested" else set()
+        assert (
+            set(payload)
+            == {
+                "approval_id",
+                "quote_id",
+                "quote_reference",
+                "assignment_id",
+                "requested_by_id",
+                "decided_by_id",
+                "origin",
+            }
+            | decided
+        )
         assert payload["quote_reference"] == stored.reference
         assert payload["requested_by_id"] == str(world.manager.id)
         text = json.dumps(payload)
@@ -510,7 +519,7 @@ async def test_nothing_about_approval_reaches_another_instance(
     # What goes out when the quote is offered and decided cites the quote
     # only; the document the client gets does not mention the approval.
     document = await act_as(world.manager).get(f"/api/quotes/{quote['id']}/document")
-    assert "goedkeur" not in document.text.lower()
+    assert "goedkeur" not in document_text(document).lower()
 
 
 # --- settings -------------------------------------------------------------------

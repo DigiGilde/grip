@@ -57,7 +57,11 @@ const QUOTE = {
 };
 
 const CHANNELS = [
-  { channel: 'client_instance', available: false, reason: 'De opdrachtgever gebruikt grip nog niet.' },
+  {
+    channel: 'client_instance',
+    available: false,
+    reason: 'De opdrachtgever gebruikt grip nog niet.',
+  },
   { channel: 'signing_link', available: true },
   { channel: 'document', available: true, suggested: true },
 ];
@@ -115,10 +119,18 @@ async function renderTab({
 }: Setup) {
   const { calls } = mockApi({
     ...(approval ? { '/api/assignments/a-1/quote-approvals': { items: [approval] } } : {}),
-    'POST /api/quotes/q-1/approval/request': { ...APPROVAL, status: 'requested' },
+    'POST /api/quotes/q-1/approval/request': {
+      ...APPROVAL,
+      status: 'requested',
+    },
     '/api/assignments/a-1/quote-preview': preview,
     '/api/assignments/a-1/quotes': { may_manage: mayManage, quotes },
-    '/api/quotes/q-1': { ...(quotes[0] ?? QUOTE), content: CONTENT, offers, channels: CHANNELS },
+    '/api/quotes/q-1': {
+      ...(quotes[0] ?? QUOTE),
+      content: CONTENT,
+      offers,
+      channels: CHANNELS,
+    },
   });
   const view = renderApp(
     <Routes>
@@ -127,15 +139,17 @@ async function renderTab({
     { path: '/opdrachten/a-1/offerte' },
   );
   const loading = () => view.container.querySelector('nldd-inline-dialog[variant="loading"]');
-  await waitFor(() => expect(view.container.querySelector('h1, nldd-title, nldd-banner')).not.toBeNull());
+  await waitFor(() =>
+    expect(view.container.querySelector('h1, nldd-title, nldd-banner')).not.toBeNull(),
+  );
   await waitFor(() => expect(loading()).toBeNull());
   if (quotes.length > 0) {
     await waitFor(() => expect(view.container.querySelector('nldd-card')).not.toBeNull());
     // The card is complete once the quote's offers and channels are in.
     await waitFor(() =>
-      expect(view.container.querySelector('nldd-card nldd-step-bar')?.getAttribute('data-ready')).toBe(
-        'true',
-      ),
+      expect(
+        view.container.querySelector('nldd-card nldd-step-bar')?.getAttribute('data-ready'),
+      ).toBe('true'),
     );
   }
   lastCalls = calls;
@@ -184,8 +198,16 @@ describe('QuotePage', () => {
               ...LINE,
               monthly_rates: [],
               rate_periods: [
-                { start_date: '2026-01-01', end_date: '2026-06-30', monthly_rate_cents: 1800000 },
-                { start_date: '2026-07-01', end_date: '2026-12-31', monthly_rate_cents: 1900000 },
+                {
+                  start_date: '2026-01-01',
+                  end_date: '2026-06-30',
+                  monthly_rate_cents: 1800000,
+                },
+                {
+                  start_date: '2026-07-01',
+                  end_date: '2026-12-31',
+                  monthly_rate_cents: 1900000,
+                },
               ],
             },
           ],
@@ -242,14 +264,20 @@ describe('QuotePage', () => {
       (el) => el.textContent,
     );
     // Blocks of eight, four to a line: it cannot run out of its box.
-    expect(lines).toEqual(['aaaaaaaa aaaaaaaa aaaaaaaa aaaaaaaa', 'aaaaaaaa aaaaaaaa aaaaaaaa aaaaaaaa']);
+    expect(lines).toEqual([
+      'aaaaaaaa aaaaaaaa aaaaaaaa aaaaaaaa',
+      'aaaaaaaa aaaaaaaa aaaaaaaa aaaaaaaa',
+    ]);
     expect(texts(sheet as Element, 'nldd-button')).toContain('Kopieer echtheidskenmerk');
     expect(sheet?.textContent).toContain('Verandert er ook maar één teken');
     expect(sheet?.textContent?.replace(/Technisch:.*/, '')).not.toMatch(/hash|SHA/i);
   });
 
   it('keeps the signing link in reach after inviting someone', async () => {
-    const container = await renderTab({ quotes: [QUOTE], offers: [LINK_OFFER] });
+    const container = await renderTab({
+      quotes: [QUOTE],
+      offers: [LINK_OFFER],
+    });
     await waitFor(() => expect(container.querySelector('[data-offer]')).not.toBeNull());
     const row = container.querySelector('nldd-card [data-offer]') as Element;
     const lines = [...row.querySelectorAll('nldd-text')].map((el) => el.textContent);
@@ -292,7 +320,10 @@ describe('QuotePage', () => {
     await waitFor(() => expect(sheet?.querySelectorAll('nldd-list-item')).toHaveLength(3));
     const rows = [...(sheet as Element).querySelectorAll('nldd-list-item')];
     const federated = rows.find((row) =>
-      row.querySelector('nldd-text-cell')?.getAttribute('text')?.includes('grip van de opdrachtgever'),
+      row
+        .querySelector('nldd-text-cell')
+        ?.getAttribute('text')
+        ?.includes('grip van de opdrachtgever'),
     );
     expect(federated?.hasAttribute('disabled')).toBe(true);
     expect(federated?.querySelector('nldd-text-cell')?.getAttribute('supporting-text')).toBe(
@@ -306,14 +337,18 @@ describe('QuotePage', () => {
       preview: { ...PREVIEW, may_issue: false },
       quotes: [QUOTE],
       mayManage: false,
-      offers: [{ id: 'o-1', channel: 'signing_link', offered_at: '2026-02-02T10:00:00Z' }],
+      offers: [
+        {
+          id: 'o-1',
+          channel: 'signing_link',
+          offered_at: '2026-02-02T10:00:00Z',
+        },
+      ],
     });
     await waitFor(() => expect(container.querySelector('[data-offer]')).not.toBeNull());
-    expect(
-      texts(container, 'nldd-button').filter((text) => text !== 'Details'),
-    ).toEqual([]);
+    expect(texts(container, 'nldd-button').filter((text) => text !== 'Details')).toEqual([]);
     expect(container.querySelector('nldd-icon-button')).toBeNull();
-    expect(texts(container, 'nldd-link')).toEqual(['Bekijk', 'Download pdf']);
+    expect(texts(container, 'nldd-link')).toEqual(['Bekijk pdf']);
     expect(container.textContent).not.toContain('/tekenen/');
   });
 
@@ -347,7 +382,13 @@ describe('QuotePage', () => {
     const container = await renderTab({
       quotes: [
         QUOTE,
-        { ...QUOTE, id: 'q-0', reference: 'VG-2026-0003', status: 'superseded', total_cents: 16000000 },
+        {
+          ...QUOTE,
+          id: 'q-0',
+          reference: 'VG-2026-0003',
+          status: 'superseded',
+          total_cents: 16000000,
+        },
       ],
     });
     const earlier = container.querySelector('nldd-list[accessible-label="Eerdere offertes"]');
@@ -360,7 +401,11 @@ describe('QuotePage', () => {
 
   it('proposes a new quote only when the budget moved since', async () => {
     const container = await renderTab({
-      preview: { ...PREVIEW, assignment_status: 'quoted', content: { ...CONTENT, total_cents: 18000000 } },
+      preview: {
+        ...PREVIEW,
+        assignment_status: 'quoted',
+        content: { ...CONTENT, total_cents: 18000000 },
+      },
       quotes: [QUOTE],
     });
     expect(texts(container, 'nldd-button')).toContain('Maak nieuwe offerte');
@@ -393,7 +438,9 @@ describe('QuotePage', () => {
     const sheet = openSheet();
     sheet?.querySelector('nldd-form')?.dispatchEvent(new Event('submit', { cancelable: true }));
     await waitFor(() => expect(lastCalls.some((call) => call.method === 'POST')).toBe(true));
-    expect(lastCalls.find((call) => call.method === 'POST')?.body).toEqual({ note: null });
+    expect(lastCalls.find((call) => call.method === 'POST')?.body).toEqual({
+      note: null,
+    });
   });
 
   it('waits in words while an approver has the quote', async () => {
@@ -478,10 +525,17 @@ describe('QuotePage', () => {
       },
     });
     expect(primaries(approved)).toEqual(['Bied aan']);
-    expect(approved.textContent).toMatch(/Intern goedgekeurd op 3 feb 2026.*door Collega Goedkeurder/);
+    expect(approved.textContent).toMatch(
+      /Intern goedgekeurd op 3 feb 2026.*door Collega Goedkeurder/,
+    );
     const plain = await renderTab({
       quotes: [QUOTE],
-      approval: { ...APPROVAL, approval_required: false, may_offer: true, blocked_message: null },
+      approval: {
+        ...APPROVAL,
+        approval_required: false,
+        may_offer: true,
+        blocked_message: null,
+      },
     });
     expect(texts(plain, 'nldd-step-bar-item')).not.toContain('Interne goedkeuring');
     expect(plain.textContent).not.toContain('goedkeuring');
@@ -510,7 +564,9 @@ describe('QuotePage', () => {
       'Getekend of afgewezen',
     ]);
     expect(texts(container, 'nldd-button')).not.toContain('Beoordeel');
-    expect(texts(container, 'nldd-card nldd-menu-item').join(' ')).not.toMatch(/goedkeur|aanvraag/i);
+    expect(texts(container, 'nldd-card nldd-menu-item').join(' ')).not.toMatch(
+      /goedkeur|aanvraag/i,
+    );
     expect(primaries(container)).toEqual(['Bied aan']);
   });
 });

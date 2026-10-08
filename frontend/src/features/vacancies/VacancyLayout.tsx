@@ -1,37 +1,31 @@
-import { StepBar } from "@/ui/StepBar";
-import { useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
-import { ApiError, errorMessage } from "@/api/client";
-import { orUndef } from "@/components/nldd/events";
-import { assignmentTabPath } from "@/features/assignments/paths";
-import { RouterLinks } from "@/layout/RouterLinks";
-import { useInstance } from "@/layout/useInstance";
-import { useRouterLinks } from "@/layout/useRouterLinks";
-import { formatPeriod } from "@/lib/format";
-import { PageHeading } from "@/pages/PageHeading";
-import { PATHS } from "@/paths";
-import {
-  ErrorNotice,
-  Loading,
-  Quiet,
-  SectionHeading,
-  Stack,
-} from "@/ui/layout";
-import { VACANCY_KEYS, fetchVacancy, type Vacancy } from "./api";
-import { HireSheet } from "./HireSheets";
-import { useVacancyOptions } from "./hooks";
+import { StepBar } from '@/ui/StepBar';
+import { useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { ApiError, errorMessage } from '@/api/client';
+import { orUndef } from '@/components/nldd/events';
+import { assignmentTabPath } from '@/features/assignments/paths';
+import { RouterLinks } from '@/layout/RouterLinks';
+import { useInstance } from '@/layout/useInstance';
+import { useRouterLinks } from '@/layout/useRouterLinks';
+import { formatPeriod } from '@/lib/format';
+import { PageHeading } from '@/pages/PageHeading';
+import { PATHS } from '@/paths';
+import { ErrorNotice, Loading, Quiet, SectionHeading, Stack } from '@/ui/layout';
+import { VACANCY_KEYS, fetchVacancy, type Vacancy } from './api';
+import { HireSheet } from './HireSheets';
+import { useVacancyOptions } from './hooks';
 import {
   STATUS_COLORS,
   STATUS_LABELS,
   VACANCY_TYPE_LABELS,
   publishedOrigin,
   scaleAndFte,
-} from "./labels";
-import { vacancyTabPath, type VacancyTabKey } from "./paths";
-import { PrepareRequestSheet } from "./PrepareRequestSheet";
-import { PublishSheet } from "./ProcedureSection";
-import { EditSheet, SubmitSheet } from "./RoleSheets";
+} from './labels';
+import { vacancyTabPath, type VacancyTabKey } from './paths';
+import { PrepareRequestSheet } from './PrepareRequestSheet';
+import { PublishSheet } from './ProcedureSection';
+import { EditSheet, SubmitSheet } from './RoleSheets';
 import {
   STEP_TABS,
   TAB_LABELS,
@@ -39,30 +33,18 @@ import {
   seesWholeVacancy,
   visibleTabs,
   type SharedSheet,
-} from "./shell";
-import { vacancySteps, type StepAction } from "./steps";
-import { Button, Paragraphs } from "./ui";
+} from './shell';
+import { vacancySteps, type StepAction } from './steps';
+import { Button, Paragraphs } from './ui';
 
-function currentTab(
-  id: string,
-  pathname: string,
-  tabs: VacancyTabKey[],
-): VacancyTabKey {
-  const path = pathname.replace(/\/$/, "");
+function currentTab(id: string, pathname: string, tabs: VacancyTabKey[]): VacancyTabKey {
+  const path = pathname.replace(/\/$/, '');
   return (
-    tabs.find(
-      (tab) => tab !== "request" && path.startsWith(vacancyTabPath(id, tab)),
-    ) ?? "request"
+    tabs.find((tab) => tab !== 'request' && path.startsWith(vacancyTabPath(id, tab))) ?? 'request'
   );
 }
 
-function Tabs({
-  vacancy,
-  current,
-}: {
-  vacancy: Vacancy;
-  current: VacancyTabKey;
-}) {
+function Tabs({ vacancy, current }: { vacancy: Vacancy; current: VacancyTabKey }) {
   const ref = useRef<HTMLElement>(null);
   useRouterLinks(ref);
   // Each tab is a page with its own address, so this is navigation: the
@@ -87,18 +69,18 @@ function Tabs({
 
 /** What the one primary action of each step is called. */
 const ACTION_TEXT: Record<StepAction, string> = {
-  prepare: "Bereid aanvraag voor",
-  submit: "Vraag aan",
-  decide: "Naar advies en akkoord",
-  open: "Stel open",
-  fill: "Vervul",
+  prepare: 'Bereid aanvraag voor',
+  submit: 'Vraag aan',
+  decide: 'Naar advies en akkoord',
+  open: 'Stel open',
+  fill: 'Vervul',
 };
 
 const ACTION_SHEET: Partial<Record<StepAction, SharedSheet>> = {
-  prepare: "prepare",
-  submit: "submit",
-  open: "publish",
-  fill: "hire",
+  prepare: 'prepare',
+  submit: 'submit',
+  open: 'publish',
+  fill: 'hire',
 };
 
 interface StepsProps {
@@ -130,9 +112,7 @@ function Steps({ vacancy, current, onSheet }: StepsProps) {
             text={ACTION_TEXT[action]}
             appearance="primary"
             onClick={() =>
-              sheet
-                ? onSheet(sheet)
-                : navigate(vacancyTabPath(vacancy.id, STEP_TABS[action]))
+              sheet ? onSheet(sheet) : navigate(vacancyTabPath(vacancy.id, STEP_TABS[action]))
             }
           />
         </nldd-button-group>
@@ -150,19 +130,16 @@ function Belonging({ vacancy }: { vacancy: Vacancy }) {
   ].filter(Boolean);
   return (
     <nldd-container layout="row" gap="8" vertical-alignment="center">
-      <nldd-badge
-        color={STATUS_COLORS[vacancy.status]}
-        text={STATUS_LABELS[vacancy.status]}
-      />
+      <nldd-badge color={STATUS_COLORS[vacancy.status]} text={STATUS_LABELS[vacancy.status]} />
       {vacancy.assignment_id && vacancy.assignment_name && (
         <RouterLinks>
           <nldd-link
-            href={assignmentTabPath(vacancy.assignment_id, "staffing")}
+            href={assignmentTabPath(vacancy.assignment_id, 'staffing')}
             text={vacancy.assignment_name}
           />
         </RouterLinks>
       )}
-      <Quiet>{facts.join(" · ")}</Quiet>
+      <Quiet>{facts.join(' · ')}</Quiet>
     </nldd-container>
   );
 }
@@ -187,7 +164,7 @@ function PublishedText({ vacancy }: { vacancy: Vacancy }) {
  * The sheets that the step bar and a tab can both open live here.
  */
 export function VacancyLayout() {
-  const { vacancyId = "" } = useParams();
+  const { vacancyId = '' } = useParams();
   const { pathname } = useLocation();
   const instance = useInstance();
   const options = useVacancyOptions();
@@ -195,43 +172,33 @@ export function VacancyLayout() {
   const query = useQuery({
     queryKey: VACANCY_KEYS.detail(vacancyId),
     queryFn: () => fetchVacancy(vacancyId),
-    enabled: vacancyId !== "",
+    enabled: vacancyId !== '',
     retry: false,
   });
   const vacancy = query.data;
-  const notFound =
-    query.error instanceof ApiError && query.error.status === 404;
+  const notFound = query.error instanceof ApiError && query.error.status === 404;
   const whole = vacancy ? seesWholeVacancy(vacancy) : false;
-  const current = vacancy
-    ? currentTab(vacancy.id, pathname, visibleTabs(vacancy))
-    : "request";
+  const current = vacancy ? currentTab(vacancy.id, pathname, visibleTabs(vacancy)) : 'request';
   const close = () => setSheet(null);
 
   return (
     <>
       <nldd-simple-section>
-        <PageHeading
-          text={vacancy?.function_title ?? "Vacature"}
-          instanceName={instance?.name}
-        />
+        <PageHeading text={vacancy?.function_title ?? 'Vacature'} instanceName={instance?.name} />
         <Stack gap="related">
           {query.isPending && <Loading />}
           {query.isError && (
             <ErrorNotice
               message={
                 notFound
-                  ? "Deze vacature bestaat niet, of je kunt haar niet inzien."
+                  ? 'Deze vacature bestaat niet, of je kunt haar niet inzien.'
                   : errorMessage(query.error)
               }
             />
           )}
           {query.isError && (
             <RouterLinks>
-              <nldd-link
-                href={PATHS.vacancies}
-                text="Naar alle vacatures"
-                size="md"
-              />
+              <nldd-link href={PATHS.vacancies} text="Naar alle vacatures" size="md" />
             </RouterLinks>
           )}
           {vacancy && <Belonging vacancy={vacancy} />}
@@ -258,33 +225,25 @@ export function VacancyLayout() {
             key={`edit-${vacancy.status}-${vacancy.function_title}-${vacancy.fte}-${vacancy.start_date}-${vacancy.end_date}`}
             vacancy={vacancy}
             options={options.data}
-            open={sheet === "edit"}
+            open={sheet === 'edit'}
             onClose={close}
           />
-          <SubmitSheet
-            vacancy={vacancy}
-            open={sheet === "submit"}
-            onClose={close}
-          />
+          <SubmitSheet vacancy={vacancy} open={sheet === 'submit'} onClose={close} />
           <PrepareRequestSheet
             key={`prepare-${vacancy.function_group_id}-${vacancy.fgr_function_name}-${vacancy.scale}-${vacancy.contract_type}-${vacancy.addressee_name}`}
             vacancy={vacancy}
             options={options.data}
-            open={sheet === "prepare"}
+            open={sheet === 'prepare'}
             onClose={close}
           />
           <PublishSheet
-            key={`publish-${vacancy.status}-${(vacancy.channels ?? []).join(",")}`}
+            key={`publish-${vacancy.status}-${(vacancy.channels ?? []).join(',')}`}
             vacancy={vacancy}
             options={options.data}
-            open={sheet === "publish"}
+            open={sheet === 'publish'}
             onClose={close}
           />
-          <HireSheet
-            vacancy={vacancy}
-            open={sheet === "hire"}
-            onClose={close}
-          />
+          <HireSheet vacancy={vacancy} open={sheet === 'hire'} onClose={close} />
         </>
       )}
     </>

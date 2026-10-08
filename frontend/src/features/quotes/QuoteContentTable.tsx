@@ -1,7 +1,7 @@
-import { formatDate, formatEuro, formatFte, formatPeriod } from "@/lib/format";
-import type { QuoteContent, QuoteLine } from "./api";
-import { scaleText } from "./format";
-import "./register";
+import { formatDate, formatEuro, formatFte, formatPeriod } from '@/lib/format';
+import type { QuoteContent, QuoteLine } from './api';
+import { scaleText } from './format';
+import './register';
 
 /** The rate, and under it the later rates when a rate card changes inside the line. */
 function rateCell(line: QuoteLine): { text: string; later: string } {
@@ -15,24 +15,21 @@ function rateCell(line: QuoteLine): { text: string; later: string } {
           (period) =>
             `vanaf ${formatDate(period.start_date)}: ${formatEuro(period.monthly_rate_cents)}`,
         )
-        .join(", "),
+        .join(', '),
     };
   }
   const rates = line.monthly_rates ?? [];
-  if (rates.length === 0) return { text: "", later: "" };
+  if (rates.length === 0) return { text: '', later: '' };
   const distinct = new Set(rates.map((rate) => rate.monthly_rate_cents));
-  if (distinct.size === 1)
-    return { text: formatEuro(rates[0]?.monthly_rate_cents), later: "" };
+  if (distinct.size === 1) return { text: formatEuro(rates[0]?.monthly_rate_cents), later: '' };
   return {
-    text: rates
-      .map((rate) => `${rate.year}: ${formatEuro(rate.monthly_rate_cents)}`)
-      .join(", "),
-    later: "",
+    text: rates.map((rate) => `${rate.year}: ${formatEuro(rate.monthly_rate_cents)}`).join(', '),
+    later: '',
   };
 }
 
 function periodText(line: QuoteLine): string {
-  if (line.kind === "fixed") return line.year ? String(line.year) : "";
+  if (line.kind === 'fixed') return line.year ? String(line.year) : '';
   return formatPeriod(line.start_date, line.end_date);
 }
 
@@ -41,13 +38,7 @@ function periodText(line: QuoteLine): string {
  * preview, for an issued quote and for what a signer sees, so all three show
  * the same columns in the same order.
  */
-export function QuoteContentTable({
-  content,
-  label,
-}: {
-  content: QuoteContent;
-  label: string;
-}) {
+export function QuoteContentTable({ content, label }: { content: QuoteContent; label: string }) {
   const showSubtotals = content.subtotals_per_year.length > 1;
   return (
     <nldd-table
@@ -69,26 +60,21 @@ export function QuoteContentTable({
             <nldd-text-cell
               text={line.description}
               {...(line.role && line.role !== line.description
-                ? { "supporting-text": line.role }
+                ? { 'supporting-text': line.role }
                 : {})}
             />
             <nldd-text-cell
-              text={line.kind === "personnel" ? formatFte(line.fte) : ""}
+              text={line.kind === 'personnel' ? formatFte(line.fte) : ''}
               horizontal-alignment="right"
             />
             <nldd-text-cell text={periodText(line)} />
-            <nldd-text-cell
-              text={line.kind === "personnel" ? scaleText(line) : ""}
-            />
+            <nldd-text-cell text={line.kind === 'personnel' ? scaleText(line) : ''} />
             <nldd-text-cell
               text={rate.text}
-              {...(rate.later ? { "supporting-text": rate.later } : {})}
+              {...(rate.later ? { 'supporting-text': rate.later } : {})}
               horizontal-alignment="right"
             />
-            <nldd-text-cell
-              text={formatEuro(line.amount_cents)}
-              horizontal-alignment="right"
-            />
+            <nldd-text-cell text={formatEuro(line.amount_cents)} horizontal-alignment="right" />
           </nldd-table-row>
         );
       })}
@@ -113,10 +99,7 @@ export function QuoteContentTable({
         <nldd-text-cell text="" />
         <nldd-text-cell text="" />
         <nldd-text-cell text="" />
-        <nldd-text-cell
-          text={formatEuro(content.total_cents)}
-          horizontal-alignment="right"
-        />
+        <nldd-text-cell text={formatEuro(content.total_cents)} horizontal-alignment="right" />
       </nldd-table-row>
     </nldd-table>
   );

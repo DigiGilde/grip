@@ -40,7 +40,11 @@ function link(state: string, overrides: Partial<QuoteOffer> = {}): QuoteOffer {
   };
 }
 
-const DOCUMENT: QuoteOffer = { id: 'o-2', channel: 'document', offered_at: '2026-02-03T10:00:00Z' };
+const DOCUMENT: QuoteOffer = {
+  id: 'o-2',
+  channel: 'document',
+  offered_at: '2026-02-03T10:00:00Z',
+};
 
 describe('quoteSteps', () => {
   it('puts a fresh quote at offering', () => {
@@ -102,22 +106,39 @@ describe('offers in words', () => {
     const signed = {
       ...QUOTE,
       status: 'accepted',
-      acceptance: { form: 'signing_link', signed_at: '2026-02-04T08:30:00Z', signer_name: 'Tekenaar Voorbeeld' },
+      acceptance: {
+        form: 'signing_link',
+        signed_at: '2026-02-04T08:30:00Z',
+        signer_name: 'Tekenaar Voorbeeld',
+      },
     };
-    expect(offerState(link('signed'), signed)).toMatch(/^Getekend op 4 feb 2026.* door Tekenaar Voorbeeld$/);
+    expect(offerState(link('signed'), signed)).toMatch(
+      /^Getekend op 4 feb 2026.* door Tekenaar Voorbeeld$/,
+    );
   });
 
   it('gives the delivery of an offer to the client’s own grip', () => {
-    const offer = { id: 'o-3', channel: 'client_instance', offered_at: '2026-02-02T10:00:00Z' };
-    expect(offerState({ ...offer, delivery: 'pending' }, QUOTE)).toBe('Onderweg naar de opdrachtgever');
-    expect(offerState({ ...offer, delivery: 'sent' }, QUOTE)).toBe('Afgeleverd bij de opdrachtgever');
+    const offer = {
+      id: 'o-3',
+      channel: 'client_instance',
+      offered_at: '2026-02-02T10:00:00Z',
+    };
+    expect(offerState({ ...offer, delivery: 'pending' }, QUOTE)).toBe(
+      'Onderweg naar de opdrachtgever',
+    );
+    expect(offerState({ ...offer, delivery: 'sent' }, QUOTE)).toBe(
+      'Afgeleverd bij de opdrachtgever',
+    );
     expect(offerState({ ...offer, delivery: 'refused' }, QUOTE)).toBe(
       'Niet afgeleverd bij de opdrachtgever',
     );
   });
 
   it('shows one entry per signing link, the latest offer on it', () => {
-    const again = link('opened', { id: 'o-9', offered_at: '2026-02-06T10:00:00Z' });
+    const again = link('opened', {
+      id: 'o-9',
+      offered_at: '2026-02-06T10:00:00Z',
+    });
     const listed = listedOffers([link('invited'), DOCUMENT, again]);
     expect(listed.map((offer) => offer.id)).toEqual(['o-9', 'o-2']);
   });

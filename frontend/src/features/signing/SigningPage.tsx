@@ -9,7 +9,16 @@ import { formatDateTime } from '@/features/quotes/format';
 import { CheckboxInput, DocumentLink } from '@/features/quotes/ui';
 import { useInstance } from '@/layout/useInstance';
 import { formatDate, formatEuro } from '@/lib/format';
-import { EmptyNotice, ErrorNotice, FormSheet, Loading, Page, Quiet, Section, Stack } from '@/ui/layout';
+import {
+  EmptyNotice,
+  ErrorNotice,
+  FormSheet,
+  Loading,
+  Page,
+  Quiet,
+  Section,
+  Stack,
+} from '@/ui/layout';
 import {
   acceptQuote,
   fetchSigningQuote,
@@ -137,8 +146,7 @@ export function SigningPage() {
             ) : null}
 
             <nldd-container layout="row" gap="16" vertical-alignment="center">
-              <DocumentLink href={signingDocumentUrl(quote.id)} text="Bekijk als document" newTab />
-              <DocumentLink href={signingDocumentUrl(quote.id, true)} text="Download pdf" />
+              <DocumentLink href={signingDocumentUrl(quote.id)} text="Bekijk pdf" newTab />
               <QuoteDetails
                 hash={quote.snapshot_hash}
                 facts={[{ label: 'Kenmerk', value: quote.reference ?? '' }]}
@@ -194,7 +202,12 @@ export function SigningPage() {
           {quote ? formatEuro(quote.content.total_cents) : ''}. Een akkoord is niet terug te
           draaien.
         </nldd-text>
-        <TextInput label="Je functie" value={signerFunction} onChange={setSignerFunction} optional />
+        <TextInput
+          label="Je functie"
+          value={signerFunction}
+          onChange={setSignerFunction}
+          optional
+        />
         {quote && !client ? (
           <TextInput
             label="Organisatie namens wie je tekent"

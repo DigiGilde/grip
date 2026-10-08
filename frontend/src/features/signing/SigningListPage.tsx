@@ -50,7 +50,10 @@ export function SigningListPage() {
               <nldd-table-row key={invitation.quote_id}>
                 <nldd-text-cell
                   text={invitation.assignment_name}
-                  supporting-text={[invitation.reference, `gemaakt op ${formatDate(invitation.issued_at)}`]
+                  supporting-text={[
+                    invitation.reference,
+                    `gemaakt op ${formatDate(invitation.issued_at)}`,
+                  ]
                     .filter(Boolean)
                     .join(' · ')}
                 />

@@ -5,7 +5,16 @@ import { centsToInput, parseEuroToCents } from '@/features/assignments/money';
 import { Button, SelectInput, TextInput } from '@/features/assignments/ui';
 import { useInstance } from '@/layout/useInstance';
 import { formatEuro } from '@/lib/format';
-import { EmptyNotice, ErrorNotice, Facts, FormSheet, Loading, Page, Quiet, Section } from '@/ui/layout';
+import {
+  EmptyNotice,
+  ErrorNotice,
+  Facts,
+  FormSheet,
+  Loading,
+  Page,
+  Quiet,
+  Section,
+} from '@/ui/layout';
 import {
   APPROVAL_MODE_LABELS,
   APPROVER_RIGHT,
@@ -80,16 +89,17 @@ export function QuoteSettingsPage() {
     <>
       <Page title="Offertes" instanceName={instance?.name} spacing="sections">
         {query.isPending ? <Loading /> : null}
-        {query.isError && forbidden ? (
-          <EmptyNotice text="Beheer is voor beheerders" />
-        ) : null}
+        {query.isError && forbidden ? <EmptyNotice text="Beheer is voor beheerders" /> : null}
         {query.isError && !forbidden ? <ErrorNotice message={errorMessage(query.error)} /> : null}
         {query.data ? (
           <Section title="Interne goedkeuring" level={2}>
             <Facts
               label="Instellingen voor interne goedkeuring"
               facts={[
-                { label: 'Goedkeuring nodig', value: whenText(mode, threshold) },
+                {
+                  label: 'Goedkeuring nodig',
+                  value: whenText(mode, threshold),
+                },
                 ...(mode === 'never'
                   ? []
                   : [
@@ -102,8 +112,8 @@ export function QuoteSettingsPage() {
             />
             {mode === 'never' ? null : (
               <Quiet>
-                Goedkeuren kan wie het recht "{APPROVER_RIGHT}" heeft. Je kent het toe bij
-                Team, onder Rechten in grip van een persoon.
+                Goedkeuren kan wie het recht "{APPROVER_RIGHT}" heeft. Je kent het toe bij Team,
+                onder Rechten in grip van een persoon.
               </Quiet>
             )}
             <nldd-button-group>
@@ -117,7 +127,10 @@ export function QuoteSettingsPage() {
               label="Het kenmerk van een offerte"
               facts={[
                 { label: 'Voorvoegsel', value: prefix },
-                { label: 'Volgende offerte heet bijvoorbeeld', value: `${prefix}-${year}-0001` },
+                {
+                  label: 'Volgende offerte heet bijvoorbeeld',
+                  value: `${prefix}-${year}-0001`,
+                },
               ]}
             />
             <nldd-button-group>
@@ -152,8 +165,8 @@ export function QuoteSettingsPage() {
         }}
       >
         <nldd-text>
-          Geldt voor offertes die je hierna maakt. Het kenmerk van een bestaande offerte
-          verandert niet, en de nummering loopt door.
+          Geldt voor offertes die je hierna maakt. Het kenmerk van een bestaande offerte verandert
+          niet, en de nummering loopt door.
         </nldd-text>
         <TextInput
           label="Voorvoegsel"

@@ -2,7 +2,12 @@ import { useRef, useState } from 'react';
 import { orUndef, useNlddEvent } from '@/components/nldd/events';
 import { TextInput } from '@/features/assignments/ui';
 import { FormSheet } from '@/ui/layout';
-import { OFFER_CHANNEL_EFFECTS, OFFER_CHANNEL_LABELS, type OfferChannel, type QuoteChannel } from './api';
+import {
+  OFFER_CHANNEL_EFFECTS,
+  OFFER_CHANNEL_LABELS,
+  type OfferChannel,
+  type QuoteChannel,
+} from './api';
 import { channelReason } from './offers';
 import './register';
 

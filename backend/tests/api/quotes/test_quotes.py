@@ -1,6 +1,6 @@
 """Quote routes: preview, issue, list, document, invitations, uploaded pdf."""
 
-from tests.api.quotes.conftest import PDF_BYTES
+from tests.api.quotes.conftest import PDF_BYTES, document_text
 
 # 0.8 FTE in category D for all of 2026: 0.8 x 12 x 18,000.
 BUDGET_CENTS = 17_280_000
@@ -141,17 +141,14 @@ async def test_document_is_rendered_from_the_snapshot(act_as, world, db_session)
     await db_session.flush()
     client = act_as(world.manager)
     response = await client.get(f"/api/quotes/{quote['id']}/document")
-    assert response.status_code == 200
-    assert response.headers["content-type"].startswith("text/html")
-    assert "default-src 'none'" in response.headers["content-security-policy"]
-    html = response.text
+    assert response.headers["content-disposition"].startswith("inline;")
+    html = document_text(response)
     assert "Opdracht Alfa" in html
     assert "Later hernoemd" not in html
     assert "€ 172.800,00" in html
     assert "Voorbeeldministerie" in html
-    assert quote["snapshot_hash"] in html.replace(" ", "")
+    assert quote["snapshot_hash"] in "".join(html.split())
     assert "Betaling per maand." in html
-    assert "<script" not in html
 
     download = await client.get(f"/api/quotes/{quote['id']}/document?download=true")
     assert download.headers["content-disposition"].startswith("attachment;")
@@ -169,9 +166,9 @@ async def test_document_escapes_what_the_snapshot_holds(act_as, world, db_sessio
     await db_session.flush()
     quote = await _issue(act_as, world)
     client = act_as(world.manager)
-    html = (await client.get(f"/api/quotes/{quote['id']}/document")).text
-    assert "<img" not in html
-    assert "&lt;img" in html
+    # What the snapshot holds is text on the page, never markup.
+    text = document_text(await client.get(f"/api/quotes/{quote['id']}/document"))
+    assert "<img src=x" in text
 
 
 async def test_invitations_are_for_the_manager(act_as, world):

@@ -28,3 +28,7 @@ import '@nldd/design-system/table';
 import '@nldd/design-system/text-cell';
 import '@nldd/design-system/text-field';
 import '@nldd/design-system/top-title-bar';
+import '@nldd/design-system/breadcrumbs';
+import '@nldd/design-system/menu';
+import '@nldd/design-system/progress-bar';
+import '@nldd/design-system/tag';

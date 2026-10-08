@@ -61,9 +61,7 @@ export function ApprovalListPage() {
                 />
                 <nldd-text-cell
                   text={formatDateTime(item.requested_at)}
-                  supporting-text={
-                    item.requested_by_name ? `door ${item.requested_by_name}` : ''
-                  }
+                  supporting-text={item.requested_by_name ? `door ${item.requested_by_name}` : ''}
                 />
                 <nldd-cell>
                   <nldd-link

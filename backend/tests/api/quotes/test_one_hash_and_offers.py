@@ -30,6 +30,7 @@ from grip.models.quote import Quote, QuoteAcceptance, QuoteOffer
 from grip.services import assignments, quote_channels, quotes, rates, terms
 from grip.services import events as domain_events
 from grip.services.errors import QuoteHashMismatchError
+from tests.api.quotes.conftest import document_text
 
 from .conftest import PDF_BYTES
 
@@ -113,7 +114,7 @@ async def test_the_hash_is_one_value_on_document_and_every_acceptance(
 
     manager = act_as(world.manager)
     document = await manager.get(f"/api/quotes/{quote['id']}/document")
-    assert the_hash in _unspaced(document.text)
+    assert the_hash in _unspaced(document_text(document))
 
     # Signing link: the signer is shown the same hash and cites it.
     invited = await manager.post(
@@ -124,7 +125,7 @@ async def test_the_hash_is_one_value_on_document_and_every_acceptance(
     shown = (await signer.get(f"/api/signing/quotes/{quote['id']}")).json()
     assert shown["snapshot_hash"] == the_hash
     signing_document = await signer.get(f"/api/signing/quotes/{quote['id']}/document")
-    assert the_hash in _unspaced(signing_document.text)
+    assert the_hash in _unspaced(document_text(signing_document))
 
     # Each form of acceptance in turn on this same quote; the decision is
     # undone in between, because a quote is decided once.

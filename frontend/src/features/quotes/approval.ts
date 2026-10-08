@@ -105,7 +105,11 @@ export function requestApproval(quoteId: string, note: string | null): Promise<A
 
 export function decideApproval(
   quoteId: string,
-  input: { decision: 'approve' | 'send_back'; quote_hash: string; note: string | null },
+  input: {
+    decision: 'approve' | 'send_back';
+    quote_hash: string;
+    note: string | null;
+  },
 ): Promise<ApprovalState> {
   return apiPost(`/api/quotes/${quoteId}/approval/decision`, input);
 }
@@ -114,7 +118,9 @@ export function withdrawApproval(quoteId: string): Promise<ApprovalState> {
   return apiPost(`/api/quotes/${quoteId}/approval/withdrawal`);
 }
 
-export function fetchWaitingApprovals(): Promise<{ items?: WaitingApproval[] }> {
+export function fetchWaitingApprovals(): Promise<{
+  items?: WaitingApproval[];
+}> {
   return apiGet('/api/quote-approvals/waiting');
 }
 

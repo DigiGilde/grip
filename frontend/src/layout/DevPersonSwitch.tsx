@@ -1,7 +1,7 @@
-import { useRef } from "react";
-import { createPortal } from "react-dom";
-import { useQuery } from "@tanstack/react-query";
-import { useNlddEvent } from "@/components/nldd/events";
+import { useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { useQuery } from '@tanstack/react-query';
+import { useNlddEvent } from '@/components/nldd/events';
 
 /**
  * Local development only: act as another example person.
@@ -12,7 +12,7 @@ import { useNlddEvent } from "@/components/nldd/events";
  * one person hides most of that. The menu group is absent as soon as an
  * identity provider is configured; the backend ignores the cookie then.
  */
-const DEV_PERSON_COOKIE = "grip_dev_person";
+const DEV_PERSON_COOKIE = 'grip_dev_person';
 
 interface DevPerson {
   id: string;
@@ -25,15 +25,15 @@ interface DevPeople {
 }
 
 async function fetchDevPeople(): Promise<DevPeople> {
-  const status = await fetch("/api/auth/status", {
-    credentials: "same-origin",
+  const status = await fetch('/api/auth/status', {
+    credentials: 'same-origin',
   });
   if (!status.ok) return { enabled: false, people: [] };
   const body = (await status.json()) as { oidc_configured?: boolean };
   if (body.oidc_configured !== false) return { enabled: false, people: [] };
   // Listed as the default person (no cookie), so the list is the same
   // whoever is currently being viewed as.
-  const people = await fetch("/api/people", { credentials: "omit" });
+  const people = await fetch('/api/people', { credentials: 'omit' });
   if (!people.ok) return { enabled: true, people: [] };
   const data = (await people.json()) as { items?: DevPerson[] } | DevPerson[];
   const items = Array.isArray(data) ? data : (data.items ?? []);
@@ -47,27 +47,21 @@ function switchTo(id: string | null): void {
   window.location.reload();
 }
 
-function PersonItem({
-  person,
-  current,
-}: {
-  person: DevPerson;
-  current: boolean;
-}) {
+function PersonItem({ person, current }: { person: DevPerson; current: boolean }) {
   const ref = useRef<HTMLElement>(null);
-  useNlddEvent(ref, "select", () => switchTo(person.id));
+  useNlddEvent(ref, 'select', () => switchTo(person.id));
   return (
     <nldd-menu-item
       ref={ref}
       text={person.name}
-      {...(current ? { "supporting-text": "Hier kijk je nu als" } : {})}
+      {...(current ? { 'supporting-text': 'Hier kijk je nu als' } : {})}
     />
   );
 }
 
 export function DevPersonSwitch({ currentId }: { currentId: string | null }) {
   const { data } = useQuery({
-    queryKey: ["dev-people"],
+    queryKey: ['dev-people'],
     queryFn: fetchDevPeople,
     staleTime: Infinity,
     retry: false,
@@ -76,21 +70,15 @@ export function DevPersonSwitch({ currentId }: { currentId: string | null }) {
   return (
     <nldd-menu-group text="Bekijk als (alleen lokaal)">
       {data.people.map((person) => (
-        <PersonItem
-          key={person.id}
-          person={person}
-          current={person.id === currentId}
-        />
+        <PersonItem key={person.id} person={person} current={person.id === currentId} />
       ))}
     </nldd-menu-group>
   );
 }
 
 function viewingAsId(): string | null {
-  const match = document.cookie.match(
-    new RegExp(`(?:^|; )${DEV_PERSON_COOKIE}=([^;]+)`),
-  );
-  return match ? decodeURIComponent(match[1] ?? "") : null;
+  const match = document.cookie.match(new RegExp(`(?:^|; )${DEV_PERSON_COOKIE}=([^;]+)`));
+  return match ? decodeURIComponent(match[1] ?? '') : null;
 }
 
 /**

@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 
 from grip.access.guest_deps import signer_from_guest_session
 from grip.access.types import SubjectKind
+from tests.api.quotes.conftest import document_text
 
 
 async def _issued_and_invited(act_as, world, **invite) -> dict:
@@ -34,8 +35,7 @@ async def test_signer_sees_the_invited_quote(act_as, world):
     assert body["content"]["total_cents"] == quote["total_cents"]
 
     document = await client.get(f"/api/signing/quotes/{quote['id']}/document")
-    assert document.status_code == 200
-    assert quote["snapshot_hash"] in document.text.replace(" ", "")
+    assert quote["snapshot_hash"] in "".join(document_text(document).split())
 
 
 async def test_signer_reaches_nothing_else(act_as, world):

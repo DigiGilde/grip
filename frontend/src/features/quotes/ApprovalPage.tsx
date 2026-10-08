@@ -5,7 +5,16 @@ import { ApiError, errorMessage } from '@/api/client';
 import { Button, TextInput } from '@/features/assignments/ui';
 import { useInstance } from '@/layout/useInstance';
 import { formatEuro } from '@/lib/format';
-import { EmptyNotice, ErrorNotice, FormSheet, Loading, Page, Quiet, Section, Stack } from '@/ui/layout';
+import {
+  EmptyNotice,
+  ErrorNotice,
+  FormSheet,
+  Loading,
+  Page,
+  Quiet,
+  Section,
+  Stack,
+} from '@/ui/layout';
 import {
   approvalKeys,
   approvalLine,
@@ -142,12 +151,7 @@ export function ApprovalPage() {
             ) : null}
 
             <nldd-container layout="row" gap="16" vertical-alignment="center">
-              <DocumentLink
-                href={approverDocumentUrl(quote.quote_id)}
-                text="Bekijk als document"
-                newTab
-              />
-              <DocumentLink href={approverDocumentUrl(quote.quote_id, true)} text="Download pdf" />
+              <DocumentLink href={approverDocumentUrl(quote.quote_id)} text="Bekijk pdf" newTab />
               {quote.snapshot_hash ? (
                 <QuoteDetails
                   hash={quote.snapshot_hash}

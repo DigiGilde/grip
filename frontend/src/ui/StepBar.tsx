@@ -28,33 +28,21 @@ interface StepBarProps {
   ready?: boolean;
 }
 
-export function StepBar({
-  steps,
-  current,
-  accessibleLabel,
-  ready,
-}: StepBarProps) {
+export function StepBar({ steps, current, accessibleLabel, ready }: StepBarProps) {
   return (
     <nldd-step-bar
       accessible-label={accessibleLabel}
-      {...(ready === undefined
-        ? {}
-        : { "data-ready": ready ? "true" : "false" })}
+      {...(ready === undefined ? {} : { 'data-ready': ready ? 'true' : 'false' })}
     >
       {steps.map((step, index) => {
         const position = index + 1;
-        const status =
-          position < current
-            ? "past"
-            : position === current
-              ? "current"
-              : "future";
+        const status = position < current ? 'past' : position === current ? 'current' : 'future';
         return (
           <nldd-step-bar-item
             key={step.key ?? step.text}
             text={step.text}
             status={status}
-            {...(step.href && status !== "future" ? { href: step.href } : {})}
+            {...(step.href && status !== 'future' ? { href: step.href } : {})}
           />
         );
       })}

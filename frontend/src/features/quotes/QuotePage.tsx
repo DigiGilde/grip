@@ -127,10 +127,14 @@ export function QuotePage() {
     },
   });
   const submit = (action: () => Promise<unknown>) =>
-    run.mutate(action, { onError: (error) => setFormError(errorMessage(error)) });
+    run.mutate(action, {
+      onError: (error) => setFormError(errorMessage(error)),
+    });
   /** An action without a sheet: a failure shows above the card. */
   const act = (action: () => Promise<unknown>) =>
-    run.mutate(action, { onError: (error) => setPageError(errorMessage(error)) });
+    run.mutate(action, {
+      onError: (error) => setPageError(errorMessage(error)),
+    });
 
   const onCard = (action: CardAction) => {
     if (!current) return;
@@ -198,7 +202,11 @@ export function QuotePage() {
               {canIssue ? (
                 <Stack gap="close">
                   <nldd-button-group>
-                    <Button text="Maak offerte" appearance="primary" onClick={() => open('issue')} />
+                    <Button
+                      text="Maak offerte"
+                      appearance="primary"
+                      onClick={() => open('issue')}
+                    />
                   </nldd-button-group>
                   <Quiet>
                     Daarna wijzigt de offerte niet meer; voor een andere begroting maak je een
@@ -222,9 +230,7 @@ export function QuotePage() {
               />
               {budgetMoved && canIssue && data?.content ? (
                 <nldd-container layout="row" gap="16" vertical-alignment="center">
-                  <Quiet>
-                    De begroting staat nu op {formatEuro(data.content.total_cents)}.
-                  </Quiet>
+                  <Quiet>De begroting staat nu op {formatEuro(data.content.total_cents)}.</Quiet>
                   <Button text="Maak nieuwe offerte" size="sm" onClick={() => open('issue')} />
                 </nldd-container>
               ) : null}
@@ -266,9 +272,9 @@ export function QuotePage() {
       >
         <nldd-text>
           De offerte legt de begroting vast zoals die nu is
-          {data?.content ? `: ${formatEuro(data.content.total_cents)}` : ''}. Ze krijgt een
-          eigen kenmerk{waiting ? ' en vervangt de offerte die nu openstaat' : ''}. Daarna
-          wijzigt ze niet meer.
+          {data?.content ? `: ${formatEuro(data.content.total_cents)}` : ''}. Ze krijgt een eigen
+          kenmerk
+          {waiting ? ' en vervangt de offerte die nu openstaat' : ''}. Daarna wijzigt ze niet meer.
         </nldd-text>
         <DateInput label="Geldig tot en met" value={validUntil} onChange={setValidUntil} optional />
         <TextInput
@@ -315,8 +321,8 @@ export function QuotePage() {
       >
         <nldd-text>
           Een collega met het recht om offertes goed te keuren beoordeelt offerte{' '}
-          {current?.reference ?? ''}. Daarna kun je haar aanbieden. De opdrachtgever ziet hier
-          niets van.
+          {current?.reference ?? ''}. Daarna kun je haar aanbieden. De opdrachtgever ziet hier niets
+          van.
         </nldd-text>
         <TextInput
           label="Toelichting voor wie goedkeurt"
@@ -353,8 +359,8 @@ export function QuotePage() {
         }}
       >
         <nldd-text>
-          Hiermee leg je vast dat de opdrachtgever deze offerte heeft getekend. Dat is niet terug
-          te draaien.
+          Hiermee leg je vast dat de opdrachtgever deze offerte heeft getekend. Dat is niet terug te
+          draaien.
         </nldd-text>
         <FileInput
           label="Getekende offerte"
@@ -362,7 +368,12 @@ export function QuotePage() {
           accept=".pdf,application/pdf"
           onChange={setFile}
         />
-        <TextInput label="Naam van wie tekende" value={signerName} onChange={setSignerName} required />
+        <TextInput
+          label="Naam van wie tekende"
+          value={signerName}
+          onChange={setSignerName}
+          required
+        />
         <TextInput
           label="E-mailadres van wie tekende"
           value={signerEmail}
@@ -393,8 +404,8 @@ export function QuotePage() {
         }}
       >
         <nldd-text>
-          Hiermee leg je vast dat de opdrachtgever deze offerte heeft afgewezen. Daarna kun je
-          een nieuwe offerte maken.
+          Hiermee leg je vast dat de opdrachtgever deze offerte heeft afgewezen. Daarna kun je een
+          nieuwe offerte maken.
         </nldd-text>
         <TextInput label="Reden" value={reason} onChange={setReason} optional multiline />
       </FormSheet>

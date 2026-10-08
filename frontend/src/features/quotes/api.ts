@@ -244,8 +244,7 @@ export async function recordUploadedAcceptance(
   });
   if (response.ok) return (await response.json()) as QuoteSummary;
   const body: unknown = await response.json().catch(() => null);
-  const problem =
-    typeof body === 'object' && body !== null ? (body as ProblemDetails) : null;
+  const problem = typeof body === 'object' && body !== null ? (body as ProblemDetails) : null;
   throw new ApiError(response.status, response.statusText, body, problem);
 }
 
@@ -293,7 +292,8 @@ export const OFFER_CHANNEL_LABELS: Record<string, string> = {
 
 /** One line per channel on what happens when the quote is offered through it. */
 export const OFFER_CHANNEL_EFFECTS: Record<string, string> = {
-  client_instance: 'De offerte komt binnen in het grip van de opdrachtgever en wordt daar getekend.',
+  client_instance:
+    'De offerte komt binnen in het grip van de opdrachtgever en wordt daar getekend.',
   signing_link:
     'Je krijgt een link voor één persoon. Die logt in met SSO Rijk en tekent hier. Je stuurt de link zelf door.',
   document: 'Je downloadt de pdf en verstuurt die zelf. Het getekende exemplaar leg je hier vast.',

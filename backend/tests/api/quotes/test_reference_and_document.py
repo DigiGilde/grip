@@ -26,6 +26,7 @@ from grip.services.quote_document import (
     render_quote_pdf,
     scale_text,
 )
+from tests.api.quotes.conftest import document_text
 
 HASH = "ab" * 32
 ISSUED = datetime(2026, 10, 8, 12, 0, tzinfo=UTC)
@@ -405,9 +406,8 @@ async def test_download_is_a_pdf_named_after_the_reference(act_as, world):
     quote = await _issue(act_as, world, conditions="Verrekening per maand.")
     client = act_as(world.manager)
     view = await client.get(f"/api/quotes/{quote['id']}/document")
-    assert view.headers["content-type"].startswith("text/html")
-    assert quote["reference"] in view.text
-    assert ">http" not in view.text.split("Kenmerk")[1].split("Betreft")[0]
+    assert view.headers["content-disposition"].startswith("inline;")
+    assert quote["reference"] in document_text(view)
 
     response = await client.get(f"/api/quotes/{quote['id']}/document?download=true")
     if response.status_code == 422 and "opmaakbibliotheek" in response.text:
@@ -427,7 +427,7 @@ async def test_download_is_a_pdf_named_after_the_reference(act_as, world):
 async def test_no_name_of_staff_is_on_the_document(act_as, world, db_session):
     quote = await _issue(act_as, world)
     client = act_as(world.manager)
-    html = (await client.get(f"/api/quotes/{quote['id']}/document")).text
+    html = document_text(await client.get(f"/api/quotes/{quote['id']}/document"))
     names = (await db_session.execute(text("SELECT name FROM person"))).scalars().all()
     assert len(names) >= 6
     for name in names:
@@ -446,7 +446,9 @@ async def test_the_sender_is_the_organisation_not_the_software(
     monkeypatch.setattr(settings, "ORGANISATION_NAME", "Voorbeeldgilde")
     quote = await _issue(act_as, world)
     assert quote["content"]["sender"] == "Voorbeeldgilde"
-    html = (await act_as(world.manager).get(f"/api/quotes/{quote['id']}/document")).text
+    html = document_text(
+        await act_as(world.manager).get(f"/api/quotes/{quote['id']}/document")
+    )
     assert "Voorbeeldgilde" in html
     assert settings.INSTANCE_NAME not in html
 

@@ -62,7 +62,9 @@ function renderPage(replies: Record<string, unknown>) {
 
 describe('ApprovalPage', () => {
   it('is the quote, who asks, and one decision', async () => {
-    const { container } = renderPage({ '/api/quote-approvals/quotes/q-1': APPROVER_QUOTE });
+    const { container } = renderPage({
+      '/api/quote-approvals/quotes/q-1': APPROVER_QUOTE,
+    });
     await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
     const amount = container.querySelector('nldd-title[heading-level="2"]');
     expect(amount?.getAttribute('text')).toMatch(/^€\s172\.800$/);
@@ -98,7 +100,10 @@ describe('ApprovalPage', () => {
   it('approves the version that was shown', async () => {
     const { container, calls } = renderPage({
       '/api/quote-approvals/quotes/q-1': APPROVER_QUOTE,
-      'POST /api/quotes/q-1/approval/decision': { ...APPROVER_QUOTE.approval, status: 'approved' },
+      'POST /api/quotes/q-1/approval/decision': {
+        ...APPROVER_QUOTE.approval,
+        status: 'approved',
+      },
     });
     await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
     clickButton(container, 'Keur goed');
@@ -178,8 +183,18 @@ describe('QuoteSettingsPage', () => {
   const settings = (mode: string, threshold = 0, self = false) => ({
     items: [
       { key: 'quote_approval.mode', value: mode, default: 'never', label: '' },
-      { key: 'quote_approval.threshold_cents', value: threshold, default: 0, label: '' },
-      { key: 'quote_approval.allow_self_approval', value: self, default: false, label: '' },
+      {
+        key: 'quote_approval.threshold_cents',
+        value: threshold,
+        default: 0,
+        label: '',
+      },
+      {
+        key: 'quote_approval.allow_self_approval',
+        value: self,
+        default: false,
+        label: '',
+      },
     ],
   });
 
@@ -205,9 +220,9 @@ describe('QuoteSettingsPage', () => {
     const sheet = openSheet() as Element;
     sheet.querySelector('nldd-form')?.dispatchEvent(new Event('submit', { cancelable: true }));
     await waitFor(() =>
-      expect(sheet.querySelector('nldd-banner[variant="critical"]')?.getAttribute('text')).toContain(
-        'Vul het bedrag in',
-      ),
+      expect(
+        sheet.querySelector('nldd-banner[variant="critical"]')?.getAttribute('text'),
+      ).toContain('Vul het bedrag in'),
     );
     expect(calls.filter((call) => call.method === 'PATCH')).toEqual([]);
     sheet

@@ -142,3 +142,16 @@ def act_as(client: AsyncClient):
 
 
 PDF_BYTES = b"%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n"
+
+
+def document_text(response) -> str:
+    """The text of a quote document as served: one PDF, shown or downloaded."""
+    import io
+
+    from pypdf import PdfReader
+
+    assert response.status_code == 200, response.text
+    assert response.headers["content-type"] == "application/pdf"
+    reader = PdfReader(io.BytesIO(response.content))
+    pages = "\n".join(page.extract_text() for page in reader.pages)
+    return pages.replace("\xa0", " ")

@@ -57,16 +57,18 @@ export function QuoteDetails({ hash, facts = [] }: QuoteDetailsProps) {
                 heading-level={1}
               />
               <Stack gap="group">
-                {facts.length > 0 ? <Facts label="Gegevens van de offerte" facts={facts} labelWidth="140px" /> : null}
+                {facts.length > 0 ? (
+                  <Facts label="Gegevens van de offerte" facts={facts} labelWidth="140px" />
+                ) : null}
                 <Stack gap="related">
                   <nldd-title size={5} heading-level={2} text="Echtheidskenmerk" />
                   <nldd-text>
-                    Een code die uit de inhoud van deze offerte is berekend. Verandert er ook
-                    maar één teken, dan is de code anders.
+                    Een code die uit de inhoud van deze offerte is berekend. Verandert er ook maar
+                    één teken, dan is de code anders.
                   </nldd-text>
                   <nldd-text>
-                    Dezelfde code staat in het akkoord van de opdrachtgever. Zo staat vast dat
-                    er voor precies deze offerte is getekend.
+                    Dezelfde code staat in het akkoord van de opdrachtgever. Zo staat vast dat er
+                    voor precies deze offerte is getekend.
                   </nldd-text>
                   <Stack gap="tight">
                     {codeLines(hash).map((line) => (

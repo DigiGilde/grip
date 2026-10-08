@@ -67,10 +67,13 @@ describe('SigningPage', () => {
     expect(container.textContent).toContain('Betaling per maand.');
     // One primary, one secondary, and what signing means in one sentence.
     expect(texts(container, 'nldd-button[appearance="primary"]')).toEqual(['Geef akkoord']);
-    expect(
-      texts(container, 'nldd-button').filter((text) => text !== 'Details'),
-    ).toEqual(['Geef akkoord', 'Wijs af']);
-    expect(container.textContent).toContain('Met je akkoord gaat Voorbeeldministerie deze opdracht aan');
+    expect(texts(container, 'nldd-button').filter((text) => text !== 'Details')).toEqual([
+      'Geef akkoord',
+      'Wijs af',
+    ]);
+    expect(container.textContent).toContain(
+      'Met je akkoord gaat Voorbeeldministerie deze opdracht aan',
+    );
     // The echtheidskenmerk is there, behind "Details".
     expect(texts(container, 'nldd-button')).toContain('Details');
     expect(document.body.querySelectorAll('nldd-sheet [data-code-line]').length).toBe(2);
@@ -79,7 +82,9 @@ describe('SigningPage', () => {
   });
 
   it('does not send an acceptance without the mandate confirmation', async () => {
-    const { container, calls } = renderSigning({ '/api/signing/quotes/q-1': QUOTE });
+    const { container, calls } = renderSigning({
+      '/api/signing/quotes/q-1': QUOTE,
+    });
     await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
     clickButton(container, 'Geef akkoord');
     await waitFor(() => expect(openSheet()).toBeDefined());
@@ -193,6 +198,8 @@ describe('SigningListPage', () => {
     await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
     const link = container.querySelector('nldd-table nldd-link');
     expect(link?.getAttribute('href')).toBe('/tekenen/q-1');
-    expect(link?.getAttribute('accessible-label')).toBe('Bekijk en teken: offerte VG-2026-0007 voor Opdracht Alfa');
+    expect(link?.getAttribute('accessible-label')).toBe(
+      'Bekijk en teken: offerte VG-2026-0007 voor Opdracht Alfa',
+    );
   });
 });

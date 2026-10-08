@@ -13,7 +13,6 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, Query, Response, UploadFile, status
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -56,7 +55,7 @@ from grip.schema.quotes import (
 from grip.services import quote_channels, quote_views, quotes, stored_documents
 from grip.services.assignments import get_assignment
 from grip.services.errors import DomainValidationError, NotFoundError
-from grip.services.quote_document import render_quote_html, render_quote_pdf
+from grip.services.quote_document import render_quote_pdf
 from grip.services.quote_reference import file_stem
 
 router = APIRouter(tags=["quotes"])
@@ -476,19 +475,21 @@ async def quote_document(
 async def document_response(
     db: AsyncSession, quote: Quote, *, download: bool
 ) -> Response:
+    """The quote as its PDF: shown in the browser, or offered as a file.
+
+    There is one rendering of a quote. Looking at it and downloading it give
+    the same bytes, so what a reader sees is what a signer receives.
+    """
     context = await quote_views.document_context(db, quote)
-    if not download:
-        return HTMLResponse(
-            render_quote_html(quote.snapshot, context), headers=dict(DOCUMENT_HEADERS)
-        )
     # Laying out a page takes a moment; keep the event loop free meanwhile.
     pdf = await run_in_threadpool(render_quote_pdf, quote.snapshot, context)
     stem = file_stem(quote.reference, f"{quote.issued_at:%Y%m%d}-{quote.id}")
+    disposition = "attachment" if download else "inline"
     return Response(
         content=pdf,
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f'attachment; filename="offerte-{stem}.pdf"',
+            "Content-Disposition": f'{disposition}; filename="offerte-{stem}.pdf"',
             "Cache-Control": "private, no-store",
         },
     )
