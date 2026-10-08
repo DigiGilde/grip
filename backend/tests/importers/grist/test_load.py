@@ -27,6 +27,7 @@ from grip.models.cost import CostCoverage, CostItem, InvoiceLine
 from grip.models.person import Person
 from grip.models.person_details import BillabilityTarget, PersonScale
 from grip.models.rates import RateBand, RateCard, ScaleBand
+from grip.repositories.domain import RateRepository
 from grip.services import events, rates, team
 from tests.importers.grist.builder import build_grist
 from tests.importers.grist.conftest import fictional_tables
@@ -95,7 +96,7 @@ async def test_loads_everything_through_the_services(
         "invoice_line": 2,
         "cost_coverage": 2,
     }
-    card = await db_session.get(RateCard, 2026)
+    card = await RateRepository(db_session).get_card(2026)
     assert card is not None and card.status == "active"
     assert await count(db_session, RateBand) == 5
     assert await count(db_session, ScaleBand) == 10

@@ -18,6 +18,12 @@ ASSIGNMENT_REQUEST_CREATED = "assignment_request.created"
 QUOTE_ISSUED = "quote.issued"
 # An issued quote is put before the client, through a channel.
 QUOTE_OFFERED = "quote.offered"
+# Internal approval of a quote, before it may be offered. Knowledge of this
+# organisation only: no handler may send any of these to another instance.
+QUOTE_APPROVAL_REQUESTED = "quote_approval.requested"
+QUOTE_APPROVAL_APPROVED = "quote_approval.approved"
+QUOTE_APPROVAL_SENT_BACK = "quote_approval.sent_back"
+QUOTE_APPROVAL_WITHDRAWN = "quote_approval.withdrawn"
 QUOTE_ACCEPTED = "quote.accepted"
 QUOTE_REJECTED = "quote.rejected"
 ASSIGNMENT_STATUS_CHANGED = "assignment.status_changed"
@@ -37,6 +43,10 @@ EVENT_TYPES = (
     ASSIGNMENT_REQUEST_CREATED,
     QUOTE_ISSUED,
     QUOTE_OFFERED,
+    QUOTE_APPROVAL_REQUESTED,
+    QUOTE_APPROVAL_APPROVED,
+    QUOTE_APPROVAL_SENT_BACK,
+    QUOTE_APPROVAL_WITHDRAWN,
     QUOTE_ACCEPTED,
     QUOTE_REJECTED,
     ASSIGNMENT_STATUS_CHANGED,

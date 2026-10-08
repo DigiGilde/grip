@@ -1,0 +1,166 @@
+/*
+ * A path from a node to where it comes from (NodePathView.tsx): one rail
+ * with a marker per step, the relation between two steps on the rail. The
+ * design system in use has no vertical step or timeline component, so the
+ * rail is drawn here, with its colours taken from the system's tokens.
+ *
+ * Every step is three rows on one grid: the kind of node, the title next to
+ * the marker, and who manages it. The marker column and the text column are
+ * the same for every step and for the relation rows between them, so all
+ * markers share one x and all text starts at one x.
+ */
+.grip-path {
+  --path-rail: 16px;
+  --path-line: var(--primitives-color-neutral-300);
+  --path-marker: var(--primitives-color-neutral-650);
+  --path-current: var(--primitives-color-lintblauw-600);
+  --path-end: var(--primitives-color-neutral-950);
+  --path-surface: var(--semantics-surfaces-base-background-color);
+  --path-hover: var(--primitives-color-neutral-50);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.grip-path__step,
+.grip-path__relation {
+  display: grid;
+  grid-template-columns: var(--path-rail) minmax(0, 1fr);
+  column-gap: 8px;
+}
+
+.grip-path__step {
+  grid-template-rows: auto auto auto;
+}
+
+/* The rail: a line through the cell, top to bottom. */
+.grip-path__rail {
+  position: relative;
+  grid-column: 1;
+}
+
+.grip-path__rail::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: calc(var(--path-rail) / 2 - 1px);
+  inline-size: 2px;
+  background: var(--path-line);
+}
+
+/* The line starts at the first marker and stops at the last. */
+.grip-path__step--first > .grip-path__rail--before::before,
+.grip-path__step--last > .grip-path__rail--after::before {
+  content: none;
+}
+
+.grip-path__step--first > .grip-path__rail--marker::before {
+  inset-block-start: 50%;
+}
+
+.grip-path__step--last > .grip-path__rail--marker::before {
+  inset-block-end: 50%;
+}
+
+.grip-path__rail--marker::after {
+  content: '';
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  inline-size: 10px;
+  block-size: 10px;
+  translate: -50% -50%;
+  border-radius: 50%;
+  box-sizing: border-box;
+  border: 2px solid var(--path-marker);
+  background: var(--path-surface);
+}
+
+/* The node the sheet is about: the strongest marker. */
+.grip-path__step--current > .grip-path__rail--marker::after {
+  inline-size: 14px;
+  block-size: 14px;
+  border-color: var(--path-current);
+  background: var(--path-current);
+}
+
+/* Where the path ends: a closed marker. */
+.grip-path__step--end > .grip-path__rail--marker::after {
+  border-color: var(--path-end);
+  background: var(--path-end);
+}
+
+/* The text of a step, over the three rows, with what marks it at the end. */
+.grip-path__body {
+  grid-column: 2;
+  grid-row: 1 / span 3;
+  display: grid;
+  grid-template-rows: subgrid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 8px;
+  padding: 8px;
+  margin: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  text-decoration: none;
+}
+
+.grip-path__kind,
+.grip-path__title,
+.grip-path__by {
+  grid-column: 1;
+  min-inline-size: 0;
+}
+
+.grip-path__mark {
+  grid-column: 2;
+  grid-row: 1 / -1;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--path-marker);
+}
+
+/* A step that opens is one control: the whole row. */
+button.grip-path__body,
+a.grip-path__body {
+  cursor: pointer;
+}
+
+button.grip-path__body:hover,
+a.grip-path__body:hover {
+  background: var(--path-hover);
+}
+
+button.grip-path__body:focus-visible,
+a.grip-path__body:focus-visible {
+  outline: 2px solid var(--path-current);
+  outline-offset: 2px;
+}
+
+.grip-path__relation > .grip-path__label {
+  grid-column: 2;
+  padding: 2px 8px;
+}
+
+/* The ways that part from the shared steps, next to each other where they fit. */
+.grip-path-branches {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 24px;
+  align-items: start;
+}
+
+@media (forced-colors: active) {
+  .grip-path__rail::before {
+    background: CanvasText;
+  }
+  .grip-path__rail--marker::after {
+    border-color: CanvasText;
+  }
+}

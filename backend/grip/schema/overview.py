@@ -30,6 +30,16 @@ class TotalsOut(BaseModel):
     overrun: Annotated[bool, in_class(B)]
 
 
+class AttentionOut(BaseModel):
+    """One thing that needs attention. The route only adds the points the
+    reader may see, so the fields themselves are as open as the row."""
+
+    kind: Annotated[str, in_class(A)]
+    text: Annotated[str, in_class(A)]
+    # The tab of the assignment where the point is solved.
+    tab: Annotated[str, in_class(A)]
+
+
 class OverviewRowOut(BaseModel):
     assignment_id: Annotated[UUID, in_class(A)]
     name: Annotated[str, in_class(A)]
@@ -44,6 +54,10 @@ class OverviewRowOut(BaseModel):
     pricing_error: Annotated[str | None, in_class(B)]
     # First day of the last closed month; null when none is closed.
     reference_month: Annotated[date | None, in_class(B)]
+    # False when the assignment has nothing in the chosen year: its period
+    # lies outside it. The start page leaves such rows out and says so.
+    in_year: Annotated[bool, in_class(A)] = True
+    attention: Annotated[list[AttentionOut], nested()] = []
 
 
 class OverviewOut(BaseModel):
@@ -55,6 +69,10 @@ class OverviewOut(BaseModel):
     figures_potential: Annotated[FiguresOut, nested()]
     figures_active: Annotated[FiguresOut, nested()]
     figures_closed: Annotated[FiguresOut, nested()]
+    # Running work, whole period: closed months not yet delivered to the
+    # financial administration, and delivered but not yet invoiced.
+    to_deliver_cents: Annotated[int | None, in_class(B)] = None
+    to_invoice_cents: Annotated[int | None, in_class(B)] = None
 
 
 class TeamMemberOut(BaseModel):

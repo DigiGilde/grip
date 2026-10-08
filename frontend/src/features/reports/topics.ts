@@ -3,6 +3,7 @@ import type { Steering } from './api';
 
 /** The detail views under Rapportage: one topic, one question each. */
 export const TOPICS = {
+  investeerruimte: { title: 'Investeerruimte', block: null },
   omzet: { title: 'Omzet', block: 'turnover' },
   bezetting: { title: 'Bezetting', block: 'occupancy' },
   pijplijn: { title: 'Pijplijn', block: 'pipeline' },

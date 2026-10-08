@@ -424,6 +424,8 @@
 .grip-tiles {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  /* Every row as tall as the tallest, so all tiles are equal. */
+  grid-auto-rows: 1fr;
   gap: 16px;
   list-style: none;
   margin: 0;
@@ -601,4 +603,77 @@ div.grip-tile--attention:hover {
 
 .grip-occ__detail p {
   margin: 0 0 8px;
+}
+
+/* -- investeerruimte: a derivation to follow line by line -------------------- */
+
+.grip-invest {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 24px;
+  align-items: start;
+}
+
+.grip-derivation {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--primitives-color-neutral-950);
+}
+
+.grip-derivation caption {
+  text-align: left;
+  font-weight: 700;
+  padding-bottom: 8px;
+}
+
+.grip-derivation th,
+.grip-derivation td {
+  padding: 8px 0;
+  text-align: left;
+  font-weight: 400;
+  vertical-align: top;
+  border-bottom: 1px solid var(--primitives-color-neutral-150);
+}
+
+.grip-derivation td {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  padding-left: 16px;
+}
+
+.grip-derivation a {
+  color: inherit;
+  text-underline-offset: 3px;
+}
+
+.grip-derivation a:focus-visible {
+  outline: 3px solid var(--primitives-color-accent-600);
+  outline-offset: 2px;
+}
+
+.grip-derivation__sub {
+  display: block;
+  font-size: 0.8125rem;
+  color: var(--primitives-color-neutral-650);
+}
+
+.grip-derivation__total th,
+.grip-derivation__total td {
+  border-top: 2px solid var(--primitives-color-neutral-950);
+  border-bottom: 0;
+  font-weight: 700;
+  font-size: 1.25rem;
+}
+
+.grip-derivation__apart th,
+.grip-derivation__apart td {
+  border-bottom: 0;
+  color: var(--primitives-color-neutral-650);
+  font-size: 0.875rem;
+}
+
+.grip-derivation__zero td,
+.grip-derivation__zero th {
+  color: var(--primitives-color-neutral-650);
 }

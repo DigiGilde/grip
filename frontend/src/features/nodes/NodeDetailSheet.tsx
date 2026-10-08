@@ -4,11 +4,20 @@ import { useQuery } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
 import { orUndef, useNlddEvent } from '@/components/nldd/events';
 import { Button } from '@/features/assignments/ui';
-import { ErrorNotice, Loading, SectionHeading } from '@/ui/layout';
+import {
+  ErrorNotice,
+  Facts,
+  Loading,
+  Quiet,
+  SectionHeading,
+  Stack,
+  type Fact,
+} from '@/ui/layout';
 import { formatDate, formatPeriod } from '@/lib/format';
-import type { NodeLookup, NodePath, PathStep } from './api';
-import { edgeTypeLabel, nodeTypeLabel } from './labels';
-import { corpusLabel, endOf, notableStatus } from './summary';
+import type { NodeLookup } from './api';
+import { nodeTypeLabel } from './labels';
+import { NodePathView } from './NodePathView';
+import { notableStatus } from './summary';
 import './register';
 
 export interface NodeDetailSheetProps {
@@ -23,86 +32,6 @@ export interface NodeDetailSheetProps {
   onClose: () => void;
 }
 
-function PathView({
-  path,
-  currentUri,
-  onStep,
-}: {
-  path: NodePath;
-  currentUri: string;
-  onStep: (uri: string) => void;
-}) {
-  const steps = path.steps ?? [];
-  const end = endOf(path);
-  const label = end?.external
-    ? `Pad naar ${corpusLabel(end)}`
-    : `Pad naar ${end?.title ?? 'het eindpunt'}`;
-  return (
-    <ol aria-label={label} style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-      {steps.map((step, index) => (
-        <li key={step.uri}>
-          <StepView step={step} current={step.uri === currentUri} onStep={onStep} />
-          {index < steps.length - 1 && step.edge_type ? (
-            <nldd-container padding-inline="16" padding-block="4">
-              <nldd-text size="sm">↓ {edgeTypeLabel(step.edge_type)}</nldd-text>
-            </nldd-container>
-          ) : null}
-        </li>
-      ))}
-    </ol>
-  );
-}
-
-function StepView({
-  step,
-  current,
-  onStep,
-}: {
-  step: PathStep;
-  current: boolean;
-  onStep: (uri: string) => void;
-}) {
-  if (step.external && !step.title) {
-    // A step in another corpus: named as such, with the way to it.
-    return (
-      <nldd-container layout="wrap" gap="8">
-        <nldd-badge color="neutral" text="Ander corpus" />
-        <nldd-text>{corpusLabel(step)}</nldd-text>
-        {step.resolvable ? (
-          <Button
-            text="Bekijk"
-            size="sm"
-            appearance="neutral-transparent"
-            accessibleLabel={`Bekijk de node in ${corpusLabel(step)}`}
-            onClick={() => onStep(step.uri)}
-          />
-        ) : null}
-        <nldd-link href={step.uri} target="_blank" text="Open in dat corpus" />
-      </nldd-container>
-    );
-  }
-  const title = step.title ?? step.uri;
-  return (
-    <nldd-container layout="wrap" gap="8">
-      <nldd-badge color={current ? 'accent' : 'neutral'} text={nodeTypeLabel(step.type ?? '')} />
-      {current || !step.resolvable ? (
-        <nldd-text>
-          {current ? <strong>{title}</strong> : title}
-          {current ? ' (deze node)' : ''}
-        </nldd-text>
-      ) : (
-        <Button
-          text={title}
-          size="sm"
-          appearance="neutral-transparent"
-          accessibleLabel={`Bekijk ${title}`}
-          onClick={() => onStep(step.uri)}
-        />
-      )}
-    </nldd-container>
-  );
-}
-
 function CopyUri({ uri }: { uri: string }) {
   const [copied, setCopied] = useState(false);
   const copy = () => {
@@ -112,17 +41,26 @@ function CopyUri({ uri }: { uri: string }) {
       .catch(() => setCopied(false));
   };
   return (
-    <nldd-container gap="8">
+    <Stack gap="close">
       <nldd-text size="sm" style={{ overflowWrap: 'anywhere' }}>
         {uri}
       </nldd-text>
-      <nldd-container layout="wrap" gap="16">
+      <div>
         <Button text="Kopieer URI" size="sm" onClick={copy} />
-        <nldd-link href={uri} target="_blank" text="Open in het corpus" />
-      </nldd-container>
-      <nldd-text size="sm" aria-live="polite">
+      </div>
+      <nldd-text size="sm" color="secondary" aria-live="polite">
         {copied ? 'De URI is gekopieerd.' : ''}
       </nldd-text>
+    </Stack>
+  );
+}
+
+/** Where the node lives: the corpus by name, and the way to its own page there. */
+function Source({ item }: { item: NodeLookup }) {
+  return (
+    <nldd-container layout="wrap" gap="16">
+      {item.corpus_name ? <Quiet>Uit {item.corpus_name}</Quiet> : null}
+      <nldd-link href={item.uri} target="_blank" text="Open in het corpus" />
     </nldd-container>
   );
 }
@@ -131,7 +69,7 @@ function Detail({ item, onStep }: { item: NodeLookup; onStep: (uri: string) => v
   const node = item.node;
   if (!node) {
     return (
-      <nldd-container gap="16">
+      <Stack gap="group">
         <nldd-banner
           variant="neutral"
           size="sm"
@@ -139,60 +77,53 @@ function Detail({ item, onStep }: { item: NodeLookup; onStep: (uri: string) => v
           supporting-text={item.problem ?? 'De verwijzing blijft bewaard zoals hij is.'}
         />
         <CopyUri key={item.uri} uri={item.uri} />
-      </nldd-container>
+      </Stack>
     );
   }
   const status = notableStatus(node.status);
-  const facts: [string, string][] = [
-    ['Beheerd door', node.managing_organisation?.name ?? ''],
-    ['Corpus', item.corpus_name ?? ''],
-    ['Status', node.status ?? ''],
-    ['Geldig', formatPeriod(node.valid_from, node.valid_until)],
-  ];
+  const facts: Fact[] = [
+    { label: 'Soort', value: nodeTypeLabel(node.type) },
+    { label: 'Beheerd door', value: node.managing_organisation?.name ?? '' },
+    { label: 'Status', value: status },
+    { label: 'Geldig', value: formatPeriod(node.valid_from, node.valid_until) },
+  ].filter((fact) => fact.value !== '');
   const paths = item.paths ?? [];
   return (
-    <nldd-container gap="16">
-      <nldd-container layout="wrap" gap="8">
-        <nldd-badge color="accent" text={nodeTypeLabel(node.type)} />
-        {status ? <nldd-badge color="warning" text={status} /> : null}
-      </nldd-container>
-      {node.description ? <nldd-text>{node.description}</nldd-text> : null}
-      <nldd-list accessible-label="Gegevens van de node" appearance="box-base">
-        {facts
-          .filter(([, value]) => value !== '')
-          .map(([label, value]) => (
-            <nldd-list-item key={label}>
-              <nldd-text-cell overline={label} text={value} />
-            </nldd-list-item>
-          ))}
-      </nldd-list>
+    <Stack gap="group">
+      <Stack gap="related">
+        <Source item={item} />
+        {node.description ? <nldd-text>{node.description}</nldd-text> : null}
+        <Facts label="Gegevens van de node" facts={facts} labelWidth="140px" />
+      </Stack>
 
-      <SectionHeading text="Waar dit uit voortkomt" level={2} />
-      {item.falls_under ? (
-        <nldd-text size="sm">
-          Deze node valt onder {item.falls_under.title}, die ook aan deze opdracht is gekoppeld.
-        </nldd-text>
-      ) : null}
-      {paths.length === 0 ? (
-        <nldd-text size="sm">
-          {node.type === 'politieke_input'
-            ? 'Dit is zelf een politieke input: hier begint de keten.'
-            : 'Het corpus kent voor deze node geen keten naar een politieke input.'}
-        </nldd-text>
-      ) : (
-        paths.map((path) => (
-          <PathView key={endOf(path)?.uri ?? 'pad'} path={path} currentUri={item.uri} onStep={onStep} />
-        ))
-      )}
-      <nldd-text size="sm">
-        Titel en status zijn die van {node.peildatum ? formatDate(node.peildatum) : 'vandaag'}.
-        De keten is altijd de keten van nu: een corpus bewaart niet hoe de verbanden vroeger
-        liepen.
-      </nldd-text>
+      <Stack gap="related">
+        <SectionHeading text="Waar dit uit voortkomt" level={2} />
+        {item.falls_under ? (
+          <Quiet>
+            Deze node valt onder {item.falls_under.title}, die ook aan deze opdracht is gekoppeld.
+          </Quiet>
+        ) : null}
+        {paths.length === 0 ? (
+          <Quiet>
+            {node.type === 'politieke_input'
+              ? 'Dit is zelf een politieke input: hier begint de keten.'
+              : 'Het corpus kent voor deze node geen keten naar een politieke input.'}
+          </Quiet>
+        ) : (
+          <NodePathView paths={paths} currentUri={item.uri} onStep={onStep} />
+        )}
+        <Quiet>
+          Titel en status zijn die van {node.peildatum ? formatDate(node.peildatum) : 'vandaag'}.
+          De keten is altijd de keten van nu: een corpus bewaart niet hoe de verbanden vroeger
+          liepen.
+        </Quiet>
+      </Stack>
 
-      <SectionHeading text="Verwijzing" level={2} />
-      <CopyUri key={item.uri} uri={item.uri} />
-    </nldd-container>
+      <Stack gap="related">
+        <SectionHeading text="Verwijzing" level={2} />
+        <CopyUri key={item.uri} uri={item.uri} />
+      </Stack>
+    </Stack>
   );
 }
 
@@ -231,7 +162,7 @@ export function NodeDetailSheet({ uri, known, fetchNode, scope, onClose }: NodeD
 
   const title = item?.node?.title ?? (current ? 'Node' : '');
   return createPortal(
-    <nldd-sheet ref={sheetRef} open={orUndef(uri !== null)} placement="right" width="520px">
+    <nldd-sheet ref={sheetRef} open={orUndef(uri !== null)} placement="right" width="640px">
       <nldd-page>
         <nldd-top-title-bar
           ref={barRef}

@@ -1,5 +1,6 @@
 """Stand van zaken: budgeted, used and available per assignment."""
 
+from datetime import date
 from typing import Any
 from uuid import UUID
 
@@ -17,6 +18,7 @@ from grip.schema.board import (
 )
 from grip.schema.overview import (
     AssignmentOverviewOut,
+    AttentionOut,
     LineCostOut,
     LineOverviewOut,
     OverviewRowOut,
@@ -26,12 +28,14 @@ from grip.schema.overview import (
 from grip.services import assignment_finance as finance
 from grip.services import assignment_views as views
 from grip.services import staffing_board
+from grip.services.overview_attention import attention_points
 from grip.services.phase import Phase
 
 router = APIRouter(tags=["overview"])
 
 A = DataClass.ASSIGNMENT_BASIC
 B = DataClass.ASSIGNMENT_FINANCIAL
+SIGNAL = DataClass.RATE_MISMATCH_SIGNAL
 _ROW_CLASSES = schema_classes(OverviewRowOut)
 _TEAM_CLASSES = schema_classes(TeamMemberOut)
 _LINE_CLASSES = schema_classes(LineOverviewOut) - _TEAM_CLASSES | {DataClass.STAFFING}
@@ -51,6 +55,15 @@ def _totals(totals: Any) -> TotalsOut | None:
         available_cents=totals.available_cents,
         overrun=totals.overrun,
     )
+
+
+def _in_year(start: date | None, end: date | None, year: int | None) -> bool:
+    """Whether the period of an assignment touches the chosen year."""
+    if year is None:
+        return True
+    if start is not None and start.year > year:
+        return False
+    return not (end is not None and end.year < year)
 
 
 @router.get("/overview", response_model=None)
@@ -73,6 +86,7 @@ async def get_overview(
     items: list[dict[str, Any]] = []
     priced: dict[Phase, list[finance.Figures]] = {phase: [] for phase in Phase}
     any_financial = False
+    to_deliver = to_invoice = 0
     for row in rows:
         resource = Resource.assignment(row.assignment.id)
         permitted = await access.classes(resource, _ROW_CLASSES)
@@ -81,15 +95,29 @@ async def get_overview(
         figures: finance.Figures | None = None
         error: str | None = None
         reference = None
-        if B in permitted:
-            any_financial = True
+        money = B in permitted
+        # The R14 signal is also for a planner, as a fact without amounts.
+        signal = await access.may(Action.READ, resource, SIGNAL)
+        attention: list[AttentionOut] = []
+        if money or signal:
             data = await finance.assignment_finance(
                 db, row.assignment.id, year=selected
             )
+            attention = [
+                AttentionOut(kind=point.kind, text=point.text, tab=point.tab)
+                for point in attention_points(data)
+                if (money if point.about_money else signal)
+            ]
+        if money:
+            any_financial = True
             figures, error = data.totals, data.pricing_error
             reference = data.reference_month
             if figures is not None:
                 priced[row.phase].append(figures)
+            if row.phase is Phase.ACTIVE:
+                key = data.key_figures
+                to_deliver += key.to_deliver_cents or 0
+                to_invoice += key.to_invoice_cents or 0
         a = row.assignment
         items.append(
             build_response(
@@ -104,6 +132,8 @@ async def get_overview(
                     figures=figures_out(figures),
                     pricing_error=error,
                     reference_month=reference,
+                    in_year=_in_year(a.start_date, a.end_date, selected),
+                    attention=attention,
                 ),
                 permitted,
             )
@@ -114,6 +144,8 @@ async def get_overview(
             subtotal = figures_out(finance.Figures.sum(priced[phase]))
             assert subtotal is not None
             result[f"figures_{phase.value}"] = subtotal.model_dump(mode="json")
+        result["to_deliver_cents"] = to_deliver
+        result["to_invoice_cents"] = to_invoice
     return result
 
 

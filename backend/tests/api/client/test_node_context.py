@@ -56,6 +56,26 @@ def test_one_political_input_gives_one_path_with_the_relations():
     assert summary.passed_uris == {GOAL, MOTION}
 
 
+def test_a_step_names_who_manages_it():
+    chain = {
+        **CHAIN,
+        "nodes": [
+            CHAIN["nodes"][0],
+            {
+                **CHAIN["nodes"][1],
+                "managing_organisation": {"name": "Voorbeeldministerie"},
+            },
+            {**CHAIN["nodes"][2], "managing_organisation": None},
+        ],
+    }
+    (path,) = summarise(chain, INSTRUMENT).paths
+    assert [step.organisation for step in path.steps] == [
+        None,
+        "Voorbeeldministerie",
+        None,
+    ]
+
+
 def test_two_political_inputs_give_two_paths_nearest_first():
     chain = {
         **CHAIN,

@@ -185,6 +185,7 @@ def _paths_out(
                     uri=step.uri,
                     title=step.title,
                     type=step.type,
+                    organisation_name=step.organisation,
                     external=step.external,
                     corpus_name=corpora.name(step.uri),
                     resolvable=corpora.resolvable(step.uri),

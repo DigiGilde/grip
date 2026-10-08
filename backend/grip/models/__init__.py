@@ -7,6 +7,7 @@ from grip.models.catalogue_role import (
 )
 from grip.models.cost import CostCoverage, CostItem, InvoiceLine
 from grip.models.http_session import HttpSession
+from grip.models.instance_setting import InstanceSetting
 from grip.models.month_close import (
     BillingExport,
     BillingExportLine,
@@ -19,6 +20,7 @@ from grip.models.person_details import BillabilityTarget, Hire, PersonScale
 from grip.models.quote import (
     Quote,
     QuoteAcceptance,
+    QuoteApproval,
     QuoteInvitation,
     QuoteOffer,
     QuoteRejection,
@@ -26,7 +28,14 @@ from grip.models.quote import (
 from grip.models.rates import RateBand, RateCard, ScaleBand
 from grip.models.role import PersonRole, Role
 
-__all__ = ["AuditLog", "HttpSession", "Person", "PersonRole", "Role"]
+__all__ = [
+    "AuditLog",
+    "HttpSession",
+    "InstanceSetting",
+    "Person",
+    "PersonRole",
+    "Role",
+]
 
 # Domain models (migration 0002_domain).
 __all__ += [
@@ -50,6 +59,7 @@ __all__ += [
     "PersonScale",
     "Quote",
     "QuoteAcceptance",
+    "QuoteApproval",
     "QuoteInvitation",
     "QuoteOffer",
     "QuoteRejection",

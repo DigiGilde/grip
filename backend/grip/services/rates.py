@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
@@ -330,6 +331,126 @@ async def set_rate_card_status(
             session, pending, cause=f"tarievenkaart '{card.name}' is ingegaan"
         )
     return card
+
+
+@dataclass(frozen=True)
+class ValidStretch:
+    """Consecutive days priced by one card, or by none (a gap)."""
+
+    start_date: date
+    end_date: date
+    card: RateCard | None
+
+
+async def valid_rates(
+    session: AsyncSession, start: date, end: date
+) -> list[ValidStretch]:
+    """The cards that price the days from ``start`` to ``end``, in order.
+
+    A gap between cards is reported as a stretch without a card; it is never
+    bridged.
+    """
+    if end < start:
+        raise DomainValidationError("De einddatum ligt voor de begindatum.")
+    cards = await RateRepository(session).pricing_cards()
+    stretches: list[ValidStretch] = []
+    day = start
+    while day <= end:
+        card = next(
+            (c for c in cards if c.valid_from <= day <= (c.valid_to or date.max)),
+            None,
+        )
+        if card is not None:
+            last = min(end, card.valid_to or date.max)
+        else:
+            later = [c.valid_from for c in cards if c.valid_from > day]
+            last = min([end, *(d - timedelta(days=1) for d in later)])
+        stretches.append(ValidStretch(day, last, card))
+        day = last + timedelta(days=1)
+    return stretches
+
+
+def rates_differ(stretches: list[ValidStretch]) -> bool:
+    seen = {
+        tuple(sorted((b.category, b.monthly_rate_cents) for b in s.card.rate_bands))
+        for s in stretches
+        if s.card is not None
+    }
+    return len(seen) > 1
+
+
+def valid_rates_summary(stretches: list[ValidStretch]) -> str:
+    """One sentence about which card prices a period."""
+    cards = [s for s in stretches if s.card is not None]
+    gap = any(s.card is None for s in stretches)
+    if not cards:
+        return "Voor deze periode is er geen actieve tarievenkaart."
+    first = cards[0].card
+    assert first is not None
+    until = (
+        f", geldig t/m {date_text(first.valid_to)}"
+        if first.valid_to
+        else ", zonder einddatum"
+    )
+    text = f"Volgens {first.name}{until}."
+    if len(cards) > 1:
+        nxt = cards[1]
+        assert nxt.card is not None
+        text += f" Vanaf {date_text(nxt.start_date)} geldt {nxt.card.name}"
+        text += (
+            " met andere tarieven; de periode wordt per dag geprijsd."
+            if rates_differ(stretches)
+            else " met dezelfde tarieven."
+        )
+    if gap:
+        text += " Voor een deel van de periode is er geen tarievenkaart."
+    return text
+
+
+async def shortening_for(
+    session: AsyncSession, card: RateCard
+) -> dict[str, Any] | None:
+    """Which card activating this one would end, and when. Changes nothing."""
+    if card.status != "draft":
+        return None
+    for other in await RateRepository(session).pricing_cards():
+        if other.valid_from < card.valid_from <= (other.valid_to or date.max):
+            return {
+                "id": other.id,
+                "name": other.name,
+                "old_valid_to": other.valid_to,
+                "new_valid_to": card.valid_from - timedelta(days=1),
+            }
+    return None
+
+
+async def activation_preview(
+    session: AsyncSession, key: CardKey, *, allow_closed_year: bool = False
+) -> tuple[RateCard, dict[str, Any] | None, Any]:
+    """What activating a draft card does, before it is done.
+
+    Returns the card, the card it would shorten, and the price impact: how
+    many budget lines and how much inzet get a different amount from the
+    start date, and what it does to months that are already closed or
+    delivered. A refusal to activate is raised here as it would be then.
+    """
+    from grip.services import price_changes
+
+    card = await get_card(session, key)
+    if card.status != "draft":
+        raise DomainValidationError(
+            "Alleen een tarievenkaart in concept kan worden geactiveerd."
+        )
+    card_id, since = card.id, card.valid_from
+    shortened = await shortening_for(session, card)
+
+    async def activate() -> None:
+        await set_rate_card_status(
+            session, card_id, "active", actor=None, allow_closed_year=allow_closed_year
+        )
+
+    impact = await price_changes.preview(session, activate, since=since)
+    return await get_card(session, card_id), shortened, impact
 
 
 async def update_card(

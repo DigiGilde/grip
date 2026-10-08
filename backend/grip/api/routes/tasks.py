@@ -32,6 +32,7 @@ from grip.schema.tasks import (
     TaskUpdateIn,
     TrackOut,
 )
+from grip.services.errors import NotFoundError
 from grip.tasks import catalogue, engine, service
 from grip.tasks.access import TaskAccess
 from grip.tasks.handlers import register_task_handlers
@@ -226,7 +227,7 @@ async def _load(
     """The task, whether the reader may edit its case, and whether it is theirs."""
     try:
         task = await service.get_task(db, task_id)
-    except service.NotFoundError:
+    except NotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Niet gevonden"
         ) from None

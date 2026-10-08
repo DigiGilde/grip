@@ -8,6 +8,7 @@ export const assignmentMonthClosePath = (id: string) => `${assignmentPath(id)}/m
 /** The tabs of an assignment, each with its own address. */
 export const ASSIGNMENT_TAB_SEGMENTS = {
   overview: '',
+  tasks: 'taken',
   finance: 'financieel',
   staffing: 'bemensing',
   budget: 'begroting',

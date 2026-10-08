@@ -126,6 +126,7 @@ describe('AssignmentLayout', () => {
     const { container } = renderShell(PERMISSIONS.owner);
     expect(await tabs(container)).toEqual([
       'Overzicht',
+      'Taken',
       'Financieel',
       'Bemensing',
       'Begroting',
@@ -137,6 +138,7 @@ describe('AssignmentLayout', () => {
     );
     expect(hrefs).toEqual([
       '/opdrachten/a1',
+      '/opdrachten/a1/taken',
       '/opdrachten/a1/financieel',
       '/opdrachten/a1/bemensing',
       '/opdrachten/a1/begroting',
@@ -148,18 +150,19 @@ describe('AssignmentLayout', () => {
 
   it('shows a planner no money tab', async () => {
     const { container } = renderShell(PERMISSIONS.planner);
-    expect(await tabs(container)).toEqual(['Overzicht', 'Bemensing', 'Maandafsluiting']);
+    expect(await tabs(container)).toEqual(['Overzicht', 'Taken', 'Bemensing', 'Maandafsluiting']);
   });
 
   it('shows a team member the overview and the team', async () => {
     const { container } = renderShell(PERMISSIONS.member);
-    expect(await tabs(container)).toEqual(['Overzicht', 'Bemensing']);
+    expect(await tabs(container)).toEqual(['Overzicht', 'Taken', 'Bemensing']);
   });
 
   it('shows a lezer the money tabs and no team', async () => {
     const { container } = renderShell(PERMISSIONS.lezer);
     expect(await tabs(container)).toEqual([
       'Overzicht',
+      'Taken',
       'Financieel',
       'Begroting',
       'Offerte',

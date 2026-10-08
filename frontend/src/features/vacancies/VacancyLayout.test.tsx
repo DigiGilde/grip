@@ -205,6 +205,7 @@ describe('the header of a vacancy', () => {
     expect(container.querySelector('nldd-step-bar')?.getAttribute('current')).toBe('3');
     expect(tabsOf(container)).toEqual([
       ['Aanvraag', true],
+      ['Taken', false],
       ['Advies en akkoord', false],
       ['Tekst', false],
       ['Procedure', false],
@@ -218,7 +219,7 @@ describe('the header of a vacancy', () => {
   it('leaves out the tab a reader has nothing on', () => {
     expect(visibleTabs(REQUESTED)).toContain('fulfilment');
     const reader = { ...REQUESTED, permissions: NO_PERMISSIONS };
-    expect(visibleTabs(reader)).toEqual(['request', 'decisions', 'text', 'procedure']);
+    expect(visibleTabs(reader)).toEqual(['request', 'tasks', 'decisions', 'text', 'procedure']);
     expect(visibleTabs(PUBLIC)).toEqual([]);
   });
 

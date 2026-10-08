@@ -35,6 +35,11 @@ class MonthStateOut(BaseModel):
 class MonthTimelineOut(BaseModel):
     assignment_id: Annotated[UUID, A]
     assignment_name: Annotated[str, A]
+    # Whether months of this assignment can be closed at all in its current
+    # status: not before there is an agreement with the client.
+    closing_started: Annotated[bool, A] = True
+    # Whether the person asking is the one who closes months here.
+    may_close: Annotated[bool, A] = False
     months: Annotated[list[MonthStateOut], nested()] = Field(default_factory=list)
 
 

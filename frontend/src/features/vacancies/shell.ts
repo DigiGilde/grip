@@ -26,6 +26,7 @@ export function useVacancyShell(): VacancyShell {
 
 export const TAB_LABELS: Record<VacancyTabKey, string> = {
   request: 'Aanvraag',
+  tasks: 'Taken',
   decisions: 'Advies en akkoord',
   text: 'Tekst',
   procedure: 'Procedure',
@@ -34,6 +35,7 @@ export const TAB_LABELS: Record<VacancyTabKey, string> = {
 
 const TAB_ORDER: readonly VacancyTabKey[] = [
   'request',
+  'tasks',
   'decisions',
   'text',
   'procedure',
@@ -54,6 +56,7 @@ export function visibleTabs(vacancy: Vacancy): VacancyTabKey[] {
   if (!seesWholeVacancy(vacancy)) return [];
   const shown: Record<VacancyTabKey, boolean> = {
     request: true,
+    tasks: true,
     decisions: true,
     text: true,
     procedure: true,

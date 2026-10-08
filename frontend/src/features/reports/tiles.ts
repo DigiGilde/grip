@@ -1,5 +1,5 @@
 import { formatEuro, formatFte, formatPercent } from '@/lib/format';
-import type { Steering } from './api';
+import type { Investment, Steering } from './api';
 import { monthAbbreviation, monthName } from './labels';
 import type { TopicSlug } from './topics';
 
@@ -22,8 +22,10 @@ const count = (number: number, one: string, many: string) =>
  * block the reader may not see is absent from the response, and so is its
  * tile; the others reflow.
  */
-export function landingTiles(steering: Steering): Tile[] {
+export function landingTiles(steering: Steering, investment?: Investment): Tile[] {
   const tiles: Tile[] = [];
+  const invest = investmentTile(investment);
+  if (invest) tiles.push(invest);
   const { turnover, occupancy, pipeline, costs, billability, open_roles: openRoles } = steering;
 
   if (turnover) {
@@ -105,4 +107,33 @@ export function landingTiles(steering: Steering): Tile[] {
     });
   }
   return tiles;
+}
+
+/**
+ * The headline of the investeerruimte: the money reading when the reader
+ * has it, otherwise the free capacity of this month. A signal only when
+ * the figure is negative.
+ */
+export function investmentTile(investment: Investment | undefined): Tile | null {
+  if (!investment) return null;
+  const { money, time } = investment;
+  if (money) {
+    return {
+      topic: 'investeerruimte',
+      label: money.shortfall ? `Tekort in ${investment.year}` : `In geld, ${investment.year}`,
+      value: formatEuro(money.shortfall ? Math.abs(money.room_cents) : money.room_cents),
+      context: `na targets en kosten, van ${formatEuro(money.expected_cents)} verwachte omzet`,
+      ...(money.shortfall ? { attention: 'Minder omzet verwacht dan nodig' } : {}),
+    };
+  }
+  const now = time?.months?.[0];
+  if (time && now) {
+    return {
+      topic: 'investeerruimte',
+      label: `In tijd, ${monthName(now.month)}`,
+      value: `${formatFte(now.free_fte)} FTE vrij`,
+      context: `van ${count(time.person_count, 'inzetbare persoon', 'inzetbare mensen')}`,
+    };
+  }
+  return null;
 }

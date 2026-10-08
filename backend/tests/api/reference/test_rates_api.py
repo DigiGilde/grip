@@ -3,6 +3,7 @@
 from sqlalchemy import select
 
 from grip.models.audit_log import AuditLog
+from grip.repositories.domain import RateRepository
 
 
 async def test_everyone_reads_rate_cards(client, world, as_person):
@@ -93,7 +94,9 @@ async def test_closed_year_needs_explicit_confirmation(
     rows = (
         await db_session.execute(
             select(AuditLog).where(
-                AuditLog.entity == "rate_band", AuditLog.entity_id == "2026/D"
+                AuditLog.entity == "rate_band",
+                AuditLog.entity_id
+                == f"{(await RateRepository(db_session).get_card(2026)).id}/D",
             )
         )
     ).scalars()

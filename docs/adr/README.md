@@ -27,3 +27,4 @@ Een besluit dat anderen bindt staat hier als ADR: genummerd, met context, beslui
 | [0021](0021-kanaal-per-aanbieding-van-een-offerte.md) | Het kanaal hoort bij het aanbieden van een offerte | aanvaard |
 | [0022](0022-een-nieuwe-collega-is-eerst-in-grip-bekend.md) | Een nieuwe collega is eerst in grip bekend | aanvaard |
 | [0023](0023-aangeleverd-is-niet-gefactureerd.md) | Aangeleverd is niet gefactureerd | aanvaard |
+| [0024](0024-taken-feiten-en-het-plan.md) | Taken, feiten en het plan | aanvaard |

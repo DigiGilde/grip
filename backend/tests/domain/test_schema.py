@@ -112,8 +112,15 @@ async def _refused(db_session, obj) -> None:
 
 async def test_structural_rules_are_constraints(db_session, create_person):
     person = await create_person("constraint@example.org")
-    db_session.add(RateCard(year=2031, status="active"))
-    db_session.add(RateBand(year=2031, category="D", monthly_rate_cents=1))
+    card = RateCard(
+        name="Tarieven 2031",
+        valid_from=date(2031, 1, 1),
+        valid_to=date(2031, 12, 31),
+        status="active",
+    )
+    db_session.add(card)
+    await db_session.flush()
+    db_session.add(RateBand(rate_card_id=card.id, category="D", monthly_rate_cents=1))
     assignment = Assignment(uri="https://grip.example/id/opdracht/c1", name="C")
     db_session.add(assignment)
     await db_session.flush()
@@ -135,8 +142,22 @@ async def test_structural_rules_are_constraints(db_session, create_person):
     other = await create_person("constraint2@example.org")
 
     # Uniqueness per year and category.
-    await _refused(db_session, RateBand(year=2031, category="D", monthly_rate_cents=2))
-    await _refused(db_session, RateBand(year=2031, category="F", monthly_rate_cents=2))
+    await _refused(
+        db_session, RateBand(rate_card_id=card.id, category="D", monthly_rate_cents=2)
+    )
+    await _refused(
+        db_session, RateBand(rate_card_id=card.id, category="F", monthly_rate_cents=2)
+    )
+    # Cards that price do not overlap. A draft may, and a card may start on
+    # any day.
+    await _refused(
+        db_session,
+        RateCard(name="Overlap", valid_from=date(2031, 7, 15), status="active"),
+    )
+    db_session.add(
+        RateCard(name="Concept", valid_from=date(2031, 7, 15), status="draft")
+    )
+    await db_session.flush()
     # One owner per assignment.
     await _refused(
         db_session,

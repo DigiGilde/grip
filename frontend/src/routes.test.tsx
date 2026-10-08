@@ -9,6 +9,7 @@ describe('route table', () => {
   it('lists the screens of the plan in navigation order', () => {
     expect(APP_ROUTES.map((route) => route.title)).toEqual([
       'Stand van zaken',
+      'Taken',
       'Opdrachten',
       'Inzet',
       'Kosten en facturen',

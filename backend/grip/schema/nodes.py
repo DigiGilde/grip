@@ -67,6 +67,8 @@ class PathStepOut(BaseModel):
     uri: Annotated[str, A]
     title: Annotated[str | None, A] = None
     type: Annotated[str | None, A] = None
+    # Who manages the node of this step.
+    organisation_name: Annotated[str | None, A] = None
     # The step lies in another corpus than the node the path starts at.
     external: Annotated[bool, A] = False
     # Name of the corpus the step lies in, when this instance knows it.

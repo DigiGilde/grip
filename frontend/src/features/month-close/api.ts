@@ -17,6 +17,10 @@ export interface MonthState {
 export interface MonthTimeline {
   assignment_id: string;
   assignment_name: string;
+  /** False until there is an agreement with the client: no month can be closed yet. */
+  closing_started: boolean;
+  /** Whether the reader is the one who closes months of this assignment. */
+  may_close: boolean;
   months: MonthState[];
 }
 

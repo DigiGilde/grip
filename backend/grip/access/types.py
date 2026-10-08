@@ -95,6 +95,9 @@ class Action(StrEnum):
     MANAGE_USERS = "manage_users"
     # Record an advice or the approval on a vacancy request.
     RECORD_DECISION = "record_decision"
+    # Ask for internal approval of a made quote, and give or refuse it.
+    REQUEST_QUOTE_APPROVAL = "request_quote_approval"
+    DECIDE_QUOTE_APPROVAL = "decide_quote_approval"
 
 
 class SubjectKind(StrEnum):

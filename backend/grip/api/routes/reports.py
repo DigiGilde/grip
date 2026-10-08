@@ -38,6 +38,10 @@ from grip.schema.reports import (
     CostCoverageItemOut,
     CostCoverageOut,
     FinalReportOut,
+    InvestmentMoneyOut,
+    InvestmentMonthOut,
+    InvestmentTimeMonthOut,
+    InvestmentTimeOut,
     NotDeployableOut,
     OccupancyCellOut,
     OccupancyMonthOut,
@@ -65,7 +69,7 @@ from grip.schema.reports import (
 )
 from grip.services import assignment_views as views
 from grip.services.reports import assignment_report as assignment_reports
-from grip.services.reports import steering, year_account
+from grip.services.reports import investment, steering, year_account
 from grip.services.reports.document import render_report_html
 
 router = APIRouter(prefix="/reports", tags=["reports"])
@@ -706,6 +710,108 @@ async def get_steering(
         "open_roles": await _open_roles_block(access, db),
     }
     result.update({name: block for name, block in blocks.items() if block is not None})
+    return result
+
+
+# -- investeerruimte ----------------------------------------------------------
+
+# A sum of targets is shown to a reader who may not see targets per person
+# only when it covers at least this many people. With fewer, the sum (and
+# the figure it is subtracted in) would give away one person's target.
+MIN_PERSONS_IN_TARGET_SUM = 5
+
+D = DataClass.PERSON_RATE
+
+
+@router.get("/investment", response_model=None)
+async def get_investment(
+    access: RequestAccess, db: DbSession, year: Year = None
+) -> dict[str, Any]:
+    """Investeerruimte: in money for the year, in time for the coming months.
+
+    Both readings are about the whole organisation, so they follow the
+    functions: the money reading for who reads the amounts of every
+    assignment, the time reading for who reads everyone's staffing, its
+    valuation for who reads everyone's rate. A reading that is not for the
+    reader is absent.
+    """
+    selected = _year(year)
+    result: dict[str, Any] = {"year": selected}
+
+    if await _sees_all_financial(access):
+        money = await investment.money_reading(db, selected)
+        sees_targets = await access.may(Action.READ, Resource.person(), F)
+        if (
+            not sees_targets
+            and 0 < money.target_person_count < MIN_PERSONS_IN_TARGET_SUM
+        ):
+            # The figure minus the other lines is the sum of the targets,
+            # so the whole derivation is withheld, not only one line.
+            result["money_withheld"] = {
+                "reason": "few_targets",
+                "min_persons": MIN_PERSONS_IN_TARGET_SUM,
+            }
+        else:
+            result["money"] = build_response(
+                InvestmentMoneyOut(
+                    expected_cents=money.expected_cents,
+                    realised_cents=money.realised_cents,
+                    planned_cents=money.planned_cents,
+                    verbal_cents=money.verbal_cents,
+                    pipeline_cents=money.pipeline_cents,
+                    target_cents=money.target_cents,
+                    target_person_count=money.target_person_count,
+                    uncovered_cents=money.uncovered_cents,
+                    internal_budget_cents=money.internal_budget_cents,
+                    internal_count=money.internal_count,
+                    room_cents=money.room_cents,
+                    shortfall=money.shortfall,
+                    room_with_pipeline_cents=money.room_with_pipeline_cents,
+                    months=[
+                        InvestmentMonthOut(
+                            month=str(month.month),
+                            realised_cents=month.realised_cents,
+                            planned_cents=month.planned_cents,
+                            # Per month fewer people can be in the sum than
+                            # in the year, so only for who sees targets.
+                            target_cents=month.target_cents if sees_targets else None,
+                            turnover_minus_target_cents=(
+                                month.turnover_minus_target_cents
+                                if sees_targets
+                                else None
+                            ),
+                        )
+                        for month in money.months
+                    ],
+                    unpriced_assignments=list(money.unpriced),
+                ),
+                {B},
+            )
+
+    if await access.may(Action.READ, Resource.person(), C):
+        window = steering.next_months(Month.of(date.today()), 4)
+        time = await investment.time_reading(db, window)
+        classes = {COUNTS}
+        if await access.may(Action.READ, Resource.person(), D):
+            classes.add(D)
+        result["time"] = build_response(
+            InvestmentTimeOut(
+                person_count=time.person_count,
+                free_fte=time.free_fte,
+                value_cents=time.value_cents,
+                months=[
+                    InvestmentTimeMonthOut(
+                        month=str(month.month),
+                        available_fte=month.available_fte,
+                        free_fte=month.free_fte,
+                        value_cents=month.value_cents,
+                        unvalued_count=month.unvalued_count,
+                    )
+                    for month in time.months
+                ],
+            ),
+            classes,
+        )
     return result
 
 

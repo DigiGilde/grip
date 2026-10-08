@@ -438,7 +438,7 @@ async def test_the_link_comes_back_with_the_offer_and_lives_thirty_days(act_as, 
     # A reader of the figures sees that it was offered, not to whom or where.
     seen = (await act_as(world.lezer).get(f"/api/quotes/{quote['id']}")).json()
     assert seen["offers"][0]["channel"] == "signing_link"
-    assert "invitation" not in seen["offers"][0]
+    assert seen["offers"][0].get("invitation") is None
     assert seen["offers"][0].get("recipient") is None
 
 

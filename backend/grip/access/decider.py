@@ -14,7 +14,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Protocol
 
-from grip.access import vacancies
+from grip.access import quote_approval, vacancies
 from grip.access.relations import RelationSource
 from grip.access.types import (
     IMPLIED_BY,
@@ -100,6 +100,11 @@ class LocalDecider:
         # rules in a separate module.
         if request.resource.kind in vacancies.KINDS:
             return await vacancies.evaluate(self._relations, request)
+        # Internal approval of a quote: its own module answers the questions
+        # it has a rule for and leaves every other one to the matrix.
+        approval = await quote_approval.evaluate(self._relations, request)
+        if approval is not None:
+            return approval
         kind = request.subject.kind
         if kind is SubjectKind.PERSON:
             if request.subject.person_id is None:

@@ -9,6 +9,8 @@ import { MonthClosePage } from './MonthClosePage';
 const TIMELINE = {
   assignment_id: 'a-1',
   assignment_name: 'Opdracht Alfa',
+  closing_started: true,
+  may_close: true,
   months: [
     {
       month: '2026-01',
@@ -129,23 +131,81 @@ describe('normalisePercent', () => {
   });
 });
 
+const DELIVERED = {
+  month: '2026-01',
+  closed: true,
+  state: 'delivered',
+  deliverable_cents: 1080000,
+  to_deliver_cents: 0,
+  export_id: 'e-1',
+  delivered_at: '2026-02-03T09:00:00Z',
+  delivered_by_name: 'Opdracht Manager',
+  delivered_cents: 1080000,
+  invoice_id: null,
+  invoice_number: null,
+  invoice_date: null,
+  invoiced_cents: null,
+  invoice_on_earlier_delivery: false,
+};
+
+const BILLING = {
+  assignment_id: 'a-1',
+  year: null,
+  billable: true,
+  may_record_invoice: true,
+  deliverable_cents: 1080000,
+  delivered_cents: 1080000,
+  to_deliver_cents: 0,
+  invoiced_cents: 0,
+  to_invoice_cents: 1080000,
+  months: [DELIVERED],
+  invoices: [],
+};
+
+const openSheet = () =>
+  [...document.body.querySelectorAll('nldd-sheet')].find((el) => el.hasAttribute('open'));
+
 describe('MonthClosePage', () => {
-  it('opens the first month that waits to be closed, with the plan as proposal', async () => {
+  it('is one calm state until there is an agreement', async () => {
+    const { container } = renderMonths({
+      '/api/assignments/a-1/months': { ...TIMELINE, closing_started: false },
+    });
+    await waitFor(() =>
+      expect(container.querySelector('nldd-inline-dialog')?.getAttribute('text')).toBe(
+        'Maanden afsluiten kan zodra er een akkoord is',
+      ),
+    );
+    // No month that is not over, no billing, no zeros.
+    expect(container.querySelector('nldd-table')).toBeNull();
+    expect(texts(container, 'nldd-button')).toEqual([]);
+    expect(container.textContent).not.toContain('€');
+  });
+
+  it('leads with the oldest month to close, and its one primary action', async () => {
     const { container } = renderMonths({ '/api/assignments/a-1/months/2026-02': OPEN_MONTH });
     await waitFor(() =>
       expect(container.querySelector('nldd-text-field')?.getAttribute('value')).toBe('80'),
     );
+    expect(texts(container, 'nldd-title[heading-level="2"]')[0]).toBe('februari 2026 afsluiten');
+    expect(texts(container, 'nldd-button[appearance="primary"]')).toEqual([
+      'Sluit februari 2026 af',
+    ]);
     expect(container.querySelector('nldd-text-field')?.getAttribute('accessible-label')).toBe(
       'Vastgesteld percentage van Teamlid Voorbeeld',
     );
-    expect(texts(container, 'nldd-button')).toContain('Sluit maand af');
-    const badges = texts(container, 'nldd-badge');
-    expect(badges).toEqual(['Afgesloten', 'Open']);
-    expect(
-      [...container.querySelectorAll('nldd-text-cell')].map((el) =>
-        el.getAttribute('supporting-text'),
-      ),
-    ).toContain('1 keer heropend');
+    // The month on screen has no row action; nothing says "Getoond".
+    expect(texts(container, 'nldd-button')).not.toContain('Getoond');
+    expect(texts(container, 'nldd-button')).not.toContain('Toon');
+  });
+
+  it('gives a month that is not over no action at all', async () => {
+    const future = { ...TIMELINE.months[1], month: '2026-12', closable: false };
+    const { container } = renderMonths({
+      '/api/assignments/a-1/months': { ...TIMELINE, months: [future] },
+    });
+    await waitFor(() => expect(texts(container, 'nldd-badge')).toEqual(['Nog niet voorbij']));
+    expect(texts(container, 'nldd-button')).toEqual([]);
+    expect(container.querySelector('nldd-icon-button')).toBeNull();
   });
 
   it('sends only the percentages that differ from the plan', async () => {
@@ -160,7 +220,7 @@ describe('MonthClosePage', () => {
     await waitFor(() =>
       expect(container.querySelector('nldd-text-field')?.getAttribute('value')).toBe('62,5'),
     );
-    clickButton(container, 'Sluit maand af');
+    clickButton(container, 'Sluit februari 2026 af');
     await waitFor(() => expect(calls.some((call) => call.method === 'POST')).toBe(true));
     expect(calls.find((call) => call.method === 'POST')?.body).toEqual({
       established: [{ allocation_id: 'al-1', fte_pct: '62.5' }],
@@ -178,7 +238,7 @@ describe('MonthClosePage', () => {
     await waitFor(() =>
       expect(container.querySelector('nldd-text-field')?.hasAttribute('invalid')).toBe(true),
     );
-    clickButton(container, 'Sluit maand af');
+    clickButton(container, 'Sluit februari 2026 af');
     await waitFor(() =>
       expect(
         container.querySelector('nldd-banner[variant="critical"]')?.getAttribute('text'),
@@ -187,23 +247,77 @@ describe('MonthClosePage', () => {
     expect(calls.filter((call) => call.method === 'POST')).toEqual([]);
   });
 
-  it('shows a closed month as established, with the trail and the billing data', async () => {
+  it('carries the next step of a closed month in its own row', async () => {
+    const { container } = renderMonths({
+      '/api/assignments/a-1/months/2026-02': OPEN_MONTH,
+      '/api/assignments/a-1/billing-status': {
+        ...BILLING,
+        delivered_cents: 0,
+        to_deliver_cents: 1080000,
+        to_invoice_cents: 0,
+        months: [{ ...DELIVERED, state: 'not_delivered', export_id: null, delivered_cents: null }],
+      },
+    });
+    await waitFor(() => expect(texts(container, 'nldd-button')).toContain('Lever aan'));
+    const labels = [...container.querySelectorAll('nldd-button')].map((el) =>
+      el.getAttribute('accessible-label'),
+    );
+    expect(labels).toContain('Lever de factuurgegevens van januari 2026 aan');
+  });
+
+  it('offers to record the invoice once a month was delivered, and says where it stands', async () => {
+    const { container } = renderMonths({
+      '/api/assignments/a-1/months/2026-02': OPEN_MONTH,
+      '/api/assignments/a-1/billing-status': BILLING,
+    });
+    await waitFor(() => expect(texts(container, 'nldd-button')).toContain('Leg factuur vast'));
+    const cells = texts(container, 'nldd-table nldd-text-cell');
+    expect(cells.some((text) => text.startsWith('Aangeleverd op 3 feb 2026'))).toBe(true);
+    expect(texts(container, 'nldd-badge')).toEqual(['Aangeleverd', 'Af te sluiten']);
+    // The four figures appear because a month is closed and billing is possible.
+    expect(
+      container.querySelector('nldd-table[accessible-label^="Aangeleverd en gefactureerd"]'),
+    ).not.toBeNull();
+    clickButton(container, 'Leg factuur vast');
+    await waitFor(() =>
+      expect(openSheet()?.querySelector('nldd-title')?.getAttribute('text')).toBe(
+        'Factuur vastleggen',
+      ),
+    );
+  });
+
+  it('opens the invoice sheet for the months in the address', async () => {
+    renderMonths(
+      {
+        '/api/assignments/a-1/months/2026-02': OPEN_MONTH,
+        '/api/assignments/a-1/billing-status': BILLING,
+      },
+      '/opdrachten/a-1/maandafsluiting?factuur=2026-01',
+    );
+    await waitFor(() =>
+      expect(openSheet()?.querySelector('nldd-title')?.getAttribute('text')).toBe(
+        'Factuur vastleggen',
+      ),
+    );
+    expect(openSheet()?.textContent).toContain('januari 2026, aangeleverd');
+  });
+
+  it('shows a closed month as established, with the trail', async () => {
     const { container } = renderMonths(
       { '/api/assignments/a-1/months/2026-01': CLOSED_MONTH },
       '/opdrachten/a-1/maandafsluiting?maand=2026-01',
     );
-    await waitFor(() => expect(container.textContent).toContain('Totaal vastgesteld'));
+    await waitFor(() => expect(container.textContent).toContain('vastgesteld'));
     expect(container.querySelector('nldd-text-field')).toBeNull();
     const cells = texts(container, 'nldd-table nldd-text-cell');
     expect(cells).toContain('60%');
     expect(cells).toContain('Inzet was 60 procent');
-    expect(texts(container, 'nldd-button')).not.toContain('Sluit maand af');
+    expect(texts(container, 'nldd-button[appearance="primary"]')).toEqual([]);
     // Not a beheerder: no way to reopen.
-    expect(texts(container, 'nldd-button')).not.toContain('Heropen maand');
-    expect(texts(container, 'nldd-button')).toContain('Lever factuurgegevens aan');
+    expect(texts(container, 'nldd-button')).not.toContain('Heropen');
   });
 
-  it('draws no column for what the reader may not see', async () => {
+  it('shows no figures and no billing to someone who may not see them', async () => {
     const roster = {
       ...OPEN_MONTH,
       may_close: false,
@@ -217,7 +331,13 @@ describe('MonthClosePage', () => {
       ],
     };
     delete (roster as { planned_total_cents?: number }).planned_total_cents;
-    const { container } = renderMonths({ '/api/assignments/a-1/months/2026-02': roster });
+    const { container } = renderMonths(
+      {
+        '/api/assignments/a-1/months': { ...TIMELINE, may_close: false },
+        '/api/assignments/a-1/months/2026-02': roster,
+      },
+      '/opdrachten/a-1/maandafsluiting?maand=2026-02',
+    );
     await waitFor(() =>
       expect(texts(container, 'nldd-table nldd-text-cell')).toContain('Teamlid Voorbeeld'),
     );
@@ -225,6 +345,6 @@ describe('MonthClosePage', () => {
     expect(headers).not.toContain('Gepland');
     expect(headers).not.toContain('Maandtarief');
     expect(container.textContent).not.toContain('€');
-    expect(texts(container, 'nldd-button')).not.toContain('Sluit maand af');
+    expect(texts(container, 'nldd-button')).toEqual([]);
   });
 });

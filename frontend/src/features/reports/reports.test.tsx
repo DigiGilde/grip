@@ -5,7 +5,7 @@ import { PATHS } from '@/paths';
 import { renderApp } from '@/test/utils';
 import { AssignmentReportPage } from './AssignmentReportPage';
 import { ReportsPage } from './ReportsPage';
-import { landingTiles } from './tiles';
+import { investmentTile, landingTiles } from './tiles';
 import { ReportTopicPage } from './ReportTopicPage';
 import { YearAccountView } from './YearAccountView';
 import { currentReportYear } from './years';
@@ -744,5 +744,214 @@ describe('ReportsPage', () => {
         'Er is voor jou geen sturingsinformatie',
       ),
     );
+  });
+});
+
+const MONEY = {
+  expected_cents: 101430000,
+  realised_cents: 6880000,
+  planned_cents: 94550000,
+  verbal_cents: 0,
+  pipeline_cents: 43440000,
+  target_cents: 69750000,
+  target_person_count: 9,
+  uncovered_cents: 300000,
+  internal_budget_cents: 4100000,
+  internal_count: 1,
+  room_cents: 27280000,
+  shortfall: false,
+  room_with_pipeline_cents: 70720000,
+  months: MONTHS.map((month, index) => ({
+    month,
+    realised_cents: index === 0 ? 3590000 : 0,
+    planned_cents: 7900000,
+    target_cents: 5812500,
+    turnover_minus_target_cents: index === 0 ? 5677500 : 2087500,
+  })),
+  unpriced_assignments: [],
+};
+
+const TIME = {
+  person_count: 13,
+  free_fte: '33.5',
+  value_cents: 45000000,
+  months: ['2026-10', '2026-11', '2026-12', '2027-01'].map((month, index) => ({
+    month,
+    available_fte: '13',
+    free_fte: ['7', '7', '7', '12.5'][index],
+    value_cents: [9400000, 9400000, 9400000, 16800000][index],
+    unvalued_count: 0,
+  })),
+};
+
+function renderInvestment(body: unknown) {
+  respond({ '/api/reports/investment': body });
+  return renderTopic('investeerruimte');
+}
+
+describe('Investeerruimte', () => {
+  it('shows the money reading as a derivation that adds up to the figure', async () => {
+    renderInvestment({ year: 2026, money: MONEY, time: TIME });
+    const table = await screen.findByTestId('investment-money');
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Investeerruimte');
+    const rows = [...table.querySelectorAll('tr')].map((row) => [
+      row.querySelector('a')?.textContent ?? row.querySelector('th')?.textContent,
+      row.querySelector('td')?.textContent?.replace(/\s/g, ' '),
+    ]);
+    expect(rows).toEqual([
+      ['Verwachte omzet van externe opdrachten', '€ 1.014.300'],
+      ['Declarabiliteitstargets', '− € 697.500'],
+      ['Ongedekte kosten', '− € 3.000'],
+      ['Begroot voor interne opdrachten', '− € 41.000'],
+      ['Investeerruimte', '€ 272.800'],
+      ['Als de pijplijn doorgaat', '€ 707.200'],
+    ]);
+    // Realised to date and still expected are told apart.
+    expect(table).toHaveTextContent('€ 68.800 gerealiseerd, € 945.500 nog gepland');
+    expect(table).toHaveTextContent('wat 9 mensen samen moeten binnenbrengen');
+    expect(table).toHaveTextContent('telt niet mee');
+  });
+
+  it('makes every line the way into the view that explains it', async () => {
+    renderInvestment({ year: 2026, money: MONEY });
+    const table = await screen.findByTestId('investment-money');
+    expect([...table.querySelectorAll('a')].map((link) => link.getAttribute('href'))).toEqual([
+      '/rapportage/omzet?jaar=2026',
+      '/rapportage/declarabiliteit?jaar=2026',
+      '/rapportage/kosten?jaar=2026',
+      '/rapportage/jaarverantwoording?jaar=2026',
+      '/rapportage/pijplijn?jaar=2026',
+    ]);
+  });
+
+  it('says plainly when it is a shortfall', async () => {
+    renderInvestment({
+      year: 2026,
+      money: { ...MONEY, room_cents: -5550000, shortfall: true, pipeline_cents: 0 },
+    });
+    const table = await screen.findByTestId('investment-money');
+    const total = table.querySelector('.grip-derivation__total')!;
+    expect(total.querySelector('th')).toHaveTextContent('Tekort');
+    // The word carries the sign; the amount is written without a minus.
+    expect(screen.getByTestId('investment-room').textContent?.replace(/\s/g, ' ')).toBe('€ 55.500');
+    expect(table).not.toHaveTextContent('Als de pijplijn doorgaat');
+  });
+
+  it('says in one quiet line what each reading counts', async () => {
+    renderInvestment({ year: 2026, money: MONEY, time: TIME });
+    const block = await screen.findByTestId('investment');
+    const quiet = [...block.querySelectorAll('nldd-text[color="secondary"]')].map(
+      (text) => text.textContent ?? '',
+    );
+    expect(quiet.some((text) => text.includes('Voorlopige definitie'))).toBe(true);
+    expect(quiet.some((text) => text.includes('min wat de mensen volgens hun target'))).toBe(true);
+    expect(quiet.some((text) => text.includes('Iedereen telt als voltijds'))).toBe(true);
+  });
+
+  it('shows the time reading in FTE and valued at the billing rate', async () => {
+    const { container } = renderInvestment({ year: 2026, money: MONEY, time: TIME });
+    const time = await screen.findByTestId('investment-time');
+    const texts = [...time.querySelectorAll('nldd-text-cell')].map(
+      (cell) => cell.getAttribute('text')?.replace(/\s/g, ' ') ?? '',
+    );
+    expect(texts).toContain('Vrij (FTE)');
+    expect(texts).toContain('Tegen inzettarief');
+    expect(texts).toContain('januari 2027');
+    expect(texts).toContain('12,5');
+    expect(texts).toContain('€ 168.000');
+    // Per month below: the turnover against the targets.
+    expect(cellTexts(container)).toContain('Omzet min targets');
+  });
+
+  it('gives a planner the time in FTE and nothing in money', async () => {
+    const months = TIME.months.map(({ month, available_fte, free_fte }) => ({
+      month,
+      available_fte,
+      free_fte,
+    }));
+    const { container } = renderInvestment({
+      year: 2026,
+      time: { person_count: 13, free_fte: '33.5', months },
+    });
+    const time = await screen.findByTestId('investment-time');
+    expect(screen.queryByTestId('investment-money')).toBeNull();
+    expect(cellTexts(container)).not.toContain('Tegen inzettarief');
+    expect(container.textContent).not.toContain('€');
+    expect(time).toHaveTextContent('Iedereen telt als voltijds');
+    expect(time).not.toHaveTextContent('inzettarief');
+  });
+
+  it('leaves the targets per month out for a reader who may not see them', async () => {
+    const months = MONEY.months.map((month) => ({
+      ...month,
+      target_cents: null,
+      turnover_minus_target_cents: null,
+    }));
+    const { container } = renderInvestment({ year: 2026, money: { ...MONEY, months } });
+    await screen.findByTestId('investment-money');
+    const texts = cellTexts(container);
+    expect(texts).toContain('Nog gepland');
+    expect(texts).not.toContain('Targets');
+    expect(texts).not.toContain('Omzet min targets');
+  });
+
+  it('says why the money reading is not shown when it would give a target away', async () => {
+    renderInvestment({ year: 2026, money_withheld: { reason: 'few_targets', min_persons: 5 } });
+    const notice = await screen.findByTestId('investment-withheld');
+    expect(notice).toHaveAttribute('text', 'De investeerruimte in geld is niet te tonen');
+    expect(notice.getAttribute('supporting-text')).toContain('Minder dan 5 mensen hebben een target');
+    expect(screen.queryByTestId('investment-money')).toBeNull();
+  });
+
+  it('has an answer for a reader it is not for', async () => {
+    const { container } = renderInvestment({ year: 2026 });
+    await waitFor(() =>
+      expect(container.querySelector('nldd-inline-dialog')).toHaveAttribute(
+        'text',
+        'Dit onderdeel is er voor jou niet',
+      ),
+    );
+  });
+});
+
+describe('the investeerruimte on the landing view', () => {
+  const plain = (text: string | undefined) => text?.replace(/\s/g, ' ');
+
+  it('is the first tile, with a signal only when negative', () => {
+    const tile = investmentTile({ year: 2026, money: MONEY } as never);
+    expect(tile?.topic).toBe('investeerruimte');
+    expect(plain(tile?.value)).toBe('€ 272.800');
+    expect(tile?.attention).toBeUndefined();
+    const short = investmentTile({
+      year: 2026,
+      money: { ...MONEY, room_cents: -5550000, shortfall: true },
+    } as never);
+    expect(short?.label).toBe('Tekort in 2026');
+    expect(plain(short?.value)).toBe('€ 55.500');
+    expect(short?.attention).toBe('Minder omzet verwacht dan nodig');
+    expect(
+      landingTiles({ year: 2026, turnover: TURNOVER } as never, { year: 2026, money: MONEY } as never)
+        .map((item) => item.topic),
+    ).toEqual(['investeerruimte', 'omzet']);
+  });
+
+  it('is the free capacity for a reader without the money reading, and absent without either', () => {
+    const tile = investmentTile({ year: 2026, time: TIME } as never);
+    expect(tile?.label).toBe('In tijd, oktober 2026');
+    expect(tile?.value).toBe('7 FTE vrij');
+    expect(investmentTile({ year: 2026 })).toBeNull();
+    expect(investmentTile(undefined)).toBeNull();
+  });
+
+  it('links the tile to its own view', async () => {
+    respond({
+      '/api/reports/steering': { year: 2026, turnover: TURNOVER },
+      '/api/reports/investment': { year: 2026, money: MONEY },
+    });
+    renderApp(<ReportsPage />, { path: '/rapportage?jaar=2026' });
+    const tile = await screen.findByTestId('tile-investeerruimte');
+    expect(tile).toHaveAttribute('href', '/rapportage/investeerruimte?jaar=2026');
+    expect(tile).toHaveTextContent('Investeerruimte');
+    expect(tile).not.toHaveClass('grip-tile--attention');
   });
 });

@@ -32,6 +32,8 @@ import { OrganisationsAdminPage } from '@/features/organisations/OrganisationsAd
 import { RolesAdminPage } from '@/features/roles/RolesAdminPage';
 import { PeersPage } from '@/features/peers/PeersPage';
 import { RatesPage } from '@/features/rates/RatesPage';
+import { AssignmentTasksTab, VacancyTasksTab } from '@/features/tasks/CaseTasks';
+import { TasksPage } from '@/features/tasks/TasksPage';
 import { AssignmentReportPage } from '@/features/reports/AssignmentReportPage';
 import { ReportsPage } from '@/features/reports/ReportsPage';
 import { ReportTopicPage } from '@/features/reports/ReportTopicPage';
@@ -59,6 +61,7 @@ import type { ReactElement } from 'react';
  */
 const SCREENS: Record<string, ReactElement> = {
   [PATHS.statusOverview]: <OverviewPage />,
+  [PATHS.tasks]: <TasksPage />,
   [PATHS.assignments]: <AssignmentsPage />,
   [PATHS.allocations]: <AllocationsPage />,
   [PATHS.costs]: <CostsPage />,
@@ -106,6 +109,7 @@ export function AppRoutes() {
         {/* One assignment: a shared header and tabs around one page per concern. */}
         <Route path={PATHS.assignmentDetail} element={<AssignmentLayout />}>
           <Route index element={<OverviewTab />} />
+          <Route path={ASSIGNMENT_TAB_SEGMENTS.tasks} element={<AssignmentTasksTab />} />
           <Route path={ASSIGNMENT_TAB_SEGMENTS.finance} element={<FinanceTab />} />
           <Route path={ASSIGNMENT_TAB_SEGMENTS.staffing} element={<StaffingTab />} />
           <Route path={ASSIGNMENT_TAB_SEGMENTS.budget} element={<BudgetTab />} />
@@ -118,6 +122,7 @@ export function AppRoutes() {
         {/* One vacancy: a shared header with the steps, and a tab per concern. */}
         <Route path={PATHS.vacancyDetail} element={<VacancyLayout />}>
           <Route index element={<RequestTab />} />
+          <Route path={VACANCY_TAB_SEGMENTS.tasks} element={<VacancyTasksTab />} />
           <Route path={VACANCY_TAB_SEGMENTS.decisions} element={<DecisionsTab />} />
           <Route path={VACANCY_TAB_SEGMENTS.text} element={<TextTab />} />
           <Route path={VACANCY_TAB_SEGMENTS.procedure} element={<ProcedureTab />} />

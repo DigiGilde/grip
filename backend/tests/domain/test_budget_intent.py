@@ -385,7 +385,8 @@ async def test_summary_says_who_how_much_and_what_was_assumed(
     ]
     # What the person bills is kept apart, for who may see it.
     assert derived.rate_summary == (
-        "Schaal 12 valt in categorie C: € 15.000 per maand per FTE in 2026."
+        "Schaal 12 valt in categorie C: € 15.000 per maand per FTE volgens "
+        "'Tarieven 2026'."
     )
     assert derived.billing_scale == 12
     staffing_text = " ".join(derived.summary) + " ".join(derived.notes)

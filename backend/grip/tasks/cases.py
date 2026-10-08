@@ -123,7 +123,7 @@ async def open_task_case_ids(db: AsyncSession, case_kind: str) -> set[UUID]:
         )
         .distinct()
     )
-    return {row[0] for row in rows}
+    return {row[0] for row in rows if row[0] is not None}
 
 
 # --- assignments --------------------------------------------------------------
@@ -307,7 +307,10 @@ async def load_assignment_cases(
         ]
         own_quotes = quotes_by_assignment.get(assignment.id, [])
         is_client = _same_base(
-            client_uris.get(assignment.client_organisation_id), instance_base_uri
+            client_uris.get(assignment.client_organisation_id)
+            if assignment.client_organisation_id
+            else None,
+            instance_base_uri,
         )
         case_phase = phase.phase_of(status)
         facts = {

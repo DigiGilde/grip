@@ -248,3 +248,34 @@ async def test_costs_on_a_line_are_class_b(world, as_person, db_session):
         body = (await as_person(person).get(url)).json()
         hosting = by_id(body["lines"], "budget_line_id", world.fixed_line.id)
         assert hosting["costs"] == [], person.name
+
+
+async def test_overview_says_what_needs_attention_and_what_is_outside_the_year(
+    world, as_person
+):
+    body = (await as_person(world.owner).get("/api/overview?year=2026")).json()
+    row = next(
+        r for r in body["rows"] if r["assignment_id"] == str(world.assignment.id)
+    )
+    assert row["in_year"] is True
+    # Every point is a sentence with the tab where it is solved.
+    for point in row["attention"]:
+        assert point["text"].endswith(".")
+        assert point["tab"] in {"finance", "monthClose", "budget", "staffing"}
+    assert "to_deliver_cents" in body and "to_invoice_cents" in body
+    earlier = (await as_person(world.owner).get("/api/overview?year=2020")).json()
+    row = next(
+        r for r in earlier["rows"] if r["assignment_id"] == str(world.assignment.id)
+    )
+    assert row["in_year"] is False
+
+
+async def test_overview_gives_a_planner_no_money_in_the_attention_points(
+    world, as_person
+):
+    body = (await as_person(world.planner).get("/api/overview")).json()
+    assert "to_deliver_cents" not in body
+    for row in body["rows"]:
+        assert "figures" not in row
+        assert {point["kind"] for point in row["attention"]} <= {"rate_mismatch"}
+        assert not any("€" in point["text"] for point in row["attention"])

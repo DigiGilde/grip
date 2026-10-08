@@ -340,6 +340,66 @@ class OpenRolesOut(BaseModel):
     roles: Annotated[list[OpenRoleOut], nested()]
 
 
+# -- investeerruimte ----------------------------------------------------------
+
+D = in_class(DataClass.PERSON_RATE)
+
+
+class InvestmentMonthOut(BaseModel):
+    month: Annotated[str, B]
+    realised_cents: Annotated[int, B]
+    planned_cents: Annotated[int, B]
+    # The share of the targets in this month. A sum over people; the route
+    # leaves it out for a reader who may not see targets per person.
+    target_cents: Annotated[int | None, B]
+    turnover_minus_target_cents: Annotated[int | None, B]
+
+
+class InvestmentMoneyOut(BaseModel):
+    """Investeerruimte in money: totals of the organisation, class B.
+
+    The target line is a sum over people. For a reader who may not see a
+    person's target the route shows it only when it covers enough people.
+    """
+
+    # Expected turnover of external assignments: realised plus planned.
+    expected_cents: Annotated[int, B]
+    realised_cents: Annotated[int, B]
+    planned_cents: Annotated[int, B]
+    verbal_cents: Annotated[int, B]
+    # Not counted; shown apart.
+    pipeline_cents: Annotated[int, B]
+    target_cents: Annotated[int, B]
+    target_person_count: Annotated[int, B]
+    uncovered_cents: Annotated[int, B]
+    internal_budget_cents: Annotated[int, B]
+    internal_count: Annotated[int, B]
+    # Expected minus targets, uncovered costs and internal budgets.
+    room_cents: Annotated[int, B]
+    shortfall: Annotated[bool, B]
+    room_with_pipeline_cents: Annotated[int, B]
+    months: Annotated[list[InvestmentMonthOut], nested()]
+    unpriced_assignments: Annotated[list[str], B]
+
+
+class InvestmentTimeMonthOut(BaseModel):
+    month: Annotated[str, COUNTS]
+    available_fte: Annotated[Decimal, COUNTS]
+    free_fte: Annotated[Decimal, COUNTS]
+    # Valued at each person's billing rate: only for who may see rates.
+    value_cents: Annotated[int, D]
+    unvalued_count: Annotated[int, D]
+
+
+class InvestmentTimeOut(BaseModel):
+    """Investeerruimte in time: free capacity in the coming months."""
+
+    person_count: Annotated[int, COUNTS]
+    free_fte: Annotated[Decimal, COUNTS]
+    value_cents: Annotated[int, D]
+    months: Annotated[list[InvestmentTimeMonthOut], nested()]
+
+
 # -- year account -------------------------------------------------------------
 
 

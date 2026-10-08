@@ -15,6 +15,7 @@ export interface AppRoute {
  */
 export const APP_ROUTES: readonly AppRoute[] = [
   { path: PATHS.statusOverview, title: 'Stand van zaken', icon: 'home' },
+  { path: PATHS.tasks, title: 'Taken', icon: 'checklist' },
   { path: PATHS.assignments, title: 'Opdrachten', icon: 'folder' },
   { path: PATHS.allocations, title: 'Inzet', icon: 'calendar' },
   { path: PATHS.costs, title: 'Kosten en facturen', icon: 'euro-sign' },

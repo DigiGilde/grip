@@ -4,6 +4,7 @@ from typing import Any
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -211,6 +212,85 @@ class QuoteOffer(Base):
         UUID(as_uuid=True),
         ForeignKey("person.id", ondelete="SET NULL"),
         nullable=True,
+    )
+    created_at: Mapped[datetime] = created_at()
+
+
+APPROVAL_REQUESTED = "requested"
+APPROVAL_APPROVED = "approved"
+APPROVAL_SENT_BACK = "sent_back"
+APPROVAL_WITHDRAWN = "withdrawn"
+APPROVAL_STATUSES = (
+    APPROVAL_REQUESTED,
+    APPROVAL_APPROVED,
+    APPROVAL_SENT_BACK,
+    APPROVAL_WITHDRAWN,
+)
+
+
+class QuoteApproval(Base):
+    """Internal approval of a made quote, before it may be offered.
+
+    Someone inside the organisation with the right to do so approves a quote
+    or sends it back. The approval is about exactly the bytes of the quote:
+    it cites the hash. It is knowledge of this organisation only; nothing of
+    it goes to the client.
+
+    One row is one request with its outcome. A quote has at most one request
+    that is open or approved at a time.
+    """
+
+    __tablename__ = "quote_approval"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('requested', 'approved', 'sent_back', 'withdrawn')",
+            name="status_valid",
+        ),
+        CheckConstraint("quote_hash ~ '^[0-9a-f]{64}$'", name="hash_format"),
+        Index(
+            "uq_quote_approval_one_in_force",
+            "quote_id",
+            unique=True,
+            postgresql_where=text("status IN ('requested', 'approved')"),
+        ),
+        Index("ix_quote_approval_status", "status", "requested_at"),
+    )
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    quote_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("quote.id", ondelete="CASCADE"), index=True
+    )
+    # The hash of the quote the request and the decision are about.
+    quote_hash: Mapped[str] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(12), default=APPROVAL_REQUESTED)
+    requested_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("person.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    # What the maker wants the approver to know.
+    request_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    decided_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("person.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    decided_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    decision_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # The maker approved the own quote, which the instance setting allowed.
+    self_approved: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    withdrawn_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("person.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    withdrawn_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
     )
     created_at: Mapped[datetime] = created_at()
 

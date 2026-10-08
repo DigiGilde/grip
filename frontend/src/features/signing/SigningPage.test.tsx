@@ -11,6 +11,7 @@ const HASH = 'b'.repeat(64);
 const QUOTE = {
   id: 'q-1',
   uri: 'https://grip.example/id/offerte/q-1',
+  reference: 'VG-2026-0007',
   status: 'issued',
   issued_at: '2026-02-01T09:00:00Z',
   contractor_name: 'Testinstantie',
@@ -51,33 +52,50 @@ function renderSigning(replies: Record<string, unknown>) {
   return { ...api, container: view.container };
 }
 
+const openSheet = () =>
+  [...document.body.querySelectorAll('nldd-sheet')].find((el) => el.hasAttribute('open'));
+
 describe('SigningPage', () => {
-  it('shows the whole quote and its hash before asking for a decision', async () => {
+  it('is the quote, the amount, who offers it, and one decision', async () => {
     const { container } = renderSigning({ '/api/signing/quotes/q-1': QUOTE });
     await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
     expect(container.querySelector('h1')?.textContent).toBe('Offerte Opdracht Alfa');
-    expect(container.textContent).toContain('Van Testinstantie aan Voorbeeldministerie');
-    expect(container.textContent).toContain(HASH);
+    const amount = container.querySelector('nldd-title[heading-level="2"]');
+    expect(amount?.getAttribute('text')).toMatch(/^€\s172\.800$/);
+    expect(amount?.getAttribute('overline')).toBe('Testinstantie biedt aan');
+    expect(container.textContent).toContain('Aan Voorbeeldministerie · kenmerk VG-2026-0007');
     expect(container.textContent).toContain('Betaling per maand.');
-    expect(texts(container, 'nldd-button')).toEqual(['Geef akkoord', 'Wijs af']);
-    expect(container.querySelector('nldd-checkbox-field')?.getAttribute('label')).toContain(
-      'namens Voorbeeldministerie',
-    );
+    // One primary, one secondary, and what signing means in one sentence.
+    expect(texts(container, 'nldd-button[appearance="primary"]')).toEqual(['Geef akkoord']);
+    expect(
+      texts(container, 'nldd-button').filter((text) => !text.toLowerCase().includes('vingerafdruk')),
+    ).toEqual(['Geef akkoord', 'Wijs af']);
+    expect(container.textContent).toContain('Met je akkoord gaat Voorbeeldministerie deze opdracht aan');
+    // The fingerprint is there, behind a quiet control.
+    expect(container.querySelector('nldd-popover [data-fingerprint]')?.textContent).toBe(HASH);
+    // No form is open by default.
+    expect(openSheet()).toBeUndefined();
   });
 
   it('does not send an acceptance without the mandate confirmation', async () => {
     const { container, calls } = renderSigning({ '/api/signing/quotes/q-1': QUOTE });
     await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
     clickButton(container, 'Geef akkoord');
+    await waitFor(() => expect(openSheet()).toBeDefined());
+    const sheet = openSheet() as Element;
+    expect(sheet.querySelector('nldd-checkbox-field')?.getAttribute('label')).toContain(
+      'namens Voorbeeldministerie',
+    );
+    sheet.querySelector('nldd-form')?.dispatchEvent(new Event('submit', { cancelable: true }));
     await waitFor(() =>
-      expect(container.querySelector('nldd-banner[variant="critical"]')?.getAttribute('text')).toBe(
+      expect(sheet.querySelector('nldd-banner[variant="critical"]')?.getAttribute('text')).toBe(
         'Bevestig dat je namens de opdrachtgever mag tekenen.',
       ),
     );
     expect(calls.filter((call) => call.method === 'POST')).toEqual([]);
   });
 
-  it('sends the hash that was shown once the mandate is confirmed', async () => {
+  it('sends the fingerprint that was shown once the mandate is confirmed', async () => {
     const { container, calls } = renderSigning({
       '/api/signing/quotes/q-1': QUOTE,
       'POST /api/signing/quotes/q-1/accept': {
@@ -87,20 +105,22 @@ describe('SigningPage', () => {
       },
     });
     await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
-    container
+    clickButton(container, 'Geef akkoord');
+    await waitFor(() => expect(openSheet()).toBeDefined());
+    const sheet = openSheet() as Element;
+    sheet
       .querySelector('nldd-checkbox-field')
       ?.dispatchEvent(new CustomEvent('change', { detail: { checked: true } }));
     await waitFor(() =>
-      expect(container.querySelector('nldd-checkbox-field')?.hasAttribute('checked')).toBe(true),
+      expect(sheet.querySelector('nldd-checkbox-field')?.hasAttribute('checked')).toBe(true),
     );
-    clickButton(container, 'Geef akkoord');
+    sheet.querySelector('nldd-form')?.dispatchEvent(new Event('submit', { cancelable: true }));
     await waitFor(() =>
       expect(container.querySelector('nldd-banner[variant="success"]')?.getAttribute('text')).toBe(
         'Deze offerte is getekend',
       ),
     );
-    const post = calls.find((call) => call.method === 'POST');
-    expect(post?.body).toEqual({
+    expect(calls.find((call) => call.method === 'POST')?.body).toEqual({
       quote_hash: HASH,
       signer_function: null,
       organisation_name: null,
@@ -115,7 +135,7 @@ describe('SigningPage', () => {
       '/api/signing/quotes/q-1': { ...QUOTE, client_name: null },
     });
     await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
-    const labels = [...container.querySelectorAll('nldd-form-field')].map((el) =>
+    const labels = [...document.body.querySelectorAll('nldd-sheet nldd-form-field')].map((el) =>
       el.getAttribute('label'),
     );
     expect(labels).toContain('Organisatie namens wie je tekent');
@@ -137,7 +157,7 @@ describe('SigningPage', () => {
     });
     await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
     expect(container.querySelector('nldd-banner')?.getAttribute('text')).toContain('vervangen');
-    expect(texts(container, 'nldd-button')).toEqual([]);
+    expect(texts(container, 'nldd-button[appearance="primary"]')).toEqual([]);
   });
 });
 

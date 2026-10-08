@@ -26,6 +26,8 @@ class Step:
     uri: str
     title: str | None = None
     type: str | None = None
+    # Who manages the node, so a chain that crosses organisations shows where.
+    organisation: str | None = None
     # The step lies in another corpus than the node the path starts at.
     external: bool = False
     # Type of the edge between this step and the next; None on the last step.
@@ -123,6 +125,9 @@ def summarise(chain: dict[str, Any] | None, start_uri: str) -> ChainSummary:
                     uri=uri,
                     title=nodes.get(uri, {}).get("title"),
                     type=nodes.get(uri, {}).get("type"),
+                    organisation=(
+                        nodes.get(uri, {}).get("managing_organisation") or {}
+                    ).get("name"),
                     external=uri in external and uri not in nodes,
                     edge_type=edge or None,
                 )

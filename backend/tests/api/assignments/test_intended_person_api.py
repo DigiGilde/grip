@@ -59,7 +59,8 @@ async def test_owner_sees_what_a_person_implies_before_saving(world, as_person):
     assert body["rate_category"] == "C"
     assert body["billing_scale"] == 12
     assert body["rate_summary"] == (
-        "Schaal 12 valt in categorie C: € 15.000 per maand per FTE in 2026."
+        "Schaal 12 valt in categorie C: € 15.000 per maand per FTE volgens "
+        "'Tarieven 2026'."
     )
     assert body["monthly_rates"] == [{"year": 2026, "monthly_rate_cents": 1500000}]
     assert body["budgeted_cents"] == 6 * 1500000

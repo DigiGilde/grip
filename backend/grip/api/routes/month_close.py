@@ -32,6 +32,7 @@ from grip.schema.month_close import (
 from grip.services import month_close, month_overview, quote_views
 from grip.services.assignments import get_assignment
 from grip.services.errors import DomainValidationError
+from grip.services.phase import allows_month_close
 
 router = APIRouter(prefix="/assignments/{assignment_id}/months", tags=["month-close"])
 
@@ -115,6 +116,8 @@ async def month_timeline(
     value = MonthTimelineOut(
         assignment_id=assignment.id,
         assignment_name=assignment.name,
+        closing_started=allows_month_close(assignment.status),
+        may_close=bool(await decide(decider, subject, Action.CLOSE_MONTH, resource)),
         months=[
             MonthStateOut(
                 month=str(state.month),

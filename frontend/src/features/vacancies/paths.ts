@@ -6,6 +6,7 @@ export const vacancyPath = (id: string) => `${PATHS.vacancies}/${id}`;
 /** The tabs of a vacancy, each with its own address. */
 export const VACANCY_TAB_SEGMENTS = {
   request: '',
+  tasks: 'taken',
   decisions: 'advies',
   text: 'tekst',
   procedure: 'procedure',

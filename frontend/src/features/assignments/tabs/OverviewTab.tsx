@@ -19,7 +19,7 @@ import { AssignmentFormSheet } from '../AssignmentFormSheet';
 import { KIND_LABELS, ROLE_LABELS, TRANSITION_LABELS, statusLabel } from '../labels';
 import { assignmentTabPath } from '../paths';
 import { useAssignmentShell } from '../shell';
-import { nextSteps } from '../steps';
+import { useStanding } from '../useStanding';
 import {
   Button,
   EmptyNotice,
@@ -323,7 +323,7 @@ function ContextRefs({ assignment }: { assignment: AssignmentDetail }) {
  * Shown while the assignment is still potential.
  */
 function NextSteps({ assignment }: { assignment: AssignmentDetail }) {
-  const steps = nextSteps(assignment);
+  const steps = useStanding(assignment);
   const navigate = useNavigate();
   if (!steps) return null;
   const action = steps.action;
@@ -331,12 +331,16 @@ function NextSteps({ assignment }: { assignment: AssignmentDetail }) {
     <nldd-container gap="12">
       <SectionHeading text="Van idee naar opdracht" />
       <RouterLinks>
-        <nldd-step-bar {...{ current: steps.current }} accessible-label="Stappen naar een akkoord">
-          {steps.items.map((step) => (
+        <nldd-step-bar accessible-label="Stappen naar een akkoord">
+          {steps.steps.map((step) => (
+            // Every step says its own state, so the bar never derives one.
             <nldd-step-bar-item
-              key={step.text}
+              key={step.key}
               text={step.text}
-              {...(step.tab ? { href: assignmentTabPath(assignment.id, step.tab) } : {})}
+              status={step.state === 'done' ? 'past' : step.state}
+              {...(step.tab && step.state !== 'future'
+                ? { href: assignmentTabPath(assignment.id, step.tab) }
+                : {})}
             />
           ))}
         </nldd-step-bar>

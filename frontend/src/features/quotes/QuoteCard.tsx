@@ -219,6 +219,7 @@ export function QuoteCard({ quote, detail, mayManage, busy, onAction }: QuoteCar
         <nldd-step-bar
           {...{ current: current > 0 ? current : steps.length + 1 }}
           accessible-label="Stappen van deze offerte"
+          data-ready={detail ? 'true' : 'false'}
         >
           {steps.map((step) => (
             <nldd-step-bar-item key={step.text} text={step.text} />

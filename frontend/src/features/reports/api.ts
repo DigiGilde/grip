@@ -204,6 +204,62 @@ export interface Steering {
   open_roles?: OpenRoles;
 }
 
+// -- investeerruimte --------------------------------------------------------
+
+export interface InvestmentMonth {
+  month: string;
+  realised_cents: number;
+  planned_cents: number;
+  /** Null for a reader who may not see targets. */
+  target_cents: number | null;
+  turnover_minus_target_cents: number | null;
+}
+
+/** Investeerruimte in money: every amount is computed by the server. */
+export interface InvestmentMoney {
+  expected_cents: number;
+  realised_cents: number;
+  planned_cents: number;
+  verbal_cents: number;
+  /** Not counted; shown apart. */
+  pipeline_cents: number;
+  target_cents: number;
+  target_person_count: number;
+  uncovered_cents: number;
+  internal_budget_cents: number;
+  internal_count: number;
+  /** Expected minus targets, uncovered costs and internal budgets. */
+  room_cents: number;
+  shortfall: boolean;
+  room_with_pipeline_cents: number;
+  months: InvestmentMonth[];
+  unpriced_assignments: string[];
+}
+
+export interface InvestmentTimeMonth {
+  month: string;
+  available_fte: string;
+  free_fte: string;
+  /** Absent for a reader who may not see billing rates. */
+  value_cents?: number;
+  unvalued_count?: number;
+}
+
+export interface InvestmentTime {
+  person_count: number;
+  free_fte: string;
+  value_cents?: number;
+  months: InvestmentTimeMonth[];
+}
+
+export interface Investment {
+  year: number;
+  money?: InvestmentMoney;
+  /** The money reading exists but would give one person's target away. */
+  money_withheld?: { reason: string; min_persons: number };
+  time?: InvestmentTime;
+}
+
 // -- year account -----------------------------------------------------------
 
 export interface YearAccountRow {
@@ -366,6 +422,7 @@ export interface AssignmentReport {
 }
 
 export const reportKeys = {
+  investment: (year: string) => ['reports', 'investment', year] as const,
   steering: (year: string) => ['reports', 'steering', year] as const,
   yearAccount: (year: string) => ['reports', 'year-account', year] as const,
   assignment: (id: string, audience: Audience) =>
@@ -374,6 +431,9 @@ export const reportKeys = {
 
 export const fetchSteering = (year: string) =>
   apiGet<Steering>('/api/reports/steering', { year });
+
+export const fetchInvestment = (year: string) =>
+  apiGet<Investment>('/api/reports/investment', { year });
 
 export const fetchYearAccount = (year: string) =>
   apiGet<YearAccount>('/api/reports/year-account', { year });

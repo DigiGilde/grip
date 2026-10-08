@@ -39,7 +39,7 @@ from grip.models.quote import (
     QuoteRejection,
 )
 from grip.repositories.domain import AssignmentRepository
-from grip.services import events, quote_channels
+from grip.services import events, quote_approval, quote_channels
 from grip.services.assignments import (
     get_assignment,
     mint_uri,
@@ -501,6 +501,9 @@ async def invite_signer(
     quote = await get_quote(session, quote_id)
     if quote.status != "issued":
         raise QuoteAlreadyDecidedError(quote.status)
+    # Inviting a signer is offering the quote; a quote that still needs
+    # internal approval cannot be offered through any channel.
+    await quote_approval.require_for_offer(session, quote)
     email = email.strip().lower()
     result = await session.execute(
         select(QuoteInvitation).where(
@@ -669,6 +672,7 @@ async def offer_quote(
     if quote.status != "issued":
         raise QuoteAlreadyDecidedError(quote.status)
     assignment = await get_assignment(session, quote.assignment_id)
+    await quote_approval.require_for_offer(session, quote)
 
     if channel == OFFER_SIGNING_LINK:
         if not email or not email.strip():

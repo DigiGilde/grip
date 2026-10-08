@@ -6,6 +6,7 @@ import pytest
 from sqlalchemy import select
 
 from grip.models.audit_log import AuditLog
+from grip.repositories.domain import RateRepository
 from grip.services import rate_indexation
 from grip.services.errors import DomainValidationError, NotFoundError
 from grip.services.rate_indexation import indexed_rate_cents
@@ -119,13 +120,15 @@ async def test_audit_row_names_year_percentage_and_rounding(db_session, world):
     rows = (
         await db_session.execute(
             select(AuditLog).where(
-                AuditLog.entity == "rate_card", AuditLog.entity_id == "2027"
+                AuditLog.entity == "rate_card",
+                AuditLog.entity_id
+                == str((await RateRepository(db_session).get_card(2027)).id),
             )
         )
     ).scalars()
     row = next(iter(rows))
     assert row.actor_id == world.beheerder.id
-    assert row.new_value["copied_from"] == 2026
+    assert row.new_value["copied_from_name"] == "Tarieven 2026"
     assert row.new_value["increase_pct"] == "2.5"
     assert row.new_value["rounding"] == "fifty"
     assert row.new_value["rounding_step_cents"] == 5000
@@ -237,14 +240,15 @@ async def test_create_with_increase_through_the_api(
         await db_session.execute(
             select(AuditLog).where(
                 AuditLog.entity == "rate_card",
-                AuditLog.entity_id == "2027",
+                AuditLog.entity_id
+                == str((await RateRepository(db_session).get_card(2027)).id),
                 AuditLog.action == "create",
             )
         )
     ).scalar_one()
     assert row.new_value["increase_pct"] == "5"
     assert row.new_value["rounding"] == "ten"
-    assert row.new_value["copied_from"] == 2026
+    assert row.new_value["copied_from_name"] == "Tarieven 2026"
 
 
 async def test_copy_without_increase_keeps_the_rates(client, world, as_person):

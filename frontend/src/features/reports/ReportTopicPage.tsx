@@ -7,6 +7,7 @@ import { useInstance } from '@/layout/useInstance';
 import { PageHeading } from '@/pages/PageHeading';
 import { ActionBar } from '@/ui/ActionBar';
 import { fetchSteering, reportKeys, type Steering } from './api';
+import { InvestmentView } from './InvestmentView';
 import { OccupancyBlock } from './occupancy/OccupancyBlock';
 import {
   BillabilityBlock,
@@ -92,7 +93,9 @@ export function ReportTopicPage() {
                 },
               ]}
             />
-            {topic === 'jaarverantwoording' ? (
+            {topic === 'investeerruimte' ? (
+              <InvestmentView bare year={year} />
+            ) : topic === 'jaarverantwoording' ? (
               <YearAccountView bare year={year} />
             ) : (
               <SteeringTopic slug={topic} year={year} />

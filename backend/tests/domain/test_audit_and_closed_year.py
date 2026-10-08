@@ -65,10 +65,15 @@ async def test_changes_write_audit_rows(
     band_rows = [
         r
         for r in await _audit(db_session, "rate_band")
-        if r.entity_id == "2026/D" and r.action == "update"
+        if r.entity_id.endswith("/D")
+        and r.new_value.get("card") == "Tarieven 2026"
+        and r.action == "update"
     ]
     assert band_rows[-1].old_value == {"monthly_rate_cents": 18_000_00}
-    assert band_rows[-1].new_value == {"monthly_rate_cents": 19_000_00}
+    assert band_rows[-1].new_value == {
+        "monthly_rate_cents": 19_000_00,
+        "card": "Tarieven 2026",
+    }
 
     scale_rows = await _audit(db_session, "person_scale")
     assert scale_rows and scale_rows[0].new_value["billing_scale"] == 14
@@ -153,17 +158,20 @@ async def test_closed_year_change_with_the_flag_is_audited(
     band = [
         r
         for r in await _audit(db_session, "rate_band")
-        if r.entity_id == "2026/D" and r.action == "update"
+        if r.entity_id.endswith("/D")
+        and r.new_value.get("card") == "Tarieven 2026"
+        and r.action == "update"
     ][-1]
     assert band.new_value == {
         "monthly_rate_cents": 19_000_00,
-        "closed_year_override": [2026],
+        "card": "Tarieven 2026",
+        "closed_year_override": ["Tarieven 2026"],
     }
     assert band.actor_id == beheerder.id
     line_row = [
         r for r in await _audit(db_session, "budget_line") if r.action == "update"
     ][-1]
-    assert line_row.new_value["closed_year_override"] == [2026]
+    assert line_row.new_value["closed_year_override"] == ["Tarieven 2026"]
 
 
 async def test_new_year_starts_as_draft_copy(db_session, rate_cards, beheerder):

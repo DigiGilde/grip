@@ -8,7 +8,9 @@ import { AssignmentContextView } from './AssignmentContextView';
 import { edgeTypeLabel, isNodeUri, nodeTypeLabel, uriHost } from './labels';
 import { NodeCard } from './NodeCard';
 import { NodeDetailSheet } from './NodeDetailSheet';
+import { NodePathView } from './NodePathView';
 import { NodePicker } from './NodePicker';
+import { toTree } from './pathTree';
 import { originLine, stepsText } from './summary';
 
 afterEach(() => vi.unstubAllGlobals());
@@ -216,48 +218,168 @@ describe('NodeCard', () => {
   });
 });
 
+describe('toTree', () => {
+  it('keeps a single path whole', () => {
+    const tree = toTree(ONE_INPUT.paths ?? []);
+    expect(tree.trunk.map((step) => step.type)).toEqual(['instrument', 'doel', 'politieke_input']);
+    expect(tree.branches).toEqual([]);
+  });
+
+  it('tells the shared steps once and gives each end point its own way', () => {
+    const tree = toTree(TWO_INPUTS.paths ?? []);
+    expect(tree.trunk.map((step) => step.title)).toEqual([
+      'Opdracht bouwsteen Alfa',
+      'Hergebruik van bouwstenen',
+    ]);
+    // Where the ways part, the relation belongs to each branch.
+    expect(tree.trunk[1]?.edge_type).toBeNull();
+    expect(tree.branches.map((branch) => branch.lead)).toEqual(['vloeit_voort_uit', 'draagt_bij_aan']);
+    expect(tree.branches.map((branch) => branch.steps.map((step) => step.title))).toEqual([
+      ['Motie over hergebruik'],
+      ['Passage in het akkoord'],
+    ]);
+  });
+
+  it('gives nothing for a node without paths', () => {
+    expect(toTree([])).toEqual({ trunk: [], branches: [] });
+  });
+});
+
+describe('NodePathView', () => {
+  const rows = (list: Element) =>
+    [...list.querySelectorAll(':scope > li')].map((row) => ({
+      relation: row.classList.contains('grip-path__relation'),
+      classes: row.className,
+      text: row.textContent ?? '',
+    }));
+
+  it('draws one path as steps on a rail with the relation between them', () => {
+    const onStep = vi.fn();
+    const { container } = renderApp(
+      <NodePathView paths={ONE_INPUT.paths ?? []} currentUri={INSTRUMENT} onStep={onStep} />,
+    );
+    const list = container.querySelector('ol.grip-path') as HTMLElement;
+    expect(list.getAttribute('aria-label')).toBe('Pad naar Motie over hergebruik');
+    const all = rows(list);
+    expect(all.map((row) => row.relation)).toEqual([false, true, false, true, false]);
+    expect(all[1]?.text).toBe('implementeert');
+    expect(all[3]?.text).toBe('vloeit voort uit');
+    // Every step has the same three parts in the same order: kind, title, organisation.
+    for (const step of list.querySelectorAll('.grip-path__step')) {
+      expect([...step.querySelectorAll('.grip-path__body > nldd-text')].map((el) => el.className)).toEqual([
+        'grip-path__kind',
+        'grip-path__title',
+        'grip-path__by',
+      ]);
+      expect(step.querySelectorAll('.grip-path__rail')).toHaveLength(3);
+    }
+    // The node itself is marked quietly and is not a control; the end is marked as the origin.
+    expect(all[0]?.classes).toContain('grip-path__step--current');
+    expect(all[0]?.classes).toContain('grip-path__step--first');
+    expect(all[0]?.text).toBe('InstrumentOpdracht bouwsteen AlfaDeze node');
+    expect(list.querySelector('.grip-path__step--current button')).toBeNull();
+    expect(all[4]?.classes).toContain('grip-path__step--end');
+    expect(all[4]?.classes).toContain('grip-path__step--last');
+    expect(all[4]?.text).toBe('Politieke inputMotie over hergebruikHerkomst');
+    // No arrows and no parentheses.
+    expect(list.textContent).not.toMatch(/[↓→(]/);
+    // A step that can be opened is one control: the whole row.
+    const buttons = [...list.querySelectorAll('button.grip-path__body')];
+    expect(buttons.map((button) => button.getAttribute('aria-label'))).toEqual([
+      'Doel: Hergebruik van bouwstenen. Bekijk',
+      'Politieke input: Motie over hergebruik. Bekijk',
+    ]);
+    (buttons[0] as HTMLButtonElement).click();
+    expect(onStep).toHaveBeenCalledWith(GOAL);
+  });
+
+  it('names the organisation only where it changes along the path', () => {
+    const steps = [
+      { uri: 'a', type: 'instrument', title: 'A', organisation_name: 'Voorbeeldgilde', edge_type: 'implementeert' },
+      { uri: 'b', type: 'doel', title: 'B', organisation_name: 'Voorbeeldministerie', edge_type: 'vloeit_voort_uit' },
+      { uri: 'c', type: 'politieke_input', title: 'C', organisation_name: 'Voorbeeldministerie' },
+    ];
+    const { container } = renderApp(<NodePathView paths={[{ steps }]} currentUri="a" onStep={() => {}} />);
+    expect([...container.querySelectorAll('.grip-path__by')].map((el) => el.textContent)).toEqual([
+      'Voorbeeldgilde',
+      'Voorbeeldministerie',
+      '',
+    ]);
+  });
+
+  it('draws shared steps once and the ways to two political inputs next to each other', () => {
+    const { container } = renderApp(
+      <NodePathView paths={TWO_INPUTS.paths ?? []} currentUri={INSTRUMENT} onStep={() => {}} />,
+    );
+    const lists = [...container.querySelectorAll('ol.grip-path')];
+    expect(lists.map((list) => list.getAttribute('aria-label'))).toEqual([
+      'Wat alle paden delen',
+      'Pad naar Motie over hergebruik',
+      'Pad naar Passage in het akkoord',
+    ]);
+    // The goal is on the page once, not once per path.
+    expect(container.textContent?.split('Hergebruik van bouwstenen')).toHaveLength(2);
+    // The shared rail runs on below its last step; each branch starts with its relation.
+    expect(lists[0]?.querySelector('.grip-path__step--last')).toBeNull();
+    expect(rows(lists[1] as Element).map((row) => row.text)).toEqual([
+      'vloeit voort uit',
+      'Politieke inputMotie over hergebruikHerkomst',
+    ]);
+    expect(rows(lists[2] as Element)[0]?.text).toBe('draagt bij aan');
+    const branches = container.querySelector('.grip-path-branches');
+    expect(branches?.children).toHaveLength(2);
+    expect([...(branches?.querySelectorAll('nldd-text[color="secondary"]') ?? [])]
+      .map((el) => el.textContent)
+      .filter((text) => text === 'Komt voort uit')).toHaveLength(2);
+  });
+
+  it('marks a step in another corpus with the corpus and the way out', () => {
+    const { container } = renderApp(
+      <NodePathView paths={SECOND_CORPUS.paths ?? []} currentUri={SECOND_CORPUS.uri} onStep={() => {}} />,
+    );
+    const list = container.querySelector('ol.grip-path') as HTMLElement;
+    expect(list.getAttribute('aria-label')).toBe('Pad naar corpus.anderministerie.example');
+    const link = list.querySelector('a.grip-path__body') as HTMLAnchorElement;
+    expect(link.getAttribute('href')).toBe(ELSEWHERE);
+    expect(link.getAttribute('target')).toBe('_blank');
+    expect(link.textContent).toBe('Ander corpuscorpus.anderministerie.example');
+    expect(link.querySelector('nldd-icon')?.getAttribute('icon')).toBe('external-link');
+    // The end in another corpus is not called the origin: the way goes on there.
+    expect(list.textContent).not.toContain('Herkomst');
+  });
+
+  it('opens a step in another corpus in the sheet when this instance can ask that corpus', () => {
+    const onStep = vi.fn();
+    const steps = [
+      { uri: 'a', type: 'doel', title: 'A', resolvable: true, edge_type: 'draagt_bij_aan' },
+      { uri: ELSEWHERE, external: true, resolvable: true, corpus_name: 'Corpus Anderministerie' },
+    ];
+    const { container } = renderApp(<NodePathView paths={[{ steps }]} currentUri="a" onStep={onStep} />);
+    const button = container.querySelector('button.grip-path__body') as HTMLButtonElement;
+    expect(button.textContent).toBe('Ander corpusCorpus Anderministerie');
+    button.click();
+    expect(onStep).toHaveBeenCalledWith(ELSEWHERE);
+  });
+});
+
 describe('NodeDetailSheet', () => {
   const sheet = () => document.body.querySelector('nldd-sheet') as HTMLElement;
 
-  it('draws one path per political input, with the relation between the steps', () => {
+  it('says where the node lives, and shows its description, paths and reference', () => {
     renderApp(
       <NodeDetailSheet uri={INSTRUMENT} known={[TWO_INPUTS]} fetchNode={vi.fn()} scope="t" onClose={() => {}} />,
     );
     expect(sheet().hasAttribute('open')).toBe(true);
-    const paths = [...sheet().querySelectorAll('ol')];
-    expect(paths.map((path) => path.getAttribute('aria-label'))).toEqual([
-      'Pad naar Motie over hergebruik',
-      'Pad naar Passage in het akkoord',
-    ]);
-    expect(paths[0]?.querySelectorAll(':scope > li')).toHaveLength(3);
-    expect(paths[0]?.textContent).toContain('implementeert');
-    expect(paths[0]?.textContent).toContain('vloeit voort uit');
-    // The node itself is marked; the other steps are the way to their own detail.
-    expect(paths[0]?.textContent).toContain('Opdracht bouwsteen Alfa (deze node)');
-    expect(
-      [...(paths[0]?.querySelectorAll('nldd-button') ?? [])].map((el) => el.getAttribute('text')),
-    ).toEqual(['Hergebruik van bouwstenen', 'Motie over hergebruik']);
-    // Description, the reference with a copy action, and the peildatum are here.
+    // The corpus by name and the way to the node's own page, before anything else.
+    expect(sheet().textContent).toContain('Uit Corpus Voorbeeldministerie');
+    const open = sheet().querySelectorAll('nldd-link[text="Open in het corpus"]');
+    expect(open).toHaveLength(1);
+    expect(open[0]?.getAttribute('href')).toBe(INSTRUMENT);
     expect(sheet().textContent).toContain('Fictieve omschrijving van het instrument.');
+    expect(sheet().querySelectorAll('ol.grip-path')).toHaveLength(3);
     expect(sheet().textContent).toContain(INSTRUMENT);
     expect(texts(sheet(), 'nldd-button')).toContain('Kopieer URI');
-    const open = sheet().querySelector('nldd-link[text="Open in het corpus"]');
-    expect(open?.getAttribute('href')).toBe(INSTRUMENT);
     expect(sheet().textContent).toContain('De keten is altijd de keten van nu');
-  });
-
-  it('shows a step in another corpus as such, not as a bare step', () => {
-    renderApp(
-      <NodeDetailSheet uri={SECOND_CORPUS.uri} known={[SECOND_CORPUS]} fetchNode={vi.fn()} scope="t" onClose={() => {}} />,
-    );
-    const path = sheet().querySelector('ol');
-    expect(path?.getAttribute('aria-label')).toBe('Pad naar corpus.anderministerie.example');
-    expect(texts(path as Element, 'nldd-badge')).toEqual(['Maatregel', 'Ander corpus']);
-    const link = path?.querySelector('nldd-link');
-    expect(link?.getAttribute('href')).toBe(ELSEWHERE);
-    expect(link?.getAttribute('text')).toBe('Open in dat corpus');
-    // This instance cannot ask that corpus, so there is no in-app step.
-    expect(texts(path as Element, 'nldd-button')).toEqual([]);
   });
 
   it('says what a node falls under, and explains an unresolved one', () => {

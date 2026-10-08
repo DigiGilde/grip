@@ -1,8 +1,26 @@
 import { useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useLocation } from 'react-router-dom';
 import { orUndef } from '@/components/nldd/events';
-import { APP_ROUTES, isCurrentRoute } from '@/routes';
+import { TASK_KEYS, fetchTaskCounts } from '@/features/tasks/api';
+import { PATHS } from '@/paths';
+import { APP_ROUTES, isCurrentRoute, type AppRoute } from '@/routes';
 import { useRouterLinks } from './useRouterLinks';
+
+/**
+ * The label of a section. "Taken" carries the number of open tasks that are
+ * the reader's own, so the work shows without opening the page.
+ */
+function useRouteLabel(): (route: AppRoute) => string {
+  const counts = useQuery({
+    queryKey: TASK_KEYS.count,
+    queryFn: fetchTaskCounts,
+    refetchInterval: 60_000,
+    retry: false,
+  });
+  const open = counts.data?.open ?? 0;
+  return (route) => (route.path === PATHS.tasks && open > 0 ? `${route.title} (${open})` : route.title);
+}
 
 interface MainNavigationProps {
   /** Icons with the label underneath, for the bottom bar on small screens. */
@@ -14,6 +32,7 @@ export function MainNavigation({ withIcons }: MainNavigationProps) {
   const ref = useRef<HTMLElement>(null);
   const { pathname } = useLocation();
   useRouterLinks(ref);
+  const label = useRouteLabel();
 
   return (
     <nldd-tab-bar ref={ref} navigation accessible-label="Hoofdnavigatie">
@@ -21,7 +40,7 @@ export function MainNavigation({ withIcons }: MainNavigationProps) {
         <nldd-tab-bar-item
           key={route.path}
           href={route.path}
-          text={route.title}
+          text={label(route)}
           {...(withIcons ? { icon: route.icon } : {})}
           current={orUndef(isCurrentRoute(route.path, pathname))}
         />
@@ -34,11 +53,12 @@ export function MainNavigation({ withIcons }: MainNavigationProps) {
 export function MainNavigationOverflow() {
   const ref = useRef<HTMLElement>(null);
   useRouterLinks(ref);
+  const label = useRouteLabel();
 
   return (
     <nldd-menu-group ref={ref} slot="overflow" text="Hoofdnavigatie">
       {APP_ROUTES.map((route) => (
-        <nldd-menu-item key={route.path} href={route.path} icon={route.icon} text={route.title} />
+        <nldd-menu-item key={route.path} href={route.path} icon={route.icon} text={label(route)} />
       ))}
     </nldd-menu-group>
   );

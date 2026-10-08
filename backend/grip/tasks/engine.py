@@ -329,7 +329,8 @@ async def _reconcile(
             )
         )
         for task in rows:
-            tasks.setdefault(("assignment", task.assignment_id), []).append(task)
+            if task.assignment_id is not None:
+                tasks.setdefault(("assignment", task.assignment_id), []).append(task)
     if vacancy_ids:
         rows = await db.scalars(
             select(Task).where(
@@ -339,7 +340,8 @@ async def _reconcile(
             )
         )
         for task in rows:
-            tasks.setdefault(("vacancy", task.vacancy_id), []).append(task)
+            if task.vacancy_id is not None:
+                tasks.setdefault(("vacancy", task.vacancy_id), []).append(task)
     for case in cases:
         outcome.add(
             await _reconcile_case(

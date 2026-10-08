@@ -19,6 +19,7 @@ export function useAssignmentShell(): AssignmentDetail | null {
 
 export const TAB_LABELS: Record<AssignmentTabKey, string> = {
   overview: 'Overzicht',
+  tasks: 'Taken',
   finance: 'Financieel',
   staffing: 'Bemensing',
   budget: 'Begroting',
@@ -28,6 +29,7 @@ export const TAB_LABELS: Record<AssignmentTabKey, string> = {
 
 const TAB_ORDER: readonly AssignmentTabKey[] = [
   'overview',
+  'tasks',
   'finance',
   'staffing',
   'budget',
@@ -45,6 +47,7 @@ export function visibleTabs(permissions: AssignmentPermissions): AssignmentTabKe
   const team = permissions.read_staffing || permissions.read_roster;
   const shown: Record<AssignmentTabKey, boolean> = {
     overview: true,
+    tasks: true,
     finance: money,
     staffing: team,
     budget: money,

@@ -1,6 +1,7 @@
 /** Every path in the application, in one place so links and routes cannot drift. */
 export const PATHS = {
   statusOverview: '/',
+  tasks: '/taken',
   assignments: '/opdrachten',
   assignmentDetail: '/opdrachten/:assignmentId',
   assignmentFinance: '/opdrachten/:assignmentId/financieel',

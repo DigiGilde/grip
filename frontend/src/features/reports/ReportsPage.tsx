@@ -6,7 +6,7 @@ import { RouterLinks } from '@/layout/RouterLinks';
 import { useInstance } from '@/layout/useInstance';
 import { PageHeading } from '@/pages/PageHeading';
 import { ActionBar } from '@/ui/ActionBar';
-import { fetchSteering, reportKeys } from './api';
+import { fetchInvestment, fetchSteering, reportKeys } from './api';
 import { landingTiles, type Tile } from './tiles';
 import { TOPICS, topicPath } from './topics';
 import './ui';
@@ -45,7 +45,12 @@ export function ReportsPage() {
   const instance = useInstance();
   const [year, setYear] = useReportYear();
   const query = useQuery({ queryKey: reportKeys.steering(year), queryFn: () => fetchSteering(year) });
-  const tiles = query.data ? landingTiles(query.data) : [];
+  // Its own request, so a problem with it never hides the other figures.
+  const investment = useQuery({
+    queryKey: reportKeys.investment(year),
+    queryFn: () => fetchInvestment(year),
+  });
+  const tiles = query.data ? landingTiles(query.data, investment.data) : [];
 
   return (
     <nldd-simple-section>

@@ -66,6 +66,8 @@ export interface PathStep {
   uri: string;
   title?: string | null;
   type?: string | null;
+  /** Who manages the node of this step. */
+  organisation_name?: string | null;
   /** The step lies in another corpus than the node the path starts at. */
   external?: boolean;
   corpus_name?: string | null;
