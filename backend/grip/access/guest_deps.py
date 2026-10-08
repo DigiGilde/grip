@@ -34,6 +34,7 @@ from grip.access.types import Subject
 from grip.core.auth import GUEST_SESSION_KEY, resolve_guest, resolve_person
 from grip.core.config import Settings, get_settings
 from grip.core.database import get_db
+from grip.events import context as event_context
 from grip.models.quote import QuoteInvitation
 
 __all__ = [
@@ -121,6 +122,7 @@ async def get_signer(
     """
     person = await resolve_person(request, db, settings)
     if person is not None:
+        event_context.set_person(person.id)
         return signer_for(person.name, person.email or "", person.id)
     guest = await resolve_guest(request, settings)
     signer = signer_from_guest_session({GUEST_SESSION_KEY: guest}) if guest else None
@@ -129,6 +131,9 @@ async def get_signer(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Niet ingelogd",
         )
+    # Events of this request are a guest's doing. Who the guest is stays in
+    # the evidence of the decision, not in the stream.
+    event_context.set_guest(None)
     return signer
 
 

@@ -45,6 +45,7 @@ from grip.federation.contract_loader import (
 )
 from grip.federation.problems import FederationProblem, problem_response
 from grip.federation.routes import router
+from grip.middleware.event_context import EventContextMiddleware
 
 logger = logging.getLogger(__name__)
 
@@ -114,6 +115,8 @@ def create_federation_app() -> FastAPI:
         redirect_slashes=False,
     )
     install_problem_handlers(app)
+    # A fresh event context per incoming message.
+    app.add_middleware(EventContextMiddleware)
     app.include_router(router, prefix=PATH_PREFIX)
 
     @app.get(HEALTH_PATH, include_in_schema=False)

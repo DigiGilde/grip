@@ -39,3 +39,19 @@ async def require_wies_export_key(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Geen geldige sleutel voor de export naar Wies",
         )
+
+
+async def require_feed_key(
+    request: Request,
+    settings: Settings = Depends(get_settings),
+) -> None:
+    """The caller presented the key that opens the event feed.
+
+    Refused while no key is configured: nothing leaves the instance by
+    default.
+    """
+    if not key_matches(presented_bearer_key(request), settings.EVENTS_FEED_KEY):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Geen geldige sleutel voor de gebeurtenissen",
+        )

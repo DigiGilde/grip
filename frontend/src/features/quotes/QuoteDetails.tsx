@@ -1,4 +1,5 @@
 import { useId, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { createPortal } from 'react-dom';
 import { orUndef, useNlddEvent } from '@/components/nldd/events';
 import { Facts, Quiet, Stack, type Fact } from '@/ui/layout';
@@ -15,6 +16,12 @@ interface QuoteDetailsProps {
   hash: string;
   /** Further facts of the quote: its reference, who made it, its address. */
   facts?: readonly Fact[];
+  /** The address of the quote's pdf; its file hash is read from there once the sheet opens. */
+  documentHref?: string;
+  /** The file hash, where the response already carries it. */
+  fileHash?: string | null;
+  /** A ready sentence of the server on the file, e.g. that it was fixed after making. */
+  fileNote?: string | null;
 }
 
 /**
@@ -25,12 +32,38 @@ interface QuoteDetailsProps {
  * The main thing in it is the echtheidskenmerk, said in words for someone
  * who has never heard of a hash.
  */
-export function QuoteDetails({ hash, facts = [] }: QuoteDetailsProps) {
+/** The SHA-256 of the stored pdf, from the header the server sends with it. */
+async function fetchFileHash(href: string): Promise<string | null> {
+  const response = await fetch(href, { credentials: 'include' });
+  const hash = response.headers.get('X-Document-SHA256');
+  // Only the header is needed; the file itself is not read.
+  void response.body?.cancel();
+  return response.ok ? hash : null;
+}
+
+export function QuoteDetails({
+  hash,
+  facts = [],
+  documentHref,
+  fileHash,
+  fileNote,
+}: QuoteDetailsProps) {
   const [open, setOpen] = useState(false);
+  // The server names the hash of the stored file in a header of the file
+  // itself. Asked only when someone opens the details.
+  const file = useQuery({
+    queryKey: ['quotes', 'file-hash', documentHref],
+    queryFn: () => fetchFileHash(documentHref ?? ''),
+    // Only where the response did not say it already.
+    enabled: open && Boolean(documentHref) && !fileHash,
+    retry: false,
+    staleTime: Infinity,
+  });
   const buttonRef = useRef<HTMLElement>(null);
   const sheetRef = useRef<HTMLElement>(null);
   const barRef = useRef<HTMLElement>(null);
   const titleId = useId();
+  const shownFileHash = fileHash || file.data || null;
   useNlddEvent(buttonRef, 'click', () => setOpen(true));
   useNlddEvent(sheetRef, 'close', () => setOpen(false));
   useNlddEvent(barRef, 'dismiss', () => setOpen(false));
@@ -82,6 +115,26 @@ export function QuoteDetails({ hash, facts = [] }: QuoteDetailsProps) {
                   </nldd-button-group>
                   <Quiet>Technisch: SHA-256 over de vastgelegde inhoud van de offerte.</Quiet>
                 </Stack>
+                {shownFileHash ? (
+                  <Stack gap="related">
+                    <nldd-title size={5} heading-level={2} text="Bestandskenmerk" />
+                    <nldd-text>
+                      Een code die uit het pdf-bestand van deze offerte is berekend. Zo ga je na dat
+                      een pdf die je hebt precies dit bestand is.
+                    </nldd-text>
+                    <Stack gap="tight">
+                      {codeLines(shownFileHash).map((line) => (
+                        <nldd-text key={line} size="sm" style={CODE} data-file-line>
+                          {line}
+                        </nldd-text>
+                      ))}
+                    </Stack>
+                    <nldd-button-group>
+                      <CopyButton text="Kopieer bestandskenmerk" value={shownFileHash} />
+                    </nldd-button-group>
+                    {fileNote ? <Quiet>{fileNote}</Quiet> : null}
+                  </Stack>
+                ) : null}
               </Stack>
             </nldd-simple-section>
           </nldd-page>

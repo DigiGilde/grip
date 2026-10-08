@@ -132,15 +132,20 @@ async def store_document(
     content_type: str | None,
     actor: Person | None,
     owner_id: UUID | None = None,
+    uploaded: bool = True,
 ) -> StoredDocument:
     """Store a file for the given use. Refuses a wrong type or size.
+
+    The size limit is for what people upload. A file grip makes itself (the
+    document of a quote) is stored with ``uploaded=False`` and is not held
+    to it.
 
     Without ``owner_id`` the caller records the owner with ``assign_owner``
     in the same transaction, for an owner that does not exist yet.
     """
     if not content:
         raise DomainValidationError("Het bestand is leeg.")
-    if len(content) > MAX_DOCUMENT_BYTES:
+    if uploaded and len(content) > MAX_DOCUMENT_BYTES:
         limit_mb = MAX_DOCUMENT_BYTES // (1024 * 1024)
         raise DomainValidationError(
             f"Het bestand is te groot. De grens is {limit_mb} MB."

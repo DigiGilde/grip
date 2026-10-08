@@ -11,6 +11,7 @@ export const VACANCY_TAB_SEGMENTS = {
   text: 'tekst',
   procedure: 'procedure',
   fulfilment: 'vervulling',
+  history: 'geschiedenis',
 } as const;
 
 export type VacancyTabKey = keyof typeof VACANCY_TAB_SEGMENTS;

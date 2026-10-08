@@ -15,6 +15,12 @@ export interface AuthStatus {
   /** Functions held in this instance, such as beheerder or planner. */
   functions: string[];
   /**
+   * Kinds of relation the person has to anything in the instance:
+   * assignment_manager, line_manager, team_member. A hint for the navigation;
+   * the server decides per object.
+   */
+  relations?: string[];
+  /**
    * Someone invited to sign a quote who has no person record here. Such a
    * visitor is not authenticated for the application: only the signing
    * pages are open to them.

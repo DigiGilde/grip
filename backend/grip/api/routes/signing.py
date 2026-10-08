@@ -20,7 +20,7 @@ from grip.access.guest_deps import CurrentSigner, Signer
 from grip.api.routes.quotes import document_response, filtered
 from grip.core.database import get_db
 from grip.models.quote import Quote
-from grip.schema.quotes import content_from_snapshot
+from grip.schema.quotes import content_from_snapshot, document_fields
 from grip.schema.signing import (
     SignAcceptIn,
     SigningInvitationOut,
@@ -70,6 +70,7 @@ async def signing_view(
         contractor_name=str(quote.snapshot.get("sender") or context.contractor_name),
         client_name=context.client_name,
         snapshot_hash=quote.snapshot_hash,
+        **document_fields(quote),
         content=content_from_snapshot(quote.snapshot),
         decided_at=decided_at,
     )

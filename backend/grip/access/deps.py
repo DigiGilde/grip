@@ -19,6 +19,7 @@ from grip.access.types import Action, Context, DataClass, Decision, Resource, Su
 from grip.core.auth import CurrentPerson
 from grip.core.config import Settings, get_settings
 from grip.core.database import get_db
+from grip.events import context as event_context
 from grip.repositories.person import PersonRepository
 
 
@@ -28,6 +29,8 @@ async def get_subject(
 ) -> Subject:
     """The logged-in person as a subject, with the functions held today."""
     functions = await PersonRepository(db).active_function_ids(person.id)
+    # Events written during this request are this person's doing.
+    event_context.set_person(person.id)
     return Subject.for_person(person.id, frozenset(functions))
 
 

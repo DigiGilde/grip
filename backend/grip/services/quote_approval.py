@@ -331,8 +331,15 @@ async def decide(
     actor: Person,
     quote_hash: str,
     note: str | None = None,
+    evidence_id: UUID | None = None,
+    statement_hash: str | None = None,
+    decided_at: datetime | None = None,
 ) -> QuoteApproval:
     """Approve the quote, or send it back to the maker.
+
+    ``evidence_id`` and ``statement_hash`` name the statement this decision
+    was made from (see ``grip.proof``), and ``decided_at`` is the time in
+    it. The hash goes into the audit row and the event.
 
     ``quote_hash`` is the hash the approver saw: the decision is about those
     bytes and no others. Whether ``actor`` holds the right to decide is for
@@ -366,7 +373,8 @@ async def decide(
         )
     approval.status = APPROVAL_APPROVED if approve else APPROVAL_SENT_BACK
     approval.decided_by_id = actor.id
-    approval.decided_at = datetime.now(UTC)
+    approval.decided_at = decided_at or datetime.now(UTC)
+    approval.evidence_id = evidence_id
     approval.decision_note = note
     approval.self_approved = self_approved
     await db.flush()
@@ -377,6 +385,8 @@ async def decide(
     if self_approved:
         # Four eyes were not applied; the instance allows that and it shows.
         new_value["self_approved"] = True
+    if statement_hash:
+        new_value["statement_hash"] = statement_hash
     record_audit(
         db,
         actor=actor,
@@ -387,7 +397,10 @@ async def decide(
         new_value=new_value,
     )
     await events.emit(
-        db, EVENT_APPROVED if approve else EVENT_SENT_BACK, _payload(approval, quote)
+        db,
+        EVENT_APPROVED if approve else EVENT_SENT_BACK,
+        # Refers to the statement of this decision; never its content.
+        {**_payload(approval, quote), "statement_hash": statement_hash},
     )
     return approval
 

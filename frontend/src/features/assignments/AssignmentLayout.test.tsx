@@ -133,6 +133,7 @@ describe('AssignmentLayout', () => {
       'Begroting',
       'Offerte',
       'Maandafsluiting',
+      'Geschiedenis',
     ]);
     const hrefs = [...container.querySelectorAll('nldd-tab-bar-item')].map((item) =>
       item.getAttribute('href'),
@@ -145,18 +146,19 @@ describe('AssignmentLayout', () => {
       '/opdrachten/a1/begroting',
       '/opdrachten/a1/offerte',
       '/opdrachten/a1/maandafsluiting',
+      '/opdrachten/a1/geschiedenis',
     ]);
     expect(container.querySelector('nldd-tab-bar')).toHaveAttribute('navigation');
   });
 
   it('shows a planner no money tab', async () => {
     const { container } = renderShell(PERMISSIONS.planner);
-    expect(await tabs(container)).toEqual(['Overzicht', 'Taken', 'Bemensing', 'Maandafsluiting']);
+    expect(await tabs(container)).toEqual(['Overzicht', 'Taken', 'Bemensing', 'Maandafsluiting', 'Geschiedenis']);
   });
 
   it('shows a team member the overview and the team', async () => {
     const { container } = renderShell(PERMISSIONS.member);
-    expect(await tabs(container)).toEqual(['Overzicht', 'Taken', 'Bemensing']);
+    expect(await tabs(container)).toEqual(['Overzicht', 'Taken', 'Bemensing', 'Geschiedenis']);
   });
 
   it('shows a lezer the money tabs and no team', async () => {
@@ -168,6 +170,7 @@ describe('AssignmentLayout', () => {
       'Begroting',
       'Offerte',
       'Maandafsluiting',
+      'Geschiedenis',
     ]);
   });
 

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { ApiError, errorMessage } from '@/api/client';
 import { Button, TextInput } from '@/features/assignments/ui';
@@ -9,23 +9,26 @@ import {
   QUOTE_STATUS_COLORS,
   QUOTE_STATUS_LABELS,
 } from '@/features/quotes/api';
+import { DecisionFailed, DecisionReceipt } from '@/features/quotes/DecisionReceipt';
 import { formatDateTime } from '@/features/quotes/format';
+import {
+  beforeLeaving,
+  clearDraft,
+  createDecisionIntent,
+  navigation,
+  readDraft,
+  saveDraft,
+  useDecisionReturn,
+} from '@/features/quotes/proof';
 import { QuoteContentTable } from '@/features/quotes/QuoteContentTable';
 import { ConfirmDialog } from '@/features/team/ui/overlays';
 import { useInstance } from '@/layout/useInstance';
 import { useRouterLinks } from '@/layout/useRouterLinks';
 import { formatDate } from '@/lib/format';
 import { PageHeading } from '@/pages/PageHeading';
-import {
-  acceptReceivedQuote,
-  clientKeys,
-  fetchReceivedQuote,
-  rejectReceivedQuote,
-  type Delivery,
-  type ReceivedQuoteDetail,
-} from './api';
+import { clientKeys, fetchReceivedQuote, type Delivery, type ReceivedQuoteDetail } from './api';
 import { DELIVERY_COLORS, DELIVERY_SHORT, deliveryText } from './labels';
-import { clientAssignmentPath, clientPath } from './paths';
+import { clientAssignmentPath, clientPath, receivedQuotePath } from './paths';
 import './register';
 
 function DecisionNotice({ detail }: { detail: ReceivedQuoteDetail }) {
@@ -119,7 +122,6 @@ function Deliveries({ deliveries }: { deliveries: Delivery[] }) {
 export function ReceivedQuotePage() {
   const { quoteId = '' } = useParams();
   const instance = useInstance();
-  const queryClient = useQueryClient();
   const ref = useRef<HTMLDivElement>(null);
   useRouterLinks(ref);
 
@@ -141,26 +143,39 @@ export function ReceivedQuotePage() {
   const [error, setError] = useState<string | null>(null);
   const [rejectError, setRejectError] = useState<string | null>(null);
 
-  const refresh = () => {
-    void queryClient.invalidateQueries({ queryKey: clientKeys.all });
+  const back = useDecisionReturn();
+  const [draft] = useState(() => readDraft<{ signerFunction?: string; reason?: string }>(quoteId));
+  // The decision is made when the browser is back from the identity
+  // provider; asking for the intent records nothing.
+  const leaveFor = (kind: 'accept_received' | 'reject_received') => {
+    saveDraft(quoteId, { signerFunction, reason });
+    return createDecisionIntent({
+      kind,
+      quote_id: quoteId,
+      quote_hash: query.data?.quote.snapshot_hash ?? '',
+      signer_function: signerFunction.trim() || null,
+      note: kind === 'reject_received' ? reason.trim() || null : null,
+      return_path: receivedQuotePath(quoteId),
+    });
   };
   const accept = useMutation({
-    mutationFn: () => acceptReceivedQuote(quoteId, signerFunction.trim() || null),
-    onSuccess: () => {
-      setError(null);
-      refresh();
-    },
+    mutationFn: () => leaveFor('accept_received'),
+    onSuccess: (intent) => navigation.go(intent.authorize_url),
     onError: (failure) => setError(errorMessage(failure)),
   });
   const reject = useMutation({
-    mutationFn: () => rejectReceivedQuote(quoteId, reason.trim() || null),
-    onSuccess: () => {
-      setRejecting(false);
-      setRejectError(null);
-      refresh();
-    },
+    mutationFn: () => leaveFor('reject_received'),
+    onSuccess: (intent) => navigation.go(intent.authorize_url),
     onError: (failure) => setRejectError(errorMessage(failure)),
   });
+  if (back.evidenceId) clearDraft(quoteId);
+  // Back without a decision: the form holds what was written before leaving.
+  const [restored, setRestored] = useState(false);
+  if (back.errorCode && draft && !restored) {
+    setRestored(true);
+    setSignerFunction(draft.signerFunction ?? '');
+    setReason(draft.reason ?? '');
+  }
 
   const detail = query.data;
   const quote = detail?.quote;
@@ -195,7 +210,14 @@ export function ReceivedQuotePage() {
                   text={QUOTE_STATUS_LABELS[quote.status] ?? quote.status}
                 />
               </div>
-              <DecisionNotice detail={detail} />
+              {back.evidenceId ? (
+                <DecisionReceipt scope="proof" evidenceId={back.evidenceId} />
+              ) : (
+                <DecisionNotice detail={detail} />
+              )}
+              {back.errorCode && detail.may_decide ? (
+                <DecisionFailed code={back.errorCode} onRetry={back.dismiss} />
+              ) : null}
               <nldd-text>
                 Van {contractor}, uitgegeven op {formatDateTime(quote.issued_at)}
                 {quote.valid_until ? `, geldig tot en met ${formatDate(quote.valid_until)}` : ''}.
@@ -224,8 +246,8 @@ export function ReceivedQuotePage() {
               )}
               {quote.snapshot_hash ? (
                 <nldd-text size="sm">
-                  Controlegetal van deze offerte (SHA-256): {quote.snapshot_hash}. De
-                  opdrachtnemer heeft hetzelfde getal. Een akkoord geldt voor precies deze inhoud.
+                  Controlegetal van deze offerte (SHA-256): {quote.snapshot_hash}. De opdrachtnemer
+                  heeft hetzelfde getal. Een akkoord geldt voor precies deze inhoud.
                 </nldd-text>
               ) : null}
             </>
@@ -239,10 +261,11 @@ export function ReceivedQuotePage() {
           <nldd-container gap="16">
             {error ? <nldd-banner variant="critical" size="sm" text={error} /> : null}
             <nldd-text>
-              Je bent tekenbevoegd voor deze organisatie. Met je akkoord leggen we vast wie je
-              bent, namens welke organisatie je tekent en op welk moment. Het akkoord wordt
-              ondertekend met de sleutel van deze instantie en naar {contractor} gestuurd.
+              Je bent tekenbevoegd voor deze organisatie. Met je akkoord leggen we vast wie je bent,
+              namens welke organisatie je tekent en op welk moment. Het akkoord wordt ondertekend
+              met de sleutel van deze instantie en naar {contractor} gestuurd.
             </nldd-text>
+            <nldd-text>{beforeLeaving('accept')}</nldd-text>
             <TextInput
               label="Je functie"
               value={signerFunction}
@@ -297,9 +320,10 @@ export function ReceivedQuotePage() {
         onSubmit={() => reject.mutate()}
       >
         <nldd-text>
-          {contractor} ziet dat de offerte is afgewezen, met de reden die je hier geeft. Afwijzen
-          is niet terug te draaien.
+          {contractor} ziet dat de offerte is afgewezen, met de reden die je hier geeft. Afwijzen is
+          niet terug te draaien.
         </nldd-text>
+        <nldd-text>{beforeLeaving('reject')}</nldd-text>
         <TextInput label="Reden" value={reason} onChange={setReason} optional multiline />
       </FormSheet>
     </div>

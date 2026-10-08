@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from grip.api.routes.allocations import router as allocations_router
 from grip.api.routes.assignment_finance import router as assignment_finance_router
@@ -9,6 +9,8 @@ from grip.api.routes.budget_lines import router as budget_lines_router
 from grip.api.routes.catalogue_roles import router as catalogue_roles_router
 from grip.api.routes.client_requests import router as client_requests_router
 from grip.api.routes.costs import router as costs_router
+from grip.api.routes.events import feed_router as event_feed_router
+from grip.api.routes.events import router as events_router
 from grip.api.routes.form_templates import router as form_templates_router
 from grip.api.routes.function_framework import router as function_framework_router
 from grip.api.routes.health import router as health_router
@@ -24,6 +26,7 @@ from grip.api.routes.peers import router as peers_router
 from grip.api.routes.people import router as people_router
 from grip.api.routes.person_roles import router as person_roles_router
 from grip.api.routes.quote_approvals import router as quote_approvals_router
+from grip.api.routes.quote_drafts import router as quote_drafts_router
 from grip.api.routes.quotes import router as quotes_router
 from grip.api.routes.rates import router as rates_router
 from grip.api.routes.received_quotes import router as received_quotes_router
@@ -33,8 +36,11 @@ from grip.api.routes.signing import router as signing_router
 from grip.api.routes.tasks import router as tasks_router
 from grip.api.routes.vacancies import router as vacancies_router
 from grip.api.routes.vacancy_hire import router as vacancy_hire_router
+from grip.events.logboek import log_sensitive_reads
 
-api_router = APIRouter()
+# Every route notes which sensitive data it returned (grip.events.logboek).
+
+api_router = APIRouter(dependencies=[Depends(log_sensitive_reads)])
 api_router.include_router(health_router)
 api_router.include_router(auth_router)
 api_router.include_router(instance_router)
@@ -68,3 +74,13 @@ api_router.include_router(catalogue_roles_router)
 api_router.include_router(person_roles_router)
 api_router.include_router(tasks_router)
 api_router.include_router(quote_approvals_router)
+api_router.include_router(quote_drafts_router)
+
+# Deciding with proof (grip.proof): intents, the evidence and checking a bundle.
+from grip.api.routes.proof import router as proof_router  # noqa: E402
+from grip.api.routes.proof import signing_router as proof_signing_router  # noqa: E402
+
+api_router.include_router(proof_signing_router)
+api_router.include_router(proof_router)
+api_router.include_router(events_router)
+api_router.include_router(event_feed_router)

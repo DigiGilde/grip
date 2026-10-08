@@ -1,18 +1,22 @@
 """Domain events: the seam between the domain and the federation module.
 
 The service layer emits an event inside the transaction of the change it
-describes. Nothing is registered by default; the federation module registers
-handlers that write to its outbox. The domain never imports from federation
-and knows nothing about transport (ADR 0015).
+describes. The event is written to the stream (``grip.events.stream``, ADR
+0028) and then handed to the handlers of its type, in that same
+transaction. Nothing is registered by default; the federation module
+registers handlers that write to its outbox. The domain never imports from
+federation and knows nothing about transport (ADR 0015).
 """
 
 from __future__ import annotations
 
-from collections import defaultdict
 from collections.abc import Awaitable, Callable
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from grip.events import stream
+from grip.models.stream_event import StreamEvent
 
 ASSIGNMENT_REQUEST_CREATED = "assignment_request.created"
 QUOTE_ISSUED = "quote.issued"
@@ -60,34 +64,53 @@ EVENT_TYPES = (
 
 Handler = Callable[[AsyncSession, str, dict[str, Any]], Awaitable[None]]
 
-_handlers: dict[str, list[Handler]] = defaultdict(list)
+# Each handler is registered with the stream through an adapter that gives
+# it the payload it has always received.
+_adapters: dict[tuple[str, Handler], stream.TransactionalHandler] = {}
+
+
+def _adapt(handler: Handler) -> stream.TransactionalHandler:
+    async def call(session: AsyncSession, event: StreamEvent) -> None:
+        payload = getattr(event, "_raw_payload", None)
+        await handler(session, event.type, payload or dict(event.payload or {}))
+
+    return call
 
 
 def register_handler(event_type: str, handler: Handler) -> None:
-    """Register a handler for one event type. Registering twice is a no-op."""
+    """Register a handler for one event type. Registering twice is a no-op.
+
+    The handler runs in the transaction of the event: what it writes is
+    undone when the change is, and when it raises it refuses the change.
+    For an effect outside the database use ``stream.after_commit``.
+    """
     if event_type not in EVENT_TYPES:
         raise ValueError(f"unknown event type: {event_type}")
-    if handler not in _handlers[event_type]:
-        _handlers[event_type].append(handler)
+    key = (event_type, handler)
+    if key not in _adapters:
+        _adapters[key] = _adapt(handler)
+        stream.on_event(event_type, _adapters[key])
 
 
 def unregister_handler(event_type: str, handler: Handler) -> None:
-    if handler in _handlers[event_type]:
-        _handlers[event_type].remove(handler)
+    adapter = _adapters.pop((event_type, handler), None)
+    if adapter is not None:
+        stream.remove_handler(event_type, adapter)
 
 
 def clear_handlers() -> None:
     """Remove every handler. For tests."""
-    _handlers.clear()
+    for (event_type, _handler), adapter in list(_adapters.items()):
+        stream.remove_handler(event_type, adapter)
+    _adapters.clear()
 
 
 async def emit(session: AsyncSession, event_type: str, payload: dict[str, Any]) -> None:
-    """Call the handlers of an event, in the caller's transaction.
+    """Record a domain event and call its handlers, in the caller's transaction.
 
     A handler that raises aborts the change it belongs to: an event that
     cannot be recorded must not be lost silently.
     """
     if event_type not in EVENT_TYPES:
         raise ValueError(f"unknown event type: {event_type}")
-    for handler in list(_handlers[event_type]):
-        await handler(session, event_type, payload)
+    await stream.record(session, event_type, payload=payload)

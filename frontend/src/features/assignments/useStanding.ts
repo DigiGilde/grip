@@ -52,6 +52,8 @@ export function useStanding(assignment: AssignmentDetail): Standing | null {
     mayAct: money,
     owners: ownersText(assignment),
     quoteSeen: assignment.pipeline_amount_source === 'quote',
+    // Decided on the server from the content of budget and quote.
+    ...(quotes.data?.budget_moved === true ? { budgetMoved: true } : {}),
     ...(budget.data ? { budgetLines: budget.data.lines.length } : {}),
     ...(quotes.data
       ? { quotes: quotes.data.quotes.map((quote) => ({ ...quote, ...approvalOf(quote.id) })) }

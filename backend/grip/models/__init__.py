@@ -27,6 +27,7 @@ from grip.models.quote import (
 )
 from grip.models.rates import RateBand, RateCard, ScaleBand
 from grip.models.role import PersonRole, Role
+from grip.models.stream_event import StreamEvent
 
 __all__ = [
     "AuditLog",
@@ -35,6 +36,7 @@ __all__ = [
     "Person",
     "PersonRole",
     "Role",
+    "StreamEvent",
 ]
 
 # Domain models (migration 0002_domain).
@@ -155,3 +157,21 @@ from grip.models.task import (  # noqa: E402
 )
 
 __all__ += ["Task", "TaskCase", "TaskEngineRun", "TaskNote"]
+
+# Proof of a decision (migration 0025_decision_proof).
+from grip.models.decision_proof import (  # noqa: E402
+    DecisionEvidence,
+    SigningIntent,
+)
+
+__all__ += ["DecisionEvidence", "SigningIntent"]
+
+# Outgoing mail (migration 0028_mail_outbox).
+from grip.models.mail_outbox import MailOutbox  # noqa: E402
+
+__all__ += ["MailOutbox"]
+
+# The text of a quote in preparation (migration 0029_quote_draft).
+from grip.models.quote_draft import QuoteDraft  # noqa: E402
+
+__all__ += ["QuoteDraft"]

@@ -18,11 +18,13 @@ import {
   invitationMessage,
   linkWorks,
   listedOffers,
+  mailLine,
   offerState,
   offerTitle,
   primaryAction,
   quoteSteps,
 } from './offers';
+import { bundleUrl, statementPageUrl, type QuoteEvidenceRow } from './proof';
 import { QuoteDetails } from './QuoteDetails';
 import { CopyButton, DocumentLink, MenuAction } from './ui';
 import './register';
@@ -37,7 +39,8 @@ export type CardAction =
   | { kind: 'new-quote' }
   | { kind: 'grant-right' }
   | { kind: 'withdraw-link'; invitationId: string }
-  | { kind: 'renew-link'; invitationId: string };
+  | { kind: 'renew-link'; invitationId: string }
+  | { kind: 'resend-mail'; invitationId: string };
 
 function madeText(quote: QuoteSummary): string {
   return `Gemaakt op ${formatDate(quote.issued_at)}${quote.issued_by_name ? ` door ${quote.issued_by_name}` : ''}`;
@@ -50,7 +53,37 @@ function byline(quote: QuoteSummary): string {
     .join(' · ');
 }
 
-function Decision({ quote }: { quote: QuoteSummary }) {
+/** How the decision is backed: the proof to look at, or that there is none. */
+function DecisionProof({
+  decision,
+  evidence,
+  mayManage,
+}: {
+  decision: 'accept' | 'reject';
+  evidence: readonly QuoteEvidenceRow[] | undefined;
+  mayManage: boolean;
+}) {
+  // Not known (still loading, or not for this reader): say nothing.
+  if (evidence === undefined) return null;
+  const row = evidence.find((item) => item.decision === decision);
+  if (!row) return <Quiet>Zonder bewijspakket vastgelegd.</Quiet>;
+  return (
+    <nldd-container layout="row" gap="16" vertical-alignment="center">
+      <DocumentLink href={statementPageUrl('proof', row.id)} text="Bekijk bewijs" newTab />
+      {mayManage ? <DocumentLink href={bundleUrl('proof', row.id)} text="Download bewijs" /> : null}
+    </nldd-container>
+  );
+}
+
+function Decision({
+  quote,
+  evidence,
+  mayManage,
+}: {
+  quote: QuoteSummary;
+  evidence: readonly QuoteEvidenceRow[] | undefined;
+  mayManage: boolean;
+}) {
   const acceptance = quote.acceptance;
   if (acceptance) {
     const who = [
@@ -61,18 +94,24 @@ function Decision({ quote }: { quote: QuoteSummary }) {
       .filter(Boolean)
       .join(' ');
     return (
-      <nldd-text>
-        Getekend op {formatDateTime(acceptance.signed_at)}
-        {who ? ` door ${who}` : ''}.
-      </nldd-text>
+      <Stack gap="close">
+        <nldd-text>
+          Getekend op {formatDateTime(acceptance.signed_at)}
+          {who ? ` door ${who}` : ''}.
+        </nldd-text>
+        <DecisionProof decision="accept" evidence={evidence} mayManage={mayManage} />
+      </Stack>
     );
   }
   if (quote.rejection) {
     return (
-      <nldd-text>
-        Afgewezen op {formatDateTime(quote.rejection.rejected_at)}
-        {quote.rejection.reason ? `: ${quote.rejection.reason}` : '.'}
-      </nldd-text>
+      <Stack gap="close">
+        <nldd-text>
+          Afgewezen op {formatDateTime(quote.rejection.rejected_at)}
+          {quote.rejection.reason ? `: ${quote.rejection.reason}` : '.'}
+        </nldd-text>
+        <DecisionProof decision="reject" evidence={evidence} mayManage={mayManage} />
+      </Stack>
     );
   }
   return null;
@@ -107,6 +146,7 @@ function OfferRow({
     manages && works && invitation.expires_at
       ? `link geldig t/m ${formatDate(invitation.expires_at)}`
       : null,
+    manages ? mailLine(offer) : null,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -122,9 +162,14 @@ function OfferRow({
         {manages ? (
           <>
             {works ? (
-              <nldd-text size="sm" data-signing-link>
-                {link}
-              </nldd-text>
+              <Stack gap="tight">
+                <nldd-text size="sm" data-signing-link>
+                  {link}
+                </nldd-text>
+                {offer.recipient ? (
+                  <Quiet>De link werkt alleen voor {offer.recipient}, na inloggen.</Quiet>
+                ) : null}
+              </Stack>
             ) : null}
             <nldd-container layout="wrap" gap="8" vertical-alignment="center">
               {works ? (
@@ -159,6 +204,14 @@ function OfferRow({
                       })
                     }
                   />
+                  {works && offer.mail ? (
+                    <MenuAction
+                      text="Stuur opnieuw"
+                      onSelect={() =>
+                        onAction({ kind: 'resend-mail', invitationId: invitation.id })
+                      }
+                    />
+                  ) : null}
                   {works ? (
                     <MenuAction
                       text="Trek de tekenlink in"
@@ -187,6 +240,10 @@ interface QuoteCardProps {
   /** Internal approval, where the organisation asks for it; undefined while loading. */
   approval?: ApprovalState | null;
   mayManage: boolean;
+  /** The decisions on this quote that have a proof; undefined when not known. */
+  evidence?: readonly QuoteEvidenceRow[];
+  /** Who owns the assignment, to say who can see a signing link. */
+  ownerName?: string | null;
   /** The reader is a beheerder, who can grant the right to approve. */
   isAdmin?: boolean;
   busy: boolean;
@@ -203,6 +260,8 @@ export function QuoteCard({
   approval,
   mayManage,
   isAdmin = false,
+  evidence,
+  ownerName,
   busy,
   onAction,
 }: QuoteCardProps) {
@@ -255,6 +314,9 @@ export function QuoteCard({
               ) : null}
               <QuoteDetails
                 hash={quote.snapshot_hash}
+                documentHref={quoteDocumentUrl(quote.id)}
+                fileHash={quote.document_sha256 ?? detail?.document_sha256 ?? null}
+                fileNote={quote.document_note ?? detail?.document_note ?? null}
                 facts={[
                   { label: 'Kenmerk', value: quote.reference ?? '' },
                   {
@@ -275,7 +337,7 @@ export function QuoteCard({
           ready={ready}
         />
 
-        <Decision quote={quote} />
+        <Decision quote={quote} evidence={evidence} mayManage={mayManage} />
 
         {listed.length > 0 ? (
           <div role="list" aria-label="Hoe deze offerte is aangeboden">
@@ -290,6 +352,12 @@ export function QuoteCard({
                   onAction={onAction}
                 />
               ))}
+              {!mayManage && open && listed.some((offer) => offer.channel === 'signing_link') ? (
+                <Quiet>
+                  De tekenlink is zichtbaar voor de eigenaar{ownerName ? ` (${ownerName})` : ''} en
+                  de managers van de opdracht.
+                </Quiet>
+              ) : null}
             </Stack>
           </div>
         ) : null}

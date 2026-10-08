@@ -54,6 +54,18 @@ class Quote(Base):
             "snapshot_hash = encode(sha256(canonical), 'hex')",
             name="hash_of_canonical",
         ),
+        CheckConstraint(
+            "document_origin IS NULL OR document_origin IN "
+            "('issue', 'afterwards', 'received')",
+            name="document_origin_valid",
+        ),
+        # A file is fixed completely or not at all.
+        CheckConstraint(
+            "(document_ref IS NULL) = (document_sha256 IS NULL) "
+            "AND (document_ref IS NULL) = (document_fixed_at IS NULL) "
+            "AND (document_ref IS NULL) = (document_origin IS NULL)",
+            name="document_complete",
+        ),
     )
 
     id: Mapped[uuid.UUID] = uuid_pk()
@@ -89,8 +101,26 @@ class Quote(Base):
         ForeignKey("person.id", ondelete="SET NULL"),
         nullable=True,
     )
+    # The quote as a file: the PDF, laid out once and kept. ``document_ref``
+    # names the stored document, ``document_sha256`` is the hash of its
+    # bytes. Every view, download and proof serves these bytes; nothing is
+    # laid out again, so a change of letterhead or template never changes a
+    # quote that exists (ADR 0030). ``document_origin`` says when the file
+    # was fixed: at issue, afterwards (a quote from before files were kept),
+    # or on reception (laid out here from the content another instance
+    # sent, which is not the file the sender made).
     document_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     document_ref: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    document_fixed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    document_origin: Mapped[str | None] = mapped_column(String(12), nullable=True)
+    # Where the text of each section came from: written, a standard text, or
+    # drafted with a language model and settled by a person. Outside the
+    # content: it says how the quote was made, not what was offered.
+    prose_provenance: Mapped[list[dict[str, Any]] | None] = mapped_column(
+        JSONB, nullable=True
+    )
     created_at: Mapped[datetime] = created_at()
 
     @property
@@ -292,6 +322,14 @@ class QuoteApproval(Base):
     withdrawn_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # The statement this record was made from, with what verifies it (see
+    # grip.proof). NULL for a record from before statements, or one that
+    # came in from another instance.
+    evidence_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("decision_evidence.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     created_at: Mapped[datetime] = created_at()
 
 
@@ -341,6 +379,14 @@ class QuoteAcceptance(Base):
         ForeignKey("person.id", ondelete="SET NULL"),
         nullable=True,
     )
+    # The statement this record was made from, with what verifies it (see
+    # grip.proof). NULL for a record from before statements, or one that
+    # came in from another instance.
+    evidence_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("decision_evidence.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     created_at: Mapped[datetime] = created_at()
 
 
@@ -360,6 +406,14 @@ class QuoteRejection(Base):
     recorded_by_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("person.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    # The statement this record was made from, with what verifies it (see
+    # grip.proof). NULL for a record from before statements, or one that
+    # came in from another instance.
+    evidence_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("decision_evidence.id", ondelete="SET NULL"),
         nullable=True,
     )
     created_at: Mapped[datetime] = created_at()

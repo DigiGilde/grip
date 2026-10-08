@@ -80,6 +80,9 @@ export interface QuoteSummary {
   uri: string;
   /** The reference people quote, e.g. "DG-2026-0007". */
   reference?: string | null;
+  /** The SHA-256 of the stored pdf, and a ready sentence when it was fixed later. */
+  document_sha256?: string | null;
+  document_note?: string | null;
   assignment_id: string;
   status: 'issued' | 'accepted' | 'rejected' | 'superseded' | string;
   issued_at: string;
@@ -116,6 +119,16 @@ export interface QuoteOffer {
   /** For the client's own instance: pending, sent or refused. */
   delivery?: 'pending' | 'sent' | 'refused' | string | null;
   invitation?: OfferInvitation | null;
+  /** The mail that carried the signing link; only for owner and manager. */
+  mail?: OfferMail | null;
+}
+
+export interface OfferMail {
+  state: 'queued' | 'sent' | 'failed' | string;
+  queued_at: string;
+  sent_at?: string | null;
+  failed_reason?: string | null;
+  attempts?: number;
 }
 
 /** A channel the quote can be offered through, or why it cannot. */
@@ -131,10 +144,18 @@ export interface QuoteDetail extends QuoteSummary {
   content?: QuoteContent;
   offers?: QuoteOffer[];
   channels?: QuoteChannel[];
+  /** Offering with a signing link also mails the link to the invited person. */
+  signing_link_mail?: boolean;
 }
 
 export interface QuoteList {
   may_manage: boolean;
+  /**
+   * Whether the budget changed since the latest open or accepted quote, by
+   * content and not by total. Absent or null when there is nothing to compare.
+   */
+  budget_moved?: boolean | null;
+  budget_compared_quote_id?: string | null;
   quotes: QuoteSummary[];
 }
 
@@ -190,6 +211,15 @@ export function offerQuote(
 /** Takes a signing link back: from then on it opens nothing. */
 export function withdrawInvitation(quoteId: string, invitationId: string): Promise<QuoteDetail> {
   return apiPost(`/api/quotes/${quoteId}/invitations/${invitationId}/withdraw`);
+}
+
+/** Mails the signing link again; with `renew` the link also works again from now. */
+export function resendSigningMail(
+  quoteId: string,
+  invitationId: string,
+  renew = false,
+): Promise<QuoteDetail> {
+  return apiPost(`/api/quotes/${quoteId}/invitations/${invitationId}/mail`, { renew });
 }
 
 /** Makes a signing link work again for the standard period. */

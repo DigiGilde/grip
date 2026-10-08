@@ -14,6 +14,7 @@ export const ASSIGNMENT_TAB_SEGMENTS = {
   budget: 'begroting',
   quote: 'offerte',
   monthClose: 'maandafsluiting',
+  history: 'geschiedenis',
 } as const;
 
 export type AssignmentTabKey = keyof typeof ASSIGNMENT_TAB_SEGMENTS;

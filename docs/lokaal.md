@@ -211,6 +211,23 @@ just local-fsc-corpus-init
 
 Bouwmeester heeft een adres voor zijn outway. Draait de dev outway, dan geeft die de grant hashes van FSC door aan de echte outway van deelnemer C. Zo toont dezelfde Bouwmeester de grip waar je aan ontwikkelt en de grips achter FSC naast elkaar. Zonder dev outway start je Bouwmeester met `BOUWMEESTER_OUTWAY_URL=http://localhost:9240`.
 
+## Mail
+
+Grip mailt de tekenlink van een offerte aan wie wordt uitgenodigd om te tekenen ([ADR 0031](adr/0031-tekenlink-per-mail.md)). Lokaal vangt een mailvanger alles op: wat grip verstuurt komt in zijn postvak en gaat nergens anders heen.
+
+```sh
+just mail-up                     # de mailvanger; het postvak staat op http://127.0.0.1:9326
+eval "$(deploy/local/mail.sh env)"   # SMTP_HOST, SMTP_PORT, SMTP_FROM, SMTP_TLS=none
+just worker-with-mail            # de worker verstuurt wat in de wachtrij staat
+just mail-down
+```
+
+De backend heeft dezelfde instellingen nodig als de worker: zonder `SMTP_HOST` en `SMTP_FROM` zet hij niets in de wachtrij. Zet `FRONTEND_URL` op het adres waar de schermen draaien; dat adres staat in de link.
+
+Bied daarna een offerte aan met een tekenlink. Binnen een paar seconden staat het bericht in het postvak, en op de offerte staat dat er gemaild is. `deploy/local/mail.sh inbox` geeft het postvak als JSON.
+
+Op het hostingplatform zet de dienst "E-mail versturen" de vijf `SMTP_`-instellingen, nadat een beheerder van het platform de aanvraag heeft goedgekeurd. Het afzenderadres ligt daar vast; de naam ernaast stel je in bij de dienst.
+
 ## Wat hiermee is aangetoond
 
 - De images bouwen en een instantie draait achter nginx, met migraties bij het starten.

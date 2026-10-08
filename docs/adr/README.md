@@ -31,3 +31,7 @@ Een besluit dat anderen bindt staat hier als ADR: genummerd, met context, beslui
 | [0025](0025-interne-goedkeuring-van-een-offerte.md) | Een offerte kan eerst intern worden goedgekeurd | aanvaard |
 | [0026](0026-kenmerk-en-pdf-van-een-offerte.md) | Een offerte heeft een kenmerk en is een pdf | aanvaard |
 | [0027](0027-tarievenkaart-geldt-voor-een-periode.md) | Een tarievenkaart geldt voor een periode, en de prijs volgt de dag | aanvaard |
+| [0028](0028-een-stroom-van-gebeurtenissen-als-bron.md) | Een stroom van gebeurtenissen als bron | aanvaard |
+| [0029](0029-bewijs-van-een-akkoord.md) | Bewijs van een akkoord | aanvaard |
+| [0030](0030-het-bestand-van-een-offerte-ligt-vast.md) | Het bestand van een offerte ligt vast | aanvaard |
+| [0031](0031-tekenlink-per-mail.md) | De tekenlink gaat per mail, via een wachtrij | aanvaard |

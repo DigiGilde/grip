@@ -10,5 +10,10 @@ export function toAuthState(status: AuthStatus): AuthState {
     return { status: 'unauthenticated', oidcConfigured: status.oidc_configured };
   }
   if (!status.person) return { status: 'no-access' };
-  return { status: 'authenticated', person: status.person, functions: status.functions };
+  return {
+    status: 'authenticated',
+    person: status.person,
+    functions: status.functions,
+    ...(status.relations ? { relations: status.relations } : {}),
+  };
 }

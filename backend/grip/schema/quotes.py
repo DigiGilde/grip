@@ -109,6 +109,37 @@ class RejectionOut(BaseModel):
     reason: Annotated[str | None, B] = None
 
 
+# How the file of a quote came to be, as a reader is told. Nothing is said
+# about a file that was fixed when the quote was made: that is the normal
+# case, and the document is then simply the document.
+_DOCUMENT_NOTES = {
+    "afterwards": "vastgelegd na het maken",
+    "received": "eigen opmaak van deze instantie",
+}
+
+
+def document_note(origin: str | None, fixed_at: datetime | None) -> str | None:
+    """The note to show next to the file hash, or None when there is none."""
+    text = _DOCUMENT_NOTES.get(origin or "")
+    if text is None:
+        return None
+    return f"{text}, op {fixed_at:%d-%m-%Y}" if fixed_at is not None else text
+
+
+def document_fields(quote: Any) -> dict[str, Any]:
+    """The fields about the kept file of a quote, read from the quote row.
+
+    All four are None while no file is kept yet (a quote from before files
+    were kept, until its document is first asked for).
+    """
+    return {
+        "document_sha256": quote.document_sha256,
+        "document_fixed_at": quote.document_fixed_at,
+        "document_origin": quote.document_origin,
+        "document_note": document_note(quote.document_origin, quote.document_fixed_at),
+    }
+
+
 class QuoteSummaryOut(BaseModel):
     id: Annotated[UUID, A]
     uri: Annotated[str, A]
@@ -120,6 +151,13 @@ class QuoteSummaryOut(BaseModel):
     issued_by_name: Annotated[str | None, A] = None
     total_cents: Annotated[int, B]
     snapshot_hash: Annotated[str, B]
+    # The quote as a file: the hash of the kept PDF, when it was fixed and
+    # how. ``document_origin`` is issue, afterwards or received;
+    # ``document_note`` is the sentence for a reader, None for issue.
+    document_sha256: Annotated[str | None, B] = None
+    document_fixed_at: Annotated[datetime | None, B] = None
+    document_origin: Annotated[str | None, B] = None
+    document_note: Annotated[str | None, B] = None
     valid_until: Annotated[date | None, B] = None
     acceptance: Annotated[AcceptanceOut | None, nested()] = None
     rejection: Annotated[RejectionOut | None, nested()] = None
@@ -144,6 +182,22 @@ class OfferInvitationOut(BaseModel):
     state: Annotated[str, B]
 
 
+class OfferMailOut(BaseModel):
+    """The mail that carried the signing link, for whoever manages the assignment.
+
+    ``sent`` means the mail server accepted the message; whether it reached
+    a mailbox is not known here.
+    """
+
+    # queued | sent | failed
+    state: Annotated[str, B]
+    queued_at: Annotated[datetime, B]
+    sent_at: Annotated[datetime | None, B] = None
+    # In plain words, when the state is failed.
+    failed_reason: Annotated[str | None, B] = None
+    attempts: Annotated[int, B] = 0
+
+
 class OfferOut(BaseModel):
     """One time the quote was offered to the client, and through which channel."""
 
@@ -158,6 +212,9 @@ class OfferOut(BaseModel):
     delivery: Annotated[str | None, B] = None
     # For the channel signing_link, and only for who manages the assignment.
     invitation: Annotated[OfferInvitationOut | None, nested()] = None
+    # The latest mail with the signing link, when one was queued. Absent
+    # when the instance does not mail, and for who does not manage.
+    mail: Annotated[OfferMailOut | None, nested()] = None
 
 
 class ChannelOut(BaseModel):
@@ -175,6 +232,14 @@ class QuoteDetailOut(QuoteSummaryOut):
     # nothing; an offer does.
     offers: Annotated[list[OfferOut], nested()] = Field(default_factory=list)
     channels: Annotated[list[ChannelOut], nested()] = Field(default_factory=list)
+    # Whether offering with a signing link mails the link to the invited
+    # address. When false, whoever offers hands the link over.
+    signing_link_mail: Annotated[bool, B] = False
+
+
+class ResendSigningMailIn(BaseModel):
+    # Also make the link work again for the standard period from now.
+    renew: bool = False
 
 
 class OfferQuoteIn(BaseModel):
@@ -189,6 +254,11 @@ class OfferQuoteIn(BaseModel):
 class QuoteListOut(BaseModel):
     # Whether the person asking may invite signers and record a decision.
     may_manage: Annotated[bool, A] = False
+    # Whether the budget changed since the latest open or accepted quote, by
+    # content and not by total. None when there is nothing to compare.
+    budget_moved: Annotated[bool | None, B] = None
+    # The quote the budget was compared with.
+    budget_compared_quote_id: Annotated[UUID | None, B] = None
     quotes: Annotated[list[QuoteSummaryOut], nested()] = Field(default_factory=list)
 
 

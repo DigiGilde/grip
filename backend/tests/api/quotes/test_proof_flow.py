@@ -690,3 +690,47 @@ async def test_an_abandoned_decision_does_not_capture_a_later_login():
     )
     assert pending_intent(request(None, {PROOF_SESSION_KEY: pending})) is None
     assert pending_intent(request("state-of-the-decision", {})) is None
+
+
+async def test_a_bundle_is_checked_for_a_signer_within_a_size_limit(
+    act_as, world, monkeypatch
+):
+    from grip.api.routes import proof as proof_routes
+
+    quote = await _invited(act_as, world, world.signer.email)
+    client = act_as(world.signer)
+    intent = (
+        await client.post(
+            f"/api/signing/quotes/{quote['id']}/intents",
+            json={
+                "decision": "accept",
+                "quote_hash": quote["snapshot_hash"],
+                "confirm_mandate": True,
+            },
+        )
+    ).json()
+    evidence_id = _result(await client.get(intent["authorize_url"]))["bewijs"]
+    bundle = (await client.get(f"/api/signing/evidence/{evidence_id}/bundle")).json()
+
+    checked = await client.post("/api/signing/verify", json={"bundle": bundle})
+    assert checked.status_code == 200, checked.text
+    assert checked.json()["sound"] is True
+    assert checked.json()["statement"]["besluit"] == "akkoord"
+
+    for body in ({}, {"bundle": "geen object"}, []):
+        assert (
+            await client.post("/api/signing/verify", json=body)
+        ).status_code == 422, body
+    not_json = await client.post(
+        "/api/signing/verify",
+        content=b"{",
+        headers={"Content-Type": "application/json"},
+    )
+    assert not_json.status_code == 422
+
+    # Far larger than any bundle: refused before it is parsed.
+    monkeypatch.setattr(proof_routes, "MAX_BUNDLE_BYTES", 2000)
+    for path in ("/api/signing/verify", "/api/proof/verify"):
+        too_big = await act_as(world.manager).post(path, json={"bundle": bundle})
+        assert too_big.status_code == 413, path
+        assert "te groot" in too_big.json()["detail"]

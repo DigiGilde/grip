@@ -84,8 +84,32 @@ ALLOWED_CONTENT_KEYS = frozenset(
         "reference",
         "client_reference",
         "sender",
+        # The text of the quote as a letter: subject, addressee, sections,
+        # closing, the sender's addresses and who signs. Checked key by key
+        # below; the names in it are the ones a letter carries on purpose
+        # (who it is addressed to, who signs), never staff on the work.
+        "letter",
     }
 )
+
+ALLOWED_LETTER_KEYS = frozenset(
+    {
+        "subject",
+        "addressee",
+        "salutation",
+        "opening",
+        "closing",
+        "sections",
+        "sender_details",
+        "signatures",
+        "billing_annex",
+    }
+)
+ALLOWED_SECTION_KEYS = frozenset({"key", "heading", "body", "with_costs", "numbered"})
+ALLOWED_SENDER_DETAIL_KEYS = frozenset(
+    {"organisation", "part_of", "unit", "visiting_address", "postal_address", "website"}
+)
+ALLOWED_SIGNATURE_KEYS = frozenset({"on_behalf_of", "name", "function", "organisation"})
 
 # Keys a quote line may have.
 ALLOWED_LINE_KEYS = frozenset(
@@ -189,6 +213,23 @@ def check_content(snapshot: dict[str, Any]) -> dict[str, Any]:
             inner = f"{where}.monthly_rates_per_year[{i}]"
             _check_keys(inner, rate, _RATE_PER_YEAR_KEYS)
             _check_keys(f"{inner}.monthly_rate", rate.get("monthly_rate"), _MONEY_KEYS)
+    if "letter" in snapshot:
+        letter = snapshot["letter"]
+        _check_keys("quote.letter", letter, ALLOWED_LETTER_KEYS)
+        for index, section in enumerate(letter.get("sections") or []):
+            _check_keys(
+                f"quote.letter.sections[{index}]", section, ALLOWED_SECTION_KEYS
+            )
+        if "sender_details" in letter:
+            _check_keys(
+                "quote.letter.sender_details",
+                letter["sender_details"],
+                ALLOWED_SENDER_DETAIL_KEYS,
+            )
+        for index, signature in enumerate(letter.get("signatures") or []):
+            _check_keys(
+                f"quote.letter.signatures[{index}]", signature, ALLOWED_SIGNATURE_KEYS
+            )
     return snapshot
 
 

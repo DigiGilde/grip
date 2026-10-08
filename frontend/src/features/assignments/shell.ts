@@ -25,6 +25,7 @@ export const TAB_LABELS: Record<AssignmentTabKey, string> = {
   budget: 'Begroting',
   quote: 'Offerte',
   monthClose: 'Maandafsluiting',
+  history: 'Geschiedenis',
 };
 
 const TAB_ORDER: readonly AssignmentTabKey[] = [
@@ -35,6 +36,7 @@ const TAB_ORDER: readonly AssignmentTabKey[] = [
   'budget',
   'quote',
   'monthClose',
+  'history',
 ];
 
 /**
@@ -53,6 +55,8 @@ export function visibleTabs(permissions: AssignmentPermissions): AssignmentTabKe
     budget: money,
     quote: money,
     monthClose: money || permissions.read_staffing,
+    // What happened: each reader gets what they may know of.
+    history: true,
   };
   return TAB_ORDER.filter((tab) => shown[tab]);
 }

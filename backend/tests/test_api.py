@@ -24,6 +24,7 @@ async def test_status_without_any_person(client):
         "oidc_configured": False,
         "person": None,
         "functions": [],
+        "relations": [],
         "guest": None,
     }
 
@@ -43,6 +44,23 @@ async def test_status_runs_as_first_beheerder_in_dev_mode(client, create_person)
         "email": "beheerder@example.org",
     }
     assert body["functions"] == ["beheerder", "planner"]
+    assert body["relations"] == []
+
+
+async def test_status_names_the_kinds_of_relation_for_the_navigation(
+    client, create_person, db_session
+):
+    """Leading someone shows as a relation; it is a hint, never a grant."""
+    lead = await create_person(
+        "lead@example.org", name="Leidinggevende", functions=["beheerder"]
+    )
+    await create_person("report@example.org", name="Medewerker", manager_id=lead.id)
+    await db_session.flush()
+
+    body = (await client.get("/api/auth/status")).json()
+
+    assert body["person"]["id"] == str(lead.id)
+    assert body["relations"] == ["line_manager"]
 
 
 async def test_dev_cookie_picks_the_person(client, create_person):

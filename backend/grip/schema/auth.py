@@ -26,4 +26,7 @@ class AuthStatus(BaseModel):
     oidc_configured: bool
     person: PersonSummary | None = None
     functions: list[str] = []
+    # Kinds of relation the person has to anything here: assignment_manager,
+    # line_manager, team_member. For the navigation only; no route trusts it.
+    relations: list[str] = []
     guest: GuestSummary | None = None

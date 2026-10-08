@@ -17,6 +17,8 @@ export interface SigningQuote {
   uri: string;
   /** The reference people quote, e.g. "DG-2026-0007". */
   reference?: string | null;
+  document_sha256?: string | null;
+  document_note?: string | null;
   status: 'issued' | 'accepted' | 'rejected' | 'superseded' | string;
   issued_at: string;
   contractor_name: string;

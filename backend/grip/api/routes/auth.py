@@ -144,6 +144,15 @@ async def callback(
             detail="Inloggen is niet geconfigureerd",
         )
 
+    # The provider may be sending someone back who went there to decide on
+    # a quote (grip.proof), not to log in. That is recognised by the state
+    # of the request, and handled without touching the session.
+    from grip.api.routes.proof import finish_after_login, pending_intent
+
+    pending = pending_intent(request)
+    if pending is not None:
+        return await finish_after_login(request, db, settings, pending)
+
     try:
         token = await oauth.keycloak.authorize_access_token(request)
     except OAuthError as exc:
@@ -262,10 +271,11 @@ async def auth_status(
             else None,
         )
 
-    functions = await PersonRepository(db).active_function_ids(person.id)
+    people = PersonRepository(db)
     return AuthStatus(
         authenticated=True,
         oidc_configured=oidc_configured,
         person=PersonSummary.model_validate(person),
-        functions=functions,
+        functions=await people.active_function_ids(person.id),
+        relations=await people.relation_names(person.id),
     )

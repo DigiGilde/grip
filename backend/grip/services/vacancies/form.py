@@ -32,7 +32,13 @@ from pathlib import Path
 from typing import Any
 
 from pypdf import PdfReader, PdfWriter
-from pypdf.generic import NameObject
+from pypdf.generic import (
+    ArrayObject,
+    DecodedStreamObject,
+    DictionaryObject,
+    FloatObject,
+    NameObject,
+)
 
 # Every value a mapping may ask for. A mapping that names another source is
 # rejected, so a typo cannot silently leave a field empty.
@@ -276,13 +282,195 @@ def _writer(pdf: bytes) -> PdfWriter:
     return PdfWriter(clone_from=_reader(pdf))
 
 
-def _to_bytes(writer: PdfWriter) -> bytes:
-    # Ask the viewer to redraw the field contents in the form's own font.
-    # Set last: updating field values resets the flag.
-    writer.set_need_appearances_writer(True)
+def _to_bytes(writer: PdfWriter, *, viewer_draws: bool) -> bytes:
+    """Write the form.
+
+    ``viewer_draws`` asks the viewer to draw the field contents itself. That
+    is the fallback only: a viewer that redraws also replaces the form's own
+    tick boxes by its default, so a filled form no longer looks like the
+    organisation's. Where grip can draw the text itself it does, and the
+    flag stays off.
+    """
+    acroform = writer._root_object.get("/AcroForm")
+    if viewer_draws:
+        writer.set_need_appearances_writer(True)
+    elif acroform is not None and "/NeedAppearances" in acroform.get_object():
+        del acroform.get_object()[NameObject("/NeedAppearances")]
     buffer = io.BytesIO()
     writer.write(buffer)
     return buffer.getvalue()
+
+
+# --- drawing a text field the way the form's own tool does -----------------------
+#
+# A viewer shows what the appearance stream of a field draws. Leaving that to
+# the viewer gives another line spacing and wrapping per viewer. These
+# functions draw it once, from the font the form embeds: padding of 2 pt, a
+# line height of the font's bounding box, words wrapped on the font's widths.
+
+_PADDING = 2.0
+_DEFAULT_SIZE = 9.0
+_MULTILINE = 1 << 12
+
+
+@dataclass(frozen=True)
+class _Font:
+    name: str
+    reference: Any
+    widths: tuple[float, ...]
+    first_char: int
+    missing_width: float
+    y_min: float
+    y_max: float
+    codec: str
+
+    def encode(self, text: str) -> bytes:
+        return text.encode(self.codec, errors="replace")
+
+    def width(self, data: bytes, size: float) -> float:
+        total = 0.0
+        for code in data:
+            index = code - self.first_char
+            unit = self.widths[index] if 0 <= index < len(self.widths) else 0.0
+            total += unit or self.missing_width
+        return total * size / 1000
+
+
+_CODECS = {
+    "/WinAnsiEncoding": "cp1252",
+    "/MacRomanEncoding": "mac_roman",
+    "/StandardEncoding": "latin-1",
+}
+
+
+def _form_font(writer: PdfWriter, name: str) -> _Font | None:
+    """The font a field names, when the form embeds it with its widths."""
+    acroform = writer._root_object.get("/AcroForm")
+    if acroform is None:
+        return None
+    resources = acroform.get_object().get("/DR")
+    fonts = resources.get_object().get("/Font") if resources is not None else None
+    if fonts is None or name not in fonts.get_object():
+        return None
+    reference = fonts.get_object().raw_get(name)
+    font = reference.get_object()
+    descriptor = font.get("/FontDescriptor")
+    if "/Widths" not in font or descriptor is None:
+        return None
+    descriptor = descriptor.get_object()
+    box = descriptor.get("/FontBBox")
+    if box is None:
+        return None
+    encoding = font.get("/Encoding")
+    if encoding is not None and not isinstance(encoding, str):
+        encoding = encoding.get_object().get("/BaseEncoding")
+    codec = _CODECS.get(str(encoding)) if encoding is not None else None
+    if codec is None:
+        return None
+    return _Font(
+        name=name,
+        reference=reference,
+        widths=tuple(float(w) for w in font["/Widths"]),
+        first_char=int(font.get("/FirstChar", 0)),
+        missing_width=float(descriptor.get("/MissingWidth", 0)),
+        y_min=float(box[1]),
+        y_max=float(box[3]),
+        codec=codec,
+    )
+
+
+def _default_appearance(annotation, holder) -> tuple[str, float] | None:
+    """Font name and size from the field's /DA, e.g. ``/Verdana 9 Tf 0 g``."""
+    raw = annotation.get("/DA") or holder.get("/DA")
+    if raw is None:
+        return None
+    parts = str(raw).split()
+    if "Tf" not in parts:
+        return None
+    at = parts.index("Tf")
+    if at < 2:
+        return None
+    try:
+        size = float(parts[at - 1])
+    except ValueError:
+        return None
+    return parts[at - 2], size or _DEFAULT_SIZE
+
+
+def _wrap(text: str, font: _Font, size: float, room: float) -> list[bytes]:
+    """Lines of at most ``room`` wide; a word that is too long gets its own line."""
+    lines: list[bytes] = []
+    for paragraph in text.replace("\r\n", "\n").replace("\r", "\n").split("\n"):
+        current = b""
+        for word in font.encode(paragraph).split(b" "):
+            candidate = word if not current else current + b" " + word
+            if current and font.width(candidate, size) > room:
+                lines.append(current)
+                current = word
+            else:
+                current = candidate
+        lines.append(current)
+    return lines
+
+
+def _literal(data: bytes) -> bytes:
+    escaped = data.replace(b"\\", b"\\\\").replace(b"(", b"\\(").replace(b")", b"\\)")
+    return b"(" + escaped + b")"
+
+
+def _draw_text(writer: PdfWriter, annotation, holder, value: str) -> bool:
+    """Give a text field an appearance stream of its own. False when grip
+    cannot draw it (no embedded font with widths); the viewer then does."""
+    named = _default_appearance(annotation, holder)
+    if named is None:
+        return False
+    font = _form_font(writer, named[0])
+    if font is None:
+        return False
+    size = named[1]
+    rect = [float(x) for x in annotation["/Rect"]]
+    width, height = abs(rect[2] - rect[0]), abs(rect[3] - rect[1])
+    leading = size * (font.y_max - font.y_min) / 1000
+    flags = int(holder.get("/Ff", annotation.get("/Ff", 0)) or 0)
+    if flags & _MULTILINE:
+        lines = _wrap(value, font, size, width - 2 * _PADDING)
+        baseline = height - _PADDING - leading
+    else:
+        lines = [font.encode(" ".join(value.split()))]
+        baseline = (height - leading) / 2 - size * font.y_min / 1000
+
+    out = [
+        b"/Tx BMC",
+        b"q",
+        f"1 1 {width - 2:.3f} {height - 2:.3f} re".encode(),
+        b"W",
+        b"n",
+        b"BT",
+        f"{font.name} {size:g} Tf".encode(),
+        b"0 g",
+        f"{_PADDING:g} {baseline:.4f} Td".encode(),
+    ]
+    for index, line in enumerate(lines):
+        if index:
+            out.append(f"0 {-leading:.3f} Td".encode())
+        if line:
+            out.append(_literal(line) + b" Tj")
+    out += [b"ET", b"Q", b"EMC"]
+
+    stream = DecodedStreamObject()
+    stream.set_data(b"\n".join(out) + b"\n")
+    stream[NameObject("/Type")] = NameObject("/XObject")
+    stream[NameObject("/Subtype")] = NameObject("/Form")
+    stream[NameObject("/BBox")] = ArrayObject(
+        [FloatObject(0), FloatObject(0), FloatObject(width), FloatObject(height)]
+    )
+    stream[NameObject("/Resources")] = DictionaryObject(
+        {NameObject("/Font"): DictionaryObject({NameObject(font.name): font.reference})}
+    )
+    annotation[NameObject("/AP")] = DictionaryObject(
+        {NameObject("/N"): writer._add_object(stream)}
+    )
+    return True
 
 
 def clear_form(pdf: bytes) -> bytes:
@@ -308,7 +496,7 @@ def clear_form(pdf: bytes) -> bytes:
                 updates[str(name)] = ""
         if updates:
             writer.update_page_form_field_values(page, updates, auto_regenerate=False)
-    return _to_bytes(writer)
+    return _to_bytes(writer, viewer_draws=False)
 
 
 def format_value(value: Any, date_format: str = "d-m-yyyy") -> str:
@@ -347,8 +535,10 @@ def fill_form(pdf: bytes, mapping: FormMapping, values: Mapping[str, Any]) -> by
 
     writer = _writer(pdf)
     remaining = set(updates)
+    viewer_draws = False
     for page in writer.pages:
         on_page: dict[str, str] = {}
+        texts: list[tuple[Any, Any, str]] = []
         for ref in page.get("/Annots", None) or []:
             annotation = ref.get_object()
             if annotation.get("/Subtype") != "/Widget":
@@ -364,12 +554,17 @@ def fill_form(pdf: bytes, mapping: FormMapping, values: Mapping[str, Any]) -> by
                 # the widget's /AS; set both so every viewer agrees.
                 if (holder.get("/FT") or annotation.get("/FT")) == "/Btn":
                     annotation[NameObject("/AS")] = NameObject(updates[str(name)])
+                else:
+                    texts.append((annotation, holder, updates[str(name)]))
         if on_page:
             writer.update_page_form_field_values(page, on_page, auto_regenerate=False)
             remaining -= set(on_page)
+        for annotation, holder, value in texts:
+            if not _draw_text(writer, annotation, holder, value):
+                viewer_draws = True
     if remaining:
         raise FormTemplateError(
             "Deze velden uit de veldkoppeling staan niet in het formulier: "
             + ", ".join(sorted(remaining))
         )
-    return _to_bytes(writer)
+    return _to_bytes(writer, viewer_draws=viewer_draws)

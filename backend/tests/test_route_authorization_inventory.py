@@ -34,6 +34,7 @@ _PUBLIC_ROUTES: dict[str, str] = {
     "/api/integrations/wies/proposed-colleagues": (
         "no session: a machine with a key (Wies)"
     ),
+    "/api/gebeurtenissen": "no session: a system with a key reads the event feed",
 }
 
 # Dependency callables that count as authorization.

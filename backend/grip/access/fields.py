@@ -19,7 +19,7 @@ that keeps nothing is absent, so a reader cannot count what it may not see.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, get_args
@@ -205,7 +205,28 @@ def _filter_model(
         elif data_class in allowed:
             result[name] = _canonical(getattr(value, name), dumped[name])
             substance = True
+            if (
+                _read_observer is not None
+                and data_class in _observed
+                and dumped[name] is not None
+            ):
+                _read_observer(value, data_class)
     return result, substance
+
+
+# Who wants to know that a field of certain classes went into a response
+# (the logging of reads of sensitive data, see ``grip.events.logboek``).
+_read_observer: Callable[[BaseModel, DataClass], None] | None = None
+_observed: frozenset[DataClass] = frozenset()
+
+
+def set_read_observer(
+    observer: Callable[[BaseModel, DataClass], None] | None,
+    data_classes: Iterable[DataClass] = (),
+) -> None:
+    global _read_observer, _observed
+    _read_observer = observer
+    _observed = frozenset(data_classes)
 
 
 def canonical_decimal(value: Decimal) -> str:

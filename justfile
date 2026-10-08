@@ -212,6 +212,25 @@ dev-link-down:
 dev-outway ROUTES PORT="9230":
     cd backend && DEV_OUTWAY_ROUTES="{{ absolute_path(ROUTES) }}" uv run uvicorn grip.dev.dev_outway:create_app --factory --port {{ PORT }}
 
+# A local mail catcher: what grip mails lands in its inbox and nowhere else
+mail-up:
+    deploy/local/mail.sh up
+
+# Stop the local mail catcher
+mail-down:
+    deploy/local/mail.sh down
+
+# The worker (outbox, tasks, mail) against a database, with the local mail catcher
+worker-with-mail database_url="postgresql+asyncpg://grip:grip@localhost:5434/grip":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    set -a
+    eval "$(deploy/local/mail.sh env)"
+    set +a
+    export DEV_NO_AUTH=1 DATABASE_URL="{{database_url}}"
+    cd backend
+    exec uv run python -m grip.worker
+
 # Start the backend with the example data on port 8010, as a Rijksorganisatie:
 # documents carry the Rijkslint and the Rijkshuisstijl typeface.
 preview port="8010":

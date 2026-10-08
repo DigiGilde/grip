@@ -1,5 +1,4 @@
 import { useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useNlddEvent } from '@/components/nldd/events';
 
@@ -9,7 +8,7 @@ import { useNlddEvent } from '@/components/nldd/events';
  * Without an identity provider the backend runs as the first beheerder, or as
  * the person named in the cookie below. Screens differ per person (an owner
  * sees other actions than a beheerder or a team member), so looking around as
- * one person hides most of that. The menu group is absent as soon as an
+ * one person hides most of that. Everything here is absent as soon as an
  * identity provider is configured; the backend ignores the cookie then.
  */
 const DEV_PERSON_COOKIE = 'grip_dev_person';
@@ -40,40 +39,20 @@ async function fetchDevPeople(): Promise<DevPeople> {
   return { enabled: true, people: items.map(({ id, name }) => ({ id, name })) };
 }
 
+function useDevPeople(): DevPeople | undefined {
+  return useQuery({
+    queryKey: ['dev-people'],
+    queryFn: fetchDevPeople,
+    staleTime: Infinity,
+    retry: false,
+  }).data;
+}
+
 function switchTo(id: string | null): void {
   document.cookie = id
     ? `${DEV_PERSON_COOKIE}=${id}; path=/; SameSite=Lax`
     : `${DEV_PERSON_COOKIE}=; path=/; max-age=0`;
   window.location.reload();
-}
-
-function PersonItem({ person, current }: { person: DevPerson; current: boolean }) {
-  const ref = useRef<HTMLElement>(null);
-  useNlddEvent(ref, 'select', () => switchTo(person.id));
-  return (
-    <nldd-menu-item
-      ref={ref}
-      text={person.name}
-      {...(current ? { 'supporting-text': 'Hier kijk je nu als' } : {})}
-    />
-  );
-}
-
-export function DevPersonSwitch({ currentId }: { currentId: string | null }) {
-  const { data } = useQuery({
-    queryKey: ['dev-people'],
-    queryFn: fetchDevPeople,
-    staleTime: Infinity,
-    retry: false,
-  });
-  if (!data?.enabled || data.people.length === 0) return null;
-  return (
-    <nldd-menu-group text="Bekijk als (alleen lokaal)">
-      {data.people.map((person) => (
-        <PersonItem key={person.id} person={person} current={person.id === currentId} />
-      ))}
-    </nldd-menu-group>
-  );
 }
 
 function viewingAsId(): string | null {
@@ -82,21 +61,44 @@ function viewingAsId(): string | null {
 }
 
 /**
- * A fixed note in the corner while acting as another example person, so it
- * is never unclear why a screen shows fewer tabs or actions than expected.
+ * True while the local session acts as a chosen example person. The account
+ * button says so in the bar itself, so it is never unclear why a screen shows
+ * fewer sections or actions than expected.
  */
-export function DevPersonBadge({ name }: { name: string | null }) {
-  const ref = useRef<HTMLButtonElement>(null);
-  if (!name || viewingAsId() === null) return null;
-  return createPortal(
-    <div className="dev-person-badge" role="status">
-      <span>
-        Je bekijkt grip als <strong>{name}</strong> (alleen lokaal)
-      </span>
-      <button ref={ref} type="button" onClick={() => switchTo(null)}>
-        Terug naar de beheerder
-      </button>
-    </div>,
-    document.body,
+export function useViewingAs(): boolean {
+  const people = useDevPeople();
+  return people?.enabled === true && viewingAsId() !== null;
+}
+
+function PersonItem({ person, current }: { person: DevPerson; current: boolean }) {
+  const ref = useRef<HTMLElement>(null);
+  useNlddEvent(ref, 'select', () => switchTo(person.id));
+  return (
+    <nldd-menu-item
+      ref={ref}
+      type="radio"
+      text={person.name}
+      selected={current ? true : undefined}
+    />
+  );
+}
+
+function BackItem() {
+  const ref = useRef<HTMLElement>(null);
+  useNlddEvent(ref, 'select', () => switchTo(null));
+  return <nldd-menu-item ref={ref} icon="arrow-u-turn-backward" text="Terug naar de beheerder" />;
+}
+
+/** The menu group for acting as someone else; nothing outside local development. */
+export function DevPersonSwitch({ currentId }: { currentId: string | null }) {
+  const data = useDevPeople();
+  if (!data?.enabled || data.people.length === 0) return null;
+  return (
+    <nldd-menu-group text="Bekijk als (alleen lokaal)">
+      {viewingAsId() !== null && <BackItem />}
+      {data.people.map((person) => (
+        <PersonItem key={person.id} person={person} current={person.id === currentId} />
+      ))}
+    </nldd-menu-group>
   );
 }

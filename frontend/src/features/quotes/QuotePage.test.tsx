@@ -103,6 +103,9 @@ const APPROVAL = {
 };
 
 interface Setup {
+  detail?: object;
+  evidence?: object[];
+  budgetMoved?: boolean;
   approval?: object;
   preview?: object;
   quotes?: object[];
@@ -116,20 +119,31 @@ async function renderTab({
   mayManage = true,
   offers = [],
   approval,
+  budgetMoved,
+  evidence,
+  detail = {},
 }: Setup) {
   const { calls } = mockApi({
+    ...(evidence ? { '/api/proof/quotes/q-1/evidence': { items: evidence } } : {}),
     ...(approval ? { '/api/assignments/a-1/quote-approvals': { items: [approval] } } : {}),
     'POST /api/quotes/q-1/approval/request': {
       ...APPROVAL,
       status: 'requested',
     },
     '/api/assignments/a-1/quote-preview': preview,
-    '/api/assignments/a-1/quotes': { may_manage: mayManage, quotes },
+    '/api/assignments/a-1/quotes': {
+      may_manage: mayManage,
+      quotes,
+      ...(budgetMoved === undefined
+        ? {}
+        : { budget_moved: budgetMoved, budget_compared_quote_id: 'q-1' }),
+    },
     '/api/quotes/q-1': {
       ...(quotes[0] ?? QUOTE),
       content: CONTENT,
       offers,
       channels: CHANNELS,
+      ...detail,
     },
   });
   const view = renderApp(
@@ -399,18 +413,41 @@ describe('QuotePage', () => {
     expect(container.querySelectorAll('nldd-card')).toHaveLength(1);
   });
 
-  it('proposes a new quote only when the budget moved since', async () => {
+  it('proposes a new quote when the server says the budget moved, also at the same total', async () => {
     const container = await renderTab({
+      preview: { ...PREVIEW, assignment_status: 'quoted' },
+      quotes: [QUOTE],
+      budgetMoved: true,
+    });
+    expect(texts(container, 'nldd-button')).toContain('Maak nieuwe offerte');
+    expect(container.textContent).toContain(
+      'De begroting is gewijzigd sinds deze offerte; het totaal is gelijk gebleven.',
+    );
+    expect(primaries(container)).toEqual(['Bied aan']);
+  });
+
+  it('names the new total when it changed, and proposes nothing while the budget stands', async () => {
+    const moved = await renderTab({
       preview: {
         ...PREVIEW,
         assignment_status: 'quoted',
         content: { ...CONTENT, total_cents: 18000000 },
       },
       quotes: [QUOTE],
+      budgetMoved: true,
     });
-    expect(texts(container, 'nldd-button')).toContain('Maak nieuwe offerte');
-    expect(container.textContent).toMatch(/De begroting staat nu op €\s180\.000/);
-    expect(primaries(container)).toEqual(['Bied aan']);
+    expect(moved.textContent).toMatch(/staat nu op €\s180\.000/);
+    // A different total in the browser is no ground by itself: the server decides.
+    const same = await renderTab({
+      preview: {
+        ...PREVIEW,
+        assignment_status: 'quoted',
+        content: { ...CONTENT, total_cents: 18000000 },
+      },
+      quotes: [QUOTE],
+      budgetMoved: false,
+    });
+    expect(texts(same, 'nldd-button')).not.toContain('Maak nieuwe offerte');
   });
 
   it('puts internal approval between making and offering only where it is required', async () => {
@@ -568,5 +605,179 @@ describe('QuotePage', () => {
       /goedkeur|aanvraag/i,
     );
     expect(primaries(container)).toEqual(['Bied aan']);
+  });
+
+  it('shows who decided with the proof, and the bundle for who manages', async () => {
+    const accepted = {
+      ...QUOTE,
+      status: 'accepted',
+      acceptance: {
+        form: 'signing_link',
+        signed_at: '2026-02-10T12:00:00Z',
+        signer_name: 'Tekenaar Voorbeeld',
+        has_document: false,
+      },
+    };
+    const row = {
+      id: 'ev-1',
+      decision: 'accept',
+      channel: 'signing_link',
+      created_at: '2026-02-10T12:00:00Z',
+    };
+    const container = await renderTab({
+      preview: { ...PREVIEW, assignment_status: 'accepted', can_issue: false },
+      quotes: [accepted],
+      evidence: [row],
+    });
+    await waitFor(() => expect(texts(container, 'nldd-card nldd-link')).toContain('Bekijk bewijs'));
+    const links = [...container.querySelectorAll('nldd-card nldd-link')];
+    const href = (text: string) =>
+      links.find((el) => el.getAttribute('text') === text)?.getAttribute('href');
+    expect(href('Bekijk bewijs')).toBe('/api/proof/evidence/ev-1/page');
+    expect(href('Download bewijs')).toBe('/api/proof/evidence/ev-1/bundle');
+    expect(container.textContent).not.toContain('bewijspakket');
+
+    const reader = await renderTab({
+      preview: { ...PREVIEW, assignment_status: 'accepted', can_issue: false, may_issue: false },
+      quotes: [accepted],
+      mayManage: false,
+      evidence: [row],
+    });
+    await waitFor(() => expect(texts(reader, 'nldd-card nldd-link')).toContain('Bekijk bewijs'));
+    expect(texts(reader, 'nldd-card nldd-link')).not.toContain('Download bewijs');
+  });
+
+  it('says so when a decision was recorded the old way, without a proof', async () => {
+    const container = await renderTab({
+      preview: { ...PREVIEW, assignment_status: 'accepted', can_issue: false },
+      quotes: [
+        {
+          ...QUOTE,
+          status: 'accepted',
+          acceptance: {
+            form: 'signing_link',
+            signed_at: '2026-02-10T12:00:00Z',
+            signer_name: 'Tekenaar Voorbeeld',
+            has_document: false,
+          },
+        },
+      ],
+      evidence: [],
+    });
+    await waitFor(() => expect(container.textContent).toContain('Zonder bewijspakket vastgelegd.'));
+    expect(texts(container, 'nldd-card nldd-link')).not.toContain('Bekijk bewijs');
+  });
+
+  it('says who can see the signing link to a reader who cannot, and to the others that it is no secret', async () => {
+    const reader = await renderTab({
+      preview: { ...PREVIEW, may_issue: false },
+      quotes: [QUOTE],
+      mayManage: false,
+      offers: [{ id: 'o-1', channel: 'signing_link', offered_at: '2026-02-02T10:00:00Z' }],
+    });
+    await waitFor(() => expect(reader.querySelector('[data-offer]')).not.toBeNull());
+    expect(reader.textContent).toContain(
+      'De tekenlink is zichtbaar voor de eigenaar en de managers van de opdracht.',
+    );
+    expect(reader.textContent).not.toContain('/tekenen/');
+
+    const manager = await renderTab({ quotes: [QUOTE], offers: [LINK_OFFER] });
+    await waitFor(() => expect(manager.querySelector('[data-signing-link]')).not.toBeNull());
+    expect(manager.textContent).toContain(
+      'De link werkt alleen voor tekenaar@opdrachtgever.example, na inloggen.',
+    );
+    expect(manager.textContent).not.toContain('zichtbaar voor de eigenaar');
+  });
+
+  it('shows the file hash in the details once they are opened', async () => {
+    const container = await renderTab({ quotes: [QUOTE] });
+    const api = globalThis.fetch;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) =>
+        String(input) === '/api/quotes/q-1/document'
+          ? new Response('%PDF', { headers: { 'X-Document-SHA256': 'c'.repeat(64) } })
+          : api(input, init),
+      ),
+    );
+    const sheet = () =>
+      [...document.body.querySelectorAll('nldd-sheet')].find(
+        (el) => el.querySelector('nldd-title')?.getAttribute('text') === 'Details van de offerte',
+      );
+    // Not asked for before anyone looks.
+    expect(sheet()?.querySelector('[data-file-line]')).toBeNull();
+    clickButton(container, 'Details');
+    await waitFor(() => expect(sheet()?.querySelectorAll('[data-file-line]')).toHaveLength(2));
+    expect(texts(sheet() as Element, 'nldd-title')).toContain('Bestandskenmerk');
+    expect(sheet()?.querySelector('[data-file-line]')?.textContent).toBe(
+      'cccccccc cccccccc cccccccc cccccccc',
+    );
+  });
+
+  it('says what happened to the mail with the link, and offers to send it again', async () => {
+    const mailed = (mail: object) => [{ ...LINK_OFFER, mail }];
+    const sent = await renderTab({
+      quotes: [QUOTE],
+      offers: mailed({
+        state: 'sent',
+        queued_at: '2026-02-02T10:00:00Z',
+        sent_at: '2026-02-02T10:01:00Z',
+      }),
+    });
+    await waitFor(() => expect(sent.querySelector('[data-offer]')).not.toBeNull());
+    expect(sent.querySelector('[data-offer]')?.textContent).toContain('Gemaild op 2 feb 2026');
+    expect(texts(sent, '[data-offer] nldd-menu-item')).toContain('Stuur opnieuw');
+    // The link itself stays in reach.
+    expect(texts(sent, '[data-offer] nldd-button')).toContain('Kopieer tekenlink');
+
+    const queued = await renderTab({
+      quotes: [QUOTE],
+      offers: mailed({ state: 'queued', queued_at: '2026-02-02T10:00:00Z' }),
+    });
+    await waitFor(() => expect(queued.querySelector('[data-offer]')).not.toBeNull());
+    expect(queued.querySelector('[data-offer]')?.textContent).toContain('Wordt gemaild');
+
+    const failed = await renderTab({
+      quotes: [QUOTE],
+      offers: mailed({
+        state: 'failed',
+        queued_at: '2026-02-02T10:00:00Z',
+        failed_reason: 'het adres is geweigerd door de mailserver',
+      }),
+    });
+    await waitFor(() => expect(failed.querySelector('[data-offer]')).not.toBeNull());
+    expect(failed.querySelector('[data-offer]')?.textContent).toContain(
+      'Mail niet afgeleverd: het adres is geweigerd door de mailserver',
+    );
+  });
+
+  it('says nothing about mail where the link is not mailed', async () => {
+    const container = await renderTab({ quotes: [QUOTE], offers: [LINK_OFFER] });
+    await waitFor(() => expect(container.querySelector('[data-offer]')).not.toBeNull());
+    expect(container.textContent).not.toMatch(/mail/i);
+    expect(texts(container, '[data-offer] nldd-menu-item')).not.toContain('Stuur opnieuw');
+    expect(document.body.querySelector('nldd-sheet')?.textContent ?? '').not.toContain('per mail');
+  });
+
+  it('takes the file hash and its note from the response, without fetching the file', async () => {
+    const container = await renderTab({
+      quotes: [
+        {
+          ...QUOTE,
+          document_sha256: 'd'.repeat(64),
+          document_note: 'Het bestand is vastgelegd na het maken van de offerte, op 08-10-2026.',
+        },
+      ],
+    });
+    const before = lastCalls.length;
+    clickButton(container, 'Details');
+    const sheet = [...document.body.querySelectorAll('nldd-sheet')].find(
+      (el) => el.querySelector('nldd-title')?.getAttribute('text') === 'Details van de offerte',
+    ) as Element;
+    await waitFor(() => expect(sheet.querySelectorAll('[data-file-line]')).toHaveLength(2));
+    expect(sheet.textContent).toContain('vastgelegd na het maken van de offerte');
+    expect(lastCalls.slice(before).map((call) => call.url)).not.toContain(
+      '/api/quotes/q-1/document',
+    );
   });
 });

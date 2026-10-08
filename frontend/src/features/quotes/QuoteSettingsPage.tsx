@@ -9,6 +9,7 @@ import {
   EmptyNotice,
   ErrorNotice,
   Facts,
+  FormFields,
   FormSheet,
   Loading,
   Page,
@@ -19,6 +20,7 @@ import {
   APPROVAL_MODE_LABELS,
   APPROVER_RIGHT,
   SETTING_ALLOW_SELF,
+  SETTING_MAIL_LINK,
   SETTING_MODE,
   SETTING_REFERENCE_PREFIX,
   SETTING_THRESHOLD,
@@ -53,6 +55,8 @@ export function QuoteSettingsPage() {
   const threshold = Number(valueOf(items, SETTING_THRESHOLD) ?? 0);
   const allowSelf = Boolean(valueOf(items, SETTING_ALLOW_SELF));
 
+  // Absent where the server does not offer the setting.
+  const mailSetting = items.find((item) => item.key === SETTING_MAIL_LINK);
   const prefixSetting = items.find((item) => item.key === SETTING_REFERENCE_PREFIX);
   const prefix = String(prefixSetting?.value || prefixSetting?.default || '');
   const year = new Date().getFullYear();
@@ -119,6 +123,18 @@ export function QuoteSettingsPage() {
             <nldd-button-group>
               <Button text="Wijzig" onClick={edit} />
             </nldd-button-group>
+          </Section>
+        ) : null}
+        {query.data && mailSetting ? (
+          <Section title="Tekenlink per mail" level={2}>
+            <FormFields>
+              <CheckboxInput
+                label="Mail de tekenlink aan wie wordt uitgenodigd om te tekenen"
+                checked={Boolean(mailSetting.value)}
+                onChange={(checked) => save.mutate({ [SETTING_MAIL_LINK]: checked })}
+              />
+            </FormFields>
+            <Quiet>Werkt alleen als deze omgeving e-mail kan versturen.</Quiet>
           </Section>
         ) : null}
         {query.data && prefixSetting ? (

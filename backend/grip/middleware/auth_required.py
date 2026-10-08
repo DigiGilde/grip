@@ -43,6 +43,9 @@ PUBLIC_EXACT = (
     "/api/integrations/wies/export",
     # The same key: the new colleagues grip proposes to Wies.
     "/api/integrations/wies/proposed-colleagues",
+    # No session: a system presents a key, checked by require_feed_key. The
+    # feed stays closed while no key is configured.
+    "/api/gebeurtenissen",
 )
 
 

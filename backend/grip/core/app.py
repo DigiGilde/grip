@@ -13,6 +13,7 @@ from grip.core.problem import install_exception_handlers
 from grip.core.session_store import DatabaseSessionStore, run_cleanup_loop
 from grip.middleware.auth_required import AuthRequiredMiddleware
 from grip.middleware.csrf import CSRFMiddleware
+from grip.middleware.event_context import EventContextMiddleware
 from grip.middleware.proxy_headers import TrustedProxyMiddleware
 from grip.middleware.security_headers import SecurityHeadersMiddleware
 from grip.middleware.session import ServerSideSessionMiddleware
@@ -91,6 +92,8 @@ def create_app() -> FastAPI:
     # CORS must be outermost so that responses short-circuited by Auth or
     # CSRF also carry Access-Control-Allow-Origin. Without it the browser
     # hides the response and the frontend only sees "Failed to fetch".
+    # Innermost: a fresh event context (correlation id, actor) per request.
+    app.add_middleware(EventContextMiddleware)
     app.add_middleware(GZipMiddleware, minimum_size=500)
     app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(

@@ -12,7 +12,6 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, Query, Response, UploadFile, status
-from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -33,6 +32,7 @@ from grip.access.deps import AccessDecider, CurrentSubject, require
 from grip.core.auth import CurrentPerson
 from grip.core.config import get_settings
 from grip.core.database import get_db
+from grip.integrations.mail import outbox as mail_outbox
 from grip.models.quote import Quote, QuoteInvitation
 from grip.schema.quotes import (
     AcceptanceOut,
@@ -42,6 +42,7 @@ from grip.schema.quotes import (
     InviteSignerIn,
     IssueQuoteIn,
     OfferInvitationOut,
+    OfferMailOut,
     OfferOut,
     OfferQuoteIn,
     QuoteDetailOut,
@@ -50,12 +51,21 @@ from grip.schema.quotes import (
     QuoteSummaryOut,
     RecordRejectionIn,
     RejectionOut,
+    ResendSigningMailIn,
     content_from_snapshot,
+    document_fields,
 )
-from grip.services import quote_channels, quote_views, quotes, stored_documents
+from grip.services import (
+    quote_budget,
+    quote_channels,
+    quote_files,
+    quote_views,
+    quotes,
+    signing_mail,
+    stored_documents,
+)
 from grip.services.assignments import get_assignment
 from grip.services.errors import DomainValidationError, NotFoundError
-from grip.services.quote_document import render_quote_pdf
 from grip.services.quote_reference import file_stem
 
 router = APIRouter(tags=["quotes"])
@@ -111,6 +121,7 @@ def summary_fields(bundle: quote_views.QuoteBundle) -> dict[str, Any]:
         "issued_by_name": bundle.issued_by_name,
         "total_cents": quote.total_cents,
         "snapshot_hash": quote.snapshot_hash,
+        **document_fields(quote),
         "valid_until": quote.snapshot.get("valid_until"),
         "acceptance": acceptance,
         "rejection": rejection,
@@ -149,7 +160,16 @@ async def offer_fields(
         if manage
         else {}
     )
+    mails = (
+        await mail_outbox.latest_for(db, signing_mail.SUBJECT_KIND, set(invitations))
+        if manage
+        else {}
+    )
     now = datetime.now(UTC)
+
+    def mail_of(offer: Any) -> OfferMailOut | None:
+        row = mails.get(offer.invitation_id)
+        return OfferMailOut(**signing_mail.state_of(row)) if row is not None else None
 
     def invitation_of(offer: Any) -> OfferInvitationOut | None:
         invitation = invitations.get(offer.invitation_id)
@@ -185,9 +205,11 @@ async def offer_fields(
                 if offer.channel == quote_channels.OFFER_CLIENT_INSTANCE
                 else None,
                 invitation=invitation_of(offer),
+                mail=mail_of(offer),
             )
             for offer in offers
         ],
+        "signing_link_mail": await signing_mail.enabled(db),
         "channels": [
             ChannelOut(
                 channel=option.channel,
@@ -297,9 +319,12 @@ async def list_quotes(
         DataClass.ASSIGNMENT_BASIC,
         hide_existence=True,
     )
-    await get_assignment(db, assignment_id)
+    assignment = await get_assignment(db, assignment_id)
     bundles = await quote_views.quotes_of_assignment(db, assignment_id)
+    moved, compared = await quote_budget.budget_moved(db, assignment)
     value = QuoteListOut(
+        budget_moved=moved,
+        budget_compared_quote_id=compared,
         may_manage=bool(await decide(decider, subject, Action.ISSUE_QUOTE, resource)),
         quotes=[QuoteSummaryOut(**summary_fields(b)) for b in bundles],
     )
@@ -426,6 +451,35 @@ async def renew_invitation(
     )
 
 
+@router.post("/quotes/{quote_id}/invitations/{invitation_id}/mail", response_model=None)
+async def resend_signing_mail(
+    quote_id: UUID,
+    invitation_id: UUID,
+    person: CurrentPerson,
+    subject: CurrentSubject,
+    decider: AccessDecider,
+    body: ResendSigningMailIn | None = None,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Mail the signing link of an invitation again, optionally renewing it.
+
+    While an earlier mail for this invitation still waits to be sent, that
+    one stands and nothing new is queued.
+    """
+    quote, resource = await visible_quote(db, decider, subject, quote_id)
+    await require(decider, subject, Action.ISSUE_QUOTE, resource)
+    if body is not None and body.renew:
+        invitation = await quotes.renew_invitation(
+            db, quote.id, invitation_id, actor=person
+        )
+    else:
+        invitation = await quotes.get_invitation(db, quote.id, invitation_id)
+    await signing_mail.resend(db, quote, invitation, actor=person)
+    return await filtered(
+        decider, subject, resource, await detail(db, quote, manage=True)
+    )
+
+
 @router.get("/quote-references", response_model=None)
 async def find_by_reference(
     subject: CurrentSubject,
@@ -480,17 +534,19 @@ async def document_response(
     There is one rendering of a quote. Looking at it and downloading it give
     the same bytes, so what a reader sees is what a signer receives.
     """
-    context = await quote_views.document_context(db, quote)
-    # Laying out a page takes a moment; keep the event loop free meanwhile.
-    pdf = await run_in_threadpool(render_quote_pdf, quote.snapshot, context)
+    # The kept file, never a new lay-out: the bytes are the same for every
+    # reader and on every day, whatever the letterhead has become since.
+    kept = await quote_files.file_of(db, quote)
     stem = file_stem(quote.reference, f"{quote.issued_at:%Y%m%d}-{quote.id}")
     disposition = "attachment" if download else "inline"
     return Response(
-        content=pdf,
+        content=kept.content,
         media_type="application/pdf",
         headers={
             "Content-Disposition": f'{disposition}; filename="offerte-{stem}.pdf"',
             "Cache-Control": "private, no-store",
+            # The hash of exactly these bytes, to compare with a statement.
+            "X-Document-SHA256": kept.sha256,
         },
     )
 

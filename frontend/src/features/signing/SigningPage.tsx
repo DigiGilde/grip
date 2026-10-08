@@ -1,11 +1,21 @@
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { ApiError, errorMessage } from '@/api/client';
 import { Button, TextInput } from '@/features/assignments/ui';
 import { QuoteDetails } from '@/features/quotes/QuoteDetails';
 import { QuoteContentTable } from '@/features/quotes/QuoteContentTable';
 import { formatDateTime } from '@/features/quotes/format';
+import { DecisionFailed, DecisionReceipt } from '@/features/quotes/DecisionReceipt';
+import {
+  beforeLeaving,
+  clearDraft,
+  createSigningIntent,
+  navigation,
+  readDraft,
+  saveDraft,
+  useDecisionReturn,
+} from '@/features/quotes/proof';
 import { CheckboxInput, DocumentLink } from '@/features/quotes/ui';
 import { useInstance } from '@/layout/useInstance';
 import { formatDate, formatEuro } from '@/lib/format';
@@ -19,14 +29,7 @@ import {
   Section,
   Stack,
 } from '@/ui/layout';
-import {
-  acceptQuote,
-  fetchSigningQuote,
-  rejectQuote,
-  signingDocumentUrl,
-  signingKeys,
-  type SigningQuote,
-} from './api';
+import { fetchSigningQuote, signingDocumentUrl, signingKeys, type SigningQuote } from './api';
 
 function Decided({ quote }: { quote: SigningQuote }) {
   if (quote.status === 'accepted') {
@@ -72,6 +75,13 @@ function byline(quote: SigningQuote): string {
     .join(' · ');
 }
 
+interface SigningDraft extends Record<string, unknown> {
+  decision?: 'accept' | 'reject';
+  signerFunction?: string;
+  organisationName?: string;
+  reason?: string;
+}
+
 /**
  * One quote, for the person invited to sign it. The page a director signs
  * on: the quote, the amount, who offers it, and one decision.
@@ -79,29 +89,47 @@ function byline(quote: SigningQuote): string {
 export function SigningPage() {
   const { quoteId = '' } = useParams();
   const instance = useInstance();
-  const queryClient = useQueryClient();
   const query = useQuery({
     queryKey: signingKeys.quote(quoteId),
     queryFn: () => fetchSigningQuote(quoteId),
     retry: false,
   });
 
+  const back = useDecisionReturn();
+  // What was filled in before leaving for the login; only needed when the
+  // browser comes back without a decision.
+  const [draft] = useState(() => readDraft<SigningDraft>(quoteId));
   const [sheet, setSheet] = useState<'accept' | 'reject' | null>(null);
-  const [signerFunction, setSignerFunction] = useState('');
-  const [organisationName, setOrganisationName] = useState('');
+  const [signerFunction, setSignerFunction] = useState(draft?.signerFunction ?? '');
+  const [organisationName, setOrganisationName] = useState(draft?.organisationName ?? '');
   const [mandate, setMandate] = useState(false);
-  const [reason, setReason] = useState('');
+  const [reason, setReason] = useState(draft?.reason ?? '');
   const [error, setError] = useState<string | null>(null);
 
-  const decide = useMutation({
-    mutationFn: (action: () => Promise<SigningQuote>) => action(),
-    onSuccess: (updated) => {
-      queryClient.setQueryData(signingKeys.quote(quoteId), updated);
-      setSheet(null);
-      setError(null);
+  // Asking for the intent decides nothing: the decision is made when the
+  // browser is back from the identity provider.
+  const leave = useMutation({
+    mutationFn: (decision: 'accept' | 'reject') => {
+      if (!query.data) throw new Error('De offerte is nog niet geladen.');
+      saveDraft(quoteId, { decision, signerFunction, organisationName, reason });
+      return createSigningIntent(quoteId, {
+        decision,
+        quote_hash: query.data.snapshot_hash,
+        return_path: `/tekenen/${quoteId}`,
+        ...(decision === 'accept'
+          ? {
+              signer_function: signerFunction.trim() || null,
+              organisation_name: query.data.client_name ? null : organisationName.trim(),
+              confirm_mandate: true,
+            }
+          : { reason: reason.trim() || null }),
+      });
     },
+    onSuccess: (intent) => navigation.go(intent.authorize_url),
     onError: (failure) => setError(errorMessage(failure)),
   });
+  const decided = back.evidenceId !== null;
+  if (decided) clearDraft(quoteId);
 
   const quote = query.data;
   const notFound = query.error instanceof ApiError && query.error.status === 404;
@@ -126,7 +154,24 @@ export function SigningPage() {
 
         {quote ? (
           <>
-            {quote.status !== 'issued' ? <Decided quote={quote} /> : null}
+            {back.evidenceId ? (
+              <DecisionReceipt
+                scope="signing"
+                evidenceId={back.evidenceId}
+                pdfHref={signingDocumentUrl(quote.id)}
+              />
+            ) : quote.status !== 'issued' ? (
+              <Decided quote={quote} />
+            ) : null}
+            {back.errorCode && quote.status === 'issued' ? (
+              <DecisionFailed
+                code={back.errorCode}
+                onRetry={() => {
+                  back.dismiss();
+                  open(draft?.decision ?? 'accept');
+                }}
+              />
+            ) : null}
             <Stack gap="close">
               <nldd-title
                 size={3}
@@ -149,6 +194,9 @@ export function SigningPage() {
               <DocumentLink href={signingDocumentUrl(quote.id)} text="Bekijk pdf" newTab />
               <QuoteDetails
                 hash={quote.snapshot_hash}
+                documentHref={signingDocumentUrl(quote.id)}
+                fileHash={quote.document_sha256 ?? null}
+                fileNote={quote.document_note ?? null}
                 facts={[{ label: 'Kenmerk', value: quote.reference ?? '' }]}
               />
             </nldd-container>
@@ -172,8 +220,8 @@ export function SigningPage() {
       <FormSheet
         open={sheet === 'accept'}
         title="Akkoord geven"
-        submitText="Geef akkoord"
-        busy={decide.isPending && sheet === 'accept'}
+        submitText="Log in en geef akkoord"
+        busy={leave.isPending && sheet === 'accept'}
         error={sheet === 'accept' ? error : null}
         onClose={() => setSheet(null)}
         onSubmit={() => {
@@ -187,14 +235,7 @@ export function SigningPage() {
             return;
           }
           setError(null);
-          decide.mutate(() =>
-            acceptQuote(quote.id, {
-              quote_hash: quote.snapshot_hash,
-              signer_function: signerFunction.trim() || null,
-              organisation_name: client ? null : organisationName.trim(),
-              confirm_mandate: true,
-            }),
-          );
+          leave.mutate('accept');
         }}
       >
         <nldd-text>
@@ -202,6 +243,7 @@ export function SigningPage() {
           {quote ? formatEuro(quote.content.total_cents) : ''}. Een akkoord is niet terug te
           draaien.
         </nldd-text>
+        <nldd-text>{beforeLeaving('accept')}</nldd-text>
         <TextInput
           label="Je functie"
           value={signerFunction}
@@ -227,24 +269,21 @@ export function SigningPage() {
       <FormSheet
         open={sheet === 'reject'}
         title="Offerte afwijzen"
-        submitText="Wijs af"
-        busy={decide.isPending && sheet === 'reject'}
+        submitText="Log in en wijs af"
+        busy={leave.isPending && sheet === 'reject'}
         error={sheet === 'reject' ? error : null}
         onClose={() => setSheet(null)}
         onSubmit={() => {
           if (!quote) return;
-          decide.mutate(() =>
-            rejectQuote(quote.id, {
-              quote_hash: quote.snapshot_hash,
-              reason: reason.trim() || null,
-            }),
-          );
+          setError(null);
+          leave.mutate('reject');
         }}
       >
         <nldd-text>
           De opdrachtnemer ziet dat de offerte is afgewezen, met de reden die je hier geeft.
           Afwijzen is niet terug te draaien.
         </nldd-text>
+        <nldd-text>{beforeLeaving('reject')}</nldd-text>
         <TextInput label="Reden" value={reason} onChange={setReason} optional multiline />
       </FormSheet>
     </>

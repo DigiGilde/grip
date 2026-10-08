@@ -53,6 +53,8 @@ UI-termen zijn Nederlands; code en schema gebruiken de Engelse naam.
 | Kenmerk | `reference` | Het nummer waarmee mensen een offerte aanduiden, zoals "DG-2026-0007": voorvoegsel van de organisatie, jaar en een volgnummer per jaar dat nooit opnieuw wordt gebruikt. Het staat in de vastgelegde inhoud en valt dus onder het echtheidskenmerk. De URI blijft het kenmerk voor systemen |
 | Uw kenmerk | `client_reference` | Het eigen kenmerk van de opdrachtgever, zoals een zaak- of ordernummer. Optioneel, bij het maken van de offerte |
 | Echtheidskenmerk | `snapshot_hash` | Een code die uit de inhoud van een offerte is berekend (de hash). Dezelfde code staat in het akkoord, zodat vaststaat dat er voor precies deze offerte is getekend. Op scherm en document heet het echtheidskenmerk, nooit hash |
+| Bestandskenmerk | `document_sha256` | Een code die uit het pdf-bestand van een offerte is berekend. Hiermee is na te gaan dat een pdf precies het vastgelegde bestand is |
+| Bewijs | `decision_evidence` | Het bestand bij een besluit (akkoord, afwijzing, interne goedkeuring, terugsturen) waarmee buiten grip is na te gaan wie wat besloot over welk document. Zie `docs/bewijs.md`. Een besluit van voor het bewijs heet "zonder bewijspakket vastgelegd" |
 | Tekenlink | `quote_invitation` | De link waarmee één uitgenodigde persoon een offerte opent en tekent. Werkt 30 dagen, is in te trekken en te verlengen |
 | Akkoord | `quote_acceptance` | De vastlegging dat de opdrachtgever een offerte heeft aanvaard |
 | Interne goedkeuring | `quote_approval` | De goedkeuring van een gemaakte offerte binnen de eigen organisatie, voordat ze wordt aangeboden. Per instantie in te stellen: nooit, altijd of vanaf een bedrag. Gaat over precies de bytes van die offerte en blijft intern |

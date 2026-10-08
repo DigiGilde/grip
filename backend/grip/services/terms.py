@@ -154,6 +154,26 @@ PENDING_PROPERTIES: dict[str, str] = {
     "client_reference": "uw_kenmerk",
     "sender": "afzender",
     "scales": "schalen",
+    # The text of a quote as a letter (grip.services.quote_drafts).
+    "letter": "brief",
+    "subject": "betreft",
+    "addressee": "geadresseerde",
+    "salutation": "aanhef",
+    "closing": "afsluiting",
+    "sections": "onderdelen",
+    "key": "sleutel",
+    "heading": "kop",
+    "body": "tekst",
+    "with_costs": "met_kosten",
+    "numbered": "genummerd",
+    "sender_details": "afzendergegevens",
+    "part_of": "onderdeel_van",
+    "unit": "eenheid",
+    "visiting_address": "bezoekadres",
+    "postal_address": "postadres",
+    "signatures": "ondertekening",
+    "on_behalf_of": "namens",
+    "billing_annex": "bijlage_factuurinformatie",
 }
 
 _ALL_PROPERTIES: dict[str, str] = {**PROPERTIES, **PENDING_PROPERTIES}

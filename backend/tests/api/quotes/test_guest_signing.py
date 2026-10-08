@@ -391,3 +391,23 @@ async def test_status_without_a_session_reports_no_guest(guest_api):
     async with guest_api({}) as client:
         body = (await client.get("/api/auth/status")).json()
     assert body["authenticated"] is False and body["guest"] is None
+
+
+async def test_a_guest_can_check_a_bundle(guest_api):
+    """Checking needs no right on anything, but it does need a session."""
+    async with guest_api(_guest_session()) as client:
+        # Not a bundle: the check runs and says so, it does not refuse.
+        response = await client.post(
+            "/api/signing/verify", json={"bundle": {"soort": "iets-anders"}}
+        )
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["sound"] is False and body["wrong"]
+        # The route for persons stays closed to a guest.
+        assert (
+            await client.post("/api/proof/verify", json={"bundle": {}})
+        ).status_code == 403
+    async with guest_api({}) as client:
+        assert (
+            await client.post("/api/signing/verify", json={"bundle": {}})
+        ).status_code == 401

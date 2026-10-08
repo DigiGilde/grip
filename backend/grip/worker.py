@@ -6,7 +6,8 @@ These are the federation loops (sending outbox messages through the outway,
 and catching up on received messages that were stored before a handler
 existed; both are safe to run in more than one process, rows are claimed
 with SKIP LOCKED) and the task loop, which brings the tasks of every open
-case in line with the facts on an interval.
+case in line with the facts on an interval, and the mail loop, which sends
+what was queued with a change.
 """
 
 from __future__ import annotations
@@ -19,6 +20,8 @@ from grip.core.database import async_session, close_db
 from grip.federation.events import register_event_handlers
 from grip.federation.inbox import run_inbox_loop
 from grip.federation.outbox import run_outbox_loop
+from grip.integrations.mail.config import is_configured as mail_is_configured
+from grip.integrations.mail.outbox import run_mail_loop
 from grip.tasks.loop import run_task_loop
 
 logger = logging.getLogger(__name__)
@@ -43,8 +46,13 @@ async def main() -> None:
     # Tasks: time makes work too (a month ends, a deadline passes).
     if settings.TASKS_EVALUATE_INTERVAL_SECONDS > 0:
         loops.append(run_task_loop(async_session, settings))
+    # Mail that was queued with a change (a signing link, for one).
+    if mail_is_configured(settings):
+        loops.append(run_mail_loop(async_session, settings))
+    else:
+        logger.info("SMTP_HOST or SMTP_FROM is not set: no mail is sent")
     if not loops:
-        logger.info("Nothing to run: federation and the task loop are off")
+        logger.info("Nothing to run: federation, the task loop and mail are off")
         return
     try:
         await asyncio.gather(*loops)

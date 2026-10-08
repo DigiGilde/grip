@@ -77,6 +77,7 @@ export const SETTING_MODE = 'quote_approval.mode';
 export const SETTING_THRESHOLD = 'quote_approval.threshold_cents';
 export const SETTING_ALLOW_SELF = 'quote_approval.allow_self_approval';
 export const SETTING_REFERENCE_PREFIX = 'quote.reference_prefix';
+export const SETTING_MAIL_LINK = 'mail.signing_link';
 
 export const APPROVAL_MODE_LABELS: Record<string, string> = {
   never: 'Nooit',

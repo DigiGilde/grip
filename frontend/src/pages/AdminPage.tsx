@@ -17,6 +17,11 @@ const SECTIONS: { path: string; title: string; text: string }[] = [
     text: 'Het voorvoegsel van het kenmerk, en of een offerte intern wordt goedgekeurd voor ze naar de opdrachtgever gaat.',
   },
   {
+    path: PATHS.quoteSender,
+    title: 'Afzender en teksten van offertes',
+    text: 'De organisatie zoals ze op een offerte staat, de contactpersoon en de ondertekenaar, en de onderdelen en standaardteksten van een offerte.',
+  },
+  {
     path: PATHS.peers,
     title: 'Koppelingen',
     text: 'Opdrachtgevers, opdrachtnemers en corpora waarmee jullie grip berichten uitwisselt.',
@@ -45,6 +50,11 @@ const SECTIONS: { path: string; title: string; text: string }[] = [
     path: PATHS.wiesProposals,
     title: 'Voorstellen uit Wies',
     text: 'Collega’s die volgens Wies erbij moeten of eraf kunnen, ter bevestiging.',
+  },
+  {
+    path: PATHS.activity,
+    title: 'Activiteit',
+    text: 'Wat er in jullie grip is gebeurd: wie wat heeft gewijzigd of ingezien, en wanneer.',
   },
 ];
 

@@ -1,7 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import { PATHS } from '@/paths';
 import { AccountMenu, LogoutMenuItem } from './AccountMenu';
-import { MainNavigation, MainNavigationOverflow } from './MainNavigation';
+import { BottomNavigation, MainNavigation, MainNavigationOverflow } from './MainNavigation';
 import { useInstance } from './useInstance';
 import { useRouteFocus } from './useRouteFocus';
 
@@ -18,9 +18,13 @@ const ONLY_SM: object = { only: 'sm' };
  *
  * Follows the design system's application pattern. The toolbar sits in its own
  * bar of the bar split view rather than in the pane, so it belongs to the whole
- * screen and does not scroll with the content. On small screens a second
- * toolbar takes its place at the bottom, within reach of a thumb, with the
- * sections as icons with a label.
+ * screen and does not scroll with the content.
+ *
+ * The bar reads from left to right as: where you are (the organisation's grip,
+ * a link to the start), the work (the sections, as links), and at the end what
+ * is not daily work: the settings of the instance and who you are. On small
+ * screens a second toolbar takes its place at the bottom, within reach of a
+ * thumb, with the sections as icons with a label.
  */
 export function AppShell() {
   const instance = useInstance();
@@ -41,11 +45,16 @@ export function AppShell() {
                   text={instanceName}
                   href={PATHS.statusOverview}
                 />
-                <nldd-toolbar-item slot="start" priority={2}>
-                  <MainNavigation />
-                  <MainNavigationOverflow />
+                {/* Fluid: the menu bar gets the room that is left and puts what does not fit behind its own button. */}
+                <nldd-toolbar-item slot="start" priority={3} min-width="200px">
+                  <MainNavigation area="work" label="Hoofdnavigatie" />
+                  <MainNavigationOverflow area="work" />
                 </nldd-toolbar-item>
                 <nldd-toolbar-item slot="end" priority={1}>
+                  <MainNavigation area="settings" label="Instellingen" />
+                  <MainNavigationOverflow area="settings" />
+                </nldd-toolbar-item>
+                <nldd-toolbar-item slot="end" priority={2}>
                   <AccountMenu placement="bottom-end" />
                   <LogoutMenuItem slot="overflow" />
                 </nldd-toolbar-item>
@@ -66,11 +75,11 @@ export function AppShell() {
             <nldd-container padding="8">
               <nldd-toolbar size="lg" label={instanceName}>
                 <nldd-toolbar-item slot="start" priority={2}>
-                  <MainNavigation withIcons />
+                  <BottomNavigation />
                   <MainNavigationOverflow />
                 </nldd-toolbar-item>
                 <nldd-toolbar-item slot="end" priority={1}>
-                  <AccountMenu placement="top-end" />
+                  <AccountMenu placement="top-end" compact />
                   <LogoutMenuItem slot="overflow" />
                 </nldd-toolbar-item>
               </nldd-toolbar>

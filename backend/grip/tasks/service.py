@@ -560,4 +560,14 @@ async def add_note(
     note = TaskNote(body=body, created_by_id=actor.id)
     task.notes.append(note)
     await db.flush()
+    record_audit(
+        db,
+        actor=actor,
+        action=UPDATE,
+        entity="task",
+        entity_id=task.id,
+        new_value={"note_id": str(note.id)},
+        assignment_id=task.assignment_id,
+        vacancy_id=task.vacancy_id if task.case_kind == "vacancy" else None,
+    )
     return note

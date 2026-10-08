@@ -402,6 +402,36 @@ _STYLE = """
   .colophon code { font-family: "DejaVu Sans Mono", Menlo, Consolas, monospace;
     font-size: 7pt; }
 
+  /* The quote as a letter: the addressee on the left, the sender's details
+     in a narrow column on the right, then the text over the full measure. */
+  .letter-top { display: grid; grid-template-columns: 1fr 46mm; gap: 0 10mm;
+    margin-bottom: 9mm; }
+  .addressee { padding-top: 6mm; }
+  .addressee div { line-height: 1.35; }
+  .sender-column { font-size: 7pt; line-height: 1.5; }
+  .sender-column .org { font-weight: bold; }
+  .sender-column .group { margin-top: 2.5mm; }
+  .sender-column .label { font-weight: bold; }
+  h1.subject-title { font-size: 9.5pt; font-weight: bold; margin: 0 0 6mm; }
+  .letter-body { max-width: 150mm; }
+  .letter-body p { margin: 0 0 3mm; }
+  .letter-body h2 { font-size: 9.5pt; margin: 6mm 0 2mm; break-after: avoid; }
+  .letter-body h3 { font-size: 9.5pt; font-weight: bold; margin: 4mm 0 1.5mm;
+    break-after: avoid; }
+  .letter-body ul, .letter-body ol { margin: 0 0 3mm; padding-left: 5mm; }
+  .letter-body li { margin: 0 0 1mm; break-inside: avoid; }
+  .letter-body p { orphans: 2; widows: 2; }
+  .letter-body table { margin-top: 2mm; break-before: avoid; }
+  .letter-body h2 + p { break-before: avoid; }
+  .closing { margin-top: 6mm; }
+  .signatures { break-inside: avoid; margin-top: 8mm; }
+  .signature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12mm; }
+  .signature-grid .space { height: 18mm; }
+  .annex { break-before: page; }
+  .annex table { margin: 2mm 0 6mm; max-width: 120mm; }
+  .annex th, .annex td { border: 0.4pt solid #666; padding: 2mm; height: 9mm; }
+  .annex th { width: 45%; font-weight: normal; }
+
   @media screen {
     body { background: #eee; padding: 8mm 4mm; }
     main { background: #fff; max-width: 210mm; margin: 0 auto;
@@ -429,23 +459,9 @@ def _head(sender: str, letterhead: Letterhead) -> str:
     )
 
 
-def document_title(snapshot: dict[str, Any], context: QuoteDocumentContext) -> str:
-    reference = snapshot.get("reference") or context.reference
-    name = str(snapshot.get("name") or "")
-    return f"Offerte {reference} {name}".strip() if reference else f"Offerte {name}"
-
-
-def render_quote_html(snapshot: dict[str, Any], context: QuoteDocumentContext) -> str:
-    """The quote as one self-contained HTML page.
-
-    Every value from the content is escaped. Nothing is loaded from outside
-    the page except the configured typeface: no scripts, no remote images.
-    """
-    letterhead = context.letterhead
-    ribbon = letterhead.ribbon_data_uri is not None
-    sender = str(snapshot.get("sender") or context.contractor_name)
-    reference = str(snapshot.get("reference") or context.reference or "")
-    name = escape(str(snapshot.get("name") or ""))
+def cost_table(snapshot: dict[str, Any]) -> str:
+    """The lines of the quote with subtotals, the total and the note on how
+    the amounts were calculated."""
     lines = [line for line in snapshot.get("lines") or [] if isinstance(line, dict)]
     rows = "\n".join(_line_row(line) for line in lines)
 
@@ -464,7 +480,50 @@ def render_quote_html(snapshot: dict[str, Any], context: QuoteDocumentContext) -
             for entry in subtotals
         )
     total = escape(format_euro(_cents(snapshot.get("total"))))
+    note = (
+        "Bedragen zijn berekend per kalendermaand, tegen het tarief dat in die "
+        "maand geldt." + part_month_note(lines) + rate_change_note(lines)
+    )
+    return f"""<table>
+<thead>
+<tr>
+<th scope="col">Omschrijving</th>
+<th scope="col" class="num">FTE</th>
+<th scope="col">Periode</th>
+<th scope="col">Schaal</th>
+<th scope="col" class="num">Maandtarief</th>
+<th scope="col" class="num">Bedrag</th>
+</tr>
+</thead>
+<tbody>
+{rows}
+{subtotal_rows}
+<tr class="total"><th scope="row" colspan="5">Totaal</th>
+<td class="num">{total}</td></tr>
+</tbody>
+</table>
+<p class="quiet note">{escape(note)}</p>"""
 
+
+def document_title(snapshot: dict[str, Any], context: QuoteDocumentContext) -> str:
+    reference = snapshot.get("reference") or context.reference
+    name = str(snapshot.get("name") or "")
+    return f"Offerte {reference} {name}".strip() if reference else f"Offerte {name}"
+
+
+def render_quote_html(snapshot: dict[str, Any], context: QuoteDocumentContext) -> str:
+    """The quote as one self-contained HTML page.
+
+    Every value from the content is escaped. Nothing is loaded from outside
+    the page except the configured typeface: no scripts, no remote images.
+    """
+    if isinstance(snapshot.get("letter"), dict):
+        return render_letter_html(snapshot, context)
+    letterhead = context.letterhead
+    ribbon = letterhead.ribbon_data_uri is not None
+    sender = str(snapshot.get("sender") or context.contractor_name)
+    reference = str(snapshot.get("reference") or context.reference or "")
+    name = escape(str(snapshot.get("name") or ""))
     facts: list[tuple[str, str]] = []
     if context.client_name:
         to = escape(context.client_name)
@@ -487,10 +546,6 @@ def render_quote_html(snapshot: dict[str, Any], context: QuoteDocumentContext) -
             "<h2>Voorwaarden</h2>\n"
             f'<p class="conditions">{escape(str(snapshot["conditions"]))}</p>'
         )
-    note = (
-        "Bedragen zijn berekend per kalendermaand, tegen het tarief dat in die "
-        "maand geldt." + part_month_note(lines) + rate_change_note(lines)
-    )
     client = escape(context.client_name or "de opdrachtgever")
     issued = context.issued_at.strftime("%Y-%m-%dT%H:%M:%S+00:00")
     style = (
@@ -522,25 +577,7 @@ def render_quote_html(snapshot: dict[str, Any], context: QuoteDocumentContext) -
 {letter}
 </dl>
 
-<table>
-<thead>
-<tr>
-<th scope="col">Omschrijving</th>
-<th scope="col" class="num">FTE</th>
-<th scope="col">Periode</th>
-<th scope="col">Schaal</th>
-<th scope="col" class="num">Maandtarief</th>
-<th scope="col" class="num">Bedrag</th>
-</tr>
-</thead>
-<tbody>
-{rows}
-{subtotal_rows}
-<tr class="total"><th scope="row" colspan="5">Totaal</th>
-<td class="num">{total}</td></tr>
-</tbody>
-</table>
-<p class="quiet note">{escape(note)}</p>
+{cost_table(snapshot)}
 
 {conditions}
 
@@ -559,6 +596,215 @@ Een code die uit de inhoud van deze offerte is berekend. Dezelfde code staat in 
 akkoord, zodat vaststaat dat er voor precies deze offerte is getekend.
 Adres voor systemen: {escape(context.quote_uri)}</p>
 </div>
+</main>
+</body>
+</html>
+"""
+
+
+def _letter_head(details: dict[str, Any], sender: str, letterhead: Letterhead) -> str:
+    """The head of a letter: the ribbon with what the sender is part of beside
+    it, as the Rijkshuisstijl sets a letter of an organisation of a ministry."""
+    part_of = [str(line) for line in details.get("part_of") or []] or list(
+        letterhead.lines
+    )
+    name = part_of[0] if part_of else str(details.get("organisation") or sender)
+    rest = "".join(f'<div class="sub">{escape(line)}</div>' for line in part_of[1:])
+    if letterhead.ribbon_data_uri:
+        return (
+            '<div class="ribbon-head">'
+            f'<div class="ribbon"><img src="{letterhead.ribbon_data_uri}" '
+            'alt="Logo Rijksoverheid"></div>'
+            f'<div class="wordmark"><div>{escape(name)}</div>{rest}</div>'
+            "</div>"
+        )
+    return f'<div class="plain-head"><div class="name">{escape(name)}</div>{rest}</div>'
+
+
+def _sender_column(
+    details: dict[str, Any], sender: str, facts: list[tuple[str, str]]
+) -> str:
+    organisation = str(details.get("organisation") or sender)
+    parts = [f'<div class="org">{escape(organisation)}</div>']
+    if details.get("unit"):
+        parts.append(f"<div>{escape(str(details['unit']))}</div>")
+    for field_name in ("visiting_address", "postal_address"):
+        lines = [str(line) for line in details.get(field_name) or []]
+        if lines:
+            parts.append(
+                '<div class="group">'
+                + "".join(f"<div>{escape(line)}</div>" for line in lines)
+                + "</div>"
+            )
+    if details.get("website"):
+        parts.append(f'<div class="group">{escape(str(details["website"]))}</div>')
+    for label, value in facts:
+        parts.append(
+            f'<div class="group"><div class="label">{escape(label)}</div>'
+            f"<div>{value}</div></div>"
+        )
+    return '<div class="sender-column">' + "".join(parts) + "</div>"
+
+
+def _signature_block(signature: dict[str, Any]) -> str:
+    on_behalf_of = str(signature.get("on_behalf_of") or "")
+    lines = [
+        f"<div>namens {escape(on_behalf_of)},</div>" if on_behalf_of else "<div></div>",
+        '<div class="space"></div>',
+    ]
+    for field_name in ("name", "function", "organisation"):
+        value = str(signature.get(field_name) or "")
+        if value:
+            lines.append(f"<div>{escape(value)}</div>")
+    return "<div>" + "".join(lines) + "</div>"
+
+
+_BILLING_ANNEX = """<section class="annex">
+<h2>Factuurinformatie</h2>
+<p>Uw factuuradres:</p>
+<table>
+<tbody>
+<tr><th scope="row">Organisatie</th><td></td></tr>
+<tr><th scope="row">Ten name van</th><td></td></tr>
+<tr><th scope="row">Adres of postbus</th><td></td></tr>
+<tr><th scope="row">Postcode en plaats</th><td></td></tr>
+<tr><th scope="row">Een kenmerk, verplichtingennummer of vorderingsnummer dat wij
+op de factuur kunnen vermelden</th><td></td></tr>
+</tbody>
+</table>
+<p>Contactpersoon financiële afdeling:</p>
+<table>
+<tbody>
+<tr><th scope="row">Naam</th><td></td></tr>
+<tr><th scope="row">Telefoonnummer</th><td></td></tr>
+<tr><th scope="row">E-mail</th><td></td></tr>
+</tbody>
+</table>
+</section>"""
+
+
+def render_letter_html(snapshot: dict[str, Any], context: QuoteDocumentContext) -> str:
+    """A quote with text, laid out as a letter in the Rijkshuisstijl.
+
+    The order follows the letter an organisation of the Rijk sends: the
+    addressee and the sender's details, date and reference, subject,
+    salutation, the numbered sections with the amounts where the quote puts
+    them, the closing, the signatures of both parties, and the annex for
+    the billing details. Every value is escaped; the text of a section is
+    turned into paragraphs and lists by ``quote_prose``.
+    """
+    from grip.services import quote_prose
+
+    letter = snapshot["letter"]
+    letterhead = context.letterhead
+    ribbon = letterhead.ribbon_data_uri is not None
+    sender = str(snapshot.get("sender") or context.contractor_name)
+    details = letter.get("sender_details") or {}
+    reference = str(snapshot.get("reference") or context.reference or "")
+
+    facts: list[tuple[str, str]] = [
+        ("Datum", escape(format_date(context.issued_at.date())))
+    ]
+    if reference:
+        facts.append(("Kenmerk", f'<span class="reference">{escape(reference)}</span>'))
+    if snapshot.get("client_reference"):
+        facts.append(("Uw kenmerk", escape(str(snapshot["client_reference"]))))
+    if snapshot.get("valid_until"):
+        facts.append(("Geldig tot en met", escape(_iso_date(snapshot["valid_until"]))))
+
+    addressee = [str(line) for line in letter.get("addressee") or []]
+    if not addressee and context.client_name:
+        addressee = [context.client_name]
+    addressee_html = "".join(f"<div>{escape(line)}</div>" for line in addressee)
+    subject = escape(str(letter.get("subject") or snapshot.get("name") or ""))
+
+    body: list[str] = []
+    if letter.get("salutation"):
+        body.append(f"<p>{escape(str(letter['salutation']))}</p>")
+    if letter.get("opening"):
+        body.append(quote_prose.to_html(str(letter["opening"])))
+    number = 0
+    costs_placed = False
+    for section in letter.get("sections") or []:
+        heading = escape(str(section.get("heading") or ""))
+        if section.get("numbered", True):
+            number += 1
+            heading = f"{number}. {heading}"
+        body.append(f"<h2>{heading}</h2>")
+        if section.get("body"):
+            body.append(quote_prose.to_html(str(section["body"])))
+        if section.get("with_costs"):
+            body.append(cost_table(snapshot))
+            costs_placed = True
+    if not costs_placed:
+        number += 1
+        body.append(f"<h2>{number}. Kosten</h2>")
+        body.append(cost_table(snapshot))
+    if snapshot.get("conditions"):
+        number += 1
+        body.append(f"<h2>{number}. Voorwaarden</h2>")
+        body.append(f'<p class="conditions">{escape(str(snapshot["conditions"]))}</p>')
+    if letter.get("closing"):
+        body.append(
+            '<div class="closing">'
+            + quote_prose.to_html(str(letter["closing"]))
+            + "</div>"
+        )
+
+    signatures = [
+        entry for entry in letter.get("signatures") or [] if isinstance(entry, dict)
+    ]
+    signature_html = ""
+    if signatures:
+        signature_html = (
+            '<div class="signatures"><p>Voor akkoord</p><div class="signature-grid">'
+            + "".join(_signature_block(entry) for entry in signatures[:2])
+            + "</div></div>"
+        )
+    annex = _BILLING_ANNEX if letter.get("billing_annex") else ""
+
+    issued = context.issued_at.strftime("%Y-%m-%dT%H:%M:%S+00:00")
+    style = (
+        _STYLE.replace("__FIRST_TOP__", "40mm" if ribbon else "24mm")
+        .replace("__BLUE__", RIBBON_BLUE)
+        .strip()
+    )
+    title = escape(document_title(snapshot, context))
+    code = escape(" ".join(code_lines(context.snapshot_hash)))
+    return f"""<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{title}</title>
+<meta name="author" content="{escape(sender)}">
+<meta name="dcterms.created" content="{issued}">
+<meta name="dcterms.modified" content="{issued}">
+<style>
+{_font_faces(letterhead)}
+{style}
+</style>
+</head>
+<body>
+<main class="{"ribboned" if ribbon else "plain"}">
+{_letter_head(details, sender, letterhead)}
+<div class="letter-top">
+<div class="addressee">{addressee_html}</div>
+{_sender_column(details, sender, facts)}
+</div>
+<h1 class="subject-title">{subject}</h1>
+<div class="letter-body">
+{chr(10).join(body)}
+{signature_html}
+</div>
+
+<div class="colophon quiet">
+<p>Echtheidskenmerk: <code>{code}</code><br>
+Een code die uit de inhoud van deze offerte is berekend. Dezelfde code staat in het
+akkoord, zodat vaststaat dat er voor precies deze offerte is getekend.
+Adres voor systemen: {escape(context.quote_uri)}</p>
+</div>
+{annex}
 </main>
 </body>
 </html>

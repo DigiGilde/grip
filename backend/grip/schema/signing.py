@@ -28,6 +28,11 @@ class SigningQuoteOut(BaseModel):
     contractor_name: Annotated[str, A]
     client_name: Annotated[str | None, A] = None
     snapshot_hash: Annotated[str, B]
+    # The kept PDF the signer is shown: its hash, and how it came to be.
+    document_sha256: Annotated[str | None, B] = None
+    document_fixed_at: Annotated[datetime | None, B] = None
+    document_origin: Annotated[str | None, B] = None
+    document_note: Annotated[str | None, B] = None
     content: Annotated[QuoteContentOut | None, nested()] = None
     # The moment of the decision, once there is one.
     decided_at: Annotated[datetime | None, A] = None

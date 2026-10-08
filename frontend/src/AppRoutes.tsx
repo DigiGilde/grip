@@ -29,6 +29,8 @@ import { QuotePage } from '@/features/quotes/QuotePage';
 import { ApprovalListPage } from '@/features/quotes/ApprovalListPage';
 import { ApprovalPage } from '@/features/quotes/ApprovalPage';
 import { QuoteSettingsPage } from '@/features/quotes/QuoteSettingsPage';
+import { SenderPage } from '@/features/quote-letter/SenderPage';
+import { VerifyProofPage } from '@/features/quotes/VerifyProofPage';
 import { SigningLayout } from '@/features/signing/SigningLayout';
 import { SigningListPage } from '@/features/signing/SigningListPage';
 import { SigningPage } from '@/features/signing/SigningPage';
@@ -36,6 +38,7 @@ import { OrganisationsAdminPage } from '@/features/organisations/OrganisationsAd
 import { RolesAdminPage } from '@/features/roles/RolesAdminPage';
 import { PeersPage } from '@/features/peers/PeersPage';
 import { RatesPage } from '@/features/rates/RatesPage';
+import { ActivityPage, AssignmentHistoryTab, VacancyHistoryTab } from '@/features/history/History';
 import { AssignmentTasksTab, VacancyTasksTab } from '@/features/tasks/CaseTasks';
 import { TasksPage } from '@/features/tasks/TasksPage';
 import { AssignmentReportPage } from '@/features/reports/AssignmentReportPage';
@@ -119,7 +122,9 @@ export function AppRoutes() {
           <Route path={ASSIGNMENT_TAB_SEGMENTS.budget} element={<BudgetTab />} />
           <Route path={ASSIGNMENT_TAB_SEGMENTS.quote} element={<QuotePage />} />
           <Route path={ASSIGNMENT_TAB_SEGMENTS.monthClose} element={<MonthClosePage />} />
+          <Route path={ASSIGNMENT_TAB_SEGMENTS.history} element={<AssignmentHistoryTab />} />
         </Route>
+        <Route path={PATHS.activity} element={<ActivityPage />} />
         <Route path={PATHS.vacancyOpenRoles} element={<OpenRolesPage />} />
         <Route path={PATHS.vacancySetup} element={<VacancySetupPage />} />
         <Route path={PATHS.functionFramework} element={<FunctionFrameworkPage />} />
@@ -131,6 +136,7 @@ export function AppRoutes() {
           <Route path={VACANCY_TAB_SEGMENTS.text} element={<TextTab />} />
           <Route path={VACANCY_TAB_SEGMENTS.procedure} element={<ProcedureTab />} />
           <Route path={VACANCY_TAB_SEGMENTS.fulfilment} element={<FulfilmentTab />} />
+          <Route path={VACANCY_TAB_SEGMENTS.history} element={<VacancyHistoryTab />} />
         </Route>
         <Route path={PATHS.clientRequest} element={<RequestQuotePage />} />
         <Route path={PATHS.clientAssignment} element={<ClientAssignmentPage />} />
@@ -138,6 +144,7 @@ export function AppRoutes() {
         <Route path={PATHS.quoteApprovals} element={<ApprovalListPage />} />
         <Route path={PATHS.quoteApproval} element={<ApprovalPage />} />
         <Route path={PATHS.quoteSettings} element={<QuoteSettingsPage />} />
+        <Route path={PATHS.quoteSender} element={<SenderPage />} />
         <Route path={PATHS.peers} element={<PeersPage />} />
         <Route path={PATHS.organisations} element={<OrganisationsAdminPage />} />
         <Route path={PATHS.roles} element={<RolesAdminPage />} />
@@ -158,6 +165,7 @@ export function AppRoutes() {
       >
         <Route path={PATHS.signing} element={<SigningListPage />} />
         <Route path={PATHS.signingQuote} element={<SigningPage />} />
+        <Route path={PATHS.verifyProof} element={<VerifyProofPage />} />
       </Route>
       <Route path="*" element={<NotFoundPage />} />
     </Routes>

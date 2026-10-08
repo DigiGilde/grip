@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { orUndef, useNlddEvent } from '@/components/nldd/events';
 import { TextInput } from '@/features/assignments/ui';
-import { FormSheet } from '@/ui/layout';
+import { FormSheet, Quiet } from '@/ui/layout';
 import {
   OFFER_CHANNEL_EFFECTS,
   OFFER_CHANNEL_LABELS,
@@ -50,6 +50,8 @@ function ChannelRow({
 interface OfferSheetProps {
   open: boolean;
   channels: readonly QuoteChannel[];
+  /** Offering with a signing link also mails the link to the invited person. */
+  mailsLink?: boolean;
   busy: boolean;
   error: string | null;
   onClose: () => void;
@@ -61,7 +63,15 @@ interface OfferSheetProps {
  * channels: each says in one line what happens, and one that is not possible
  * says why.
  */
-export function OfferSheet({ open, channels, busy, error, onClose, onOffer }: OfferSheetProps) {
+export function OfferSheet({
+  open,
+  channels,
+  mailsLink = false,
+  busy,
+  error,
+  onClose,
+  onOffer,
+}: OfferSheetProps) {
   const options = ORDER.map((name) => channels.find((option) => option.channel === name)).filter(
     (option): option is QuoteChannel => option !== undefined,
   );
@@ -115,6 +125,9 @@ export function OfferSheet({ open, channels, busy, error, onClose, onOffer }: Of
           onChange={setEmail}
           required
         />
+      ) : null}
+      {channel === 'signing_link' && mailsLink && /^[^@\s]+@[^@\s]+$/.test(email.trim()) ? (
+        <Quiet>{email.trim()} krijgt de link per mail.</Quiet>
       ) : null}
     </FormSheet>
   );

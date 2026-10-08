@@ -1,0 +1,103 @@
+{
+  "profile": "digigilde",
+  "title": "DigiGilde (Rijksorganisatie ODI)",
+  "description": "Startwaarden voor de afzender, de onderdelen en de standaardteksten van een offerte van het DigiGilde. Gegevens op het niveau van de organisatie; een contactpersoon en een ondertekenaar vult de beheerder zelf in.",
+  "sender": {
+    "organisation": "Rijksorganisatie voor Ontwikkeling, Digitalisering en Innovatie",
+    "part_of": [
+      "Ministerie van Binnenlandse Zaken en Koninkrijksrelaties"
+    ],
+    "unit": "ODI | DigiGilde",
+    "visiting_address": [
+      "Wilhelmina van Pruisenweg 52",
+      "2595 AN Den Haag"
+    ],
+    "postal_address": [
+      "Postbus 20011",
+      "2500 EA Den Haag"
+    ],
+    "orders_email": "DigiGilde@rijksoverheid.nl",
+    "signatory": {
+      "on_behalf_of": "het DigiGilde",
+      "organisation": "Rijksorganisatie voor Ontwikkeling, Digitalisering en Innovatie"
+    }
+  },
+  "letter": {
+    "opening": "Met genoegen bied ik u de volgende offerte aan.",
+    "closing": "*Graag maken wij u erop attent dat wij de persoonsgegevens die u met ons heeft verstrekt en eventueel nog zult verstrekken, zullen verwerken op de manier zoals wij die in onze privacyverklaring hebben omschreven.*\n\n**Contactpersoon {eenheid}**\n{contactpersoon}\n\nGraag beantwoord ik uw eventuele vragen.\n\nIk verzoek u mij schriftelijk de opdracht te verstrekken onder vermelding van de datum en het kenmerk van deze brief, alsmede de ingevulde bijlage *Factuurinformatie* ten behoeve van de facturatie.\n\nUw opdrachtverstrekking en facturatiegegevens kunt u zenden aan {opdrachtenadres}.",
+    "billing_annex": true
+  },
+  "text_blocks": [
+    {
+      "key": "inleiding",
+      "heading": "Inleiding",
+      "draftable": true,
+      "hint": "De aanleiding: welke opgave van de overheid ligt eronder, wat is er al bereikt, en waarom is deze inzet nu nodig."
+    },
+    {
+      "key": "opdracht",
+      "heading": "Opdracht",
+      "draftable": true,
+      "hint": "Wat wordt er gevraagd en met welk doel. Wat hoort bij de opdracht aan het DigiGilde, en wat valt erbuiten en wordt elders geregeld."
+    },
+    {
+      "key": "scope",
+      "heading": "Scope",
+      "included": false,
+      "draftable": true,
+      "hint": "De beoogde functionaliteit of activiteiten, per onderdeel in een paar zinnen. Alleen nodig bij een opdracht met een afgebakend product."
+    },
+    {
+      "key": "team",
+      "heading": "Opbouw en inzet team",
+      "draftable": true,
+      "hint": "Welke rollen en hoeveel fte, vanaf wanneer en in welke opbouw. Rollen en niveaus, geen namen. Zeg wat afhangt van werving."
+    },
+    {
+      "key": "kosten",
+      "heading": "Kosten",
+      "with_costs": true,
+      "hint": "Wat bij de bedragen gezegd moet worden, bijvoorbeeld dat een bedrag afhangt van werving of van een indexatie die nog niet is vastgesteld. De tabel volgt uit de begroting."
+    },
+    {
+      "key": "werkwijze",
+      "heading": "Werkwijze",
+      "draftable": true,
+      "body": "- Agile/Scrum met tweewekelijkse sprints\n- Regelmatige afstemming met de opdrachtgever\n- Kwartaalevaluatie met de opdrachtgever",
+      "hint": "Hoe het team werkt en hoe wordt afgestemd en geëvalueerd."
+    },
+    {
+      "key": "resultaten",
+      "heading": "Beoogde resultaten",
+      "included": false,
+      "draftable": true,
+      "hint": "Wat er aan het eind van de periode staat, als korte lijst."
+    },
+    {
+      "key": "samenwerking",
+      "heading": "Raakvlakken en samenwerking",
+      "included": false,
+      "draftable": true,
+      "hint": "Met welke initiatieven en organisaties wordt afgestemd."
+    },
+    {
+      "key": "governance",
+      "heading": "Governance",
+      "draftable": true,
+      "body": "Opdrachtgever: verantwoordelijk voor strategische sturing en inhoudelijke kaders.\nOpdrachtnemer: verantwoordelijk voor teamlevering, kwaliteit en voortgang.\n\nOverlegstructuur:\n- Wekelijks operationeel overleg met de opdrachtgever\n- Kwartaaloverleg\n- Eindevaluatie",
+      "hint": "Wie stuurt, wie levert, en welk overleg er is."
+    },
+    {
+      "key": "wijzigingen",
+      "heading": "Wijzigingen",
+      "body": "Indien gedurende de samenwerking wijzigingen in deze offerte wenselijk zijn, dan zullen partijen hierover tijdig met elkaar in overleg treden. Overeengekomen aanpassingen zullen drie maanden na de schriftelijke vastlegging van kracht worden.",
+      "hint": "Standaardtekst van de organisatie."
+    },
+    {
+      "key": "voorwaarden",
+      "heading": "Leveringsvoorwaarden",
+      "body": "1. Facturatie vindt plaats nadat de schriftelijke opdrachtverstrekking is ontvangen en onder vermelding van het kenmerk, verplichtingennummer of vorderingsnummer. De facturatie vindt per kwartaal plaats, conform de bedragen genoemd in deze offerte, tenzij daar schriftelijke wijzigingen op hebben plaatsgevonden.\n2. Over deze opdracht is alleen btw verschuldigd bij inzet van externen. Indien sprake is van levering aan partijen welke zijn aangemerkt als “niet-Staat” zijn wij verplicht om 21% btw in rekening te brengen.\n3. Indien blijkt dat de kosten hoger gaan uitkomen dan deze offerte en niet meer aansluiten bij de uitgangspunten die gehanteerd zijn bij de totstandkoming van deze offerte, dan wordt hiervoor voorafgaand contact met u opgenomen en wordt dit na uw akkoord per e-mail bevestigd.\n4. Eventuele aanvullende afspraken worden schriftelijk bevestigd als aanvulling op de afspraken in deze offerte.\n5. Op deze offerte zijn de algemene leveringsvoorwaarden van de Rijksorganisatie ODI van toepassing; deze worden als bijlage toegevoegd aan de offerte.\n6. De tarieven van de Rijksorganisatie ODI worden in beginsel jaarlijks door de eigenaar, de SG van het Ministerie van Binnenlandse Zaken en Koninkrijksrelaties, vastgesteld. Bij wijziging van de tarieven door de eigenaar worden deze geacht deel uit te maken van de opdracht; van dergelijke wijzigingen ontvangt de opdrachtgever direct na vaststelling bericht. Conform de afspraken met de eigenaar is de jaarlijkse indexatie op de tarieven op deze offerte van toepassing. Deze offerte is gebaseerd op de tarieven van {jaar}.",
+      "hint": "Standaardtekst van de organisatie."
+    }
+  ]
+}

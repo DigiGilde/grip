@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { ApiError, errorMessage } from '@/api/client';
 import { Button, TextInput } from '@/features/assignments/ui';
@@ -18,15 +18,27 @@ import {
 import {
   approvalKeys,
   approvalLine,
+  approvalPath,
   approverDocumentUrl,
-  decideApproval,
   fetchApproverQuote,
   type ApproverQuote,
 } from './approval';
+import { DecisionFailed, DecisionReceipt } from './DecisionReceipt';
 import { formatDateTime } from './format';
+import {
+  beforeLeaving,
+  clearDraft,
+  createDecisionIntent,
+  navigation,
+  readDraft,
+  saveDraft,
+  useDecisionReturn,
+} from './proof';
 import { QuoteContentTable } from './QuoteContentTable';
 import { QuoteDetails } from './QuoteDetails';
 import { DocumentLink } from './ui';
+
+type Choice = 'approve' | 'send_back';
 
 /** For whom, under which reference, and who asks. */
 function byline(quote: ApproverQuote): string {
@@ -50,40 +62,43 @@ function byline(quote: ApproverQuote): string {
 export function ApprovalPage() {
   const { quoteId = '' } = useParams();
   const instance = useInstance();
-  const queryClient = useQueryClient();
   const query = useQuery({
     queryKey: approvalKeys.approverQuote(quoteId),
     queryFn: () => fetchApproverQuote(quoteId),
     retry: false,
   });
 
-  const [sheet, setSheet] = useState<'approve' | 'send_back' | null>(null);
+  const [sheet, setSheet] = useState<Choice | null>(null);
   const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
 
+  const back = useDecisionReturn();
+  const [draft] = useState(() => readDraft<{ decision?: Choice; note?: string }>(quoteId));
+  // Asking for the intent decides nothing: the decision is made when the
+  // browser is back from the identity provider.
   const decide = useMutation({
-    mutationFn: (decision: 'approve' | 'send_back') =>
-      decideApproval(quoteId, {
-        decision,
+    mutationFn: (decision: Choice) => {
+      saveDraft(quoteId, { decision, note });
+      return createDecisionIntent({
+        kind: decision,
+        quote_id: quoteId,
         quote_hash: query.data?.snapshot_hash ?? '',
         note: note.trim() || null,
-      }),
-    onSuccess: async () => {
-      setSheet(null);
-      setError(null);
-      setNote('');
-      await queryClient.invalidateQueries({ queryKey: ['quotes'] });
+        return_path: approvalPath(quoteId),
+      });
     },
+    onSuccess: (intent) => navigation.go(intent.authorize_url),
     onError: (failure) => setError(errorMessage(failure)),
   });
+  if (back.evidenceId) clearDraft(quoteId);
 
   const quote = query.data;
   const approval = quote?.approval;
   const hidden =
     query.error instanceof ApiError && (query.error.status === 404 || query.error.status === 403);
-  const open = (next: 'approve' | 'send_back') => {
+  const open = (next: Choice, keep = '') => {
     setError(null);
-    setNote('');
+    setNote(keep);
     setSheet(next);
   };
   const waiting = approval?.status === 'requested';
@@ -106,14 +121,30 @@ export function ApprovalPage() {
 
         {quote && approval ? (
           <>
-            {approval.status === 'approved' ? (
+            {back.evidenceId ? (
+              <DecisionReceipt
+                scope="proof"
+                evidenceId={back.evidenceId}
+                pdfHref={approverDocumentUrl(quote.quote_id)}
+              />
+            ) : null}
+            {back.errorCode && waiting ? (
+              <DecisionFailed
+                code={back.errorCode}
+                onRetry={() => {
+                  back.dismiss();
+                  open(draft?.decision ?? 'approve', draft?.note ?? '');
+                }}
+              />
+            ) : null}
+            {approval.status === 'approved' && !back.evidenceId ? (
               <nldd-banner
                 variant="success"
                 text="Deze offerte is goedgekeurd"
                 supporting-text={approvalLine(approval) ?? ''}
               />
             ) : null}
-            {approval.status === 'sent_back' ? (
+            {approval.status === 'sent_back' && !back.evidenceId ? (
               <nldd-banner
                 variant="neutral"
                 text="Deze offerte is teruggestuurd"
@@ -155,6 +186,7 @@ export function ApprovalPage() {
               {quote.snapshot_hash ? (
                 <QuoteDetails
                   hash={quote.snapshot_hash}
+                  documentHref={approverDocumentUrl(quote.quote_id)}
                   facts={[{ label: 'Kenmerk', value: quote.quote_reference ?? '' }]}
                 />
               ) : null}
@@ -182,7 +214,7 @@ export function ApprovalPage() {
       <FormSheet
         open={sheet === 'approve'}
         title="Offerte goedkeuren"
-        submitText="Keur goed"
+        submitText="Log in en keur goed"
         busy={decide.isPending && sheet === 'approve'}
         error={sheet === 'approve' ? error : null}
         onClose={() => setSheet(null)}
@@ -192,13 +224,14 @@ export function ApprovalPage() {
           Je keurt offerte {quote?.quote_reference ?? ''} van{' '}
           {quote?.total_cents !== undefined ? formatEuro(quote.total_cents) : ''} goed.
         </nldd-text>
+        <nldd-text>{beforeLeaving('approve')}</nldd-text>
         <TextInput label="Opmerking" value={note} onChange={setNote} optional multiline />
       </FormSheet>
 
       <FormSheet
         open={sheet === 'send_back'}
         title="Offerte terugsturen"
-        submitText="Stuur terug"
+        submitText="Log in en stuur terug"
         busy={decide.isPending && sheet === 'send_back'}
         error={sheet === 'send_back' ? error : null}
         onClose={() => setSheet(null)}
@@ -213,6 +246,7 @@ export function ApprovalPage() {
         <nldd-text>
           Wie de offerte maakte leest je toelichting en maakt een nieuwe offerte.
         </nldd-text>
+        <nldd-text>{beforeLeaving('send_back')}</nldd-text>
         <TextInput label="Wat moet er anders" value={note} onChange={setNote} required multiline />
       </FormSheet>
     </>

@@ -10,6 +10,7 @@ import os
 from typing import Any
 
 import pytest
+from fastapi import Request
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
@@ -22,6 +23,7 @@ os.environ.setdefault("DEV_NO_AUTH", "1")
 from grip.core.config import get_settings  # noqa: E402
 from grip.core.database import get_db  # noqa: E402
 from grip.core.session_store import SessionStore  # noqa: E402
+from grip.events import completeness  # noqa: E402
 from grip.middleware.csrf import CSRF_COOKIE_NAME  # noqa: E402
 from grip.middleware.session import ServerSideSessionMiddleware  # noqa: E402
 from grip.models.person import Person  # noqa: E402
@@ -92,8 +94,19 @@ async def client(db_session: AsyncSession, _test_app):
     """
     app = _test_app
 
-    async def _override_get_db():
-        yield db_session
+    # Completeness of the event stream: a request that changes domain data
+    # without an event that covers it fails the test (grip.events.completeness).
+    unrecorded: list[str] = []
+
+    async def _override_get_db(request: Request):
+        with completeness.watch(db_session) as unit:
+            yield db_session
+            # In production the request commits here.
+            await db_session.flush()
+        route = getattr(request.scope.get("route"), "path", request.url.path)
+        unrecorded.extend(
+            f"{request.method} {route}: {missing}" for missing in unit.unrecorded()
+        )
 
     app.dependency_overrides[get_db] = _override_get_db
 
@@ -120,6 +133,14 @@ async def client(db_session: AsyncSession, _test_app):
 
     app.dependency_overrides.clear()
     session_mw.store = original_store
+    report = os.environ.get("GRIP_COMPLETENESS_REPORT")
+    if report and unrecorded:
+        with open(report, "a") as out:
+            out.writelines(f"{line}\n" for line in unrecorded)
+    elif not report:
+        assert not unrecorded, "changes without an event: " + "; ".join(
+            dict.fromkeys(unrecorded)
+        )
 
 
 @pytest.fixture

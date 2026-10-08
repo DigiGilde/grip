@@ -203,12 +203,28 @@ async def get_jwks(settings: Settings) -> Any | None:
         try:
             resp = await get_http_client().get(jwks_uri)
             resp.raise_for_status()
-            keys = JsonWebKey.import_key_set(resp.json())
+            document = resp.json()
+            keys = JsonWebKey.import_key_set(document)
         except (httpx.HTTPError, ValueError) as exc:
             logger.warning("Failed to fetch JWKS: %s", exc)
             return _jwks_cache.get_stale()
         _jwks_cache.set(keys)
+        _jwks_document["keys"] = document
         return keys
+
+
+# The key set as the provider published it, next to the parsed one above.
+# Evidence of a decision keeps these exact keys: they rotate, and a token
+# must stay verifiable with the keys of its own moment.
+_jwks_document: dict[str, Any] = {}
+
+
+async def get_jwks_document(settings: Settings) -> dict[str, Any] | None:
+    """The provider's key set as published (a JWKS document), or ``None``."""
+    if await get_jwks(settings) is None:
+        return None
+    document = _jwks_document.get("keys")
+    return document if isinstance(document, dict) else None
 
 
 def validate_jwt_locally(

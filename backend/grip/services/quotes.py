@@ -131,6 +131,13 @@ def _scales_of(rates: calc.RateBook, day: date, category: str | None) -> list[in
 
 async def sender_name(session: AsyncSession, assignment: Assignment) -> str:
     """The organisation a quote is sent by: never the name of the software."""
+    # What the beheerder set under Beheer goes first; the environment is
+    # only its starting value.
+    from grip.services import quote_sender
+
+    stored = (await quote_sender.current_sender(session))["organisation"]
+    if stored:
+        return stored
     settings = get_settings()
     if settings.ORGANISATION_NAME.strip():
         return settings.ORGANISATION_NAME.strip()
@@ -152,6 +159,7 @@ async def build_snapshot(
     reference: str | None = None,
     client_reference: str | None = None,
     options: PricingOptions = DEFAULT_OPTIONS,
+    letter: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """The content of a quote as it would be issued now.
 
@@ -193,6 +201,10 @@ async def build_snapshot(
         snapshot["reference"] = reference
     if client_reference and client_reference.strip():
         snapshot["client_reference"] = client_reference.strip()
+    # The words of the quote, from the draft of the assignment. Part of the
+    # content, so part of what is hashed and signed.
+    if letter is not None:
+        snapshot["letter"] = letter
     return check_content(snapshot)
 
 
@@ -245,6 +257,13 @@ async def issue_quote(
             "meer worden gemaakt."
         )
     issued_at = issued_at or datetime.now(UTC)
+    # The text of the quote, when the assignment has a draft. Checked here
+    # in full: a drafted section nobody settled, an empty section or the
+    # name of a colleague in the text stops the making.
+    from grip.services import quote_drafts
+
+    frozen = await quote_drafts.frozen_letter(session, assignment, strict=True)
+    letter = frozen.letter if frozen is not None else None
     # Build once without a reference first: a quote that cannot be built
     # (no lines, no rate card) must not use up a number.
     await build_snapshot(
@@ -254,6 +273,7 @@ async def issue_quote(
         conditions=conditions,
         client_reference=client_reference,
         options=options,
+        letter=letter,
     )
     # The reference is given out inside this transaction and becomes part of
     # the frozen content, so it is covered by the hash.
@@ -266,6 +286,7 @@ async def issue_quote(
         reference=reference,
         client_reference=client_reference,
         options=options,
+        letter=letter,
     )
     await _supersede_open_quotes(session, assignment_id)
     quote_id = uuid.uuid4()
@@ -284,10 +305,20 @@ async def issue_quote(
         total_cents=snapshot["total"]["amount_cents"],
         issued_at=issued_at,
         issued_by_id=actor.id if actor is not None else None,
+        prose_provenance=frozen.provenance if frozen is not None else None,
     )
     session.add(quote)
     assignment.quote_date = issued_at.date()
     await session.flush()
+    # The quote is also a file. It is laid out here, once, and kept: what a
+    # client later reads and signs are these bytes, whatever the letterhead
+    # or the template has become by then. If the file cannot be made, the
+    # quote is not made (the error undoes the transaction).
+    from grip.services import quote_files
+
+    await quote_files.fix_document(
+        session, quote, origin=quote_files.ORIGIN_ISSUE, now=issued_at
+    )
     if assignment.status != "quoted":
         await transition(session, assignment_id, "quoted", actor=actor)
     record_audit(
@@ -301,6 +332,7 @@ async def issue_quote(
             "snapshot_hash": quote.snapshot_hash,
             "total_cents": quote.total_cents,
             "reference": reference,
+            "document_sha256": quote.document_sha256,
         },
     )
     await events.emit(
@@ -469,6 +501,16 @@ async def mark_invitation_opened(
     if invitation is not None:
         invitation.opened_at = datetime.now(UTC)
         await session.flush()
+        # The actor is the guest who opened it (grip.events.context).
+        record_audit(
+            session,
+            actor=None,
+            action=UPDATE,
+            entity="quote_invitation",
+            entity_id=invitation.id,
+            old_value={"opened_at": None},
+            new_value={"opened_at": invitation.opened_at.isoformat()},
+        )
 
 
 async def invitations_by_id(
@@ -512,10 +554,20 @@ async def invite_signer(
     if invitation is not None:
         # Inviting the same person again renews the invitation, also after
         # it was withdrawn.
+        old_expiry = invitation.expires_at
         invitation.expires_at = expires_at
         invitation.withdrawn_at = None
         invitation.withdrawn_by_id = None
         await session.flush()
+        record_audit(
+            session,
+            actor=actor,
+            action=UPDATE,
+            entity="quote_invitation",
+            entity_id=invitation.id,
+            old_value={"expires_at": old_expiry.isoformat() if old_expiry else None},
+            new_value={"expires_at": expires_at.isoformat()},
+        )
         return invitation
     invitation = QuoteInvitation(
         quote_id=quote_id,
@@ -675,23 +727,35 @@ async def offer_quote(
             raise DomainValidationError(
                 "Voor een tekenlink is het e-mailadres van de ondertekenaar nodig."
             )
+        # Imported here: the mail service reads names through this module.
+        from grip.services import signing_mail
+
         before = {offer.id for offer in await offers_of(session, quote_id)}
         invitation = await invite_signer(
             session, quote_id, email, actor=actor, expires_at=expires_at
         )
-        for offer in await offers_of(session, quote_id):
-            if offer.id not in before:
-                return offer
-        # The same person was invited before: offering again is a new offer
-        # on the existing invitation.
-        return await _record_offer(
-            session,
-            quote,
-            OFFER_SIGNING_LINK,
-            actor=actor,
-            recipient=invitation.email,
-            invitation_id=invitation.id,
+        offer = next(
+            (o for o in await offers_of(session, quote_id) if o.id not in before),
+            None,
         )
+        if offer is None:
+            # The same person was invited before: offering again is a new
+            # offer on the existing invitation.
+            offer = await _record_offer(
+                session,
+                quote,
+                OFFER_SIGNING_LINK,
+                actor=actor,
+                recipient=invitation.email,
+                invitation_id=invitation.id,
+            )
+        # The link goes to the invited address by mail, queued with this
+        # offer; where the instance does not mail, whoever offers hands the
+        # link over.
+        await signing_mail.queue(
+            session, quote, invitation, actor=actor, occasion=f"offer:{offer.id}"
+        )
+        return offer
 
     if channel == OFFER_DOCUMENT:
         return await _record_offer(session, quote, OFFER_DOCUMENT, actor=actor)
@@ -770,6 +834,8 @@ async def accept_quote(
     document_ref: str | None = None,
     acceptance_id: UUID | None = None,
     origin: str = "local",
+    evidence_id: UUID | None = None,
+    statement_hash: str | None = None,
 ) -> QuoteAcceptance:
     """Record that the client accepted a quote, in one of the three forms.
 
@@ -783,6 +849,11 @@ async def accept_quote(
     ``acceptance_id``. The assignment moves to status accepted. Emits
     ``quote.accepted``; ``origin`` tells a handler whether the acceptance
     was made here ("local") or came in from another instance ("remote").
+
+    ``evidence_id`` and ``statement_hash`` name the statement this acceptance
+    was made from (see ``grip.proof``): the values passed here were read from
+    it. The hash goes into the audit row and the event, so both can point at
+    the proof; the statement itself does not.
     """
     if form not in ACCEPTANCE_FORMS:
         raise DomainValidationError(f"Onbekende vorm van akkoord: {form}")
@@ -834,11 +905,21 @@ async def accept_quote(
         document_sha256=document_sha256,
         document_ref=document_ref,
         recorded_by_id=actor.id if actor is not None else None,
+        evidence_id=evidence_id,
     )
     session.add(acceptance)
     quote.status = "accepted"
     if invitation is not None:
         invitation.used_at = signed_at
+        record_audit(
+            session,
+            actor=None,
+            action=UPDATE,
+            entity="quote_invitation",
+            entity_id=invitation.id,
+            old_value={"used_at": None},
+            new_value={"used_at": signed_at.isoformat()},
+        )
         if signer_person_id is not None:
             invitation.person_id = signer_person_id
     await session.flush()
@@ -859,6 +940,7 @@ async def accept_quote(
             "quote_hash": quote_hash,
             "form": form,
             "signed_at": signed_at.isoformat(),
+            **({"statement_hash": statement_hash} if statement_hash else {}),
         },
     )
     await events.emit(
@@ -882,6 +964,8 @@ async def accept_quote(
             "jws": jws,
             "document_sha256": document_sha256,
             "origin": origin,
+            # Refers to the statement of this decision; never its content.
+            "statement_hash": statement_hash,
         },
     )
     return acceptance
@@ -898,8 +982,14 @@ async def reject_quote(
     rejected_at: datetime | None = None,
     rejection_id: UUID | None = None,
     origin: str = "local",
+    evidence_id: UUID | None = None,
+    statement_hash: str | None = None,
 ) -> QuoteRejection:
-    """Record that the client rejected a quote. Emits ``quote.rejected``."""
+    """Record that the client rejected a quote. Emits ``quote.rejected``.
+
+    ``evidence_id`` and ``statement_hash`` name the statement this rejection
+    was made from, as for an acceptance.
+    """
     if rejection_id is not None:
         existing = await session.get(QuoteRejection, rejection_id)
         if existing is not None:
@@ -922,6 +1012,7 @@ async def reject_quote(
         reason=reason,
         rejected_at=rejected_at,
         recorded_by_id=actor.id if actor is not None else None,
+        evidence_id=evidence_id,
     )
     session.add(rejection)
     quote.status = "rejected"
@@ -941,7 +1032,11 @@ async def reject_quote(
         entity="quote",
         entity_id=quote.id,
         old_value={"status": "issued"},
-        new_value={"status": "rejected", "reason": reason},
+        new_value={
+            "status": "rejected",
+            "reason": reason,
+            **({"statement_hash": statement_hash} if statement_hash else {}),
+        },
     )
     await events.emit(
         session,
@@ -957,6 +1052,7 @@ async def reject_quote(
             "reason": reason,
             "rejected_at": rejected_at.isoformat(),
             "origin": origin,
+            "statement_hash": statement_hash,
         },
     )
     return rejection

@@ -133,6 +133,27 @@ class Settings(BaseSettings):
     VLAM_BASE_URL: str = ""
     VLAM_API_KEY: str = ""
     VLAM_MODEL_ID: str = ""
+    # Outgoing mail through an SMTP relay. On the hosting platform the
+    # send-email service injects SMTP_HOST, SMTP_PORT, SMTP_USERNAME,
+    # SMTP_PASSWORD and SMTP_FROM after an administrator approved its use;
+    # the relay writes the From address itself. Without SMTP_HOST and
+    # SMTP_FROM nothing is mailed and everything else works.
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM: str = ""
+    # starttls (the submission port), tls (implicit, usually 465) or none
+    # (a local mail catcher only).
+    SMTP_TLS: str = "starttls"
+    # The platform relay has a certificate of the cluster itself; verifying
+    # it then needs SMTP_TLS_CA_FILE, or this switched off inside the
+    # cluster network.
+    SMTP_TLS_VERIFY: bool = True
+    SMTP_TLS_CA_FILE: str = ""
+    MAIL_OUTBOX_INTERVAL_SECONDS: int = 15
+    MAIL_MAX_ATTEMPTS: int = 8
+
     # A few sentences about the organisation, given to the model as context
     # when it drafts a vacancy text. Must not contain names of people.
     VACANCY_ORGANISATION_DESCRIPTION: str = ""
@@ -161,6 +182,17 @@ class Settings(BaseSettings):
     # line with the facts (a month that ended, a deadline that passed).
     # Zero switches the loop off; reading tasks still evaluates them.
     TASKS_EVALUATE_INTERVAL_SECONDS: int = 300
+
+    # The event stream as other systems read it (docs/gebeurtenissen.md).
+    # EVENTS_FEED_KEY: the key a system presents to read the feed. Empty
+    # keeps the feed closed: nothing leaves the instance by default.
+    # INSTANCE_OIN: the organisation identification number, for the source
+    # of a CloudEvent (urn:nld:oin:<OIN>:systeem:grip-<INSTANCE_KEY>).
+    # LOGBOEK_PROCESSING_ACTIVITY_URI: the entry of this processing in the
+    # register of processing activities, for Logboek Dataverwerkingen.
+    EVENTS_FEED_KEY: str = ""
+    INSTANCE_OIN: str = ""
+    LOGBOEK_PROCESSING_ACTIVITY_URI: str = ""
 
     CORS_ORIGINS: list[str] = Field(default_factory=list)
 

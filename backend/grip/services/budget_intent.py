@@ -438,6 +438,15 @@ async def _release(
         reservation.from_budget = False
         reservation.period_source = periods.OWN
         await session.flush()
+        record_audit(
+            session,
+            actor=actor,
+            action=UPDATE,
+            entity="allocation",
+            entity_id=reservation.id,
+            old_value={"from_budget": True},
+            new_value={"from_budget": False, "period_source": periods.OWN},
+        )
 
 
 async def _follow(

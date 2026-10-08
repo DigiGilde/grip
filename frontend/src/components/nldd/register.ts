@@ -30,13 +30,17 @@ import '@nldd/design-system/menu';
 import '@nldd/design-system/toolbar';
 
 // Content
+import '@nldd/design-system/identity';
 import '@nldd/design-system/title';
 
 // Navigation
+import '@nldd/design-system/menu-bar';
+import '@nldd/design-system/menu-bar-item';
 import '@nldd/design-system/skip-link';
 import '@nldd/design-system/tab-bar';
 
 // Status and feedback
+import '@nldd/design-system/badge';
 import '@nldd/design-system/banner';
 import '@nldd/design-system/activity-indicator';
 import '@nldd/design-system/inline-dialog';

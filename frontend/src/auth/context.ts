@@ -9,7 +9,13 @@ export type AuthState =
   | { status: 'no-access' }
   /** Invited to sign a quote, without a person record: the signing pages only. */
   | { status: 'guest'; guest: AuthGuest }
-  | { status: 'authenticated'; person: AuthPerson; functions: string[] };
+  | {
+      status: 'authenticated';
+      person: AuthPerson;
+      functions: string[];
+      /** Kinds of relation, for the navigation only; absent means none known. */
+      relations?: string[];
+    };
 
 export interface AuthContextValue {
   state: AuthState;

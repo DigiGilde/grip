@@ -40,6 +40,9 @@ async def accept_received_quote(
     *,
     actor: Person,
     signer_function: str | None = None,
+    signed_at: datetime | None = None,
+    evidence_id: UUID | None = None,
+    statement_hash: str | None = None,
 ) -> QuoteAcceptance:
     """Accept a received quote on behalf of this instance, and sign that.
 
@@ -49,7 +52,9 @@ async def accept_received_quote(
     settings = get_settings()
     quote = await quotes.get_quote(db, quote_id)
     acceptance_id = uuid.uuid4()
-    signed_at = datetime.now(UTC)
+    # With a statement of the decision (grip.proof), the time is the one in
+    # the statement, so the signed message and the statement agree.
+    signed_at = signed_at or datetime.now(UTC)
     organisation = own_reference(settings)
     # The message as the contractor will receive it. Every value here is
     # what the domain event will carry, so the signature keeps fitting.
@@ -77,6 +82,8 @@ async def accept_received_quote(
         signed_at=signed_at,
         jws=jws,
         acceptance_id=acceptance_id,
+        evidence_id=evidence_id,
+        statement_hash=statement_hash,
     )
 
 
@@ -86,6 +93,9 @@ async def reject_received_quote(
     *,
     actor: Person,
     reason: str | None = None,
+    rejected_at: datetime | None = None,
+    evidence_id: UUID | None = None,
+    statement_hash: str | None = None,
 ) -> QuoteRejection:
     quote = await quotes.get_quote(db, quote_id)
     return await quotes.reject_quote(
@@ -95,4 +105,7 @@ async def reject_received_quote(
         actor=actor,
         reason=reason,
         organisation=own_reference(),
+        rejected_at=rejected_at,
+        evidence_id=evidence_id,
+        statement_hash=statement_hash,
     )

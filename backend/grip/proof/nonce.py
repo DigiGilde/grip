@@ -2,8 +2,9 @@
 
 An OpenID Connect authorization request may carry a nonce, and the identity
 provider puts it, unchanged, in the ID token it signs. Grip derives that
-nonce from the decision: the fingerprint of the quote, what is decided, the
-reference people know the quote by, and a random value. The provider's
+nonce from the decision: the fingerprint of the quote's content, the hash
+of the file the person was shown, what is decided, the reference people
+know the quote by, and a random value. The provider's
 signature then covers a value that only fits this quote and this decision.
 
 The inputs are kept and written into the statement, so anyone can compute
@@ -24,6 +25,18 @@ from grip.proof.jose import b64url
 NONCE_VERSION = 1
 ACTIONS = ("accept", "reject", "approve", "send_back")
 
+# A statement and its nonce are read outside this instance, by the other
+# party and by whoever checks a bundle later. Like the contract between
+# instances they are written in Dutch terms (ADR 0019); the code keeps its
+# English names and translates here, in one place.
+DECISION_TERMS = {
+    "accept": "akkoord",
+    "reject": "afwijzing",
+    "approve": "goedkeuring",
+    "send_back": "teruggestuurd",
+}
+DECISION_CODES = {term: code for code, term in DECISION_TERMS.items()}
+
 
 def new_salt() -> str:
     """A fresh random value, 256 bits, as hex."""
@@ -31,17 +44,23 @@ def new_salt() -> str:
 
 
 def nonce_inputs(
-    *, quote_fingerprint: str, action: str, reference: str | None, salt: str
+    *,
+    quote_fingerprint: str,
+    action: str,
+    reference: str | None,
+    salt: str,
+    document_sha256: str | None = None,
 ) -> dict[str, Any]:
     """The inputs of a nonce, as they are stored and written into a statement."""
     if action not in ACTIONS:
         raise ValueError(f"unknown action: {action}")
     return {
-        "version": NONCE_VERSION,
-        "quote_fingerprint": quote_fingerprint,
-        "action": action,
-        "reference": reference or "",
-        "salt": salt,
+        "versie": NONCE_VERSION,
+        "vingerafdruk": quote_fingerprint,
+        "bestand_sha256": document_sha256 or "",
+        "besluit": DECISION_TERMS[action],
+        "kenmerk": reference or "",
+        "zout": salt,
     }
 
 
@@ -52,11 +71,12 @@ def compute_nonce(inputs: dict[str, Any]) -> str:
     whitespace give the same bytes as RFC 8785 would.
     """
     members = {
-        "version": int(inputs["version"]),
-        "quote_fingerprint": str(inputs["quote_fingerprint"]),
-        "action": str(inputs["action"]),
-        "reference": str(inputs.get("reference") or ""),
-        "salt": str(inputs["salt"]),
+        "versie": int(inputs["versie"]),
+        "vingerafdruk": str(inputs["vingerafdruk"]),
+        "bestand_sha256": str(inputs.get("bestand_sha256") or ""),
+        "besluit": str(inputs["besluit"]),
+        "kenmerk": str(inputs.get("kenmerk") or ""),
+        "zout": str(inputs["zout"]),
     }
     canonical = json.dumps(
         members, separators=(",", ":"), sort_keys=True, ensure_ascii=False

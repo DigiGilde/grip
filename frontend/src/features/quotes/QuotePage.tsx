@@ -20,6 +20,7 @@ import {
   recordRejection,
   recordUploadedAcceptance,
   renewInvitation,
+  resendSigningMail,
   withdrawInvitation,
   type OfferChannel,
   type QuotePreview,
@@ -33,6 +34,7 @@ import {
   withdrawApproval,
 } from './approval';
 import { OfferSheet } from './OfferSheet';
+import { fetchQuoteEvidence, proofKeys } from './proof';
 import { EarlierQuoteRow, QuoteCard, type CardAction } from './QuoteCard';
 import { QuoteContentTable } from './QuoteContentTable';
 import { partMonthNote, rateChangeNote } from './format';
@@ -89,6 +91,14 @@ export function QuotePage() {
     enabled: current !== null,
   });
   const approval = approvals.data?.items?.find((item) => item.quote_id === current?.id) ?? null;
+  // The proof of the client's decision, for a quote that was decided.
+  const decided = current?.status === 'accepted' || current?.status === 'rejected';
+  const evidence = useQuery({
+    queryKey: proofKeys.ofQuote(current?.id ?? ''),
+    queryFn: () => fetchQuoteEvidence(current?.id ?? ''),
+    enabled: decided,
+    retry: false,
+  });
   const navigate = useNavigate();
   const { state: auth } = useAuth();
   const isAdmin = auth.status === 'authenticated' && auth.functions.includes('beheerder');
@@ -148,6 +158,8 @@ export function QuotePage() {
     else if (action.kind === 'withdraw-approval') act(() => withdrawApproval(current.id));
     else if (action.kind === 'withdraw-link') {
       act(() => withdrawInvitation(current.id, action.invitationId));
+    } else if (action.kind === 'resend-mail') {
+      act(() => resendSigningMail(current.id, action.invitationId));
     } else act(() => renewInvitation(current.id, action.invitationId));
   };
 
@@ -155,11 +167,11 @@ export function QuotePage() {
   const title = data ? `Offerte ${data.assignment_name}` : 'Offerte';
   const waiting = current?.status === 'issued';
   // A new quote is in order when none is out, or the budget moved since.
+  // The server compares the content, so a change that keeps the total counts too.
   const budgetMoved =
     waiting &&
-    data?.content !== undefined &&
-    current?.total_cents !== undefined &&
-    data.content.total_cents !== current.total_cents;
+    list.data?.budget_moved === true &&
+    list.data.budget_compared_quote_id === current?.id;
   const canIssue = Boolean(data?.may_issue && data.can_issue);
   const showPreview = Boolean(data?.may_issue) && current?.status !== 'accepted' && !waiting;
   const difference = data ? differenceText(data) : null;
@@ -225,12 +237,18 @@ export function QuotePage() {
                 approval={approvals.isPending ? undefined : approval}
                 mayManage={mayManage}
                 isAdmin={isAdmin}
+                {...(evidence.data ? { evidence: evidence.data.items } : {})}
+                ownerName={shell?.owner_name ?? null}
                 busy={run.isPending}
                 onAction={onCard}
               />
               {budgetMoved && canIssue && data?.content ? (
                 <nldd-container layout="row" gap="16" vertical-alignment="center">
-                  <Quiet>De begroting staat nu op {formatEuro(data.content.total_cents)}.</Quiet>
+                  <Quiet>
+                    {data.content.total_cents === current.total_cents
+                      ? 'De begroting is gewijzigd sinds deze offerte; het totaal is gelijk gebleven.'
+                      : `De begroting is gewijzigd sinds deze offerte en staat nu op ${formatEuro(data.content.total_cents)}.`}
+                  </Quiet>
                   <Button text="Maak nieuwe offerte" size="sm" onClick={() => open('issue')} />
                 </nldd-container>
               ) : null}
@@ -296,6 +314,7 @@ export function QuotePage() {
       <OfferSheet
         open={dialog === 'offer'}
         channels={detail.data?.channels ?? []}
+        mailsLink={detail.data?.signing_link_mail === true}
         busy={run.isPending}
         error={dialog === 'offer' ? formError : null}
         onClose={close}

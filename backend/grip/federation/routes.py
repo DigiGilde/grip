@@ -29,6 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip.core.config import Settings, get_settings
 from grip.core.database import get_db
+from grip.events import context as event_context
 from grip.federation import signing, terms
 from grip.federation.contract_loader import (
     SERVICE_OPDRACHTVERKEER,
@@ -195,6 +196,9 @@ async def receive(
     """
     message_id = UUID(payload["id"])
     digest = signing.payload_hash(payload)
+    # Everything this message causes is the peer's doing and shares one id.
+    event_context.set_peer(peer.peer_id)
+    event_context.update(correlation_id=message_id.hex)
 
     existing = await _find_inbox(db, peer, message_id)
     if existing is not None:

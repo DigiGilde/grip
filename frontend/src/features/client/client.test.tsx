@@ -10,6 +10,7 @@ import { ClientPage } from './ClientPage';
 import { deliveryText } from './labels';
 import { clientAssignmentPath, clientPath, receivedQuotePath } from './paths';
 import { ReceivedQuotePage } from './ReceivedQuotePage';
+import { navigation } from '@/features/quotes/proof';
 import { validateRequest } from './requestForm';
 import { RequestQuotePage } from './RequestQuotePage';
 
@@ -25,7 +26,12 @@ const ASSIGNMENT = {
   end_date: '2027-06-30',
   created_at: '2026-06-01T09:00:00Z',
   context_count: 1,
-  latest_quote: { id: 'q-1', status: 'issued', issued_at: '2026-06-02T10:00:00Z', total_cents: 8640000 },
+  latest_quote: {
+    id: 'q-1',
+    status: 'issued',
+    issued_at: '2026-06-02T10:00:00Z',
+    total_cents: 8640000,
+  },
   request_delivery: {
     operation: 'sendAssignmentRequest',
     status: 'sent',
@@ -77,18 +83,18 @@ describe('validateRequest', () => {
   it('asks for a contractor, a name and a period in order', () => {
     expect(validateRequest({ ...valid, contractor: '' })).toContain('opdrachtnemer');
     expect(validateRequest({ ...valid, name: '  ' })).toContain('naam');
-    expect(
-      validateRequest({ ...valid, startDate: '2027-01-01', endDate: '2026-01-01' }),
-    ).toContain('einddatum');
+    expect(validateRequest({ ...valid, startDate: '2027-01-01', endDate: '2026-01-01' })).toContain(
+      'einddatum',
+    );
   });
 });
 
 describe('deliveryText', () => {
   it('says whether the other side has the message', () => {
     expect(deliveryText(null)).toBe('Niet verstuurd');
-    expect(
-      deliveryText({ operation: 'sendAcceptance', status: 'pending', queued_at: '' }),
-    ).toBe('Het akkoord wacht op verzending');
+    expect(deliveryText({ operation: 'sendAcceptance', status: 'pending', queued_at: '' })).toBe(
+      'Het akkoord wacht op verzending',
+    );
     expect(
       deliveryText({ operation: 'sendAssignmentRequest', status: 'sent', queued_at: '' }),
     ).toBe('De aanvraag is aangekomen bij de opdrachtnemer');
@@ -166,7 +172,12 @@ describe('RequestQuotePage', () => {
         may_request: true,
         problem: 'Het verkeer met andere organisaties staat uit in deze instantie.',
         contractors: [
-          { peer_id: 'p-1', name: 'Voorbeeldgilde', base_uri: 'https://x.example', reachable: true },
+          {
+            peer_id: 'p-1',
+            name: 'Voorbeeldgilde',
+            base_uri: 'https://x.example',
+            reachable: true,
+          },
         ],
       },
       '/api/nodes/corpora': {
@@ -230,6 +241,55 @@ describe('ReceivedQuotePage', () => {
     expect(container.textContent).toContain('ab'.repeat(32));
     expect(texts(container, 'nldd-button')).toEqual(
       expect.arrayContaining(['Geef akkoord', 'Wijs af']),
+    );
+  });
+
+  it('sends an acceptance through the login and decides nothing before the return', async () => {
+    const go = vi.spyOn(navigation, 'go').mockImplementation(() => {});
+    const { calls } = mockApi({
+      '/api/received-quotes/q-1': DETAIL,
+      '/api/proof/intents': {
+        id: 'in-1',
+        authorize_url: '/api/proof/intents/in-1/authorize',
+        expires_at: '2026-02-03T10:05:00Z',
+        reauthentication: true,
+      },
+    });
+    const { container } = renderAt(
+      receivedQuotePath('q-1'),
+      PATHS.receivedQuote,
+      <ReceivedQuotePage />,
+    );
+    await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
+    expect(container.textContent).toContain('Daarna is je akkoord vastgelegd.');
+    [...container.querySelectorAll('nldd-button')]
+      .find((el) => el.getAttribute('text') === 'Geef akkoord')
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const dialog = await waitFor(() => {
+      const found = [...document.body.querySelectorAll('nldd-button')].filter(
+        (el) => el.getAttribute('text') === 'Geef akkoord',
+      );
+      expect(found.length).toBeGreaterThan(1);
+      return found[found.length - 1] as Element;
+    });
+    dialog.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await waitFor(() => expect(go).toHaveBeenCalledWith('/api/proof/intents/in-1/authorize'));
+    // Only the intent was asked for; the old route that decides at once is not used.
+    expect(calls).toContain('/api/proof/intents');
+    expect(calls.some((url) => url.includes('/acceptance'))).toBe(false);
+    go.mockRestore();
+  });
+
+  it('says that nothing was recorded when the browser returns with an error', async () => {
+    mockApi({ '/api/received-quotes/q-1': DETAIL });
+    const { container } = renderAt(
+      `${receivedQuotePath('q-1')}?besluit_fout=verlopen`,
+      PATHS.receivedQuote,
+      <ReceivedQuotePage />,
+    );
+    await waitFor(() => expect(container.querySelector('[data-decision-error]')).not.toBeNull());
+    expect(container.querySelector('[data-decision-error]')?.getAttribute('supporting-text')).toBe(
+      'Het duurde te lang tussen je keuze en het inloggen.',
     );
   });
 
@@ -415,20 +475,20 @@ describe('AdminPage', () => {
     expect(items).toEqual([
       PATHS.rates,
       PATHS.quoteSettings,
+      PATHS.quoteSender,
       PATHS.peers,
       PATHS.organisations,
       PATHS.roles,
       PATHS.vacancySetup,
       PATHS.functionFramework,
       PATHS.wiesProposals,
+      PATHS.activity,
     ]);
   });
 
   it('tells anyone else that it is for the beheerder', () => {
     const { container } = renderApp(<AdminPage />, { path: PATHS.admin });
     expect(container.querySelector('nldd-list')).toBeNull();
-    expect(texts(container, 'nldd-inline-dialog')).toEqual([
-      'Beheer is voor beheerders',
-    ]);
+    expect(texts(container, 'nldd-inline-dialog')).toEqual(['Beheer is voor beheerders']);
   });
 });

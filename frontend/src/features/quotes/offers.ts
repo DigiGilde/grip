@@ -195,3 +195,14 @@ export function invitationMessage(input: {
 export function channelReason(reason: string | null | undefined): string {
   return reason?.trim() || 'Dit kan nu niet.';
 }
+
+/** What happened to the mail with the signing link, in words; null without one. */
+export function mailLine(offer: QuoteOffer): string | null {
+  const mail = offer.mail;
+  if (!mail) return null;
+  if (mail.state === 'sent') return `Gemaild op ${formatDate(mail.sent_at ?? mail.queued_at)}`;
+  if (mail.state === 'failed') {
+    return `Mail niet afgeleverd${mail.failed_reason ? `: ${mail.failed_reason}` : ''}`;
+  }
+  return 'Wordt gemaild';
+}

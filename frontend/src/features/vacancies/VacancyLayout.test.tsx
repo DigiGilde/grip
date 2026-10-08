@@ -231,6 +231,7 @@ describe('the header of a vacancy', () => {
       ['Tekst', false],
       ['Procedure', false],
       ['Vervulling', false],
+      ['Geschiedenis', false],
     ]);
     // The step is done on another tab: the one primary action leads there.
     expect(primaryOnPage(container)).toEqual(['Naar advies en akkoord']);
@@ -240,7 +241,7 @@ describe('the header of a vacancy', () => {
   it('leaves out the tab a reader has nothing on', () => {
     expect(visibleTabs(REQUESTED)).toContain('fulfilment');
     const reader = { ...REQUESTED, permissions: NO_PERMISSIONS };
-    expect(visibleTabs(reader)).toEqual(['request', 'tasks', 'decisions', 'text', 'procedure']);
+    expect(visibleTabs(reader)).toEqual(['request', 'tasks', 'decisions', 'text', 'procedure', 'history']);
     expect(visibleTabs(PUBLIC)).toEqual([]);
   });
 

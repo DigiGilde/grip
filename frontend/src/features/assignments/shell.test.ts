@@ -14,15 +14,22 @@ describe('visibleTabs', () => {
       'budget',
       'quote',
       'monthClose',
+      'history',
     ]);
   });
 
   it('gives a planner the people, and the monthly close, but no money', () => {
-    expect(visibleTabs(PERMISSIONS.planner)).toEqual(['overview', 'tasks', 'staffing', 'monthClose']);
+    expect(visibleTabs(PERMISSIONS.planner)).toEqual([
+      'overview',
+      'tasks',
+      'staffing',
+      'monthClose',
+      'history',
+    ]);
   });
 
   it('gives a team member the team by name and nothing else', () => {
-    expect(visibleTabs(PERMISSIONS.member)).toEqual(['overview', 'tasks', 'staffing']);
+    expect(visibleTabs(PERMISSIONS.member)).toEqual(['overview', 'tasks', 'staffing', 'history']);
   });
 
   it('gives a lezer the money and no people', () => {
@@ -33,11 +40,12 @@ describe('visibleTabs', () => {
       'budget',
       'quote',
       'monthClose',
+      'history',
     ]);
   });
 
-  it('leaves only the overview and the tasks without any permission', () => {
-    expect(visibleTabs(NO_PERMISSIONS)).toEqual(['overview', 'tasks']);
+  it('leaves the overview, the tasks and the history without any permission', () => {
+    expect(visibleTabs(NO_PERMISSIONS)).toEqual(['overview', 'tasks', 'history']);
   });
 });
 
@@ -52,7 +60,11 @@ describe('list views', () => {
   });
 
   it('counts per phase', () => {
-    const items = [assignment(), assignment({ phase: 'potential' }), assignment({ phase: 'potential' })];
+    const items = [
+      assignment(),
+      assignment({ phase: 'potential' }),
+      assignment({ phase: 'potential' }),
+    ];
     expect(countByPhase(items)).toEqual({ potential: 2, active: 1, closed: 0 });
   });
 

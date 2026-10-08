@@ -235,4 +235,12 @@ async def test_connection(
     peer.jwks_fetched_at = datetime.now(UTC)
     await db.flush()
     keys = len(jwks.get("keys", []))
+    record_audit(
+        db,
+        actor=None,
+        action=UPDATE,
+        entity="peer",
+        entity_id=peer.id,
+        new_value={"keys_fetched": keys},
+    )
     return result(True, f"Verbinding in orde; {keys} sleutel(s) ontvangen.", 200, keys)

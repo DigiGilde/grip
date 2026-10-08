@@ -513,6 +513,14 @@ async def set_step(
         raise _wrap(exc) from exc
 
     step = next((s for s in vacancy.steps if s.kind == kind.value), None)
+    old = (
+        {
+            "started_on": step.started_on.isoformat(),
+            "ended_on": step.ended_on.isoformat() if step.ended_on else None,
+        }
+        if step is not None
+        else None
+    )
     if step is None:
         step = VacancyStep(
             vacancy_id=vacancy.id,
@@ -529,6 +537,21 @@ async def set_step(
         if note is not None:
             step.note = note
     await db.flush()
+    # The actor is whoever makes the request (grip.events.context).
+    record_audit(
+        db,
+        actor=None,
+        action=CREATE if old is None else UPDATE,
+        entity="vacancy_step",
+        entity_id=step.id,
+        old_value=old,
+        new_value={
+            "kind": kind.value,
+            "started_on": started_on.isoformat(),
+            "ended_on": ended_on.isoformat() if ended_on else None,
+        },
+        vacancy_id=vacancy.id,
+    )
     return step
 
 
@@ -659,6 +682,19 @@ async def add_text(
     )
     db.add(text)
     await db.flush()
+    record_audit(
+        db,
+        actor=actor,
+        action=CREATE,
+        entity="vacancy_text",
+        entity_id=text.id,
+        new_value={
+            "kind": kind.value,
+            "source": TextSource.human.value,
+            "based_on_id": str(based_on_id) if based_on_id else None,
+        },
+        vacancy_id=vacancy.id,
+    )
     return text
 
 

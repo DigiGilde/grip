@@ -31,6 +31,7 @@ export const TAB_LABELS: Record<VacancyTabKey, string> = {
   text: 'Tekst',
   procedure: 'Procedure',
   fulfilment: 'Vervulling',
+  history: 'Geschiedenis',
 };
 
 const TAB_ORDER: readonly VacancyTabKey[] = [
@@ -40,6 +41,7 @@ const TAB_ORDER: readonly VacancyTabKey[] = [
   'text',
   'procedure',
   'fulfilment',
+  'history',
 ];
 
 /** True when the reader gets more than the published text of the vacancy. */
@@ -61,6 +63,7 @@ export function visibleTabs(vacancy: Vacancy): VacancyTabKey[] {
     text: true,
     procedure: true,
     fulfilment: vacancy.permissions.can_edit,
+    history: true,
   };
   return TAB_ORDER.filter((tab) => shown[tab]);
 }
