@@ -285,9 +285,7 @@ async def _case_plans(
     if not cases:
         return {}
     ids = [case.case_id for case in cases]
-    rows = (
-        await db.scalars(select(TaskCase).where(TaskCase.case_id.in_(ids)))
-    ).all()
+    rows = (await db.scalars(select(TaskCase).where(TaskCase.case_id.in_(ids)))).all()
     known = {(row.case_kind, row.case_id): row for row in rows}
     plans: dict[UUID, Plan] = {}
     for case in cases:

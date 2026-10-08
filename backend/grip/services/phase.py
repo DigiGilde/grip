@@ -66,7 +66,7 @@ _COMMITMENTS: dict[str, Commitment] = {
 STATUS_LABELS: dict[str, str] = {
     "draft": "In voorbereiding",
     "requested": "Aangevraagd",
-    "quoted": "Offerte uitgegeven",
+    "quoted": "Offerte gemaakt",
     VERBALLY_AGREED: "Mondeling akkoord",
     "accepted": "Akkoord",
     "in_progress": "In uitvoering",

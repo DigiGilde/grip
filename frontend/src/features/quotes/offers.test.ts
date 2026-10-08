@@ -56,7 +56,7 @@ describe('quoteSteps', () => {
 
   it('names the decision once there is one', () => {
     const accepted = quoteSteps({ ...QUOTE, status: 'accepted' }, [DOCUMENT]);
-    expect(accepted.map((step) => step.text)).toEqual(['Uitgegeven', 'Aangeboden', 'Getekend']);
+    expect(accepted.map((step) => step.text)).toEqual(['Gemaakt', 'Aangeboden', 'Getekend']);
     expect(accepted.every((step) => step.status === 'past')).toBe(true);
     expect(quoteSteps({ ...QUOTE, status: 'rejected' }, [])[2]?.text).toBe('Afgewezen');
   });

@@ -127,7 +127,9 @@ async def test_a_cancelled_assignment_drops_its_open_tasks(db_session, build, ev
 # --- the client's side ----------------------------------------------------------
 
 
-async def test_a_received_quote_is_work_for_the_client_only(db_session, build, evaluate):
+async def test_a_received_quote_is_work_for_the_client_only(
+    db_session, build, evaluate
+):
     us = await build.organisation("Wij als opdrachtgever", instance_uri=INSTANCE)
     assignment = await build.assignment(status="quoted", client=us)
     await build.line(assignment)
@@ -166,12 +168,16 @@ async def test_an_unfilled_role_is_a_task_until_it_is_staffed(
 
     await build.allocation(line, person, pct="100")
     await evaluate()
-    by_title = {t.title: t for t in await tasks(db_session, key="bemensing.rol_invullen")}
+    by_title = {
+        t.title: t for t in await tasks(db_session, key="bemensing.rol_invullen")
+    }
     assert by_title["Vul de rol Developer in"].status == "done"
     assert by_title["Vul de rol Ontwerper in"].status == "todo"
 
 
-async def test_a_draft_nobody_has_seen_asks_for_no_staffing(db_session, build, evaluate):
+async def test_a_draft_nobody_has_seen_asks_for_no_staffing(
+    db_session, build, evaluate
+):
     assignment = await build.assignment(status="draft")
     await build.line(assignment)
     await evaluate()
@@ -416,7 +422,9 @@ async def test_a_person_s_choices_survive_the_engine(
     assert (task.status, task.assignee_person_id) == ("doing", someone.id)
 
 
-async def test_a_manual_task_is_never_touched(db_session, build, evaluate, create_person):
+async def test_a_manual_task_is_never_touched(
+    db_session, build, evaluate, create_person
+):
     someone = await create_person("iemand@example.org")
     assignment = await build.assignment(status="cancelled")
     db_session.add(

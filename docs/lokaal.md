@@ -27,6 +27,7 @@ just local-nuke         # stoppen en alles van deze omgeving weggooien
 | `just local-up sso` | Dezelfde instantie met login via SSO Rijk |
 | `just local-up fsc` | Twee instanties met FSC ertussen |
 | `just local-up fsc-keycloak` | Hetzelfde, met de lokale Keycloak |
+| `just local-up fsc-corpus` | Twee instanties met FSC, plus een derde deelnemer voor de lokale Bouwmeester |
 
 ## Een instantie
 
@@ -114,17 +115,116 @@ De CA zelf heeft ook een organisatie in het onderwerp nodig. Zonder weigert de i
 
 Maak je de certificaten opnieuw (`fsc-pki.sh --fresh`), gooi dan ook de FSC-databases weg: de contracten zijn met de oude sleutels getekend. `just local-nuke` doet beide.
 
+## Bouwmeester en Wies ernaast
+
+Grip staat niet alleen. De context van een opdracht komt uit een corpus in Bouwmeester, en de mensen komen uit Wies. Beide draaien lokaal mee, vanuit hun eigen checkout.
+
+Wat je uitgecheckt moet hebben:
+
+| Repository | Branch | Eenmalig in de checkout |
+|---|---|---|
+| Bouwmeester | `feat/opdrachten-bij-node` (bevat ook `feat/corpus-context`) | `uv sync` in `backend/`, `npm install` in `frontend/` |
+| Wies | `feat/grip-koppeling` | `uv sync` |
+
+Van geen van beide wordt een image gebouwd. De applicaties draaien op je machine vanuit de checkout; alleen hun database is een container. De poorten zijn zo gekozen dat een eigen Bouwmeester op 5433, 8000 en 5173 blijft werken.
+
+| Onderdeel | Adres | Starten | Stoppen |
+|---|---|---|---|
+| Bouwmeester | http://localhost:9220 | `just bouwmeester-up <checkout>` | `just bouwmeester-down` |
+| Wies | http://localhost:9310 | `just wies-up <checkout>` | `just wies-down` |
+| Dev outway en de federatielistener van grip | poort 9230 en 9231 | `just dev-link-up` | `just dev-link-down` |
+
+Het pad naar de checkout geef je de eerste keer mee; daarna is het onthouden. Logbestanden staan in `deploy/local/state/`.
+
+### Bouwmeester
+
+`just bouwmeester-up` start de database, voert de migraties uit, laadt de voorbeeldgegevens van Bouwmeester zelf, en start de backend, de dienst corpus-context en de frontend. Zonder de sleutel van de versleutelde personenlijst maakt de seed van Bouwmeester plaatshouders voor personen; er gaat niets naar buiten.
+
+Het corpus heet `https://corpus.voorbeeldministerie.localhost`. Dat adres ziet eruit als een duurzaam domein en bestaat nergens: grip bereikt het corpus via zijn outway, zoals in het echt.
+
+### Grip en Bouwmeester zonder FSC
+
+Voor dagelijks ontwikkelen is een volledige FSC-groep te zwaar. De dev outway (`backend/grip/dev/dev_outway.py`) doet wat een outway en een inway samen doen: hij zoekt de grant hash van een verzoek op in een routesbestand, stuurt het verzoek door naar de dienst van de andere partij en zet het peer-id van de aanroeper in de header die een echte inway zet. Beide applicaties draaien daardoor hun echte federatiecode. Het routesbestand is het hele vertrouwensmodel, dus dit hoort alleen op je eigen machine.
+
+```
+just bouwmeester-up <checkout>
+just dev-link-up
+just dev-link-peers
+```
+
+`dev-link-peers` meldt grip aan in Bouwmeester (rol grip) en Bouwmeester in grip (rol corpus, op de basis-URI van het corpus). Een grant hash is hier gewoon een naam die beide kanten kennen.
+
+Daarna start je de backend van grip met de outway erbij:
+
+```
+cd backend
+env $(../deploy/local/dev-link.sh env) uv run uvicorn grip.core.app:create_app --factory --port 8010
+```
+
+Een verzoek met een grant hash die de dev outway niet kent gaat door naar het stand-in corpus van `just corpus-standin`. Opdrachten die naar dat corpus verwijzen blijven dus werken.
+
+De federatielistener van grip leest de database die je opgeeft met `GRIP_DATABASE_URL`; dat moet dezelfde zijn als die van je backend. Met `DEV_LINK_SOURCE=head` draait de listener vanaf de laatste commit in plaats van vanaf je werkmap.
+
+Wat je ziet:
+
+- In grip, op het tabblad Context van een opdracht: de nodes uit Bouwmeester met hun keten naar de politieke input.
+- In Bouwmeester, op de pagina van een doel, instrument of maatregel: de kaart "Opdrachten in grip" met fase, periode, begroot en besteed.
+
+Een beperking: Bouwmeester toont alleen opdrachten waarvan opdrachtgever en opdrachtnemer een TOOI-URI hebben, want het contract eist die. De voorbeeldgegevens van `just seed` gebruiken eigen fictieve adressen voor organisaties; daarmee weigert de listener van grip het eigen antwoord.
+
+### Wies
+
+`just wies-up` start de database, voert de migraties uit, laadt de kleine set voorbeeldgegevens van Wies en start de website. Je bent ingelogd als de eerste beheerder. De twee sleutels van de koppeling worden gegenereerd in `deploy/local/state/wies/keys.env`.
+
+```
+cd backend
+env $(../deploy/local/wies.sh env) $(../deploy/local/dev-link.sh env) uv run uvicorn grip.core.app:create_app --factory --port 8010
+```
+
+Daarna:
+
+- Grip leest collega's en vaardigheden uit Wies. Onder Beheer staat het voorstel om de personen bij te werken; `just sync-roles` neemt de vaardigheden over als rollen.
+- `just wies-sync` laat Wies opdrachten, rollen en plaatsingen uit grip ophalen. Open rollen staan daarna in Wies onder Aanvragen.
+- Een aanstaande collega in grip staat na de sync in Wies onder "Voorstellen uit grip" op `/beheer/database/`.
+
+De voorbeeldgegevens van grip en van Wies kennen elkaars mensen niet. Het voorstel in grip is daarom "iedereen toevoegen, iedereen uitschakelen", en Wies neemt de rollen over maar geen plaatsingen. Dat is juist: de sync maakt nooit zelf een persoon aan.
+
+### Bouwmeester als derde deelnemer in FSC
+
+`just local-up fsc-corpus` voegt een derde deelnemer aan de groep toe, met een eigen manager, controller, inway, outway en transactielog. Bouwmeester zelf blijft op je machine draaien: de inway van deze deelnemer bereikt daar de dienst corpus-context, en Bouwmeester bereikt de outway op http://localhost:9240.
+
+| | Deelnemer C |
+|---|---|
+| Naam | Corpus Voorbeeldministerie |
+| Peer-id | 01700000000000000003 |
+| Dienst | `corpus-context` |
+| FSC-controller | http://localhost:9103 |
+
+```
+just bouwmeester-up <checkout>
+just local-up fsc-corpus
+just local-fsc-init
+just local-fsc-corpus-init
+```
+
+`local-fsc-corpus-init` publiceert `corpus-context` vanaf de inway van deelnemer C, sluit contracten in beide richtingen (de grip-instanties naar `corpus-context`, deelnemer C naar `grip-opdrachtverkeer` van elke grip-instantie), zet het corpus in het peerregister van grip en de grip-instanties in de peertabel van Bouwmeester.
+
+Bouwmeester heeft een adres voor zijn outway. Draait de dev outway, dan geeft die de grant hashes van FSC door aan de echte outway van deelnemer C. Zo toont dezelfde Bouwmeester de grip waar je aan ontwikkelt en de grips achter FSC naast elkaar. Zonder dev outway start je Bouwmeester met `BOUWMEESTER_OUTWAY_URL=http://localhost:9240`.
+
 ## Wat hiermee is aangetoond
 
 - De images bouwen en een instantie draait achter nginx, met migraties bij het starten.
 - De login werkt tegen een echte identiteitsprovider, van doorsturen tot uitloggen, voor een bekende en een onbekende persoon, op beide instanties.
 - Een bericht van grip gaat via outway en inway van de ene instantie naar de andere, en de ontvanger herkent de afzender aan het peer-id.
+- Grip haalt een node en de keten op bij Bouwmeester, en Bouwmeester haalt de opdrachten bij een node op bij grip, beide via outway en inway van FSC.
+- Wies haalt opdrachten en open rollen op uit grip, grip leest collega's en vaardigheden uit Wies, en een aanstaande collega komt in Wies aan als voorstel.
 
 Wat het niet aantoont: iets over het platform zelf. Hostnamen, TLS in de pod, het aantal componenten per project en het register voor de FSC-images blijven vragen voor het platformteam.
 
 ## Als het niet werkt
 
-- **De API geeft een vreemd antwoord na een herstart van de backend.** nginx zoekt het adres van de backend een keer op, bij het starten. In deze omgeving start nginx daarom mee opnieuw; start je de backend met de hand, herstart dan ook `frontend-a`.
+- **De API geeft een vreemd antwoord na een herstart van de backend.** nginx zoekt het adres van de backend een keer op, bij het starten. Start je alles met `just local-up`, dan start nginx mee opnieuw. Maak je alleen een backend opnieuw aan, maak dan ook `frontend-a` of `frontend-b` opnieuw aan; anders praat nginx met wat er nu op het oude adres staat, en dat kan de andere instantie zijn.
+- **Bouwmeester meldt dat een grip-instantie geen antwoord geeft.** Kijk in `deploy/local/state/dev-link/grip-federation.log`. Meestal loopt het schema van de database achter op de code (`just migrate`), of voldoet een opdracht niet aan het contract.
 - **Na inloggen ben je toch niet ingelogd.** Kijk in de log van de backend naar "is not HTTPS". De provider moet https zijn.
 - **`CERTIFICATE_VERIFY_FAILED` in de log van de backend.** De bundel in `state/tls/` hoort bij een andere CA. `just local-nuke` en opnieuw starten.
 - **De inway meldt `INVALID_CERTIFICATE`.** De groepscertificaten zijn van voor een wijziging in `fsc-pki.sh`. Maak ze opnieuw en gooi de FSC-databases weg.

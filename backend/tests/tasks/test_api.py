@@ -258,7 +258,9 @@ async def test_a_manual_task_from_start_to_finish(as_person, world):
     assert (await member.get("/api/tasks/mine")).json().get("items", []) == []
 
 
-@pytest.mark.parametrize(("who", "status"), [("lezer", 403), ("member", 403), ("outsider", 404)])
+@pytest.mark.parametrize(
+    ("who", "status"), [("lezer", 403), ("member", 403), ("outsider", 404)]
+)
 async def test_who_cannot_add_a_task(as_person, world, who, status):
     response = await as_person(getattr(world, who)).post(
         "/api/tasks",

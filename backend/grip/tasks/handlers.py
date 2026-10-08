@@ -16,7 +16,9 @@ from grip.services import events
 from grip.tasks import engine
 
 
-async def _on_event(session: AsyncSession, event_type: str, payload: dict[str, Any]) -> None:
+async def _on_event(
+    session: AsyncSession, event_type: str, payload: dict[str, Any]
+) -> None:
     await engine.invalidate(session)
 
 

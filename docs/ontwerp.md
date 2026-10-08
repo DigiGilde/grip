@@ -111,7 +111,9 @@ Een rij in een lijst of tabel is nooit een kop.
 | Aangeleverd | Factuurgegevens zijn doorgegeven aan de financiële administratie |
 | Gefactureerd | Er is een factuur verstuurd en vastgelegd |
 | Potentiële opdracht | Een opdracht tot het akkoord |
-| Aanbieden | Een uitgegeven offerte naar de opdrachtgever brengen |
+| Offerte maken | De begroting vastleggen als offerte. Daarna wijzigt de offerte niet meer; ze krijgt een kenmerk |
+| Aanbieden | Een gemaakte offerte naar de opdrachtgever brengen |
+| Getekend, afgewezen | De beslissing van de opdrachtgever over een aangeboden offerte |
 | Rechten in grip | Wat iemand in grip mag: beheerder, planner, lezer, aanvrager, tekenbevoegde |
 | Aanvraag voorbereiden, aanvragen, advies en akkoord, openstellen, vervullen | De stappen van een vacature |
 

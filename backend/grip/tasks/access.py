@@ -61,9 +61,7 @@ class TaskAccess:
         rights = self._assignments.get(assignment_id)
         if rights is None:
             resource = Resource.assignment(assignment_id)
-            read = await self._may(
-                Action.READ, resource, DataClass.ASSIGNMENT_BASIC
-            )
+            read = await self._may(Action.READ, resource, DataClass.ASSIGNMENT_BASIC)
             edit = read and (
                 await self._may(Action.EDIT, resource, DataClass.ASSIGNMENT_BASIC)
                 or await self._may(Action.EDIT, resource, DataClass.STAFFING)

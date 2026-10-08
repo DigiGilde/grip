@@ -6,7 +6,7 @@
 #
 #   ./dev-link.sh up       dev outway (9230) and grip's federation listener (9231)
 #   ./dev-link.sh peers    register grip in Bouwmeester and Bouwmeester in grip
-#   ./dev-link.sh env      the environment for the grip backend on 8010
+#   ./dev-link.sh env      what the grip backend on 8010 needs in its environment
 #   ./dev-link.sh status | down
 #
 # GRIP_DATABASE_URL says which grip database the listener reads; it must be
@@ -156,8 +156,6 @@ PY
         )
         ;;
     env)
-        echo "DATABASE_URL=$(grip_db)"
-        echo "DEV_NO_AUTH=1"
         echo "OUTWAY_URL=http://localhost:$OUTWAY_PORT"
         ;;
     status)

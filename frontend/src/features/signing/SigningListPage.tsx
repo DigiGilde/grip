@@ -35,7 +35,7 @@ export function SigningListPage() {
         >
           <nldd-table-row slot="header">
             <nldd-text-cell text="Opdracht" />
-            <nldd-text-cell text="Uitgegeven" />
+            <nldd-text-cell text="Gemaakt" />
             <nldd-text-cell text="Geldig tot en met" />
             <nldd-text-cell text="Status" />
             <nldd-text-cell text="Actie" />

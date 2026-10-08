@@ -255,7 +255,7 @@ export function signingLink(path: string): string {
 }
 
 export const QUOTE_STATUS_LABELS: Record<string, string> = {
-  issued: 'Uitgegeven',
+  issued: 'Offerte gemaakt',
   accepted: 'Akkoord',
   rejected: 'Afgewezen',
   superseded: 'Vervangen',

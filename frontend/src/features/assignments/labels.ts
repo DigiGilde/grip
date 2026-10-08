@@ -3,7 +3,7 @@
 export const STATUS_LABELS: Record<string, string> = {
   draft: 'In voorbereiding',
   requested: 'Aangevraagd',
-  quoted: 'Offerte uitgegeven',
+  quoted: 'Offerte gemaakt',
   verbally_agreed: 'Mondeling akkoord',
   accepted: 'Akkoord',
   in_progress: 'In uitvoering',
@@ -17,7 +17,7 @@ export const STATUS_LABELS: Record<string, string> = {
 export const TRANSITION_LABELS: Record<string, string> = {
   draft: 'Terug naar in voorbereiding',
   requested: 'Markeer als aangevraagd',
-  quoted: 'Markeer offerte als uitgegeven',
+  quoted: 'Markeer offerte als gemaakt',
   verbally_agreed: 'Leg mondeling akkoord vast',
   accepted: 'Markeer als akkoord',
   in_progress: 'Start uitvoering',

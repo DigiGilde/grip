@@ -22,13 +22,13 @@ from grip.federation.outbox import enqueue
 
 
 async def main() -> None:
-    example = Path(loader.__file__).parent / "contract/examples/valid/assignment-request.zonder-context.json"
+    example = Path(loader.__file__).parent / "contract/examples/valid/opdrachtaanvraag.zonder-context.json"
     payload = json.loads(example.read_text())
     payload["id"] = os.environ["MSG_ID"]
-    payload["assignment_uri"] = f"http://localhost:9002/id/opdracht/{uuid.uuid4()}"
-    payload["client"]["instance_uri"] = "http://localhost:9002"
-    payload["contractor"]["instance_uri"] = "http://localhost:9001"
-    payload["contractor"]["name"] = "DigiGilde voorbeeld"
+    payload["opdracht_uri"] = f"http://localhost:9002/id/opdracht/{uuid.uuid4()}"
+    payload["opdrachtgever"]["instantie_uri"] = "http://localhost:9002"
+    payload["opdrachtnemer"]["instantie_uri"] = "http://localhost:9001"
+    payload["opdrachtnemer"]["naam"] = "DigiGilde voorbeeld"
     async with async_session() as db:
         peer = (await db.execute(select(Peer).where(Peer.base_uri == "http://localhost:9001"))).scalar_one()
         row = await enqueue(db, peer, "sendAssignmentRequest", payload)

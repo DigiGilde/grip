@@ -1,5 +1,6 @@
 import { formatEuro, formatFte, formatPeriod } from '@/lib/format';
 import type { QuoteContent, QuoteLine } from './api';
+import { scaleText } from './format';
 import './register';
 
 function rateText(line: QuoteLine): string {
@@ -25,13 +26,13 @@ export function QuoteContentTable({ content, label }: { content: QuoteContent; l
   return (
     <nldd-table
       accessible-label={label}
-      columns="minmax(180px,2fr) 70px minmax(170px,1.4fr) 90px minmax(120px,1fr) minmax(120px,1fr)"
+      columns="minmax(180px,2fr) 70px minmax(170px,1.4fr) minmax(150px,1.2fr) minmax(120px,1fr) minmax(120px,1fr)"
     >
       <nldd-table-row slot="header">
         <nldd-text-cell text="Omschrijving" />
         <nldd-text-cell text="FTE" horizontal-alignment="right" />
         <nldd-text-cell text="Periode" />
-        <nldd-text-cell text="Categorie" />
+        <nldd-text-cell text="Schaal" />
         <nldd-text-cell text="Maandtarief" horizontal-alignment="right" />
         <nldd-text-cell text="Bedrag" horizontal-alignment="right" />
       </nldd-table-row>
@@ -48,7 +49,7 @@ export function QuoteContentTable({ content, label }: { content: QuoteContent; l
             horizontal-alignment="right"
           />
           <nldd-text-cell text={periodText(line)} />
-          <nldd-text-cell text={line.kind === 'personnel' ? (line.rate_category ?? '') : ''} />
+          <nldd-text-cell text={line.kind === 'personnel' ? scaleText(line) : ''} />
           <nldd-text-cell text={rateText(line)} horizontal-alignment="right" />
           <nldd-text-cell text={formatEuro(line.amount_cents)} horizontal-alignment="right" />
         </nldd-table-row>

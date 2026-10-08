@@ -27,6 +27,7 @@ import {
 import { OfferSheet } from './OfferSheet';
 import { EarlierQuoteRow, QuoteCard, type CardAction } from './QuoteCard';
 import { QuoteContentTable } from './QuoteContentTable';
+import { partMonthNote } from './format';
 import { FileInput } from './ui';
 
 type Dialog = 'issue' | 'offer' | 'upload' | 'reject' | null;
@@ -133,6 +134,7 @@ export function QuotePage() {
   const showPreview = Boolean(data?.may_issue) && current?.status !== 'accepted' && !waiting;
   const difference = data ? differenceText(data) : null;
   const conditionsText = conditions ?? data?.default_conditions ?? '';
+  const partMonth = data?.content ? partMonthNote(data.content.lines) : null;
 
   return (
     <>
@@ -162,10 +164,17 @@ export function QuotePage() {
                 />
               ) : null}
               {difference ? <Quiet>{difference}</Quiet> : null}
+              {partMonth ? <Quiet>{partMonth}</Quiet> : null}
               {canIssue ? (
-                <nldd-button-group>
-                  <Button text="Geef offerte uit" appearance="primary" onClick={() => open('issue')} />
-                </nldd-button-group>
+                <Stack gap="close">
+                  <nldd-button-group>
+                    <Button text="Maak offerte" appearance="primary" onClick={() => open('issue')} />
+                  </nldd-button-group>
+                  <Quiet>
+                    Daarna wijzigt de offerte niet meer; voor een andere begroting maak je een
+                    nieuwe.
+                  </Quiet>
+                </Stack>
               ) : null}
             </Section>
           ) : null}
@@ -184,14 +193,14 @@ export function QuotePage() {
                   <Quiet>
                     De begroting staat nu op {formatEuro(data.content.total_cents)}.
                   </Quiet>
-                  <Button text="Geef nieuwe offerte uit" size="sm" onClick={() => open('issue')} />
+                  <Button text="Maak nieuwe offerte" size="sm" onClick={() => open('issue')} />
                 </nldd-container>
               ) : null}
             </Stack>
           ) : null}
 
           {list.data && quotes.length === 0 && !showPreview ? (
-            <EmptyNotice text="Er is nog geen offerte uitgegeven" />
+            <EmptyNotice text="Er is nog geen offerte gemaakt" />
           ) : null}
 
           {earlier.length > 0 ? (
@@ -208,8 +217,8 @@ export function QuotePage() {
 
       <FormSheet
         open={dialog === 'issue'}
-        title="Offerte uitgeven"
-        submitText="Geef uit"
+        title="Offerte maken"
+        submitText="Maak offerte"
         busy={run.isPending}
         error={dialog === 'issue' ? formError : null}
         onClose={close}
@@ -226,7 +235,8 @@ export function QuotePage() {
         <nldd-text>
           De offerte legt de begroting vast zoals die nu is
           {data?.content ? `: ${formatEuro(data.content.total_cents)}` : ''}. Ze krijgt een
-          eigen kenmerk{waiting ? ' en vervangt de offerte die nu openstaat' : ''}.
+          eigen kenmerk{waiting ? ' en vervangt de offerte die nu openstaat' : ''}. Daarna
+          wijzigt ze niet meer.
         </nldd-text>
         <DateInput label="Geldig tot en met" value={validUntil} onChange={setValidUntil} optional />
         <TextInput
@@ -326,7 +336,7 @@ export function QuotePage() {
       >
         <nldd-text>
           Hiermee leg je vast dat de opdrachtgever deze offerte heeft afgewezen. Daarna kun je
-          een nieuwe offerte uitgeven.
+          een nieuwe offerte maken.
         </nldd-text>
         <TextInput label="Reden" value={reason} onChange={setReason} optional multiline />
       </FormSheet>

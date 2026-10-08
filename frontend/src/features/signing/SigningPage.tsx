@@ -3,13 +3,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { ApiError, errorMessage } from '@/api/client';
 import { Button, TextInput } from '@/features/assignments/ui';
-import { EmptyNotice, ErrorNotice, FormSheet, Loading, SectionHeading } from '@/ui/layout';
+import { Fingerprint } from '@/features/quotes/QuoteCard';
 import { QuoteContentTable } from '@/features/quotes/QuoteContentTable';
-import { CheckboxInput, DocumentLink } from '@/features/quotes/ui';
 import { formatDateTime } from '@/features/quotes/format';
+import { CheckboxInput, DocumentLink } from '@/features/quotes/ui';
 import { useInstance } from '@/layout/useInstance';
-import { formatDate } from '@/lib/format';
-import { PageHeading } from '@/pages/PageHeading';
+import { formatDate, formatEuro } from '@/lib/format';
+import { EmptyNotice, ErrorNotice, FormSheet, Loading, Page, Quiet, Section, Stack } from '@/ui/layout';
 import {
   acceptQuote,
   fetchSigningQuote,
@@ -46,12 +46,27 @@ function Decided({ quote }: { quote: SigningQuote }) {
     <nldd-banner
       variant="neutral"
       text="Deze offerte is vervangen door een nieuwere"
-      supporting-text="Tekenen kan niet meer. Vraag de opdrachtnemer om een uitnodiging voor de nieuwe offerte."
+      supporting-text="Vraag de opdrachtnemer om een uitnodiging voor de nieuwe offerte."
     />
   );
 }
 
-/** One quote, for the person invited to sign it: read, then accept or reject. */
+/** Who offers what, in one quiet line. */
+function byline(quote: SigningQuote): string {
+  return [
+    quote.client_name ? `Aan ${quote.client_name}` : null,
+    quote.reference ? `kenmerk ${quote.reference}` : null,
+    quote.content.client_reference ? `uw kenmerk ${quote.content.client_reference}` : null,
+    quote.content.valid_until ? `geldig t/m ${formatDate(quote.content.valid_until)}` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
+
+/**
+ * One quote, for the person invited to sign it. The page a director signs
+ * on: the quote, the amount, who offers it, and one decision.
+ */
 export function SigningPage() {
   const { quoteId = '' } = useParams();
   const instance = useInstance();
@@ -62,162 +77,151 @@ export function SigningPage() {
     retry: false,
   });
 
+  const [sheet, setSheet] = useState<'accept' | 'reject' | null>(null);
   const [signerFunction, setSignerFunction] = useState('');
   const [organisationName, setOrganisationName] = useState('');
   const [mandate, setMandate] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState('');
-  const [rejectError, setRejectError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const decide = useMutation({
     mutationFn: (action: () => Promise<SigningQuote>) => action(),
     onSuccess: (updated) => {
       queryClient.setQueryData(signingKeys.quote(quoteId), updated);
-      setRejecting(false);
+      setSheet(null);
       setError(null);
     },
+    onError: (failure) => setError(errorMessage(failure)),
   });
 
   const quote = query.data;
   const notFound = query.error instanceof ApiError && query.error.status === 404;
   const title = quote ? `Offerte ${quote.content.name}` : 'Offerte tekenen';
   const client = quote?.client_name ?? null;
-
-  const accept = () => {
-    if (!quote) return;
-    if (!mandate) {
-      setError('Bevestig dat je namens de opdrachtgever mag tekenen.');
-      return;
-    }
-    if (!client && !organisationName.trim()) {
-      setError('Vul de organisatie in namens wie je tekent.');
-      return;
-    }
+  const open = (next: 'accept' | 'reject') => {
     setError(null);
-    decide.mutate(
-      () =>
-        acceptQuote(quote.id, {
-          quote_hash: quote.snapshot_hash,
-          signer_function: signerFunction.trim() || null,
-          organisation_name: client ? null : organisationName.trim(),
-          confirm_mandate: true,
-        }),
-      { onError: (failure) => setError(errorMessage(failure)) },
-    );
+    setSheet(next);
   };
 
   return (
     <>
-      <nldd-simple-section>
-        <PageHeading text={title} instanceName={instance?.name} />
+      <Page title={title} instanceName={instance?.name} width="960px">
         {query.isPending ? <Loading /> : null}
         {query.isError && notFound ? (
           <EmptyNotice
             text="Deze offerte staat niet voor je klaar"
-            supportingText="De uitnodiging is verlopen, of je bent ingelogd met een ander e-mailadres dan waarop je bent uitgenodigd."
+            supportingText="De link klopt niet, de uitnodiging is verlopen of ingetrokken, of je bent ingelogd met een ander e-mailadres dan waarop je bent uitgenodigd."
           />
         ) : null}
         {query.isError && !notFound ? <ErrorNotice message={errorMessage(query.error)} /> : null}
 
         {quote ? (
-          <nldd-container gap="16">
+          <>
             {quote.status !== 'issued' ? <Decided quote={quote} /> : null}
-            <nldd-text>
-              Van {quote.contractor_name}
-              {client ? ` aan ${client}` : ''}, uitgegeven op {formatDateTime(quote.issued_at)}
-              {quote.content.valid_until
-                ? `, geldig tot en met ${formatDate(quote.content.valid_until)}`
-                : ''}
-              .
-            </nldd-text>
-            <QuoteContentTable content={quote.content} label="Regels van de offerte" />
-            {quote.content.conditions ? (
-              <>
-                <SectionHeading text="Voorwaarden" />
-                <nldd-text>{quote.content.conditions}</nldd-text>
-              </>
-            ) : null}
-            <nldd-container layout="wrap" gap="16">
-              <DocumentLink
-                href={signingDocumentUrl(quote.id)}
-                text="Bekijk de offerte als document"
-                newTab
+            <Stack gap="close">
+              <nldd-title
+                size={3}
+                heading-level={2}
+                overline={`${quote.contractor_name} biedt aan`}
+                text={formatEuro(quote.content.total_cents)}
               />
-              <DocumentLink href={signingDocumentUrl(quote.id, true)} text="Download de offerte" />
-            </nldd-container>
-            <nldd-text size="sm">
-              Controlegetal van deze offerte (SHA-256): {quote.snapshot_hash}. Hetzelfde getal
-              staat onderaan het document. Je akkoord geldt voor precies deze inhoud.
-            </nldd-text>
-          </nldd-container>
-        ) : null}
-      </nldd-simple-section>
+              <Quiet>{byline(quote)}</Quiet>
+            </Stack>
 
-      {quote && quote.status === 'issued' ? (
-        <nldd-simple-section>
-          <SectionHeading text="Akkoord geven" />
-          {error ? <nldd-banner variant="critical" size="sm" text={error} /> : null}
-          <nldd-container gap="16">
-            <TextInput
-              label="Je functie"
-              value={signerFunction}
-              onChange={setSignerFunction}
-              optional
-            />
-            {!client ? (
-              <TextInput
-                label="Organisatie namens wie je tekent"
-                value={organisationName}
-                onChange={setOrganisationName}
-                required
-              />
+            <QuoteContentTable content={quote.content} label="Regels van de offerte" />
+
+            {quote.content.conditions ? (
+              <Section title="Voorwaarden" level={2}>
+                <nldd-text>{quote.content.conditions}</nldd-text>
+              </Section>
             ) : null}
-            <CheckboxInput
-              label={`Ik ben bevoegd om namens ${client ?? 'de opdrachtgever'} akkoord te geven op deze offerte`}
-              checked={mandate}
-              onChange={setMandate}
-              required
-            />
-            <nldd-text size="sm">
-              Met je akkoord leggen we vast wie je bent, namens welke organisatie je tekent en
-              op welk moment. Een akkoord is niet terug te draaien.
-            </nldd-text>
-            <nldd-button-group>
-              <Button
-                text="Geef akkoord"
-                appearance="primary"
-                loading={decide.isPending && !rejecting}
-                onClick={accept}
-              />
-              <Button
-                text="Wijs af"
-                onClick={() => {
-                  setRejectError(null);
-                  setRejecting(true);
-                }}
-              />
-            </nldd-button-group>
-          </nldd-container>
-        </nldd-simple-section>
-      ) : null}
+
+            <nldd-container layout="row" gap="16" vertical-alignment="center">
+              <DocumentLink href={signingDocumentUrl(quote.id)} text="Bekijk als document" newTab />
+              <DocumentLink href={signingDocumentUrl(quote.id, true)} text="Download pdf" />
+              <Fingerprint hash={quote.snapshot_hash} />
+            </nldd-container>
+
+            {quote.status === 'issued' ? (
+              <Stack gap="related">
+                <nldd-text>
+                  Met je akkoord gaat {client ?? 'je organisatie'} deze opdracht aan voor dit
+                  bedrag. Vastgelegd wordt wie je bent, namens wie je tekent en wanneer.
+                </nldd-text>
+                <nldd-button-group>
+                  <Button text="Geef akkoord" appearance="primary" onClick={() => open('accept')} />
+                  <Button text="Wijs af" onClick={() => open('reject')} />
+                </nldd-button-group>
+              </Stack>
+            ) : null}
+          </>
+        ) : null}
+      </Page>
 
       <FormSheet
-        open={rejecting}
-        title="Offerte afwijzen"
-        submitText="Wijs af"
-        busy={decide.isPending && rejecting}
-        error={rejectError}
-        onClose={() => setRejecting(false)}
+        open={sheet === 'accept'}
+        title="Akkoord geven"
+        submitText="Geef akkoord"
+        busy={decide.isPending && sheet === 'accept'}
+        error={sheet === 'accept' ? error : null}
+        onClose={() => setSheet(null)}
         onSubmit={() => {
           if (!quote) return;
-          decide.mutate(
-            () =>
-              rejectQuote(quote.id, {
-                quote_hash: quote.snapshot_hash,
-                reason: reason.trim() || null,
-              }),
-            { onError: (failure) => setRejectError(errorMessage(failure)) },
+          if (!mandate) {
+            setError('Bevestig dat je namens de opdrachtgever mag tekenen.');
+            return;
+          }
+          if (!client && !organisationName.trim()) {
+            setError('Vul de organisatie in namens wie je tekent.');
+            return;
+          }
+          setError(null);
+          decide.mutate(() =>
+            acceptQuote(quote.id, {
+              quote_hash: quote.snapshot_hash,
+              signer_function: signerFunction.trim() || null,
+              organisation_name: client ? null : organisationName.trim(),
+              confirm_mandate: true,
+            }),
+          );
+        }}
+      >
+        <nldd-text>
+          Je geeft akkoord op offerte {quote?.reference ?? ''} van{' '}
+          {quote ? formatEuro(quote.content.total_cents) : ''}. Een akkoord is niet terug te
+          draaien.
+        </nldd-text>
+        <TextInput label="Je functie" value={signerFunction} onChange={setSignerFunction} optional />
+        {quote && !client ? (
+          <TextInput
+            label="Organisatie namens wie je tekent"
+            value={organisationName}
+            onChange={setOrganisationName}
+            required
+          />
+        ) : null}
+        <CheckboxInput
+          label={`Ik ben bevoegd om namens ${client ?? 'de opdrachtgever'} akkoord te geven op deze offerte`}
+          checked={mandate}
+          onChange={setMandate}
+          required
+        />
+      </FormSheet>
+
+      <FormSheet
+        open={sheet === 'reject'}
+        title="Offerte afwijzen"
+        submitText="Wijs af"
+        busy={decide.isPending && sheet === 'reject'}
+        error={sheet === 'reject' ? error : null}
+        onClose={() => setSheet(null)}
+        onSubmit={() => {
+          if (!quote) return;
+          decide.mutate(() =>
+            rejectQuote(quote.id, {
+              quote_hash: quote.snapshot_hash,
+              reason: reason.trim() || null,
+            }),
           );
         }}
       >

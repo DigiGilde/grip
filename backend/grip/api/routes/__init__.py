@@ -29,9 +29,9 @@ from grip.api.routes.received_quotes import router as received_quotes_router
 from grip.api.routes.received_quotes_list import router as received_quotes_list_router
 from grip.api.routes.reports import router as reports_router
 from grip.api.routes.signing import router as signing_router
+from grip.api.routes.tasks import router as tasks_router
 from grip.api.routes.vacancies import router as vacancies_router
 from grip.api.routes.vacancy_hire import router as vacancy_hire_router
-from grip.api.routes.tasks import router as tasks_router
 
 api_router = APIRouter()
 api_router.include_router(health_router)

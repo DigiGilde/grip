@@ -326,7 +326,7 @@ async def test_verbal_agreement_allows_closing_months_but_not_billing(
     with pytest.raises(DomainValidationError, match="In voorbereiding"):
         await month_close.close_month(db_session, assignment.id, jan, actor=beheerder)
     await assignments.transition(db_session, assignment.id, "quoted", actor=beheerder)
-    with pytest.raises(DomainValidationError, match="Offerte uitgegeven"):
+    with pytest.raises(DomainValidationError, match="Offerte gemaakt"):
         await month_close.close_month(db_session, assignment.id, jan, actor=beheerder)
 
     await assignments.transition(

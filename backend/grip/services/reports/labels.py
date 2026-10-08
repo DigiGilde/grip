@@ -5,7 +5,7 @@ from __future__ import annotations
 ASSIGNMENT_STATUS_LABELS: dict[str, str] = {
     "draft": "In voorbereiding",
     "requested": "Aangevraagd",
-    "quoted": "Offerte uitgegeven",
+    "quoted": "Offerte gemaakt",
     "verbally_agreed": "Mondeling akkoord",
     "accepted": "Akkoord",
     "in_progress": "In uitvoering",

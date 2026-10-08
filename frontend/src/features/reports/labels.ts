@@ -47,7 +47,7 @@ export function monthAbbreviation(month: string): string {
 }
 
 export const QUOTE_STATUS_LABELS: Record<string, string> = {
-  issued: 'Uitgegeven, wacht op akkoord',
+  issued: 'Gemaakt, wacht op akkoord',
   accepted: 'Akkoord',
   rejected: 'Afgewezen',
   superseded: 'Vervangen door een nieuwe offerte',

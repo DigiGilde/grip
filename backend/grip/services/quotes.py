@@ -246,7 +246,7 @@ async def issue_quote(
     if assignment.status not in ("draft", "requested", "quoted", "rejected"):
         raise DomainValidationError(
             f"Voor een opdracht met status '{assignment.status}' kan geen offerte "
-            "meer worden uitgegeven."
+            "meer worden gemaakt."
         )
     issued_at = issued_at or datetime.now(UTC)
     # Build once without a reference first: a quote that cannot be built
@@ -617,7 +617,7 @@ async def channel_options(
     assignment = await get_assignment(session, quote.assignment_id)
     closed = None
     if quote.status != "issued":
-        closed = "Over deze offerte is al beslist, of er is een nieuwere uitgegeven."
+        closed = "Over deze offerte is al beslist, of er is een nieuwere gemaakt."
     has_client, instance_uri = await _client_instance_uri(session, assignment)
     federated = closed or await quote_channels.client_instance_unavailable(
         session, instance_uri, has_client=has_client

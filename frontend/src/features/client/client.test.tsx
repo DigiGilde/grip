@@ -103,7 +103,7 @@ describe('ClientPage', () => {
     const link = container.querySelector('nldd-table nldd-link');
     expect(link?.getAttribute('text')).toBe('Opdracht Alfa');
     expect(link?.getAttribute('href')).toBe(clientAssignmentPath('a-1'));
-    expect(texts(container, 'nldd-table nldd-badge')).toEqual(['Offerte uitgegeven', 'Aangekomen']);
+    expect(texts(container, 'nldd-table nldd-badge')).toEqual(['Offerte gemaakt', 'Aangekomen']);
     expect(texts(container, 'nldd-table nldd-text-cell')).toContain('Voorbeeldgilde');
     expect(texts(container, 'nldd-button')).toContain('Offerte aanvragen');
   });

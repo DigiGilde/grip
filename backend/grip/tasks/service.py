@@ -134,7 +134,9 @@ async def _views(
         mine = await access.is_for_reader(task)
         plan = plan_for(task.plan_version)
         fact_only = closes_by_fact_only(task)
-        vacancy_title = names["vacancy"].get(task.vacancy_id) if task.vacancy_id else None
+        vacancy_title = (
+            names["vacancy"].get(task.vacancy_id) if task.vacancy_id else None
+        )
         assignment_name = None
         if task.assignment_id and (
             task.case_kind == "assignment"
@@ -193,7 +195,9 @@ async def _views(
                 closing_fact_label=catalogue.FACT_LABELS.get(task.closing_fact or "")
                 if task.closing_fact
                 else None,
-                overdue=task.is_open and task.due_on is not None and task.due_on < today,
+                overdue=task.is_open
+                and task.due_on is not None
+                and task.due_on < today,
                 note_count=len(task.notes),
                 notes=notes,
             )
@@ -300,9 +304,7 @@ async def all_tasks(
             reverse=True,
         )
         keep = {v.task.id for v in done[:RECENT_DONE]}
-        views = [
-            v for v in views if v.task.status != "done" or v.task.id in keep
-        ]
+        views = [v for v in views if v.task.status != "done" or v.task.id in keep]
     return views
 
 
@@ -417,7 +419,10 @@ async def create_manual_task(
         if await db.get(Vacancy, case_id) is None:
             raise NotFoundError("Vacature", case_id)
         vacancy_id = case_id
-    if assignee_person_id is not None and await db.get(Person, assignee_person_id) is None:
+    if (
+        assignee_person_id is not None
+        and await db.get(Person, assignee_person_id) is None
+    ):
         raise NotFoundError("Persoon", assignee_person_id)
     task = Task(
         case_kind=case_kind,
@@ -440,7 +445,11 @@ async def create_manual_task(
         action=CREATE,
         entity="task",
         entity_id=task.id,
-        new_value={"title": task.title, "case_kind": case_kind, "case_id": str(case_id)},
+        new_value={
+            "title": task.title,
+            "case_kind": case_kind,
+            "case_id": str(case_id),
+        },
     )
     return await get_task(db, task.id)
 
@@ -542,7 +551,9 @@ async def update_details(
     return task
 
 
-async def add_note(db: AsyncSession, task: Task, body: str, *, actor: Person) -> TaskNote:
+async def add_note(
+    db: AsyncSession, task: Task, body: str, *, actor: Person
+) -> TaskNote:
     body = body.strip()
     if not body:
         raise DomainValidationError("Een notitie kan niet leeg zijn.")

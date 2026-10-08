@@ -12,12 +12,12 @@ export interface QuoteStep {
   status: 'past' | 'current' | 'future';
 }
 
-/** The steps of one quote: uitgegeven, aangeboden, getekend of afgewezen. */
+/** The steps of one quote: gemaakt, aangeboden, getekend of afgewezen. */
 export function quoteSteps(quote: QuoteSummary, offers: readonly QuoteOffer[]): QuoteStep[] {
   const decided = quote.status === 'accepted' || quote.status === 'rejected';
   const offered = offers.length > 0 || decided;
   return [
-    { text: 'Uitgegeven', status: 'past' },
+    { text: 'Gemaakt', status: 'past' },
     { text: 'Aangeboden', status: offered ? 'past' : 'current' },
     {
       text:

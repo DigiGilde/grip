@@ -176,9 +176,7 @@ def _open_roles(
     return subjects
 
 
-def _months_with_inzet(
-    allocations: list[Allocation], today: date
-) -> list[date]:
+def _months_with_inzet(allocations: list[Allocation], today: date) -> list[date]:
     """Ended months in which someone was planned on the assignment."""
     if not allocations:
         return []
@@ -334,9 +332,11 @@ async def load_assignment_cases(
         live = [q for q in own_quotes if q.status in ("issued", "accepted")]
         # Staffing comes into view once the work is agreed, or a quote is out:
         # a draft that nobody has seen yet is no reason to line people up.
-        facts["staffing_in_view"] = case_phase is not phase.Phase.POTENTIAL or bool(
-            live
-        ) or status == phase.VERBALLY_AGREED
+        facts["staffing_in_view"] = (
+            case_phase is not phase.Phase.POTENTIAL
+            or bool(live)
+            or status == phase.VERBALLY_AGREED
+        )
         current = live[-1] if live else None
         round_number = len(rejected) + 1
         subjects: dict[str, list[Subject]] = {
@@ -436,9 +436,7 @@ async def load_assignment_cases(
 
 
 async def live_vacancy_ids(db: AsyncSession, *, today: date) -> set[UUID]:
-    rows = await db.execute(
-        select(Vacancy.id).where(Vacancy.status.in_(_VACANCY_LIVE))
-    )
+    rows = await db.execute(select(Vacancy.id).where(Vacancy.status.in_(_VACANCY_LIVE)))
     ids = {row[0] for row in rows}
     recent = today - timedelta(days=HIRE_FOLLOW_UP_DAYS)
     rows = await db.execute(
@@ -500,7 +498,8 @@ async def load_vacancy_cases(
         hired = persons.get(hire.person_id) if hire and hire.person_id else None
         facts = {
             "draft": status == "draft",
-            "requested": status in ("requested", "approved", "rejected", "open", "filled"),
+            "requested": status
+            in ("requested", "approved", "rejected", "open", "filled"),
             "in_procedure": status == "requested",
             "hr_advice_given": given("hr_advice"),
             "control_advice_given": given("control_advice"),
@@ -512,8 +511,7 @@ async def load_vacancy_cases(
             "ready_to_fill": status == "open"
             or (status == "approved" and not needs_opening),
             "hire_recorded": hire is not None and status == "filled",
-            "colleague_known_in_wies": hired is not None
-            and bool(hired.wies_public_id),
+            "colleague_known_in_wies": hired is not None and bool(hired.wies_public_id),
             "colleague_has_email": hired is not None and bool(hired.email),
         }
         people: dict[str, UUID | None] = {"requester": vacancy.requester_id}

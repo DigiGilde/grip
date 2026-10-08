@@ -4,6 +4,7 @@ import type { QuoteContent } from '@/features/quotes/api';
 
 export interface SigningInvitation {
   quote_id: string;
+  reference?: string | null;
   assignment_name: string;
   status: string;
   issued_at: string;
@@ -14,6 +15,8 @@ export interface SigningInvitation {
 export interface SigningQuote {
   id: string;
   uri: string;
+  /** The reference people quote, e.g. "DG-2026-0007". */
+  reference?: string | null;
   status: 'issued' | 'accepted' | 'rejected' | 'superseded' | string;
   issued_at: string;
   contractor_name: string;

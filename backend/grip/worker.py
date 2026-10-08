@@ -2,10 +2,11 @@
 
     python -m grip.worker
 
-Today these are the federation loops: sending outbox messages through the
-outway, and catching up on received messages that were stored before a
-handler existed. Both are safe to run in more than one process; rows are
-claimed with SKIP LOCKED.
+These are the federation loops (sending outbox messages through the outway,
+and catching up on received messages that were stored before a handler
+existed; both are safe to run in more than one process, rows are claimed
+with SKIP LOCKED) and the task loop, which brings the tasks of every open
+case in line with the facts on an interval.
 """
 
 from __future__ import annotations
@@ -31,8 +32,6 @@ def _loops(settings: Settings) -> list:
         logger.info("FEDERATION_OUTBOUND_ENABLED is off: outbox is not sent")
     if settings.FEDERATION_INBOUND_ENABLED:
         loops.append(run_inbox_loop(async_session, settings))
-    if settings.TASKS_EVALUATE_INTERVAL_SECONDS > 0:
-        loops.append(run_task_loop(async_session, settings))
     return loops
 
 
@@ -41,8 +40,11 @@ async def main() -> None:
     settings = get_settings()
     register_event_handlers()
     loops = _loops(settings)
+    # Tasks: time makes work too (a month ends, a deadline passes).
+    if settings.TASKS_EVALUATE_INTERVAL_SECONDS > 0:
+        loops.append(run_task_loop(async_session, settings))
     if not loops:
-        logger.info("Nothing to run: federation is off in both directions")
+        logger.info("Nothing to run: federation and the task loop are off")
         return
     try:
         await asyncio.gather(*loops)

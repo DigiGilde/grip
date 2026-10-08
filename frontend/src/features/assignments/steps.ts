@@ -50,7 +50,7 @@ export function nextSteps(assignment: AssignmentDetail): NextSteps | null {
     return {
       items,
       current: 4,
-      advice: 'De offerte is uitgegeven. De opdracht gaat in zodra de opdrachtgever akkoord geeft.',
+      advice: 'De offerte is gemaakt. De opdracht gaat in zodra de opdrachtgever akkoord geeft.',
       action: money ? { text: 'Ga naar de offerte', tab: 'quote' } : null,
     };
   }

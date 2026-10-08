@@ -167,3 +167,47 @@ local-down:
 # Stop the local environment and delete its data, certificates and secrets
 local-nuke:
     deploy/local/local.sh nuke
+
+# Add the local Bouwmeester to the FSC group as a corpus system (peer C)
+local-fsc-corpus-init:
+    deploy/local/local.sh fsc-corpus-init
+
+# ---------------------------------------------------------------------------
+# Bouwmeester and Wies next to grip (run from their checkouts; docs/lokaal.md)
+# ---------------------------------------------------------------------------
+
+# Start a local Bouwmeester from its checkout (DIR is remembered after the first time)
+bouwmeester-up DIR="":
+    BOUWMEESTER_DIR="{{ DIR }}" deploy/local/bouwmeester.sh up
+
+# Stop the local Bouwmeester (keeps data)
+bouwmeester-down:
+    deploy/local/bouwmeester.sh down
+
+# Start a local Wies from its checkout (DIR is remembered after the first time)
+wies-up DIR="":
+    WIES_DIR="{{ DIR }}" deploy/local/wies.sh up
+
+# Let the local Wies pull opdrachten, roles and placements from grip
+wies-sync:
+    deploy/local/wies.sh sync
+
+# Stop the local Wies (keeps data)
+wies-down:
+    deploy/local/wies.sh down
+
+# Dev outway and grip's federation listener: grip and Bouwmeester without FSC
+dev-link-up:
+    deploy/local/dev-link.sh up
+
+# Register grip in the local Bouwmeester and the other way around
+dev-link-peers:
+    deploy/local/dev-link.sh peers
+
+# Stop the dev outway and grip's federation listener
+dev-link-down:
+    deploy/local/dev-link.sh down
+
+# Only the dev outway, with your own routes file (see grip.dev.dev_outway)
+dev-outway ROUTES PORT="9230":
+    cd backend && DEV_OUTWAY_ROUTES="{{ absolute_path(ROUTES) }}" uv run uvicorn grip.dev.dev_outway:create_app --factory --port {{ PORT }}

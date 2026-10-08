@@ -8,7 +8,9 @@
 #                                    sso       one instance, login with SSO Rijk (.env.sso)
 #                                    fsc       two instances with FSC between them, no login
 #                                    fsc-keycloak   the same, with the local Keycloak
+#                                    fsc-corpus     fsc plus a third peer for the local Bouwmeester
 #   ./local.sh fsc-init            publish services, make contracts, fill the peer registry
+#   ./local.sh fsc-corpus-init     add the local Bouwmeester to the group as a corpus system
 #   ./local.sh check-login [user]  log in through the local Keycloak with curl
 #   ./local.sh check-fsc           send one message from instance B to instance A
 #   ./local.sh urls                where everything listens
@@ -20,7 +22,7 @@ set -eu
 here="$(cd "$(dirname "$0")" && pwd)"
 cd "$here"
 
-all_files="-f compose.yml -f compose.fsc.yml"
+all_files="-f compose.yml -f compose.fsc.yml -f compose.fsc-corpus.yml"
 all_profiles="--profile keycloak --profile two"
 
 need_images() {
@@ -54,12 +56,18 @@ case "$cmd" in
                     docker compose $all_files --env-file state/keycloak.env $all_profiles up -d
                 fi
                 echo "When everything is up: ./local.sh fsc-init" ;;
+            fsc-corpus)
+                ./fsc-pki.sh >/dev/null
+                # shellcheck disable=SC2086
+                docker compose $all_files --env-file state/noauth.env --profile two up -d
+                echo "When everything is up: ./local.sh fsc-init, then ./local.sh fsc-corpus-init" ;;
             *)
                 echo "unknown mode '$mode'"; exit 64 ;;
         esac
         ./local.sh urls
         ;;
     fsc-init) ./fsc-bootstrap.sh ;;
+    fsc-corpus-init) ./fsc-bootstrap-corpus.sh ;;
     check-login) ./login-check.sh "$@" ;;
     check-fsc) ./fsc-send-check.sh ;;
     logs)
@@ -81,12 +89,14 @@ case "$cmd" in
   FSC controller, directory            http://localhost:9100   (modes fsc)
   FSC controller, peer A               http://localhost:9101
   FSC controller, peer B               http://localhost:9102
+  FSC controller, peer C (corpus)      http://localhost:9103   (mode fsc-corpus)
+  FSC outway of peer C                 http://localhost:9240   (for Bouwmeester on the host)
 
   Running now:
 URLS
         docker compose $all_files $all_profiles ps --format '    {{.Service}}\t{{.Status}}' 2>/dev/null | sort
         ;;
     *)
-        sed -n '2,17p' "$0"
+        sed -n '2,19p' "$0"
         exit 64 ;;
 esac

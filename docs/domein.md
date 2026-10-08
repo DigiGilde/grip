@@ -45,7 +45,12 @@ UI-termen zijn Nederlands; code en schema gebruiken de Engelse naam.
 | Realisatie, inschatting | `actual`, `estimate` | Soort factuurregel |
 | Kostendekking | `cost_coverage` | Welke begrotingsregel welk deel van een kostenpost dekt |
 | Target KPI % declarabel | `billability_target` | Deel van iemands jaar dat declarabel moet zijn |
-| Offerte | `quote` | Document dat uit de begroting van een opdracht wordt gegenereerd |
+| Offerte | `quote` | Document dat uit de begroting van een opdracht wordt gemaakt. Na het maken wijzigt het niet meer |
+| Offerte maken | `issue_quote` | De begroting vastleggen als offerte. In de code heet dat uitgeven (`issued`); voor de gebruiker is het maken |
+| Kenmerk | `reference` | Het nummer waarmee mensen een offerte aanduiden, zoals "DG-2026-0007": voorvoegsel van de organisatie, jaar en een volgnummer per jaar dat nooit opnieuw wordt gebruikt. Het staat in de vastgelegde inhoud en valt dus onder de vingerafdruk. De URI blijft het kenmerk voor systemen |
+| Uw kenmerk | `client_reference` | Het eigen kenmerk van de opdrachtgever, zoals een zaak- of ordernummer. Optioneel, bij het maken van de offerte |
+| Vingerafdruk | `snapshot_hash` | De hash van de vastgelegde inhoud van een offerte. Een akkoord noemt hem, zodat vaststaat over welke inhoud het gaat |
+| Tekenlink | `quote_invitation` | De link waarmee één uitgenodigde persoon een offerte opent en tekent. Werkt 30 dagen, is in te trekken en te verlengen |
 | Akkoord | `quote_acceptance` | De vastlegging dat de opdrachtgever een offerte heeft aanvaard |
 | Maandafsluiting | `month_close` | De vastgestelde werkelijke inzet van een maand |
 | Factuurgegevens, aanlevering | `billing_export` | Wat per afgesloten maand naar de financiële administratie gaat. Een export is een aanlevering |
@@ -110,7 +115,7 @@ De salarisschaal wordt niet opgeslagen. Het kenmerk `digi_gilde` heeft voor zove
 | `billing_export` | periode, regels, exportrun | nieuw |
 | `vacancy` | begrotingsregel, profiel, status, kanaal (intern, federatief, werving), stappen | nieuw |
 
-Statussen van een opdracht: concept, aangevraagd, offerte uitgegeven, akkoord, in uitvoering, afgerond, verantwoord. Daarnaast afgewezen en geannuleerd.
+Statussen van een opdracht: concept, aangevraagd, offerte gemaakt, akkoord, in uitvoering, afgerond, verantwoord. Daarnaast afgewezen en geannuleerd.
 
 ### Kosten
 

@@ -35,7 +35,7 @@ export type CardAction =
 function byline(quote: QuoteSummary): string {
   const parts = [
     quote.valid_until ? `Geldig t/m ${formatDate(quote.valid_until)}` : null,
-    `Uitgegeven op ${formatDate(quote.issued_at)}${quote.issued_by_name ? ` door ${quote.issued_by_name}` : ''}`,
+    `Gemaakt op ${formatDate(quote.issued_at)}${quote.issued_by_name ? ` door ${quote.issued_by_name}` : ''}`,
   ];
   return parts.filter(Boolean).join(' · ');
 }
@@ -68,7 +68,8 @@ function Decision({ quote }: { quote: QuoteSummary }) {
   return null;
 }
 
-function Fingerprint({ hash }: { hash: string }) {
+/** The fingerprint behind a quiet button: what it is for, the value, and a copy action. */
+export function Fingerprint({ hash }: { hash: string }) {
   return (
     <nldd-button appearance="neutral-transparent" size="sm" text="Vingerafdruk" expandable>
       <nldd-popover slot="popup" accessible-label="Vingerafdruk van deze offerte" width="360px">
@@ -195,7 +196,11 @@ export function QuoteCard({ quote, detail, mayManage, busy, onAction }: QuoteCar
             <nldd-badge
               slot="end"
               color={QUOTE_STATUS_COLORS[quote.status] ?? 'neutral'}
-              text={QUOTE_STATUS_LABELS[quote.status] ?? quote.status}
+              text={
+                open && offers.length > 0
+                  ? 'Aangeboden'
+                  : (QUOTE_STATUS_LABELS[quote.status] ?? quote.status)
+              }
             />
           </nldd-title>
           <Quiet>{byline(quote)}</Quiet>

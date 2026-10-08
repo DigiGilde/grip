@@ -548,7 +548,7 @@ describe('AssignmentReportPage', () => {
     expect(screen.getByTestId('delivered')).toHaveTextContent(
       'Van de 12 maanden van de opdracht zijn er 1 afgesloten',
     );
-    expect(texts).toContain('Offerte uitgegeven');
+    expect(texts).toContain('Offerte gemaakt');
     expect(screen.getByTestId('cost')).toBeInTheDocument();
     expect(texts).toContain('Hostingcontract');
     // An overrun is said in words, in the table and in the figures on top.
