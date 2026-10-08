@@ -27,6 +27,13 @@ FROM python:3.13-slim
 # uses the venv directly.
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
+# Text layout for the PDF of a quote (WeasyPrint needs pango), and a
+# sans-serif to fall back on when no huisstijl typeface is configured.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 fonts-dejavu-core \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN useradd --create-home --uid 1001 appuser
 
 WORKDIR /app

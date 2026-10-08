@@ -3,6 +3,7 @@
 Every existing card becomes a card valid from 1 January to 31 December of
 its year, with the same status; its rates and scale mapping are re-keyed to
 the card. Audit rows that named a card by its year now name it by its id.
+A delivery of billing data gets a kind: the original, or a correction.
 
 Revision ID: 0022_rate_card_validity
 Revises: 0021_quote_reference
@@ -50,9 +51,7 @@ def upgrade() -> None:
     op.alter_column("rate_card", "valid_from", nullable=False)
 
     for table in _BANDS:
-        op.add_column(
-            table, sa.Column("rate_card_id", postgresql.UUID(as_uuid=True))
-        )
+        op.add_column(table, sa.Column("rate_card_id", postgresql.UUID(as_uuid=True)))
         op.execute(
             f"""
             UPDATE {table} AS band SET rate_card_id = card.id
@@ -60,7 +59,9 @@ def upgrade() -> None:
             """
         )
         op.alter_column(table, "rate_card_id", nullable=False)
-        op.drop_constraint(op.f(f"fk_{table}_year_rate_card"), table, type_="foreignkey")
+        op.drop_constraint(
+            op.f(f"fk_{table}_year_rate_card"), table, type_="foreignkey"
+        )
         op.drop_constraint(op.f(f"uq_{table}_year"), table, type_="unique")
         op.drop_index(op.f(f"ix_{table}_year"), table_name=table)
 
@@ -90,15 +91,9 @@ def upgrade() -> None:
     op.create_primary_key(op.f("pk_rate_card"), "rate_card", ["id"])
     op.create_index(op.f("ix_rate_card_valid_from"), "rate_card", ["valid_from"])
     op.create_check_constraint(
-        op.f("ck_rate_card_starts_on_first"),
+        op.f("ck_rate_card_period_valid"),
         "rate_card",
-        "extract(day from valid_from) = 1",
-    )
-    op.create_check_constraint(
-        op.f("ck_rate_card_ends_on_last"),
-        "rate_card",
-        "valid_to IS NULL OR (valid_to >= valid_from AND "
-        "extract(day from valid_to + 1) = 1)",
+        "valid_to IS NULL OR valid_to >= valid_from",
     )
     op.create_check_constraint(
         op.f("ck_rate_card_name_not_empty"), "rate_card", "btrim(name) <> ''"
@@ -127,29 +122,58 @@ def upgrade() -> None:
         op.create_index(op.f(f"ix_{table}_rate_card_id"), table, ["rate_card_id"])
 
 
+    # A delivery of billing data is the original of a month or a correction
+    # on it (naverrekening).
+    op.add_column(
+        "billing_export",
+        sa.Column(
+            "kind", sa.String(length=12), server_default="original", nullable=False
+        ),
+    )
+    op.add_column("billing_export", sa.Column("reason", sa.Text(), nullable=True))
+    op.create_check_constraint(
+        op.f("ck_billing_export_kind_valid"),
+        "billing_export",
+        "kind IN ('original', 'correction')",
+    )
+
+
 def downgrade() -> None:
+    op.drop_constraint(
+        op.f("ck_billing_export_kind_valid"), "billing_export", type_="check"
+    )
+    op.drop_column("billing_export", "reason")
+    op.drop_column("billing_export", "kind")
     # The older schema knows one card per calendar year. Anything else cannot
     # be expressed in it.
-    odd = op.get_bind().execute(
-        sa.text(
-            """
+    odd = (
+        op.get_bind()
+        .execute(
+            sa.text(
+                """
             SELECT count(*) FROM rate_card
             WHERE extract(month from valid_from) <> 1
                OR valid_to IS NULL
                OR valid_to <> make_date(extract(year from valid_from)::int, 12, 31)
             """
+            )
         )
-    ).scalar_one()
-    doubles = op.get_bind().execute(
-        sa.text(
-            """
+        .scalar_one()
+    )
+    doubles = (
+        op.get_bind()
+        .execute(
+            sa.text(
+                """
             SELECT count(*) FROM (
                 SELECT extract(year from valid_from) FROM rate_card
                 GROUP BY 1 HAVING count(*) > 1
             ) AS years
             """
+            )
         )
-    ).scalar_one()
+        .scalar_one()
+    )
     if odd or doubles:
         raise RuntimeError(
             "Cannot downgrade: there are rate cards that do not span exactly one "
@@ -190,10 +214,7 @@ def downgrade() -> None:
     )
     op.execute("ALTER TABLE rate_card DROP CONSTRAINT ex_rate_card_no_overlap")
     op.drop_constraint(op.f("ck_rate_card_name_not_empty"), "rate_card", type_="check")
-    op.drop_constraint(op.f("ck_rate_card_ends_on_last"), "rate_card", type_="check")
-    op.drop_constraint(
-        op.f("ck_rate_card_starts_on_first"), "rate_card", type_="check"
-    )
+    op.drop_constraint(op.f("ck_rate_card_period_valid"), "rate_card", type_="check")
     op.drop_index(op.f("ix_rate_card_valid_from"), table_name="rate_card")
     op.drop_constraint(op.f("pk_rate_card"), "rate_card", type_="primary")
     op.alter_column("rate_card", "year", nullable=False)

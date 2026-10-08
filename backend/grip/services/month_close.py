@@ -13,6 +13,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip import calc
@@ -323,6 +324,122 @@ async def create_billing_export(
             "assignment_id": str(assignment_id),
             "month": str(month),
             "total_cents": data.total_cents,
+        },
+    )
+    return export
+
+
+async def create_correction_export(
+    session: AsyncSession,
+    assignment_id: UUID,
+    month: Month,
+    *,
+    actor: Person | None,
+    reason: str | None = None,
+    options: PricingOptions = DEFAULT_OPTIONS,
+) -> BillingExport:
+    """Deliver the difference that arose after a month was delivered.
+
+    The price of a delivered month can change afterwards: a promotion or a
+    rate card with effect in the past. What was delivered is a record and is
+    never rewritten. The difference between what the month costs now and
+    what was delivered for it (the delivery and any earlier corrections) is
+    delivered as a correction of its own, a "naverrekening". Its lines refer
+    to the month and hold the difference per inzet; a difference can be
+    negative.
+    """
+    data = await billing_data(session, assignment_id, month, options=options)
+    close = await MonthCloseRepository(session).in_force(assignment_id, month.first_day)
+    if close is None:
+        raise NotFoundError("Maandafsluiting", str(month))
+    result = await session.execute(
+        select(BillingExport)
+        .where(BillingExport.month_close_id == close.id)
+        .order_by(BillingExport.created_at, BillingExport.id)
+    )
+    exports = list(result.scalars())
+    originals = [e for e in exports if e.kind != "correction"]
+    if not originals:
+        raise DomainValidationError(
+            f"De maand {month} is nog niet aangeleverd. Lever de maand aan; een "
+            "naverrekening is er pas na een aanlevering."
+        )
+    original = originals[-1]
+    counted = [original.id] + [
+        e.id
+        for e in exports
+        if e.kind == "correction" and e.created_at >= original.created_at
+    ]
+    delivered: dict[UUID, int] = {}
+    for line in (
+        await session.execute(
+            select(BillingExportLine).where(
+                BillingExportLine.billing_export_id.in_(counted)
+            )
+        )
+    ).scalars():
+        delivered[line.allocation_id] = (
+            delivered.get(line.allocation_id, 0) + line.amount_cents
+        )
+    budget_lines = await AssignmentRepository(session).budget_lines([assignment_id])
+    descriptions = {
+        str(line.id): line.role or line.description for line in budget_lines
+    }
+    differences = [
+        (line, line.amount_cents - delivered.get(UUID(line.allocation_id), 0))
+        for line in data.lines
+    ]
+    differences = [(line, cents) for line, cents in differences if cents != 0]
+    if not differences:
+        raise DomainValidationError(
+            f"Voor {month} is er niets na te verrekenen: wat is aangeleverd is "
+            "gelijk aan wat de maand kost."
+        )
+    total = sum(cents for _, cents in differences)
+    reason = (reason or "").strip() or (
+        "De prijs van deze maand is na de aanlevering gewijzigd."
+    )
+    export = BillingExport(
+        assignment_id=assignment_id,
+        month=month.first_day,
+        month_close_id=close.id,
+        total_cents=total,
+        kind="correction",
+        reason=reason,
+        exported_by_id=actor.id if actor is not None else None,
+    )
+    session.add(export)
+    await session.flush()
+    for line, cents in differences:
+        session.add(
+            BillingExportLine(
+                billing_export_id=export.id,
+                budget_line_id=UUID(line.budget_line_id),
+                allocation_id=UUID(line.allocation_id),
+                person_id=UUID(line.person_id),
+                description=(
+                    f"Naverrekening {month}: {descriptions[line.budget_line_id]}"
+                ),
+                fte_pct=line.fte_pct,
+                category=line.category,
+                monthly_rate_cents=line.monthly_rate_cents,
+                amount_cents=cents,
+            )
+        )
+    await session.flush()
+    record_audit(
+        session,
+        actor=actor,
+        action=CREATE,
+        entity="billing_export",
+        entity_id=export.id,
+        new_value={
+            "assignment_id": str(assignment_id),
+            "month": str(month),
+            "kind": "correction",
+            "corrects": str(original.id),
+            "reason": reason,
+            "total_cents": total,
         },
     )
     return export

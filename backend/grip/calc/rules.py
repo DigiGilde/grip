@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from dataclasses import replace
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from fractions import Fraction
 
@@ -49,6 +49,7 @@ from grip.calc.types import (
     MonthAmount,
     PersonScale,
     RateBook,
+    Stretch,
 )
 
 # Established actual FTE percentage per (allocation id, month), set at the
@@ -131,24 +132,118 @@ def person_monthly_rate(
 # R2, R3
 
 
+def _cut_days(
+    rates: RateBook,
+    scales: tuple[PersonScale, ...],
+    person_id: str | None,
+    first: date,
+    last: date,
+) -> list[date]:
+    """Days after ``first`` up to ``last`` on which the rate card or the
+    person's billing scale changes."""
+    days = rates.change_days(first, last)
+    if person_id is not None:
+        for scale in scales:
+            if scale.person_id != person_id:
+                continue
+            for day in (
+                scale.valid_from,
+                scale.valid_to + timedelta(days=1) if scale.valid_to else None,
+            ):
+                if day is not None and first < day <= last:
+                    days.add(day)
+    return sorted(days)
+
+
+def _stretches(
+    first: date,
+    last: date,
+    month_fraction: Fraction,
+    rates: RateBook,
+    scales: tuple[PersonScale, ...],
+    *,
+    person_id: str | None = None,
+    category: str | None = None,
+) -> list[tuple[date, date, Fraction, str, int]]:
+    """Split the days ``first`` to ``last`` of one month into stretches in
+    which rate card and billing scale, and so the monthly rate, are constant.
+
+    Pricing follows the truth by day: a stretch counts for its share of the
+    days. The shares add up to ``month_fraction``, the share of the month
+    the whole period has under the chosen strategy. A period without a
+    change inside it is one stretch with exactly ``month_fraction``, so a
+    month in which nothing changes is priced as it always was.
+
+    With ``category`` (a budget line) only the card can change; with
+    ``person_id`` (inzet) the category follows the scale of each stretch.
+    """
+    starts = [first, *_cut_days(rates, scales, person_id, first, last)]
+    ends = [day - timedelta(days=1) for day in starts[1:]] + [last]
+    parts: list[tuple[date, date, str, int]] = []
+    for start, end in zip(starts, ends, strict=True):
+        if category is not None:
+            stretch_category = category
+        else:
+            assert person_id is not None
+            # As for a whole period: the scale valid on the first day, or
+            # else the first one that becomes valid later in the period.
+            scale = billing_scale(scales, person_id, start, last)
+            if scale is None:
+                raise MissingPersonScaleError(person_id, start)
+            stretch_category = rates.category_for_scale(start, scale)
+        rate = rates.monthly_rate_cents(start, stretch_category)
+        if parts and parts[-1][2:] == (stretch_category, rate):
+            parts[-1] = (parts[-1][0], end, stretch_category, rate)
+        else:
+            parts.append((start, end, stretch_category, rate))
+    if len(parts) == 1:
+        start, end, stretch_category, rate = parts[0]
+        return [(start, end, month_fraction, stretch_category, rate)]
+    total_days = (last - first).days + 1
+    return [
+        (
+            start,
+            end,
+            month_fraction * Fraction((end - start).days + 1, total_days),
+            stretch_category,
+            rate,
+        )
+        for start, end, stretch_category, rate in parts
+    ]
+
+
 def _month_amount(
     month: Month,
     fte_pct: Decimal,
     fraction: Fraction,
-    category: str,
-    rate_cents: int,
     source: AmountSource,
+    parts: list[tuple[date, date, Fraction, str, int]],
 ) -> MonthAmount:
-    exact = _exact(fte_pct) / _HUNDRED * rate_cents * fraction
+    """One month from its stretches. Rounded once, for the month: the
+    stretches add up exactly and the cents are those of the sum."""
+    share = _exact(fte_pct) / _HUNDRED
+    stretches = tuple(
+        Stretch(
+            start=start,
+            end=end,
+            fraction=part,
+            category=category,
+            monthly_rate_cents=rate,
+            exact=share * rate * part,
+        )
+        for start, end, part, category, rate in parts
+    )
+    exact = sum((stretch.exact for stretch in stretches), Fraction(0))
     return MonthAmount(
         month=month,
         fte_pct=fte_pct,
         fraction=fraction,
-        category=category,
-        monthly_rate_cents=rate_cents,
+        category=stretches[0].category,
+        monthly_rate_cents=stretches[0].monthly_rate_cents,
         exact=exact,
         cents=round_cents(exact),
         source=source,
+        stretches=stretches,
     )
 
 
@@ -176,30 +271,20 @@ def allocation_months(
         if actual is None and month not in planned:
             continue
         first, last = overlap(month, allocation.start_date, allocation.end_date)  # type: ignore[misc]
-        category = rate_category(
-            rates, scales, allocation.person_id, month, start=first, end=last
+        # An established percentage counts over the whole month, and for
+        # each stretch of it alike.
+        fraction = Fraction(1) if actual is not None else planned[month]
+        parts = _stretches(
+            first, last, fraction, rates, scales, person_id=allocation.person_id
         )
-        rate_cents = rates.monthly_rate_cents(month, category)
         if actual is not None:
             amounts.append(
-                _month_amount(
-                    month,
-                    actual,
-                    Fraction(1),
-                    category,
-                    rate_cents,
-                    AmountSource.ACTUAL,
-                )
+                _month_amount(month, actual, fraction, AmountSource.ACTUAL, parts)
             )
         else:
             amounts.append(
                 _month_amount(
-                    month,
-                    allocation.fte_pct,
-                    planned[month],
-                    category,
-                    rate_cents,
-                    AmountSource.PLANNED,
+                    month, allocation.fte_pct, fraction, AmountSource.PLANNED, parts
                 )
             )
     return tuple(amounts)
@@ -256,17 +341,16 @@ def budget_line_months(
         return ()
     fte, category, start, end = _require_personnel(line)
     fte_pct = fte * 100
-    return tuple(
-        _month_amount(
-            month,
-            fte_pct,
-            fraction,
-            category,
-            rates.monthly_rate_cents(month, category),
-            AmountSource.PLANNED,
+    amounts = []
+    for month, fraction in month_fractions(start, end, partial_months):
+        first, last = overlap(month, start, end)  # type: ignore[misc]
+        # A line has one category; only the rate behind it changes with the
+        # card.
+        parts = _stretches(first, last, fraction, rates, (), category=category)
+        amounts.append(
+            _month_amount(month, fte_pct, fraction, AmountSource.PLANNED, parts)
         )
-        for month, fraction in month_fractions(start, end, partial_months)
-    )
+    return tuple(amounts)
 
 
 def budgeted_by_year(
@@ -533,13 +617,25 @@ def kpi_target(
     Months in which the person has no billing scale do not count.
     """
     scales = tuple(scales)
-    year_rate = 0
+    year_rate = Fraction(0)
     for month in months_of_year(target.year):
-        scale = billing_scale(scales, target.person_id, month.first_day, month.last_day)
-        if scale is None:
-            continue
-        category = rates.category_for_scale(month, scale)
-        year_rate += rates.monthly_rate_cents(month, category)
+        # Within a month by day: each stretch for its share of the days. A
+        # stretch without a billing scale does not count.
+        starts = [
+            month.first_day,
+            *_cut_days(
+                rates, scales, target.person_id, month.first_day, month.last_day
+            ),
+        ]
+        ends = [day - timedelta(days=1) for day in starts[1:]] + [month.last_day]
+        for start, end in zip(starts, ends, strict=True):
+            scale = billing_scale(scales, target.person_id, start, end)
+            if scale is None:
+                continue
+            category = rates.category_for_scale(start, scale)
+            year_rate += rates.monthly_rate_cents(start, category) * Fraction(
+                (end - start).days + 1, month.days
+            )
     return round_cents(_exact(target.target_pct) / _HUNDRED * year_rate)
 
 
@@ -565,35 +661,35 @@ def category_mismatches(
         run: CategoryMismatch | None = None
         for month in months_between(allocation.start_date, allocation.end_date):
             first, last = overlap(month, allocation.start_date, allocation.end_date)  # type: ignore[misc]
-            category = rate_category(
-                rates, scales, allocation.person_id, month, start=first, end=last
-            )
-            if run is not None and category == run.person_category:
-                run = replace(run, last_month=month)
-                continue
-            if run is not None:
-                mismatches.append(run)
-                run = None
-            if category == line_category:
-                continue
-            person_rate = rates.monthly_rate_cents(month, category)
-            line_rate = rates.monthly_rate_cents(month, line_category)
-            if person_rate > line_rate:
-                direction = MismatchDirection.OVERRUN
-            elif person_rate < line_rate:
-                direction = MismatchDirection.UNDERRUN
-            else:
-                direction = MismatchDirection.SAME_RATE
-            run = CategoryMismatch(
-                allocation_id=allocation.id,
-                person_id=allocation.person_id,
-                budget_line_id=line.id,
-                line_category=line_category,
-                person_category=category,
-                first_month=month,
-                last_month=month,
-                direction=direction,
-            )
+            for start, _, _, category, person_rate in _stretches(
+                first, last, Fraction(1), rates, scales, person_id=allocation.person_id
+            ):
+                if run is not None and category == run.person_category:
+                    run = replace(run, last_month=month)
+                    continue
+                if run is not None:
+                    mismatches.append(run)
+                    run = None
+                if category == line_category:
+                    continue
+                line_rate = rates.monthly_rate_cents(start, line_category)
+                if person_rate > line_rate:
+                    direction = MismatchDirection.OVERRUN
+                elif person_rate < line_rate:
+                    direction = MismatchDirection.UNDERRUN
+                else:
+                    direction = MismatchDirection.SAME_RATE
+                run = CategoryMismatch(
+                    allocation_id=allocation.id,
+                    person_id=allocation.person_id,
+                    budget_line_id=line.id,
+                    line_category=line_category,
+                    person_category=category,
+                    first_month=month,
+                    last_month=month,
+                    direction=direction,
+                    since=start,
+                )
         if run is not None:
             mismatches.append(run)
     return tuple(mismatches)
@@ -629,16 +725,11 @@ def closed_month_amount(
     # Touched month that the strategy counts for nothing (GRIST_DATEDIF).
     scales = tuple(scales)
     first, last = overlap(month, allocation.start_date, allocation.end_date)  # type: ignore[misc]
-    category = rate_category(
-        rates, scales, allocation.person_id, month, start=first, end=last
+    parts = _stretches(
+        first, last, Fraction(0), rates, scales, person_id=allocation.person_id
     )
     return _month_amount(
-        month,
-        allocation.fte_pct,
-        Fraction(0),
-        category,
-        rates.monthly_rate_cents(month, category),
-        AmountSource.PLANNED,
+        month, allocation.fte_pct, Fraction(0), AmountSource.PLANNED, parts
     )
 
 

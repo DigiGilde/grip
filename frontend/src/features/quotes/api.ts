@@ -16,6 +16,8 @@ export interface QuoteLine {
   role?: string | null;
   fte?: string | null;
   rate_category?: string | null;
+  /** The scales that bill in this category, as on the rate leaflet. */
+  scales?: number[];
   start_date?: string | null;
   end_date?: string | null;
   year?: number | null;
@@ -31,6 +33,10 @@ export interface QuoteContent {
   total_cents: number;
   valid_until?: string | null;
   conditions?: string | null;
+  /** The organisation that sends the quote. */
+  sender?: string | null;
+  /** The client's own reference ("uw kenmerk"). */
+  client_reference?: string | null;
 }
 
 export interface QuotePreview {
@@ -43,6 +49,8 @@ export interface QuotePreview {
   content?: QuoteContent;
   quoted_amount_cents?: number | null;
   difference_cents?: number | null;
+  /** Conditions the organisation proposes for a new quote. */
+  default_conditions?: string | null;
 }
 
 export interface Acceptance {
@@ -62,6 +70,8 @@ export interface Rejection {
 export interface QuoteSummary {
   id: string;
   uri: string;
+  /** The reference people quote, e.g. "DG-2026-0007". */
+  reference?: string | null;
   assignment_id: string;
   status: 'issued' | 'accepted' | 'rejected' | 'superseded' | string;
   issued_at: string;
@@ -75,6 +85,18 @@ export interface QuoteSummary {
 
 export type OfferChannel = 'client_instance' | 'signing_link' | 'document';
 
+/** The signing link behind an offer; only for whoever manages the assignment. */
+export interface OfferInvitation {
+  id: string;
+  /** Path of the page the invited person opens. */
+  signing_path: string;
+  expires_at: string | null;
+  opened_at: string | null;
+  used_at: string | null;
+  withdrawn_at: string | null;
+  state: 'invited' | 'opened' | 'signed' | 'expired' | 'withdrawn' | string;
+}
+
 /** One time the quote was put before the client, through one channel. */
 export interface QuoteOffer {
   id: string;
@@ -85,6 +107,7 @@ export interface QuoteOffer {
   offered_by_name?: string | null;
   /** For the client's own instance: pending, sent or refused. */
   delivery?: 'pending' | 'sent' | 'refused' | string | null;
+  invitation?: OfferInvitation | null;
 }
 
 /** A channel the quote can be offered through, or why it cannot. */
@@ -96,6 +119,8 @@ export interface QuoteChannel {
 }
 
 export interface QuoteDetail extends QuoteSummary {
+  /** The frozen content of the quote. */
+  content?: QuoteContent;
   offers?: QuoteOffer[];
   channels?: QuoteChannel[];
 }
@@ -130,7 +155,11 @@ export function fetchQuotes(assignmentId: string): Promise<QuoteList> {
 
 export function issueQuote(
   assignmentId: string,
-  input: { valid_until: string | null; conditions: string | null },
+  input: {
+    valid_until: string | null;
+    conditions: string | null;
+    client_reference?: string | null;
+  },
 ): Promise<QuoteSummary> {
   return apiPost(`/api/assignments/${assignmentId}/quotes`, input);
 }
@@ -148,6 +177,16 @@ export function offerQuote(
   input: { channel: OfferChannel; email?: string },
 ): Promise<QuoteDetail> {
   return apiPost(`/api/quotes/${quoteId}/offers`, input);
+}
+
+/** Takes a signing link back: from then on it opens nothing. */
+export function withdrawInvitation(quoteId: string, invitationId: string): Promise<QuoteDetail> {
+  return apiPost(`/api/quotes/${quoteId}/invitations/${invitationId}/withdraw`);
+}
+
+/** Makes a signing link work again for the standard period. */
+export function renewInvitation(quoteId: string, invitationId: string): Promise<QuoteDetail> {
+  return apiPost(`/api/quotes/${quoteId}/invitations/${invitationId}/renew`);
 }
 
 export function fetchInvitations(quoteId: string): Promise<{ invitations: Invitation[] }> {
@@ -210,9 +249,9 @@ export function signedDocumentUrl(quoteId: string): string {
   return `/api/quotes/${quoteId}/acceptance/document`;
 }
 
-/** The address an invited signer opens. */
-export function signingLink(quoteId: string): string {
-  return `${window.location.origin}/tekenen/${quoteId}`;
+/** The full address an invited signer opens, from the path the API gives. */
+export function signingLink(path: string): string {
+  return `${window.location.origin}${path}`;
 }
 
 export const QUOTE_STATUS_LABELS: Record<string, string> = {
@@ -233,15 +272,23 @@ export const QUOTE_STATUS_COLORS: Record<
 };
 
 export const ACCEPTANCE_FORM_LABELS: Record<string, string> = {
-  own_instance: 'Getekend in de eigen omgeving van de opdrachtgever',
-  signing_link: 'Getekend via een tekenlink',
+  own_instance: 'Getekend in het grip van de opdrachtgever',
+  signing_link: 'Getekend via de tekenlink',
   uploaded_pdf: 'Getekende pdf vastgelegd',
 };
 
 export const OFFER_CHANNEL_LABELS: Record<string, string> = {
-  client_instance: 'Via de grip van de opdrachtgever',
-  signing_link: 'Met een tekenlink in deze grip',
+  client_instance: 'Via het grip van de opdrachtgever',
+  signing_link: 'Met een tekenlink',
   document: 'Als document',
+};
+
+/** One line per channel on what happens when the quote is offered through it. */
+export const OFFER_CHANNEL_EFFECTS: Record<string, string> = {
+  client_instance: 'De offerte komt binnen in het grip van de opdrachtgever en wordt daar getekend.',
+  signing_link:
+    'Je krijgt een link voor één persoon. Die logt in met SSO Rijk en tekent hier. Je stuurt de link zelf door.',
+  document: 'Je downloadt de pdf en verstuurt die zelf. Het getekende exemplaar leg je hier vast.',
 };
 
 export const OFFER_DELIVERY_LABELS: Record<string, string> = {

@@ -67,6 +67,7 @@ from grip.calc.types import (
     RateCard,
     RateCardStatus,
     ScaleBand,
+    Stretch,
 )
 
 __all__ = [
@@ -104,6 +105,7 @@ __all__ = [
     "RateCard",
     "RateCardStatus",
     "ScaleBand",
+    "Stretch",
     "allocation_amount",
     "allocation_months",
     "assignment_totals",

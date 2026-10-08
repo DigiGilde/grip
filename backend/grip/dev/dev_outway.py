@@ -22,7 +22,9 @@ Run it with ``just dev-outway`` (port 9230). The routes file is JSON::
     }
 
 ``target`` is the service behind the other party's inway, without a path.
-``caller_peer_id`` is who the other party will believe is calling, so the
+A route without ``caller_peer_id`` passes the request on unchanged; use it
+to send a real FSC grant hash on to a real outway. ``caller_peer_id`` is who
+the other party will believe is calling, so the
 file is the whole trust model here: never run this anywhere but on your own
 machine. A request with a grant hash that is not in the file goes to
 ``fallback`` unchanged (the stand-in corpus, which routes on the grant hash
@@ -131,7 +133,10 @@ def create_app(routes_path: Path | None = None) -> FastAPI:
         }
         if route is not None:
             target = str(route["target"]).rstrip("/")
-            headers[PEER_ID_HEADER] = str(route["caller_peer_id"])
+            # Without a caller the route passes the request on as it is, to
+            # a real outway that knows the grant hash.
+            if route.get("caller_peer_id"):
+                headers[PEER_ID_HEADER] = str(route["caller_peer_id"])
         elif table.fallback:
             target = table.fallback.rstrip("/")
         else:

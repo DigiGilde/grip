@@ -546,7 +546,7 @@ async def add_note(db: AsyncSession, task: Task, body: str, *, actor: Person) ->
     body = body.strip()
     if not body:
         raise DomainValidationError("Een notitie kan niet leeg zijn.")
-    note = TaskNote(task_id=task.id, body=body, created_by_id=actor.id)
-    db.add(note)
+    note = TaskNote(body=body, created_by_id=actor.id)
+    task.notes.append(note)
     await db.flush()
     return note

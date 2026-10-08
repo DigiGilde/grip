@@ -67,6 +67,16 @@ case "${1:-status}" in
   }
 }
 ROUTES
+        # Routes that another script adds (the FSC grant hashes of the local
+        # Bouwmeester, passed on to the real outway of its peer).
+        if [ -f "$state/fsc-routes.json" ]; then
+            python3 - "$state/dev-outway.json" "$state/fsc-routes.json" <<'MERGE'
+import json, sys
+table = json.load(open(sys.argv[1]))
+table["routes"].update(json.load(open(sys.argv[2])))
+json.dump(table, open(sys.argv[1], "w"), indent=2)
+MERGE
+        fi
         start dev-outway "$repo/backend" env DEV_OUTWAY_ROUTES="$state/dev-outway.json" \
             uv run uvicorn grip.dev.dev_outway:create_app --factory --port "$OUTWAY_PORT"
         # The routes other organisations call. With FSC only the inway

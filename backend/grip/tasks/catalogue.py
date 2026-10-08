@@ -42,6 +42,7 @@ CASE_FACTS: dict[str, frozenset[str]] = {
             "closed",
             "budget_has_line",
             "budget_has_personnel_line",
+            "staffing_in_view",
             "may_close_months",
             "may_bill",
             "final_report_issued",

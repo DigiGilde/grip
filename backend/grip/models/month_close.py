@@ -113,6 +113,7 @@ class BillingExport(Base):
     __tablename__ = "billing_export"
     __table_args__ = (
         CheckConstraint("extract(day from month) = 1", name="month_is_first_day"),
+        CheckConstraint("kind IN ('original', 'correction')", name="kind_valid"),
     )
 
     id: Mapped[uuid.UUID] = uuid_pk()
@@ -126,6 +127,14 @@ class BillingExport(Base):
         UUID(as_uuid=True), ForeignKey("month_close.id", ondelete="RESTRICT")
     )
     total_cents: Mapped[int] = mapped_column(BigInteger)
+    # "original": the delivery of the month. "correction" (naverrekening):
+    # the difference that arose after it, because the price of the month
+    # changed; its lines hold differences and may be negative. The original
+    # is never rewritten.
+    kind: Mapped[str] = mapped_column(
+        String(12), default="original", server_default="original"
+    )
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     exported_by_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("person.id", ondelete="SET NULL"),

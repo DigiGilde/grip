@@ -10,7 +10,7 @@ Conventions:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from enum import StrEnum
 from fractions import Fraction
@@ -39,17 +39,23 @@ class MissingPeriodError(InvalidInputError):
 
 
 class MissingRateCardError(CalcError):
-    """No rate card that prices is valid in a month.
+    """No rate card that prices is valid on a day.
 
-    A gap between cards is allowed to exist; pricing a month in it is an
+    A gap between cards is allowed to exist; pricing a day in it is an
     error, never zero.
     """
 
-    def __init__(self, month: Month | int) -> None:
-        super().__init__(f"no usable rate card for {month}")
-        # ``month`` is None only for callers that still ask per year.
-        self.month = month if isinstance(month, Month) else None
-        self.year = month.year if isinstance(month, Month) else month
+    def __init__(self, day: date | Month | int) -> None:
+        super().__init__(f"no usable rate card for {day}")
+        if isinstance(day, date):
+            self.day: date | None = day
+            self.month: Month | None = Month.of(day)
+            self.year = day.year
+        elif isinstance(day, Month):
+            self.day, self.month, self.year = day.first_day, day, day.year
+        else:
+            # A caller that still asks per year.
+            self.day, self.month, self.year = None, None, day
 
 
 class MissingRateError(CalcError):
@@ -128,10 +134,10 @@ class ScaleBand:
 
 @dataclass(frozen=True)
 class RateCard:
-    """The rates and the scale mapping valid for a period.
+    """The rates and the scale mapping valid from a date to a date.
 
-    A card starts on the first day of a month and ends on the last day of a
-    month (or has no end), so every calendar month is priced by one card.
+    Any date: a card can start or end halfway through a month. ``valid_to``
+    None means open-ended.
     """
 
     valid_from: date
@@ -143,13 +149,8 @@ class RateCard:
     id: str = ""
 
     def __post_init__(self) -> None:
-        if self.valid_from.day != 1:
-            raise InvalidInputError("a rate card starts on the first day of a month")
-        if self.valid_to is not None:
-            if self.valid_to < self.valid_from:
-                raise InvalidInputError("a rate card ends after it starts")
-            if self.valid_to != Month.of(self.valid_to).last_day:
-                raise InvalidInputError("a rate card ends on the last day of a month")
+        if self.valid_to is not None and self.valid_to < self.valid_from:
+            raise InvalidInputError("a rate card ends after it starts")
 
     @classmethod
     def for_year(
@@ -173,59 +174,77 @@ class RateCard:
     def label(self) -> str:
         return self.name or f"from {self.valid_from.isoformat()}"
 
-    def covers(self, month: Month) -> bool:
-        return self.valid_from <= month.first_day and (
-            self.valid_to is None or self.valid_to >= month.last_day
+    def valid_on(self, day: date) -> bool:
+        return self.valid_from <= day and (
+            self.valid_to is None or self.valid_to >= day
         )
 
 
-def _as_month(when: Month | date | int) -> Month:
+def _as_day(when: date | Month | int) -> date:
     if isinstance(when, Month):
-        return when
+        return when.first_day
     if isinstance(when, date):
-        return Month.of(when)
-    # A bare year, from callers of before cards had a validity: January.
-    return Month(when, 1)
+        return when
+    # A bare year, from callers of before cards had a validity: 1 January.
+    return date(when, 1, 1)
 
 
 @dataclass(frozen=True)
 class RateBook:
-    """All rate cards. A month is priced by the card valid in it.
+    """All rate cards. A day is priced by the card valid on it.
 
     Active and closed cards price. A draft does not, unless include_draft is
     set (for budgeting a period whose card is not active yet), and then only
-    in a month no other card covers.
+    on a day no other card covers.
+
+    A month given instead of a day means its first day; inside a month the
+    card can change, which the rules handle by pricing each stretch.
     """
 
     cards: tuple[RateCard, ...]
     include_draft: bool = False
 
-    def card(self, when: Month | date | int) -> RateCard:
-        month = _as_month(when)
+    def card(self, when: date | Month | int) -> RateCard:
+        day = _as_day(when)
         draft: RateCard | None = None
         for card in self.cards:
-            if not card.covers(month):
+            if not card.valid_on(day):
                 continue
             if card.status is not RateCardStatus.DRAFT:
                 return card
             draft = draft or card
         if draft is not None and self.include_draft:
             return draft
-        raise MissingRateCardError(month if not isinstance(when, int) else when)
+        raise MissingRateCardError(when)
 
-    def monthly_rate_cents(self, when: Month | date | int, category: str) -> int:
+    def monthly_rate_cents(self, when: date | Month | int, category: str) -> int:
         card = self.card(when)
         for band in card.rate_bands:
             if band.category == category:
                 return band.monthly_rate_cents
         raise MissingRateError(card.label, category)
 
-    def category_for_scale(self, when: Month | date | int, scale: int) -> str:
+    def category_for_scale(self, when: date | Month | int, scale: int) -> str:
         card = self.card(when)
         for band in card.scale_bands:
             if band.scale == scale:
                 return band.category
         raise MissingScaleBandError(card.label, scale)
+
+    def change_days(self, start: date, end: date) -> set[date]:
+        """Days after ``start`` up to ``end`` on which another card (or no
+        card) starts to apply."""
+        days: set[date] = set()
+        for card in self.cards:
+            if card.status is RateCardStatus.DRAFT and not self.include_draft:
+                continue
+            for day in (
+                card.valid_from,
+                card.valid_to + timedelta(days=1) if card.valid_to else None,
+            ):
+                if day is not None and start < day <= end:
+                    days.add(day)
+        return days
 
 
 @dataclass(frozen=True)
@@ -292,6 +311,19 @@ class CostCoverage:
 
 
 @dataclass(frozen=True)
+class Stretch:
+    """Consecutive days of a month in which card, scale and so the monthly
+    rate are constant. ``fraction`` is its share of the month."""
+
+    start: date
+    end: date
+    fraction: Fraction
+    category: str
+    monthly_rate_cents: int
+    exact: Fraction
+
+
+@dataclass(frozen=True)
 class MonthAmount:
     """One calendar month of a personnel amount.
 
@@ -301,11 +333,18 @@ class MonthAmount:
     month: Month
     fte_pct: Decimal
     fraction: Fraction
+    # Of the first stretch. A month in which the rate card or the billing
+    # scale changes has more than one stretch; see ``stretches``.
     category: str
     monthly_rate_cents: int
     exact: Fraction
     cents: int
     source: AmountSource = AmountSource.PLANNED
+    stretches: tuple[Stretch, ...] = ()
+
+    @property
+    def changes_inside(self) -> bool:
+        return len(self.stretches) > 1
 
 
 @dataclass(frozen=True)
@@ -352,6 +391,9 @@ class CategoryMismatch:
     first_month: Month
     last_month: Month
     direction: MismatchDirection
+    # The first day of the run: the start of the inzet, or the day the
+    # person's scale or the rate card changed.
+    since: date | None = None
 
 
 @dataclass(frozen=True)

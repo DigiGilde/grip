@@ -155,8 +155,7 @@ def to_calc_rate_card(card: RateCard) -> calc.RateCard:
             for b in card.rate_bands
         ),
         scale_bands=tuple(
-            calc.ScaleBand(scale=b.scale, category=b.category)
-            for b in card.scale_bands
+            calc.ScaleBand(scale=b.scale, category=b.category) for b in card.scale_bands
         ),
     )
 

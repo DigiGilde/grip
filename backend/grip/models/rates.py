@@ -24,22 +24,18 @@ RATE_CATEGORIES = ("A", "B", "C", "D", "E")
 class RateCard(Base):
     """The rates and the scale mapping valid for a period (tarievenkaart).
 
-    A card is valid from a date and to a date, or open-ended. Often that is a
-    calendar year, but rates can change halfway through one, and then a new
-    card starts there. A card starts on the first day of a month and ends on
-    the last day of a month, so every calendar month is priced by exactly one
-    card (ADR 0021). Cards that price (active and closed) do not overlap; a
-    draft may overlap the card it is going to follow.
+    A card is valid from a date and to a date, or open-ended. Any date:
+    often a card is a calendar year, but rates can change halfway through
+    one, on any day, and then a new card starts there (ADR 0021). Cards that
+    price (active and closed) do not overlap; a draft may overlap the card
+    it is going to follow.
     """
 
     __tablename__ = "rate_card"
     __table_args__ = (
         CheckConstraint("status IN ('draft', 'active', 'closed')", name="status_valid"),
-        CheckConstraint("extract(day from valid_from) = 1", name="starts_on_first"),
         CheckConstraint(
-            "valid_to IS NULL OR (valid_to >= valid_from AND "
-            "extract(day from valid_to + 1) = 1)",
-            name="ends_on_last",
+            "valid_to IS NULL OR valid_to >= valid_from", name="period_valid"
         ),
         CheckConstraint("btrim(name) <> ''", name="name_not_empty"),
         ExcludeConstraint(

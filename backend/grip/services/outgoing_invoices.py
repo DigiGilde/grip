@@ -192,12 +192,36 @@ async def _closes_in_force(
 def _current_exports(
     exports: Iterable[BillingExport], closes: dict[date, UUID]
 ) -> dict[date, BillingExport]:
-    """Per month the delivery in force: the latest export of the close in force."""
+    """Per month the delivery in force: the latest export of the close in force.
+
+    A correction (naverrekening) is not a delivery of the month but an
+    addition to it; see ``_corrections``.
+    """
     current: dict[date, BillingExport] = {}
     for export in exports:
-        if closes.get(export.month) == export.month_close_id:
+        if (
+            closes.get(export.month) == export.month_close_id
+            and export.kind != "correction"
+        ):
             current[export.month] = export
     return current
+
+
+def _corrections(
+    exports: Iterable[BillingExport], current: dict[date, BillingExport]
+) -> dict[date, list[BillingExport]]:
+    """Per month the corrections delivered on top of the delivery in force."""
+    found: dict[date, list[BillingExport]] = {}
+    for export in exports:
+        original = current.get(export.month)
+        if (
+            export.kind == "correction"
+            and original is not None
+            and export.month_close_id == original.month_close_id
+            and export.created_at >= original.created_at
+        ):
+            found.setdefault(export.month, []).append(export)
+    return found
 
 
 async def _invoices_in_force(
@@ -285,6 +309,7 @@ async def month_billing(
     by_id = {export.id: export for export in exports}
     closes = await _closes_in_force(session, assignment_id)
     current = _current_exports(exports, closes)
+    corrections = _corrections(exports, current)
     invoices = await _invoices_in_force(session, assignment_id)
 
     # Per month: the invoice, this month's share of its amount, and whether
@@ -299,7 +324,9 @@ async def month_billing(
         linked.sort(key=lambda export: (export.month, export.created_at))
         shares = spread(invoice.amount_cents, [e.total_cents for e in linked])
         for export, share in zip(linked, shares, strict=True):
-            in_force = current.get(export.month) is export
+            in_force = current.get(export.month) is export or any(
+                export is correction for correction in corrections.get(export.month, [])
+            )
             previous = invoiced.get(export.month)
             invoiced[export.month] = (
                 invoice,
@@ -333,7 +360,11 @@ async def month_billing(
                 delivered_by_name=names.get(export.exported_by_id)
                 if export and export.exported_by_id
                 else None,
-                delivered_cents=export.total_cents if export else None,
+                # The delivery in force plus the corrections on top of it.
+                delivered_cents=export.total_cents
+                + sum(c.total_cents for c in corrections.get(first_day, []))
+                if export
+                else None,
                 invoice_id=entry[0].id if entry else None,
                 invoice_number=entry[0].invoice_number if entry else None,
                 invoice_date=entry[0].invoice_date if entry else None,
@@ -540,6 +571,7 @@ async def _deliveries_for(
     exports = await _exports(session, assignment_id)
     by_id = {export.id: export for export in exports}
     current = _current_exports(exports, await _closes_in_force(session, assignment_id))
+    corrections = _corrections(exports, current)
     chosen = []
     for export_id in wanted:
         export = by_id.get(export_id)
@@ -547,7 +579,9 @@ async def _deliveries_for(
             raise DomainValidationError(
                 "Een van de gekozen aanleveringen hoort niet bij deze opdracht."
             )
-        if current.get(export.month) is not export:
+        if current.get(export.month) is not export and not any(
+            export is correction for correction in corrections.get(export.month, [])
+        ):
             raise DomainValidationError(
                 f"De aanlevering van {Month.of(export.month)} is niet meer de "
                 "geldende: de maand is heropend of opnieuw aangeleverd. Kies de "

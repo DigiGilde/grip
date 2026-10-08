@@ -27,6 +27,11 @@ VACANCY_PUBLISHED = "vacancy.published"
 # took such a record back.
 INVOICE_RECORDED = "invoice.recorded"
 INVOICE_WITHDRAWN = "invoice.withdrawn"
+# The billing scale of a person was recorded or changed.
+PERSON_SCALE_CHANGED = "person_scale.changed"
+# The price of a month that was already delivered changed (a promotion or a
+# rate card with effect in the past): the difference is to be delivered.
+BILLING_CORRECTION_AROSE = "billing_correction.arose"
 
 EVENT_TYPES = (
     ASSIGNMENT_REQUEST_CREATED,
@@ -39,6 +44,8 @@ EVENT_TYPES = (
     VACANCY_PUBLISHED,
     INVOICE_RECORDED,
     INVOICE_WITHDRAWN,
+    PERSON_SCALE_CHANGED,
+    BILLING_CORRECTION_AROSE,
 )
 
 Handler = Callable[[AsyncSession, str, dict[str, Any]], Awaitable[None]]

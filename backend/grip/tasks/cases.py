@@ -237,9 +237,11 @@ async def load_assignment_cases(
     )
     allocations_by_line = _grouped(allocations, "budget_line_id")
 
+    # Only the columns a fact is read from: a table that other work is
+    # extending does not break the engine.
     quotes = (
-        await db.scalars(
-            select(Quote)
+        await db.execute(
+            select(Quote.id, Quote.assignment_id, Quote.status, Quote.issued_at)
             .where(Quote.assignment_id.in_(ids))
             .order_by(Quote.issued_at, Quote.created_at)
         )
@@ -254,16 +256,21 @@ async def load_assignment_cases(
         offered = {row[0] for row in rows}
 
     closes = (
-        await db.scalars(
-            select(MonthClose).where(
-                MonthClose.assignment_id.in_(ids), MonthClose.reopened_at.is_(None)
-            )
+        await db.execute(
+            select(
+                MonthClose.id,
+                MonthClose.assignment_id,
+                MonthClose.month,
+                MonthClose.closed_at,
+            ).where(MonthClose.assignment_id.in_(ids), MonthClose.reopened_at.is_(None))
         )
     ).all()
     closes_by_assignment = _grouped(closes, "assignment_id")
     exports = (
-        await db.scalars(
-            select(BillingExport).where(BillingExport.assignment_id.in_(ids))
+        await db.execute(
+            select(
+                BillingExport.id, BillingExport.month_close_id, BillingExport.created_at
+            ).where(BillingExport.assignment_id.in_(ids))
         )
     ).all()
     exports_by_close = _grouped(exports, "month_close_id")
@@ -325,6 +332,11 @@ async def load_assignment_cases(
 
         rejected = [quote for quote in own_quotes if quote.status == "rejected"]
         live = [q for q in own_quotes if q.status in ("issued", "accepted")]
+        # Staffing comes into view once the work is agreed, or a quote is out:
+        # a draft that nobody has seen yet is no reason to line people up.
+        facts["staffing_in_view"] = case_phase is not phase.Phase.POTENTIAL or bool(
+            live
+        ) or status == phase.VERBALLY_AGREED
         current = live[-1] if live else None
         round_number = len(rejected) + 1
         subjects: dict[str, list[Subject]] = {

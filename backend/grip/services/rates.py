@@ -84,21 +84,9 @@ def default_card_name(valid_from: date, valid_to: date | None) -> str:
 
 
 def check_validity(valid_from: date, valid_to: date | None) -> None:
-    """A card runs from the first day of a month to the last day of a month.
-
-    So every calendar month is priced by exactly one card (ADR 0021).
-    """
-    if valid_from.day != 1:
-        raise DomainValidationError(
-            "Een tarievenkaart gaat in op de eerste dag van een maand."
-        )
-    if valid_to is not None:
-        if valid_to < valid_from:
-            raise DomainValidationError("De einddatum ligt voor de begindatum.")
-        if valid_to != calc.Month.of(valid_to).last_day:
-            raise DomainValidationError(
-                "Een tarievenkaart eindigt op de laatste dag van een maand."
-            )
+    """A card is valid from a date to a date, any date."""
+    if valid_to is not None and valid_to < valid_from:
+        raise DomainValidationError("De einddatum ligt voor de begindatum.")
 
 
 def card_audit(card: RateCard) -> dict[str, Any]:
