@@ -1,0 +1,29 @@
+/* NLDD design system: tokens and the Rijksoverheid fonts. Colour, spacing and
+ * type come from the components; this file only holds what the design system
+ * cannot know about the page it is mounted in. */
+@import "@nldd/design-system/styles";
+
+/* The design system gives html and body a height of 100% when an nldd-app-view
+ * is on the page, assuming the app-view is a child of body. React mounts into
+ * #root in between, and that div gets no height of its own, so the app-view
+ * would have nothing to fill. */
+#root:has(nldd-app-view) {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+}
+
+/* A heading inside nldd-title carries the outline; the component owns the type. */
+nldd-title > :is(h1, h2, h3, h4, h5, h6) {
+  margin: 0;
+  font: inherit;
+}
+
+/* Focused from script after navigation, never by tabbing, so the ring would
+ * only mark where the page starts reading. */
+#page-heading:focus,
+#inhoud:focus {
+  outline: none;
+}
