@@ -30,8 +30,12 @@ export interface TimelineBar<B = unknown> {
   /** The bar starts before, or ends after, the months on screen. */
   clippedStart: boolean;
   clippedEnd: boolean;
-  /** A short mark before the label for a signal, e.g. "≠". */
-  mark?: string;
+  /**
+   * A signal on the bar, as a concept: `attention` (above what is possible)
+   * shows the attention icon, `mismatch` (another rate category than the
+   * line assumes) a short word. Never a character.
+   */
+  mark?: 'attention' | 'mismatch';
   /**
    * Where in its first and last month the bar begins and ends, as the part
    * of that month to leave free (0 to 1). Only drawn on a timeline that
@@ -185,4 +189,29 @@ export function dayOffsets(start: string, end: string): { startOffset: number; e
     startOffset: (startDay - 1) / days(start),
     endOffset: (days(end) - endDay) / days(end),
   };
+}
+
+/** The kinds of mark a legend can explain. */
+export type LegendKind =
+  'filled' | 'established' | 'tentative' | 'open' | 'demand' | 'unavailable' | 'over' | 'mismatch';
+
+/**
+ * The marks that occur in what is drawn, in the legend's fixed order. A
+ * legend explains the picture in front of the reader, not every mark there is.
+ */
+export function occurringLegend<R, B>(groups: readonly TimelineGroup<R, B>[]): LegendKind[] {
+  const rows = groups.flatMap((group) => group.rows);
+  const bars = rows.flatMap((row) => row.bars);
+  const cells = rows.flatMap((row) => row.cells);
+  const has: Record<LegendKind, boolean> = {
+    demand: bars.some((bar) => bar.variant === 'demand'),
+    filled: bars.some((bar) => bar.variant === 'filled'),
+    established: bars.some((bar) => bar.closedSpan > 0),
+    tentative: bars.some((bar) => bar.variant === 'tentative'),
+    open: bars.some((bar) => bar.variant === 'open'),
+    unavailable: cells.some((cell) => cell.state === 'unavailable'),
+    over: cells.some((cell) => cell.state === 'over'),
+    mismatch: bars.some((bar) => bar.mark === 'mismatch'),
+  };
+  return (Object.keys(has) as LegendKind[]).filter((kind) => has[kind]);
 }

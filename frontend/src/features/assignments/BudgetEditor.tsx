@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { PATHS } from '@/paths';
-import { ActionBar } from '@/ui/ActionBar';
+import { ActionBar, type ActionBarAction } from '@/ui/ActionBar';
 import { OpenCell, OpenRow, ROW_ACTIONS_COLUMN, RowActions } from '@/ui/RowActions';
 import { useState } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -54,7 +54,6 @@ import {
   ErrorNotice,
   FormSheet,
   Loading,
-  SectionHeading,
   SelectInput,
   TextInput,
 } from './ui';
@@ -200,7 +199,10 @@ function LineSheet({
   const proposal = (applies: boolean, source: string | null | undefined) =>
     applies ? `Voorstel${source ? `: ${source}` : ' op basis van de beoogde persoon'}` : '';
   const proposed = {
-    role: proposal(!!derivation?.role && form.role === derivation.role, derivation?.role_source_text),
+    role: proposal(
+      !!derivation?.role && form.role === derivation.role,
+      derivation?.role_source_text,
+    ),
     fte: proposal(
       !!derivation?.fte && form.fte === decimalToInput(derivation.fte),
       derivation?.fte_source_text,
@@ -218,13 +220,11 @@ function LineSheet({
   // otherwise after the period, where a user expects to choose it.
   const scaleField = (
     <>
-          <SelectInput
+      <SelectInput
         label="Schaal en tarief"
         hint={
           at('category') ||
-          (followsPerson
-            ? `Volgt uit de beoogde persoon. ${cardNote}`.trim()
-            : cardNote)
+          (followsPerson ? `Volgt uit de beoogde persoon. ${cardNote}`.trim() : cardNote)
         }
         value={form.category}
         onChange={(category) => set({ category })}
@@ -267,7 +267,9 @@ function LineSheet({
             label="Rol"
             value={form.role || null}
             onChange={(role) => set({ role: role?.name ?? '' })}
-            {...(at('role') || proposed.role ? { supportingLabel: at('role') || proposed.role } : {})}
+            {...(at('role') || proposed.role
+              ? { supportingLabel: at('role') || proposed.role }
+              : {})}
             invalid={at('role') !== ''}
           />
           <SelectInput
@@ -349,14 +351,17 @@ function LineSheet({
               <nldd-link href="/beheer/tarieven" text="Bekijk de tarievenkaarten" size="md" />
             </RouterLinks>
           )}
-          {valid.data && !valid.data.has_gap && valid.data.crosses_cards && valid.data.rates_differ && (
-            <nldd-banner
-              variant="neutral"
-              size="sm"
-              text="De periode loopt over meer dan één tarievenkaart"
-              supporting-text={valid.data.summary}
-            />
-          )}
+          {valid.data &&
+            !valid.data.has_gap &&
+            valid.data.crosses_cards &&
+            valid.data.rates_differ && (
+              <nldd-banner
+                variant="neutral"
+                size="sm"
+                text="De periode loopt over meer dan één tarievenkaart"
+                supporting-text={valid.data.summary}
+              />
+            )}
           <TextInput
             label="Omschrijving"
             hint="Wat deze regel onderscheidt van een andere met dezelfde rol, bijvoorbeeld: #2, vanaf Q2."
@@ -421,13 +426,11 @@ function AssignmentPeriodStep({ assignmentId }: { assignmentId: string }) {
   });
   return (
     <nldd-container gap="8">
-      <nldd-container layout="grid" column-count={2} gap="12">
+      <nldd-container layout="grid" column-count={2} gap="16">
         <DateInput label="Begin van de opdracht" value={start} onChange={setStart} />
         <DateInput label="Einde van de opdracht" value={end} onChange={setEnd} />
       </nldd-container>
-      {save.isError && (
-        <nldd-banner variant="critical" size="sm" text={errorMessage(save.error)} />
-      )}
+      {save.isError && <nldd-banner variant="critical" size="sm" text={errorMessage(save.error)} />}
       <nldd-container layout="row">
         <Button
           text="Bewaar de looptijd van de opdracht"
@@ -446,9 +449,7 @@ function lineSummary(line: BudgetLine, name: CategoryNamer, parent?: ParentPerio
   if (line.kind === 'fixed') return line.year ? `Vast bedrag, ${line.year}` : 'Vast bedrag';
   const parts = [
     line.fte ? `${formatFte(line.fte)} FTE` : '',
-    line.rate_category
-      ? name(line.rate_category, line.start_date)
-      : '',
+    line.rate_category ? name(line.rate_category, line.start_date) : '',
     // Following the assignment is the normal case; only a deviation is said.
     !parent || hasOwnPeriod(line, parent)
       ? `afwijkende periode: ${formatPeriod(line.start_date, line.end_date)}`
@@ -458,7 +459,13 @@ function lineSummary(line: BudgetLine, name: CategoryNamer, parent?: ParentPerio
 }
 
 /** The budget lines of an assignment, with the computed amounts and a subtotal per year. */
-export function BudgetEditor({ assignmentId }: { assignmentId: string }) {
+interface BudgetEditorProps {
+  assignmentId: string;
+  /** Actions of the tab that belong next to the one primary action. */
+  actions?: readonly ActionBarAction[];
+}
+
+export function BudgetEditor({ assignmentId, actions = [] }: BudgetEditorProps) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [sheet, setSheet] = useState<{ open: boolean; line?: BudgetLine; key: number }>({
@@ -500,8 +507,7 @@ export function BudgetEditor({ assignmentId }: { assignmentId: string }) {
     setSheet((current) => ({ open: true, line, key: current.key + 1 }));
 
   return (
-    <nldd-container gap="12">
-      <SectionHeading text="Begroting" />
+    <nldd-container gap="24">
       {query.isPending && <Loading />}
       {query.isError && <ErrorNotice message={errorMessage(query.error)} />}
       {problem && <ErrorNotice message={problem} />}
@@ -516,12 +522,15 @@ export function BudgetEditor({ assignmentId }: { assignmentId: string }) {
           supporting-text={budget.pricing_error}
         />
       )}
-      {canEdit && (
-        <ActionBar
-          label="Begroting"
-          actions={[{ text: 'Nieuwe begrotingsregel', primary: true, onClick: () => openSheet() }]}
-        />
-      )}
+      <ActionBar
+        label="Begroting"
+        actions={[
+          ...actions,
+          ...(canEdit
+            ? [{ text: 'Nieuwe begrotingsregel', primary: true, onClick: () => openSheet() }]
+            : []),
+        ]}
+      />
       {budget && lines.length === 0 && (
         <EmptyNotice text="Deze opdracht heeft nog geen begrotingsregels" />
       )}
@@ -529,6 +538,7 @@ export function BudgetEditor({ assignmentId }: { assignmentId: string }) {
         <nldd-table
           accessible-label="Begrotingsregels"
           columns={`minmax(240px,2fr)${showMoney ? ' 150px' : ''}${canEdit ? ` ${ROW_ACTIONS_COLUMN}` : ''}`}
+          sm-columns={`minmax(0,1fr)${showMoney ? ' 110px' : ''}${canEdit ? ` ${ROW_ACTIONS_COLUMN}` : ''}`}
         >
           <nldd-table-row slot="header">
             <nldd-text-cell text="Regel" />
@@ -541,7 +551,9 @@ export function BudgetEditor({ assignmentId }: { assignmentId: string }) {
                 text={lineName(line)}
                 supportingText={
                   line.pricing_error ??
-                  [lineSummary(line, rates.name, parent), rateCauseText(line)].filter(Boolean).join('. ')
+                  [lineSummary(line, rates.name, parent), rateCauseText(line)]
+                    .filter(Boolean)
+                    .join('. ')
                 }
                 {...(canEdit
                   ? { onOpen: () => openSheet(line), accessibleLabel: `Bewerk ${lineName(line)}` }
@@ -551,7 +563,9 @@ export function BudgetEditor({ assignmentId }: { assignmentId: string }) {
               </OpenCell>
               {showMoney && (
                 <nldd-text-cell
-                  text={line.budgeted_cents == null ? 'Niet berekend' : formatEuro(line.budgeted_cents)}
+                  text={
+                    line.budgeted_cents == null ? 'Niet berekend' : formatEuro(line.budgeted_cents)
+                  }
                   horizontal-alignment="right"
                 />
               )}
@@ -563,7 +577,8 @@ export function BudgetEditor({ assignmentId }: { assignmentId: string }) {
                       ? [
                           {
                             text: 'Bekijk inzet',
-                            onSelect: () => navigate(`${PATHS.allocations}?opdracht=${assignmentId}`),
+                            onSelect: () =>
+                              navigate(`${PATHS.allocations}?opdracht=${assignmentId}`),
                           },
                         ]
                       : []),
@@ -585,6 +600,8 @@ export function BudgetEditor({ assignmentId }: { assignmentId: string }) {
             </OpenRow>
           ))}
           {showMoney &&
+            // One year: the subtotal is the total, so it is said once.
+            subtotals.length > 1 &&
             subtotals.map(([year, cents]) => (
               <nldd-table-row key={`year-${year}`}>
                 <nldd-text-cell text={`**Subtotaal ${year}**`} />
@@ -602,16 +619,19 @@ export function BudgetEditor({ assignmentId }: { assignmentId: string }) {
               {canEdit && <nldd-text-cell />}
             </nldd-table-row>
           )}
-          {showMoney && budget?.quoted_amount_cents != null && (
-            <nldd-table-row>
-              <nldd-text-cell text="Offertebedrag" />
-              <nldd-text-cell
-                text={formatEuro(budget.quoted_amount_cents)}
-                horizontal-alignment="right"
-              />
-              {canEdit && <nldd-text-cell />}
-            </nldd-table-row>
-          )}
+          {showMoney &&
+            budget?.quoted_amount_cents != null &&
+            // Said only when the signed amount is not the budget's total.
+            budget.quoted_amount_cents !== budget.total_budgeted_cents && (
+              <nldd-table-row>
+                <nldd-text-cell text="Offertebedrag" />
+                <nldd-text-cell
+                  text={formatEuro(budget.quoted_amount_cents)}
+                  horizontal-alignment="right"
+                />
+                {canEdit && <nldd-text-cell />}
+              </nldd-table-row>
+            )}
         </nldd-table>
       )}
       <LineSheet

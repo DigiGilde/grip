@@ -21,7 +21,10 @@ function role(name: string, extra: Partial<CatalogueRole> = {}): CatalogueRole {
 }
 
 const DEVELOPER = role('Developer', { source: 'wies', usage_count: 3 });
-const OWNER = role('Product owner', { source: 'wies', description: 'Bepaalt wat er gebouwd wordt' });
+const OWNER = role('Product owner', {
+  source: 'wies',
+  description: 'Bepaalt wat er gebouwd wordt',
+});
 const MANAGER = role('Productmanager');
 const ANALYST = role('Data-analist', { needs_review: true, usage_count: 1 });
 const ROLES = [ANALYST, DEVELOPER, OWNER, MANAGER];
@@ -87,9 +90,7 @@ describe('RolePicker', () => {
   it('is one labelled combo box with the roles of the catalogue', async () => {
     const { container } = await renderPicker();
     expect(container.querySelector('nldd-form-field')?.getAttribute('label')).toBe('Rol');
-    expect(container.querySelector('nldd-combo-box')?.getAttribute('accessible-label')).toBe(
-      'Rol',
-    );
+    expect(container.querySelector('nldd-combo-box')?.getAttribute('accessible-label')).toBe('Rol');
     expect(itemTexts(container)).toEqual([
       'Data-analist',
       'Developer',
@@ -172,9 +173,9 @@ describe('RolePicker', () => {
     );
     fire(combo, 'change', '__add__');
     await waitFor(() => expect(onChange).toHaveBeenCalledWith(created));
-    expect(
-      container.querySelector('nldd-banner[variant="accent"]')?.getAttribute('text'),
-    ).toBe('De rol "Scrum master" is toegevoegd');
+    expect(container.querySelector('nldd-banner[variant="accent"]')?.getAttribute('text')).toBe(
+      'De rol "Scrum master" is toegevoegd',
+    );
   });
 
   it('shows the chosen role and clears it when the field is emptied', async () => {
@@ -202,7 +203,7 @@ describe('RolesAdminPage', () => {
     const view = renderApp(<RolesAdminPage />, { path: '/beheer/rollen', auth: ADMIN });
     await waitFor(() => expect(view.container.querySelector('nldd-table')).not.toBeNull());
     await waitFor(() =>
-      expect(view.container.querySelectorAll('nldd-inline-dialog, nldd-banner').length).toBeGreaterThan(0),
+      expect(view.container.querySelectorAll('nldd-table nldd-link').length).toBeGreaterThan(0),
     );
     return view.container;
   }
@@ -214,18 +215,27 @@ describe('RolesAdminPage', () => {
       roles: 4,
       needs_review: 1,
     });
+    const names = [...container.querySelectorAll('nldd-table nldd-link')].map((link) =>
+      link.getAttribute('text'),
+    );
+    expect(names).toContain('Developer');
     const cells = texts(container, 'nldd-table nldd-text-cell');
-    expect(cells).toContain('Developer');
+    // The origin has a column because the roles come from two places.
     expect(cells).toContain('Wies');
     expect(cells).toContain('Zelf toegevoegd');
     expect(cells).toContain('3 begrotingsregels');
     expect(cells).toContain('Nergens in gebruik');
+    // A label only for what differs: the role that still wants a look, first in the list.
+    expect(container.querySelectorAll('nldd-tag[text="Te beoordelen"]')).toHaveLength(1);
     expect(
-      container.querySelector('nldd-text-cell[supporting-text="Te beoordelen"]'),
-    ).not.toBeNull();
-    expect(container.querySelector('nldd-banner[variant="warning"]')?.getAttribute('text')).toBe(
-      '1 rol om te beoordelen',
+      container.querySelector('nldd-table-row:not([slot]) nldd-tag')?.getAttribute('text'),
+    ).toBe('Te beoordelen');
+    expect(container.querySelector('nldd-banner[variant="warning"]')).toBeNull();
+    expect(container.textContent).toContain(
+      'Eén rol is ter plekke toegevoegd en nog niet beoordeeld.',
     );
+    // No text button in a row: the name opens the role.
+    expect(container.querySelectorAll('nldd-table nldd-button')).toHaveLength(0);
   });
 
   it('says the list is kept by hand without the Wies link and hides the sync button', async () => {
@@ -235,8 +245,13 @@ describe('RolesAdminPage', () => {
       roles: 4,
       needs_review: 0,
     });
-    expect(texts(container, 'nldd-inline-dialog')).toContain('Er is geen koppeling met Wies');
+    // Nothing is said about a link that is not there; the list is simply kept here.
+    expect(container.textContent).not.toContain('Wies gaf');
+    expect(container.querySelector('nldd-banner')).toBeNull();
     expect(container.querySelector('nldd-button[text="Haal rollen op uit Wies"]')).toBeNull();
+    expect(
+      container.querySelector('nldd-button[text="Nieuwe rol"]')?.getAttribute('appearance'),
+    ).toBe('primary');
   });
 
   it('shows the last sync from Wies and offers to run it', async () => {
@@ -252,9 +267,11 @@ describe('RolesAdminPage', () => {
       roles: 14,
       needs_review: 0,
     });
-    expect(
-      container.querySelector('nldd-banner[variant="success"]')?.getAttribute('supporting-text'),
-    ).toBe('10 toegevoegd, 2 gekoppeld aan een bestaande rol, 2 ongewijzigd');
+    // A sync that went well is one quiet line, not a banner.
+    expect(container.querySelector('nldd-banner')).toBeNull();
+    expect(container.textContent).toContain(
+      '10 toegevoegd, 2 gekoppeld aan een bestaande rol, 2 ongewijzigd',
+    );
     expect(container.querySelector('nldd-button[text="Haal rollen op uit Wies"]')).not.toBeNull();
   });
 
@@ -283,16 +300,16 @@ describe('RolesAdminPage', () => {
       roles: 4,
       needs_review: 1,
     });
-    const edit = container.querySelector('nldd-button[accessible-label="Bewerk Data-analist"]')!;
+    const edit = container.querySelector('nldd-link[accessible-label="Bewerk Data-analist"]')!;
     act(() => {
       edit.dispatchEvent(new Event('click'));
     });
     const sheet = document.body.querySelector('nldd-sheet')!;
     await waitFor(() => expect(sheet.querySelector('nldd-text-field')).not.toBeNull());
     expect(sheet.querySelector('nldd-text-field')?.getAttribute('value')).toBe('Data-analist');
-    expect(
-      sheet.querySelector('nldd-switch-field')?.getAttribute('label'),
-    ).toBe('Te kiezen op een begrotingsregel');
+    expect(sheet.querySelector('nldd-switch-field')?.getAttribute('label')).toBe(
+      'Te kiezen op een begrotingsregel',
+    );
     expect(texts(sheet, 'nldd-title')).toContain('Samenvoegen');
     // The role itself is not offered as what to merge it into.
     await waitFor(() =>
@@ -303,8 +320,8 @@ describe('RolesAdminPage', () => {
       'Product owner',
       'Productmanager',
     ]);
-    expect(
-      sheet.querySelector('nldd-button[text="Voeg samen"]')?.hasAttribute('disabled'),
-    ).toBe(true);
+    expect(sheet.querySelector('nldd-button[text="Voeg samen"]')?.hasAttribute('disabled')).toBe(
+      true,
+    );
   });
 });

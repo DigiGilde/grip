@@ -18,7 +18,7 @@ import { RouterLinks } from '@/layout/RouterLinks';
 import { formatMonth } from '@/lib/format';
 import { PATHS } from '@/paths';
 import { ActionBar } from '@/ui/ActionBar';
-import { Stack } from '@/ui/layout';
+import { SignalList, Stack } from '@/ui/layout';
 import { RowMenu, type RowAction } from '@/ui/RowActions';
 import { CellPanel } from '@/ui/timeline/CellPanel';
 import {
@@ -225,6 +225,28 @@ export function StaffingTab() {
   return (
     <nldd-simple-section>
       <nldd-container gap="24">
+        {staffing && hasRoles && seesTime && (
+          <Stack gap="related">
+            {/* The state in one sentence: the first thing on the tab. */}
+            <nldd-title size={5} heading-level={2} text={staffingSentence(staffing)} />
+            {/* Attention only when there is something: who, when and how much. */}
+            {overbookedSignals(staffing).length > 0 && (
+              <RouterLinks>
+                <SignalList
+                  label="Dubbel geboekt"
+                  signals={overbookedSignals(staffing).map((signal) => ({
+                    key: signal.key,
+                    text: `${signal.text}.`,
+                    tone: 'critical' as const,
+                    ...(signal.personId
+                      ? { href: PATHS.teamPerson.replace(':personId', signal.personId) }
+                      : {}),
+                  }))}
+                />
+              </RouterLinks>
+            )}
+          </Stack>
+        )}
         {hasRoles && seesTime && (
           <ActionBar
             label="Bemensing"
@@ -245,26 +267,6 @@ export function StaffingTab() {
             what="de bemensing"
             others=", een manager of een planner"
           />
-        )}
-        {staffing && hasRoles && seesTime && (
-          <Stack gap="close">
-            <nldd-text>{staffingSentence(staffing)}</nldd-text>
-            {/* Attention only when there is something: who, when and how much. */}
-            <RouterLinks>
-              {overbookedSignals(staffing).map((signal) => (
-                <nldd-container key={signal.key} layout="row" gap="8">
-                  <nldd-text>{`${signal.text}.`}</nldd-text>
-                  {signal.personId && (
-                    <nldd-link
-                      href={PATHS.teamPerson.replace(':personId', signal.personId)}
-                      text="Bekijk"
-                      accessible-label={`Bekijk ${signal.text}`}
-                    />
-                  )}
-                </nldd-container>
-              ))}
-            </RouterLinks>
-          </Stack>
         )}
         {assignment.phase === 'potential' && hasInzet && (
           <nldd-banner

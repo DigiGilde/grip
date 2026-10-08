@@ -44,10 +44,6 @@ function SentRequests() {
   const showAmounts = items.some((item) => item.latest_quote && 'total_cents' in item.latest_quote);
   return (
     <nldd-container gap="16">
-      <nldd-text>
-        Opdrachten waarvan deze organisatie de opdrachtgever is: wat je bij een opdrachtnemer hebt
-        aangevraagd en wat ervan is geworden.
-      </nldd-text>
       {query.data?.may_request ? (
         <div>
           <Button
@@ -65,7 +61,7 @@ function SentRequests() {
           supportingText={
             query.data.may_request
               ? 'Vraag een offerte aan bij een opdrachtnemer waarmee deze instantie is gekoppeld.'
-              : 'Je ziet hier de aanvragen waar je bij betrokken bent. Een aanvraag doen kan met de functie aanvrager.'
+              : 'Een aanvraag doen kan wie het recht aanvrager heeft.'
           }
         />
       ) : null}
@@ -128,17 +124,10 @@ function ReceivedQuotes() {
   const showAmounts = items.some((item) => 'total_cents' in item);
   return (
     <nldd-container gap="16">
-      <nldd-text>
-        Offertes die opdrachtnemers naar deze organisatie hebben gestuurd. Een tekenbevoegde geeft
-        akkoord of wijst af.
-      </nldd-text>
       {query.isPending ? <Loading /> : null}
       {query.isError ? <ErrorNotice message={errorMessage(query.error)} /> : null}
       {query.isSuccess && items.length === 0 ? (
-        <EmptyNotice
-          text="Er zijn geen ontvangen offertes"
-          supportingText="Een offerte verschijnt hier zodra een opdrachtnemer hem heeft uitgegeven."
-        />
+        <EmptyNotice text="Er zijn geen ontvangen offertes" />
       ) : null}
       {items.length > 0 ? (
         <nldd-table
@@ -187,17 +176,10 @@ function ReceivedRequests() {
   const items = query.data?.items ?? [];
   return (
     <nldd-container gap="16">
-      <nldd-text>
-        Aanvragen van opdrachtgevers aan deze organisatie. Een aanvraag is hier een opdracht:
-        open hem om een begroting te maken en een offerte uit te geven.
-      </nldd-text>
       {query.isPending ? <Loading /> : null}
       {query.isError ? <ErrorNotice message={errorMessage(query.error)} /> : null}
       {query.isSuccess && items.length === 0 ? (
-        <EmptyNotice
-          text="Er zijn geen ontvangen aanvragen"
-          supportingText="Een aanvraag verschijnt hier zodra een opdrachtgever hem vanuit zijn eigen grip heeft verstuurd."
-        />
+        <EmptyNotice text="Er zijn geen ontvangen aanvragen" />
       ) : null}
       {items.length > 0 ? (
         <nldd-table
@@ -226,10 +208,7 @@ function ReceivedRequests() {
               </nldd-cell>
               <nldd-text-cell text={item.client_name ?? ''} />
               <nldd-text-cell text={formatPeriod(item.start_date, item.end_date)} />
-              <nldd-text-cell
-                text={String(item.context_count ?? 0)}
-                horizontal-alignment="right"
-              />
+              <nldd-text-cell text={String(item.context_count ?? 0)} horizontal-alignment="right" />
               <nldd-text-cell text={String(item.quote_count ?? 0)} horizontal-alignment="right" />
               <nldd-text-cell text={formatDateTime(item.received_at)} />
             </nldd-table-row>

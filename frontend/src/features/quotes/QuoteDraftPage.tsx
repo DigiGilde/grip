@@ -7,7 +7,7 @@ import { assignmentTabPath } from '@/features/assignments/paths';
 import { Button, DateInput, TextInput } from '@/features/assignments/ui';
 import { useInstance } from '@/layout/useInstance';
 import { useRouterLinks } from '@/layout/useRouterLinks';
-import { BackLink, MoreButton } from '@/ui/Icon';
+import { MoreButton } from '@/ui/Icon';
 import { PATHS } from '@/paths';
 import {
   EmptyNotice,
@@ -53,6 +53,7 @@ function MarksHelp() {
         <Button
           text={open ? 'Verberg opmaak' : 'Opmaak in de tekst'}
           size="sm"
+          appearance="neutral-transparent"
           onClick={() => setOpen(!open)}
         />
       </nldd-button-group>
@@ -86,6 +87,10 @@ interface SectionBlockProps {
   mayDraft: boolean;
   isAdmin: boolean;
   costs: React.ReactNode;
+  /** The first section that still needs writing: the obvious next thing. */
+  next: boolean;
+  /** Why this section stands in the way of the quote, in the server's words. */
+  problem: string | null;
   onToggle: () => void;
   onChanged: (draft: QuoteDraft) => void;
   onMove: (by: -1 | 1) => void;
@@ -104,6 +109,8 @@ function SectionBlock({
   mayDraft,
   isAdmin,
   costs,
+  next,
+  problem,
   onToggle,
   onChanged,
   onMove,
@@ -112,6 +119,8 @@ function SectionBlock({
 }: SectionBlockProps) {
   const written = isWritten(section);
   const verb = open ? 'Sluit' : written && mayEdit ? 'Schrijf' : 'Bekijk';
+  // One row asks for attention: the next section to write. The others stay quiet.
+  const quiet = !(next && mayEdit && !open);
   return (
     <div data-section={section.key} id={`onderdeel-${section.key}`}>
       <Stack gap="related">
@@ -121,14 +130,18 @@ function SectionBlock({
           <nldd-list-item>
             <nldd-text-cell
               text={section.heading}
-              supporting-text={sectionState(section)}
-              {...(needsAttention(section) ? { color: 'warning' } : {})}
+              // The state says an empty or unsettled section; another obstacle comes
+              // in the server's words.
+              supporting-text={
+                problem && !needsAttention(section) ? problem : sectionState(section)
+              }
             />
             <nldd-cell width="fit-content">
               <Button
                 text={verb}
                 accessibleLabel={`${verb} ${section.heading}`}
                 size="sm"
+                {...(quiet ? { appearance: 'neutral-transparent' as const } : {})}
                 onClick={onToggle}
               />
             </nldd-cell>
@@ -185,14 +198,17 @@ function SectionBlock({
               ) : null}
             </Stack>
           ) : (
-            <SectionEditor
-              // A model draft replaces the text: start the editor afresh on it.
-              key={`${section.key}:${section.settled}:${section.origin}`}
-              assignmentId={assignmentId}
-              section={section}
-              mayDraft={mayDraft && section.draftable}
-              onChanged={onChanged}
-            />
+            <Stack gap="related">
+              <SectionEditor
+                // A model draft replaces the text: start the editor afresh on it.
+                key={`${section.key}:${section.settled}:${section.origin}`}
+                assignmentId={assignmentId}
+                section={section}
+                mayDraft={mayDraft && section.draftable}
+                onChanged={onChanged}
+              />
+              <MarksHelp />
+            </Stack>
           )
         ) : null}
       </Stack>
@@ -319,8 +335,6 @@ export function QuoteDraftPage() {
 
   const sections = draft?.sections ?? [];
   const keys = sections.map((section) => section.key);
-  const headingOf = (key: string) =>
-    sections.find((section) => section.key === key)?.heading ?? key;
   const problems = [
     ...(preview.data?.problem ? [{ key: null, problem: preview.data.problem }] : []),
     ...(draft?.problems ?? []).map((item) => ({
@@ -329,6 +343,20 @@ export function QuoteDraftPage() {
     })),
   ];
   const mayEdit = draft?.may_edit === true;
+  // A problem of a section is told on its row; what is left is about the budget.
+  const loose = problems.filter((item) => item.key === null);
+  const problemOf = (key: string) => problems.find((item) => item.key === key)?.problem ?? null;
+  const waiting = sections.filter(needsAttention);
+  const first = waiting[0];
+  const nextKey = first?.key ?? null;
+  const standing =
+    problems.length === 0
+      ? 'De offerte is klaar om te maken. Daarna wijzigt ze niet meer.'
+      : !first
+        ? 'De offerte kan nog niet worden gemaakt.'
+        : waiting.length === 1
+          ? `Nog één onderdeel te schrijven: ${first.heading}.`
+          : `Nog ${waiting.length} onderdelen te schrijven. Begin met ${first.heading}.`;
   const canMake = mayEdit && problems.length === 0 && preview.data?.can_issue === true;
   const hidden =
     query.error instanceof ApiError && (query.error.status === 404 || query.error.status === 403);
@@ -342,8 +370,12 @@ export function QuoteDraftPage() {
 
   return (
     <div ref={ref}>
-      <Page title={title} instanceName={instance?.name} width="960px">
-        <BackLink href={assignmentTabPath(assignmentId, 'quote')} text="Terug naar de opdracht" />
+      <Page
+        title={title}
+        instanceName={instance?.name}
+        width="960px"
+        back={{ href: assignmentTabPath(assignmentId, 'quote'), text: 'Terug naar de opdracht' }}
+      >
         {query.isPending ? <Loading /> : null}
         {query.isError && hidden ? (
           <EmptyNotice
@@ -356,30 +388,38 @@ export function QuoteDraftPage() {
 
         {draft ? (
           <>
-            <Section title="Gegevens van de brief" level={2}>
-              <Facts
-                label="Gegevens van de brief"
-                facts={[
-                  { label: 'Betreft', value: draft.subject },
-                  { label: 'Aan', value: (draft.addressee ?? []).join(', ') },
-                  { label: 'Aanhef', value: draft.salutation },
-                  {
-                    label: 'Tekent namens de opdrachtgever',
-                    value: [draft.client_signatory?.name, draft.client_signatory?.function]
-                      .filter(Boolean)
-                      .join(', '),
-                  },
-                ]}
-              />
-              {mayEdit ? (
-                <nldd-button-group>
-                  <Button text="Wijzig" size="sm" onClick={editLetter} />
-                </nldd-button-group>
+            <Stack gap="related">
+              <nldd-text>{standing}</nldd-text>
+              {loose.length > 0 ? (
+                <nldd-list accessible-label="Wat nog nodig is voor de offerte" data-problems>
+                  {loose.map((item) => (
+                    <nldd-list-item key={item.problem}>
+                      <nldd-text-cell text="Begroting" supporting-text={item.problem} />
+                    </nldd-list-item>
+                  ))}
+                </nldd-list>
               ) : null}
-            </Section>
+              <nldd-container layout="wrap" gap="16" vertical-alignment="center">
+                {mayEdit ? (
+                  <Button
+                    text="Maak offerte"
+                    appearance="primary"
+                    disabled={!canMake}
+                    onClick={() => {
+                      setError(null);
+                      setSheet('make');
+                    }}
+                  />
+                ) : null}
+                <DocumentLink
+                  href={draftPreviewUrl(assignmentId)}
+                  text="Bekijk voorbeeld (pdf)"
+                  newTab
+                />
+              </nldd-container>
+            </Stack>
 
             <Section title="Onderdelen" level={2}>
-              {mayEdit ? <MarksHelp /> : null}
               <Stack gap="related">
                 {sections.map((section, index) => (
                   <SectionBlock
@@ -393,6 +433,8 @@ export function QuoteDraftPage() {
                     mayDraft={draft.drafting_available}
                     isAdmin={isAdmin}
                     costs={costs}
+                    next={section.key === nextKey}
+                    problem={problemOf(section.key)}
                     onToggle={() => openSection(openKey === section.key ? null : section.key)}
                     onChanged={setDraft}
                     onMove={(by) =>
@@ -441,54 +483,27 @@ export function QuoteDraftPage() {
               ) : null}
             </Section>
 
-            <Stack gap="related">
-              {problems.length > 0 ? (
-                <Stack gap="close">
-                  <nldd-text>Dit staat het maken van de offerte nog in de weg:</nldd-text>
-                  <nldd-list accessible-label="Wat nog nodig is voor de offerte" data-problems>
-                    {problems.map((item) => (
-                      <nldd-list-item
-                        key={`${item.key}:${item.problem}`}
-                        {...(item.key
-                          ? {
-                              href: `?${SECTION_PARAM}=${encodeURIComponent(item.key)}#onderdeel-${item.key}`,
-                            }
-                          : {})}
-                      >
-                        <nldd-text-cell
-                          text={item.key ? headingOf(item.key) : 'Begroting'}
-                          supporting-text={item.problem}
-                        />
-                      </nldd-list-item>
-                    ))}
-                  </nldd-list>
-                </Stack>
+            <Section title="Gegevens van de brief" level={2}>
+              <Facts
+                label="Gegevens van de brief"
+                facts={[
+                  { label: 'Betreft', value: draft.subject },
+                  { label: 'Aan', value: (draft.addressee ?? []).join(', ') },
+                  { label: 'Aanhef', value: draft.salutation },
+                  {
+                    label: 'Tekent namens de opdrachtgever',
+                    value: [draft.client_signatory?.name, draft.client_signatory?.function]
+                      .filter(Boolean)
+                      .join(', '),
+                  },
+                ]}
+              />
+              {mayEdit ? (
+                <nldd-button-group>
+                  <Button text="Wijzig" size="sm" onClick={editLetter} />
+                </nldd-button-group>
               ) : null}
-              <nldd-container layout="wrap" gap="16" vertical-alignment="center">
-                {mayEdit ? (
-                  <Button
-                    text="Maak offerte"
-                    appearance="primary"
-                    disabled={!canMake}
-                    onClick={() => {
-                      setError(null);
-                      setSheet('make');
-                    }}
-                  />
-                ) : null}
-                <DocumentLink
-                  href={draftPreviewUrl(assignmentId)}
-                  text="Bekijk voorbeeld (pdf)"
-                  newTab
-                />
-              </nldd-container>
-              {mayEdit && canMake ? (
-                <Quiet>
-                  Daarna wijzigt de offerte niet meer; voor een andere tekst of begroting maak je
-                  een nieuwe.
-                </Quiet>
-              ) : null}
-            </Stack>
+            </Section>
           </>
         ) : null}
       </Page>

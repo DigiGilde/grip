@@ -9,7 +9,7 @@ import { formatDate, formatEuro } from '@/lib/format';
 import { useInstance } from '@/layout/useInstance';
 import { PageHeading } from '@/pages/PageHeading';
 import { OpenRow, RowActions, ROW_ACTIONS_COLUMN, type RowAction } from '@/ui/RowActions';
-import { EmptyNotice, ErrorNotice, Loading, Stack } from '@/ui/layout';
+import { EmptyNotice, ErrorNotice, Loading, Quiet, Stack } from '@/ui/layout';
 import { Invoices } from './BillingSection';
 import { billingKey, fetchBillingStatus } from './api';
 import {
@@ -30,6 +30,7 @@ import {
   RHYTHM_TEXT,
   periodAmount,
   periodLine,
+  periodName,
   stepAction,
   stepLine,
   stepTitle,
@@ -71,21 +72,34 @@ function Now({ overview, onAct }: NowProps) {
     (step.kind === 'deliver' && overview.may_deliver) ||
     (step.kind === 'record_invoice' && overview.may_record_invoice);
   const waiting = step.kind !== 'none' && !may;
+  if (waiting) {
+    // Someone who cannot act gets no call to act: what is open, and who can.
+    const period = step.period_label ? periodName(step.period_label, true) : 'De periode';
+    const month = step.month_label ?? 'de maand';
+    const open =
+      step.kind === 'close_month'
+        ? `${month.charAt(0).toUpperCase()}${month.slice(1)} is nog niet afgesloten.`
+        : step.kind === 'deliver'
+          ? `${period} is afgesloten en nog niet aangeleverd.`
+          : `${period} is aangeleverd; de factuur is nog niet vastgelegd.`;
+    return (
+      <div data-waiting>
+        <Stack gap="tight">
+          <nldd-text>{open}</nldd-text>
+          <Quiet>Dit kan de eigenaar of een manager van de opdracht.</Quiet>
+        </Stack>
+      </div>
+    );
+  }
   return (
     <nldd-card background="tinted" accessible-label={step.kind === 'none' ? 'Stand' : 'Nu te doen'}>
       <nldd-container padding="24" gap="16">
         <nldd-title
           size={2}
           heading-level={2}
-          overline={
-            step.kind === 'none' ? 'Niets te doen' : waiting ? 'Wacht op een ander' : 'Nu te doen'
-          }
+          overline={step.kind === 'none' ? 'Niets te doen' : 'Nu te doen'}
           text={stepTitle(step)}
-          supporting-text={
-            waiting
-              ? 'Dit kan de eigenaar of een manager van de opdracht.'
-              : stepLine(step, overview)
-          }
+          supporting-text={stepLine(step, overview)}
         />
         {may ? (
           <nldd-button-group>

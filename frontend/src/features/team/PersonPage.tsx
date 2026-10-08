@@ -139,10 +139,7 @@ function Heading({ name, end, children }: HeadingProps) {
   }, [name, instance?.name]);
   return (
     <nldd-container ref={ref} slot="header" gap="8">
-      <nldd-breadcrumbs>
-        <nldd-breadcrumbs-item href={PATHS.team} text="Team" />
-        <nldd-breadcrumbs-item current text={name} />
-      </nldd-breadcrumbs>
+      {/* No link back: the second bar of Team marks Mensen and leads there. */}
       <nldd-title size={2}>
         {/* tabIndex -1: focusable from script after navigation, not a tab stop. */}
         <h1 id={PAGE_HEADING_ID} tabIndex={-1}>
@@ -517,7 +514,15 @@ function DeploymentSection({ person, row, months, currentMonth, loading }: Deplo
               const here = barsInColumn(entry, column);
               if (here.length === 1) openAssignment(here[0]?.data.allocation?.assignment_id);
             }}
-            legend={['filled', 'established', 'tentative', 'over']}
+            // Only the marks this picture holds.
+            legend={[
+              ...(bars.some((bar) => !bar.tentative) ? (['filled'] as const) : []),
+              ...(bars.some((bar) => bar.closed_months.length > 0)
+                ? (['established'] as const)
+                : []),
+              ...(bars.some((bar) => bar.tentative) ? (['tentative'] as const) : []),
+              ...((row.over_months ?? []).length > 0 ? (['over'] as const) : []),
+            ]}
           />
           <nldd-table
             accessible-label={`Opdrachten van ${person.name}`}

@@ -1,10 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { errorMessage } from '@/api/client';
-import { EmptyNotice, ErrorNotice, Loading } from '@/ui/layout';
+import { EmptyNotice, ErrorNotice, Loading, Page } from '@/ui/layout';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { useInstance } from '@/layout/useInstance';
-import { PageHeading } from '@/pages/PageHeading';
 import { ActionBar } from '@/ui/ActionBar';
 import { fetchSteering, reportKeys, type Steering } from './api';
 import { InvestmentView } from './InvestmentView';
@@ -49,7 +48,10 @@ function topicBlock(slug: TopicSlug, steering: Steering) {
 }
 
 function SteeringTopic({ slug, year }: { slug: TopicSlug; year: string }) {
-  const query = useQuery({ queryKey: reportKeys.steering(year), queryFn: () => fetchSteering(year) });
+  const query = useQuery({
+    queryKey: reportKeys.steering(year),
+    queryFn: () => fetchSteering(year),
+  });
   if (query.isPending) return <Loading />;
   if (query.isError) return <ErrorNotice message={errorMessage(query.error)} />;
   return (
@@ -73,12 +75,12 @@ export function ReportTopicPage() {
   const known = isTopic(topic);
 
   return (
-    <nldd-simple-section>
-      <PageHeading text={known ? TOPICS[topic].title : 'Rapportage'} instanceName={instance?.name} />
-      <nldd-container gap="16">
-        <RouterLinks>
-          <nldd-link href={reportsPath(year)} text="Terug naar Rapportage" size="md" />
-        </RouterLinks>
+    <RouterLinks>
+      <Page
+        title={known ? TOPICS[topic].title : 'Rapportage'}
+        instanceName={instance?.name}
+        back={{ href: reportsPath(year), text: 'Terug naar Rapportage' }}
+      >
         {known ? (
           <>
             <ActionBar
@@ -107,7 +109,7 @@ export function ReportTopicPage() {
             supportingText="Ga terug naar Rapportage en kies een onderdeel."
           />
         )}
-      </nldd-container>
-    </nldd-simple-section>
+      </Page>
+    </RouterLinks>
   );
 }

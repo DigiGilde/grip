@@ -1,7 +1,7 @@
 import { waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mockApi, texts } from '@/features/team/ui/testing';
-import { renderApp } from '@/test/utils';
+import { TEST_PERSON, renderApp } from '@/test/utils';
 import { PeersPage } from './PeersPage';
 
 const PEER = {
@@ -23,7 +23,10 @@ afterEach(() => vi.unstubAllGlobals());
 
 async function renderPeers(body: object) {
   mockApi({ '/api/peers': body });
-  const view = renderApp(<PeersPage />, { path: '/beheer/koppelingen' });
+  const view = renderApp(<PeersPage />, {
+    path: '/beheer/koppelingen',
+    auth: { status: 'authenticated', person: TEST_PERSON, functions: ['beheerder'] },
+  });
   await waitFor(() => expect(view.container.querySelector('nldd-table')).not.toBeNull());
   return view.container;
 }
@@ -36,10 +39,11 @@ describe('PeersPage', () => {
       outway_configured: true,
     });
     const cells = texts(container, 'nldd-table nldd-text-cell');
-    expect(cells).toContain('Voorbeeldgilde');
+    expect(container.querySelector('nldd-table nldd-link[text="Voorbeeldgilde"]')).not.toBeNull();
     expect(cells).toContain('Opdrachtgever of opdrachtnemer');
     expect(cells).toContain('grip-opdrachtverkeer');
-    expect(cells).toContain('Actief');
+    // A peer that works carries no status; only one that is switched off does.
+    expect(container.querySelector('nldd-table nldd-badge')).toBeNull();
     expect(container.querySelector('nldd-banner[variant="warning"]')).toBeNull();
     const kind = container.querySelector('nldd-text-cell[supporting-text="Met financiële inzage"]');
     expect(kind).not.toBeNull();
@@ -53,17 +57,19 @@ describe('PeersPage', () => {
     });
     const cells = texts(container, 'nldd-table nldd-text-cell');
     expect(cells).toContain('Geen grant hash vastgelegd');
-    const status = container.querySelector('nldd-text-cell[color="critical"]');
+    const status = container.querySelector('nldd-table nldd-badge');
     expect(status?.getAttribute('text')).toBe('Uitgeschakeld');
   });
 
   it('warns when no outway is configured', async () => {
-    const container = await renderPeers({ items: [], services: SERVICES, outway_configured: false });
+    const container = await renderPeers({
+      items: [],
+      services: SERVICES,
+      outway_configured: false,
+    });
     expect(texts(container, 'nldd-banner[variant="warning"]')).toEqual([
       'Er is geen outway ingesteld',
     ]);
-    expect(texts(container, 'nldd-inline-dialog[slot="empty"]')).toEqual([
-      'Er zijn nog geen koppelingen',
-    ]);
+    expect(texts(container, 'nldd-inline-dialog[slot="empty"]')).toEqual(['Nog geen koppelingen']);
   });
 });

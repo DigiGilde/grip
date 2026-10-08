@@ -51,7 +51,7 @@ export type Phase = 'potential' | 'active' | 'closed';
 
 /** The three views of the list of assignments. */
 export const PHASE_VIEW_LABELS: Record<Phase, string> = {
-  potential: 'Pijplijn',
+  potential: 'Potentieel',
   active: 'Lopend',
   closed: 'Afgesloten',
 };

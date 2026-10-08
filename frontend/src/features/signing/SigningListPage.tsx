@@ -38,26 +38,40 @@ export function SigningListPage() {
         <div ref={ref}>
           <nldd-table
             accessible-label="Offertes om te tekenen"
-            columns="minmax(220px,2fr) minmax(130px,1fr) minmax(130px,1fr) max-content"
+            columns="minmax(220px,2fr) minmax(130px,1fr) minmax(130px,1fr)"
+            sm-columns="minmax(140px,1fr) minmax(110px,auto)"
           >
             <nldd-table-row slot="header">
               <nldd-text-cell text="Offerte" />
-              <nldd-text-cell text="Geldig tot en met" />
+              <nldd-text-cell hide-below="md" text="Geldig tot en met" />
               <nldd-text-cell text="Stand" />
-              <nldd-text-cell text="Actie" />
             </nldd-table-row>
             {invitations.map((invitation) => (
               <nldd-table-row key={invitation.quote_id}>
+                <nldd-cell>
+                  <nldd-container gap="4">
+                    <nldd-link
+                      href={`/tekenen/${invitation.quote_id}`}
+                      text={invitation.assignment_name}
+                      accessible-label={[
+                        `${actionText(invitation.status)}: offerte`,
+                        invitation.reference,
+                        `voor ${invitation.assignment_name}`,
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+                    />
+                    <nldd-text size="sm" color="secondary">
+                      {[invitation.reference, `gemaakt op ${formatDate(invitation.issued_at)}`]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </nldd-text>
+                  </nldd-container>
+                </nldd-cell>
                 <nldd-text-cell
-                  text={invitation.assignment_name}
-                  supporting-text={[
-                    invitation.reference,
-                    `gemaakt op ${formatDate(invitation.issued_at)}`,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
+                  hide-below="md"
+                  text={formatDate(invitation.valid_until) || 'Geen einddatum'}
                 />
-                <nldd-text-cell text={formatDate(invitation.valid_until) || 'Geen einddatum'} />
                 <nldd-text-cell
                   text={
                     invitation.status === 'issued'
@@ -65,20 +79,6 @@ export function SigningListPage() {
                       : (QUOTE_STATUS_LABELS[invitation.status] ?? invitation.status)
                   }
                 />
-                <nldd-cell>
-                  <nldd-link
-                    href={`/tekenen/${invitation.quote_id}`}
-                    text={actionText(invitation.status)}
-                    size="md"
-                    accessible-label={[
-                      `${actionText(invitation.status)}: offerte`,
-                      invitation.reference,
-                      `voor ${invitation.assignment_name}`,
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                  />
-                </nldd-cell>
               </nldd-table-row>
             ))}
           </nldd-table>

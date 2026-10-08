@@ -1,12 +1,14 @@
 import { fetchAssignmentFinance, financeKeys } from '../financeApi';
 import { signalText } from '../financeText';
-import { ROW_ACTIONS_COLUMN, RowActions } from '@/ui/RowActions';
-import { useState } from 'react';
+import { ActionBar, type ActionBarAction } from '@/ui/ActionBar';
+import { Facts as FactList, Section, Stack } from '@/ui/layout';
+import { ROW_ACTIONS_COLUMN, RowActions, RowMenu, type RowAction } from '@/ui/RowActions';
+import { useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { errorMessage } from '@/api/client';
 import { RouterLinks } from '@/layout/RouterLinks';
-import { formatDate, formatPeriod } from '@/lib/format';
+import { formatDate } from '@/lib/format';
 import { AssignmentContextView } from '../../nodes';
 import {
   assignmentKeys,
@@ -23,24 +25,17 @@ import { assignmentTabPath } from '../paths';
 import { useAssignmentShell } from '../shell';
 import { ReadOnlyNote } from '../ReadOnlyNote';
 import { useStanding } from '../useStanding';
-import {
-  Button,
-  EmptyNotice,
-  ErrorNotice,
-  FormSheet,
-  SectionHeading,
-  SelectInput,
-  TextInput,
-} from '../ui';
+import { Button, EmptyNotice, ErrorNotice, FormSheet, SelectInput, TextInput } from '../ui';
 
-/** Label and value pairs about the assignment; a pair without a value is left out. */
+/**
+ * What the head of the page does not already say: the client and the period
+ * stand under the title. A pair without a value is left out.
+ */
 function Facts({ assignment }: { assignment: AssignmentDetail }) {
   const facts: [string, string][] = [
     ['Soort', KIND_LABELS[assignment.kind] ?? assignment.kind],
-    ['Opdrachtgever', assignment.client_name ?? ''],
     ['Contactpersoon bij de opdrachtgever', assignment.client_contact ?? ''],
     ['Opdrachtnemer', assignment.contractor_name ?? ''],
-    ['Periode', formatPeriod(assignment.start_date, assignment.end_date)],
     [
       'Uitwisseling',
       assignment.shared_with_client_at
@@ -58,15 +53,11 @@ function Facts({ assignment }: { assignment: AssignmentDetail }) {
     ['Notities', assignment.notes ?? ''],
   ];
   return (
-    <nldd-list accessible-label="Gegevens van de opdracht" appearance="box-base">
-      {facts
-        .filter(([, value]) => value !== '')
-        .map(([label, value]) => (
-          <nldd-list-item key={label}>
-            <nldd-text-cell overline={label} text={value} />
-          </nldd-list-item>
-        ))}
-    </nldd-list>
+    <FactList
+      label="Gegevens van de opdracht"
+      labelWidth="320px"
+      facts={facts.filter(([, value]) => value !== '').map(([label, value]) => ({ label, value }))}
+    />
   );
 }
 
@@ -111,8 +102,7 @@ function Roles({ assignment }: { assignment: AssignmentDetail }) {
   );
 
   return (
-    <nldd-container gap="12">
-      <SectionHeading text="Eigenaar en managers" />
+    <Section title="Eigenaar en managers">
       {problem && !adding.open && <ErrorNotice message={problem} />}
       {assignment.roles.length === 0 ? (
         <EmptyNotice text="Deze opdracht heeft nog geen eigenaar" />
@@ -217,7 +207,7 @@ function Roles({ assignment }: { assignment: AssignmentDetail }) {
           }))}
         />
       </FormSheet>
-    </nldd-container>
+    </Section>
   );
 }
 
@@ -233,51 +223,37 @@ function ContextRefs({ assignment }: { assignment: AssignmentDetail }) {
   const refs = assignment.context_refs;
 
   return (
-    <nldd-container gap="12">
-      <SectionHeading text="Context" />
+    <Section title="Context">
       {problem && !adding.open && <ErrorNotice message={problem} />}
-      {refs.length > 0 && (
-        <AssignmentContextView assignmentId={assignment.id} count={refs.length} />
-      )}
       {refs.length === 0 ? (
-        <EmptyNotice
-          text="Deze opdracht verwijst nog niet naar nodes"
-          supportingText="Een verwijzing is de URI van een node in een corpus, bijvoorbeeld een doel of een instrument."
-        />
+        <EmptyNotice text="Deze opdracht verwijst nog niet naar nodes" />
       ) : (
-        <nldd-table
-          accessible-label="Verwijzingen naar nodes"
-          columns={`minmax(260px,1fr)${canEdit ? ` ${ROW_ACTIONS_COLUMN}` : ''}`}
-        >
-          <nldd-table-row slot="header">
-            <nldd-text-cell text="Node" />
-            {canEdit && <nldd-text-cell />}
-          </nldd-table-row>
-          {refs.map((ref) => (
-            <nldd-table-row key={ref}>
-              <nldd-cell>
-                <nldd-link href={ref} text={ref} target="_blank" rel="noreferrer" />
-              </nldd-cell>
-              {canEdit && (
-                <RowActions
-                  name={ref}
-                  actions={[
-                    {
-                      text: 'Verwijder de verwijzing',
-                      destructive: true,
-                      confirm: {
-                        text: 'Deze verwijzing verwijderen?',
-                        supportingText: ref,
-                        confirmText: 'Verwijder',
+        // The cards are the references; who may edit removes one from its card.
+        <AssignmentContextView
+          assignmentId={assignment.id}
+          count={refs.length}
+          {...(canEdit
+            ? {
+                actionFor: (ref: string): ReactNode => (
+                  <RowMenu
+                    name={ref}
+                    actions={[
+                      {
+                        text: 'Verwijder de verwijzing',
+                        destructive: true,
+                        confirm: {
+                          text: 'Deze verwijzing verwijderen?',
+                          supportingText: ref,
+                          confirmText: 'Verwijder',
+                        },
+                        onSelect: () => save.mutate(refs.filter((other) => other !== ref)),
                       },
-                      onSelect: () => save.mutate(refs.filter((other) => other !== ref)),
-                    },
-                  ]}
-                />
-              )}
-            </nldd-table-row>
-          ))}
-        </nldd-table>
+                    ]}
+                  />
+                ),
+              }
+            : {})}
+        />
       )}
       {canEdit && (
         <div>
@@ -325,7 +301,7 @@ function ContextRefs({ assignment }: { assignment: AssignmentDetail }) {
           required
         />
       </FormSheet>
-    </nldd-container>
+    </Section>
   );
 }
 
@@ -339,8 +315,7 @@ function NextSteps({ assignment }: { assignment: AssignmentDetail }) {
   if (!steps) return null;
   const action = steps.action;
   return (
-    <nldd-container gap="12">
-      <SectionHeading text="Van idee naar opdracht" />
+    <Section title="Van idee naar opdracht">
       <RouterLinks>
         <nldd-step-bar accessible-label="Stappen naar een akkoord">
           {steps.steps.map((step) => (
@@ -366,14 +341,22 @@ function NextSteps({ assignment }: { assignment: AssignmentDetail }) {
           />
         </div>
       )}
-    </nldd-container>
+    </Section>
   );
 }
 
 /** The step that needs a word of explanation before it is taken. */
 const NEEDS_NOTE = 'verbally_agreed';
 
-function StatusActions({ assignment }: { assignment: AssignmentDetail }) {
+/**
+ * The status steps the reader may take, as actions for the bar at the top of
+ * the tab, with the sheet for the one step that needs a note.
+ */
+function useStatusActions(assignment: AssignmentDetail): {
+  actions: RowAction[];
+  problem: string | null;
+  sheet: ReactNode;
+} {
   const [problem, setProblem] = useState<string | null>(null);
   const [noting, setNoting] = useState({ open: false, session: 0 });
   const [note, setNote] = useState('');
@@ -382,63 +365,66 @@ function StatusActions({ assignment }: { assignment: AssignmentDetail }) {
       transitionAssignment(assignment.id, target, reason),
     setProblem,
   );
-  if (assignment.allowed_transitions.length === 0) return null;
-  return (
-    <nldd-container gap="12">
-      <SectionHeading text="Status wijzigen" />
-      {/* What a step still needs (a client, a start date) comes back from
-          the server as a sentence; it is shown here as it is. */}
-      {problem && !noting.open && <ErrorNotice message={problem} />}
-      <nldd-button-group>
-        {assignment.allowed_transitions.map((target) => (
-          <Button
-            key={target}
-            text={TRANSITION_LABELS[target] ?? statusLabel(target)}
-            appearance={
-              target === 'cancelled' || target === 'rejected' ? 'neutral-transparent' : 'secondary'
-            }
-            loading={move.isPending && move.variables?.target === target}
-            onClick={() => {
-              if (target === NEEDS_NOTE) {
-                setNote('');
-                setProblem(null);
-                setNoting((current) => ({ open: true, session: current.session + 1 }));
-              } else {
-                move.mutate({ target });
-              }
-            }}
-          />
-        ))}
-      </nldd-button-group>
-      <FormSheet
-        open={noting.open}
-        title={`Mondeling akkoord op ${assignment.name}`}
-        submitText="Leg vast"
-        busy={move.isPending}
-        error={noting.open ? problem : null}
-        onClose={() => setNoting((current) => ({ ...current, open: false }))}
-        onSubmit={() => {
-          if (!note.trim()) {
-            setProblem('Schrijf op wie akkoord gaf en wat er is afgesproken.');
-            return;
-          }
-          move.mutate(
-            { target: NEEDS_NOTE, reason: note.trim() },
-            { onSuccess: () => setNoting((current) => ({ ...current, open: false })) },
-          );
-        }}
-      >
-        <TextInput
-          label="Wat is er afgesproken?"
-          hint="Wie gaf akkoord, wanneer, en onder welk voorbehoud. De opdracht blijft potentieel tot het getekende akkoord er is."
-          multiline
-          value={note}
-          onChange={setNote}
-          required
-        />
-      </FormSheet>
-    </nldd-container>
+  // Leaving the path of an assignment cannot be taken back with a click:
+  // it is asked first. The other steps are a choice from the same menu.
+  const ENDS: Record<string, string> = {
+    cancelled: `${assignment.name} annuleren?`,
+    rejected: `${assignment.name} als afgewezen markeren?`,
+  };
+  const actions: RowAction[] = assignment.allowed_transitions.map((target) => ({
+    text: TRANSITION_LABELS[target] ?? statusLabel(target),
+    ...(ENDS[target]
+      ? {
+          destructive: true,
+          confirm: {
+            text: ENDS[target],
+            supportingText: 'De opdracht gaat naar Afgesloten.',
+            confirmText: TRANSITION_LABELS[target] ?? 'Bevestig',
+          },
+        }
+      : {}),
+    onSelect: () => {
+      if (target === NEEDS_NOTE) {
+        setNote('');
+        setProblem(null);
+        setNoting((current) => ({ open: true, session: current.session + 1 }));
+      } else {
+        move.mutate({ target });
+      }
+    },
+  }));
+  const sheet = (
+    <FormSheet
+      open={noting.open}
+      title={`Mondeling akkoord op ${assignment.name}`}
+      submitText="Leg vast"
+      busy={move.isPending}
+      error={noting.open ? problem : null}
+      onClose={() => setNoting((current) => ({ ...current, open: false }))}
+      onSubmit={() => {
+        if (!note.trim()) {
+          setProblem('Schrijf op wie akkoord gaf en wat er is afgesproken.');
+          return;
+        }
+        move.mutate(
+          { target: NEEDS_NOTE, reason: note.trim() },
+          { onSuccess: () => setNoting((current) => ({ ...current, open: false })) },
+        );
+      }}
+    >
+      <TextInput
+        label="Wat is er afgesproken?"
+        hint="Wie gaf akkoord, wanneer, en onder welk voorbehoud. De opdracht blijft potentieel tot het getekende akkoord er is."
+        multiline
+        value={note}
+        onChange={setNote}
+        required
+      />
+    </FormSheet>
   );
+  // What a step still needs (a client, a start date) comes back from the
+  // server as a sentence; it is shown as it is.
+  return { actions, problem: noting.open ? null : problem, sheet };
 }
 
 /**
@@ -457,37 +443,49 @@ function AgreedDifference({ assignmentId }: { assignmentId: string }) {
   return <nldd-banner variant={variant} size="sm" text={text} />;
 }
 
-/** Who and what the assignment is: parties, period, people in charge, context. */
+/** Who and what the assignment is: parties, people in charge, context. */
 export function OverviewTab() {
   const assignment = useAssignmentShell();
-  const [editing, setEditing] = useState({ open: false, session: 0 });
   if (!assignment) return null;
+  return <Overview assignment={assignment} />;
+}
+
+function Overview({ assignment }: { assignment: AssignmentDetail }) {
+  const [editing, setEditing] = useState({ open: false, session: 0 });
+  const status = useStatusActions(assignment);
+  const actions: ActionBarAction[] = [
+    ...(assignment.permissions.edit_basic
+      ? [
+          {
+            text: 'Wijzig gegevens',
+            onClick: () => setEditing((current) => ({ open: true, session: current.session + 1 })),
+          },
+        ]
+      : []),
+  ];
   return (
     <nldd-simple-section>
-      <nldd-container gap="24">
-        <NextSteps assignment={assignment} />
-        {assignment.permissions.read_financial && <AgreedDifference assignmentId={assignment.id} />}
-        <nldd-container gap="12">
-          <SectionHeading text="Gegevens" />
+      <Stack gap="section">
+        <Stack gap="group">
+          <NextSteps assignment={assignment} />
+          {assignment.permissions.read_financial && (
+            <AgreedDifference assignmentId={assignment.id} />
+          )}
+          <ActionBar
+            label="Acties op de opdracht"
+            actions={actions}
+            more={{ name: assignment.name, actions: status.actions }}
+          />
+          {status.problem && <ErrorNotice message={status.problem} />}
           {!assignment.permissions.edit_basic && (
             <ReadOnlyNote assignment={assignment} what="deze gegevens" />
           )}
           <Facts assignment={assignment} />
-          {assignment.permissions.edit_basic && (
-            <div>
-              <Button
-                text="Bewerk gegevens"
-                onClick={() =>
-                  setEditing((current) => ({ open: true, session: current.session + 1 }))
-                }
-              />
-            </div>
-          )}
-        </nldd-container>
+        </Stack>
         <Roles assignment={assignment} />
         <ContextRefs assignment={assignment} />
-        <StatusActions assignment={assignment} />
-      </nldd-container>
+      </Stack>
+      {status.sheet}
       <AssignmentFormSheet
         open={editing.open}
         session={editing.session}

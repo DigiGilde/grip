@@ -209,18 +209,14 @@ describe('AssignmentLayout', () => {
   it('shows key figures only to who may see money', async () => {
     const owner = renderShell(PERMISSIONS.owner);
     await waitFor(() =>
-      expect(
-        owner.container.querySelector('nldd-table[accessible-label^="Kerncijfers"]'),
-      ).not.toBeNull(),
+      expect(owner.container.querySelector('dl[aria-label^="Kerncijfers"]')).not.toBeNull(),
     );
     expect(allText(owner.container)).toContain('187.800');
     owner.unmount();
 
     const planner = renderShell(PERMISSIONS.planner);
     await tabs(planner.container);
-    expect(
-      planner.container.querySelector('nldd-table[accessible-label^="Kerncijfers"]'),
-    ).toBeNull();
+    expect(planner.container.querySelector('dl[aria-label^="Kerncijfers"]')).toBeNull();
     expect(allText(planner.container)).not.toContain('€');
   });
 
@@ -242,7 +238,7 @@ describe('AssignmentLayout', () => {
       finance({ totals: later }),
     );
     await waitFor(() =>
-      expect(container.querySelector('nldd-table[accessible-label^="Kerncijfers"]')).not.toBeNull(),
+      expect(container.querySelector('dl[aria-label^="Kerncijfers"]')).not.toBeNull(),
     );
     const text = allText(container);
     expect(text).toContain('434.400');
@@ -256,13 +252,13 @@ describe('AssignmentLayout', () => {
   it('says how the reader sees the assignment, with or without a relation of their own', async () => {
     const owner = renderShell(PERMISSIONS.owner, '/opdrachten/a1', { viewer_relations: ['owner'] });
     await tabs(owner.container);
-    expect(allText(owner.container)).toContain('Je bent eigenaar van deze opdracht.');
+    expect(allText(owner.container)).toContain('Je bent eigenaar');
     owner.unmount();
     const admin = renderShell(PERMISSIONS.lezer, '/opdrachten/a1', {
       viewer_relations: ['function:lezer', 'function:beheerder'],
     });
     await tabs(admin.container);
-    expect(allText(admin.container)).toContain('Je bekijkt deze opdracht als beheerder.');
+    expect(allText(admin.container)).toContain('Je bekijkt als beheerder');
   });
 
   it('labels a potential assignment as such', async () => {

@@ -55,6 +55,17 @@ Ze staan in `frontend/src/ui/layout/` en `frontend/src/ui/`.
 | `OpenRow`, `OpenCell`, `RowActions` (`@/ui/RowActions`) | Een rij die opent, en één stille knop met een menu voor de overige acties. |
 | `ActionBar` (`@/ui/ActionBar`) | Filters links, de hoofdactie rechts, alles op één maat. |
 | `NameLine` | Een naam met zijn status: het label staat op de regel van de naam, in het midden ervan, met hooguit één gedempte regel eronder. |
+| `TitleBlock`, en `back` op `Page` | De ene terugverwijzing boven de titel: `back={{ href, text }}`. |
+| `KeyFigures` | Een paar cijfers die een pagina samenvatten: een gedempt label boven de waarde, zonder kader. Een tabel is voor rijen van één soort. |
+| `SignalList` | Wat aandacht vraagt, als één lijst: een zin per punt, met eronder waar het over gaat. Geen stapel balken. |
+| `TabNav` | De tabs van één geopend ding. Op een smal scherm één keuzelijst, zodat labels niet tot een letter worden afgekapt. |
+| `omitEmpty` op `Facts` | Laat een feit zonder waarde weg, waar een lege waarde geen nieuws is. Op een smal scherm staat het label boven de waarde, zodat een waarde nooit midden in een woord breekt. |
+| `hideBelow`, `hideAbove`, `narrowText` op `OpenCell` | Een kolom die op smal wegvalt, vouw je in de naam: `narrowText` is de gedempte regel die alleen smal verschijnt. |
+| `TOP_ALIGNED` (`@/ui/layout`), `verticalAlignment` op `OpenCell` | Voor een rij waarvan de cellen in hoogte verschillen: elke cel begint bovenaan. |
+| `ThingHead` | De kop van één geopend ding met tabs (een opdracht, een vacature): `title`, `back`, `tabs={{ label, items, current }}` en als inhoud de regel met de stand, de kerncijfers of de stappenbalk. |
+| `href` op `OpenCell` | Het echte adres van de rij, zodat openen in een nieuw tabblad werkt. |
+| `useNarrow` | Waar de smalle opbouw een andere structuur is en niet alleen een andere maat. |
+| `more` op `ActionBar` | Wat zelden gebeurt of niet terug kan, in één menu aan het eind van de balk, met bevestiging. |
 | `Loading`, `ErrorNotice`, `EmptyNotice` | Laden, een fout, en niets om te tonen, steeds in dezelfde vorm. |
 
 ### Afstanden
@@ -120,7 +131,7 @@ Een rij in een lijst of tabel is nooit een kop.
 
 ## Navigatie
 
-De hoofdbalk staat in `frontend/src/layout`; welke onderdelen er zijn, voor wie en welke pagina's erbij horen staat in `frontend/src/routes.ts`. Het waarom staat in ADR 0033.
+De hoofdbalk staat in `frontend/src/layout`; welke onderdelen er zijn, voor wie en welke pagina's erbij horen staat in `frontend/src/routes.ts`. Het waarom staat in ADR 0033 en ADR 0042.
 
 **Een nieuw onderdeel van Beheer** voeg je toe met één regel in de lijst van `pages/AdminPage.tsx`. Het adres begint met `/beheer/`, dan blijft Beheer actief. Kan dat niet, zet het adres dan bij `also` van Beheer in de routetabel.
 
@@ -130,9 +141,12 @@ De hoofdbalk staat in `frontend/src/layout`; welke onderdelen er zijn, voor wie 
 |---|---|
 | Tabs | Meerdere kanten van één ding dat je open hebt: een opdracht, een vacature. Elk tabblad heeft een eigen adres |
 | Overzichtspagina | Losse pagina's die bij elkaar horen maar niet over hetzelfde ding gaan: Beheer, Rapportage. De pagina zelf is het menu |
+| Tweede balk | Pagina's van één onderdeel die naast elkaar staan en waar je even vaak direct heen wilt: Mensen en Inzet onder Team, Kosten en Factureren onder Financieel. De balk staat in de schil, onder de hoofdbalk, en komt uit `views` in de routetabel. Hooguit drie pagina's; worden het er meer, dan is het een overzichtspagina. Ze is rustig: kleiner dan de hoofdbalk, tekstkleur, een dunne lijn onder de pagina waar je bent, geen gevuld vlak |
 | Link in de `ActionBar` | Eén afgeleide lijst van dezelfde gegevens, zoals "Open rollen" bij Vacatures. Hooguit één; worden het er meer, dan zijn het tabs |
 
-**Waar je bent.** Een pagina onder een overzicht of een lijst heeft boven de titel één link terug: "Terug naar" met de naam van het onderdeel zoals die in de balk staat, bijvoorbeeld "Terug naar Opdrachten". Geen kruimelpad: grip is twee lagen diep.
+**De hoofdbalk telt hooguit zeven plekken voor het werk.** Een pagina krijgt een plek als iemand haar minstens wekelijks nodig heeft én het een plek is waar je heen gaat, niet iets dat je vanuit een opdracht of vacature bereikt. Twee pagina's over hetzelfde delen één plek en staan in de tweede balk. Een onderdeel staat voor iedereen op dezelfde plaats; op welke pagina het opent mag de lezer volgen (`landingFor`): Team opent voor een planner op Inzet. Een pagina houdt haar adres, ook als de balk haar niet noemt. Het waarom staat in ADR 0042 en in `docs/navigatie-evaluatie.md`.
+
+**Waar je bent.** Een pagina onder een overzicht of een lijst heeft boven de titel één link terug: "Terug naar" met de naam van het onderdeel zoals die in de balk staat, bijvoorbeeld "Terug naar Opdrachten". Geen kruimelpad: grip is twee lagen diep. Staat de pagina onder een onderdeel met een tweede balk en wijst de link naar precies de pagina die die balk markeert, dan vervalt de link: de balk zegt het al (een persoon onder Mensen, een kostenpost onder Kosten).
 
 Deze pagina's volgen dat nog niet:
 

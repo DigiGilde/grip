@@ -37,7 +37,8 @@ function headers(container: HTMLElement): string[] {
 describe('PeopleView', () => {
   it('draws no column for data the asker may not see', async () => {
     const container = await renderPeople([ROSTER]);
-    expect(headers(container)).toEqual(['Naam', 'Leidinggevende']);
+    // Nobody in this list has a manager named, so that column is not drawn either.
+    expect(headers(container)).toEqual(['Naam']);
     expect(texts(container, 'nldd-button')).toEqual([]);
     expect(container.querySelector('nldd-progress-bar')).toBeNull();
   });
@@ -89,7 +90,7 @@ describe('PeopleView', () => {
         ],
       },
     );
-    expect(headers(container)).toEqual(['Naam', 'Inzet nu', 'Vooruit', 'Leidinggevende']);
+    expect(headers(container)).toEqual(['Naam', 'Inzet nu', 'Vooruit']);
     await waitFor(() => expect(container.textContent).toContain('Boven 100% in jun'));
     expect(texts(container, 'nldd-table nldd-link')).toEqual([
       'Otto Over',
@@ -120,7 +121,7 @@ describe('PeopleView', () => {
       ],
       true,
     );
-    expect(headers(container)).toEqual(['Naam', 'Leidinggevende', 'Schaal', 'Maandtarief']);
+    expect(headers(container)).toEqual(['Naam', 'Schaal', 'Maandtarief']);
     const cells = texts(container, 'nldd-table nldd-text-cell');
     expect(cells.some((text) => text.includes('18.000'))).toBe(true);
     // What a hire costs is on the person's own page, not in a list.

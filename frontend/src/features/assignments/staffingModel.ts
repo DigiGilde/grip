@@ -57,7 +57,7 @@ function monthCell(month: RoleMonth, currentMonth: string): TimelineCell {
   if (asked === 0 && filled === 0) state = 'none';
   else if (month.over) {
     state = 'over';
-    text = `! ${formatPercent(month.filled_pct)}`;
+    text = formatPercent(month.filled_pct);
   } else if (Number(month.open_pct) > 0 && ahead) {
     state = 'room';
     text = `open ${formatPercent(month.open_pct)}`;
@@ -135,7 +135,11 @@ export function staffingRows(
           (bar.starts_on ? `, start op ${formatDate(bar.starts_on)}` : ''),
         description: describeRoleBar(bar, name),
         variant: bar.tentative ? 'tentative' : 'filled',
-        ...(flagged ? { mark: '!' } : bar.category_mismatch ? { mark: '≠' } : {}),
+        ...(flagged
+          ? { mark: 'attention' as const }
+          : bar.category_mismatch
+            ? { mark: 'mismatch' as const }
+            : {}),
         // Where in its first and last month the inzet begins and ends.
         ...clippedOffsets(place, bar.start_date, bar.end_date),
         data: { bar },
@@ -256,7 +260,7 @@ export function legendOf(
     tentative: bars.some((bar) => bar.variant === 'tentative'),
     open: bars.some((bar) => bar.variant === 'open'),
     over: rows.some((row) => row.cells.some((cell) => cell.state === 'over')),
-    mismatch: bars.some((bar) => bar.mark === '≠'),
+    mismatch: bars.some((bar) => bar.mark === 'mismatch'),
   };
   return (Object.keys(has) as (keyof typeof has)[]).filter((kind) => has[kind]);
 }

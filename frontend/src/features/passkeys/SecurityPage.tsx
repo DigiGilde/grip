@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
 import { TextInput } from '@/features/assignments/ui';
+import { Button } from '@/features/team/ui/controls';
 import { useInstance } from '@/layout/useInstance';
 import { formatDate } from '@/lib/format';
 import { ActionBar } from '@/ui/ActionBar';
@@ -14,7 +15,7 @@ import {
   Loading,
   Page,
   Quiet,
-  Section,
+  Stack,
 } from '@/ui/layout';
 import {
   PASSKEYS_KEY,
@@ -85,20 +86,17 @@ export function SecurityPage() {
 
   return (
     <>
-      <Page title="Beveiliging" instanceName={instance?.name} spacing="sections">
+      <Page
+        title="Beveiliging"
+        instanceName={instance?.name}
+        {...(list?.available ? { lead: purpose(list) } : {})}
+      >
         {query.isPending ? <Loading /> : null}
         {query.isError ? <ErrorNotice message={errorMessage(query.error)} /> : null}
         {list ? (
-          <Section title="Passkeys" level={2}>
+          <>
             {list.available ? (
               <>
-                <ActionBar
-                  label="Passkeys"
-                  actions={
-                    mayAdd ? [{ text: 'Leg een passkey vast', onClick: start, primary: true }] : []
-                  }
-                />
-                <Quiet>{purpose(list)}</Quiet>
                 {!supported ? <Quiet>Deze browser kan geen passkeys vastleggen.</Quiet> : null}
                 {supported && !list.may_register ? (
                   <Quiet>
@@ -107,53 +105,72 @@ export function SecurityPage() {
                 ) : null}
                 {rowError ? <ErrorNotice message={rowError} /> : null}
                 {list.items.length === 0 ? (
-                  <EmptyNotice text="Nog geen passkeys" />
+                  // Nothing yet: the one thing to do stands with the words, not
+                  // alone at the far side of an empty page.
+                  <Stack gap="related">
+                    <nldd-text>Je hebt nog geen passkey.</nldd-text>
+                    {mayAdd ? (
+                      <nldd-container layout="row">
+                        <Button text="Leg een passkey vast" appearance="primary" onClick={start} />
+                      </nldd-container>
+                    ) : null}
+                  </Stack>
                 ) : (
-                  <nldd-table
-                    accessible-label="Je passkeys"
-                    columns={`minmax(180px,1fr) minmax(160px,1fr) ${ROW_ACTIONS_COLUMN}`}
-                    sm-columns={`minmax(140px,1fr) ${ROW_ACTIONS_COLUMN}`}
-                  >
-                    <nldd-table-row slot="header">
-                      <nldd-text-cell text="Passkey" />
-                      <nldd-text-cell text="Gebruik" hide-below="md" />
-                      <nldd-text-cell />
-                    </nldd-table-row>
-                    {list.items.map((passkey) => (
-                      <nldd-table-row key={passkey.id}>
-                        <nldd-text-cell
-                          text={passkey.label}
-                          supporting-text={`Vastgelegd op ${formatDate(passkey.created_at)}`}
-                        />
-                        <nldd-text-cell hide-below="md" text={usedText(passkey)} />
-                        <RowActions
-                          name={`passkey ${passkey.label}`}
-                          actions={[
-                            {
-                              text: 'Trek in',
-                              destructive: true,
-                              confirm: {
-                                text: `Passkey '${passkey.label}' intrekken?`,
-                                supportingText:
-                                  'Je kunt er daarna niet meer mee inloggen of bevestigen. Wat je er eerder mee bevestigde blijft geldig.',
-                                confirmText: 'Trek in',
-                              },
-                              onSelect: () => {
-                                setRowError(null);
-                                revoke.mutate(passkey.id);
-                              },
-                            },
-                          ]}
-                        />
+                  <>
+                    <ActionBar
+                      label="Passkeys"
+                      actions={
+                        mayAdd
+                          ? [{ text: 'Leg een passkey vast', onClick: start, primary: true }]
+                          : []
+                      }
+                    />
+                    <nldd-table
+                      accessible-label="Je passkeys"
+                      columns={`minmax(180px,1fr) minmax(160px,1fr) ${ROW_ACTIONS_COLUMN}`}
+                      sm-columns={`minmax(140px,1fr) ${ROW_ACTIONS_COLUMN}`}
+                    >
+                      <nldd-table-row slot="header">
+                        <nldd-text-cell text="Passkey" />
+                        <nldd-text-cell text="Gebruik" hide-below="md" />
+                        <nldd-text-cell />
                       </nldd-table-row>
-                    ))}
-                  </nldd-table>
+                      {list.items.map((passkey) => (
+                        <nldd-table-row key={passkey.id}>
+                          <nldd-text-cell
+                            text={passkey.label}
+                            supporting-text={`Vastgelegd op ${formatDate(passkey.created_at)}`}
+                          />
+                          <nldd-text-cell hide-below="md" text={usedText(passkey)} />
+                          <RowActions
+                            name={`passkey ${passkey.label}`}
+                            actions={[
+                              {
+                                text: 'Trek in',
+                                destructive: true,
+                                confirm: {
+                                  text: `Passkey '${passkey.label}' intrekken?`,
+                                  supportingText:
+                                    'Je kunt er daarna niet meer mee inloggen of bevestigen. Wat je er eerder mee bevestigde blijft geldig.',
+                                  confirmText: 'Trek in',
+                                },
+                                onSelect: () => {
+                                  setRowError(null);
+                                  revoke.mutate(passkey.id);
+                                },
+                              },
+                            ]}
+                          />
+                        </nldd-table-row>
+                      ))}
+                    </nldd-table>
+                  </>
                 )}
               </>
             ) : (
               <EmptyNotice text="Passkeys zijn in deze omgeving niet ingesteld" />
             )}
-          </Section>
+          </>
         ) : null}
       </Page>
       <FormSheet

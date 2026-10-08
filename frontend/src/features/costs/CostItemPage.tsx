@@ -1,4 +1,4 @@
-import { BackLink, DocumentLink } from '@/ui/Icon';
+import { DocumentLink } from '@/ui/Icon';
 import { useRef, useState } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -39,7 +39,6 @@ import {
   YEAR_PARAM,
   addCoverageText,
   attachmentCount,
-  costsPath,
   coverageStep,
   inTimeOrder,
   lacksDocument,
@@ -103,7 +102,7 @@ export function CostItemPage() {
         spacing="sections"
       >
         <Stack gap="group">
-          <BackLink href={costsPath(year)} text="Terug naar Kosten" />
+          {/* No link back: the second bar of Financieel marks Kosten and leads there. */}
           {notFound ? (
             <EmptyNotice
               text="Deze kostenpost is niet gevonden"

@@ -26,6 +26,7 @@ from grip.events.stream import KINDS_WRITTEN
 # Tables whose changes need no event, and why.
 NOT_DOMAIN: dict[str, str] = {
     "stream_event": "the stream itself",
+    "update_feed_marker": "when a person last looked at the feed of updates",
     "http_session": "login sessions",
     "signing_intent": "a pending step of a signing session; the decision is the fact",
     "push_outbox": "transport: a notification to send; its cause is recorded",

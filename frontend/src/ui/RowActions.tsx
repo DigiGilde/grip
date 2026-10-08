@@ -78,7 +78,13 @@ export function RowActions({ name, actions }: RowActionsProps) {
  * is not an nldd-table row (the row header of a timeline). Draws nothing
  * without actions.
  */
-export function RowMenu({ name, actions }: RowActionsProps) {
+export function RowMenu({
+  name,
+  actions,
+  size,
+}: RowActionsProps & {
+  /** The size of the bar it stands in; a row uses the small one. */ size?: 'sm' | 'md';
+}) {
   const [asking, setAsking] = useState<RowAction | null>(null);
   const dialogRef = useRef<HTMLElement>(null);
   useNlddEvent(dialogRef, 'close', () => setAsking(null));
@@ -90,7 +96,7 @@ export function RowMenu({ name, actions }: RowActionsProps) {
   if (actions.length === 0) return null;
   return (
     <>
-      <MoreButton name={name}>
+      <MoreButton name={name} {...(size ? { size } : {})}>
         <nldd-menu slot="popup" placement="bottom-end">
           {actions.map((action) => (
             <MenuItem
@@ -169,8 +175,26 @@ interface OpenCellProps {
   /** What activating the name does, for a screen reader: "Bewerk <name>". */
   accessibleLabel?: string;
   onOpen?: () => void;
+  /**
+   * The address the row opens, when it has one. The name is then a real
+   * link: a plain click still calls `onOpen` (or follows the link without
+   * one), and a new tab or window works as on any link.
+   */
+  href?: string;
   /** A small element at the end of the quiet line, e.g. a tag. */
   children?: ReactNode;
+  /** Leave the cell out below this width, like the design system's own cells. */
+  hideBelow?: 'sm' | 'md' | 'lg';
+  /** Leave the cell out above this width: for the narrow variant of a row. */
+  hideAbove?: 'sm' | 'md' | 'lg';
+  /**
+   * What the columns that are hidden on a narrow screen said, as one quiet
+   * line under the name, shown only there. Fold a column in instead of
+   * dropping it: `narrowText="Voorbeeldministerie · 1 jan t/m 31 dec"`.
+   */
+  narrowText?: string;
+  /** 'top' when a neighbour in the row runs over several lines. */
+  verticalAlignment?: 'top' | 'center';
 }
 
 /** The first cell of a row: the name, which a keyboard activates with Enter. */
@@ -179,7 +203,12 @@ export function OpenCell({
   supportingText,
   accessibleLabel,
   onOpen,
+  href,
   children,
+  hideBelow,
+  hideAbove,
+  narrowText,
+  verticalAlignment,
 }: OpenCellProps) {
   const ref = useRef<HTMLElement>(null);
   useNlddEvent(
@@ -187,18 +216,31 @@ export function OpenCell({
     'click',
     onOpen
       ? (event) => {
+          const mouse = event as MouseEvent;
+          // With a real address, a click that asks for a new tab or window
+          // is the browser's to handle.
+          if (
+            href &&
+            (mouse.metaKey || mouse.ctrlKey || mouse.shiftKey || mouse.altKey || mouse.button > 0)
+          ) {
+            return;
+          }
           event.preventDefault();
           onOpen();
         }
       : undefined,
   );
   return (
-    <nldd-cell>
+    <nldd-cell
+      {...(hideBelow ? { 'hide-below': hideBelow } : {})}
+      {...(hideAbove ? { 'hide-above': hideAbove } : {})}
+      {...(verticalAlignment ? { 'vertical-alignment': verticalAlignment } : {})}
+    >
       <nldd-container gap="4">
-        {onOpen ? (
+        {onOpen || href ? (
           <nldd-link
             ref={ref}
-            href="#"
+            href={href ?? '#'}
             text={text}
             {...(accessibleLabel ? { 'accessible-label': accessibleLabel } : {})}
           />
@@ -214,6 +256,13 @@ export function OpenCell({
             )}
             {children}
           </nldd-container>
+        )}
+        {narrowText && (
+          <span className="narrow-only">
+            <nldd-text color="secondary" size="sm">
+              {narrowText}
+            </nldd-text>
+          </span>
         )}
       </nldd-container>
     </nldd-cell>

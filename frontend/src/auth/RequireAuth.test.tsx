@@ -67,10 +67,7 @@ describe('RequireAuth', () => {
     expect(
       screen.getByRole('heading', { level: 1, name: 'Grip is niet bereikbaar' }),
     ).toBeInTheDocument();
-    expect(container.querySelector('nldd-inline-dialog')).toHaveAttribute(
-      'text',
-      'Server onbereikbaar.',
-    );
+    expect(screen.getByText('Server onbereikbaar.')).toBeInTheDocument();
     expect(screen.queryByText('protected content')).not.toBeInTheDocument();
 
     container.querySelector('nldd-button')?.dispatchEvent(new Event('click'));

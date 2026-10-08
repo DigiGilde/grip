@@ -382,12 +382,20 @@ describe('the Advies en akkoord tab', () => {
       [...row.querySelectorAll('nldd-text-cell')].map((cell) => cell.getAttribute('text')),
     );
     expect(rows).toEqual([
-      ['Advies HR', 'Nog geen besluit', 'Fictieve Adviseur'],
-      ['Advies concern control', 'Nog niemand genoemd', ''],
-      ['Akkoord', 'Nog niemand genoemd', ''],
+      ['Nog geen besluit', 'Fictieve Adviseur'],
+      ['Nog niemand genoemd', ''],
+      ['Nog niemand genoemd', ''],
     ]);
+    // The row is the way in: the one the reader may record opens on its name,
+    // and no row holds a text button.
+    expect(
+      [...container.querySelectorAll('nldd-table nldd-link')].map((link) =>
+        link.getAttribute('text'),
+      ),
+    ).toEqual(['Advies HR']);
+    expect(container.querySelectorAll('nldd-table nldd-button')).toHaveLength(0);
     // On the tab of the current step the header has no button; the tab has the one.
-    expect(primaryOnPage(container)).toEqual(['Leg vast']);
+    expect(primaryOnPage(container)).toEqual(['Leg advies HR vast']);
     expect(tabsOf(container).find(([, current]) => current)?.[0]).toBe('Advies en akkoord');
   });
 });
@@ -530,12 +538,12 @@ describe('the Tekst tab', () => {
       [...container.querySelectorAll('nldd-rich-text li')].map((el) => el.textContent),
     ).toEqual(['ontwerpen', 'testen']);
     expect(container.textContent).not.toContain('## ');
-    // The header holds the primary action of the vacancy. On the tab one
-    // step leads, as a secondary button; the rest is quiet.
+    // The header holds the primary action of the vacancy. On the tab the next
+    // step of each text is its one filled button; the rest is quiet.
     const within = (text: string) =>
       container.querySelector(`nldd-button[text="${text}"]`)?.getAttribute('appearance');
     expect(within('Verwerk de opmerkingen')).toBe('secondary');
-    expect(within('Neem terug om verder te schrijven')).toBe('neutral-transparent');
+    expect(within('Neem terug om verder te schrijven')).toBe('secondary');
     expect(container.querySelectorAll('nldd-button[appearance="primary"]').length).toBeLessThan(2);
     // The round, the remark and what still has to be filled in.
     expect(container.textContent).toContain('terug met opmerkingen (Fictieve Adviseur)');
@@ -653,10 +661,6 @@ describe('the Vervulling tab', () => {
         .querySelector('nldd-link[text="Bemensing van Opdracht Alfa"]')
         ?.getAttribute('href'),
     ).toBe('/opdrachten/a-1/bemensing');
-    // Candidates are not kept here; one quiet line says where they are.
-    expect(container.textContent).toContain(
-      'Kandidaten staan in het wervingssysteem; grip bewaart ze niet.',
-    );
     expect(container.querySelector('nldd-button[text="Aanname gaat niet door"]')).not.toBeNull();
     // Filled: no step bar and no primary action left.
     expect(container.querySelector('nldd-step-bar')).toBeNull();

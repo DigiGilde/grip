@@ -3,15 +3,21 @@ import { useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ApiError, errorMessage } from '@/api/client';
-import { orUndef } from '@/components/nldd/events';
 import { assignmentTabPath } from '@/features/assignments/paths';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { useInstance } from '@/layout/useInstance';
 import { useRouterLinks } from '@/layout/useRouterLinks';
 import { formatPeriod } from '@/lib/format';
-import { PageHeading } from '@/pages/PageHeading';
 import { PATHS } from '@/paths';
-import { ErrorNotice, Loading, Quiet, SectionHeading, Stack } from '@/ui/layout';
+import {
+  ErrorNotice,
+  Loading,
+  Quiet,
+  SectionHeading,
+  Stack,
+  TabNav,
+  TitleBlock,
+} from '@/ui/layout';
 import { VACANCY_KEYS, fetchVacancy, type Vacancy } from './api';
 import { HireSheet } from './HireSheets';
 import { useVacancyOptions } from './hooks';
@@ -45,26 +51,20 @@ function currentTab(id: string, pathname: string, tabs: VacancyTabKey[]): Vacanc
   );
 }
 
+/** Spread as plain attributes; the package types do not list the padding overrides. */
+const HEADER_PADDING: object = { 'padding-bottom': '0' };
+
 function Tabs({ vacancy, current }: { vacancy: Vacancy; current: VacancyTabKey }) {
-  const ref = useRef<HTMLElement>(null);
-  useRouterLinks(ref);
-  // Each tab is a page with its own address, so this is navigation: the
-  // design system then renders a nav landmark and marks the current page.
   return (
-    <nldd-tab-bar
-      ref={ref}
-      navigation
-      accessible-label={`Onderdelen van de vacature ${vacancy.function_title}`}
-    >
-      {visibleTabs(vacancy).map((tab) => (
-        <nldd-tab-bar-item
-          key={tab}
-          href={vacancyTabPath(vacancy.id, tab)}
-          text={TAB_LABELS[tab]}
-          current={orUndef(tab === current)}
-        />
-      ))}
-    </nldd-tab-bar>
+    <TabNav
+      label={`Onderdelen van de vacature ${vacancy.function_title}`}
+      current={current}
+      items={visibleTabs(vacancy).map((tab) => ({
+        key: tab,
+        text: TAB_LABELS[tab],
+        href: vacancyTabPath(vacancy.id, tab),
+      }))}
+    />
   );
 }
 
@@ -132,7 +132,7 @@ function Belonging({ vacancy }: { vacancy: Vacancy }) {
     vacancy.candidate_name ? `voor ${vacancy.candidate_name}` : '',
   ].filter(Boolean);
   return (
-    <nldd-container layout="row" gap="8" vertical-alignment="center">
+    <nldd-container layout="wrap" gap="8" vertical-alignment="center">
       <nldd-badge color={STATUS_COLORS[vacancy.status]} text={STATUS_LABELS[vacancy.status]} />
       {vacancy.assignment_id && vacancy.assignment_name && (
         <RouterLinks>
@@ -172,6 +172,9 @@ export function VacancyLayout() {
   const instance = useInstance();
   const options = useVacancyOptions();
   const [sheet, setSheet] = useState<SharedSheet | null>(null);
+  // The back link above the title is an in-app link.
+  const headRef = useRef<HTMLElement>(null);
+  useRouterLinks(headRef);
   const query = useQuery({
     queryKey: VACANCY_KEYS.detail(vacancyId),
     queryFn: () => fetchVacancy(vacancyId),
@@ -186,8 +189,14 @@ export function VacancyLayout() {
 
   return (
     <>
-      <nldd-simple-section>
-        <PageHeading text={vacancy?.function_title ?? 'Vacature'} instanceName={instance?.name} />
+      {/* A tab below is a section of its own with its own top padding; without
+          a bottom padding here the two would add up under the tabs. */}
+      <nldd-simple-section ref={headRef} {...(vacancy && whole ? HEADER_PADDING : {})}>
+        <TitleBlock
+          title={vacancy?.function_title ?? 'Vacature'}
+          instanceName={instance?.name}
+          back={{ href: PATHS.vacancies, text: 'Terug naar Vacatures' }}
+        />
         <Stack gap="related">
           {query.isPending && <Loading />}
           {query.isError && (
@@ -199,13 +208,13 @@ export function VacancyLayout() {
               }
             />
           )}
-          {query.isError && (
-            <RouterLinks>
-              <nldd-link href={PATHS.vacancies} text="Naar alle vacatures" size="md" />
-            </RouterLinks>
-          )}
           {vacancy && <Belonging vacancy={vacancy} />}
           {vacancy && <PublishedLinks vacancyId={vacancy.id} />}
+          {vacancy && whole && !vacancy.permissions.can_edit && (
+            <Quiet>
+              Je kunt deze vacature bekijken. Wijzigen kan de aanvrager of wie de opdracht beheert.
+            </Quiet>
+          )}
           {vacancy && whole && (
             <>
               <Steps vacancy={vacancy} current={current} onSheet={setSheet} />

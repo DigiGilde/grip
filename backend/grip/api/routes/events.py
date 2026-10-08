@@ -65,10 +65,15 @@ async def list_events(
     since: datetime | None = None,
     until: datetime | None = None,
     correlation_id: str | None = None,
+    kind: Annotated[str, Query(pattern="^(changes|reads|all)$")] = "changes",
     before: Annotated[int | None, Query(ge=1)] = None,
     limit: Annotated[int, Query(ge=1, le=reading.MAX_PAGE)] = 50,
 ) -> dict[str, Any]:
     """Events the reader may know of, newest first.
+
+    ``kind`` chooses between changes (the default: everything except reads
+    of data), ``reads`` and ``all``. It is applied before the page is cut,
+    so a page of changes is full of changes however many reads there are.
 
     No total is given and an event the reader may not know of leaves no
     trace: a filter that matches nothing visible answers like one that
@@ -88,6 +93,7 @@ async def list_events(
             since=since,
             until=until,
             correlation_id=correlation_id,
+            kind=kind,
         ),
         before=before,
         limit=limit,

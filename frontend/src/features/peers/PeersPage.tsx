@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@/auth/context';
 import { useInstance } from '@/layout/useInstance';
-import { PageHeading } from '@/pages/PageHeading';
-import { Button } from '@/features/team/ui/controls';
+import { PATHS } from '@/paths';
+import { ActionBar } from '@/ui/ActionBar';
+import { EmptyNotice, Page } from '@/ui/layout';
+import { OpenCell, OpenRow } from '@/ui/RowActions';
 import { EmptyRows, QueryState } from '@/features/team/ui/states';
 import { PEERS_KEY, ROLE_LABELS, fetchPeers, type Peer } from './api';
 import { PeerSheet } from './PeerSheet';
@@ -20,7 +23,9 @@ function grantSummary(peer: Peer, services: string[]): string {
  */
 export function PeersPage() {
   const instance = useInstance();
-  const query = useQuery({ queryKey: PEERS_KEY, queryFn: fetchPeers });
+  const { state } = useAuth();
+  const isAdmin = state.status === 'authenticated' && state.functions.includes('beheerder');
+  const query = useQuery({ queryKey: PEERS_KEY, queryFn: fetchPeers, enabled: isAdmin });
   const peers = query.data?.items ?? [];
   const services = query.data?.services ?? [];
   const [openId, setOpenId] = useState<string | null>(null);
@@ -29,66 +34,72 @@ export function PeersPage() {
 
   return (
     <>
-      <nldd-simple-section>
-        <PageHeading text="Koppelingen" instanceName={instance?.name} />
-        <nldd-container gap="16">
+      <Page
+        title="Koppelingen"
+        instanceName={instance?.name}
+        back={{ href: PATHS.admin, text: 'Terug naar Beheer' }}
+      >
+        {/* Only once the list is there: who may not read it may not add to it. */}
+        {query.isSuccess ? (
+          <ActionBar
+            label="Koppelingen"
+            filters={[]}
+            actions={[{ text: 'Nieuwe koppeling', onClick: () => setAdding(true), primary: true }]}
+          />
+        ) : null}
+        {isAdmin ? null : <EmptyNotice text="Koppelingen zijn voor beheerders" />}
+        {isAdmin ? (
           <QueryState query={query}>
             {query.data && !query.data.outway_configured ? (
               <nldd-banner
                 variant="warning"
+                size="sm"
                 text="Er is geen outway ingesteld"
-                supporting-text="Berichten naar andere organisaties blijven in de wachtrij tot de outway is ingesteld."
+                supporting-text="Berichten naar andere organisaties blijven in de wachtrij."
               />
             ) : null}
-            <nldd-container layout="wrap" gap="16">
-              <Button text="Koppeling toevoegen" onClick={() => setAdding(true)} />
-            </nldd-container>
             <nldd-table
               accessible-label="Koppelingen met andere instanties en corpus-systemen"
-              columns="minmax(180px,2fr) minmax(160px,1fr) minmax(200px,2fr) 110px 110px"
+              columns="minmax(200px,2fr) minmax(160px,1fr) minmax(200px,2fr)"
+              sm-columns="minmax(0,1fr)"
             >
               <nldd-table-row slot="header">
                 <nldd-text-cell text="Naam" />
-                <nldd-text-cell text="Soort" />
-                <nldd-text-cell text="Contract voor" />
-                <nldd-text-cell text="Status" />
-                <nldd-text-cell text="Actie" />
+                <nldd-text-cell text="Soort" hide-below="md" />
+                <nldd-text-cell text="Contract voor" hide-below="md" />
               </nldd-table-row>
               {peers.map((peer) => (
-                <nldd-table-row key={peer.id}>
-                  <nldd-text-cell text={peer.name} supporting-text={peer.base_uri} />
+                <OpenRow key={peer.id} onOpen={() => setOpenId(peer.id)}>
+                  <OpenCell
+                    text={peer.name}
+                    supportingText={peer.base_uri}
+                    accessibleLabel={`Bekijk ${peer.name}`}
+                    onOpen={() => setOpenId(peer.id)}
+                  >
+                    {peer.is_active ? null : <nldd-badge color="neutral" text="Uitgeschakeld" />}
+                  </OpenCell>
                   <nldd-text-cell
+                    hide-below="md"
                     text={ROLE_LABELS[peer.role]}
                     {...(peer.financial_inspection
                       ? { 'supporting-text': 'Met financiële inzage' }
                       : {})}
                   />
                   <nldd-text-cell
+                    hide-below="md"
                     text={grantSummary(peer, services)}
                     supporting-text={`Peer-id ${peer.peer_id}`}
                   />
-                  <nldd-text-cell
-                    text={peer.is_active ? 'Actief' : 'Uitgeschakeld'}
-                    {...(peer.is_active ? {} : { color: 'critical' })}
-                  />
-                  <nldd-cell>
-                    <Button
-                      size="sm"
-                      text="Bekijk"
-                      accessibleLabel={`Bekijk ${peer.name}`}
-                      onClick={() => setOpenId(peer.id)}
-                    />
-                  </nldd-cell>
-                </nldd-table-row>
+                </OpenRow>
               ))}
               <EmptyRows
-                text="Er zijn nog geen koppelingen"
-                supportingText="Voeg een opdrachtgever, een opdrachtnemer of een corpus toe zodra er een FSC-contract mee is."
+                text="Nog geen koppelingen"
+                supportingText="Voeg een instantie of een corpus toe zodra er een FSC-contract mee is."
               />
             </nldd-table>
           </QueryState>
-        </nldd-container>
-      </nldd-simple-section>
+        ) : null}
+      </Page>
 
       <PeerSheet
         open={adding || opened !== null}

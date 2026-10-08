@@ -179,7 +179,11 @@ describe('VacanciesPage', () => {
     await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
     expect(container.querySelector('nldd-button[text="Nieuwe vacature"]')).toBeNull();
     expect(container.querySelector('nldd-button[text="Formulier en taalmodel"]')).toBeNull();
-    expect(container.querySelector('nldd-button[text="Open rollen"]')).not.toBeNull();
+    // Open roles are a view of this page: a choice in the bar, not a button.
+    expect(container.querySelector('nldd-button[text="Open rollen"]')).toBeNull();
+    expect(
+      [...container.querySelectorAll('nldd-dropdown option')].map((option) => option.textContent),
+    ).toContain('Open rollen');
     expect(container.querySelector('nldd-inline-dialog[slot="empty"]')).not.toBeNull();
     unmount();
 
@@ -196,9 +200,11 @@ describe('VacanciesPage', () => {
     await waitFor(() =>
       expect(second.container.querySelector('nldd-button[text="Nieuwe vacature"]')).not.toBeNull(),
     );
-    expect(
-      second.container.querySelector('nldd-button[text="Formulier en taalmodel"]'),
-    ).not.toBeNull();
+    // The settings are under Beheer; the bar holds one derived list and the action.
+    expect(second.container.querySelector('nldd-button[text="Formulier en taalmodel"]')).toBeNull();
+    expect(second.container.querySelector('nldd-button[text="Standaardteksten"]')).toBeNull();
+    // Open roles are a view of this page, chosen in the bar, not a link beside it.
+    expect(second.container.querySelector('nldd-button[text="Open rollen"]')).toBeNull();
   });
 
   it('shows an error when the list cannot be loaded', async () => {
@@ -225,8 +231,12 @@ describe('OpenRolesPage', () => {
     });
     const { container } = renderApp(<OpenRolesPage />);
     await waitFor(() => expect(container.textContent).toContain('Wij zoeken een productmanager.'));
-    expect(container.querySelector('nldd-title[text="Productmanager"]')).not.toBeNull();
-    expect(container.textContent).toContain('Schaal 13, 1 fte');
+    expect(
+      container.querySelector('nldd-title[text="Productmanager"]')?.getAttribute('supporting-text'),
+    ).toBe('Schaal 13, 1 fte');
+    // A view of the Vacatures page: the same title, no link back.
+    expect(container.querySelector('nldd-link[text="Terug naar Vacatures"]')).toBeNull();
+    expect(container.querySelector('h1')?.textContent).toBe('Vacatures');
     expect(container.textContent).toContain('Geplaatst op');
   });
 

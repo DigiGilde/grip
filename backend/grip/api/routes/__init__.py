@@ -39,6 +39,7 @@ from grip.api.routes.received_quotes_list import router as received_quotes_list_
 from grip.api.routes.reports import router as reports_router
 from grip.api.routes.signing import router as signing_router
 from grip.api.routes.tasks import router as tasks_router
+from grip.api.routes.updates import router as updates_router
 from grip.api.routes.vacancies import router as vacancies_router
 from grip.api.routes.vacancy_hire import router as vacancy_hire_router
 from grip.api.routes.vacancy_request_forms import (
@@ -100,3 +101,4 @@ api_router.include_router(proof_signing_router)
 api_router.include_router(proof_router)
 api_router.include_router(events_router)
 api_router.include_router(event_feed_router)
+api_router.include_router(updates_router)

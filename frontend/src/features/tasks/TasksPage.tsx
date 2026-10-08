@@ -4,8 +4,10 @@ import { useLocation, useSearchParams } from 'react-router-dom';
 import { errorMessage } from '@/api/client';
 import { useInstance } from '@/layout/useInstance';
 import { useRouterLinks } from '@/layout/useRouterLinks';
+import { useViewer } from '@/layout/useViewer';
+import { PATHS } from '@/paths';
 import { formatDate } from '@/lib/format';
-import { ActionBar } from '@/ui/ActionBar';
+import { ActionBar, type ActionBarFilter } from '@/ui/ActionBar';
 import {
   CardGrid,
   EmptyNotice,
@@ -19,6 +21,7 @@ import {
 } from '@/ui/layout';
 import { TASK_KEYS, fetchBoard, fetchMyTasks, type Task } from './api';
 import { ALL, BOARD_COLUMNS, MINE, filterTasks, optionsOf } from './groups';
+import { PushOffer } from '@/features/notifications/PushOffer';
 import { TASK_PARAM, useOpenTask } from './moves';
 import { RowMenu } from '@/ui/RowActions';
 import { useTaskActions } from './actions';
@@ -57,6 +60,7 @@ function MyTasks({ onOpen }: { onOpen: (id: string) => void }) {
           <TaskTable label="Wacht op anderen" tasks={waiting} onOpen={onOpen} />
         </Section>
       )}
+      <PushOffer />
     </Stack>
   );
 }
@@ -94,7 +98,13 @@ function BoardCard({ task, onOpen }: { task: Task; onOpen: (id: string) => void 
 }
 
 /** Every task the reader may see, as columns. Moving a card is in its menu. */
-function Board({ onOpen }: { onOpen: (id: string) => void }) {
+function Board({
+  onOpen,
+  viewFilter,
+}: {
+  onOpen: (id: string) => void;
+  viewFilter: ActionBarFilter;
+}) {
   const [params, setParams] = useSearchParams();
   const query = useQuery({ queryKey: TASK_KEYS.board, queryFn: fetchBoard });
   const filter = {
@@ -114,8 +124,9 @@ function Board({ onOpen }: { onOpen: (id: string) => void }) {
   return (
     <Stack gap="group">
       <ActionBar
-        label="Taken filteren"
+        label="Weergave en filters van de taken"
         filters={[
+          viewFilter,
           {
             label: 'Opdracht of vacature',
             value: filter.caseLabel,
@@ -170,6 +181,7 @@ export function TasksPage() {
   useRouterLinks(containerRef);
   const [params, setParams] = useSearchParams();
   const [openId, openTask] = useOpenTask();
+  const viewer = useViewer();
   const view: View = params.get(VIEW_PARAM) === 'bord' ? 'board' : 'mine';
   const setView = (value: string) => {
     const next = new URLSearchParams();
@@ -177,17 +189,35 @@ export function TasksPage() {
     setParams(next);
   };
 
+  const viewFilter: ActionBarFilter = {
+    label: 'Weergave',
+    value: view,
+    onChange: setView,
+    options: VIEWS,
+    width: '180px',
+  };
+
   return (
     <div ref={containerRef}>
       <Page title="Taken" instanceName={instance?.name}>
-        <ActionBar
-          label="Weergave van de taken"
-          filters={[
-            { label: 'Weergave', value: view, onChange: setView, options: VIEWS, width: '180px' },
-          ]}
-          actions={[]}
-        />
-        {view === 'mine' ? <MyTasks onOpen={openTask} /> : <Board onOpen={openTask} />}
+        {/* One bar per view: the choice of view first, then the filters of that view. */}
+        {view === 'mine' ? (
+          <>
+            <ActionBar
+              label="Weergave van de taken"
+              filters={[viewFilter]}
+              actions={
+                // Approving quotes is work that comes to who holds that right.
+                viewer.functions.includes('offertegoedkeurder')
+                  ? [{ text: 'Offertes ter goedkeuring', href: PATHS.quoteApprovals }]
+                  : []
+              }
+            />
+            <MyTasks onOpen={openTask} />
+          </>
+        ) : (
+          <Board onOpen={openTask} viewFilter={viewFilter} />
+        )}
       </Page>
       <TaskSheet taskId={openId} onClose={() => openTask(null)} />
     </div>

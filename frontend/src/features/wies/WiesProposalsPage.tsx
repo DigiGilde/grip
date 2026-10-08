@@ -1,12 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
-import { Button, CheckboxInput, LinkButton, Note } from '@/features/vacancies/ui';
-import { EmptyNotice, ErrorNotice, Loading, SectionHeading } from '@/ui/layout';
-import { RouterLinks } from '@/layout/RouterLinks';
+import { CheckboxInput } from '@/features/vacancies/ui';
+import { ActionBar } from '@/ui/ActionBar';
+import { EmptyNotice, ErrorNotice, Loading, Page, SectionHeading } from '@/ui/layout';
 import { useInstance } from '@/layout/useInstance';
 import { formatDate } from '@/lib/format';
-import { PageHeading } from '@/pages/PageHeading';
 import { PATHS } from '@/paths';
 import {
   WIES_KEYS,
@@ -64,24 +63,35 @@ function ProposalGroup({
   return (
     <nldd-container gap="8">
       <SectionHeading text={`${heading} (${proposals.length})`} level={3} />
-      <nldd-list accessible-label={heading} appearance="box-base">
+      <nldd-table
+        accessible-label={heading}
+        columns="minmax(220px,1fr) minmax(0,3fr)"
+        sm-columns="minmax(0,1fr)"
+      >
         {proposals.map((proposal) => {
           const key = proposalKey(proposal);
           return (
-            <nldd-list-item key={key}>
+            <nldd-table-row key={key}>
               <nldd-cell>
                 <CheckboxInput
-                  label={`${ACTION_LABELS[proposal.action]}: ${proposal.name}`}
+                  label={proposal.name}
                   checked={selected.has(key)}
                   onChange={(checked) => onToggle(key, checked)}
                   disabled={disabled}
                 />
               </nldd-cell>
-              <nldd-text-cell text={describe(proposal)} supporting-text={proposal.reason} />
-            </nldd-list-item>
+              {/* Why someone is new needs no words; why someone leaves does. */}
+              <nldd-text-cell
+                hide-below="md"
+                text={describe(proposal)}
+                {...(proposal.action !== 'add' && proposal.reason
+                  ? { 'supporting-text': proposal.reason }
+                  : {})}
+              />
+            </nldd-table-row>
           );
         })}
-      </nldd-list>
+      </nldd-table>
     </nldd-container>
   );
 }
@@ -128,82 +138,78 @@ export function WiesProposalsPage() {
 
   const data = query.data;
   return (
-    <nldd-simple-section>
-      <PageHeading text="Voorstellen uit Wies" instanceName={instance?.name} />
-      <nldd-container gap="16">
-        <RouterLinks>
-          <LinkButton text="Terug naar team" href={PATHS.team} appearance="neutral-transparent" />
-        </RouterLinks>
-        <Note>
-          Wies is de bron van mensen. Grip voegt niemand toe en deactiveert niemand uit zichzelf:
-          vink aan wat je wilt doorvoeren. Wie wordt toegevoegd kan daarna inloggen.
-        </Note>
-        {query.isPending && <Loading text="Wies wordt geraadpleegd" />}
-        {query.isError && <ErrorNotice message={errorMessage(query.error)} />}
-        {data && !data.configured && (
-          <EmptyNotice
-            text="De koppeling met Wies is niet ingesteld"
-            supportingText="Stel het adres en de sleutel van Wies in. Tot die tijd beheer je personen onder Team."
-          />
-        )}
-        {confirm.isError && <ErrorNotice message={errorMessage(confirm.error)} />}
-        {confirm.data && <Result applied={confirm.data} />}
-        {data?.configured && (
-          <>
-            <nldd-text size="sm" color="secondary">
-              {`${data.wies_colleagues ?? 0} collega's in Wies`}
-              {data.fetched_at ? `, opgehaald op ${formatDate(data.fetched_at)}` : ''}
-            </nldd-text>
-            {proposals.length === 0 ? (
-              <EmptyNotice
-                text="Geen voorstellen"
-                supportingText={
-                  data.note ?? 'De personen in grip komen overeen met de collega\'s in Wies.'
-                }
-              />
-            ) : (
-              <>
-                {groups.map((group) => (
-                  <ProposalGroup
-                    key={group.action}
-                    heading={GROUP_HEADINGS[group.action]}
-                    proposals={group.items}
-                    selected={selected}
-                    onToggle={toggle}
-                    disabled={confirm.isPending}
-                  />
-                ))}
-                <nldd-button-group>
-                  <Button
-                    text={
-                      chosen.length === 0
-                        ? 'Voer door'
-                        : `Voer ${chosen.length} ${chosen.length === 1 ? 'wijziging' : 'wijzigingen'} door`
-                    }
-                    appearance="primary"
-                    disabled={chosen.length === 0}
-                    loading={confirm.isPending}
-                    onClick={() =>
-                      confirm.mutate(
-                        chosen.map((proposal) => ({
-                          action: proposal.action,
-                          email: proposal.email,
-                        })),
-                      )
-                    }
-                  />
-                  <Button
-                    text="Alles aanvinken"
-                    appearance="neutral-transparent"
-                    disabled={confirm.isPending}
-                    onClick={() => setSelected(new Set(proposals.map(proposalKey)))}
-                  />
-                </nldd-button-group>
-              </>
-            )}
-          </>
-        )}
-      </nldd-container>
-    </nldd-simple-section>
+    <Page
+      title="Voorstellen uit Wies"
+      instanceName={instance?.name}
+      back={{ href: PATHS.admin, text: 'Terug naar Beheer' }}
+    >
+      {query.isPending && <Loading text="Wies wordt geraadpleegd" />}
+      {query.isError && <ErrorNotice message={errorMessage(query.error)} />}
+      {data && !data.configured && (
+        <EmptyNotice
+          text="De koppeling met Wies is niet ingesteld"
+          supportingText="Tot die tijd beheer je personen onder Team."
+        />
+      )}
+      {confirm.isError && <ErrorNotice message={errorMessage(confirm.error)} />}
+      {confirm.data && <Result applied={confirm.data} />}
+      {data?.configured && (
+        <>
+          {proposals.length > 0 ? (
+            <ActionBar
+              label="Voorstellen doorvoeren"
+              actions={[
+                {
+                  text: 'Vink alles aan',
+                  disabled: confirm.isPending,
+                  onClick: () => setSelected(new Set(proposals.map(proposalKey))),
+                },
+                {
+                  text:
+                    chosen.length === 0
+                      ? 'Voer door'
+                      : `Voer ${chosen.length} ${chosen.length === 1 ? 'wijziging' : 'wijzigingen'} door`,
+                  primary: true,
+                  disabled: chosen.length === 0,
+                  loading: confirm.isPending,
+                  onClick: () =>
+                    confirm.mutate(
+                      chosen.map((proposal) => ({
+                        action: proposal.action,
+                        email: proposal.email,
+                      })),
+                    ),
+                },
+              ]}
+            />
+          ) : null}
+          <nldd-text size="sm" color="secondary">
+            {`${data.wies_colleagues ?? 0} collega's in Wies`}
+            {data.fetched_at ? `, opgehaald op ${formatDate(data.fetched_at)}` : ''}
+          </nldd-text>
+          {proposals.length === 0 ? (
+            <EmptyNotice
+              text="Geen voorstellen"
+              supportingText={
+                data.note ?? "De personen in grip komen overeen met de collega's in Wies."
+              }
+            />
+          ) : (
+            <>
+              {groups.map((group) => (
+                <ProposalGroup
+                  key={group.action}
+                  heading={GROUP_HEADINGS[group.action]}
+                  proposals={group.items}
+                  selected={selected}
+                  onToggle={toggle}
+                  disabled={confirm.isPending}
+                />
+              ))}
+            </>
+          )}
+        </>
+      )}
+    </Page>
   );
 }

@@ -97,8 +97,8 @@ describe('the time line of rate cards', () => {
     ]);
     expect(texts(timeline, 'nldd-badge')).toEqual(['Concept', 'Geldt nu', 'Voorbij, gesloten']);
     const cells = texts(timeline, 'nldd-text-cell');
-    expect(cells).toContain('geldig vanaf 1 jul 2020');
-    expect(cells).toContain('geldig van 1 jan 2019 t/m 30 jun 2020');
+    expect(cells).toContain('vanaf 1 jul 2020');
+    expect(cells).toContain('van 1 jan 2019 t/m 30 jun 2020');
   });
 
   it('opens the card that holds now, and another one on a click', async () => {

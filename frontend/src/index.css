@@ -66,3 +66,76 @@ nldd-simple-section > div:not([slot]) > :not(nldd-spacer) + :not(nldd-spacer) {
   gap: 1.25rem;
 }
 
+
+/* Key figures at the head of a page: a quiet label over each value, no box. */
+.key-figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, max-content));
+  column-gap: var(--primitives-space-48);
+  row-gap: var(--primitives-space-16);
+  margin: 0;
+}
+
+.key-figure {
+  display: flex;
+  flex-direction: column;
+  row-gap: var(--primitives-space-4);
+  min-width: 0;
+}
+
+.key-figure dt,
+.key-figure-detail {
+  font-size: 0.875rem;
+  color: var(--primitives-color-neutral-650);
+}
+
+.key-figure dd {
+  margin: 0;
+}
+
+.key-figure-value {
+  font-size: 1.25rem;
+  line-height: 1.4;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.key-figure-value.critical {
+  color: var(--primitives-color-critical-600);
+}
+
+/* Points that ask attention: one calm list, a thin mark for what is wrong now. */
+.signal-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  row-gap: var(--primitives-space-16);
+}
+
+.signal {
+  display: flex;
+  flex-direction: column;
+  row-gap: var(--primitives-space-4);
+  padding-inline-start: var(--primitives-space-16);
+  border-inline-start: 2px solid var(--primitives-color-neutral-300);
+}
+
+.signal-warning {
+  border-inline-start-color: var(--primitives-color-warning-500);
+}
+
+.signal-critical {
+  border-inline-start-color: var(--primitives-color-critical-600);
+}
+
+/* What only a narrow screen shows: the columns a table folded into its name. */
+.narrow-only {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .narrow-only {
+    display: block;
+  }
+}

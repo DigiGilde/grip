@@ -284,6 +284,34 @@ export function QuoteCard({
   const name = detail?.content?.name ?? '';
   const current = steps.findIndex((step) => step.status === 'current') + 1;
 
+  // What else this quote can do. It sits next to the one button when there is
+  // one, and otherwise with the quiet links at the top: never on a line alone.
+  const acts = open && ready && (mayManage || mayWithdrawApproval);
+  const withButton = open && ready && (next !== null || mayReview);
+  const menu = acts ? (
+    <MoreButton name="deze offerte" size={withButton ? 'md' : 'sm'}>
+      <nldd-menu slot="popup" placement="bottom-start">
+        {mayWithdrawApproval ? (
+          <MenuAction
+            text={
+              approval?.status === 'approved' ? 'Trek de goedkeuring in' : 'Trek de aanvraag in'
+            }
+            onSelect={() => onAction({ kind: 'withdraw-approval' })}
+          />
+        ) : null}
+        {mayManage && next !== 'offer' && !blocked ? (
+          <MenuAction text="Bied opnieuw aan" onSelect={() => onAction({ kind: 'offer' })} />
+        ) : null}
+        {mayManage && next !== 'record-signed' && !blocked ? (
+          <MenuAction text="Leg getekende pdf vast" onSelect={() => onAction({ kind: 'upload' })} />
+        ) : null}
+        {mayManage ? (
+          <MenuAction text="Leg afwijzing vast" onSelect={() => onAction({ kind: 'reject' })} />
+        ) : null}
+      </nldd-menu>
+    </MoreButton>
+  ) : null;
+
   return (
     <nldd-card accessible-label={`Offerte ${quote.reference ?? ''}`.trim()}>
       <nldd-container padding="24" gap="24">
@@ -329,6 +357,7 @@ export function QuoteCard({
                   { label: 'Adres voor systemen', value: quote.uri },
                 ]}
               />
+              {withButton ? null : menu}
             </nldd-container>
           ) : null}
         </Stack>
@@ -342,7 +371,9 @@ export function QuoteCard({
 
         <Decision quote={quote} evidence={evidence} mayManage={mayManage} />
 
-        {listed.length > 0 ? (
+        {/* How it was offered matters while an answer is awaited; after the
+            decision it is history, and the decision above says how it ended. */}
+        {open && listed.length > 0 ? (
           <div role="list" aria-label="Hoe deze offerte is aangeboden">
             <Stack gap="related">
               {listed.map((offer) => (
@@ -399,7 +430,7 @@ export function QuoteCard({
           </Stack>
         ) : null}
 
-        {open && ready && (mayManage || mayReview || mayWithdrawApproval) ? (
+        {withButton ? (
           <nldd-container layout="row" gap="8" vertical-alignment="center">
             {next === 'offer' ? (
               <Button
@@ -441,40 +472,7 @@ export function QuoteCard({
                 onClick={() => onAction({ kind: 'review' })}
               />
             ) : null}
-            {mayManage || mayWithdrawApproval ? (
-              <MoreButton name="deze offerte" size="md">
-                <nldd-menu slot="popup" placement="bottom-start">
-                  {mayWithdrawApproval ? (
-                    <MenuAction
-                      text={
-                        approval?.status === 'approved'
-                          ? 'Trek de goedkeuring in'
-                          : 'Trek de aanvraag in'
-                      }
-                      onSelect={() => onAction({ kind: 'withdraw-approval' })}
-                    />
-                  ) : null}
-                  {mayManage && next !== 'offer' && !blocked ? (
-                    <MenuAction
-                      text="Bied opnieuw aan"
-                      onSelect={() => onAction({ kind: 'offer' })}
-                    />
-                  ) : null}
-                  {mayManage && next !== 'record-signed' && !blocked ? (
-                    <MenuAction
-                      text="Leg getekende pdf vast"
-                      onSelect={() => onAction({ kind: 'upload' })}
-                    />
-                  ) : null}
-                  {mayManage ? (
-                    <MenuAction
-                      text="Leg afwijzing vast"
-                      onSelect={() => onAction({ kind: 'reject' })}
-                    />
-                  ) : null}
-                </nldd-menu>
-              </MoreButton>
-            ) : null}
+            {withButton ? menu : null}
           </nldd-container>
         ) : null}
         {mayManage &&

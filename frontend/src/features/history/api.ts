@@ -47,13 +47,16 @@ export interface EventFilters {
   case_kind?: CaseKind;
   case_id?: string;
   subject_kind?: string;
+  /** One event type, for instance only looking at data. */
+  type?: string;
   actor_id?: string;
   person_id?: string;
   since?: string;
   until?: string;
 }
 
-export const PAGE_SIZE = 50;
+/** The most the server gives at once: looking at data is logged too and would fill small pages. */
+export const PAGE_SIZE = 200;
 
 export const HISTORY_KEYS = {
   all: ['history'] as const,

@@ -131,7 +131,7 @@ describe('the total of a month', () => {
   });
 
   it('says overbooking with a mark and room in words', () => {
-    expect(totalText(over!, 'over')).toBe('! 110%');
+    expect(totalText(over!, 'over')).toBe('110%');
     expect(totalText(room!, 'room')).toBe('vrij 20%');
     expect(totalText(past!, 'quiet')).toBe('80%');
   });

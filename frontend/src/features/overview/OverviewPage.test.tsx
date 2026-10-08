@@ -84,8 +84,12 @@ describe('OverviewPage', () => {
     const { container } = renderPage(FULL);
     await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
     // Above the figures and the lists.
-    const order = [...container.querySelectorAll('nldd-title[text], .grip-tiles, nldd-table')];
-    expect(order[0]?.getAttribute('text')).toBe('Wat vraagt aandacht');
+    const order = [...container.querySelectorAll('nldd-title[text], .key-figures, nldd-table')].map(
+      (el) => el.getAttribute('text') ?? el.tagName,
+    );
+    // After the reader's own tasks, before the figures and the lists.
+    expect(order.indexOf('Wat vraagt aandacht')).toBeLessThan(order.indexOf('DL'));
+    expect(order.indexOf('Mijn taken')).toBeLessThan(order.indexOf('Wat vraagt aandacht'));
     const links = [...container.querySelectorAll('nldd-link')].map((link) =>
       link.getAttribute('href'),
     );
@@ -102,17 +106,17 @@ describe('OverviewPage', () => {
 
   it('shows a few figures for running work, and the pipeline apart', async () => {
     const { container } = renderPage(FULL);
-    await waitFor(() => expect(container.querySelector('.grip-tiles')).not.toBeNull());
-    const labels = [...container.querySelectorAll('.grip-tile__label')].map((el) => el.textContent);
+    await waitFor(() => expect(container.querySelector('.key-figures')).not.toBeNull());
+    const labels = [...container.querySelectorAll('.key-figures dt')].map((el) => el.textContent);
     expect(labels).toEqual([
       'Verwacht totaal lopend werk, 2026',
       'Gerealiseerd',
       'Nog aan te leveren',
-      'Pijplijn',
+      'Potentiële opdrachten',
     ]);
     const text = plain(allText(container));
     expect(text).toContain('t/m februari 2026');
-    expect(text).toContain('als alle potentiële opdrachten doorgaan; telt niet mee in lopend werk');
+    expect(text).toContain('telt niet mee in lopend werk');
     expect(text).toContain('€ 13.500');
   });
 
@@ -172,7 +176,7 @@ describe('OverviewPage', () => {
       ],
     });
     await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
-    expect(container.querySelector('.grip-tiles')).toBeNull();
+    expect(container.querySelector('.key-figures')).toBeNull();
     const header = container.querySelector('nldd-table nldd-table-row[slot="header"]');
     expect(header?.children.length).toBe(1);
     expect(allText(container)).not.toContain('€');

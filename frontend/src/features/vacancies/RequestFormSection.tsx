@@ -1,3 +1,4 @@
+import { DocumentLink } from '@/ui/Icon';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
@@ -29,7 +30,7 @@ function FormRow({ vacancyId, form, text }: { vacancyId: string; form: KeptForm;
     <nldd-list-item>
       <nldd-cell width="full">
         <nldd-container gap="4">
-          <nldd-link href={keptFormUrl(vacancyId, form.id)} text={text} target="_blank" />
+          <DocumentLink href={keptFormUrl(vacancyId, form.id)} text={text} kind="view" />
           <nldd-text color="secondary" size="sm">
             {madeLine(form)}
           </nldd-text>
@@ -110,7 +111,7 @@ export function RequestFormSection({ vacancyId }: { vacancyId: string }) {
           {current === null || outOfDate ? (
             <Button
               text={current === null ? 'Maak aanvraagformulier' : 'Maak opnieuw'}
-              appearance="primary"
+              appearance="secondary"
               loading={make.isPending}
               onClick={() => make.mutate()}
             />

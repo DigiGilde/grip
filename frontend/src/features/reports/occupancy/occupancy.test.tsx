@@ -281,7 +281,9 @@ describe('Heatmap', () => {
     // Above 100 percent is a state of its own, with a mark in the text.
     expect(mark('2026-09')).toHaveAttribute('data-state', 'over');
     expect(mark('2026-09')).not.toHaveAttribute('data-level');
-    expect(mark('2026-09').querySelector('.grip-occ__value')).toHaveTextContent('! 130%');
+    // Over 100%: the fixed attention icon stands before the number.
+    expect(mark('2026-09').querySelector('.grip-occ__value')).toHaveTextContent('130%');
+    expect(mark('2026-09').querySelector('.grip-occ__value nldd-icon')).not.toBeNull();
 
     // Established carries a dot, tentative stripes over its share.
     expect(mark('2026-07').querySelector('.grip-occ__established')).not.toBeNull();

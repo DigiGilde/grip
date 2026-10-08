@@ -114,7 +114,6 @@ export function CaseTasks({ kind, caseId }: { kind: CaseKind; caseId: string }) 
             )}
             {query.isPending && <Loading />}
             {query.isError && <ErrorNotice message={errorMessage(query.error)} />}
-            {data && data.tracks.length > 1 && <TrackStandings tracks={data.tracks} />}
             {data && withTasks.length === 0 && <EmptyNotice text="Geen taken" />}
           </Stack>
           {withTasks.map((track) => (

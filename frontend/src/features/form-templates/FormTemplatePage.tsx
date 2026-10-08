@@ -1,3 +1,4 @@
+import { DocumentLink } from '@/ui/Icon';
 import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
@@ -160,13 +161,12 @@ export function FormTemplatePage() {
 
   return (
     <div ref={containerRef}>
-      <Page title={data?.name ?? 'Formulier'} instanceName={instance?.name} spacing="sections">
-        <nldd-link
-          size="sm"
-          href={PATHS.vacancySetup}
-          text="Terug naar Vacatureformulier en taalmodel"
-          start-icon="arrow-left"
-        />
+      <Page
+        title={data?.name ?? 'Formulier'}
+        instanceName={instance?.name}
+        spacing="sections"
+        back={{ href: PATHS.vacancySetup, text: 'Terug naar Vacatureformulier en taalmodel' }}
+      >
         {detail.isPending ? <Loading /> : null}
         {denied ? <EmptyNotice text="Dit is voor beheerders" /> : null}
         {detail.isError && !denied ? <ErrorNotice message={errorMessage(detail.error)} /> : null}
@@ -187,17 +187,15 @@ export function FormTemplatePage() {
                   { value: EXAMPLE, label: 'Voorbeeldwaarden in elk veld' },
                 ]}
               />
-              <nldd-link
+              <DocumentLink
                 href={templateSampleUrl(data.id, sampleOf === EXAMPLE ? undefined : sampleOf)}
                 text="Bekijk een ingevuld voorbeeld"
-                size="md"
-                target="_blank"
+                kind="view"
               />
-              <nldd-link
+              <DocumentLink
                 href={templateFileUrl(data.id)}
                 text="Bekijk het lege formulier"
-                size="md"
-                target="_blank"
+                kind="view"
               />
             </nldd-container>
           </Section>

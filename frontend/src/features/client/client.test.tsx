@@ -472,18 +472,26 @@ describe('AdminPage', () => {
     const items = [...container.querySelectorAll('nldd-list-item')].map((el) =>
       el.getAttribute('href'),
     );
+    // Grouped by what a beheerder does: people, money, documents, connections, oversight.
     expect(items).toEqual([
+      PATHS.wiesProposals,
+      PATHS.roles,
+      PATHS.functionFramework,
       PATHS.rates,
-      PATHS.quoteSettings,
       PATHS.quoteSender,
+      PATHS.quoteSettings,
+      PATHS.vacancySetup,
+      PATHS.vacancyStandardTexts,
       PATHS.peers,
       PATHS.organisations,
-      PATHS.roles,
-      PATHS.vacancySetup,
-      PATHS.functionFramework,
-      PATHS.wiesProposals,
+      PATHS.client,
       PATHS.activity,
     ]);
+    expect(
+      [...container.querySelectorAll('nldd-title[heading-level="2"]')].map((el) =>
+        el.getAttribute('text'),
+      ),
+    ).toEqual(['Mensen en rollen', 'Geld', 'Documenten en teksten', 'Verbindingen', 'Toezicht']);
   });
 
   it('tells anyone else that it is for the beheerder', () => {

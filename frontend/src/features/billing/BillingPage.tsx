@@ -14,7 +14,7 @@ import { PERIOD_STATE_TEXT, periodAmount, periodLine } from '@/features/month-cl
 import { useInstance } from '@/layout/useInstance';
 import { useRouterLinks } from '@/layout/useRouterLinks';
 import { formatEuro } from '@/lib/format';
-import { EmptyNotice, ErrorNotice, FormSheet, Loading, Page, Stack } from '@/ui/layout';
+import { EmptyNotice, ErrorNotice, FormSheet, Loading, Page, Quiet, Stack } from '@/ui/layout';
 
 interface Row {
   overview: BillingOverview;
@@ -43,6 +43,13 @@ function rowsOf(assignments: BillingOverview[]): Row[] {
       ORDER[a.period.state] - ORDER[b.period.state] ||
       a.period.key.localeCompare(b.period.key) ||
       a.overview.assignment_name.localeCompare(b.overview.assignment_name),
+  );
+}
+
+/** A period someone has begun on: a month closed, or more than closing left to do. */
+function started(row: Row): boolean {
+  return (
+    row.period.state !== 'to_close' || row.period.months.some((month) => month.state === 'closed')
   );
 }
 
@@ -84,7 +91,13 @@ export function BillingPage() {
   const [via, setVia] = useState<'mail' | 'self'>('self');
   const [error, setError] = useState<string | null>(null);
 
-  const rows = rowsOf(across.data?.assignments ?? []);
+  const all = rowsOf(across.data?.assignments ?? []);
+  // What is under way is listed; periods nobody began on are one quiet line.
+  const rows = all.filter(started);
+  const untouched = all.length - rows.length;
+  const nearest = rows.find((row) => row.period.state === 'to_close');
+  // The column of tags is there only when a row has something to say in it.
+  const tagged = rows.some((row) => row.period.state !== 'to_close');
   const batch = rows.filter(
     (row) => row.period.state === 'ready' && row.overview.may_deliver && complete(row.overview),
   );
@@ -110,6 +123,10 @@ export function BillingPage() {
   });
 
   const count = batch.length;
+  // Closed and ready, but the client's invoice address is not known yet.
+  const held = rows.filter(
+    (row) => row.period.state === 'ready' && row.overview.may_deliver && !complete(row.overview),
+  ).length;
   const title =
     count === 0
       ? 'Er staat niets klaar om aan te leveren'
@@ -121,21 +138,10 @@ export function BillingPage() {
         {across.isError ? <ErrorNotice message={errorMessage(across.error)} /> : null}
         {across.data ? (
           <>
-            <nldd-card background="tinted" accessible-label="Nu te doen">
-              <nldd-container padding="24" gap="16">
-                <nldd-title
-                  size={2}
-                  heading-level={2}
-                  overline={count === 0 ? 'Niets te doen' : 'Nu te doen'}
-                  text={title}
-                  {...(count > 0
-                    ? {
-                        'supporting-text':
-                          'Voor elke periode maakt grip een factuurverzoek voor de financiële administratie.',
-                      }
-                    : {})}
-                />
-                {count > 0 ? (
+            {count > 0 ? (
+              <nldd-card background="tinted" accessible-label="Nu te doen">
+                <nldd-container padding="24" gap="16">
+                  <nldd-title size={2} heading-level={2} overline="Nu te doen" text={title} />
                   <nldd-button-group>
                     <Button
                       appearance="primary"
@@ -147,22 +153,42 @@ export function BillingPage() {
                       }}
                     />
                   </nldd-button-group>
+                </nldd-container>
+              </nldd-card>
+            ) : (
+              <Stack gap="tight">
+                <nldd-text>
+                  {held === 0
+                    ? `${title}.`
+                    : held === 1
+                      ? '1 periode is afgesloten, maar het factuuradres ontbreekt nog.'
+                      : `${held} perioden zijn afgesloten, maar het factuuradres ontbreekt nog.`}
+                </nldd-text>
+                {nearest && held === 0 ? (
+                  <Quiet>
+                    Het dichtst bij: {nearest.overview.assignment_name}, {nearest.period.label},{' '}
+                    {periodLine(nearest.period)}.
+                  </Quiet>
                 ) : null}
-              </nldd-container>
-            </nldd-card>
+              </Stack>
+            )}
 
             {rows.length > 0 ? (
               <Stack gap="related">
-                <nldd-title size={4} heading-level={2} text="Open perioden" />
+                <nldd-title size={4} heading-level={2} text="Perioden die lopen" />
                 <nldd-table
                   accessible-label="Open perioden van alle opdrachten"
-                  columns="minmax(200px,2fr) minmax(170px,1.4fr) 210px minmax(180px,2fr) minmax(120px,1fr)"
+                  columns={
+                    tagged
+                      ? 'minmax(200px,2fr) minmax(170px,1.4fr) 210px minmax(180px,2fr) minmax(120px,1fr)'
+                      : 'minmax(200px,2fr) minmax(170px,1.4fr) minmax(180px,2fr) minmax(120px,1fr)'
+                  }
                   sm-columns="minmax(140px,1fr) minmax(100px,auto)"
                 >
                   <nldd-table-row slot="header">
                     <nldd-text-cell text="Opdracht" />
                     <nldd-text-cell hide-below="md" text="Periode" />
-                    <nldd-text-cell hide-below="md" text="Stand" />
+                    {tagged ? <nldd-text-cell hide-below="md" text="Stand" /> : null}
                     <nldd-text-cell hide-below="md" text="Laatste stap" />
                     <nldd-text-cell text="Bedrag" horizontal-alignment="right" />
                   </nldd-table-row>
@@ -175,12 +201,16 @@ export function BillingPage() {
                           <nldd-link href={link(row)} text={row.overview.assignment_name} />
                         </nldd-cell>
                         <nldd-text-cell hide-below="md" text={capital(row.period.label)} />
-                        <nldd-cell hide-below="md">
-                          <nldd-badge
-                            color={ready ? 'accent' : 'neutral'}
-                            text={PERIOD_STATE_TEXT[row.period.state]}
-                          />
-                        </nldd-cell>
+                        {tagged ? (
+                          <nldd-cell hide-below="md">
+                            {row.period.state === 'to_close' ? null : (
+                              <nldd-badge
+                                color={ready ? 'accent' : 'neutral'}
+                                text={PERIOD_STATE_TEXT[row.period.state]}
+                              />
+                            )}
+                          </nldd-cell>
+                        ) : null}
                         <nldd-text-cell
                           hide-below="md"
                           size="sm"
@@ -203,9 +233,17 @@ export function BillingPage() {
                   })}
                 </nldd-table>
               </Stack>
-            ) : (
+            ) : null}
+            {untouched > 0 ? (
+              <Quiet>
+                {untouched === 1
+                  ? 'Van 1 periode die voorbij is, is nog geen maand afgesloten.'
+                  : `Van ${untouched} perioden die voorbij zijn, is nog geen maand afgesloten.`}
+              </Quiet>
+            ) : null}
+            {all.length === 0 ? (
               <EmptyNotice text="Alle perioden die voorbij zijn, zijn afgesloten en gefactureerd" />
-            )}
+            ) : null}
           </>
         ) : null}
       </Page>

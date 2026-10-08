@@ -102,11 +102,58 @@ async def test_the_person_can_see_who_read_their_data(
 ):
     await as_person(world.beheerder).get(f"/api/people/{world.member.id}")
     mine = await as_person(world.member).get(
-        "/api/events", params={"type": "data.read", "person_id": str(world.member.id)}
+        "/api/events", params={"kind": "reads", "person_id": str(world.member.id)}
     )
     items = mine.json()["items"]
     assert items and items[0]["actor_name"] == "Bea Beheer"
     theirs = await as_person(world.colleague).get(
-        "/api/events", params={"type": "data.read"}
+        "/api/events", params={"kind": "reads"}
     )
     assert theirs.json()["items"] == []
+
+
+async def test_a_list_is_one_read_with_the_number_of_persons(db_session):
+    people = [uuid4() for _ in range(40)]
+    ledger = logboek.start()
+    for person_id in people:
+        build_response(
+            _PersonRow(person_id=person_id, name="a", billing_scale=12),
+            {DataClass.PERSON_RATE, DataClass.ASSIGNMENT_BASIC},
+        )
+    events = logboek.write_reads(db_session, ledger, purpose="GET /people")
+    await db_session.flush()
+    (event,) = events
+    assert event.type == "data.read" and event.person_id is None
+    assert event.new_value == {"classes": ["person_rate"], "persons": 40}
+    # Who was seen is kept, for the log record per person the standard asks.
+    assert sorted(event.payload["person_ids"]) == sorted(str(p) for p in people)
+    # A list of whose data was read is for the beheerder.
+    assert event.existence_class is None
+
+    from grip.core.config import get_settings
+
+    records = logboek.to_log_records(event, get_settings())
+    assert len(records) == 40 and logboek.is_processing(event)
+    assert len({r["attributes"]["dpl.core.data_subject_id"] for r in records}) == 40
+    assert len({r["span_id"] for r in records}) == 40
+    assert {r["trace_id"] for r in records} == {event.correlation_id}
+    assert not any(str(p) in str(records) for p in people)
+
+
+async def test_a_page_that_lists_people_logs_one_read(
+    client, as_person, world, db_session
+):
+    async def reads() -> int:
+        await db_session.flush()
+        return len(
+            list(
+                await db_session.scalars(
+                    select(StreamEvent.seq).where(StreamEvent.type == "data.read")
+                )
+            )
+        )
+
+    before = await reads()
+    answer = await as_person(world.beheerder).get("/api/people")
+    assert answer.status_code == 200 and "billing_scale" in answer.text
+    assert await reads() == before + 1

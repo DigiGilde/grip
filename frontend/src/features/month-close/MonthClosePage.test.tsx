@@ -482,11 +482,10 @@ describe('MonthClosePage', () => {
     await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
     expect(container.textContent).not.toContain('€');
     expect(container.querySelectorAll('nldd-button').length).toBe(0);
-    expect(container.querySelector('nldd-card nldd-title')?.getAttribute('supporting-text')).toBe(
+    // No call to act for who cannot act: one calm line of what is open and who can.
+    expect(container.querySelector('nldd-card')).toBeNull();
+    expect(container.querySelector('[data-waiting]')?.textContent).toContain(
       'Dit kan de eigenaar of een manager van de opdracht.',
-    );
-    expect(container.querySelector('nldd-card nldd-title')?.getAttribute('overline')).toBe(
-      'Wacht op een ander',
     );
     expect(container.textContent).not.toContain('Wijzig factuurafspraken');
   });

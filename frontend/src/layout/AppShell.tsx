@@ -4,7 +4,12 @@ import { PRODUCT_NAME, instanceNames } from '@/brand/names';
 import { TaskBar } from '@/features/tasks/TaskBar';
 import { PATHS } from '@/paths';
 import { AccountMenu, LogoutMenuItem } from './AccountMenu';
-import { MainNavigation, MainNavigationOverflow, NavigationMenuButton } from './MainNavigation';
+import {
+  MainNavigation,
+  MainNavigationOverflow,
+  NavigationMenuButton,
+  SectionViews,
+} from './MainNavigation';
 import { useInstance } from './useInstance';
 import { useRouteFocus } from './useRouteFocus';
 import { useAppBadge } from '@/features/notifications/useAppBadge';
@@ -156,6 +161,8 @@ export function AppShell() {
               {/* The skip link lands here; tabIndex -1 lets it take focus without being a tab stop. */}
               <div id={MAIN_CONTENT_ID} tabIndex={-1}>
                 {/* The task this page was opened for, when the address names one. */}
+                {/* The sibling pages of the section you are in; nothing for a section of one page. */}
+                <SectionViews />
                 <TaskBar />
                 <OfflineNotice />
                 <Outlet />

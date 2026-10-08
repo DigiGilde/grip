@@ -102,9 +102,31 @@ Elke gebeurtenis wordt apart voorgelegd aan het toegangsmodel:
 
 Een planner ziet zo dat de schaal van een collega is gewijzigd, zonder de oude en de nieuwe schaal. Een lid van een opdracht ziet dat de begroting is gewijzigd, zonder bedragen.
 
+De parameter `kind` kiest tussen `changes` (de standaard: alles behalve inzage), `reads` en `all`. Hij werkt in de zoekvraag, vóór de limiet: een pagina wijzigingen is gevuld met wijzigingen, hoeveel inzage er ook tussen ligt. Elk antwoord bevat per gebeurtenis ook `title` en `lines`: de gebeurtenis in het Nederlands, op de server geschreven (`grip.events.words`). Een veld zonder Nederlandse naam en een codewaarde zonder label worden niet getoond.
+
 Het antwoord bevat geen totaal. Een gebeurtenis die de lezer niet mag kennen is afwezig, ook als een filter er precies op past. Wie filtert op een persoon, krijgt alleen gebeurtenissen waarvan hij mag weten over wie ze gaan.
 
 In het scherm staat de geschiedenis als tabblad "Geschiedenis" bij een opdracht en een vacature, en als pagina "Activiteit" onder Beheer.
+
+## Wat is er gebeurd
+
+Naast de geschiedenis is er een overzicht voor de vraag "wat heb ik gemist" (ADR 0043). Het leest dezelfde stroom met een andere selectie.
+
+`GET /api/updates?limiet=<aantal>&na=<cursor>` geeft berichten, nieuwste eerst. Een bericht heeft een zin in delen (`parts`, waarvan het onderwerp een `href` naar de plek in grip heeft), de zin als platte tekst (`text`), de tijd in woorden (`when_text`), de dag waaronder het staat (`day`), de soort (`kind`), het aantal gebeurtenissen dat erin is samengenomen (`count`) en of het nieuw is (`new`). Het antwoord bevat ook `new_count`, het aantal nieuwe berichten, en `next`, de cursor om verder terug te lezen. `POST /api/updates/seen` legt vast dat de lezer heeft gekeken.
+
+Wat nieuws is, staat in `grip.events.news`:
+
+- `NEWS` is de lijst: per soort nieuws de typen, een voorwaarde op de waarden waar dat nodig is (een opdracht is nieuws als haar status naar "in uitvoering" gaat, niet bij elke wijziging), een rang, de functies die het voor de hele instantie krijgen, en de zinnen voor één en voor meer.
+- `OFF_KINDS` en `OFF_TYPES` zijn wat uitdrukkelijk geen nieuws is.
+- `SUPERSEDES` zegt welk nieuws eerdere stappen op dezelfde dag overbodig maakt.
+
+Een test eist dat elk type op de lijst staat of er uitdrukkelijk af is.
+
+De rang doet één ding: nieuws van rang 3 dat een lezer alleen via een functie bereikt (en niet omdat hij er zelf bij hoort) vervalt na twee dagen.
+
+Het overzicht legt geen inzage vast: er staan geen waarden van de klassen D, E en F in.
+
+Het overzicht is lokaal. Dezelfde lijst is de natuurlijke basis voor wat een andere instantie later over een gedeelde opdracht mag zien (status en voortgang). Dat is niet gebouwd.
 
 ## Lezen als stroom
 
@@ -149,7 +171,7 @@ Een gebeurtenis is een dataverwerking in de zin van de standaard als ze over de 
 
 Gebouwd:
 
-- Het vastleggen van inzage in de klassen D, E en F. Elk antwoord wordt opgebouwd door `build_response`. Komt daarin een veld van een van die klassen terecht, dan schrijft het verzoek één `data.read` per persoon: wie, wanneer, wiens gegevens, welke klassen en via welk verzoek. De waarden zelf worden niet vastgelegd. De persoon kan zelf zien wie zijn gegevens inzag.
+- Het vastleggen van inzage in de klassen D, E en F. Elk antwoord wordt opgebouwd door `build_response`. Komt daarin een veld van een van die klassen terecht, dan schrijft het verzoek één `data.read`: wie, wanneer, welke klassen en via welk verzoek. De waarden zelf worden niet vastgelegd. Gaat het antwoord over één persoon, dan gaat de gebeurtenis over die persoon, en kan die zelf zien wie zijn gegevens inzag. Is het een lijst, dan is het één gebeurtenis met het aantal personen; wie het waren staat in de payload en is alleen voor de beheerder. De standaard vraagt een logregel per betrokkene (`dpl.core.data_subject_id` is verplicht), en `to_log_records` maakt die regels uit de ene gebeurtenis. Dat scheelt in opslag een rij per persoon per keer dat een lijst wordt geopend.
 - De vertaling van een gebeurtenis naar een logregel (`grip.events.logboek.to_log_record`).
 
 Nog niet gebouwd:

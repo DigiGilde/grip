@@ -474,6 +474,12 @@
     white-space: normal;
     overflow: visible;
   }
+
+  /* The figure behind a name takes its own line, clear of the row's menu. */
+  .grip-board__figure {
+    display: block;
+    margin-left: 0;
+  }
 }
 
 /* The state of a row may take two lines; it is never cut off. */

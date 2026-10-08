@@ -2,6 +2,8 @@
 export const PATHS = {
   statusOverview: '/',
   tasks: '/taken',
+  // The feed of updates; reached from the start page, not from the menu.
+  updates: '/wat-is-er-gebeurd',
   assignments: '/opdrachten',
   assignmentDetail: '/opdrachten/:assignmentId',
   assignmentFinance: '/opdrachten/:assignmentId/financieel',

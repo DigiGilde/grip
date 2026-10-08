@@ -215,7 +215,8 @@ describe('ApprovalListPage', () => {
     await waitFor(() => expect(container.querySelector('nldd-link')).not.toBeNull());
     expect(container.querySelector('h1')?.textContent).toBe('Wacht op mijn goedkeuring');
     expect(container.querySelector('nldd-link')?.getAttribute('href')).toBe('/goedkeuren/q-1');
-    expect(texts(container, 'nldd-table-row:not([slot]) nldd-text-cell')[0]).toBe('Opdracht Alfa');
+    // The name of the row is the way in; there is no separate action column.
+    expect(container.querySelector('nldd-link')?.getAttribute('text')).toBe('Opdracht Alfa');
   });
 
   it('is one calm state when nothing waits', async () => {

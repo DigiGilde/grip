@@ -1,3 +1,4 @@
+import { Icon } from '@/ui/Icon';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { formatPercent } from '@/lib/format';
@@ -55,7 +56,7 @@ export function HeatCell({ cell }: { cell: OccupancyCell }) {
       )}
       {(state === 'filled' || state === 'over') && (
         <span className="grip-occ__value" aria-hidden="true">
-          {state === 'over' ? '! ' : ''}
+          {state === 'over' ? <Icon concept="attention" /> : null}
           {formatPercent(Math.round(pct))}
         </span>
       )}
@@ -111,9 +112,7 @@ export function Heatmap({
     const nextRow = Math.max(0, Math.min(persons.length - 1, row));
     const nextColumn = Math.max(0, Math.min(months.length - 1, column));
     setFocus([nextRow, nextColumn]);
-    tableRef.current
-      ?.querySelector<HTMLElement>(`[data-cell="${nextRow}-${nextColumn}"]`)
-      ?.focus();
+    tableRef.current?.querySelector<HTMLElement>(`[data-cell="${nextRow}-${nextColumn}"]`)?.focus();
   };
 
   const activate = (person: PersonOccupancy, cell: OccupancyCell | undefined) => {
@@ -166,7 +165,11 @@ export function Heatmap({
               <th scope="colgroup" colSpan={nowIndex}>
                 Verstreken
               </th>
-              <th scope="colgroup" colSpan={months.length - nowIndex} className="grip-occ__boundary">
+              <th
+                scope="colgroup"
+                colSpan={months.length - nowIndex}
+                className="grip-occ__boundary"
+              >
                 Lopend en komend
               </th>
               <td />
@@ -259,7 +262,10 @@ export function Heatmap({
             {months.map((month, index) => (
               <td
                 key={month.month}
-                className={[columnClass(index), month.pct === null || Number(month.pct) === 0 ? 'grip-occ__zero' : '']
+                className={[
+                  columnClass(index),
+                  month.pct === null || Number(month.pct) === 0 ? 'grip-occ__zero' : '',
+                ]
                   .filter(Boolean)
                   .join(' ')}
               >

@@ -4,6 +4,7 @@ import { ApiError, errorMessage } from '@/api/client';
 import { Button, TextInput } from '@/features/assignments/ui';
 import { CheckboxInput } from '@/features/quotes/ui';
 import { useInstance } from '@/layout/useInstance';
+import { PATHS } from '@/paths';
 import { OpenCell, OpenRow, ROW_ACTIONS_COLUMN, RowActions, type RowAction } from '@/ui/RowActions';
 import {
   EmptyNotice,
@@ -15,6 +16,8 @@ import {
   Page,
   Quiet,
   Section,
+  Stack,
+  type Fact,
 } from '@/ui/layout';
 import {
   applyProfile,
@@ -59,6 +62,19 @@ const MARKS_HINT =
   'Een lege regel begint een alinea. Een regel met "- " is een opsomming, met "1. " een genummerde lijst. **vet** en *cursief*.';
 
 /** Who sends the quotes of this instance, and with which standard texts. For the beheerder. */
+/** Only what is filled in: an empty line says nothing about the sender. */
+function filled(facts: Fact[]): Fact[] {
+  return facts.filter((fact) => Boolean(fact.value));
+}
+
+function people(sender: Sender): Fact[] {
+  return filled([
+    { label: 'Contactpersoon', value: contactLine(sender) },
+    { label: 'Tekent namens', value: sender.signatory.on_behalf_of },
+    { label: 'Ondertekenaar', value: signatoryLine(sender) },
+  ]);
+}
+
 export function SenderPage() {
   const instance = useInstance();
   const queryClient = useQueryClient();
@@ -147,52 +163,65 @@ export function SenderPage() {
         title="Afzender en teksten van offertes"
         instanceName={instance?.name}
         spacing="sections"
+        back={{ href: PATHS.admin, text: 'Terug naar Beheer' }}
       >
         {query.isPending ? <Loading /> : null}
         {query.isError && forbidden ? <EmptyNotice text="Beheer is voor beheerders" /> : null}
         {query.isError && !forbidden ? <ErrorNotice message={errorMessage(query.error)} /> : null}
 
-        {data ? (
+        {data && !data.sender.organisation ? (
+          // Nothing filled in yet: the page has one job, and says so first.
+          <Stack gap="related">
+            <nldd-text>Op een offerte staat nog geen afzender.</nldd-text>
+            <nldd-container layout="row" gap="8">
+              {data.profiles.map((name, index) => (
+                <Button
+                  key={name}
+                  text={`Neem de gegevens van ${name} over`}
+                  appearance={index === 0 ? 'primary' : 'secondary'}
+                  onClick={() => profile.mutate(name)}
+                />
+              ))}
+              <Button
+                text="Vul zelf in"
+                appearance={data.profiles.length === 0 ? 'primary' : 'secondary'}
+                onClick={() => start({ kind: 'organisation' })}
+              />
+            </nldd-container>
+          </Stack>
+        ) : null}
+
+        {data?.sender.organisation ? (
           <Section title="Organisatie" level={2}>
             <Facts
               label="De organisatie zoals ze op een offerte staat"
-              facts={[
+              facts={filled([
                 { label: 'Naam', value: data.sender.organisation },
                 { label: 'Onderdeel van', value: data.sender.part_of.join(', ') },
                 { label: 'Eenheid', value: data.sender.unit },
                 { label: 'Bezoekadres', value: data.sender.visiting_address.join(', ') },
                 { label: 'Postadres', value: data.sender.postal_address.join(', ') },
                 { label: 'Adres voor opdrachten', value: data.sender.orders_email },
-              ]}
+              ])}
             />
-            <nldd-button-group>
+            <nldd-container layout="row">
               <Button text="Wijzig organisatie" onClick={() => start({ kind: 'organisation' })} />
-              {data.sender.organisation
-                ? null
-                : data.profiles.map((name) => (
-                    <Button
-                      key={name}
-                      text={`Neem de gegevens van ${name} over`}
-                      onClick={() => profile.mutate(name)}
-                    />
-                  ))}
-            </nldd-button-group>
+            </nldd-container>
           </Section>
         ) : null}
 
-        {data ? (
+        {data?.sender.organisation ? (
           <Section title="Contactpersoon en ondertekenaar" level={2}>
-            <Facts
-              label="Wie op een offerte staat"
-              facts={[
-                { label: 'Contactpersoon', value: contactLine(data.sender) },
-                { label: 'Tekent namens', value: data.sender.signatory.on_behalf_of },
-                { label: 'Ondertekenaar', value: signatoryLine(data.sender) },
-              ]}
-            />
-            <nldd-button-group>
+            {people(data.sender).length > 0 ? (
+              <Facts label="Wie op een offerte staat" facts={people(data.sender)} />
+            ) : (
+              <Quiet>
+                Nog niemand ingevuld. Zonder ondertekenaar blijft die regel op de offerte leeg.
+              </Quiet>
+            )}
+            <nldd-container layout="row">
               <Button text="Wijzig personen" onClick={() => start({ kind: 'people' })} />
-            </nldd-button-group>
+            </nldd-container>
           </Section>
         ) : null}
 
@@ -201,11 +230,12 @@ export function SenderPage() {
             <nldd-table
               accessible-label="Onderdelen van een offerte, in volgorde"
               columns={`minmax(200px,2fr) minmax(220px,2fr) 150px ${ROW_ACTIONS_COLUMN}`}
+              sm-columns={`minmax(0,1fr) ${ROW_ACTIONS_COLUMN}`}
             >
               <nldd-table-row slot="header">
                 <nldd-text-cell text="Onderdeel" />
-                <nldd-text-cell text="Tekst" />
-                <nldd-text-cell text="In een nieuwe offerte" />
+                <nldd-text-cell text="Tekst" hide-below="md" />
+                <nldd-text-cell text="In een nieuwe offerte" hide-below="md" />
                 <nldd-cell />
               </nldd-table-row>
               {data.text_blocks.map((item, index) => {
@@ -217,8 +247,9 @@ export function SenderPage() {
                       accessibleLabel={`Wijzig ${item.heading}`}
                       onOpen={edit}
                     />
-                    <nldd-text-cell text={blockKind(item)} />
+                    <nldd-text-cell hide-below="md" text={blockKind(item)} />
                     <nldd-text-cell
+                      hide-below="md"
                       text={item.required ? 'Altijd' : item.included ? 'Staat erin' : 'Op verzoek'}
                     />
                     <nldd-cell>
@@ -275,10 +306,6 @@ export function SenderPage() {
                 onChange={(checked) => save.mutate({ ai_disclosure: checked })}
               />
             </FormFields>
-            <Quiet>
-              Bij elke offerte wordt bewaard welke onderdelen met het taalmodel zijn opgesteld, ook
-              als het niet in de offerte staat.
-            </Quiet>
           </Section>
         ) : null}
       </Page>

@@ -1,3 +1,4 @@
+import { DocumentLink } from '@/ui/Icon';
 import { useQuery } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
 import { STATUS_COLORS, statusLabel } from '@/features/assignments/labels';
@@ -201,10 +202,10 @@ export function YearAccountView({ year, bare }: { year: string; bare?: boolean }
       </nldd-text>
       {totals && (
         <div>
-          <nldd-link
+          <DocumentLink
+            kind="download"
             href={yearAccountCsvUrl(String(account.year))}
             text={`Download de jaarverantwoording ${account.year} als CSV`}
-            size="md"
           />
         </div>
       )}

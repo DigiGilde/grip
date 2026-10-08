@@ -60,11 +60,7 @@ export interface GroupModel {
   rows: RowModel[];
 }
 
-function allocationBar(
-  months: readonly string[],
-  bar: BoardBar,
-  label: string,
-): PlacedBar | null {
+function allocationBar(months: readonly string[], bar: BoardBar, label: string): PlacedBar | null {
   const place = placePeriod(months, bar.start_date, bar.end_date);
   if (!place) return null;
   const closed = new Set(bar.closed_months.map(monthKey));
@@ -162,7 +158,8 @@ export function showPerson(person: BoardPerson, show: Show): boolean {
   return true;
 }
 
-const byLabel = (a: { label: string }, b: { label: string }) => a.label.localeCompare(b.label, 'nl');
+const byLabel = (a: { label: string }, b: { label: string }) =>
+  a.label.localeCompare(b.label, 'nl');
 
 /** Assignments as groups, their roles as rows, with who fills them as bars. */
 function assignmentGroups(board: Board): GroupModel[] {
@@ -207,8 +204,13 @@ function assignmentGroups(board: Board): GroupModel[] {
       existing.attention = `${formatFte(role.unfilled_fte)} van ${formatFte(role.fte)} FTE niet ingevuld`;
     } else {
       const row = roleRow(board.months, role);
-      lines.set(role.budget_line_id, { ...row, key: `line-${role.budget_line_id}`, kind: 'line',
-        summary: '', attention: `${formatFte(role.unfilled_fte)} van ${formatFte(role.fte)} FTE niet ingevuld` });
+      lines.set(role.budget_line_id, {
+        ...row,
+        key: `line-${role.budget_line_id}`,
+        kind: 'line',
+        summary: '',
+        attention: `${formatFte(role.unfilled_fte)} van ${formatFte(role.fte)} FTE niet ingevuld`,
+      });
     }
   }
   return [...groups.entries()]
@@ -222,7 +224,12 @@ function assignmentGroups(board: Board): GroupModel[] {
           );
           return {
             ...row,
-            summary: names.size === 0 ? 'Nog niemand' : names.size === 1 ? '1 persoon' : `${names.size} personen`,
+            summary:
+              names.size === 0
+                ? 'Nog niemand'
+                : names.size === 1
+                  ? '1 persoon'
+                  : `${names.size} personen`,
             lanes: assignLanes(row.bars),
           };
         })
@@ -243,7 +250,11 @@ export function buildGroups(board: Board, view: View, show: Show): GroupModel[] 
     .filter((person) => showPerson(person, show))
     .map((person) => personRow(board.months, person, board.current_month));
   if (view === 'person') {
-    groups.push({ key: 'people', title: roles.length > 0 && show === 'all' ? 'Mensen' : '', rows: people });
+    groups.push({
+      key: 'people',
+      title: roles.length > 0 && show === 'all' ? 'Mensen' : '',
+      rows: people,
+    });
     return groups;
   }
   const teams = new Map<string, RowModel[]>();
@@ -277,10 +288,7 @@ export function mismatchText(
 }
 
 /** A bar in words: what, how much, when, and how firm. */
-export function describeBar(
-  bar: PlacedBar,
-  name?: (category: string) => string,
-): string {
+export function describeBar(bar: PlacedBar, name?: (category: string) => string): string {
   if (bar.role) {
     const role = bar.role;
     return [
@@ -319,7 +327,11 @@ export function barsInColumn(row: RowModel, column: number): PlacedBar[] {
 export type TotalState = 'none' | 'unavailable' | 'empty' | 'quiet' | 'room' | 'over';
 
 /** What the total of a month should look like: loud only when it needs attention. */
-export function totalState(cell: BoardCell | null, month: string, currentMonth: string): TotalState {
+export function totalState(
+  cell: BoardCell | null,
+  month: string,
+  currentMonth: string,
+): TotalState {
   if (!cell) return 'none';
   if (!cell.available) return 'unavailable';
   const pct = Number(cell.pct);
@@ -332,7 +344,7 @@ export function totalState(cell: BoardCell | null, month: string, currentMonth: 
 /** The visible text of a month's total. */
 export function totalText(cell: BoardCell | null, state: TotalState): string {
   if (!cell || state === 'none' || state === 'unavailable') return '';
-  if (state === 'over') return `! ${formatPercent(cell.pct)}`;
+  if (state === 'over') return formatPercent(cell.pct);
   // The bars already show what is allocated; the figure says what is left.
   if (state === 'room') return `vrij ${formatPercent(100 - Number(cell.pct))}`;
   if (state === 'empty') return '';
@@ -340,7 +352,12 @@ export function totalText(cell: BoardCell | null, state: TotalState): string {
 }
 
 /** A cell in words, for a screen reader: the total, then what it consists of. */
-export function describeCell(row: RowModel, column: number, month: string, currentMonth: string): string {
+export function describeCell(
+  row: RowModel,
+  column: number,
+  month: string,
+  currentMonth: string,
+): string {
   const cell = row.cells[column] ?? null;
   const state = totalState(cell, month, currentMonth);
   const words: string[] = [];
@@ -396,7 +413,9 @@ export function toTimeline(
         const cell = row.cells[column] ?? null;
         const state = totalState(cell, month, currentMonth);
         return {
-          text: totalText(cell, state),
+          // A row without any inzet says so once, under its name; twelve
+          // times "vrij 100%" would say the same and drown the rows with work.
+          text: row.bars.length === 0 && state === 'room' ? '' : totalText(cell, state),
           state,
           established: cell?.established === true,
           description: cellWords(cell, state),
@@ -409,11 +428,15 @@ export function toTimeline(
         lane: bar.lane,
         label: bar.label,
         description: describeBar(bar, name),
-        variant: bar.open ? ('open' as const) : bar.tentative ? ('tentative' as const) : ('filled' as const),
+        variant: bar.open
+          ? ('open' as const)
+          : bar.tentative
+            ? ('tentative' as const)
+            : ('filled' as const),
         closedSpan: bar.closedSpan,
         clippedStart: bar.clippedStart,
         clippedEnd: bar.clippedEnd,
-        ...(bar.mismatch ? { mark: '≠' } : {}),
+        ...(bar.mismatch ? { mark: 'mismatch' as const } : {}),
         data: bar,
       })),
     })),

@@ -12,6 +12,7 @@ interface StatusAction {
 interface StatusPageProps {
   title: string;
   message?: string;
+  /** `alert` is kept for callers; a problem reads from the words, not from a sign. */
   variant?: 'alert' | 'loading';
   action?: StatusAction;
   secondaryAction?: StatusAction;
@@ -21,14 +22,7 @@ interface StatusPageProps {
 function ActionButton({ action }: { action: StatusAction }) {
   const ref = useRef<HTMLElement>(null);
   useNlddEvent(ref, 'click', action.onClick);
-  return (
-    <nldd-button
-      ref={ref}
-      slot="actions"
-      appearance={action.appearance ?? 'primary'}
-      text={action.text}
-    />
-  );
+  return <nldd-button ref={ref} appearance={action.appearance ?? 'primary'} text={action.text} />;
 }
 
 /**
@@ -66,23 +60,27 @@ export function StatusPage({
     );
   }
 
+  // One block in the middle of the page: where you are, what is the matter,
+  // what you can do. A heading at the top with the message far below it
+  // reads as two unrelated things.
   return (
     <nldd-app-view background="tinted">
       <nldd-page landmarks="page">
         <nldd-simple-section width="480px" vertical-alignment="center">
-          <nldd-container slot="header" gap="16">
+          <nldd-container gap="24">
             <Brand variant="compact" />
-            <PageHeading text={title} inline />
+            <nldd-container gap="8">
+              <PageHeading text={title} inline />
+              {message && <nldd-text color="secondary">{message}</nldd-text>}
+            </nldd-container>
+            {children}
+            {(action || secondaryAction) && (
+              <nldd-container layout="row" gap="8">
+                {action && <ActionButton action={action} />}
+                {secondaryAction && <ActionButton action={secondaryAction} />}
+              </nldd-container>
+            )}
           </nldd-container>
-          {children}
-          <nldd-inline-dialog
-            {...(variant ? { variant } : {})}
-            horizontal-alignment="left"
-            {...(message ? { text: message } : {})}
-          >
-            {action && <ActionButton action={action} />}
-            {secondaryAction && <ActionButton action={secondaryAction} />}
-          </nldd-inline-dialog>
         </nldd-simple-section>
       </nldd-page>
     </nldd-app-view>

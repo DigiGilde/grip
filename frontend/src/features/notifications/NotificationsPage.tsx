@@ -114,22 +114,27 @@ export function NotificationsPage() {
 
   return (
     <>
-      <Page title="Meldingen" instanceName={instance?.name} spacing="sections">
+      <Page
+        title="Meldingen"
+        instanceName={instance?.name}
+        spacing="sections"
+        {...(data?.available
+          ? {
+              lead: `Als er een taak op je wacht of over de datum is, en als er is beslist over een offerte van jou. Hooguit ${data.daily_cap} per dag, zonder namen of bedragen.`,
+            }
+          : {})}
+      >
         {query.isPending ? <Loading /> : null}
         {query.isError ? <ErrorNotice message={errorMessage(query.error)} /> : null}
         {saveError ? <ErrorNotice message={saveError} /> : null}
         {data && preference ? (
           <>
-            <Section title="Op dit apparaat" level={2}>
-              {!data.available ? (
-                <EmptyNotice text="Meldingen zijn in deze omgeving niet ingesteld" />
-              ) : (
+            {!data.available ? (
+              <EmptyNotice text="Meldingen zijn in deze omgeving niet ingesteld" />
+            ) : (
+              <Section title="Op dit apparaat" level={2}>
                 <Stack gap="related">
-                  <Quiet>
-                    Je krijgt een melding als er een taak op je wacht, als een taak over de datum is
-                    en als er is beslist over een offerte van jou. Hooguit {data.daily_cap} per dag.
-                    In een melding staat nooit een naam of een bedrag.
-                  </Quiet>
+                  {state === 'on' ? <nldd-text>Meldingen staan aan.</nldd-text> : null}
                   {blocked ? <Quiet>{blocked}</Quiet> : null}
                   {error ? <ErrorNotice message={error} /> : null}
                   {state === 'off' ? (
@@ -162,8 +167,8 @@ export function NotificationsPage() {
                   ) : null}
                   {tested ? <Quiet>De proefmelding is onderweg.</Quiet> : null}
                 </Stack>
-              )}
-            </Section>
+              </Section>
+            )}
 
             {data.devices.length > 0 ? (
               <Section title="Apparaten" level={2}>
@@ -210,36 +215,40 @@ export function NotificationsPage() {
               </Section>
             ) : null}
 
-            <Section title="Waarover" level={2}>
-              <Stack gap="related">
-                <CheckboxInput
-                  label="Er wacht een taak op mij"
-                  checked={preference.tasks}
-                  onChange={(checked) => change({ tasks: checked })}
-                />
-                <CheckboxInput
-                  label="Een taak van mij is over de datum"
-                  checked={preference.overdue}
-                  onChange={(checked) => change({ overdue: checked })}
-                />
-                <CheckboxInput
-                  label="Er is beslist over een offerte van mij"
-                  checked={preference.decisions}
-                  onChange={(checked) => change({ decisions: checked })}
-                />
-              </Stack>
-            </Section>
+            {/* What and when only matter once a device gets notifications. */}
+            {data.available && (state === 'on' || data.devices.length > 0) ? (
+              <>
+                <Section title="Waarover" level={2}>
+                  <Stack gap="related">
+                    <CheckboxInput
+                      label="Er wacht een taak op mij"
+                      checked={preference.tasks}
+                      onChange={(checked) => change({ tasks: checked })}
+                    />
+                    <CheckboxInput
+                      label="Een taak van mij is over de datum"
+                      checked={preference.overdue}
+                      onChange={(checked) => change({ overdue: checked })}
+                    />
+                    <CheckboxInput
+                      label="Er is beslist over een offerte van mij"
+                      checked={preference.decisions}
+                      onChange={(checked) => change({ decisions: checked })}
+                    />
+                  </Stack>
+                </Section>
 
-            <Section title="Wanneer niet" level={2}>
-              <Facts
-                label="Stille uren"
-                facts={[{ label: 'Stil', value: quietText(preference) }]}
-              />
-              <Quiet>Wat in die tijd binnenkomt, krijg je daarna in één melding.</Quiet>
-              <nldd-container layout="row" gap="8">
-                <Button text="Wijzig stille uren" onClick={editQuiet} />
-              </nldd-container>
-            </Section>
+                <Section title="Wanneer niet" level={2}>
+                  <Facts
+                    label="Stille uren"
+                    facts={[{ label: 'Stil', value: quietText(preference) }]}
+                  />
+                  <nldd-container layout="row" gap="8">
+                    <Button text="Wijzig stille uren" onClick={editQuiet} />
+                  </nldd-container>
+                </Section>
+              </>
+            ) : null}
           </>
         ) : null}
       </Page>

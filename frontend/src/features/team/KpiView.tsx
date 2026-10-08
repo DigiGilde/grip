@@ -1,9 +1,10 @@
+import { ActionBar, type ActionBarFilter } from '@/ui/ActionBar';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
 import { formatEuro, formatPercent } from '@/lib/format';
 import { fetchKpi, kpiKey, setKpiTarget, type Kpi } from './api';
-import { Button, SelectField, TextField } from './ui/controls';
+import { Button, TextField } from './ui/controls';
 import { percentInput } from './ui/money';
 import { Form, Sheet } from './ui/overlays';
 import { EmptyRows, QueryState } from './ui/states';
@@ -19,7 +20,7 @@ function yearOptions(current: number) {
  * Billability per person for a year: the target, and the realisation split
  * in what is established (closed months) and what is planned (open months).
  */
-export function KpiView() {
+export function KpiView({ viewFilter }: { viewFilter?: ActionBarFilter }) {
   const thisYear = new Date().getFullYear();
   const [year, setYear] = useState(thisYear);
   const query = useQuery({ queryKey: kpiKey(year), queryFn: () => fetchKpi(year) });
@@ -29,15 +30,19 @@ export function KpiView() {
 
   return (
     <>
-      <nldd-container layout="wrap" gap="16" vertical-alignment="bottom">
-        <SelectField
-          width="240px"
-          label="Jaar"
-          value={String(year)}
-          onChange={(value) => setYear(Number(value))}
-          options={yearOptions(thisYear)}
-        />
-      </nldd-container>
+      <ActionBar
+        label="Weergave en jaar"
+        filters={[
+          ...(viewFilter ? [viewFilter] : []),
+          {
+            label: 'Jaar',
+            value: String(year),
+            onChange: (value) => setYear(Number(value)),
+            options: yearOptions(thisYear),
+            width: '140px',
+          },
+        ]}
+      />
 
       <QueryState query={query}>
         <nldd-table

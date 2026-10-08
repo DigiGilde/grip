@@ -17,6 +17,7 @@ import {
 import { AddOrganisationForm, OrganisationPicker } from './OrganisationPicker';
 import { organisationPlace, organisationText, syncSummary } from './text';
 import './nldd';
+import { PATHS } from '@/paths';
 
 const POLL_MS = 5000;
 
@@ -129,7 +130,12 @@ export function OrganisationsAdminPage() {
   const manualItems = manual.data?.items ?? [];
 
   return (
-    <Page title="Organisaties" instanceName={instance?.name} spacing="sections">
+    <Page
+      title="Organisaties"
+      instanceName={instance?.name}
+      spacing="sections"
+      back={{ href: PATHS.admin, text: 'Terug naar Beheer' }}
+    >
       <ActionBar
         label="Organisaties bijwerken"
         actions={[
@@ -175,13 +181,10 @@ export function OrganisationsAdminPage() {
             {manualItems.map((organisation) => (
               <nldd-table-row key={organisation.id}>
                 <nldd-text-cell text={organisationText(organisation)} />
-                <nldd-text-cell text={organisationPlace(organisation) || 'Staat op zichzelf'} />
+                <nldd-text-cell text={organisationPlace(organisation)} />
               </nldd-table-row>
             ))}
-            <EmptyRows
-              text="Er is nog niets zelf toegevoegd"
-              supportingText="Toevoegen kan hier, en overal waar je een organisatie kiest."
-            />
+            <EmptyRows text="Nog niets zelf toegevoegd" />
           </nldd-table>
         </QueryState>
         {adding ? (
@@ -196,7 +199,7 @@ export function OrganisationsAdminPage() {
       <Section title="Opzoeken">
         <OrganisationPicker
           label="Organisatie"
-          supportingLabel="Zoek op naam of afkorting om te zien wat de lijst over een organisatie weet"
+          supportingLabel="Op naam of afkorting"
           value={lookedUp?.id ?? null}
           onChange={setLookedUp}
           allowAdd={false}

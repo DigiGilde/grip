@@ -23,6 +23,8 @@ import { useRouterLinks } from '@/layout/useRouterLinks';
 import { formatEuro, formatMonth } from '@/lib/format';
 import { ActionBar } from '@/ui/ActionBar';
 import {
+  KeyFigures,
+  SignalList,
   EmptyNotice,
   ErrorNotice,
   Loading,
@@ -70,15 +72,19 @@ function Attention({ rows }: { rows: readonly OverviewRow[] }) {
   if (items.length === 0) return null;
   const shown = all ? items : items.slice(0, ATTENTION_LIMIT);
   return (
-    <Section title="Wat vraagt aandacht" level={3}>
-      <Stack gap="close">
-        {shown.map((item) => (
-          // One line per point: the assignment as the link, then the sentence.
-          <nldd-container key={item.key} layout="row" gap="8">
-            <nldd-link href={item.href} text={item.assignment} />
-            <nldd-text>{item.text}</nldd-text>
-          </nldd-container>
-        ))}
+    <Section title="Wat vraagt aandacht">
+      <Stack gap="related">
+        {/* What is the matter as the link to where it is solved; under it, on what. */}
+        <SignalList
+          label="Wat vraagt aandacht"
+          signals={shown.map((item) => ({
+            key: item.key,
+            text: item.text,
+            href: item.href,
+            detail: item.assignment,
+            tone: item.tone,
+          }))}
+        />
         {items.length > shown.length && (
           <nldd-container layout="row">
             <Button text={`Toon alle ${items.length} punten`} onClick={() => setAll(true)} />
@@ -113,7 +119,10 @@ function VarianceCell({ figures }: { figures: Figures }) {
           <span className="grip-variance__fill" style={{ inlineSize: `${used}%` }} />
         </span>
         <nldd-text size="sm" {...(figures.overrun ? { color: 'critical' } : {})}>
-          {`${varianceWord(figures)} ${formatEuro(Math.abs(figures.variance_cents))}`}
+          {/* Exactly on budget: the word says it, an amount of nothing does not. */}
+          {figures.variance_cents === 0
+            ? varianceWord(figures)
+            : `${varianceWord(figures)} ${formatEuro(Math.abs(figures.variance_cents))}`}
         </nldd-text>
       </nldd-container>
     </nldd-cell>
@@ -204,7 +213,8 @@ function AssignmentList({ phase, rows, subtotal, period }: ListProps) {
           );
         })}
       </nldd-table>
-      {money && subtotal && (
+      {/* A sum of nothing is not said. */}
+      {money && subtotal && subtotal.budgeted_cents !== 0 && (
         <Quiet>
           {`${phase === 'potential' ? 'Als alles doorgaat' : 'Samen'}: ${formatEuro(subtotal.budgeted_cents)} begroot, ` +
             `${formatEuro(subtotal.expected_total_cents)} verwacht totaal, ` +
@@ -272,31 +282,23 @@ export function OverviewPage() {
             />
           )}
           {query.isSuccess && rows.length > 0 && (
-            // Attention and tasks side by side; one of them alone takes the row.
+            // What the reader must do first, then what asks attention; side by
+            // side when there is room, one of them alone takes the row.
             <div className="grip-start">
-              <Attention rows={shownRows} />
               <MyTasks />
+              <Attention rows={shownRows} />
             </div>
           )}
           {tiles.length > 0 && (
-            <ul className="grip-tiles" aria-label={`Kerncijfers ${period}`}>
-              {tiles.map((tile) => (
-                <li key={tile.key}>
-                  <div
-                    className={
-                      tile.attention
-                        ? 'grip-tile grip-tile--plain grip-tile--attention'
-                        : 'grip-tile grip-tile--plain'
-                    }
-                  >
-                    <span className="grip-tile__label">{tile.label}</span>
-                    <span className="grip-tile__value">{tile.value}</span>
-                    <span className="grip-tile__context">{tile.context}</span>
-                    {tile.attention && <span className="grip-tile__flag">{tile.attention}</span>}
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <KeyFigures
+              label={`Kerncijfers ${period}`}
+              figures={tiles.map((tile) => ({
+                label: tile.label,
+                value: tile.value,
+                detail: tile.attention ?? (tile.context || undefined),
+                critical: Boolean(tile.attention),
+              }))}
+            />
           )}
           {active.shown.length > 0 && (
             <Section title={PHASE_LABELS.active}>

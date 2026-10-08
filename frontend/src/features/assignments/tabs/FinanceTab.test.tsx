@@ -27,7 +27,9 @@ describe('FinanceTab', () => {
     await waitFor(() =>
       expect(container.querySelector('nldd-table[accessible-label^="Stand per"]')).not.toBeNull(),
     );
-    const table = container.querySelector('nldd-table[accessible-label^="Stand per"]') as HTMLElement;
+    const table = container.querySelector(
+      'nldd-table[accessible-label^="Stand per"]',
+    ) as HTMLElement;
     expect(cells(table, 'nldd-table-row[slot="header"] nldd-text-cell')).toEqual([
       'Begrotingsregel',
       'Begroot',
@@ -42,7 +44,12 @@ describe('FinanceTab', () => {
 
   it('shows the figures of the service and never its own sums', async () => {
     // Figures that do not add up on purpose: the screen must show them as sent.
-    const odd = { ...FIGURES, expected_total_cents: 12345600, variance_cents: 99900, variance_pct: '0.5' };
+    const odd = {
+      ...FIGURES,
+      expected_total_cents: 12345600,
+      variance_cents: 99900,
+      variance_pct: '0.5',
+    };
     const { container } = renderTab(finance({ totals: odd }));
     await waitFor(() => expect(allText(container)).toContain('123.456'));
     const text = allText(container);
@@ -60,11 +67,13 @@ describe('FinanceTab', () => {
   it('puts the quote next to the budget, and says what is left to bill', async () => {
     const { container } = renderTab();
     await waitFor(() =>
-      expect(container.querySelector('nldd-table[accessible-label="Offerte tegenover de begroting"]')).not.toBeNull(),
+      expect(
+        container.querySelector('dl[aria-label="Offerte, aangeleverd en gefactureerd"]'),
+      ).not.toBeNull(),
     );
     const text = allText(container);
     expect(text).toContain('€ 190.000');
-    expect(text).toContain('Offerte hoger dan de begroting');
+    expect(text).toContain('hoger dan de begroting');
     // Delivered and invoiced are different facts, each with its own figure.
     expect(text).toContain('Aangeleverd');
     expect(text).toContain('Nog aan te leveren');
@@ -73,7 +82,6 @@ describe('FinanceTab', () => {
     expect(text).toContain('€ 9.000');
     expect(text).toContain('Nog te factureren');
     expect(text).toContain('€ 4.500');
-    expect(text).toContain('Alleen facturen die in grip zijn vastgelegd');
   });
 
   it('calls out the signals above the table, an overrun in words', async () => {
@@ -101,12 +109,20 @@ describe('FinanceTab', () => {
         ],
       }),
     );
-    await waitFor(() => expect(container.querySelectorAll('nldd-banner').length).toBe(2));
-    const banners = cells(container, 'nldd-banner').map(plain);
-    expect(banners[0]).toContain('Overschrijding op Productmanager');
-    expect(banners[0]).toContain('€ 5.000');
-    expect(banners[1]).toContain('2 maanden zijn voorbij en nog niet afgesloten');
-    expect(container.querySelector('nldd-banner')).toHaveAttribute('variant', 'critical');
+    await waitFor(() => expect(container.querySelectorAll('.signal').length).toBe(2));
+    const signals = [...container.querySelectorAll('.signal')];
+    const said = signals.map((signal) =>
+      (signal.querySelector('nldd-text')?.textContent ?? '').replace(/\u00a0/g, ' '),
+    );
+    expect(said[0]).toContain('Overschrijding op Productmanager');
+    expect(said[0]).toContain('€ 5.000');
+    expect(said[1]).toContain('2 maanden zijn voorbij en nog niet afgesloten');
+    expect(signals[0]).toHaveClass('signal-critical');
+    // Above the table: attention comes before the figures.
+    const table = container.querySelector('nldd-table') as Element;
+    expect(
+      signals[0]!.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it('keeps the detail behind a row that opens, with persons and cost coverage', async () => {
@@ -134,9 +150,13 @@ describe('FinanceTab', () => {
   it('shows the months with closed ones marked, and the chart with its table', async () => {
     const { container } = renderTab();
     await waitFor(() =>
-      expect(container.querySelector('nldd-table[accessible-label^="Inzet per maand"]')).not.toBeNull(),
+      expect(
+        container.querySelector('nldd-table[accessible-label^="Inzet per maand"]'),
+      ).not.toBeNull(),
     );
-    const table = container.querySelector('nldd-table[accessible-label^="Inzet per maand"]') as HTMLElement;
+    const table = container.querySelector(
+      'nldd-table[accessible-label^="Inzet per maand"]',
+    ) as HTMLElement;
     const text = allText(table);
     expect(text).toContain('Afgesloten');
     expect(text).toContain('Open');
@@ -149,7 +169,9 @@ describe('FinanceTab', () => {
     const { container } = renderTab();
     await waitFor(() => expect(container.querySelector('nldd-toolbar')).not.toBeNull());
     const year = new Date().getFullYear();
-    const links = [...container.querySelectorAll('nldd-button[href]')].map((b) => b.getAttribute('href'));
+    const links = [...container.querySelectorAll('nldd-button[href]')].map((b) =>
+      b.getAttribute('href'),
+    );
     expect(links).toEqual([
       `/api/assignments/a1/financial/csv?year=${year}&section=lines`,
       `/api/assignments/a1/financial/csv?year=${year}&section=months`,
@@ -157,9 +179,14 @@ describe('FinanceTab', () => {
   });
 
   it('warns that a potential assignment is pipeline', async () => {
-    const { container } = renderTab(finance(), assignment({ phase: 'potential', status: 'quoted' }));
+    const { container } = renderTab(
+      finance(),
+      assignment({ phase: 'potential', status: 'quoted' }),
+    );
     await waitFor(() =>
-      expect(container.querySelector('nldd-banner[text="Deze opdracht is nog niet akkoord"]')).not.toBeNull(),
+      expect(
+        container.querySelector('nldd-banner[text="Deze opdracht is nog niet akkoord"]'),
+      ).not.toBeNull(),
     );
   });
 });
@@ -169,7 +196,9 @@ describe('finance wording', () => {
     expect(varianceWord({ variance_cents: 1 })).toBe('Ruimte');
     expect(varianceWord({ variance_cents: -1 })).toBe('Overschrijding');
     expect(varianceWord({ variance_cents: 0 })).toBe('Geen ruimte');
-    expect(plain(varianceText({ variance_cents: -500000, variance_pct: '-2.9' }))).toBe('€ -5.000 (-2,9%)');
+    expect(plain(varianceText({ variance_cents: -500000, variance_pct: '-2.9' }))).toBe(
+      '€ -5.000 (-2,9%)',
+    );
     expect(plain(varianceText({ variance_cents: 0, variance_pct: null }))).toBe('€ 0');
   });
 

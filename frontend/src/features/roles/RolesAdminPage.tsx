@@ -3,7 +3,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
 import { useInstance } from '@/layout/useInstance';
 import { formatDate } from '@/lib/format';
-import { PageHeading } from '@/pages/PageHeading';
+import { RouterLinks } from '@/layout/RouterLinks';
+import { PATHS } from '@/paths';
+import { ActionBar } from '@/ui/ActionBar';
+import { Page, Quiet } from '@/ui/layout';
+import { OpenCell, OpenRow } from '@/ui/RowActions';
 import { Button, SwitchField, TextField } from '@/features/team/ui/controls';
 import { ConfirmDialog, Form, Sheet } from '@/features/team/ui/overlays';
 import { EmptyRows, QueryState } from '@/features/team/ui/states';
@@ -22,24 +26,10 @@ import { RolePicker } from './RolePicker';
 import { roleSyncSummary, sourceText, usageText } from './text';
 import './nldd';
 
+/** When the list last followed Wies, as one quiet line; a failure as a problem. */
 function SyncState({ status }: { status: RoleSyncStatus }) {
-  if (!status.wies_configured) {
-    return (
-      <nldd-inline-dialog
-        text="Er is geen koppeling met Wies"
-        supporting-text="De lijst met rollen houd je hier zelf bij. Met een koppeling volgt de lijst de rollen uit Wies."
-      />
-    );
-  }
   const run = status.last_run;
-  if (!run) {
-    return (
-      <nldd-inline-dialog
-        text="De rollen zijn nog niet opgehaald uit Wies"
-        supporting-text="Ophalen vult de lijst met de rollen die Wies kent en koppelt rollen met dezelfde naam."
-      />
-    );
-  }
+  if (!status.wies_configured || !run) return null;
   if (run.status === 'failed') {
     return (
       <nldd-banner
@@ -50,11 +40,9 @@ function SyncState({ status }: { status: RoleSyncStatus }) {
     );
   }
   return (
-    <nldd-banner
-      variant="success"
-      text={`Laatst opgehaald uit Wies op ${formatDate(run.finished_at)}`}
-      supporting-text={roleSyncSummary(run.result)}
-    />
+    <Quiet>
+      Laatst opgehaald uit Wies op {formatDate(run.finished_at)}: {roleSyncSummary(run.result)}
+    </Quiet>
   );
 }
 
@@ -185,6 +173,11 @@ function MergeForm({ role, onDone }: { role: CatalogueRole; onDone: () => void }
   );
 }
 
+const SHOW_OPTIONS = [
+  { value: 'active', label: 'Rollen die te kiezen zijn' },
+  { value: 'all', label: 'Ook uitgeschakelde rollen' },
+] as const;
+
 /**
  * For the beheerder: the roles a budget line can be staffed in, where they
  * come from, how often each is used, and which were added on the spot and
@@ -221,105 +214,101 @@ export function RolesAdminPage() {
     setAdding(false);
   };
 
+  // What still wants a look comes first; a role from one source only says
+  // nothing by naming that source on every row.
+  const ordered = [...roles].sort(
+    (a, b) =>
+      Number(b.needs_review && b.is_active) - Number(a.needs_review && a.is_active) ||
+      a.name.localeCompare(b.name, 'nl'),
+  );
+  const mixedSource = new Set(roles.map((role) => role.source)).size > 1;
+  const columns = [
+    'minmax(200px,3fr)',
+    ...(mixedSource ? ['minmax(120px,1fr)'] : []),
+    'minmax(160px,1fr)',
+    '150px',
+  ].join(' ');
+
   return (
     <>
-      <nldd-simple-section>
-        <PageHeading text="Rollen" instanceName={instance?.name} />
-        <nldd-container gap="32">
-          <nldd-container gap="16">
-            <nldd-rich-text>
-              <p>
-                De rol op een begrotingsregel komt uit deze lijst, zodat dezelfde rol overal
-                hetzelfde heet en te tellen is. Wie een begroting invult en een rol mist, kan
-                die ter plekke toevoegen; zo&apos;n rol staat hier als te beoordelen.
-              </p>
-            </nldd-rich-text>
-            <QueryState query={status}>
-              {status.data ? (
-                <>
-                  {problem ? <nldd-banner variant="critical" text={problem} /> : null}
-                  <SyncState status={status.data} />
-                  {status.data.wies_configured ? (
-                    <nldd-container layout="wrap" gap="16">
-                      <Button
-                        text="Haal rollen op uit Wies"
-                        appearance="primary"
-                        loading={sync.isPending}
-                        onClick={() => sync.mutate()}
-                      />
-                    </nldd-container>
-                  ) : null}
-                </>
-              ) : null}
-            </QueryState>
-          </nldd-container>
-
-          <nldd-container gap="16">
-            {review > 0 ? (
-              <nldd-banner
-                variant="warning"
-                text={review === 1 ? '1 rol om te beoordelen' : `${review} rollen om te beoordelen`}
-                supporting-text="Toegevoegd bij het invullen van een begroting of overgenomen uit vrije tekst. Bewaar de rol om haar te houden, of voeg haar samen met een rol die al bestond."
-              />
-            ) : null}
-            <nldd-container layout="wrap" gap="16">
-              <Button text="Rol toevoegen" onClick={() => setAdding(true)} />
-              <SwitchField
-                label="Toon ook uitgeschakelde rollen"
-                checked={showInactive}
-                onChange={setShowInactive}
-              />
-            </nldd-container>
-            <QueryState query={list}>
-              <nldd-table
-                accessible-label="Rollen"
-                columns="minmax(200px,3fr) minmax(140px,1fr) minmax(160px,1fr) 130px 110px"
-              >
-                <nldd-table-row slot="header">
-                  <nldd-text-cell text="Rol" />
-                  <nldd-text-cell text="Herkomst" />
-                  <nldd-text-cell text="Gebruik" />
-                  <nldd-text-cell text="Status" />
-                  <nldd-text-cell text="Actie" />
-                </nldd-table-row>
-                {roles.map((role) => (
-                  <nldd-table-row key={role.id}>
-                    <nldd-text-cell
-                      text={role.name}
-                      {...(role.description ? { 'supporting-text': role.description } : {})}
-                    />
-                    <nldd-text-cell
-                      text={sourceText(role)}
-                      {...(role.needs_review ? { 'supporting-text': 'Te beoordelen' } : {})}
-                    />
-                    <nldd-text-cell text={usageText(role.usage_count)} />
-                    <nldd-text-cell
-                      text={role.is_active ? 'Te kiezen' : 'Uitgeschakeld'}
-                      {...(role.is_active ? {} : { color: 'critical' })}
-                    />
-                    <nldd-cell>
-                      <Button
-                        size="sm"
-                        text="Bewerk"
-                        accessibleLabel={`Bewerk ${role.name}`}
-                        onClick={() => setOpenId(role.id)}
-                      />
-                    </nldd-cell>
-                  </nldd-table-row>
-                ))}
-                <EmptyRows
-                  text="Er zijn nog geen rollen"
-                  supportingText="Voeg een rol toe, of haal de rollen op uit Wies als de koppeling is ingesteld."
-                />
-              </nldd-table>
-            </QueryState>
-          </nldd-container>
-        </nldd-container>
-      </nldd-simple-section>
-
+      <RouterLinks>
+        <Page
+          title="Rollen"
+          instanceName={instance?.name}
+          back={{ href: PATHS.admin, text: 'Terug naar Beheer' }}
+        >
+          <ActionBar
+            label="Rollen filteren en acties"
+            filters={[
+              {
+                label: 'Toon',
+                value: showInactive ? 'all' : 'active',
+                onChange: (value) => setShowInactive(value === 'all'),
+                options: SHOW_OPTIONS,
+                width: '260px',
+              },
+            ]}
+            actions={[
+              ...(status.data?.wies_configured
+                ? [{ text: 'Haal rollen op uit Wies', onClick: () => sync.mutate() }]
+                : []),
+              { text: 'Nieuwe rol', onClick: () => setAdding(true), primary: true },
+            ]}
+          />
+          {problem ? <nldd-banner variant="critical" text={problem} /> : null}
+          {status.data ? <SyncState status={status.data} /> : null}
+          {review > 0 ? (
+            <nldd-text>
+              {review === 1
+                ? 'Eén rol is ter plekke toegevoegd en nog niet beoordeeld.'
+                : `${review} rollen zijn ter plekke toegevoegd en nog niet beoordeeld.`}
+            </nldd-text>
+          ) : null}
+          <QueryState query={list}>
+            <nldd-table
+              accessible-label="Rollen"
+              columns={columns}
+              sm-columns="minmax(160px,1fr) 130px"
+            >
+              <nldd-table-row slot="header">
+                <nldd-text-cell text="Rol" />
+                {mixedSource ? <nldd-text-cell text="Herkomst" hide-below="md" /> : null}
+                <nldd-text-cell text="Gebruik" hide-below="md" />
+                <nldd-cell />
+              </nldd-table-row>
+              {ordered.map((role) => (
+                <OpenRow key={role.id} onOpen={() => setOpenId(role.id)}>
+                  <OpenCell
+                    text={role.name}
+                    {...(role.description ? { supportingText: role.description } : {})}
+                    accessibleLabel={`Bewerk ${role.name}`}
+                    onOpen={() => setOpenId(role.id)}
+                  />
+                  {mixedSource ? <nldd-text-cell text={sourceText(role)} hide-below="md" /> : null}
+                  <nldd-text-cell
+                    text={usageText(role.usage_count)}
+                    hide-below="md"
+                    {...(role.usage_count === 0 ? { color: 'secondary' } : {})}
+                  />
+                  {/* A label only for what differs from the rule: a role is
+                      there to be chosen. */}
+                  <nldd-cell>
+                    {!role.is_active ? (
+                      <nldd-tag color="neutral" text="Uitgeschakeld" />
+                    ) : role.needs_review ? (
+                      <nldd-tag color="warning" text="Te beoordelen" />
+                    ) : null}
+                  </nldd-cell>
+                </OpenRow>
+              ))}
+              <EmptyRows text="Er zijn nog geen rollen" />
+            </nldd-table>
+          </QueryState>
+        </Page>
+      </RouterLinks>
       <Sheet
         open={adding || opened !== null}
-        title={opened ? opened.name : 'Rol toevoegen'}
+        title={opened ? opened.name : 'Nieuwe rol'}
         dismissText={opened ? 'Sluit' : 'Annuleer'}
         onClose={close}
       >

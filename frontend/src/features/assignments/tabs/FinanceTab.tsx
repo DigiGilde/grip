@@ -2,7 +2,21 @@ import { useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
 import { orUndef, useNlddEvent } from '@/components/nldd/events';
-import { YEAR_FILTER_LABEL, currentYearChoice, periodLabel, yearOptions } from '@/features/overview/years';
+import { IconCell } from '@/ui/Icon';
+import {
+  KeyFigures,
+  Quiet,
+  Section,
+  SignalList,
+  Stack,
+  type Signal as SignalItem,
+} from '@/ui/layout';
+import {
+  YEAR_FILTER_LABEL,
+  currentYearChoice,
+  periodLabel,
+  yearOptions,
+} from '@/features/overview/years';
 import { MonthColumns } from '@/features/reports/charts/MonthColumns';
 import { SERIES_COLORS } from '@/features/reports/charts/colors';
 import { formatEuro, formatMonth, formatPercent, formatPeriod } from '@/lib/format';
@@ -14,112 +28,73 @@ import {
   type AssignmentFinance,
   type FinanceLine,
 } from '../financeApi';
-import {
-  FIGURE_LABELS,
-  referenceText,
-  rateCauseText,
-  signalText,
-} from '../financeText';
+import { FIGURE_LABELS, referenceText, rateCauseText, signalText } from '../financeText';
 import { FIGURE_COLUMNS, FigureCells, FigureHeaderCells } from '../FigureCells';
 import { useRateCards } from '../rateText';
 import { useAssignmentShell } from '../shell';
-import { EmptyNotice, ErrorNotice, Loading, SectionHeading } from '../ui';
+import { EmptyNotice, ErrorNotice, Loading } from '../ui';
 
 // The chevron turns with the row. Spread as a plain attribute because the
 // package types do not list it on the icon cell.
 const DISCLOSURE: object = { disclosure: '' };
 
-function KeyFigureTable({ finance }: { finance: AssignmentFinance }) {
+/** Where the quote, the delivery and the invoices stand, as a few figures. */
+function AgreementFigures({ finance }: { finance: AssignmentFinance }) {
   const key = finance.key_figures;
   const money = (cents: number | null) => (cents === null ? 'Niet bekend' : formatEuro(cents));
-  const difference = (cents: number | null, positive: string, negative: string) =>
-    cents === null ? {} : { 'supporting-text': cents < 0 ? negative : cents > 0 ? positive : 'Gelijk' };
+  const differs = key.agreed_minus_budgeted_cents;
   return (
-    <nldd-container gap="8">
-      <SectionHeading text="Offerte en facturering" />
-      <nldd-table
-        accessible-label="Offerte tegenover de begroting"
-        columns="repeat(2, minmax(140px, 240px))"
-      >
-        <nldd-table-row slot="header">
-          <nldd-text-cell text="Offerte met akkoord" horizontal-alignment="right" />
-          <nldd-text-cell text="Offerte min begroot" horizontal-alignment="right" />
-        </nldd-table-row>
-        <nldd-table-row>
-          <nldd-text-cell
-            text={key.agreed_cents === null ? 'Nog geen akkoord' : formatEuro(key.agreed_cents)}
-            horizontal-alignment="right"
-          />
-          <nldd-text-cell
-            text={key.agreed_minus_budgeted_cents === null ? '' : formatEuro(key.agreed_minus_budgeted_cents)}
-            {...difference(
-              key.agreed_minus_budgeted_cents,
-              'Offerte hoger dan de begroting',
-              'Begroting hoger dan de offerte',
-            )}
-            horizontal-alignment="right"
-          />
-        </nldd-table-row>
-      </nldd-table>
-      <nldd-table
-        accessible-label="Gerealiseerd, aangeleverd en gefactureerd"
-        columns="repeat(5, minmax(130px, 1fr))"
-      >
-        <nldd-table-row slot="header">
-          <nldd-text-cell text="Gerealiseerde inzet" horizontal-alignment="right" />
-          <nldd-text-cell text="Aangeleverd" horizontal-alignment="right" />
-          <nldd-text-cell text="Nog aan te leveren" horizontal-alignment="right" />
-          <nldd-text-cell text="Gefactureerd" horizontal-alignment="right" />
-          <nldd-text-cell text="Nog te factureren" horizontal-alignment="right" />
-        </nldd-table-row>
-        <nldd-table-row>
-          <nldd-text-cell text={money(key.realised_cents)} horizontal-alignment="right" />
-          <nldd-text-cell
-            text={formatEuro(key.delivered_cents)}
-            supporting-text="Factuurgegevens aangeleverd bij de financiële administratie"
-            horizontal-alignment="right"
-          />
-          <nldd-text-cell text={money(key.to_deliver_cents)} horizontal-alignment="right" />
-          <nldd-text-cell
-            text={formatEuro(key.invoiced_cents)}
-            supporting-text="Alleen facturen die in grip zijn vastgelegd"
-            horizontal-alignment="right"
-          />
-          <nldd-text-cell
-            text={formatEuro(key.to_invoice_cents)}
-            {...(key.to_invoice_cents < 0
-              ? { 'supporting-text': 'Meer gefactureerd dan aangeleverd', color: 'critical' }
-              : {})}
-            horizontal-alignment="right"
-          />
-        </nldd-table-row>
-      </nldd-table>
-      <nldd-text size="sm">
-        Grip verstuurt geen facturen. Aangeleverd betekent dat de factuurgegevens van een
-        afgesloten maand zijn geëxporteerd. Een bedrag telt pas als gefactureerd wanneer
-        iemand op het tabblad Afsluiten en factureren heeft vastgelegd dat de factuur is verstuurd.
-      </nldd-text>
-    </nldd-container>
+    <Section title="Offerte en facturering">
+      <KeyFigures
+        label="Offerte, aangeleverd en gefactureerd"
+        figures={[
+          {
+            label: 'Offerte met akkoord',
+            value: key.agreed_cents === null ? 'Nog geen akkoord' : formatEuro(key.agreed_cents),
+            // Said only when it differs; "gelijk" is no news.
+            ...(differs !== null && differs !== 0
+              ? {
+                  detail:
+                    differs > 0
+                      ? `${formatEuro(differs)} hoger dan de begroting`
+                      : `${formatEuro(-differs)} lager dan de begroting`,
+                }
+              : {}),
+          },
+          { label: 'Gerealiseerde inzet', value: money(key.realised_cents) },
+          { label: 'Aangeleverd', value: formatEuro(key.delivered_cents) },
+          { label: 'Nog aan te leveren', value: money(key.to_deliver_cents) },
+          { label: 'Gefactureerd', value: formatEuro(key.invoiced_cents) },
+          {
+            label: 'Nog te factureren',
+            value: formatEuro(key.to_invoice_cents),
+            ...(key.to_invoice_cents < 0
+              ? { detail: 'Meer gefactureerd dan aangeleverd', critical: true }
+              : {}),
+          },
+        ]}
+      />
+    </Section>
   );
 }
 
+const TONE = { critical: 'critical', warning: 'warning', neutral: 'info' } as const;
+
+/** What asks for attention, first on the tab: one list, the worst marked. */
 function Signals({ finance }: { finance: AssignmentFinance }) {
   if (finance.signals.length === 0) return null;
+  const signals: SignalItem[] = finance.signals.map((signal, index) => {
+    const { variant, text } = signalText(signal, finance.free_room_threshold_pct);
+    return {
+      key: `${signal.kind}-${signal.budget_line_id ?? index}`,
+      text,
+      tone: TONE[variant as keyof typeof TONE] ?? 'info',
+    };
+  });
   return (
-    <nldd-container gap="8">
-      <SectionHeading text="Aandachtspunten" />
-      {finance.signals.map((signal, index) => {
-        const { variant, text } = signalText(signal, finance.free_room_threshold_pct);
-        return (
-          <nldd-banner
-            key={`${signal.kind}-${signal.budget_line_id ?? index}`}
-            variant={variant}
-            size="sm"
-            text={text}
-          />
-        );
-      })}
-    </nldd-container>
+    <Section title="Aandachtspunten">
+      <SignalList label="Aandachtspunten" signals={signals} />
+    </Section>
   );
 }
 
@@ -138,7 +113,7 @@ function LineDetail({ line }: { line: FinanceLine }) {
     : (line.pricing_error ?? 'Niet berekend');
   return (
     <nldd-list-item ref={ref} button expanded={orUndef(expanded)}>
-      <nldd-icon-cell size="20" color="secondary" icon="chevron-right" {...DISCLOSURE} />
+      <IconCell concept="open" {...DISCLOSURE} />
       <nldd-spacer-cell size="8" />
       <nldd-text-cell text={line.description} supporting-text={summary} />
       <nldd-text-cell
@@ -195,12 +170,18 @@ function LineDetail({ line }: { line: FinanceLine }) {
           />
         </nldd-list-item>
       ))}
-      {figures && line.persons.length === 0 && line.persons_hidden === 0 && line.costs.length === 0 && (
-        <nldd-list-item slot="children">
-          <nldd-spacer-cell size="44" />
-          <nldd-text-cell color="secondary" text="Op deze regel staat geen inzet en geen kostendekking" />
-        </nldd-list-item>
-      )}
+      {figures &&
+        line.persons.length === 0 &&
+        line.persons_hidden === 0 &&
+        line.costs.length === 0 && (
+          <nldd-list-item slot="children">
+            <nldd-spacer-cell size="44" />
+            <nldd-text-cell
+              color="secondary"
+              text="Op deze regel staat geen inzet en geen kostendekking"
+            />
+          </nldd-list-item>
+        )}
     </nldd-list-item>
   );
 }
@@ -210,15 +191,13 @@ function Months({ finance, period }: { finance: AssignmentFinance; period: strin
   if (months.length === 0) return null;
   const last = months.at(-1);
   return (
-    <nldd-container gap="12">
-      <SectionHeading text="Inzet per maand" />
-      <nldd-text color="secondary">
-        Cumulatief vanaf de eerste maand in beeld. Vaste regels en kosten hebben geen maand en
-        staan hier niet in
-        {finance.budgeted_outside_months_cents !== 0
-          ? `: dat is ${formatEuro(finance.budgeted_outside_months_cents)} van de begroting.`
-          : '.'}
-      </nldd-text>
+    <Section title="Inzet per maand">
+      {finance.budgeted_outside_months_cents !== 0 && (
+        <Quiet>
+          Vaste regels en kosten hebben geen maand:{' '}
+          {formatEuro(finance.budgeted_outside_months_cents)} van de begroting staat hier niet in.
+        </Quiet>
+      )}
       <MonthColumns
         title={`Verwachte inzet cumulatief tegen de begroting, ${period}`}
         months={months.map((month) => month.month.slice(0, 7))}
@@ -289,7 +268,7 @@ function Months({ finance, period }: { finance: AssignmentFinance; period: strin
           </nldd-table-row>
         ))}
       </nldd-table>
-    </nldd-container>
+    </Section>
   );
 }
 
@@ -317,11 +296,25 @@ export function FinanceTab() {
         <ActionBar
           label="Financieel: periode en export"
           filters={[
-            { label: YEAR_FILTER_LABEL, value: year, onChange: setYear, options: yearOptions(), width: '180px' },
+            {
+              label: YEAR_FILTER_LABEL,
+              value: year,
+              onChange: setYear,
+              options: yearOptions(),
+              width: '180px',
+            },
           ]}
           actions={[
-            { text: 'Download regels (CSV)', href: financeCsvPath(assignment.id, year, 'lines') },
-            { text: 'Download maanden (CSV)', href: financeCsvPath(assignment.id, year, 'months') },
+            {
+              text: 'Download regels (CSV)',
+              href: financeCsvPath(assignment.id, year, 'lines'),
+              kind: 'download',
+            },
+            {
+              text: 'Download maanden (CSV)',
+              href: financeCsvPath(assignment.id, year, 'months'),
+              kind: 'download',
+            },
           ]}
         />
         {assignment.phase === 'potential' && (
@@ -336,63 +329,63 @@ export function FinanceTab() {
         {query.isError && <ErrorNotice message={errorMessage(query.error)} />}
         {finance && (
           <>
-            <nldd-text>{referenceText(finance.reference_month)}</nldd-text>
-            <KeyFigureTable finance={finance} />
-            <Signals finance={finance} />
-            <nldd-container gap="8">
-              <SectionHeading text={`Stand per begrotingsregel, ${period}`} />
-              {finance.lines.length === 0 ? (
-                <EmptyNotice text="Deze opdracht heeft nog geen begrotingsregels" />
-              ) : (
-                <nldd-table
-                  accessible-label={`Stand per begrotingsregel, ${period}`}
-                  columns={`minmax(200px,2fr) ${FIGURE_COLUMNS}`}
-                >
-                  <nldd-table-row slot="header">
-                    <nldd-text-cell text="Begrotingsregel" />
-                    <FigureHeaderCells />
-                  </nldd-table-row>
-                  {finance.lines.map((line) => (
-                    <nldd-table-row key={line.budget_line_id}>
-                      <nldd-text-cell
-                        text={line.description}
-                        {...(line.rate_category || rateCauseText(line)
-                          ? {
-                              // The cause of a rate difference next to the line it explains.
-                              'supporting-text': [
-                                line.rate_category ? rates.name(line.rate_category) : '',
-                                rateCauseText(line),
-                              ]
-                                .filter(Boolean)
-                                .join('. '),
-                            }
-                          : {})}
-                      />
-                      <FigureCells figures={line.figures} error={line.pricing_error} />
+            <Quiet>{referenceText(finance.reference_month)}</Quiet>
+            <Stack gap="section">
+              <Signals finance={finance} />
+              <Section title={`Stand per begrotingsregel, ${period}`}>
+                {finance.lines.length === 0 ? (
+                  <EmptyNotice text="Deze opdracht heeft nog geen begrotingsregels" />
+                ) : (
+                  <nldd-table
+                    accessible-label={`Stand per begrotingsregel, ${period}`}
+                    columns={`minmax(200px,2fr) ${FIGURE_COLUMNS}`}
+                  >
+                    <nldd-table-row slot="header">
+                      <nldd-text-cell text="Begrotingsregel" />
+                      <FigureHeaderCells />
                     </nldd-table-row>
-                  ))}
-                  <nldd-table-row>
-                    <nldd-text-cell text="**Totaal**" />
-                    <FigureCells figures={finance.totals} error={finance.pricing_error} bold />
-                  </nldd-table-row>
-                </nldd-table>
+                    {finance.lines.map((line) => (
+                      <nldd-table-row key={line.budget_line_id}>
+                        <nldd-text-cell
+                          text={line.description}
+                          {...(line.rate_category || rateCauseText(line)
+                            ? {
+                                // The cause of a rate difference next to the line it explains.
+                                'supporting-text': [
+                                  line.rate_category ? rates.name(line.rate_category) : '',
+                                  rateCauseText(line),
+                                ]
+                                  .filter(Boolean)
+                                  .join('. '),
+                              }
+                            : {})}
+                        />
+                        <FigureCells figures={line.figures} error={line.pricing_error} />
+                      </nldd-table-row>
+                    ))}
+                    <nldd-table-row>
+                      <nldd-text-cell text="**Totaal**" />
+                      <FigureCells figures={finance.totals} error={finance.pricing_error} bold />
+                    </nldd-table-row>
+                  </nldd-table>
+                )}
+              </Section>
+              <AgreementFigures finance={finance} />
+              {finance.lines.length > 0 && (
+                <Section title="Onderbouwing per regel">
+                  <nldd-list
+                    type="tree"
+                    appearance="box-base"
+                    accessible-label="Onderbouwing per begrotingsregel"
+                  >
+                    {finance.lines.map((line) => (
+                      <LineDetail key={line.budget_line_id} line={line} />
+                    ))}
+                  </nldd-list>
+                </Section>
               )}
-            </nldd-container>
-            {finance.lines.length > 0 && (
-              <nldd-container gap="8">
-                <SectionHeading text="Onderbouwing per regel" />
-                <nldd-text color="secondary">
-                  Open een regel voor de bedragen erachter. De inzet per persoon en de kosten tellen
-                  op tot de regel.
-                </nldd-text>
-                <nldd-list type="tree" appearance="box-base" accessible-label="Onderbouwing per begrotingsregel">
-                  {finance.lines.map((line) => (
-                    <LineDetail key={line.budget_line_id} line={line} />
-                  ))}
-                </nldd-list>
-              </nldd-container>
-            )}
-            <Months finance={finance} period={period} />
+              <Months finance={finance} period={period} />
+            </Stack>
           </>
         )}
       </nldd-container>

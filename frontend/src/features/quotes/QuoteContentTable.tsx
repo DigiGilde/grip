@@ -44,13 +44,14 @@ export function QuoteContentTable({ content, label }: { content: QuoteContent; l
     <nldd-table
       accessible-label={label}
       columns="minmax(180px,2fr) 70px minmax(170px,1.4fr) minmax(150px,1.2fr) minmax(120px,1fr) minmax(120px,1fr)"
+      sm-columns="minmax(140px,1fr) minmax(90px,auto)"
     >
       <nldd-table-row slot="header">
         <nldd-text-cell text="Omschrijving" />
-        <nldd-text-cell text="FTE" horizontal-alignment="right" />
-        <nldd-text-cell text="Periode" />
-        <nldd-text-cell text="Schaal" />
-        <nldd-text-cell text="Maandtarief" horizontal-alignment="right" />
+        <nldd-text-cell hide-below="md" text="FTE" horizontal-alignment="right" />
+        <nldd-text-cell hide-below="md" text="Periode" />
+        <nldd-text-cell hide-below="md" text="Schaal" />
+        <nldd-text-cell hide-below="md" text="Maandtarief" horizontal-alignment="right" />
         <nldd-text-cell text="Bedrag" horizontal-alignment="right" />
       </nldd-table-row>
       {content.lines.map((line) => {
@@ -58,18 +59,37 @@ export function QuoteContentTable({ content, label }: { content: QuoteContent; l
         return (
           <nldd-table-row key={line.position}>
             <nldd-text-cell
+              hide-below="md"
               text={line.description}
               {...(line.role && line.role !== line.description
                 ? { 'supporting-text': line.role }
                 : {})}
             />
+            {/* Narrow: the columns in between become one quiet line under the name. */}
             <nldd-text-cell
+              hide-above="sm"
+              text={line.description}
+              supporting-text={[
+                line.kind === 'personnel' ? `${formatFte(line.fte)} FTE` : '',
+                periodText(line),
+                line.kind === 'personnel' ? scaleText(line) : '',
+                rate.text ? `${rate.text} per maand` : '',
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            />
+            <nldd-text-cell
+              hide-below="md"
               text={line.kind === 'personnel' ? formatFte(line.fte) : ''}
               horizontal-alignment="right"
             />
-            <nldd-text-cell text={periodText(line)} />
-            <nldd-text-cell text={line.kind === 'personnel' ? scaleText(line) : ''} />
+            <nldd-text-cell hide-below="md" text={periodText(line)} />
             <nldd-text-cell
+              hide-below="md"
+              text={line.kind === 'personnel' ? scaleText(line) : ''}
+            />
+            <nldd-text-cell
+              hide-below="md"
               text={rate.text}
               {...(rate.later ? { 'supporting-text': rate.later } : {})}
               horizontal-alignment="right"
@@ -82,10 +102,10 @@ export function QuoteContentTable({ content, label }: { content: QuoteContent; l
         ? content.subtotals_per_year.map((subtotal) => (
             <nldd-table-row key={`subtotal-${subtotal.year}`}>
               <nldd-text-cell text={`Subtotaal ${subtotal.year}`} />
-              <nldd-text-cell text="" />
-              <nldd-text-cell text="" />
-              <nldd-text-cell text="" />
-              <nldd-text-cell text="" />
+              <nldd-text-cell hide-below="md" text="" />
+              <nldd-text-cell hide-below="md" text="" />
+              <nldd-text-cell hide-below="md" text="" />
+              <nldd-text-cell hide-below="md" text="" />
               <nldd-text-cell
                 text={formatEuro(subtotal.amount_cents)}
                 horizontal-alignment="right"
@@ -95,10 +115,10 @@ export function QuoteContentTable({ content, label }: { content: QuoteContent; l
         : null}
       <nldd-table-row>
         <nldd-title-cell text="Totaal" />
-        <nldd-text-cell text="" />
-        <nldd-text-cell text="" />
-        <nldd-text-cell text="" />
-        <nldd-text-cell text="" />
+        <nldd-text-cell hide-below="md" text="" />
+        <nldd-text-cell hide-below="md" text="" />
+        <nldd-text-cell hide-below="md" text="" />
+        <nldd-text-cell hide-below="md" text="" />
         <nldd-text-cell text={formatEuro(content.total_cents)} horizontal-alignment="right" />
       </nldd-table-row>
     </nldd-table>

@@ -5,6 +5,7 @@
  * They exist because nldd events are custom events on the element itself,
  * which a JSX `on*` prop never sees.
  */
+import { iconAttribute } from '@/ui/icons';
 import { useRef, type ReactNode } from 'react';
 import { orUndef, useNlddEvent } from '@/components/nldd/events';
 
@@ -294,7 +295,7 @@ export function LinkButton({
       text={text}
       href={href}
       appearance={appearance}
-      {...(download ? { download: '' } : {})}
+      {...(download ? { download: '', ...iconAttribute('download') } : {})}
     />
   );
 }

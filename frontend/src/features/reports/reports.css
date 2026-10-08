@@ -55,7 +55,7 @@
 
 /* Needs attention: said with a mark and a word, never by colour alone. */
 .grip-figure--attention {
-  border-color: var(--primitives-color-critical-600);
+  border-left-color: var(--primitives-color-critical-600);
   border-left-width: 4px;
 }
 
@@ -460,7 +460,9 @@
 }
 
 .grip-tile--attention {
-  border-color: var(--primitives-color-critical-600);
+  /* Only the edge is marked: with a whole border, a page where most tiles
+     need attention has nothing left that stands out. */
+  border-left-color: var(--primitives-color-critical-600);
   border-left-width: 4px;
   padding-left: 17px;
 }

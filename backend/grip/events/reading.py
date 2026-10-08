@@ -23,6 +23,7 @@ from sqlalchemy.orm import selectinload
 from grip.access.decider import Decider, decide
 from grip.access.types import Action, DataClass, Resource, ResourceKind, Subject
 from grip.access.vacancies import vacancy_resource
+from grip.events import words
 from grip.events.classification import DEFAULT, class_from, class_of_field, spec_for
 from grip.models.assignment import BudgetLine
 from grip.models.person import Person
@@ -34,6 +35,12 @@ from grip.models.vacancy import Vacancy
 SCAN_LIMIT = 2000
 _CHUNK = 200
 MAX_PAGE = 200
+
+KIND_CHANGES = "changes"
+KIND_READS = "reads"
+KIND_ALL = "all"
+KINDS = (KIND_CHANGES, KIND_READS, KIND_ALL)
+READ_TYPE = "data.read"
 
 
 @dataclass(frozen=True)
@@ -51,6 +58,9 @@ class Filters:
     since: datetime | None = None
     until: datetime | None = None
     correlation_id: str | None = None
+    # Changes (everything except reads of data), reads, or all. Reads
+    # outnumber changes by far, so a reader asks for one or the other.
+    kind: str = KIND_ALL
 
 
 @dataclass(frozen=True)
@@ -60,6 +70,8 @@ class Change:
     visible: bool
     old: Any = None
     new: Any = None
+    # The Dutch name of the field, when it has one.
+    label: str | None = None
 
 
 @dataclass(frozen=True)
@@ -85,6 +97,10 @@ class EventView:
     person_id: UUID | None
     person_name: str | None
     changes: tuple[Change, ...]
+    # The event in Dutch, as this reader may see it: what happened, and the
+    # change in words. A screen shows these and never a code name.
+    title: str
+    lines: tuple[str, ...]
     # The payload, the note and the references, when the reader may see
     # the values of this event.
     details_visible: bool
@@ -214,10 +230,11 @@ class EventAccess:
         result = []
         for name in dict.fromkeys([*old, *new]):
             visible = await self.may(resource, class_of_field(classes, name))
+            label = words.FIELD_LABELS.get(name)
             result.append(
-                Change(name, True, old.get(name), new.get(name))
+                Change(name, True, old.get(name), new.get(name), label)
                 if visible
-                else Change(name, False)
+                else Change(name, False, label=label)
             )
         details = await self.may(resource, class_of_field(classes, DEFAULT))
         return tuple(result), details
@@ -225,6 +242,10 @@ class EventAccess:
 
 def _query(filters: Filters) -> Any:
     query = select(StreamEvent)
+    if filters.kind == KIND_CHANGES:
+        query = query.where(StreamEvent.type != READ_TYPE)
+    elif filters.kind == KIND_READS:
+        query = query.where(StreamEvent.type == READ_TYPE)
     if filters.case_kind is not None:
         query = query.where(StreamEvent.case_kind == filters.case_kind)
     if filters.case_id is not None:
@@ -332,6 +353,23 @@ async def read(
                 if sees_person and event.person_id
                 else None,
                 changes=changes,
+                title=words.title(
+                    event.type,
+                    event.subject_kind,
+                    names.get(event.person_id)
+                    if sees_person and event.person_id
+                    else None,
+                ),
+                lines=tuple(
+                    words.lines(
+                        event.type,
+                        event.subject_kind,
+                        changes,
+                        payload=event.payload if details else None,
+                        note=event.note if details else None,
+                        erased=event.erased_at is not None,
+                    )
+                ),
                 details_visible=details,
                 payload=event.payload if details else None,
                 note=event.note if details else None,

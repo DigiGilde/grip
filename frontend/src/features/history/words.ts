@@ -216,12 +216,24 @@ export interface Moment {
   /** The other things the same action changed, each in a line. */
   lines: string[];
   actor: string;
+  /** Only data was looked at; nothing changed. */
+  read: boolean;
+}
+
+const READ = 'data.read';
+
+function readHeadline(people: ReadonlySet<string>, unnamed: boolean): string {
+  if (people.size === 1 && !unnamed) return `Gegevens van ${[...people][0]} ingezien`;
+  const count = people.size + (unnamed ? 1 : 0);
+  return count > 1 ? `Gegevens van ${count} personen ingezien` : 'Gegevens ingezien';
 }
 
 /**
  * One row per action. What one request changed comes as several events with
  * one correlation id; the reader sees one moment, named after the event that
- * says what it was about, with the rest as lines below it.
+ * says what it was about, with the rest as lines below it. Looking at data is
+ * one moment per reader however many people it concerned, and a run of them
+ * by the same reader is one row.
  */
 export function moments(events: readonly HistoryEvent[]): Moment[] {
   const groups = new Map<string, HistoryEvent[]>();
@@ -230,26 +242,56 @@ export function moments(events: readonly HistoryEvent[]): Moment[] {
     if (group) group.push(event);
     else groups.set(event.correlation_id, [event]);
   }
-  return [...groups.entries()].map(([key, group]) => {
-    const lead = group.find((event) => HEADLINE_TYPES.has(event.type)) ?? group[group.length - 1]!;
+  const rows: (Moment & { people?: Set<string>; unnamed?: boolean })[] = [];
+  for (const [key, all] of groups) {
+    const changes = all.filter((event) => event.type !== READ);
+    if (changes.length === 0) {
+      const people = new Set(
+        all.flatMap((event) => (event.person_name ? [event.person_name] : [])),
+      );
+      const unnamed = all.some((event) => !event.person_name);
+      const who = actor(all[0]!);
+      const previous = rows[rows.length - 1];
+      if (previous?.read && previous.actor === who && previous.people) {
+        for (const name of people) previous.people.add(name);
+        previous.unnamed = previous.unnamed || unnamed;
+        previous.headline = readHeadline(previous.people, previous.unnamed);
+        continue;
+      }
+      rows.push({
+        key,
+        occurred_at: all[0]!.occurred_at,
+        headline: readHeadline(people, unnamed),
+        lines: [],
+        actor: who,
+        read: true,
+        people,
+        unnamed,
+      });
+      continue;
+    }
+    const lead =
+      changes.find((event) => HEADLINE_TYPES.has(event.type)) ?? changes[changes.length - 1]!;
     const lines: string[] = [];
     const own = detail(lead);
-    if (own) lines.push(own);
-    for (const event of group) {
+    if (own) lines.push(...own.split(' · '));
+    for (const event of changes) {
       if (event === lead) continue;
       const text = headline(event);
       const more = detail(event);
-      const line = more ? `${text}: ${more}` : text;
+      const line = more ? `${text}: ${more.split(' · ').join(', ')}` : text;
       if (text !== headline(lead) || more) if (!lines.includes(line)) lines.push(line);
     }
-    return {
+    rows.push({
       key,
       occurred_at: lead.occurred_at,
       headline: headline(lead),
       lines,
       actor: actor(lead),
-    };
-  });
+      read: false,
+    });
+  }
+  return rows.map(({ people: _people, unnamed: _unnamed, ...row }) => row);
 }
 
 const momentFormat = new Intl.DateTimeFormat('nl-NL', {

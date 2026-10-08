@@ -59,7 +59,7 @@ export function PeriodChoice({
   }
   return (
     <nldd-container gap="8">
-      <nldd-container layout="grid" column-count={2} gap="12">
+      <nldd-container layout="grid" column-count={2} gap="16">
         <DateInput
           label="Begindatum"
           {...(hint ? { hint } : {})}

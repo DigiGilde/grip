@@ -17,6 +17,7 @@
  *       actions={[{ text: 'Nieuwe inzet', onClick, primary: true }]}
  *     />
  */
+import { RowMenu, type RowAction } from '@/ui/RowActions';
 import { useRef } from 'react';
 import { orUndef, useNlddEvent } from '@/components/nldd/events';
 import { iconAttribute } from './icons';
@@ -150,15 +151,29 @@ function ActionItem({ action }: { action: ActionBarAction }) {
   );
 }
 
+/** What a page can do besides its few buttons: one quiet menu at the end of the bar. */
+export interface ActionBarMore {
+  /** What the menu is about: "Meer acties voor <name>". */
+  name: string;
+  actions: readonly RowAction[];
+}
+
 interface ActionBarProps {
   /** Accessible name of the row, e.g. "Inzet filteren". */
   label: string;
   filters?: readonly ActionBarFilter[];
   actions?: readonly ActionBarAction[];
+  /**
+   * Actions that are rare or cannot be undone. They stand in a menu behind
+   * one quiet button, so the bar keeps to what is done often; a destructive
+   * one asks for confirmation there.
+   */
+  more?: ActionBarMore;
 }
 
-export function ActionBar({ label, filters = [], actions = [] }: ActionBarProps) {
-  if (filters.length === 0 && actions.length === 0) return null;
+export function ActionBar({ label, filters = [], actions = [], more }: ActionBarProps) {
+  const extra = more && more.actions.length > 0 ? more : null;
+  if (filters.length === 0 && actions.length === 0 && !extra) return null;
   return (
     <nldd-toolbar size={SIZE} label={label}>
       {filters.map((filter) => (
@@ -167,6 +182,11 @@ export function ActionBar({ label, filters = [], actions = [] }: ActionBarProps)
       {actions.map((action) => (
         <ActionItem key={action.text} action={action} />
       ))}
+      {extra && (
+        <nldd-toolbar-item slot="end" priority={1}>
+          <RowMenu name={extra.name} actions={[...extra.actions]} size={SIZE} />
+        </nldd-toolbar-item>
+      )}
     </nldd-toolbar>
   );
 }

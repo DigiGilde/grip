@@ -155,11 +155,7 @@ export function SigningPage() {
         {quote ? (
           <>
             {back.evidenceId ? (
-              <DecisionReceipt
-                scope="signing"
-                evidenceId={back.evidenceId}
-                pdfHref={signingDocumentUrl(quote.id)}
-              />
+              <DecisionReceipt scope="signing" evidenceId={back.evidenceId} />
             ) : quote.status !== 'issued' ? (
               <Decided quote={quote} />
             ) : null}

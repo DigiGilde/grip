@@ -3,12 +3,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { errorMessage } from '@/api/client';
 import { boardKeys, fetchBoard } from '@/features/allocations/board/api';
-import { formatEuro, formatPercent } from '@/lib/format';
+import { formatEuro, formatPercent, formatDate } from '@/lib/format';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { PATHS } from '@/paths';
-import { ActionBar } from '@/ui/ActionBar';
+import { ActionBar, type ActionBarFilter } from '@/ui/ActionBar';
 import { OpenCell, OpenRow } from '@/ui/RowActions';
-import { createPerson, fetchPeople, peopleKey, personSubtitle, today, type Person } from './api';
+import { createPerson, fetchPeople, peopleKey, today, type Person } from './api';
 import { DateField, SelectField, TextField } from './ui/controls';
 import { Form, Sheet } from './ui/overlays';
 import { orderPeople } from './peopleOrder';
@@ -21,12 +21,26 @@ const SHOW_OPTIONS = [
 ];
 
 /**
+ * Under a name in the list only what sets this person apart: not yet
+ * started, or no longer active. The address is on the person's own page.
+ */
+function listLine(person: Person): string {
+  const parts = [
+    person.stage === 'prospective' && person.starts_on
+      ? `start op ${formatDate(person.starts_on)}`
+      : null,
+    person.is_active ? null : 'inactief',
+  ].filter(Boolean);
+  return parts.join(', ');
+}
+
+/**
  * The persons the asker may see, as a list to scan: how much each works now,
  * and what about their work needs attention, most urgent first. A column is
  * only drawn when at least one row carries its field. The row opens the
  * person.
  */
-export function PeopleView() {
+export function PeopleView({ viewFilter }: { viewFilter?: ActionBarFilter }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const day = today();
@@ -53,10 +67,12 @@ export function PeopleView() {
   const openPerson = (id: string) => navigate(PATHS.teamPerson.replace(':personId', id));
 
   const showRate = anyHas(people, 'billing_scale');
+  // A list in which nobody has a manager named has no column for it.
+  const showManager = people.some((person) => person.manager_name);
   const columns = [
     'minmax(220px,2fr)',
     ...(showStaffing ? ['200px', 'minmax(200px,1.5fr)'] : []),
-    'minmax(160px,1fr)',
+    ...(showManager ? ['minmax(160px,1fr)'] : []),
     ...(showRate ? ['90px', '130px'] : []),
   ].join(' ');
   const narrow = showStaffing ? 'minmax(160px,1fr) 120px' : 'minmax(160px,1fr)';
@@ -66,19 +82,20 @@ export function PeopleView() {
       <RouterLinks>
         <ActionBar
           label="Personen filteren en acties"
-          filters={
-            mayManage
+          filters={[
+            ...(viewFilter ? [viewFilter] : []),
+            ...(mayManage
               ? [
                   {
                     label: 'Toon',
                     value: includeInactive ? 'all' : 'active',
-                    onChange: (value) => setIncludeInactive(value === 'all'),
+                    onChange: (value: string) => setIncludeInactive(value === 'all'),
                     options: SHOW_OPTIONS,
                     width: '240px',
                   },
                 ]
-              : []
-          }
+              : []),
+          ]}
           actions={
             mayManage
               ? [
@@ -100,7 +117,7 @@ export function PeopleView() {
                 <nldd-text-cell text="Vooruit" hide-below="md" />
               </>
             ) : null}
-            <nldd-text-cell text="Leidinggevende" hide-below="md" />
+            {showManager ? <nldd-text-cell text="Leidinggevende" hide-below="md" /> : null}
             {showRate ? (
               <>
                 <nldd-text-cell text="Schaal" hide-below="md" />
@@ -112,7 +129,7 @@ export function PeopleView() {
             <OpenRow key={person.id} onOpen={() => openPerson(person.id)}>
               <OpenCell
                 text={person.name}
-                supportingText={personSubtitle(person)}
+                {...(listLine(person) ? { supportingText: listLine(person) } : {})}
                 accessibleLabel={`Bekijk ${person.name}`}
                 onOpen={() => openPerson(person.id)}
               />
@@ -133,6 +150,8 @@ export function PeopleView() {
                   </nldd-cell>
                   <nldd-cell hide-below="md">
                     {signal.text ? (
+                      // Colour only for what is wrong now: planned above what
+                      // a person can do. Work that ends is a fact, said quietly.
                       <nldd-text size="sm" color={signal.attention ? 'warning' : 'secondary'}>
                         {signal.text}
                       </nldd-text>
@@ -140,7 +159,9 @@ export function PeopleView() {
                   </nldd-cell>
                 </>
               ) : null}
-              <nldd-text-cell text={person.manager_name ?? ''} hide-below="md" />
+              {showManager ? (
+                <nldd-text-cell text={person.manager_name ?? ''} hide-below="md" />
+              ) : null}
               {showRate ? (
                 <>
                   <nldd-text-cell
@@ -162,10 +183,7 @@ export function PeopleView() {
               ) : null}
             </OpenRow>
           ))}
-          <EmptyRows
-            text="Er zijn geen personen om te tonen"
-            supportingText="Je ziet hier de personen van wie je gegevens mag inzien."
-          />
+          <EmptyRows text="Er zijn geen personen om te tonen" />
         </nldd-table>
       </QueryState>
 

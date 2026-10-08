@@ -4,12 +4,12 @@ import { useParams } from 'react-router-dom';
 import { ApiError, errorMessage } from '@/api/client';
 import { STATUS_COLORS, statusLabel } from '@/features/assignments/labels';
 import { assignmentPath } from '@/features/assignments/paths';
-import { EmptyNotice, ErrorNotice, Loading } from '@/ui/layout';
+import { DocumentLink } from '@/ui/Icon';
+import { EmptyNotice, ErrorNotice, Loading, Page, Quiet } from '@/ui/layout';
 import { Segments } from '@/features/team/ui/controls';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { useInstance } from '@/layout/useInstance';
 import { formatDate, formatEuro, formatFte, formatPercent, formatPeriod } from '@/lib/format';
-import { PageHeading } from '@/pages/PageHeading';
 import { PATHS } from '@/paths';
 import {
   assignmentReportDocumentUrl,
@@ -31,26 +31,19 @@ import {
   type Figure,
 } from './ui';
 
+/**
+ * Between whom and when, as one quiet line. The addresses that systems use
+ * (the assignment's own, the context nodes) are in the printable version;
+ * on the screen they are noise.
+ */
 function Facts({ report }: { report: AssignmentReport }) {
-  const facts: [string, string][] = [
-    ['Opdrachtgever', report.client_name ?? ''],
-    ['Opdrachtnemer', report.contractor_name ?? ''],
-    ['Looptijd', formatPeriod(report.start_date, report.end_date)],
-    ['Soort', KIND_LABELS[report.kind] ?? report.kind],
-    ['Kenmerk', report.uri],
-    ['Context', (report.context_refs ?? []).join(', ')],
-  ];
-  return (
-    <nldd-list accessible-label="Gegevens van de opdracht" appearance="box-base">
-      {facts
-        .filter(([, value]) => value !== '')
-        .map(([label, value]) => (
-          <nldd-list-item key={label}>
-            <nldd-text-cell overline={label} text={value} />
-          </nldd-list-item>
-        ))}
-    </nldd-list>
-  );
+  const parties = [report.client_name, report.contractor_name].filter(Boolean).join(' aan ');
+  const facts = [
+    parties ? `Van ${parties}` : '',
+    formatPeriod(report.start_date, report.end_date),
+    KIND_LABELS[report.kind] ?? report.kind,
+  ].filter((value) => value !== '');
+  return <Quiet>{facts.join(' · ')}</Quiet>;
 }
 
 /** The report in four figures: agreed, spent so far, expected, and what is left. */
@@ -61,7 +54,9 @@ function reportFigures(report: AssignmentReport): Figure[] {
     figures.push({
       label: 'Afgesproken',
       value: formatEuro(report.agreed.total_cents),
-      detail: report.agreed.accepted_at ? `akkoord op ${formatDate(report.agreed.accepted_at)}` : '',
+      detail: report.agreed.accepted_at
+        ? `akkoord op ${formatDate(report.agreed.accepted_at)}`
+        : '',
     });
   } else if (typeof report.quoted_amount_cents === 'number') {
     figures.push({
@@ -250,7 +245,10 @@ function CostBlock({ report }: { report: AssignmentReport }) {
         <nldd-banner variant="warning" size="sm" text={report.pricing_error} />
       )}
       {(periods.length > 0 || hasAmounts(report.totals)) && (
-        <nldd-table accessible-label="Kosten per jaar" columns={`minmax(160px,1fr) ${TOTALS_COLUMNS}`}>
+        <nldd-table
+          accessible-label="Kosten per jaar"
+          columns={`minmax(160px,1fr) ${TOTALS_COLUMNS}`}
+        >
           <nldd-table-row slot="header">
             <nldd-text-cell text="Periode" />
             <TotalsHeaderCells />
@@ -361,33 +359,26 @@ export function AssignmentReportPage() {
   const notFound = query.error instanceof ApiError && query.error.status === 404;
 
   return (
-    <nldd-simple-section>
-      <PageHeading
-        text={report ? `Rapportage ${report.name}` : 'Rapportage'}
-        instanceName={instance?.name}
-      />
-      <nldd-container gap="24">
-        <RouterLinks>
-          <nldd-container layout="wrap" gap="16" vertical-alignment="center">
-            <nldd-link href={PATHS.reports} text="Terug naar de rapportage" size="md" />
-            {report && (
-              <nldd-link href={assignmentPath(report.assignment_id)} text="Naar de opdracht" size="md" />
-            )}
-          </nldd-container>
-        </RouterLinks>
-        {query.isPending && <Loading />}
-        {query.isError &&
-          (notFound ? (
-            <EmptyNotice
-              text="Deze opdracht is niet gevonden"
-              supportingText="De opdracht bestaat niet, of je bent er niet bij betrokken."
-            />
-          ) : (
-            <ErrorNotice message={errorMessage(query.error)} />
-          ))}
-        {report && (
-          <>
-            <nldd-container layout="wrap" gap="8" vertical-alignment="center">
+    <Page
+      title={report ? `Rapportage ${report.name}` : 'Rapportage'}
+      instanceName={instance?.name}
+      spacing="sections"
+      back={{ href: PATHS.reports, text: 'Terug naar Rapportage' }}
+    >
+      {query.isPending && <Loading />}
+      {query.isError &&
+        (notFound ? (
+          <EmptyNotice
+            text="Deze opdracht is niet gevonden"
+            supportingText="De opdracht bestaat niet, of je bent er niet bij betrokken."
+          />
+        ) : (
+          <ErrorNotice message={errorMessage(query.error)} />
+        ))}
+      {report && (
+        <>
+          <RouterLinks>
+            <nldd-container layout="wrap" gap="16" vertical-alignment="center">
               <nldd-badge
                 color={STATUS_COLORS[report.status] ?? 'neutral'}
                 text={statusLabel(report.status)}
@@ -401,24 +392,28 @@ export function AssignmentReportPage() {
                   { value: 'internal', label: 'Intern' },
                 ]}
               />
-              <nldd-link
+              <DocumentLink
+                kind="view"
                 href={assignmentReportDocumentUrl(report.assignment_id, audience)}
                 text="Afdrukbare versie"
+              />
+              <nldd-link
+                href={assignmentPath(report.assignment_id)}
+                text="Naar de opdracht"
                 size="md"
-                target="_blank"
               />
             </nldd-container>
-            {reportFigures(report).length > 0 && (
-              <Figures label="De opdracht in het kort" figures={reportFigures(report)} />
-            )}
-            <Facts report={report} />
-            <AgreedBlock report={report} />
-            <DeliveredBlock report={report} />
-            <CostBlock report={report} />
-            {audience === 'internal' && <StaffingBlock report={report} />}
-          </>
-        )}
-      </nldd-container>
-    </nldd-simple-section>
+          </RouterLinks>
+          <Facts report={report} />
+          {reportFigures(report).length > 0 && (
+            <Figures label="De opdracht in het kort" figures={reportFigures(report)} />
+          )}
+          <AgreedBlock report={report} />
+          <DeliveredBlock report={report} />
+          <CostBlock report={report} />
+          {audience === 'internal' && <StaffingBlock report={report} />}
+        </>
+      )}
+    </Page>
   );
 }

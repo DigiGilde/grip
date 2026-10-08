@@ -1,17 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { errorMessage } from '@/api/client';
-import { formatPeriod } from '@/lib/format';
 import { fetchQuotes, quoteKeys } from '@/features/quotes/api';
-import { Facts, FormSheet, Quiet, Stack } from '@/ui/layout';
+import type { ActionBarAction } from '@/ui/ActionBar';
+import { FormSheet, Quiet, Stack } from '@/ui/layout';
 import { assignmentKeys, updateAssignment, type AssignmentDetail } from '../api';
 import { BudgetEditor } from '../BudgetEditor';
 import { ReadOnlyNote } from '../ReadOnlyNote';
 import { useAssignmentShell } from '../shell';
-import { Button, DateInput } from '../ui';
+import { DateInput } from '../ui';
 
-/** The period of the assignment: every budget line follows it unless it deviates. */
-function AssignmentPeriod({ assignment }: { assignment: AssignmentDetail }) {
+/**
+ * The period of the assignment: every budget line follows it unless it
+ * deviates. The period itself stands under the page title; here is the way
+ * to change it.
+ */
+function useAssignmentPeriod({ assignment }: { assignment: AssignmentDetail }) {
   const queryClient = useQueryClient();
   const [sheet, setSheet] = useState({ open: false, session: 0 });
   const [start, setStart] = useState(assignment.start_date ?? '');
@@ -34,42 +38,28 @@ function AssignmentPeriod({ assignment }: { assignment: AssignmentDetail }) {
     setProblem(null);
     setSheet((current) => ({ open: true, session: current.session + 1 }));
   };
-  return (
-    <>
-      <Facts
-        label="Looptijd van de opdracht"
-        facts={[
-          {
-            label: 'Looptijd van de opdracht',
-            value: known
-              ? formatPeriod(assignment.start_date, assignment.end_date)
-              : 'Nog niet ingevuld',
-          },
-        ]}
-      />
-      {assignment.permissions.edit_basic && (
-        <nldd-container layout="row">
-          <Button text={known ? 'Wijzig de looptijd' : 'Vul de looptijd in'} onClick={open} />
-        </nldd-container>
-      )}
-      <FormSheet
-        open={sheet.open}
-        title="Looptijd van de opdracht"
-        submitText="Bewaar"
-        busy={save.isPending}
-        error={problem}
-        onClose={() => setSheet((current) => ({ ...current, open: false }))}
-        onSubmit={() => {
-          if (!start || !end) setProblem('Vul de begin- en einddatum in.');
-          else if (end < start) setProblem('De einddatum ligt voor de begindatum.');
-          else save.mutate();
-        }}
-      >
-        <DateInput label="Begindatum" value={start} onChange={setStart} required />
-        <DateInput label="Einddatum" value={end} onChange={setEnd} required />
-      </FormSheet>
-    </>
+  const action: ActionBarAction[] = assignment.permissions.edit_basic
+    ? [{ text: known ? 'Wijzig de looptijd' : 'Vul de looptijd in', onClick: open }]
+    : [];
+  const sheetElement = (
+    <FormSheet
+      open={sheet.open}
+      title="Looptijd van de opdracht"
+      submitText="Bewaar"
+      busy={save.isPending}
+      error={problem}
+      onClose={() => setSheet((current) => ({ ...current, open: false }))}
+      onSubmit={() => {
+        if (!start || !end) setProblem('Vul de begin- en einddatum in.');
+        else if (end < start) setProblem('De einddatum ligt voor de begindatum.');
+        else save.mutate();
+      }}
+    >
+      <DateInput label="Begindatum" value={start} onChange={setStart} required />
+      <DateInput label="Einddatum" value={end} onChange={setEnd} required />
+    </FormSheet>
   );
+  return { action, sheet: sheetElement, known };
 }
 
 /**
@@ -108,18 +98,22 @@ function OfferedQuoteNote({ assignmentId }: { assignmentId: string }) {
 export function BudgetTab() {
   const assignment = useAssignmentShell();
   if (!assignment) return null;
+  return <Budget assignment={assignment} />;
+}
+
+function Budget({ assignment }: { assignment: AssignmentDetail }) {
+  const period = useAssignmentPeriod({ assignment });
   return (
     <nldd-simple-section>
       <Stack gap="group">
-        <Stack gap="close">
-          <AssignmentPeriod assignment={assignment} />
-        </Stack>
+        {!period.known && <Quiet>De looptijd van de opdracht is nog niet ingevuld.</Quiet>}
         {assignment.permissions.edit_financial && <OfferedQuoteNote assignmentId={assignment.id} />}
         {!assignment.permissions.edit_financial && (
           <ReadOnlyNote assignment={assignment} what="deze begroting" />
         )}
-        <BudgetEditor assignmentId={assignment.id} />
+        <BudgetEditor assignmentId={assignment.id} actions={period.action} />
       </Stack>
+      {period.sheet}
     </nldd-simple-section>
   );
 }

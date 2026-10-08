@@ -133,12 +133,16 @@ describe('QuoteDraftPage', () => {
     expect(
       container.querySelector('nldd-button[appearance="primary"]')?.hasAttribute('disabled'),
     ).toBe(true);
-    const problem = container.querySelector('[data-problems] nldd-list-item');
-    expect(problem?.getAttribute('href')).toContain('onderdeel=inleiding');
-    expect(problem?.querySelector('nldd-text-cell')?.getAttribute('text')).toBe('Inleiding');
-    expect(problem?.querySelector('nldd-text-cell')?.getAttribute('supporting-text')).toBe(
-      'Nog geen tekst.',
-    );
+    // The reason stands above the button, and names where to begin; the row
+    // of that section is the one that offers to write.
+    expect(container.textContent).toContain('Nog één onderdeel te schrijven: Inleiding.');
+    expect(container.querySelector('[data-problems]')).toBeNull();
+    const rowButtons = [...container.querySelectorAll('[data-section] nldd-button')];
+    expect(rowButtons.map((el) => el.getAttribute('appearance'))).toEqual([
+      'secondary',
+      'neutral-transparent',
+      'neutral-transparent',
+    ]);
     expect(
       [...container.querySelectorAll('nldd-link')]
         .find((el) => el.getAttribute('text') === 'Bekijk voorbeeld (pdf)')

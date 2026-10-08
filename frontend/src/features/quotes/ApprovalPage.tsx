@@ -122,11 +122,7 @@ export function ApprovalPage() {
         {quote && approval ? (
           <>
             {back.evidenceId ? (
-              <DecisionReceipt
-                scope="proof"
-                evidenceId={back.evidenceId}
-                pdfHref={approverDocumentUrl(quote.quote_id)}
-              />
+              <DecisionReceipt scope="proof" evidenceId={back.evidenceId} />
             ) : null}
             {back.errorCode && waiting ? (
               <DecisionFailed

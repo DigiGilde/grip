@@ -39,40 +39,39 @@ export function ApprovalListPage() {
         <div ref={ref}>
           <nldd-table
             accessible-label="Offertes die op mijn goedkeuring wachten"
-            columns="minmax(220px,2fr) minmax(160px,1.5fr) minmax(110px,max-content) minmax(200px,1.5fr) max-content"
+            columns="minmax(220px,2fr) minmax(160px,1.5fr) minmax(200px,1.5fr) minmax(110px,max-content)"
           >
             <nldd-table-row slot="header">
               <nldd-text-cell text="Offerte" />
               <nldd-text-cell text="Opdrachtgever" />
-              <nldd-text-cell text="Bedrag" horizontal-alignment="right" />
               <nldd-text-cell text="Gevraagd" />
-              <nldd-text-cell text="Actie" />
+              <nldd-text-cell text="Bedrag" horizontal-alignment="right" />
             </nldd-table-row>
             {items.map((item) => (
               <nldd-table-row key={item.quote_id}>
-                <nldd-text-cell
-                  text={item.assignment_name}
-                  supporting-text={item.quote_reference ?? ''}
-                />
+                <nldd-cell>
+                  <nldd-container gap="4">
+                    <nldd-link
+                      href={approvalPath(item.quote_id)}
+                      text={item.assignment_name}
+                      accessible-label={`${item.may_decide === false ? 'Bekijk' : 'Beoordeel'} offerte ${
+                        item.quote_reference ?? ''
+                      } voor ${item.assignment_name}`}
+                    />
+                    <nldd-text size="sm" color="secondary">
+                      {item.quote_reference ?? ''}
+                    </nldd-text>
+                  </nldd-container>
+                </nldd-cell>
                 <nldd-text-cell text={item.client_name ?? ''} />
-                <nldd-text-cell
-                  text={item.total_cents !== undefined ? formatEuro(item.total_cents) : ''}
-                  horizontal-alignment="right"
-                />
                 <nldd-text-cell
                   text={formatDateTime(item.requested_at)}
                   supporting-text={item.requested_by_name ? `door ${item.requested_by_name}` : ''}
                 />
-                <nldd-cell>
-                  <nldd-link
-                    href={approvalPath(item.quote_id)}
-                    text={item.may_decide === false ? 'Bekijk' : 'Beoordeel'}
-                    size="md"
-                    accessible-label={`${item.may_decide === false ? 'Bekijk' : 'Beoordeel'} offerte ${
-                      item.quote_reference ?? ''
-                    } voor ${item.assignment_name}`}
-                  />
-                </nldd-cell>
+                <nldd-text-cell
+                  text={item.total_cents !== undefined ? formatEuro(item.total_cents) : ''}
+                  horizontal-alignment="right"
+                />
               </nldd-table-row>
             ))}
           </nldd-table>

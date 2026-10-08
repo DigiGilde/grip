@@ -21,14 +21,17 @@ import { Button, TextInput } from '@/features/vacancies/ui';
 import { TASK_KEYS, addTaskNote, fetchTask, setTaskStatus, type Task } from './api';
 import { useTaskActions } from './actions';
 import { aboutLine, aboutLinks, finishesHere, goesToWork, headlineOf, workHref } from './telling';
+import { useTellApart } from './tellApart';
 
 if (import.meta.env.MODE !== 'test') void import('./register');
 
 /** The quiet line under the name of a task in a list. */
-function detailLine(task: Task, withCase: boolean): string | undefined {
+function detailLine(task: Task, withCase: boolean, apart?: string): string | undefined {
   const parts = [
     task.needs_me !== true && task.waits_on ? `Wacht op ${task.waits_on}` : null,
     withCase ? aboutLine(task) : null,
+    // Only when another task in the list reads the same: where its vacancy stands.
+    withCase ? apart : null,
   ].filter(Boolean);
   return parts.length > 0 ? parts.join(' · ') : undefined;
 }
@@ -50,13 +53,16 @@ interface TaskTableProps {
 export function TaskTable({ label, tasks, withCase = true, onOpen }: TaskTableProps) {
   const navigate = useNavigate();
   const actionsOf = useTaskActions(onOpen);
-  const columns = `minmax(280px,1fr) 180px ${ROW_ACTIONS_COLUMN}`;
-  const narrow = `minmax(180px,1fr) 110px ${ROW_ACTIONS_COLUMN}`;
+  const apartOf = useTellApart(tasks);
+  // A list in which nothing has a date has no column for it.
+  const withDue = tasks.some((task) => task.due_on);
+  const columns = `minmax(280px,1fr) ${withDue ? '180px ' : ''}${ROW_ACTIONS_COLUMN}`;
+  const narrow = `minmax(180px,1fr) ${withDue ? '110px ' : ''}${ROW_ACTIONS_COLUMN}`;
   return (
     <nldd-table accessible-label={label} columns={columns} sm-columns={narrow}>
       <nldd-table-row slot="header">
         <nldd-text-cell text="Taak" />
-        <nldd-text-cell text="Vóór" />
+        {withDue && <nldd-text-cell text="Vóór" />}
         <nldd-cell />
       </nldd-table-row>
       {tasks.map((task) => {
@@ -67,14 +73,16 @@ export function TaskTable({ label, tasks, withCase = true, onOpen }: TaskTablePr
           <OpenRow key={task.id} onOpen={activate}>
             <OpenCell
               text={name}
-              supportingText={detailLine(task, withCase)}
+              supportingText={detailLine(task, withCase, apartOf(task))}
               accessibleLabel={goesToWork(task) ? `${name}: ga naar het werk` : `Bekijk ${name}`}
               onOpen={activate}
             />
-            <nldd-text-cell
-              text={formatDate(task.due_on)}
-              {...(task.overdue ? { color: 'critical', 'supporting-text': 'Te laat' } : {})}
-            />
+            {withDue && (
+              <nldd-text-cell
+                text={formatDate(task.due_on)}
+                {...(task.overdue ? { color: 'critical', 'supporting-text': 'Te laat' } : {})}
+              />
+            )}
             <RowActions name={name} actions={actionsOf(task)} />
           </OpenRow>
         );

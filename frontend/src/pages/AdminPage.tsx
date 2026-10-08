@@ -3,58 +3,87 @@ import { useAuth } from '@/auth/context';
 import { useInstance } from '@/layout/useInstance';
 import { useRouterLinks } from '@/layout/useRouterLinks';
 import { PATHS } from '@/paths';
-import { EmptyNotice, Page } from '@/ui/layout';
+import { IconCell } from '@/ui/Icon';
+import { EmptyNotice, Page, Section, Stack } from '@/ui/layout';
 
-const SECTIONS: { path: string; title: string; text: string }[] = [
+interface Entry {
+  path: string;
+  title: string;
+  /** What it is, in a few words. */
+  text: string;
+}
+
+/**
+ * Grouped by what a beheerder comes to do. A new page under Beheer is one
+ * entry in the group it belongs to.
+ */
+const GROUPS: { title: string; entries: Entry[] }[] = [
   {
-    path: PATHS.rates,
-    title: 'Tarieven',
-    text: 'De tarievenkaart per jaar: het maandtarief per categorie en in welke categorie een schaal declareert.',
+    title: 'Mensen en rollen',
+    entries: [
+      {
+        path: PATHS.wiesProposals,
+        title: 'Voorstellen uit Wies',
+        text: 'Collega’s die erbij moeten of eraf kunnen',
+      },
+      { path: PATHS.roles, title: 'Rollen', text: 'De rollen voor een begrotingsregel' },
+      {
+        path: PATHS.functionFramework,
+        title: 'Functiegebouw Rijk',
+        text: 'Functiegroepen met hun schalen',
+      },
+    ],
   },
   {
-    path: PATHS.quoteSettings,
-    title: 'Offertes',
-    text: 'Het voorvoegsel van het kenmerk, en of een offerte intern wordt goedgekeurd voor ze naar de opdrachtgever gaat.',
+    title: 'Geld',
+    entries: [{ path: PATHS.rates, title: 'Tarieven', text: 'Tarievenkaarten en schalen' }],
   },
   {
-    path: PATHS.quoteSender,
-    title: 'Afzender en teksten van offertes',
-    text: 'De organisatie zoals ze op een offerte staat, de contactpersoon en de ondertekenaar, en de onderdelen en standaardteksten van een offerte.',
+    title: 'Documenten en teksten',
+    entries: [
+      {
+        path: PATHS.quoteSender,
+        title: 'Afzender en teksten van offertes',
+        text: 'Wie de offerte stuurt en wat er standaard in staat',
+      },
+      { path: PATHS.quoteSettings, title: 'Offertes', text: 'Kenmerk, goedkeuring en mail' },
+      {
+        path: PATHS.vacancySetup,
+        title: 'Aanvraagformulier en taalmodel',
+        text: 'Het formulier voor een vacature en het model voor concepten',
+      },
+      {
+        path: PATHS.vacancyStandardTexts,
+        title: 'Standaardteksten voor vacatures',
+        text: 'De tekst per rol en de gedeelde onderdelen',
+      },
+    ],
   },
   {
-    path: PATHS.peers,
-    title: 'Koppelingen',
-    text: 'Opdrachtgevers, opdrachtnemers en corpora waarmee jullie grip berichten uitwisselt.',
+    title: 'Verbindingen',
+    entries: [
+      {
+        path: PATHS.peers,
+        title: 'Koppelingen',
+        text: 'Instanties en corpora waarmee grip berichten uitwisselt',
+      },
+      {
+        path: PATHS.organisations,
+        title: 'Organisaties',
+        text: 'Het overheidsregister en wat zelf is toegevoegd',
+      },
+      {
+        path: PATHS.client,
+        title: 'Aanvragen als opdrachtgever',
+        text: 'Offertes aanvragen en ontvangen offertes',
+      },
+    ],
   },
   {
-    path: PATHS.organisations,
-    title: 'Organisaties',
-    text: 'De lijst waaruit je een opdrachtgever of opdrachtnemer kiest: ophalen uit het overheidsregister en wat zelf is toegevoegd.',
-  },
-  {
-    path: PATHS.roles,
-    title: 'Rollen',
-    text: 'De vaste lijst met rollen voor een begrotingsregel: ophalen uit Wies, hernoemen, samenvoegen en wat nog beoordeeld moet worden.',
-  },
-  {
-    path: PATHS.vacancySetup,
-    title: 'Vacatureformulier en taalmodel',
-    text: 'Het lege aanvraagformulier vacature, de koppeling van de velden en de instelling van het taalmodel.',
-  },
-  {
-    path: PATHS.functionFramework,
-    title: 'Functiegebouw Rijk',
-    text: 'De functiegroepen met hun schalen, waaruit je kiest bij een vacature.',
-  },
-  {
-    path: PATHS.wiesProposals,
-    title: 'Voorstellen uit Wies',
-    text: 'Collega’s die volgens Wies erbij moeten of eraf kunnen, ter bevestiging.',
-  },
-  {
-    path: PATHS.activity,
-    title: 'Activiteit',
-    text: 'Wat er in jullie grip is gebeurd: wie wat heeft gewijzigd of ingezien, en wanneer.',
+    title: 'Toezicht',
+    entries: [
+      { path: PATHS.activity, title: 'Activiteit', text: 'Wie wat heeft gewijzigd of ingezien' },
+    ],
   },
 ];
 
@@ -67,17 +96,23 @@ export function AdminPage() {
   const isAdmin = state.status === 'authenticated' && state.functions.includes('beheerder');
 
   return (
-    <Page title="Beheer" instanceName={instance?.name}>
+    <Page title="Beheer" instanceName={instance?.name} spacing="sections">
       {isAdmin ? (
         <div ref={ref}>
-          <nldd-list accessible-label="Onderdelen van beheer" appearance="box-base">
-            {SECTIONS.map((section) => (
-              <nldd-list-item key={section.path} href={section.path}>
-                <nldd-text-cell text={section.title} supporting-text={section.text} />
-                <nldd-icon-cell size="20" color="secondary" icon="chevron-right" />
-              </nldd-list-item>
+          <Stack gap="section">
+            {GROUPS.map((group) => (
+              <Section key={group.title} title={group.title}>
+                <nldd-list accessible-label={group.title} appearance="box-base">
+                  {group.entries.map((entry) => (
+                    <nldd-list-item key={entry.path} href={entry.path}>
+                      <nldd-text-cell text={entry.title} supporting-text={entry.text} />
+                      <IconCell concept="open" />
+                    </nldd-list-item>
+                  ))}
+                </nldd-list>
+              </Section>
             ))}
-          </nldd-list>
+          </Stack>
         </div>
       ) : (
         <EmptyNotice

@@ -2,10 +2,17 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { assignmentKeys, fetchPersonOptions } from '@/features/assignments/api';
 import { formatDate } from '@/lib/format';
-import { recordDecision, type Decision, type DecisionInput, type DecisionKind, type Vacancy } from './api';
+import {
+  recordDecision,
+  type Decision,
+  type DecisionInput,
+  type DecisionKind,
+  type Vacancy,
+} from './api';
 import { todayIso, useVacancyChange } from './hooks';
 import { Button, DateInput, Note, SelectInput, TextInput } from './ui';
 import { FormSheet, Stack } from '@/ui/layout';
+import { OpenCell, OpenRow, ROW_ACTIONS_COLUMN, RowActions } from '@/ui/RowActions';
 
 const KINDS: { kind: DecisionKind; label: string; who: string }[] = [
   { kind: 'hr_advice', label: 'Advies HR', who: 'HR-adviseur' },
@@ -69,9 +76,7 @@ function DecisionSheet({
   const [name, setName] = useState(existing?.person_name ?? '');
   // Someone already named without an account stays free text; a new name
   // starts at the picker.
-  const [personId, setPersonId] = useState(
-    existing && !existing.has_account ? NO_ACCOUNT : '',
-  );
+  const [personId, setPersonId] = useState(existing && !existing.has_account ? NO_ACCOUNT : '');
   const people = useQuery({
     queryKey: assignmentKeys.personOptions,
     queryFn: fetchPersonOptions,
@@ -99,7 +104,9 @@ function DecisionSheet({
     const picked = !namesFixed && !freeText && personId !== '';
     if (!picked && !name.trim()) {
       return setProblem(
-        freeText ? 'Vul in wie adviseert of akkoord geeft.' : 'Kies wie adviseert of akkoord geeft.',
+        freeText
+          ? 'Vul in wie adviseert of akkoord geeft.'
+          : 'Kies wie adviseert of akkoord geeft.',
       );
     }
     if (state.deciding && !verdict) return setProblem('Kies akkoord of niet akkoord.');
@@ -187,53 +194,66 @@ export function DecisionsSection({ vacancy }: { vacancy: Vacancy }) {
     return canRecord(vacancy, kind) && decision?.agreed !== true && decision?.agreed !== false;
   })?.kind;
 
+  const first = KINDS.find((entry) => entry.kind === firstToRecord);
+
   return (
     <Stack gap="group">
+      {waiting && first && (
+        <nldd-button-group>
+          <Button
+            text={`Leg ${first.label.charAt(0).toLowerCase()}${first.label.slice(1)} vast`}
+            appearance="primary"
+            onClick={() => show(first.kind, true)}
+          />
+        </nldd-button-group>
+      )}
       <nldd-table
         accessible-label="Advies en akkoord"
-        columns="minmax(180px,1fr) 150px minmax(200px,1.5fr) 240px"
-        sm-columns="minmax(140px,1fr) minmax(140px,1fr)"
+        columns={`minmax(180px,1fr) 200px minmax(200px,1.5fr) ${ROW_ACTIONS_COLUMN}`}
+        sm-columns={`minmax(140px,1fr) minmax(120px,1fr) ${ROW_ACTIONS_COLUMN}`}
       >
         <nldd-table-row slot="header">
           <nldd-text-cell text="Onderdeel" />
           <nldd-text-cell text="Besluit" />
           <nldd-text-cell text="Door" hide-below="md" />
-          <nldd-text-cell text="" hide-below="md" />
+          <nldd-cell />
         </nldd-table-row>
         {KINDS.map(({ kind, label, who }) => {
           const decision = vacancy.decisions.find((entry) => entry.kind === kind);
           const decided = decision?.agreed === true || decision?.agreed === false;
           const records = requested && canRecord(vacancy, kind);
-          const names = requested && !records && vacancy.permissions.can_edit && !decided;
+          const names = requested && vacancy.permissions.can_edit && !decided;
+          const onOpen = records
+            ? () => show(kind, true)
+            : names
+              ? () => show(kind, false)
+              : undefined;
+          const verb = records ? (decided ? 'Wijzig' : 'Leg vast') : decision ? 'Wijzig' : 'Noem';
           return (
-            <nldd-table-row key={kind}>
-              <nldd-text-cell text={label} />
-              <nldd-text-cell
-                text={outcome(decision)}
-                color={decided ? 'content' : 'secondary'}
+            <OpenRow key={kind} onOpen={onOpen}>
+              <OpenCell
+                text={label}
+                onOpen={onOpen}
+                accessibleLabel={
+                  records ? `${verb}: ${label.toLowerCase()}` : `${verb} ${who.toLowerCase()}`
+                }
               />
+              <nldd-text-cell text={outcome(decision)} color={decided ? 'content' : 'secondary'} />
               <nldd-text-cell hide-below="md" text={supporting(decision) ?? ''} />
-              <nldd-cell hide-below="md">
-                {records && (
-                  <Button
-                    text={decided ? 'Wijzig' : 'Leg vast'}
-                    size="sm"
-                    appearance={waiting && kind === firstToRecord ? 'primary' : 'secondary'}
-                    accessibleLabel={`${decided ? 'Wijzig' : 'Leg vast'}: ${label.toLowerCase()}`}
-                    onClick={() => show(kind, true)}
-                  />
-                )}
-                {names && (
-                  <Button
-                    text={decision ? 'Wijzig naam' : 'Noem iemand'}
-                    size="sm"
-                    appearance="neutral-transparent"
-                    accessibleLabel={`${decision ? 'Wijzig' : 'Noem'} ${who.toLowerCase()}`}
-                    onClick={() => show(kind, false)}
-                  />
-                )}
-              </nldd-cell>
-            </nldd-table-row>
+              <RowActions
+                name={label}
+                actions={
+                  records && names
+                    ? [
+                        {
+                          text: decision ? `Wijzig wie het geeft` : `Noem wie het geeft`,
+                          onSelect: () => show(kind, false),
+                        },
+                      ]
+                    : []
+                }
+              />
+            </OpenRow>
           );
         })}
       </nldd-table>

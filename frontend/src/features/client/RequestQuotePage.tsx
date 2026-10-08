@@ -75,11 +75,6 @@ export function RequestQuotePage() {
         ) : null}
         {options.data?.may_request ? (
           <nldd-container gap="16">
-            <nldd-text>
-              Je vraagt een opdrachtnemer om een offerte. De opdrachtnemer ontvangt de aanvraag
-              in zijn eigen instantie en stuurt een offerte terug, die een tekenbevoegde van deze
-              organisatie kan accepteren.
-            </nldd-text>
             {options.data.problem ? (
               <nldd-banner variant="warning" size="sm" text={options.data.problem} />
             ) : null}

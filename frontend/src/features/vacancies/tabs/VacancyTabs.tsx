@@ -5,6 +5,7 @@ import { assignmentTabPath } from '@/features/assignments/paths';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { formatDate, formatFte, formatPercent } from '@/lib/format';
 import { PATHS } from '@/paths';
+import { ExternalLink, IconCell } from '@/ui/Icon';
 import { ErrorNotice, Facts, Loading, Quiet, Section, Stack, type Fact } from '@/ui/layout';
 import { errorMessage } from '@/api/client';
 import { DEFAULT_RECRUITMENT_SYSTEM, fetchVacancyHire, hireKey } from '../api';
@@ -19,7 +20,7 @@ import { budgetLineWarning } from '../labels';
 import { personPath } from '../paths';
 import { ProcedureSection } from '../ProcedureSection';
 import { useVacancyShell } from '../shell';
-import { requestItems, type RequestItem } from '../steps';
+import { requestItems, vacancySteps, type RequestItem } from '../steps';
 import { RequestFormSection } from '../RequestFormSection';
 import { TextWork } from '../TextWork';
 import { Button } from '../ui';
@@ -41,15 +42,11 @@ function RequestRow({ item, onOpen }: { item: RequestItem; onOpen?: () => void }
         ? { 'accessible-label': `${item.label}: ${state}. ${done ? 'Wijzig' : 'Vul in'}` }
         : {})}
     >
-      <nldd-icon-cell
-        size="20"
-        icon={done ? 'check-circle-filled' : 'circle'}
-        color={done ? 'success' : 'secondary'}
-      />
+      <IconCell concept={done ? 'done' : 'todo'} color={done ? 'success' : 'secondary'} />
       <nldd-spacer-cell size="8" />
       <nldd-text-cell width="220px" color="secondary" text={item.label} />
       <nldd-text-cell text={state} color={done ? 'content' : 'secondary'} />
-      {onOpen && <nldd-icon-cell size="20" color="secondary" icon="chevron-right" />}
+      {onOpen && <IconCell concept="open" />}
     </nldd-list-item>
   );
 }
@@ -78,9 +75,8 @@ export function RequestTab() {
                   size="sm"
                   href={`${PATHS.vacancies}/${vacancy.id}/tekst`}
                 >
-                  <nldd-icon-cell
-                    size="20"
-                    icon={item.value ? 'check-circle-filled' : 'circle'}
+                  <IconCell
+                    concept={item.value ? 'done' : 'todo'}
                     color={item.value ? 'success' : 'secondary'}
                   />
                   <nldd-spacer-cell size="8" />
@@ -89,7 +85,7 @@ export function RequestTab() {
                     text={item.value ?? NOT_FILLED}
                     color={item.value ? 'content' : 'secondary'}
                   />
-                  <nldd-icon-cell size="20" color="secondary" icon="chevron-right" />
+                  <IconCell concept="open" />
                 </nldd-list-item>
               ) : (
                 <RequestRow
@@ -177,7 +173,7 @@ export function FulfilmentTab() {
         {
           label: 'Kenmerk',
           value: reference.url ? (
-            <nldd-link href={reference.url} text={reference.reference} target="_blank" />
+            <ExternalLink href={reference.url} text={reference.reference} />
           ) : (
             reference.reference
           ),
@@ -214,8 +210,10 @@ export function FulfilmentTab() {
           : []),
       ]
     : [];
-  // The step bar carries "Vervul" while that is the current step.
-  const fillHere = vacancy.permissions.can_fill && vacancy.status !== 'open' && !hire;
+  // The header carries "Vervul" while that is the step of the vacancy; then
+  // it is not offered a second time here.
+  const fillHere =
+    vacancy.permissions.can_fill && !hire && vacancySteps(vacancy)?.action !== 'fill';
 
   return (
     <nldd-simple-section>
@@ -229,7 +227,7 @@ export function FulfilmentTab() {
                 <Facts label="Verwijzing naar het wervingssysteem" facts={recruitment} />
               </RouterLinks>
             )}
-            <Quiet>Kandidaten staan in het wervingssysteem; grip bewaart ze niet.</Quiet>
+            {!reference && <Quiet>Nog geen verwijzing naar het wervingssysteem</Quiet>}
             <nldd-button-group>
               <Button
                 text={reference ? 'Wijzig verwijzing' : 'Leg verwijzing vast'}

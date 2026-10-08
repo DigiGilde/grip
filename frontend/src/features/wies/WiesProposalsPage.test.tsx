@@ -88,11 +88,11 @@ describe('WiesProposalsPage', () => {
     await waitFor(() => expect(container.querySelector('nldd-checkbox-field')).not.toBeNull());
 
     expect(attrs(container, 'nldd-checkbox-field', 'label')).toEqual([
-      'Toevoegen: Nina Nieuw',
-      'Naam wijzigen: Noor Nieuwenaam',
-      'Deactiveren: Wim Weg',
+      'Nina Nieuw',
+      'Noor Nieuwenaam',
+      'Wim Weg',
     ]);
-    expect(attrs(container, 'nldd-list-item nldd-text-cell', 'text')).toEqual([
+    expect(attrs(container, 'nldd-table-row nldd-text-cell', 'text')).toEqual([
       'nieuw@voorbeeld.example · Digi Gilde · Developer',
       'naam@voorbeeld.example · heet nu Noor Oudenaam',
       'weg@voorbeeld.example',
@@ -117,8 +117,8 @@ describe('WiesProposalsPage', () => {
     const { container } = renderApp(<WiesProposalsPage />);
     await waitFor(() => expect(container.querySelector('nldd-checkbox-field')).not.toBeNull());
 
-    tick(container, 'Toevoegen: Nina Nieuw');
-    tick(container, 'Deactiveren: Wim Weg');
+    tick(container, 'Nina Nieuw');
+    tick(container, 'Wim Weg');
     await waitFor(() =>
       expect(container.querySelector('nldd-button[text="Voer 2 wijzigingen door"]')).not.toBeNull(),
     );

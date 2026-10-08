@@ -35,7 +35,8 @@ RHYTHM_WORDS = {"month": "per maand", "quarter": "per kwartaal"}
 _EXTRA_STYLE = """
   .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12mm;
     margin: 0 0 6mm; }
-  .columns h2 { margin-top: 0; }
+  .columns h2 { margin-top: 5mm; }
+  .columns h2:first-child { margin-top: 0; }
   dl.facts { display: grid; grid-template-columns: 30mm 1fr; gap: 1mm 4mm;
     margin: 0; }
   dl.facts dt { color: #444; }
@@ -46,6 +47,8 @@ _EXTRA_STYLE = """
     grid-template-columns: 1fr auto; align-items: baseline; }
   .amount-due .figure { font-size: 16pt; font-variant-numeric: tabular-nums; }
   tr.month-head th { font-weight: bold; padding-top: 3mm; border-bottom: 0; }
+  /* A month's name stays with its first line. */
+  tr.month-head { break-after: avoid; }
 """
 
 _DETAIL_ROWS = (

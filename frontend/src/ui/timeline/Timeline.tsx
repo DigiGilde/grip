@@ -16,6 +16,7 @@ import {
   type TimelineGroup,
   type TimelineRow,
 } from './layout';
+import { Icon } from '@/ui/Icon';
 import './timeline.css';
 
 if (import.meta.env.MODE !== 'test') void import('@nldd/design-system/link');
@@ -36,7 +37,7 @@ const LEGEND_TEXT: Record<LegendItem, string> = {
   demand: 'Gevraagd: de periode van de rol',
   unavailable: 'Niet inzetbaar',
   over: 'Boven wat kan of gevraagd is',
-  mismatch: '≠ Andere tariefcategorie dan de regel aanneemt',
+  mismatch: 'Ander tarief: een andere tariefcategorie dan de regel aanneemt',
 };
 
 interface TimelineProps<R, B> {
@@ -159,7 +160,8 @@ function Bar<B>({ bar, onActivate, days, roomAfter, roomBefore, columnWidth }: B
       )}
       {!frame && (
         <span ref={labelRef} className="grip-board__bar-label">
-          {bar.mark ? `${bar.mark} ` : ''}
+          {bar.mark === 'attention' ? <Icon concept="attention" /> : null}
+          {bar.mark === 'mismatch' ? 'Ander tarief · ' : bar.mark ? ' ' : ''}
           {bar.label}
         </span>
       )}
@@ -384,6 +386,8 @@ export function Timeline<R, B>({
                             {cell?.established && state !== 'unavailable' && (
                               <span className="grip-board__dot" />
                             )}
+                            {state === 'over' ? <Icon concept="attention" /> : null}
+                            {state === 'over' ? ' ' : ''}
                             {cell?.text ?? ''}
                           </span>
                           {starting.map((bar) => (
@@ -414,7 +418,9 @@ export function Timeline<R, B>({
         {legend.map((item) => (
           <li key={item}>
             {item === 'over' ? (
-              <span className="grip-board__legend-over">!</span>
+              <span className="grip-board__legend-over">
+                <Icon concept="attention" />
+              </span>
             ) : item === 'mismatch' ? null : (
               <span className="grip-board__swatch" data-kind={item} aria-hidden="true" />
             )}

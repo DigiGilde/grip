@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError, errorMessage } from '@/api/client';
 import { formatDate } from '@/lib/format';
+import { RouterLinks } from '@/layout/RouterLinks';
 import { useInstance } from '@/layout/useInstance';
+import { PATHS } from '@/paths';
 import { ActionBar } from '@/ui/ActionBar';
-import { OpenRow, RowActions, type RowAction } from '@/ui/RowActions';
+import { OpenCell, OpenRow, ROW_ACTIONS_COLUMN, RowActions, type RowAction } from '@/ui/RowActions';
 import {
   EmptyNotice,
   ErrorNotice,
@@ -300,169 +302,194 @@ export function StandardTextsPage() {
   const data = library.data;
   const manage = data?.may_manage ?? false;
 
+  const unread = data?.templates.filter(
+    (template) => template.is_active && template.status === 'derived_unread',
+  ).length;
+
   return (
-    <Page title="Standaardteksten voor vacatures" instanceName={instance?.name} spacing="sections">
-      {library.isPending && <Loading />}
-      {denied && (
-        <EmptyNotice
-          text="Dit is voor wie vacatures maakt"
-          supportingText="De standaardteksten zie je als je een vacature kunt aanmaken."
-        />
-      )}
-      {library.isError && !denied && <ErrorNotice message={errorMessage(library.error)} />}
-      {data && (
-        <>
-          {manage && (
-            <ActionBar
-              label="Standaardteksten beheren"
-              actions={[
-                {
-                  text: 'Nieuwe standaardtekst',
-                  onClick: () => open({ kind: 'template', template: null, copyOf: null }),
-                  primary: true,
-                },
-              ]}
-            />
-          )}
-          {(read.error ?? active.error) && (
-            <ErrorNotice message={read.error ?? active.error ?? ''} />
-          )}
-          <Section title="Per rol">
-            <nldd-table
-              accessible-label="Standaardteksten per rol"
-              columns="minmax(200px,2fr) 110px minmax(200px,1.4fr) 56px"
-            >
-              <nldd-table-row slot="header">
-                <nldd-text-cell text="Rol" />
-                <nldd-text-cell text="Schaal" />
-                <nldd-text-cell text="Stand" />
-                <nldd-text-cell text="" />
-              </nldd-table-row>
-              {data.templates.map((template) => {
-                const actions: RowAction[] = [
-                  {
-                    text: 'Bekijk als voorbeeld',
-                    onSelect: () => open({ kind: 'preview', template }),
-                  },
-                ];
-                if (manage) {
-                  if (template.status === 'derived_unread') {
+    <RouterLinks>
+      <Page
+        title="Standaardteksten voor vacatures"
+        instanceName={instance?.name}
+        spacing="sections"
+        back={{ href: PATHS.admin, text: 'Terug naar Beheer' }}
+      >
+        {library.isPending && <Loading />}
+        {denied && <EmptyNotice text="Dit is voor wie vacatures maakt" />}
+        {library.isError && !denied && <ErrorNotice message={errorMessage(library.error)} />}
+        {data && (
+          <>
+            <Stack gap="related">
+              {manage && (
+                <ActionBar
+                  label="Standaardteksten beheren"
+                  actions={[
+                    {
+                      text: 'Nieuwe standaardtekst',
+                      onClick: () => open({ kind: 'template', template: null, copyOf: null }),
+                      primary: true,
+                    },
+                  ]}
+                />
+              )}
+              {(read.error ?? active.error) && (
+                <ErrorNotice message={read.error ?? active.error ?? ''} />
+              )}
+              {manage && unread ? (
+                <nldd-text>
+                  {unread === 1
+                    ? 'Eén tekst is afgeleid en nog niet nagelezen.'
+                    : `${unread} teksten zijn afgeleid en nog niet nagelezen.`}
+                </nldd-text>
+              ) : null}
+            </Stack>
+            <Section title="Per rol">
+              <nldd-table
+                accessible-label="Standaardteksten per rol"
+                columns={`minmax(200px,2fr) 110px minmax(200px,1.4fr) ${ROW_ACTIONS_COLUMN}`}
+                sm-columns={`minmax(160px,1fr) ${ROW_ACTIONS_COLUMN}`}
+              >
+                <nldd-table-row slot="header">
+                  <nldd-text-cell text="Rol" />
+                  <nldd-text-cell text="Schaal" hide-below="md" />
+                  <nldd-text-cell text="Stand" hide-below="md" />
+                  <nldd-cell />
+                </nldd-table-row>
+                {data.templates.map((template) => {
+                  const actions: RowAction[] = [
+                    {
+                      text: 'Bekijk als voorbeeld',
+                      onSelect: () => open({ kind: 'preview', template }),
+                    },
+                  ];
+                  if (manage) {
+                    if (template.status === 'derived_unread') {
+                      actions.push({
+                        text: 'Markeer als nagelezen',
+                        onSelect: () => read.run(template.id),
+                      });
+                    }
                     actions.push({
-                      text: 'Markeer als nagelezen',
-                      onSelect: () => read.run(template.id),
+                      text: 'Kopieer naar een nieuwe rol',
+                      onSelect: () => open({ kind: 'template', template: null, copyOf: template }),
+                    });
+                    actions.push({
+                      text: template.is_active ? 'Schakel uit' : 'Schakel in',
+                      onSelect: () => active.run({ id: template.id, on: !template.is_active }),
                     });
                   }
-                  actions.push({
-                    text: 'Kopieer naar een nieuwe rol',
-                    onSelect: () => open({ kind: 'template', template: null, copyOf: template }),
-                  });
-                  actions.push({
-                    text: template.is_active ? 'Schakel uit' : 'Schakel in',
-                    onSelect: () => active.run({ id: template.id, on: !template.is_active }),
-                  });
-                }
-                return (
+                  const onOpen = () =>
+                    open(
+                      manage
+                        ? { kind: 'template', template, copyOf: null }
+                        : { kind: 'preview', template },
+                    );
+                  const changed = template.changed_at
+                    ? `${template.changed_by_name ?? 'Gewijzigd'} op ${formatDate(template.changed_at)}`
+                    : '';
+                  return (
+                    <OpenRow key={template.id} onOpen={onOpen}>
+                      <OpenCell
+                        text={template.role_name}
+                        {...(template.aliases.length > 0
+                          ? { supportingText: `Ook: ${template.aliases.join(', ')}` }
+                          : {})}
+                        accessibleLabel={`${manage ? 'Wijzig' : 'Bekijk'} de standaardtekst voor ${template.role_name}`}
+                        onOpen={onOpen}
+                      />
+                      <nldd-text-cell text={scales(template)} hide-below="md" />
+                      {/* Only what asks something gets a label; a text taken from
+                        the examples as it was says nothing here. */}
+                      <nldd-cell hide-below="md">
+                        {!template.is_active ? (
+                          <nldd-tag color="neutral" text="Uitgeschakeld" />
+                        ) : template.status === 'derived_unread' ? (
+                          <nldd-tag color="warning" text="Nog nalezen" />
+                        ) : (
+                          <nldd-text color="secondary" size="sm">
+                            {changed}
+                          </nldd-text>
+                        )}
+                      </nldd-cell>
+                      <RowActions name={template.role_name} actions={actions} />
+                    </OpenRow>
+                  );
+                })}
+                <nldd-inline-dialog slot="empty" text="Nog geen standaardteksten" />
+              </nldd-table>
+            </Section>
+            <Section title="Gedeelde onderdelen">
+              <nldd-table
+                accessible-label="Onderdelen die in elke standaardtekst staan"
+                columns="minmax(200px,2fr) minmax(200px,1.4fr)"
+              >
+                <nldd-table-row slot="header">
+                  <nldd-text-cell text="Onderdeel" />
+                  <nldd-text-cell text="Gebruikt in" />
+                </nldd-table-row>
+                {data.shared_sections.map((section) => (
                   <OpenRow
-                    key={template.id}
-                    onOpen={() =>
-                      open(
-                        manage
-                          ? { kind: 'template', template, copyOf: null }
-                          : { kind: 'preview', template },
-                      )
-                    }
+                    key={section.key}
+                    onOpen={manage ? () => open({ kind: 'shared', section }) : undefined}
                   >
-                    <nldd-text-cell
-                      text={template.role_name}
-                      {...(template.aliases.length > 0
-                        ? { 'supporting-text': `Ook: ${template.aliases.join(', ')}` }
-                        : {})}
-                    />
-                    <nldd-text-cell text={scales(template)} />
-                    <nldd-text-cell
-                      text={template.is_active ? template.status_text : 'Uitgeschakeld'}
-                      {...(template.changed_at
+                    <OpenCell
+                      text={section.heading}
+                      {...(section.changed_at
                         ? {
-                            'supporting-text': `${template.changed_by_name ?? 'Gewijzigd'} op ${formatDate(template.changed_at)}`,
+                            supportingText: `${section.changed_by_name ?? 'Gewijzigd'} op ${formatDate(section.changed_at)}`,
+                          }
+                        : {})}
+                      {...(manage
+                        ? {
+                            accessibleLabel: `Wijzig het gedeelde onderdeel ${section.heading}`,
+                            onOpen: () => open({ kind: 'shared', section }),
                           }
                         : {})}
                     />
-                    <RowActions name={template.role_name} actions={actions} />
+                    <nldd-text-cell
+                      text={`${section.used_by.length} ${section.used_by.length === 1 ? 'rol' : 'rollen'}`}
+                    />
                   </OpenRow>
-                );
-              })}
-              <nldd-inline-dialog
-                slot="empty"
-                text="Nog geen standaardteksten"
-                supporting-text="Voeg een tekst toe voor een rol die jullie vervullen."
+                ))}
+              </nldd-table>
+            </Section>
+            <Section title="Wat de teksten invullen">
+              <Facts
+                label="Gegevens die een standaardtekst invult"
+                facts={[
+                  { label: 'Naam van het onderdeel', value: data.settings.unit_name },
+                  { label: 'Standplaats', value: data.settings.location },
+                  { label: 'Website', value: data.settings.website },
+                  { label: 'Bij wie een sollicitant terecht kan', value: data.settings.contact },
+                ]}
               />
-            </nldd-table>
-          </Section>
-          <Section title="Gedeelde onderdelen">
-            <nldd-table
-              accessible-label="Onderdelen die in elke standaardtekst staan"
-              columns="minmax(200px,2fr) minmax(200px,1.4fr)"
-            >
-              <nldd-table-row slot="header">
-                <nldd-text-cell text="Onderdeel" />
-                <nldd-text-cell text="Gebruikt in" />
-              </nldd-table-row>
-              {data.shared_sections.map((section) => (
-                <OpenRow
-                  key={section.key}
-                  onOpen={manage ? () => open({ kind: 'shared', section }) : undefined}
-                >
-                  <nldd-text-cell
-                    text={section.heading}
-                    {...(section.changed_at
-                      ? {
-                          'supporting-text': `${section.changed_by_name ?? 'Gewijzigd'} op ${formatDate(section.changed_at)}`,
-                        }
-                      : {})}
-                  />
-                  <nldd-text-cell
-                    text={`${section.used_by.length} ${section.used_by.length === 1 ? 'rol' : 'rollen'}`}
-                  />
-                </OpenRow>
-              ))}
-            </nldd-table>
-          </Section>
-          <Section title="Wat de teksten invullen">
-            <Facts
-              label="Gegevens die een standaardtekst invult"
-              facts={[
-                { label: 'Naam van het onderdeel', value: data.settings.unit_name },
-                { label: 'Standplaats', value: data.settings.location },
-                { label: 'Website', value: data.settings.website },
-                { label: 'Bij wie een sollicitant terecht kan', value: data.settings.contact },
-              ]}
-            />
-            {manage && (
-              <nldd-button-group>
-                <Button text="Wijzig" onClick={() => open({ kind: 'settings' })} />
-              </nldd-button-group>
+              {manage && (
+                <nldd-button-group>
+                  <Button text="Wijzig" onClick={() => open({ kind: 'settings' })} />
+                </nldd-button-group>
+              )}
+            </Section>
+            {sheet?.kind === 'template' && (
+              <TemplateSheet
+                key={opened}
+                library={data}
+                template={sheet.template}
+                copyOf={sheet.copyOf}
+                onClose={close}
+              />
             )}
-          </Section>
-          {sheet?.kind === 'template' && (
-            <TemplateSheet
-              key={opened}
-              library={data}
-              template={sheet.template}
-              copyOf={sheet.copyOf}
-              onClose={close}
-            />
-          )}
-          {sheet?.kind === 'shared' && (
-            <SharedSheet key={opened} section={sheet.section} onClose={close} />
-          )}
-          {sheet?.kind === 'settings' && (
-            <SettingsSheet key={opened} settings={data.settings} onClose={close} />
-          )}
-          {sheet?.kind === 'preview' && (
-            <PreviewSheet key={opened} template={sheet.template} onClose={close} />
-          )}
-        </>
-      )}
-    </Page>
+            {sheet?.kind === 'shared' && (
+              <SharedSheet key={opened} section={sheet.section} onClose={close} />
+            )}
+            {sheet?.kind === 'settings' && (
+              <SettingsSheet key={opened} settings={data.settings} onClose={close} />
+            )}
+            {sheet?.kind === 'preview' && (
+              <PreviewSheet key={opened} template={sheet.template} onClose={close} />
+            )}
+          </>
+        )}
+      </Page>
+    </RouterLinks>
   );
 }

@@ -30,13 +30,7 @@ const SOURCES: Record<string, string> = Object.fromEntries(
 const SCALE = new Set(['0', '4', '8', '16', '20', '24', '32', '48']);
 
 /** Containers with a gap off the scale, per file. Owned by other work in progress. */
-const GAP_EXCEPTIONS: Record<string, number> = {
-  'features/assignments/BudgetEditor.tsx': 2,
-  'features/assignments/PeriodChoice.tsx': 1,
-  'features/assignments/tabs/FinanceTab.tsx': 1,
-  'features/assignments/tabs/OverviewTab.tsx': 5,
-  'features/vacancies/VacanciesPage.tsx': 1,
-};
+const GAP_EXCEPTIONS: Record<string, number> = {};
 
 /**
  * Spacing in pixels (or rem) per file. A drawn figure (a chart, a timeline, a

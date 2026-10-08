@@ -6,9 +6,7 @@ import { AdminPage } from '@/pages/AdminPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { NoAccessPage } from '@/pages/NoAccessPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
-import { PlaceholderPage } from '@/pages/PlaceholderPage';
 import { PATHS } from '@/paths';
-import { APP_ROUTES } from '@/routes';
 import { AllocationsPage } from '@/features/allocations/AllocationsPage';
 import { AssignmentLayout } from '@/features/assignments/AssignmentLayout';
 import { ASSIGNMENT_TAB_SEGMENTS } from '@/features/assignments/paths';
@@ -44,6 +42,7 @@ import { RolesAdminPage } from '@/features/roles/RolesAdminPage';
 import { PeersPage } from '@/features/peers/PeersPage';
 import { RatesPage } from '@/features/rates/RatesPage';
 import { ActivityPage, AssignmentHistoryTab, VacancyHistoryTab } from '@/features/history/History';
+import { UpdatesPage } from '@/features/history/UpdateFeed';
 import { AssignmentTasksTab, VacancyTasksTab } from '@/features/tasks/CaseTasks';
 import { TasksPage } from '@/features/tasks/TasksPage';
 import { AssignmentReportPage } from '@/features/reports/AssignmentReportPage';
@@ -70,8 +69,9 @@ import { VacancyLayout } from '@/features/vacancies/VacancyLayout';
 import type { ReactElement } from 'react';
 
 /**
- * The screen behind each path of the navigation. A path without an entry
- * shows the placeholder. Add your screen here; leave the others alone.
+ * The screen behind each page of the first level. A page has its address
+ * whether or not the navigation names it: the bar decides what it offers,
+ * never what exists.
  */
 const SCREENS: Record<string, ReactElement> = {
   [PATHS.statusOverview]: <OverviewPage />,
@@ -114,12 +114,8 @@ export function AppRoutes() {
           </RequireAuth>
         }
       >
-        {APP_ROUTES.map((route) => (
-          <Route
-            key={route.path}
-            path={route.path}
-            element={SCREENS[route.path] ?? <PlaceholderPage title={route.title} />}
-          />
+        {Object.entries(SCREENS).map(([path, element]) => (
+          <Route key={path} path={path} element={element} />
         ))}
         {/* One assignment: a shared header and tabs around one page per concern. */}
         <Route path={PATHS.assignmentDetail} element={<AssignmentLayout />}>
@@ -133,6 +129,7 @@ export function AppRoutes() {
           <Route path={ASSIGNMENT_TAB_SEGMENTS.history} element={<AssignmentHistoryTab />} />
         </Route>
         <Route path={PATHS.activity} element={<ActivityPage />} />
+        <Route path={PATHS.updates} element={<UpdatesPage />} />
         <Route path={PATHS.vacancyOpenRoles} element={<OpenRolesPage />} />
         <Route path={PATHS.vacancySetup} element={<VacancySetupPage />} />
         <Route path={PATHS.vacancyStandardTexts} element={<StandardTextsPage />} />

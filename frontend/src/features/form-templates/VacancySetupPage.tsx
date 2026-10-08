@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { ModelStatusSection } from '@/features/vacancies/ModelStatusSection';
+import { fetchModelStatus, testModel } from '@/features/vacancies/textWorkApi';
+import { RouterLinks } from '@/layout/RouterLinks';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { ApiError, errorMessage } from '@/api/client';
@@ -19,11 +20,14 @@ import {
 import {
   EmptyNotice,
   ErrorNotice,
+  Facts,
   FormSheet,
   Loading,
   Page,
+  Quiet,
   Section,
   SectionHeading,
+  type Fact,
 } from '@/ui/layout';
 import {
   SETUP_KEYS,
@@ -279,11 +283,7 @@ function Templates() {
               </nldd-cell>
             </OpenRow>
           ))}
-          <nldd-inline-dialog
-            slot="empty"
-            text="Nog geen formulier"
-            supporting-text="Lever het lege aanvraagformulier van je organisatie aan om het per vacature te laten invullen."
-          />
+          <nldd-inline-dialog slot="empty" text="Nog geen formulier" />
         </nldd-table>
       )}
       {templates.data && !inUse ? (
@@ -306,62 +306,53 @@ function Templates() {
   );
 }
 
+/**
+ * The language model in one place: which one drafts texts here, whether it
+ * answers, and what the organisation has set for it.
+ */
 function LanguageModelSection() {
-  const [checked, setChecked] = useState(false);
   const model = useQuery({
-    queryKey: [...SETUP_KEYS.model, checked],
-    queryFn: () => fetchLanguageModel(checked),
+    queryKey: [...SETUP_KEYS.model, false],
+    queryFn: () => fetchLanguageModel(false),
   });
+  const status = useQuery({ queryKey: ['vacancy-texts', 'model'], queryFn: fetchModelStatus });
+  const test = useMutation({ mutationFn: testModel });
+  const data = model.data;
+  const facts: Fact[] = data
+    ? [
+        ...(data.model_id ? [{ label: 'Model', value: data.model_id }] : []),
+        {
+          label: 'Omschrijving van de organisatie',
+          value: data.organisation_description_set ? 'Ingesteld' : 'Niet ingesteld',
+        },
+      ]
+    : [];
+  // What is missing matters only while no model answers here.
+  const missing = !status.data?.available ? (data?.missing_settings ?? []) : [];
 
   return (
-    <Section
-      title="Taalmodel"
-      description="Stelt concepten op van vacatureteksten. Adres, sleutel en model horen bij de omgeving en zijn hier niet te wijzigen."
-    >
+    <Section title="Taalmodel">
       {model.isPending && <Loading />}
       {model.isError && <ErrorNotice message={errorMessage(model.error)} />}
-      {model.data && (
-        <>
-          <nldd-list appearance="box-base" accessible-label="Instellingen van het taalmodel">
-            <nldd-list-item>
-              <nldd-text-cell
-                overline="Status"
-                text={model.data.configured ? 'Ingesteld' : 'Niet ingesteld'}
-                {...(model.data.missing_settings.length > 0
-                  ? {
-                      'supporting-text': `Ontbreekt: ${model.data.missing_settings.join(', ')}`,
-                    }
-                  : {})}
-              />
-            </nldd-list-item>
-            {model.data.model_id && (
-              <nldd-list-item>
-                <nldd-text-cell overline="Model" text={model.data.model_id} />
-              </nldd-list-item>
-            )}
-            <nldd-list-item>
-              <nldd-text-cell
-                overline="Omschrijving van de organisatie"
-                text={model.data.organisation_description_set ? 'Ingesteld' : 'Niet ingesteld'}
-                supporting-text="Gaat als context mee bij het opstellen van een concept."
-              />
-            </nldd-list-item>
-          </nldd-list>
-          {model.data.check_error && <ErrorNotice message={model.data.check_error} />}
-          {model.data.available_models && (
-            <Note>
-              Modellen die dit adres aanbiedt: {model.data.available_models.join(', ') || 'geen'}.
-            </Note>
-          )}
-          <nldd-spacer size="8" />
-          <nldd-button-group>
-            <Button
-              text="Controleer de verbinding"
-              loading={model.isFetching}
-              onClick={() => (checked ? void model.refetch() : setChecked(true))}
-            />
-          </nldd-button-group>
-        </>
+      {status.data && <nldd-text>{status.data.provider_text}</nldd-text>}
+      {status.data?.note && <Quiet>{status.data.note}</Quiet>}
+      {missing.length > 0 && <Quiet>Ontbreekt in de omgeving: {missing.join(', ')}</Quiet>}
+      {facts.length > 0 && <Facts label="Instellingen van het taalmodel" facts={facts} />}
+      {test.data && (
+        <Quiet>
+          {test.data.message}
+          {test.data.model ? ` ${test.data.model}.` : ''}
+        </Quiet>
+      )}
+      {test.isError && <ErrorNotice message={errorMessage(test.error)} />}
+      {status.data?.available && (
+        <nldd-button-group>
+          <Button
+            text="Test de verbinding"
+            loading={test.isPending}
+            onClick={() => test.mutate()}
+          />
+        </nldd-button-group>
       )}
     </Section>
   );
@@ -379,17 +370,16 @@ export function VacancySetupPage() {
   const denied = access.error instanceof ApiError && access.error.status === 403;
 
   return (
-    <Page title="Vacatureformulier en taalmodel" instanceName={instance?.name} spacing="sections">
-      {denied ? (
-        <EmptyNotice
-          text="Dit is voor beheerders"
-          supportingText="Het aanvraagformulier en het taalmodel stelt een beheerder in."
-        />
-      ) : (
-        <Templates />
-      )}
-      {!denied && !access.isPending ? <LanguageModelSection /> : null}
-      {!denied && !access.isPending ? <ModelStatusSection /> : null}
-    </Page>
+    <RouterLinks>
+      <Page
+        title="Vacatureformulier en taalmodel"
+        instanceName={instance?.name}
+        spacing="sections"
+        back={{ href: PATHS.admin, text: 'Terug naar Beheer' }}
+      >
+        {denied ? <EmptyNotice text="Dit is voor beheerders" /> : <Templates />}
+        {!denied && !access.isPending ? <LanguageModelSection /> : null}
+      </Page>
+    </RouterLinks>
   );
 }

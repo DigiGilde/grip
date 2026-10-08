@@ -1,4 +1,4 @@
-import { Page, Stack } from '@/ui/layout';
+import { NameLine, Page, Stack } from '@/ui/layout';
 import { useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
@@ -38,10 +38,30 @@ const EMPTY_TEXT: Record<Phase, { text: string; supporting: string }> = {
   },
 };
 
-function NameCell({ item }: { item: AssignmentSummary }) {
+/** The status a view implies; a row names its status only when it says more. */
+const VIEW_DEFAULT_STATUS: Record<Phase, string | undefined> = {
+  potential: undefined,
+  active: 'in_progress',
+  closed: 'completed',
+};
+
+function NameCell({ item, phase }: { item: AssignmentSummary; phase?: Phase }) {
+  const told = phase !== undefined && item.status !== VIEW_DEFAULT_STATUS[phase];
   return (
     <nldd-cell>
-      <nldd-link href={assignmentPath(item.id)} text={item.name} />
+      <NameLine
+        badges={
+          told ? (
+            <nldd-badge
+              size="sm"
+              color={STATUS_COLORS[item.status] ?? 'neutral'}
+              text={statusLabel(item.status)}
+            />
+          ) : undefined
+        }
+      >
+        <nldd-link size="md" href={assignmentPath(item.id)} text={item.name} />
+      </NameLine>
     </nldd-cell>
   );
 }
@@ -99,26 +119,34 @@ function PipelineTable({ items }: { items: AssignmentSummary[] }) {
   );
 }
 
-function AssignmentTable({ items, label }: { items: AssignmentSummary[]; label: string }) {
+function AssignmentTable({
+  items,
+  label,
+  phase,
+}: {
+  items: AssignmentSummary[];
+  label: string;
+  phase: Phase;
+}) {
   return (
     <nldd-table
       accessible-label={label}
-      columns="minmax(220px,2fr) 170px minmax(160px,1fr) minmax(200px,1fr) minmax(140px,1fr)"
+      columns="minmax(240px,2fr) minmax(160px,1fr) minmax(200px,1fr) minmax(140px,1fr)"
+      sm-columns="minmax(0,1fr)"
     >
       <nldd-table-row slot="header">
         <nldd-text-cell text="Opdracht" />
-        <nldd-text-cell text="Status" />
-        <nldd-text-cell text="Opdrachtgever" />
-        <nldd-text-cell text="Periode" />
-        <nldd-text-cell text="Eigenaar" />
+        <nldd-text-cell text="Opdrachtgever" hide-below="md" />
+        <nldd-text-cell text="Periode" hide-below="md" />
+        <nldd-text-cell text="Eigenaar" hide-below="md" />
       </nldd-table-row>
       {items.map((item) => (
         <nldd-table-row key={item.id}>
-          <NameCell item={item} />
-          <StatusCell item={item} />
-          <nldd-text-cell text={item.client_name ?? ''} />
-          <nldd-text-cell text={formatPeriod(item.start_date, item.end_date)} />
-          <nldd-text-cell text={item.owner_name ?? ''} />
+          {/* The view says the status; a row names it only when it differs. */}
+          <NameCell item={item} phase={phase} />
+          <nldd-text-cell text={item.client_name ?? ''} hide-below="md" />
+          <nldd-text-cell text={formatPeriod(item.start_date, item.end_date)} hide-below="md" />
+          <nldd-text-cell text={item.owner_name ?? ''} hide-below="md" />
         </nldd-table-row>
       ))}
     </nldd-table>
@@ -152,7 +180,8 @@ export function AssignmentsPage() {
                 {
                   text: 'Nieuwe opdracht',
                   primary: true,
-                  onClick: () => setSheet((current) => ({ open: true, session: current.session + 1 })),
+                  onClick: () =>
+                    setSheet((current) => ({ open: true, session: current.session + 1 })),
                 },
               ]}
             />
@@ -184,7 +213,7 @@ export function AssignmentsPage() {
             (phase === 'potential' ? (
               <PipelineTable items={items} />
             ) : (
-              <AssignmentTable items={items} label={PHASE_VIEW_LABELS[phase]} />
+              <AssignmentTable items={items} label={PHASE_VIEW_LABELS[phase]} phase={phase} />
             ))}
         </Stack>
       </div>

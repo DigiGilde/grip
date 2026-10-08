@@ -122,7 +122,9 @@ async def history(db_session, world):
 async def _read(client, as_person, person, history, **params) -> dict[str, dict]:
     """What this person gets of ``history``, by the key of the fixture."""
     by_seq = {event.seq: key for key, event in history.items()}
-    answer = await as_person(person).get("/api/events", params={"limit": 200, **params})
+    answer = await as_person(person).get(
+        "/api/events", params={"limit": 200, "kind": "all", **params}
+    )
     assert answer.status_code == 200, answer.text
     return {
         by_seq[item["seq"]]: item
@@ -449,7 +451,9 @@ async def test_every_reader_against_every_kind_of_event(
         items: dict[tuple, dict] = {}
         before = None
         while True:
-            params = {"limit": 200, **({"before": before} if before else {})}
+            params = {"limit": 200, "kind": "all"} | (
+                {"before": before} if before else {}
+            )
             body = (await as_person(person).get("/api/events", params=params)).json()
             for item in body["items"]:
                 if item["seq"] in by_seq:

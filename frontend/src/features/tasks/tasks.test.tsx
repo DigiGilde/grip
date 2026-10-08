@@ -2,7 +2,7 @@ import { screen, waitFor } from '@testing-library/react';
 import { Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MainNavigation } from '@/layout/MainNavigation';
-import { renderApp } from '@/test/utils';
+import { renderApp, TEST_PERSON } from '@/test/utils';
 import type { CaseTasks as CaseTasksData, Task } from './api';
 import { AssignmentTasksTab } from './CaseTasks';
 import { filterTasks, optionsOf } from './groups';
@@ -195,6 +195,27 @@ describe('TasksPage', () => {
     expect(container).not.toHaveTextContent('Sluit vanzelf');
   });
 
+  it('leads who approves quotes to the quotes that wait, and nobody else', async () => {
+    stubApi({ '/api/tasks/mine': { items: [SOON], awaited: [] } });
+    const plain = renderApp(<TasksPage />, { path: '/taken' });
+    await waitFor(() => expect(plain.container.querySelector('nldd-table')).not.toBeNull());
+    expect(plain.container.querySelector('[text="Offertes ter goedkeuring"]')).toBeNull();
+    plain.unmount();
+
+    const approver = renderApp(<TasksPage />, {
+      path: '/taken',
+      auth: {
+        status: 'authenticated',
+        person: TEST_PERSON,
+        functions: ['offertegoedkeurder'],
+      },
+    });
+    await waitFor(() => expect(approver.container.querySelector('nldd-table')).not.toBeNull());
+    expect(
+      approver.container.querySelector('[text="Offertes ter goedkeuring"]')?.getAttribute('href'),
+    ).toBe('/goedkeuren');
+  });
+
   it('says so when there is nothing to do', async () => {
     stubApi({ '/api/tasks/mine': {} });
     const { container } = renderApp(<TasksPage />, { path: '/taken' });
@@ -345,11 +366,11 @@ describe('the Taken tab of a case', () => {
     );
   }
 
-  it('shows where each track stands and the tasks per track', async () => {
+  it('shows the tasks per track, once', async () => {
     const { container } = renderTab(CASE);
     await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
-    const standing = container.querySelector('nldd-list[accessible-label="Stand per spoor"]');
-    expect(standing?.querySelectorAll('nldd-list-item')).toHaveLength(2);
+    // The tasks themselves say where each track stands; no summary repeats them.
+    expect(container.querySelector('nldd-list[accessible-label="Stand per spoor"]')).toBeNull();
     expect(container.querySelectorAll('nldd-table')).toHaveLength(1);
     expect(container.querySelector('nldd-button[text="Nieuwe taak"]')).not.toBeNull();
   });

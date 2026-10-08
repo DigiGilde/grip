@@ -3,7 +3,9 @@ import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
 import { orUndef, useNlddEvent } from '@/components/nldd/events';
+import { RouterLinks } from '@/layout/RouterLinks';
 import { useInstance } from '@/layout/useInstance';
+import { PATHS } from '@/paths';
 import { formatDate } from '@/lib/format';
 import { Button, DateInput, SelectInput, TextInput } from '@/features/vacancies/ui';
 import { EmptyNotice, ErrorNotice, FormSheet, Loading, Page, Quiet, Stack } from '@/ui/layout';
@@ -303,71 +305,74 @@ export function FunctionFrameworkPage() {
   const onEdit = canManage ? (group: FunctionGroup) => edit(group) : undefined;
 
   return (
-    <Page title="Functiegebouw Rijk" instanceName={instance?.name}>
-      <Toolbar
-        query={query}
-        onQuery={setQuery}
-        canManage={canManage}
-        onAdd={() => edit(null)}
-        onReload={() => reload.mutate()}
-        reloading={reload.isPending}
-      />
-      {framework.isPending && <Loading />}
-      {framework.isError && <ErrorNotice message={errorMessage(framework.error)} />}
-      {reload.isError && <ErrorNotice message={errorMessage(reload.error)} />}
-      {source && (
-        <Stack gap="tight">
-          <Quiet>
-            {groupCount} functiegroepen in {families.length} functiefamilies, overgenomen van{' '}
-            <ExternalLink inline href={source.source_url} text="functiegebouwrijksoverheid.nl" /> op{' '}
-            {formatDate(source.read_on)}
-          </Quiet>
-          {reload.data && <Quiet>{reloadSummary(reload.data)}</Quiet>}
-        </Stack>
-      )}
-      {searching &&
-        (matches.length > 0 ? (
-          <GroupTable groups={matches} onEdit={onEdit} label="Gevonden functiegroepen" />
-        ) : (
-          <EmptyNotice
-            text="Geen functiegroep gevonden"
-            supportingText="Zoek op een deel van de naam van een functiegroep of functiefamilie."
-          />
-        ))}
-      {!searching && families.length > 0 && (
-        <Stack gap="related">
-          <nldd-list appearance="box-base" accessible-label="Functiefamilies">
-            {families.map((family) => (
-              <FamilyRow
-                key={family.id}
-                family={family}
-                open={openFamily === family.id}
-                onToggle={() => setOpenFamily(openFamily === family.id ? null : family.id)}
-              />
-            ))}
-          </nldd-list>
-          {families
-            .filter((family) => family.id === openFamily)
-            .map((family) => (
-              <GroupTable
-                key={family.id}
-                groups={family.groups}
-                onEdit={onEdit}
-                label={`Functiegroepen in ${family.name}`}
-              />
-            ))}
-        </Stack>
-      )}
-      {canManage && (
-        <GroupSheet
-          // A fresh form each time the sheet opens.
-          key={`group-${sheet.session}`}
-          families={families}
-          group={editing}
-          open={sheet.open}
-          onClose={() => setSheet((current) => ({ ...current, open: false }))}
+    <RouterLinks>
+      <Page
+        title="Functiegebouw Rijk"
+        instanceName={instance?.name}
+        back={{ href: PATHS.admin, text: 'Terug naar Beheer' }}
+      >
+        <Toolbar
+          query={query}
+          onQuery={setQuery}
+          canManage={canManage}
+          onAdd={() => edit(null)}
+          onReload={() => reload.mutate()}
+          reloading={reload.isPending}
         />
-      )}
-    </Page>
+        {framework.isPending && <Loading />}
+        {framework.isError && <ErrorNotice message={errorMessage(framework.error)} />}
+        {reload.isError && <ErrorNotice message={errorMessage(reload.error)} />}
+        {source && (
+          <Stack gap="tight">
+            <Quiet>
+              {groupCount} functiegroepen in {families.length} functiefamilies, overgenomen van{' '}
+              <ExternalLink inline href={source.source_url} text="functiegebouwrijksoverheid.nl" />{' '}
+              op {formatDate(source.read_on)}
+            </Quiet>
+            {reload.data && <Quiet>{reloadSummary(reload.data)}</Quiet>}
+          </Stack>
+        )}
+        {searching &&
+          (matches.length > 0 ? (
+            <GroupTable groups={matches} onEdit={onEdit} label="Gevonden functiegroepen" />
+          ) : (
+            <EmptyNotice text="Geen functiegroep gevonden" />
+          ))}
+        {!searching && families.length > 0 && (
+          <Stack gap="related">
+            <nldd-list appearance="box-base" accessible-label="Functiefamilies">
+              {families.map((family) => (
+                <FamilyRow
+                  key={family.id}
+                  family={family}
+                  open={openFamily === family.id}
+                  onToggle={() => setOpenFamily(openFamily === family.id ? null : family.id)}
+                />
+              ))}
+            </nldd-list>
+            {families
+              .filter((family) => family.id === openFamily)
+              .map((family) => (
+                <GroupTable
+                  key={family.id}
+                  groups={family.groups}
+                  onEdit={onEdit}
+                  label={`Functiegroepen in ${family.name}`}
+                />
+              ))}
+          </Stack>
+        )}
+        {canManage && (
+          <GroupSheet
+            // A fresh form each time the sheet opens.
+            key={`group-${sheet.session}`}
+            families={families}
+            group={editing}
+            open={sheet.open}
+            onClose={() => setSheet((current) => ({ ...current, open: false }))}
+          />
+        )}
+      </Page>
+    </RouterLinks>
   );
 }

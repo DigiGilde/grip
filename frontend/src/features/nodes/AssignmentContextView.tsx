@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
 import { InlineSelect } from '@/features/assignments/ui';
@@ -13,6 +13,8 @@ interface AssignmentContextViewProps {
   assignmentId: string;
   /** How many context URIs the assignment carries; zero skips the request. */
   count?: number;
+  /** A control per card that is not the click-through, such as removing the reference. */
+  actionFor?: (uri: string) => ReactNode;
 }
 
 /**
@@ -21,7 +23,11 @@ interface AssignmentContextViewProps {
  * to the political input. Works for any assignment the person may read, on
  * the client side and on the contractor side.
  */
-export function AssignmentContextView({ assignmentId, count }: AssignmentContextViewProps) {
+export function AssignmentContextView({
+  assignmentId,
+  count,
+  actionFor,
+}: AssignmentContextViewProps) {
   const [moment, setMoment] = useState('');
   const [openUri, setOpenUri] = useState<string | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -91,6 +97,7 @@ export function AssignmentContextView({ assignmentId, count }: AssignmentContext
                 item={item}
                 hideReason={Boolean(data?.notice)}
                 onOpen={setOpenUri}
+                {...(actionFor ? { action: actionFor(item.uri) } : {})}
               />
             ))}
             {Array.from({ length: placeholders }, (_, index) => (

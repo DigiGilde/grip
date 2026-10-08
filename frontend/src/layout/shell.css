@@ -33,3 +33,30 @@
   inset-inline-end: -6px;
   pointer-events: none;
 }
+
+/*
+ * A view of a section in the menu of a narrow screen: no icon, so its label
+ * starts where the labels of the sections start and reads as part of the
+ * section above it.
+ */
+.section-view-item {
+  padding-inline-start: var(--primitives-space-32, 32px);
+}
+
+/*
+ * The second bar: the pages of the section you are in. Quieter than the main
+ * bar so it reads as its continuation: smaller text in the colour of text,
+ * a thinner line under the page you are on. The design system's menu bar
+ * item has no size or tone of its own, so these set its inner values; that
+ * belongs upstream as a proposal. The first label starts on the edge of the
+ * page, so the bar steps back by the inset of an item.
+ */
+.section-views nldd-menu-bar {
+  margin-inline-start: calc(-1 * var(--semantics-menu-bar-items-inline-padding));
+}
+
+.section-views nldd-menu-bar-item {
+  --_menu-bar-item-font: var(--primitives-font-body-sm-medium-flat);
+  --_menu-bar-item-content-color: var(--semantics-content-color);
+  --_menu-bar-item-is-current-indicator-height: var(--primitives-space-2);
+}

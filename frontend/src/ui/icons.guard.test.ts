@@ -29,18 +29,10 @@ const FOUNDATION = ['ui/icons.ts', 'ui/Icon.tsx', 'components/nldd/'];
 
 /** Files that still write icons by hand; convert them and remove them here. */
 const KNOWN: readonly string[] = [
-  'features/assignments/staffingModel.ts',
-  'features/assignments/tabs/FinanceTab.tsx',
-  'features/allocations/board/model.ts',
-  'features/form-templates/FormTemplatePage.tsx',
-  'features/reports/occupancy/Heatmap.tsx',
-  'features/vacancies/tabs/VacancyTabs.tsx',
   'layout/AccountMenu.tsx',
   'layout/DevPersonSwitch.tsx',
   'layout/MainNavigation.tsx',
-  'pages/AdminPage.tsx',
   'routes.ts',
-  'ui/timeline/Timeline.tsx',
 ];
 
 const RAW_ICON_NAME = /\b(?:start-icon|end-icon|icon)\s*[=:]\s*\{?\s*["'`][a-z0-9-]+["'`]/;

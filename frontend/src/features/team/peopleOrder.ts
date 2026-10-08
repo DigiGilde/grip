@@ -31,7 +31,9 @@ export function signalOf(person: Person, row: BoardPerson | undefined): Signal {
     return {
       text: idleNow ? 'Geen inzet gepland' : `Geen inzet vanaf ${formatMonth(row.idle_from)}`,
       rank: 1,
-      attention: true,
+      // Comes early in the list, without colour: it is how most people's
+      // work looks a few months ahead, not something that is wrong.
+      attention: false,
     };
   }
   if (row.room_from) {

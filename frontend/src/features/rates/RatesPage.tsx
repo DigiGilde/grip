@@ -208,10 +208,11 @@ export function RatesPage() {
           <nldd-table
             accessible-label="Tarievenkaarten in de tijd"
             columns={`minmax(200px,2fr) minmax(220px,2fr) 170px ${ROW_ACTIONS_COLUMN}`}
+            sm-columns={`minmax(110px,1fr) minmax(120px,auto) ${ROW_ACTIONS_COLUMN}`}
           >
             <nldd-table-row slot="header">
               <nldd-text-cell text="Tarievenkaart" />
-              <nldd-text-cell text="Geldigheid" />
+              <nldd-text-cell hide-below="md" text="Geldigheid" />
               <nldd-text-cell text="Stand" />
               <nldd-cell />
             </nldd-table-row>
@@ -221,6 +222,7 @@ export function RatesPage() {
                   <nldd-table-row key={`gap-${row.start}`}>
                     <nldd-text-cell text="Geen tarievenkaart" color="critical" />
                     <nldd-text-cell
+                      hide-below="md"
                       text={validityText(row.start, row.end).replace('geldig ', '')}
                     />
                     <nldd-cell>
@@ -235,13 +237,12 @@ export function RatesPage() {
               const select = () => setChosenId(c.id);
               return (
                 <OpenRow key={c.id} onOpen={select}>
-                  <OpenCell
-                    text={c.name}
-                    accessibleLabel={`Toon ${c.name}`}
-                    onOpen={select}
-                    {...(card?.id === c.id ? { supportingText: 'Hieronder geopend' } : {})}
+                  <OpenCell text={c.name} accessibleLabel={`Toon ${c.name}`} onOpen={select} />
+                  {/* The column says "Geldigheid": the cell gives the period only. */}
+                  <nldd-text-cell
+                    hide-below="md"
+                    text={validityText(c.valid_from, c.valid_to).replace('geldig ', '')}
                   />
-                  <nldd-text-cell text={validityText(c.valid_from, c.valid_to)} />
                   <nldd-cell>
                     <nldd-badge
                       color={MOMENT_COLORS[moment]}
@@ -274,6 +275,7 @@ export function RatesPage() {
           <nldd-table
             accessible-label={`Maandtarieven van ${card.name}`}
             columns="minmax(100px,1fr) minmax(120px,1fr) minmax(140px,1fr)"
+            sm-columns="minmax(90px,1fr) minmax(60px,auto) minmax(90px,auto)"
           >
             <nldd-table-row slot="header">
               <nldd-text-cell text="Categorie" />

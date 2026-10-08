@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError, errorMessage } from '@/api/client';
 import { formatDate } from '@/lib/format';
+import { ExternalLink } from '@/ui/Icon';
 import { ErrorNotice, FormSheet, Loading, Quiet, Section, Stack } from '@/ui/layout';
 import { VACANCY_KEYS, type TextKind, type Vacancy } from './api';
 import { todayIso } from './hooks';
@@ -28,7 +29,7 @@ import {
   type TextWork as Work,
   type VacancyTextWork,
 } from './textWorkApi';
-import { Button, CheckboxInput, DateInput, LinkButton, SelectInput, TextInput } from './ui';
+import { Button, CheckboxInput, DateInput, SelectInput, TextInput } from './ui';
 
 const STATE_COLORS: Record<Work['state'], 'neutral' | 'warning' | 'success' | 'accent'> = {
   none: 'neutral',
@@ -621,13 +622,9 @@ function TextBlock({
           {work.action.key !== 'none' && (
             <Button
               text={work.action.text}
-              appearance={
-                leading && work.action.key === 'judge'
-                  ? 'primary'
-                  : leading
-                    ? 'secondary'
-                    : 'neutral-transparent'
-              }
+              // The next step of a text is its one filled button; what else
+              // can be done with it stays quiet beside it.
+              appearance={leading && work.action.key === 'judge' ? 'primary' : 'secondary'}
               loading={start.busy || settle.busy || withdraw.busy}
               onClick={act}
             />
@@ -711,11 +708,7 @@ function Publications({
           <nldd-text>
             Gepubliceerd op {publication.place_text} op {formatDate(publication.published_on)}
           </nldd-text>
-          <LinkButton
-            text="Bekijk de vacature"
-            href={publication.url}
-            appearance="neutral-transparent"
-          />
+          <ExternalLink href={publication.url} text="Bekijk de vacature" />
           {data.may_record_publication && (
             <Button
               text="Verwijder de link"
@@ -846,10 +839,9 @@ export function PublishedLinks({ vacancyId }: { vacancyId: string }) {
   return (
     <nldd-container layout="row" gap="16" vertical-alignment="center">
       {publications.map((publication) => (
-        <nldd-link
+        <ExternalLink
           key={publication.id}
           href={publication.url}
-          target="_blank"
           text={`Bekijk de vacature op ${publication.place_text}`}
         />
       ))}

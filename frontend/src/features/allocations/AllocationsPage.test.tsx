@@ -10,7 +10,12 @@ afterEach(() => vi.unstubAllGlobals());
 const OPTIONS = {
   people: [{ id: 'p1', name: 'Voorbeeld Een' }],
   lines: [
-    { budget_line_id: 'l1', assignment_id: 'a1', assignment_name: 'Opdracht Alfa', description: 'Productmanager' },
+    {
+      budget_line_id: 'l1',
+      assignment_id: 'a1',
+      assignment_name: 'Opdracht Alfa',
+      description: 'Productmanager',
+    },
   ],
 };
 
@@ -35,11 +40,9 @@ describe('Inzet board', () => {
     expect(table.querySelectorAll('thead th[scope="col"]')).toHaveLength(13);
     expect(table.querySelector('th[aria-current="date"]')).toHaveTextContent('nu');
     const rows = [...table.querySelectorAll('tbody tr:not(.grip-board__group)')];
-    expect(rows.map((row) => row.querySelector('th[scope="row"] .grip-board__name')?.textContent)).toEqual([
-      'Ontwerper',
-      'Voorbeeld Een',
-      'Voorbeeld Twee',
-    ]);
+    expect(
+      rows.map((row) => row.querySelector('th[scope="row"] .grip-board__name')?.textContent),
+    ).toEqual(['Ontwerper', 'Voorbeeld Een', 'Voorbeeld Twee']);
     for (const cell of table.querySelectorAll('td')) {
       expect(cell.querySelector('.grip-board__sr-only')?.textContent).not.toBe('');
     }
@@ -50,7 +53,9 @@ describe('Inzet board', () => {
     await grid(container);
     expect(container.querySelectorAll('h1')).toHaveLength(1);
     expect(container.querySelectorAll('h2, h3')).toHaveLength(0);
-    expect(container.querySelector('.grip-board__attention')).toHaveTextContent('Boven 100% in apr, mei');
+    expect(container.querySelector('.grip-board__attention')).toHaveTextContent(
+      'Boven 100% in apr, mei',
+    );
     expect(container.querySelector('.grip-board__summary')).not.toBeNull();
   });
 
@@ -64,7 +69,7 @@ describe('Inzet board', () => {
     expect(firm.querySelector('.grip-board__bar-closed')).not.toBeNull();
     const tentative = table.querySelector('[data-bar="x2"]')!;
     expect(tentative).toHaveAttribute('data-tentative');
-    expect(tentative).toHaveAttribute('data-mark', '≠');
+    expect(tentative).toHaveAttribute('data-mark', 'mismatch');
     expect(tentative.getAttribute('title')).toContain('onder voorbehoud');
     expect(table.querySelector('[data-bar="role-l9"]')).toHaveAttribute('data-open');
     expect(table.querySelector('[data-bar="x3"]')).toHaveAttribute('data-clipped-start');
@@ -77,7 +82,18 @@ describe('Inzet board', () => {
       .find((row) => row.textContent?.includes('Voorbeeld Een'))!
       .querySelectorAll('.grip-board__total');
     expect([...states].map((total) => total.getAttribute('data-state'))).toEqual([
-      'quiet', 'quiet', 'quiet', 'over', 'over', 'room', 'room', 'room', 'room', 'room', 'room', 'room',
+      'quiet',
+      'quiet',
+      'quiet',
+      'over',
+      'over',
+      'room',
+      'room',
+      'room',
+      'room',
+      'room',
+      'room',
+      'room',
     ]);
   });
 
@@ -108,7 +124,9 @@ describe('Inzet board', () => {
     cell.focus();
     fireEvent.keyDown(cell, { key: 'Enter' });
     await waitFor(() =>
-      expect(container.querySelector('[role="region"][aria-label="Inzet in de gekozen maand"]')).not.toBeNull(),
+      expect(
+        container.querySelector('[role="region"][aria-label="Inzet in de gekozen maand"]'),
+      ).not.toBeNull(),
     );
     const panel = container.querySelector('[role="region"]') as HTMLElement;
     expect(panel.querySelector('nldd-title')).toHaveAttribute('text', 'Voorbeeld Een, april 2026');
@@ -127,7 +145,10 @@ describe('Inzet board', () => {
       'text',
       'Inzet van Voorbeeld Een bewerken',
     );
-    expect(sheet.querySelector('nldd-banner')).toHaveAttribute('text', 'Vastgesteld t/m februari 2026');
+    expect(sheet.querySelector('nldd-banner')).toHaveAttribute(
+      'text',
+      'Vastgesteld t/m februari 2026',
+    );
   });
 
   it('proposes a new inzet from an empty stretch, starting that month', async () => {
@@ -153,7 +174,9 @@ describe('Inzet board', () => {
   it('offers a vacancy for an open role only when the vacancy module allows it', async () => {
     const withLink = renderPage(board(), [{ budget_line_id: 'l9' }]);
     await waitFor(() =>
-      expect(withLink.container.querySelector('nldd-link[text="Open een vacature"]')).not.toBeNull(),
+      expect(
+        withLink.container.querySelector('nldd-link[text="Open een vacature"]'),
+      ).not.toBeNull(),
     );
     withLink.unmount();
     const without = renderPage(board(), []);
@@ -165,14 +188,12 @@ describe('Inzet board', () => {
     const { container } = renderPage(board({ can_add: false }));
     await grid(container);
     const toolbar = container.querySelector('nldd-toolbar')!;
-    expect([...toolbar.querySelectorAll('nldd-dropdown')].map((d) => d.getAttribute('accessible-label'))).toEqual([
-      'Weergave',
-      'Toon',
-    ]);
-    expect([...toolbar.querySelectorAll('nldd-button')].map((b) => b.getAttribute('text'))).toEqual([
-      'Eerdere maanden',
-      'Latere maanden',
-    ]);
+    expect(
+      [...toolbar.querySelectorAll('nldd-dropdown')].map((d) => d.getAttribute('accessible-label')),
+    ).toEqual(['Weergave', 'Toon']);
+    expect([...toolbar.querySelectorAll('nldd-button')].map((b) => b.getAttribute('text'))).toEqual(
+      ['Eerdere maanden', 'Latere maanden'],
+    );
   });
 
   it('switches to assignments as rows without throwing', async () => {
@@ -184,20 +205,23 @@ describe('Inzet board', () => {
     await waitFor(() =>
       expect(container.querySelector('thead th[scope="col"]')).toHaveTextContent('Opdracht en rol'),
     );
-    expect([...container.querySelectorAll('.grip-board__group th')].map((th) => th.textContent)).toEqual([
-      'Opdracht Alfa',
-      'Opdracht Epsilon',
-    ]);
+    expect(
+      [...container.querySelectorAll('.grip-board__group th')].map((th) => th.textContent),
+    ).toEqual(['Opdracht Alfa', 'Opdracht Epsilon']);
     expect(container.querySelector('nldd-dropdown[accessible-label="Toon"]')).toBeNull();
   });
 
   it('asks for earlier months from the first month on screen', async () => {
     const { container, fetchMock } = renderPage();
     await grid(container);
-    container.querySelector('nldd-button[text="Eerdere maanden"]')?.dispatchEvent(new Event('click'));
+    container
+      .querySelector('nldd-button[text="Eerdere maanden"]')
+      ?.dispatchEvent(new Event('click'));
     await waitFor(() =>
       expect(
-        (fetchMock.mock.calls as unknown[][]).some((call) => String(call[0]).includes('start=2025-10')),
+        (fetchMock.mock.calls as unknown[][]).some((call) =>
+          String(call[0]).includes('start=2025-10'),
+        ),
       ).toBe(true),
     );
   });

@@ -34,6 +34,8 @@ import {
 } from './newVacancy';
 import { DateInput, SelectInput, TextInput } from './ui';
 import { ErrorNotice, FormSheet, Loading, Page } from '@/ui/layout';
+import { useVacancyViewFilter } from './views';
+import { OpenRow } from '@/ui/RowActions';
 
 const NO_BUDGET_LINE = 'none';
 
@@ -60,6 +62,8 @@ function VacancyTable({
   vacancies: VacancySummary[];
   emptyText: string;
 }) {
+  const navigate = useNavigate();
+  const open = (id: string) => navigate(PATHS.vacancyDetail.replace(':vacancyId', id));
   // A reader who only gets the published vacancies has no type or step.
   const withType = vacancies.some((vacancy) => vacancy.vacancy_type !== undefined);
   const withStep = vacancies.some((vacancy) => vacancy.step !== undefined);
@@ -69,7 +73,8 @@ function VacancyTable({
     ...(withStep ? ['minmax(240px,1.4fr)'] : []),
     '150px',
   ].join(' ');
-  const narrow = withStep ? 'minmax(150px,1fr) minmax(150px,1fr)' : 'minmax(150px,1fr) 130px';
+  // The name gets the larger share: a long function name must fit beside the step.
+  const narrow = withStep ? 'minmax(0,1.3fr) minmax(0,1fr)' : 'minmax(0,1fr) 130px';
   return (
     <nldd-table accessible-label="Vacatures" columns={wide} sm-columns={narrow}>
       <nldd-table-row slot="header">
@@ -82,9 +87,11 @@ function VacancyTable({
         const standing = standingOf(vacancy);
         const status = statusWord(vacancy);
         return (
-          <nldd-table-row key={vacancy.id}>
+          <OpenRow key={vacancy.id} onOpen={() => open(vacancy.id)}>
+            {/* A real address on the name, so it opens in a new tab too; a
+                click anywhere else in the row goes to the same place. */}
             <nldd-cell>
-              <nldd-container gap="2">
+              <nldd-container gap="4">
                 <nldd-link
                   href={PATHS.vacancyDetail.replace(':vacancyId', vacancy.id)}
                   text={vacancy.function_title}
@@ -119,7 +126,7 @@ function VacancyTable({
             <nldd-cell {...(withStep ? { 'hide-below': 'md' } : {})}>
               <nldd-badge color={STATUS_COLORS[vacancy.status]} text={status} />
             </nldd-cell>
-          </nldd-table-row>
+          </OpenRow>
         );
       })}
       <nldd-inline-dialog slot="empty" text="Nog geen vacatures" supporting-text={emptyText} />
@@ -297,6 +304,7 @@ export function VacanciesPage() {
   const requestedLine = searchParams.get(ROLE_PARAM);
   const [creating, setCreating] = useState(requestedLine !== null);
   const [order, setOrder] = useState<ListOrder>('waiting');
+  const viewFilter = useVacancyViewFilter('list');
 
   const vacancies = useQuery({ queryKey: VACANCY_KEYS.list, queryFn: fetchVacancies });
   const roles = useQuery({ queryKey: VACANCY_KEYS.unfilledRoles, queryFn: fetchUnfilledRoles });
@@ -320,6 +328,7 @@ export function VacanciesPage() {
         <ActionBar
           label="Vacatures ordenen en acties"
           filters={[
+            viewFilter,
             {
               label: 'Volgorde',
               value: order,
@@ -329,11 +338,6 @@ export function VacanciesPage() {
             },
           ]}
           actions={[
-            { text: 'Open rollen', href: PATHS.vacancyOpenRoles },
-            ...(canCreate ? [{ text: 'Standaardteksten', href: PATHS.vacancyStandardTexts }] : []),
-            ...(options.data?.can_manage_setup
-              ? [{ text: 'Formulier en taalmodel', href: PATHS.vacancySetup }]
-              : []),
             ...(canCreate
               ? [{ text: 'Nieuwe vacature', onClick: () => setCreating(true), primary: true }]
               : []),

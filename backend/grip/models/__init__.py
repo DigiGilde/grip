@@ -28,6 +28,7 @@ from grip.models.quote import (
 from grip.models.rates import RateBand, RateCard, ScaleBand
 from grip.models.role import PersonRole, Role
 from grip.models.stream_event import StreamEvent
+from grip.models.update_feed import UpdateFeedMarker
 
 __all__ = [
     "VacancyPublication",
@@ -43,6 +44,7 @@ __all__ = [
     "PersonRole",
     "Role",
     "StreamEvent",
+    "UpdateFeedMarker",
 ]
 
 # Domain models (migration 0002_domain).

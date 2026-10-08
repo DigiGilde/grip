@@ -13,7 +13,7 @@ interface MyTasksProps {
  */
 export function MyTasks({ limit = 4 }: MyTasksProps) {
   return (
-    <Section title="Mijn taken" level={3}>
+    <Section title="Mijn taken">
       <MyTasksBlock limit={limit} />
     </Section>
   );

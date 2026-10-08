@@ -93,12 +93,13 @@ describe('VacancySetupPage', () => {
     expect(container.textContent).toContain('2 koppelingen niet gecontroleerd');
     // With a form in use, delivering a new one is not the main thing to do here.
     expect(container.querySelector('nldd-button[text="Lever een leeg formulier aan"]')).toBeNull();
+    // One section for the language model: what is missing while none answers.
     await waitFor(() =>
-      expect(container.querySelector('nldd-text-cell[text="Niet ingesteld"]')).not.toBeNull(),
+      expect(container.textContent).toContain(
+        'Ontbreekt in de omgeving: VLAM_API_KEY, VLAM_MODEL_ID',
+      ),
     );
-    expect(
-      container.querySelector('nldd-text-cell[overline="Status"]')?.getAttribute('supporting-text'),
-    ).toBe('Ontbreekt: VLAM_API_KEY, VLAM_MODEL_ID');
+    expect(container.querySelectorAll('nldd-title[text="Taalmodel"]')).toHaveLength(1);
     // The upload sheet stays in the document while closed.
     expect(document.body.querySelector('nldd-sheet')).not.toBeNull();
   });
