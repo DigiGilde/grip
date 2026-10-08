@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ApiError, errorMessage } from '@/api/client';
+import { errorMessage } from '@/api/client';
 import { useCaseCourse } from '@/features/tasks/course';
 import { useInstance } from '@/layout/useInstance';
 import { formatEuro, formatPeriod } from '@/lib/format';
@@ -28,6 +28,7 @@ import {
 import { relationText, STATUS_COLORS, statusLabel } from './labels';
 import { assignmentTabPath, type AssignmentTabKey } from './paths';
 import { AssignmentShellContext, TAB_LABELS, visibleTabs } from './shell';
+import { LoadError } from '@/ui/layout';
 import { ErrorNotice, Loading } from './ui';
 
 /** The whole period: the header never follows a year filter on a tab. */
@@ -92,7 +93,6 @@ export function AssignmentLayout() {
     retry: false,
   });
   const assignment = query.data;
-  const notFound = query.error instanceof ApiError && query.error.status === 404;
   // One quiet line: for whom, when, and as who the reader looks.
   const facts = assignment
     ? [
@@ -166,13 +166,7 @@ export function AssignmentLayout() {
       >
         {query.isPending && <Loading />}
         {query.isError && (
-          <ErrorNotice
-            message={
-              notFound
-                ? 'Deze opdracht bestaat niet, of je hebt er geen toegang toe.'
-                : errorMessage(query.error)
-            }
-          />
+          <LoadError error={query.error} retry={() => void query.refetch()} what="Deze opdracht" />
         )}
         {problem && <ErrorNotice message={problem} />}
         {assignment && (

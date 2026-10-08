@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ApiError, errorMessage } from '@/api/client';
 import { assignmentTabPath } from '@/features/assignments/paths';
 import { useCaseCourse } from '@/features/tasks/course';
 import { RouterLinks } from '@/layout/RouterLinks';
@@ -9,7 +8,7 @@ import { useInstance } from '@/layout/useInstance';
 import { formatPeriod } from '@/lib/format';
 import { PATHS } from '@/paths';
 import { courseAction, type Course } from '@/ui/course';
-import { ErrorNotice, Loading, Quiet, SectionHeading, Stack, ThingHead } from '@/ui/layout';
+import { LoadError, Loading, Quiet, SectionHeading, Stack, ThingHead } from '@/ui/layout';
 import { PrimaryTakenContext } from '@/ui/primary';
 import { CourseBar, CourseNow } from '@/ui/Workflow';
 import { VACANCY_KEYS, fetchVacancy, type Vacancy } from './api';
@@ -212,7 +211,6 @@ export function VacancyLayout() {
     retry: false,
   });
   const vacancy = query.data;
-  const notFound = query.error instanceof ApiError && query.error.status === 404;
   const whole = vacancy ? seesWholeVacancy(vacancy) : false;
   const current = vacancy ? currentTab(vacancy.id, pathname, visibleTabs(vacancy)) : 'request';
   const close = () => setSheet(null);
@@ -239,12 +237,10 @@ export function VacancyLayout() {
         >
           {query.isPending && <Loading />}
           {query.isError && (
-            <ErrorNotice
-              message={
-                notFound
-                  ? 'Deze vacature bestaat niet, of je kunt haar niet inzien.'
-                  : errorMessage(query.error)
-              }
+            <LoadError
+              error={query.error}
+              retry={() => void query.refetch()}
+              what="Deze vacature"
             />
           )}
           {vacancy && <Belonging vacancy={vacancy} />}

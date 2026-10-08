@@ -319,8 +319,8 @@ describe('the header of a vacancy', () => {
       { path: '/vacatures/v-9' },
     );
     await waitFor(() =>
-      expect(container.querySelector('nldd-banner[variant="critical"]')?.getAttribute('text')).toBe(
-        'Deze vacature bestaat niet, of je kunt haar niet inzien.',
+      expect(container.querySelector('[data-state="not-found"]')?.textContent).toContain(
+        'Deze vacature is niet gevonden',
       ),
     );
   });
