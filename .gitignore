@@ -41,3 +41,6 @@ coverage/
 /import/
 *.grist
 bevestiging*.json
+
+# Real example documents of the organisation: names, amounts, signatures
+/voorbeelden/
