@@ -82,14 +82,26 @@ export function statusLabel(status: string): string {
 const RELATION_TEXT: Record<string, string> = {
   owner: 'Je bent eigenaar van deze opdracht.',
   manager: 'Je bent manager van deze opdracht.',
-  member: 'Je werkt aan deze opdracht.',
+  member: 'Je bekijkt deze opdracht als teamlid.',
 };
 
-/** One quiet line saying why the reader sees this assignment; empty when there is nothing to say. */
+/** In the order of how much the function explains about what the reader sees. */
+const FUNCTION_TEXT: readonly [string, string][] = [
+  ['beheerder', 'beheerder'],
+  ['planner', 'planner'],
+  ['lezer', 'lezer'],
+  ['tekenbevoegde', 'tekenbevoegde'],
+  ['aanvrager', 'aanvrager'],
+];
+
+/** One quiet line saying how the reader sees this assignment; empty when not known. */
 export function relationText(relations: readonly string[] | undefined): string {
   if (!relations?.length) return '';
   if (relations.includes('owner') && relations.includes('manager')) {
     return 'Je bent eigenaar en manager van deze opdracht.';
   }
-  return RELATION_TEXT[relations[0] ?? ''] ?? '';
+  const own = relations.map((relation) => RELATION_TEXT[relation]).find(Boolean);
+  if (own) return own;
+  const held = FUNCTION_TEXT.find(([id]) => relations.includes(`function:${id}`));
+  return held ? `Je bekijkt deze opdracht als ${held[1]}.` : '';
 }

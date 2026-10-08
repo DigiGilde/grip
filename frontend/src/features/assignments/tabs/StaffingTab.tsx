@@ -1,3 +1,4 @@
+import { ReadOnlyNote } from '../ReadOnlyNote';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -122,6 +123,13 @@ export function StaffingTab() {
   return (
     <nldd-simple-section>
       <nldd-container gap="16">
+        {!canEdit && (
+          <ReadOnlyNote
+            assignment={assignment}
+            what="de bemensing"
+            others="een manager of een planner"
+          />
+        )}
         {canEdit && hasRoles && (
           <ActionBar
             label="Bemensing"

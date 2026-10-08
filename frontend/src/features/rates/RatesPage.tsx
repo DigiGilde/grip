@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
-import { formatEuro } from '@/lib/format';
+import { formatDate, formatEuro } from '@/lib/format';
 import { useInstance } from '@/layout/useInstance';
 import { DateField, SelectField, SwitchField, TextField } from '@/features/team/ui/controls';
 import { centsToEuroInput, eurosToCents, percentInput } from '@/features/team/ui/money';
@@ -28,6 +28,7 @@ import {
   setScaleBand,
   updateRateCard,
   type Indexation,
+  type NewCard,
   type RateCard,
   type Rounding,
 } from './api';
@@ -35,6 +36,7 @@ import { activationSentences } from './impact';
 import {
   MOMENT_COLORS,
   firstDayOfNextYear,
+  latestEnd,
   momentLabel,
   momentOf,
   todayIso,
@@ -349,6 +351,7 @@ export function RatesPage() {
         open={editing?.kind === 'new'}
         today={today}
         hasCards={cards.length > 0}
+        cards={cards}
         defaultIncreasePct={query.data?.default_increase_pct ?? '0'}
         busy={save.isPending}
         error={formError}
@@ -462,7 +465,8 @@ interface NewCardSheetProps extends SheetCommon {
   today: string;
   hasCards: boolean;
   defaultIncreasePct: string;
-  onSave: (card: { validFrom: string; name: string | null; indexation: Indexation | null }) => void;
+  cards: RateCard[];
+  onSave: (card: NewCard) => void;
 }
 
 /**
@@ -491,6 +495,7 @@ function ClosedSheet({ title }: { title: string }) {
 
 function NewCardForm({
   today,
+  cards,
   hasCards,
   defaultIncreasePct,
   busy,
@@ -500,12 +505,17 @@ function NewCardForm({
   onSave,
 }: Omit<NewCardSheetProps, 'open'>) {
   const [validFrom, setValidFrom] = useState(firstDayOfNextYear(today));
+  // A card that starts before a later one ends the day before that one;
+  // the end date follows the start date until someone sets it by hand.
+  const [endTyped, setEndTyped] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [copy, setCopy] = useState(hasCards);
   const [increase, setIncrease] = useState(percentText(defaultIncreasePct));
   const [rounding, setRounding] = useState<Rounding>('euro');
 
   const dateValid = /^\d{4}-\d{2}-\d{2}$/.test(validFrom);
+  const follower = dateValid ? latestEnd(validFrom, cards) : null;
+  const validTo = endTyped ?? follower ?? '';
   const pct = percentInput(increase);
   const pctValid = pct !== null && Number(pct) <= MAX_INCREASE_PCT;
   const indexation: Indexation | null =
@@ -537,7 +547,16 @@ function NewCardForm({
           onInvalid(`Vul een verhoging in van 0 tot en met ${MAX_INCREASE_PCT} procent.`);
           return;
         }
-        onSave({ validFrom, name: name.trim() || null, indexation: copy ? indexation : null });
+        if (validTo && validTo < validFrom) {
+          onInvalid('De einddatum ligt voor de begindatum.');
+          return;
+        }
+        onSave({
+          validFrom,
+          validTo: validTo || null,
+          name: name.trim() || null,
+          indexation: copy ? indexation : null,
+        });
       }}
     >
       <DateField
@@ -546,6 +565,17 @@ function NewCardForm({
         value={validFrom}
         onChange={setValidFrom}
         required
+      />
+      <DateField
+        label="Geldig tot en met"
+        supportingLabel={
+          follower
+            ? `Uiterlijk ${formatDate(follower)}: de dag erna gaat een volgende tarievenkaart in`
+            : 'Leeg laten: de kaart geldt tot een volgende haar opvolgt'
+        }
+        optional
+        value={validTo}
+        onChange={setEndTyped}
       />
       <TextField
         label="Naam"

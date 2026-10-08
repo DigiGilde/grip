@@ -116,3 +116,15 @@ export function rateCauseText(line: {
     : (line.rate_difference_signals ?? []);
   return notes.map(sentence).join('. ');
 }
+
+/**
+ * A budget with nothing realised and nothing planned yet: there is no
+ * expected total to compare with, so "100% ruimte" would say nothing true.
+ */
+export function nothingPlanned(
+  figures: Pick<Figures, 'budgeted_cents' | 'expected_total_cents'>,
+): boolean {
+  return figures.budgeted_cents !== 0 && figures.expected_total_cents === 0;
+}
+
+export const NOTHING_PLANNED_TEXT = 'Nog geen inzet gepland';

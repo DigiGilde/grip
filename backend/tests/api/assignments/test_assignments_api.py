@@ -195,4 +195,6 @@ async def test_detail_says_how_the_reader_relates_to_the_assignment(world, as_pe
     assert (await as_person(world.member).get(url)).json()["viewer_relations"] == [
         "member"
     ]
-    assert (await as_person(world.beheerder).get(url)).json()["viewer_relations"] == []
+    assert (await as_person(world.beheerder).get(url)).json()["viewer_relations"] == [
+        "function:beheerder"
+    ]

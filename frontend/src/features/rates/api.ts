@@ -143,6 +143,8 @@ export function fetchIndexationPreview(indexation: Indexation): Promise<Indexati
 
 export interface NewCard {
   validFrom: string;
+  /** Null: open-ended. */
+  validTo: string | null;
   name: string | null;
   /** Null: the card starts empty. */
   indexation: Indexation | null;
@@ -152,6 +154,7 @@ export interface NewCard {
 export function createRateCard(card: NewCard): Promise<RateCard> {
   return apiPost<RateCard>('/api/rates/cards', {
     valid_from: card.validFrom,
+    valid_to: card.validTo,
     name: card.name,
     copy_previous: card.indexation !== null,
     increase_pct: card.indexation?.increasePct ?? null,

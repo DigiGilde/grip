@@ -83,6 +83,9 @@ async def _detail(row: views.AssignmentRow, access: RequestAccess) -> dict[str, 
     relations = [r.role for r in row.roles if me is not None and r.person_id == me]
     if not relations and a.id in await access.own_assignment_ids():
         relations = ["member"]
+    if not relations:
+        # No relation of their own: they read it from a function in grip.
+        relations = [f"function:{name}" for name in sorted(access.subject.functions)]
     model = AssignmentDetailOut(
         **_summary_fields(row),
         contractor_organisation_id=a.contractor_organisation_id,
@@ -107,6 +110,7 @@ async def _detail(row: views.AssignmentRow, access: RequestAccess) -> dict[str, 
         viewer_relations=sorted(set(relations)),
         permissions=AssignmentPermissionsOut(
             edit_basic=edit_basic,
+            manage_roles=await access.may(Action.MANAGE_ROLES, resource),
             edit_financial=await access.may(Action.EDIT, resource, B),
             edit_staffing=await access.may(Action.EDIT, resource, DataClass.STAFFING),
             read_financial=await access.may(Action.READ, resource, B),
@@ -257,9 +261,14 @@ async def set_role(
 ) -> dict[str, Any]:
     resource = Resource.assignment(assignment_id)
     await access.require(Action.READ, resource, A, hide_existence=True)
-    await access.require(Action.EDIT, resource, A)
+    await access.require(Action.MANAGE_ROLES, resource)
     await service.set_assignment_role(
-        db, assignment_id, person_id, body.role, actor=person
+        db,
+        assignment_id,
+        person_id,
+        body.role,
+        actor=person,
+        as_beheerder=not await access.may(Action.EDIT, resource, A),
     )
     access.forget()
     return await _detail(await views.assignment_row(db, assignment_id), access)
@@ -275,8 +284,14 @@ async def remove_role(
 ) -> dict[str, Any]:
     resource = Resource.assignment(assignment_id)
     await access.require(Action.READ, resource, A, hide_existence=True)
-    await access.require(Action.EDIT, resource, A)
-    await service.remove_assignment_role(db, assignment_id, person_id, actor=person)
+    await access.require(Action.MANAGE_ROLES, resource)
+    await service.remove_assignment_role(
+        db,
+        assignment_id,
+        person_id,
+        actor=person,
+        as_beheerder=not await access.may(Action.EDIT, resource, A),
+    )
     # Whoever removed the own role may no longer read the assignment.
     access.forget()
     if not await access.may(Action.READ, resource, A):

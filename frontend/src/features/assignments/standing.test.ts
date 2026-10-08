@@ -130,4 +130,19 @@ describe('standing', () => {
     expect(result?.steps.every((step) => step.tab === undefined)).toBe(true);
     expect(result?.advice).toContain('Voorbeeld Eigenaar maakt eerst de begroting');
   });
+
+  it('goes back to the quote when the budget moved after it was offered', () => {
+    const result = standing(
+      facts({
+        status: 'quoted',
+        budgetLines: 3,
+        quotes: [issued],
+        offers: [{ channel: 'signing_link', offered_at: '2026-10-08T10:00:00Z' }],
+        budgetMoved: true,
+      }),
+    );
+    expect(states(result)).toEqual(['budget:done', 'quote:current', 'offer:future', 'agreement:future']);
+    expect(result?.advice).toContain('De offerte klopt niet meer');
+    expect(result?.action).toEqual({ text: 'Maak een nieuwe offerte', tab: 'quote' });
+  });
 });

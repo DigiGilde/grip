@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { QuoteOffer, QuoteSummary } from './api';
+import { standing } from '@/features/assignments/standing';
 import {
   invitationMessage,
   linkWorks,
@@ -67,8 +68,19 @@ describe('primaryAction', () => {
     expect(primaryAction(QUOTE, [])).toBe('offer');
   });
 
-  it('is recording the signed copy when the quote went out as a document', () => {
-    expect(primaryAction(QUOTE, [link('invited'), DOCUMENT])).toBe('record-signed');
+  it('is recording the signed copy when a document is all the client has', () => {
+    expect(primaryAction(QUOTE, [DOCUMENT])).toBe('record-signed');
+    expect(primaryAction(QUOTE, [link('withdrawn'), DOCUMENT])).toBe('record-signed');
+  });
+
+  it('is nothing while a signing link is open next to a document', () => {
+    // The answer may come in by the link; recording a signed copy is in the menu.
+    expect(primaryAction(QUOTE, [link('invited'), DOCUMENT])).toBeNull();
+  });
+
+  it('lists what still waits for an answer first', () => {
+    const order = listedOffers([link('expired'), DOCUMENT]).map((offer) => offer.channel);
+    expect(order).toEqual(['document', 'signing_link']);
   });
 
   it('is nothing while the client has the link, and nothing after a decision', () => {
@@ -133,5 +145,74 @@ describe('invitationMessage', () => {
     expect(text).toContain('https://grip.example/tekenen/q-1');
     expect(text).toContain('tekenaar@opdrachtgever.example');
     expect(text).toContain('tot en met 4 mrt 2026');
+  });
+});
+
+describe('the card and the assignment read one position', () => {
+  const FACTS = {
+    phase: 'potential',
+    status: 'quoted',
+    mayAct: true,
+    owners: 'Eigenaar Voorbeeld',
+    budgetLines: 1,
+    today: '2026-02-10',
+  };
+  const approvalState = (status: string, mayOffer = false) => ({
+    quote_id: 'q-1',
+    approval_required: true,
+    status,
+    may_offer: mayOffer,
+    approver_available: true,
+  });
+  // Step of the assignment -> the step of the card that says the same.
+  const SAME: Record<string, string> = {
+    approval: 'Interne goedkeuring',
+    offer: 'Aangeboden',
+    agreement: 'Getekend of afgewezen',
+  };
+  const cases: [string, QuoteOffer[], ReturnType<typeof approvalState> | null][] = [
+    ['made, not offered', [], null],
+    ['offered by link', [link('invited')], null],
+    ['offered as a document', [DOCUMENT], null],
+    ['needs approval, not asked', [], approvalState('none')],
+    ['approval asked', [], approvalState('requested')],
+    ['approved, not offered', [], approvalState('approved', true)],
+    ['approved and offered', [link('opened')], approvalState('approved', true)],
+  ];
+
+  it.each(cases)('%s', (_name, offers, approval) => {
+    const assignment = standing({
+      ...FACTS,
+      quotes: [
+        {
+          status: QUOTE.status,
+          issued_at: QUOTE.issued_at,
+          ...(approval ? { approval: approval.status } : {}),
+        },
+      ],
+      offers: offers.map((offer) => ({
+        channel: offer.channel,
+        offered_at: offer.offered_at,
+        invitationState: offer.invitation?.state ?? null,
+      })),
+    });
+    const card = quoteSteps(QUOTE, offers, approval);
+    const currentOnCard = card.find((step) => step.status === 'current')?.text;
+    expect(currentOnCard).toBe(SAME[assignment?.current ?? '']);
+    // The approval step is on both bars or on neither.
+    expect(card.some((step) => step.text === 'Interne goedkeuring')).toBe(
+      assignment?.steps.some((step) => step.key === 'approval'),
+    );
+  });
+
+  it('agrees on a quote that was sent back: a new quote is the step', () => {
+    const approval = approvalState('sent_back');
+    const assignment = standing({
+      ...FACTS,
+      quotes: [{ status: 'issued', issued_at: QUOTE.issued_at, approval: 'sent_back' }],
+      offers: [],
+    });
+    expect(assignment?.current).toBe('quote');
+    expect(primaryAction(QUOTE, [], approval)).toBe('new-quote');
   });
 });

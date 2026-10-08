@@ -285,7 +285,10 @@ export function QuoteCard({
                 hash={quote.snapshot_hash}
                 facts={[
                   { label: "Kenmerk", value: quote.reference ?? "" },
-                  { label: "Gemaakt", value: madeText(quote) },
+                  {
+                    label: "Gemaakt",
+                    value: `${formatDate(quote.issued_at)}${quote.issued_by_name ? ` door ${quote.issued_by_name}` : ""}`,
+                  },
                   { label: "Adres voor systemen", value: quote.uri },
                 ]}
               />
@@ -333,7 +336,7 @@ export function QuoteCard({
                 variant="warning"
                 size="sm"
                 text="Niemand kan deze offerte nu goedkeuren"
-                supporting-text={`Een beheerder kent het recht "${APPROVER_RIGHT}" toe bij een collega onder Team.`}
+                supporting-text={`Een beheerder kent het recht "${APPROVER_RIGHT}" toe bij Team, onder Rechten in grip van een persoon.`}
               />
             ) : null}
           </Stack>
@@ -424,6 +427,7 @@ export function QuoteCard({
         open &&
         blocked &&
         approval?.blocked_message &&
+        approval.approver_available &&
         next !== "new-quote" ? (
           <Quiet>{approval.blocked_message}</Quiet>
         ) : null}

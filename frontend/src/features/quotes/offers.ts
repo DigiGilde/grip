@@ -5,6 +5,7 @@
 import { formatDate } from '@/lib/format';
 import type { QuoteDetail, QuoteOffer, QuoteSummary } from './api';
 import { OFFER_CHANNEL_LABELS } from './api';
+import { quotePosition } from '@/features/assignments/standing';
 import { awaitsApproval, type ApprovalState } from './approval';
 import { formatDateTime } from './format';
 
@@ -13,51 +14,84 @@ export interface QuoteStep {
   status: 'past' | 'current' | 'future';
 }
 
+/** The quote as the shared standing function reads it. */
+function quoteFact(quote: QuoteSummary, approval?: ApprovalState | null) {
+  return {
+    status: quote.status,
+    // Only a quote that needs approval has an approval to wait for.
+    approval: approval?.approval_required ? approval.status : null,
+  };
+}
+
 /**
  * The steps of one quote: gemaakt, aangeboden, getekend of afgewezen. Where
  * the organisation approves a quote internally first, that is a step between
  * making and offering; elsewhere it does not show.
+ *
+ * Which step is the current one comes from `quotePosition`, the same
+ * function the steps of the assignment read.
  */
 export function quoteSteps(
   quote: QuoteSummary,
   offers: readonly QuoteOffer[],
   approval?: ApprovalState | null,
 ): QuoteStep[] {
-  const decided = quote.status === 'accepted' || quote.status === 'rejected';
-  const offered = offers.length > 0 || decided;
+  const position = quotePosition(quoteFact(quote, approval), offers);
   const needsApproval = Boolean(approval?.approval_required);
-  const approved = offered || !awaitsApproval(approval);
-  const steps: QuoteStep[] = [{ text: 'Gemaakt', status: 'past' }];
-  if (needsApproval) {
-    steps.push({ text: 'Interne goedkeuring', status: approved ? 'past' : 'current' });
-  }
-  steps.push({
-    text: 'Aangeboden',
-    status: offered ? 'past' : approved ? 'current' : 'future',
-  });
-  steps.push({
-    text:
-      quote.status === 'accepted'
-        ? 'Getekend'
-        : quote.status === 'rejected'
-          ? 'Afgewezen'
-          : 'Getekend of afgewezen',
-    status: decided ? 'past' : offered ? 'current' : 'future',
-  });
-  return steps;
+  const texts = [
+    'Gemaakt',
+    ...(needsApproval ? ['Interne goedkeuring'] : []),
+    'Aangeboden',
+    quote.status === 'accepted'
+      ? 'Getekend'
+      : quote.status === 'rejected'
+        ? 'Afgewezen'
+        : 'Getekend of afgewezen',
+  ];
+  const last = texts.length - 1;
+  // A quote that was sent back stays at the approval it did not get; one
+  // that was rejected or replaced has run its course.
+  const current =
+    position === 'approval' || (position === 'quote' && quote.status === 'issued')
+      ? 1
+      : position === 'offer'
+        ? last - 1
+        : position === 'agreement'
+          ? last
+          : position === 'quote' && quote.status === 'superseded' && offers.length === 0
+            ? last - 1
+            : last + 1;
+  return texts.map((text, index) => ({
+    text,
+    status: index < current ? 'past' : index === current ? 'current' : 'future',
+  }));
 }
 
-/** Offers newest first, with one entry per signing link: the latest offer on it. */
+/** Whether the client can still answer through this offer. */
+export function awaitsResponse(offer: QuoteOffer): boolean {
+  if (offer.channel === 'signing_link') {
+    const state = offer.invitation?.state;
+    return state === undefined || state === 'invited' || state === 'opened';
+  }
+  if (offer.channel === 'client_instance') return offer.delivery !== 'refused';
+  return true;
+}
+
+/**
+ * One entry per signing link (the latest offer on it), the offers that still
+ * wait for an answer first, and within that the newest first.
+ */
 export function listedOffers(offers: readonly QuoteOffer[]): QuoteOffer[] {
   const newestFirst = [...offers].sort((a, b) => b.offered_at.localeCompare(a.offered_at));
   const seen = new Set<string>();
-  return newestFirst.filter((offer) => {
+  const unique = newestFirst.filter((offer) => {
     const key = offer.invitation?.id;
     if (!key) return true;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
+  return [...unique.filter(awaitsResponse), ...unique.filter((offer) => !awaitsResponse(offer))];
 }
 
 /** "Met een tekenlink aan naam@organisatie.example": the channel, and to whom. */
@@ -128,8 +162,13 @@ export function primaryAction(
       ? 'request-approval'
       : null;
   }
-  const latest = listedOffers(offers)[0];
-  return latest?.channel === 'document' ? 'record-signed' : null;
+  // Recording the signed copy is the step only when a document is all the
+  // client has: with a signing link or the client's own grip also open, the
+  // answer may come in by itself, and recording stays in the menu.
+  const awaited = listedOffers(offers).filter(awaitsResponse);
+  return awaited.length > 0 && awaited.every((offer) => offer.channel === 'document')
+    ? 'record-signed'
+    : null;
 }
 
 /** The text someone pastes into a mail to the person invited to sign. */

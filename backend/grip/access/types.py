@@ -93,6 +93,9 @@ class Action(StrEnum):
     MANAGE_RATES = "manage_rates"
     # Persons, their scale history and targets, and who holds which function.
     MANAGE_USERS = "manage_users"
+    # Name or remove the owner and the managers of an assignment. Its own
+    # action: it never implies editing the content of the assignment.
+    MANAGE_ROLES = "manage_roles"
     # Record an advice or the approval on a vacancy request.
     RECORD_DECISION = "record_decision"
     # Ask for internal approval of a made quote, and give or refuse it.

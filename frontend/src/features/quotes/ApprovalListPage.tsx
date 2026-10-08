@@ -28,7 +28,7 @@ export function ApprovalListPage() {
       {query.isError && noRight ? (
         <EmptyNotice
           text="Offertes goedkeuren is voor wie dat recht heeft"
-          supportingText="Een beheerder kent het toe bij een collega onder Team."
+          supportingText="Een beheerder kent het toe bij Team, onder Rechten in grip van een persoon."
         />
       ) : null}
       {query.isError && !noRight ? <ErrorNotice message={errorMessage(query.error)} /> : null}

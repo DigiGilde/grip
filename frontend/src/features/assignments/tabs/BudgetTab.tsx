@@ -1,10 +1,12 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { errorMessage } from '@/api/client';
 import { formatPeriod } from '@/lib/format';
-import { Facts, FormSheet, Stack } from '@/ui/layout';
+import { fetchQuotes, quoteKeys } from '@/features/quotes/api';
+import { Facts, FormSheet, Quiet, Stack } from '@/ui/layout';
 import { assignmentKeys, updateAssignment, type AssignmentDetail } from '../api';
 import { BudgetEditor } from '../BudgetEditor';
+import { ReadOnlyNote } from '../ReadOnlyNote';
 import { useAssignmentShell } from '../shell';
 import { Button, DateInput } from '../ui';
 
@@ -70,6 +72,28 @@ function AssignmentPeriod({ assignment }: { assignment: AssignmentDetail }) {
   );
 }
 
+/**
+ * For who may change the budget while a quote is undecided: changing is
+ * fine, and it means a new quote. Said before the change, not after.
+ */
+function OfferedQuoteNote({ assignmentId }: { assignmentId: string }) {
+  const quotes = useQuery({
+    queryKey: quoteKeys.list(assignmentId),
+    queryFn: () => fetchQuotes(assignmentId),
+    retry: false,
+  });
+  const waiting = [...(quotes.data?.quotes ?? [])]
+    .sort((a, b) => a.issued_at.localeCompare(b.issued_at))
+    .at(-1);
+  if (waiting?.status !== 'issued') return null;
+  return (
+    <Quiet>
+      {`Er ligt een offerte bij de opdrachtgever${waiting.reference ? ` (${waiting.reference})` : ''}. ` +
+        'Wijzig je de begroting, dan maak je daarna een nieuwe offerte; de oude vervalt.'}
+    </Quiet>
+  );
+}
+
 /** The budget lines of the assignment and their computed amounts. */
 export function BudgetTab() {
   const assignment = useAssignmentShell();
@@ -80,6 +104,10 @@ export function BudgetTab() {
         <Stack gap="close">
           <AssignmentPeriod assignment={assignment} />
         </Stack>
+        {assignment.permissions.edit_financial && <OfferedQuoteNote assignmentId={assignment.id} />}
+        {!assignment.permissions.edit_financial && (
+          <ReadOnlyNote assignment={assignment} what="deze begroting" />
+        )}
         <BudgetEditor assignmentId={assignment.id} />
       </Stack>
     </nldd-simple-section>

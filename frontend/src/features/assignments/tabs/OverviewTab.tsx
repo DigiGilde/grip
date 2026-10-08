@@ -19,6 +19,7 @@ import { AssignmentFormSheet } from '../AssignmentFormSheet';
 import { KIND_LABELS, ROLE_LABELS, TRANSITION_LABELS, statusLabel } from '../labels';
 import { assignmentTabPath } from '../paths';
 import { useAssignmentShell } from '../shell';
+import { ReadOnlyNote } from '../ReadOnlyNote';
 import { useStanding } from '../useStanding';
 import {
   Button,
@@ -84,7 +85,8 @@ function useAssignmentMutation<T>(
 }
 
 function Roles({ assignment }: { assignment: AssignmentDetail }) {
-  const canEdit = assignment.permissions.edit_basic;
+  // Assigning owner and managers can be a right of its own, without any other edit right.
+  const canEdit = assignment.permissions.edit_basic || assignment.permissions.manage_roles === true;
   const [problem, setProblem] = useState<string | null>(null);
   const [adding, setAdding] = useState({ open: false, session: 0 });
   const [personId, setPersonId] = useState('');
@@ -441,6 +443,9 @@ export function OverviewTab() {
         <NextSteps assignment={assignment} />
         <nldd-container gap="12">
           <SectionHeading text="Gegevens" />
+          {!assignment.permissions.edit_basic && (
+            <ReadOnlyNote assignment={assignment} what="deze gegevens" />
+          )}
           <Facts assignment={assignment} />
           {assignment.permissions.edit_basic && (
             <div>

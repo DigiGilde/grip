@@ -47,6 +47,8 @@ export interface AssignmentPermissions {
   read_staffing: boolean;
   /** Who is on the team, by name: what a team member may see. */
   read_roster: boolean;
+  /** May assign owner and managers, also without any other edit right. */
+  manage_roles?: boolean;
 }
 
 export interface AssignmentDetail extends AssignmentSummary {

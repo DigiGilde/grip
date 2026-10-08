@@ -454,7 +454,7 @@ describe('QuotePage', () => {
     });
     const banner = container.querySelector('nldd-card nldd-banner');
     expect(banner?.getAttribute('text')).toBe('Niemand kan deze offerte nu goedkeuren');
-    expect(banner?.getAttribute('supporting-text')).toContain('onder Team');
+    expect(banner?.getAttribute('supporting-text')).toContain('bij Team, onder Rechten in grip');
     expect(primaries(container)).toEqual([]);
   });
 

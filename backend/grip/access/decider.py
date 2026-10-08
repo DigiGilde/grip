@@ -140,6 +140,22 @@ class LocalDecider:
                 if BEHEERDER in functions
                 else deny(_NO_GRANT)
             )
+        if action is Action.MANAGE_ROLES:
+            # Who owns or manages an assignment is decided by whoever already
+            # does, and by the beheerder on any assignment: an owner may have
+            # left. The relation is checked first, so the reason says when the
+            # beheerder acted on the function alone.
+            if (
+                req.resource.kind is not ResourceKind.ASSIGNMENT
+                or req.resource.assignment_id is None
+            ):
+                return deny("not_applicable")
+            reason = await self._manager_reason(req)
+            if reason:
+                return allow(reason)
+            if BEHEERDER in functions:
+                return allow("function:beheerder")
+            return deny(_NO_GRANT)
         if action is Action.RECORD_INVOICE:
             # Whoever manages the assignment, and the beheerder.
             if BEHEERDER in functions:

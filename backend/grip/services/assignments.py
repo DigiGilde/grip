@@ -605,6 +605,22 @@ async def issue_final_report(
 
 # -- roles --------------------------------------------------------------------
 
+_OWNER_REQUIRED = (
+    "Een opdracht heeft altijd een eigenaar. Wijs eerst een andere eigenaar aan."
+)
+
+
+def _role_change_basis(
+    actor: Person | None, person_id: UUID, as_beheerder: bool
+) -> dict[str, Any]:
+    """What the audit row says about a role change made on the function alone."""
+    if not as_beheerder:
+        return {}
+    basis: dict[str, Any] = {"basis": "function:beheerder"}
+    if actor is not None and actor.id == person_id:
+        basis["self_assignment"] = True
+    return basis
+
 
 async def set_assignment_role(
     session: AsyncSession,
@@ -613,11 +629,17 @@ async def set_assignment_role(
     role: str,
     *,
     actor: Person | None,
+    as_beheerder: bool = False,
 ) -> AssignmentRole:
     """Make a person owner or manager of an assignment.
 
     There is one owner: naming a new owner turns the previous one into a
-    manager.
+    manager. The owner cannot be made manager directly, because that would
+    leave the assignment without an owner.
+
+    ``as_beheerder`` says the actor has no role on the assignment and acts on
+    the function alone; the audit row records that, and whether the actor
+    named themselves.
     """
     if role not in (ROLE_OWNER, ROLE_MANAGER):
         raise DomainValidationError(f"Onbekende rol op een opdracht: {role}")
@@ -630,6 +652,8 @@ async def set_assignment_role(
     roles = list(result.scalars())
     current = next((r for r in roles if r.person_id == person_id), None)
     old = {"role": current.role} if current is not None else None
+    if current is not None and current.role == ROLE_OWNER and role == ROLE_MANAGER:
+        raise DomainValidationError(_OWNER_REQUIRED)
     if role == ROLE_OWNER:
         for other in roles:
             if other.role == ROLE_OWNER and other.person_id != person_id:
@@ -654,6 +678,7 @@ async def set_assignment_role(
             "assignment_id": str(assignment_id),
             "person_id": str(person_id),
             "role": role,
+            **_role_change_basis(actor, person_id, as_beheerder),
         },
     )
     return current
@@ -665,7 +690,9 @@ async def remove_assignment_role(
     person_id: UUID,
     *,
     actor: Person | None,
+    as_beheerder: bool = False,
 ) -> None:
+    """Take a manager off an assignment. The owner can only be replaced."""
     result = await session.execute(
         select(AssignmentRole).where(
             AssignmentRole.assignment_id == assignment_id,
@@ -675,6 +702,8 @@ async def remove_assignment_role(
     role = result.scalar_one_or_none()
     if role is None:
         raise NotFoundError("Rol op de opdracht", person_id)
+    if role.role == ROLE_OWNER:
+        raise DomainValidationError(_OWNER_REQUIRED)
     record_audit(
         session,
         actor=actor,
@@ -686,6 +715,7 @@ async def remove_assignment_role(
             "person_id": str(person_id),
             "role": role.role,
         },
+        new_value=_role_change_basis(actor, person_id, as_beheerder) or None,
     )
     await session.delete(role)
     await session.flush()

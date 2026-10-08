@@ -18,6 +18,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip.core.config import Settings, get_settings
+from grip.services import instance_settings
+from grip.services.errors import DomainValidationError
 
 _NOT_ALLOWED = re.compile(r"[^A-Z0-9]+")
 MAX_PREFIX = 10
@@ -29,6 +31,34 @@ def reference_prefix(settings: Settings | None = None) -> str:
     raw = settings.QUOTE_REFERENCE_PREFIX.strip() or settings.INSTANCE_KEY
     prefix = _NOT_ALLOWED.sub("", raw.upper())[:MAX_PREFIX]
     return prefix or "OFF"
+
+
+def _prefix_check(value: object) -> str:
+    if not isinstance(value, str):
+        raise DomainValidationError("Het voorvoegsel is tekst.")
+    cleaned = value.strip().upper()
+    if cleaned and (_NOT_ALLOWED.search(cleaned) or len(cleaned) > MAX_PREFIX):
+        raise DomainValidationError(
+            f"Het voorvoegsel bestaat uit hooguit {MAX_PREFIX} letters en cijfers."
+        )
+    return cleaned
+
+
+# The beheerder sets the prefix on the screen; the environment variable is
+# the value an installation starts with.
+PREFIX = instance_settings.declare(
+    "quote.reference_prefix",
+    reference_prefix(),
+    _prefix_check,
+    "Het voorvoegsel van het kenmerk van een offerte, zoals DG in DG-2026-0007. "
+    "Leeg volgt de waarde waarmee de omgeving is ingericht.",
+)
+
+
+async def current_prefix(session: AsyncSession) -> str:
+    """The prefix new references get: set on the screen, or else the default."""
+    chosen = str(await instance_settings.get(session, PREFIX.key) or "")
+    return chosen or reference_prefix()
 
 
 def format_reference(prefix: str, year: int, number: int) -> str:
@@ -53,7 +83,8 @@ async def next_reference(session: AsyncSession, year: int) -> str:
         ),
         {"year": year},
     )
-    return format_reference(reference_prefix(), year, int(result.scalar_one()))
+    number = int(result.scalar_one())
+    return format_reference(await current_prefix(session), year, number)
 
 
 def file_stem(reference: str | None, fallback: str) -> str:

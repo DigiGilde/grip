@@ -12,7 +12,13 @@ import { Quiet, Stack } from '@/ui/layout';
 import { PATHS } from '@/paths';
 import { assignmentKeys, fetchAssignment, type AssignmentDetail } from './api';
 import { fetchAssignmentFinance, financeKeys } from './financeApi';
-import { FIGURE_LABELS, varianceText, varianceWord } from './financeText';
+import {
+  FIGURE_LABELS,
+  NOTHING_PLANNED_TEXT,
+  nothingPlanned,
+  varianceText,
+  varianceWord,
+} from './financeText';
 import { relationText, STATUS_COLORS, statusLabel } from './labels';
 import { assignmentTabPath, type AssignmentTabKey } from './paths';
 import { AssignmentShellContext, TAB_LABELS, visibleTabs } from './shell';
@@ -54,16 +60,26 @@ function KeyFigures({ assignment }: { assignment: AssignmentDetail }) {
           text={formatEuro(totals.realised_total_cents)}
           horizontal-alignment="right"
         />
-        <nldd-text-cell
-          text={formatEuro(totals.expected_total_cents)}
-          horizontal-alignment="right"
-        />
-        <nldd-text-cell
-          text={varianceText(totals)}
-          supporting-text={varianceWord(totals)}
-          horizontal-alignment="right"
-          {...(totals.overrun ? { color: 'critical' } : {})}
-        />
+        {nothingPlanned(totals) ? (
+          // Without inzet there is no expected total; say that, not "100% ruimte".
+          <>
+            <nldd-text-cell text={NOTHING_PLANNED_TEXT} horizontal-alignment="right" />
+            <nldd-text-cell />
+          </>
+        ) : (
+          <>
+            <nldd-text-cell
+              text={formatEuro(totals.expected_total_cents)}
+              horizontal-alignment="right"
+            />
+            <nldd-text-cell
+              text={varianceText(totals)}
+              supporting-text={varianceWord(totals)}
+              horizontal-alignment="right"
+              {...(totals.overrun ? { color: 'critical' } : {})}
+            />
+          </>
+        )}
       </nldd-table-row>
     </nldd-table>
   );

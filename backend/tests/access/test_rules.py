@@ -823,3 +823,63 @@ async def test_an_external_decider_can_replace_the_local_one(world) -> None:
     assert (
         external.seen[0]["resource"]["properties"]["data_class"] == "assignment_basic"
     )
+
+
+# --- who owns and manages an assignment ------------------------------------
+
+
+async def test_manage_roles_is_for_whoever_manages_and_for_the_beheerder(world) -> None:
+    own = Resource.assignment(world.own)
+    assert await _allowed_subjects(world, Action.MANAGE_ROLES, own) == {
+        "beheerder",
+        "owner",
+        "manager",
+    }
+    # On an assignment nobody in the cast relates to: only the beheerder.
+    other = Resource.assignment(world.other)
+    assert await _allowed_subjects(world, Action.MANAGE_ROLES, other) == {"beheerder"}
+    # Not without an assignment, and not on something else.
+    assert (
+        await _allowed_subjects(world, Action.MANAGE_ROLES, Resource.assignment(None))
+        == set()
+    )
+    assert (
+        await _allowed_subjects(
+            world, Action.MANAGE_ROLES, Resource.person(world.member)
+        )
+        == set()
+    )
+
+
+async def test_manage_roles_never_implies_editing_content(world) -> None:
+    """The beheerder names an owner on any assignment and edits nothing on it."""
+    beheerder = world.subject("beheerder")
+    for assignment in (world.own, world.other):
+        resource = Resource.assignment(assignment)
+        granted = await decide(world.decider, beheerder, Action.MANAGE_ROLES, resource)
+        assert granted.allowed and granted.reason == "function:beheerder"
+        for data_class in (
+            DataClass.ASSIGNMENT_BASIC,
+            DataClass.ASSIGNMENT_FINANCIAL,
+            DataClass.STAFFING,
+        ):
+            assert not await decide(
+                world.decider, beheerder, Action.EDIT, resource, data_class
+            )
+        for action in (Action.ISSUE_QUOTE, Action.CLOSE_MONTH):
+            assert not await decide(world.decider, beheerder, action, resource)
+
+
+async def test_manage_roles_reason_names_the_relation_when_there_is_one(world) -> None:
+    """A beheerder who is also manager acts as manager: nothing to mark."""
+    from grip.access import BEHEERDER
+
+    own = Resource.assignment(world.own)
+    manager = world.subject("manager")
+    both = Subject.for_person(manager.person_id, {BEHEERDER})
+    decision = await decide(world.decider, both, Action.MANAGE_ROLES, own)
+    assert decision.allowed and decision.reason == "relation:manager"
+    owner = await decide(
+        world.decider, world.subject("owner"), Action.MANAGE_ROLES, own
+    )
+    assert owner.reason == "relation:owner"

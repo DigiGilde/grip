@@ -52,3 +52,25 @@ export function todayIso(): string {
   const day = String(now.getDate()).padStart(2, '0');
   return `${now.getFullYear()}-${month}-${day}`;
 }
+
+/** The day before an ISO date. */
+export function dayBefore(iso: string): string {
+  const date = new Date(`${iso}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() - 1);
+  return date.toISOString().slice(0, 10);
+}
+
+/**
+ * Until when a card starting on a date can hold: the day before the next
+ * card that prices starts, or open-ended (null) when nothing follows.
+ */
+export function latestEnd(
+  validFrom: string,
+  cards: Pick<RateCard, 'status' | 'valid_from'>[],
+): string | null {
+  const next = cards
+    .filter((card) => card.status !== 'draft' && card.valid_from > validFrom)
+    .map((card) => card.valid_from)
+    .sort()[0];
+  return next ? dayBefore(next) : null;
+}

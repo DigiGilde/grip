@@ -7,7 +7,7 @@ import { renderApp } from '@/test/utils';
 import type { PriceImpact } from './api';
 import { activationSentences, impactSentences } from './impact';
 import { RatesPage } from './RatesPage';
-import { firstDayOfNextYear, momentOf, validityText } from './validity';
+import { firstDayOfNextYear, latestEnd, momentOf, validityText } from './validity';
 
 const BANDS = {
   rate_bands: [
@@ -364,6 +364,16 @@ describe('validity', () => {
     expect(momentOf(card, '2026-07-01')).toBe('now');
     expect(momentOf({ ...card, valid_to: '2026-12-31' }, '2027-01-01')).toBe('past');
     expect(momentOf({ ...card, status: 'draft' }, '2026-08-01')).toBe('draft');
+  });
+
+  it('ends a card that starts before a later one on the day before that one', () => {
+    const cards = [
+      { status: 'active' as const, valid_from: '2027-01-01' },
+      { status: 'draft' as const, valid_from: '2026-09-01' },
+    ];
+    expect(latestEnd('2026-07-01', cards)).toBe('2026-12-31');
+    expect(latestEnd('2027-01-01', cards)).toBeNull();
+    expect(latestEnd('2028-03-01', cards)).toBeNull();
   });
 
   it('proposes the first day of next year', () => {

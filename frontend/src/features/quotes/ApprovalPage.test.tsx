@@ -190,7 +190,7 @@ describe('QuoteSettingsPage', () => {
     const cells = texts(container, 'nldd-list nldd-text-cell');
     expect(cells.some((text) => /^Vanaf €\s100\.000$/.test(text))).toBe(true);
     expect(cells).toContain('Mag niet: een ander keurt goed');
-    expect(container.textContent).toContain('onder Team');
+    expect(container.textContent).toContain('bij Team, onder Rechten in grip');
   });
 
   it('refuses "from an amount" without an amount, and saves the amount in cents', async () => {

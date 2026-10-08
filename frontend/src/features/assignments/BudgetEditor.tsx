@@ -354,7 +354,7 @@ function LineSheet({
               variant="neutral"
               size="sm"
               text="De periode loopt over meer dan één tarievenkaart"
-              supporting-text={`${valid.data.summary} Elke dag wordt geprijsd met de kaart die dan geldt.`}
+              supporting-text={valid.data.summary}
             />
           )}
           <TextInput

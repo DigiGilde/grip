@@ -6,7 +6,7 @@
   max-inline-size: 160px;
   block-size: 6px;
   border-radius: 3px;
-  background: var(--primitives-color-neutral-150);
+  background: var(--primitives-color-neutral-250);
   overflow: hidden;
 }
 

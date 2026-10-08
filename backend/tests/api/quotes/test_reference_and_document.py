@@ -16,6 +16,7 @@ from sqlalchemy.pool import NullPool
 from grip.core.config import get_settings
 from grip.schema.quotes import content_from_snapshot
 from grip.services import assignments, quote_reference, quotes
+from grip.services.errors import DomainValidationError
 from grip.services.quote_document import (
     DocumentEngineError,
     Letterhead,
@@ -315,6 +316,30 @@ async def test_a_quote_gets_a_reference_that_is_part_of_what_is_hashed(
     assert b'"afzender":' in quote.canonical
     assert b'"schalen":[14,15]' in quote.canonical
     assert first["snapshot_hash"] != second["snapshot_hash"]
+
+
+async def test_the_beheerder_sets_the_prefix_for_new_references(db_session):
+    from grip.services import instance_settings
+
+    await instance_settings.set_values(
+        db_session, {quote_reference.PREFIX.key: "dg"}, actor=None
+    )
+    assert (await quote_reference.next_reference(db_session, 2998)).startswith(
+        "DG-2998-"
+    )
+    # Empty goes back to what the installation was set up with.
+    await instance_settings.set_values(
+        db_session, {quote_reference.PREFIX.key: ""}, actor=None
+    )
+    assert await quote_reference.current_prefix(db_session) == (
+        quote_reference.reference_prefix()
+    )
+    with pytest.raises(DomainValidationError):
+        await instance_settings.set_values(
+            db_session,
+            {quote_reference.PREFIX.key: "te lang en met spaties"},
+            actor=None,
+        )
 
 
 async def test_a_quote_that_cannot_be_made_uses_no_number(act_as, world, db_session):

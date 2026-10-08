@@ -27,6 +27,9 @@ class AssignmentPermissionsOut(BaseModel):
     """What the person asking may do, so the screen offers only that."""
 
     edit_basic: Annotated[bool, in_class(A)]
+    # Name or remove the owner and managers. Separate from editing content:
+    # the beheerder may do this on any assignment and nothing else.
+    manage_roles: Annotated[bool, in_class(A)]
     edit_financial: Annotated[bool, in_class(A)]
     edit_staffing: Annotated[bool, in_class(A)]
     read_financial: Annotated[bool, in_class(A)]
@@ -79,8 +82,9 @@ class AssignmentDetailOut(AssignmentSummaryOut):
     verbal_agreement_at: Annotated[date | None, in_class(A)]
     roles: Annotated[list[RoleHolderOut], nested()]
     allowed_transitions: Annotated[list[str], in_class(A)]
-    # How the reader relates to the assignment: owner, manager, member. Empty
-    # for who reads it from a function in grip alone.
+    # How the reader relates to the assignment: owner, manager, member; or,
+    # without a relation of their own, the functions they read it from
+    # ("function:beheerder").
     viewer_relations: Annotated[list[str], in_class(A)] = Field(default_factory=list)
     permissions: Annotated[AssignmentPermissionsOut, nested()]
 

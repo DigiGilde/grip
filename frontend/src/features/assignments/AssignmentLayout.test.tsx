@@ -97,9 +97,10 @@ function renderShell(
   path = '/opdrachten/a1',
   overrides = {},
   staffing: unknown = STAFFING,
+  money: unknown = finance(),
 ) {
   mockApi({
-    '/api/assignments/a1/financial': finance(),
+    '/api/assignments/a1/financial': money,
     '/api/assignments/a1/staffing': staffing,
     '/api/allocations/options': { people: [], lines: [] },
     '/api/assignments/a1': assignment({ permissions, ...overrides }),
@@ -194,6 +195,40 @@ describe('AssignmentLayout', () => {
     expect(allText(planner.container)).not.toContain('€');
   });
 
+  it('asks for the whole period, and does not call a budget without inzet all room', async () => {
+    // An assignment that lies entirely in a later year: budgeted, nothing planned yet.
+    const later = { ...FIGURES, realised_total_cents: 0, expected_total_cents: 0, variance_cents: 43440000, variance_pct: '100', budgeted_cents: 43440000 };
+    const { container } = renderShell(
+      PERMISSIONS.owner,
+      '/opdrachten/a1',
+      { start_date: '2027-01-01', end_date: '2027-12-31' },
+      STAFFING,
+      finance({ totals: later }),
+    );
+    await waitFor(() =>
+      expect(container.querySelector('nldd-table[accessible-label^="Kerncijfers"]')).not.toBeNull(),
+    );
+    const text = allText(container);
+    expect(text).toContain('434.400');
+    expect(text).toContain('Nog geen inzet gepland');
+    expect(text).not.toContain('Ruimte');
+    expect(text).not.toContain('100');
+    const calls = (vi.mocked(fetch).mock.calls as unknown[][]).map((call) => String(call[0]));
+    expect(calls).toContain('/api/assignments/a1/financial?year=all');
+  });
+
+  it('says how the reader sees the assignment, with or without a relation of their own', async () => {
+    const owner = renderShell(PERMISSIONS.owner, '/opdrachten/a1', { viewer_relations: ['owner'] });
+    await tabs(owner.container);
+    expect(allText(owner.container)).toContain('Je bent eigenaar van deze opdracht.');
+    owner.unmount();
+    const admin = renderShell(PERMISSIONS.lezer, '/opdrachten/a1', {
+      viewer_relations: ['function:lezer', 'function:beheerder'],
+    });
+    await tabs(admin.container);
+    expect(allText(admin.container)).toContain('Je bekijkt deze opdracht als beheerder.');
+  });
+
   it('labels a potential assignment as such', async () => {
     const { container } = renderShell(PERMISSIONS.owner, '/opdrachten/a1', {
       phase: 'potential',
@@ -262,6 +297,10 @@ describe('Bemensing tab', () => {
     expect(tab.querySelector('table[role="grid"]')).toBeNull();
     expect(allText(tab)).toContain('Voorbeeld Een');
     expect(allText(tab)).not.toContain('%');
+    // Looking without changing is said once, with who can.
+    expect(allText(tab)).toContain(
+      'Je kunt de bemensing bekijken. Wijzigen kan de eigenaar (Voorbeeld Eigenaar) of een manager of een planner.',
+    );
   });
 
   it('leads an empty assignment to the budget, or says whose turn it is', async () => {

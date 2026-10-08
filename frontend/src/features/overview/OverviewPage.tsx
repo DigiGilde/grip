@@ -2,7 +2,12 @@ import { useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { errorMessage } from '@/api/client';
-import { referenceText, varianceWord } from '@/features/assignments/financeText';
+import {
+  NOTHING_PLANNED_TEXT,
+  nothingPlanned,
+  referenceText,
+  varianceWord,
+} from '@/features/assignments/financeText';
 import { PHASE_LABELS, STATUS_COLORS, statusLabel, type Phase } from '@/features/assignments/labels';
 import { assignmentPath, assignmentTabPath } from '@/features/assignments/paths';
 import { Button } from '@/features/assignments/ui';
@@ -62,6 +67,15 @@ function VarianceCell({ figures }: { figures: Figures }) {
   // The server's percentage, only to size the bar; no amount is computed here.
   const pct = figures.variance_pct === null ? 0 : Number(figures.variance_pct);
   const used = Math.max(0, Math.min(100, 100 - pct));
+  if (nothingPlanned(figures)) {
+    return (
+      <nldd-cell>
+        <nldd-text size="sm" color="secondary">
+          {NOTHING_PLANNED_TEXT}
+        </nldd-text>
+      </nldd-cell>
+    );
+  }
   return (
     <nldd-cell>
       <nldd-container gap="4">

@@ -14,7 +14,7 @@ const SECTIONS: { path: string; title: string; text: string }[] = [
   {
     path: PATHS.quoteSettings,
     title: 'Offertes',
-    text: 'Of een offerte intern wordt goedgekeurd voor ze naar de opdrachtgever gaat, en vanaf welk bedrag.',
+    text: 'Het voorvoegsel van het kenmerk, en of een offerte intern wordt goedgekeurd voor ze naar de opdrachtgever gaat.',
   },
   {
     path: PATHS.peers,

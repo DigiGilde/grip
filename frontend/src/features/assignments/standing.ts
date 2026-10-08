@@ -44,6 +44,11 @@ export interface StandingFacts {
   quotes?: readonly QuoteFact[];
   /** Offers of the quote in force; undefined when not known. */
   offers?: readonly OfferFact[];
+  /**
+   * The budget changed after the quote in force was made, so the quote no
+   * longer matches it. Undefined when not known: then nothing is said.
+   */
+  budgetMoved?: boolean;
   /** First day as yyyy-mm-dd, to tell whether a quote has expired. */
   today: string;
 }
@@ -106,6 +111,37 @@ function offerSentence(offer: OfferFact): string {
 const latest = <T>(items: readonly T[], key: (item: T) => string): T | undefined =>
   [...items].sort((a, b) => key(a).localeCompare(key(b))).at(-1);
 
+/**
+ * Where one quote stands on its way to an agreement:
+ * - 'quote': it leads nowhere any more (sent back, rejected, replaced), so a
+ *   new quote is the step;
+ * - 'approval': it waits for internal approval, asked or not yet asked;
+ * - 'offer': it can be offered and was not yet;
+ * - 'agreement': it was offered and waits for the client;
+ * - 'done': the client accepted it.
+ *
+ * The steps of the assignment and the steps on the card of the quote both
+ * read this, so they cannot say different things about the same quote.
+ */
+export type QuotePosition = 'quote' | 'approval' | 'offer' | 'agreement' | 'done';
+
+export function quotePosition(
+  quote: Pick<QuoteFact, 'status' | 'approval'>,
+  offers: readonly unknown[] | undefined,
+): QuotePosition {
+  if (quote.status === 'accepted') return 'done';
+  if (quote.status !== 'issued') return 'quote';
+  if (quote.approval === 'sent_back') return 'quote';
+  if (
+    quote.approval === 'requested' ||
+    quote.approval === 'none' ||
+    quote.approval === 'withdrawn'
+  ) {
+    return 'approval';
+  }
+  return offers && offers.length > 0 ? 'agreement' : 'offer';
+}
+
 /** Where the assignment stands; null once it is no longer potential. */
 export function standing(facts: StandingFacts): Standing | null {
   if (facts.phase !== 'potential') return null;
@@ -119,6 +155,7 @@ export function standing(facts: StandingFacts): Standing | null {
     facts.quotes !== undefined ? inForce !== undefined : facts.status === 'quoted' || !!facts.quoteSeen;
   const lastOffer = inForce && facts.offers ? latest(facts.offers, (o) => o.offered_at) : undefined;
   const withApproval = !!inForce?.approval;
+  const position = inForce ? quotePosition(inForce, facts.offers) : null;
 
   const keys: StepKey[] = ['budget', 'quote', ...(withApproval ? ['approval' as const] : []), 'offer', 'agreement'];
   const answer = (
@@ -148,28 +185,37 @@ export function standing(facts: StandingFacts): Standing | null {
       { text: 'Leg het getekende akkoord vast', tab: 'quote' },
     );
   }
-  if (inForce?.approval === 'sent_back') {
+  if (inForce && facts.budgetMoved) {
+    return answer(
+      'quote',
+      lastOffer
+        ? 'De begroting is gewijzigd nadat de offerte is aangeboden. De offerte klopt niet meer; maak een nieuwe en bied die aan. De oude vervalt.'
+        : 'De begroting is gewijzigd nadat de offerte is gemaakt. Maak een nieuwe offerte; de oude vervalt.',
+      { text: 'Maak een nieuwe offerte', tab: 'quote' },
+    );
+  }
+  if (inForce && position === 'quote') {
     return answer(
       'quote',
       'De offerte is intern teruggestuurd. Pas de begroting aan en maak een nieuwe offerte.',
       toQuote,
     );
   }
-  if (inForce?.approval === 'requested') {
+  if (position === 'approval' && inForce?.approval === 'requested') {
     return answer(
       'approval',
       inForce.blockedMessage ?? 'De offerte wacht op intern akkoord voordat zij naar de opdrachtgever kan.',
       toQuote,
     );
   }
-  if (inForce?.approval === 'none' || inForce?.approval === 'withdrawn') {
+  if (position === 'approval') {
     return answer(
       'approval',
-      inForce.blockedMessage ?? 'Deze offerte heeft intern akkoord nodig voordat zij naar de opdrachtgever kan.',
+      inForce?.blockedMessage ?? 'Deze offerte heeft intern akkoord nodig voordat zij naar de opdrachtgever kan.',
       { text: 'Vraag intern akkoord', tab: 'quote' },
     );
   }
-  if (lastOffer) {
+  if (position === 'agreement' && lastOffer) {
     return answer(
       'agreement',
       offerSentence(lastOffer),
