@@ -211,3 +211,22 @@ dev-link-down:
 # Only the dev outway, with your own routes file (see grip.dev.dev_outway)
 dev-outway ROUTES PORT="9230":
     cd backend && DEV_OUTWAY_ROUTES="{{ absolute_path(ROUTES) }}" uv run uvicorn grip.dev.dev_outway:create_app --factory --port {{ PORT }}
+
+# Start the backend with the example data on port 8010, as a Rijksorganisatie:
+# documents carry the Rijkslint and the Rijkshuisstijl typeface.
+preview port="8010":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    root="$(pwd)"
+    set -a
+    eval "$(deploy/local/dev-link.sh env)"
+    eval "$(deploy/local/wies.sh env)"
+    set +a
+    export DEV_NO_AUTH=1
+    export INSTANCE_NAME="Grip DigiGilde (voorbeeld)"
+    export DATABASE_URL="${PREVIEW_DATABASE_URL:-postgresql+asyncpg://grip:grip@localhost:5434/grip_preview}"
+    export LETTERHEAD_LOGO_PATH="$root/frontend/node_modules/@nldd/design-system/dist/favicon.svg"
+    export DOCUMENT_FONT_DIR="$root/frontend/node_modules/@nldd/design-system/dist/fonts"
+    cd backend
+    uv run alembic upgrade head
+    exec uv run uvicorn grip.core.app:create_app --factory --port {{port}}
