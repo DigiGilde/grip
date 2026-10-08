@@ -1,16 +1,23 @@
+import { useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
-import { EmptyNotice, ErrorNotice, Loading } from '@/ui/layout';
 import { QUOTE_STATUS_LABELS } from '@/features/quotes/api';
-import { formatDateTime } from '@/features/quotes/format';
 import { useInstance } from '@/layout/useInstance';
+import { useRouterLinks } from '@/layout/useRouterLinks';
 import { formatDate } from '@/lib/format';
-import { PageHeading } from '@/pages/PageHeading';
+import { EmptyNotice, ErrorNotice, Loading, Page } from '@/ui/layout';
 import { fetchSigningInvitations, signingKeys } from './api';
+
+/** What the reader can do with a quote, in the word of the action. */
+function actionText(status: string): string {
+  return status === 'issued' ? 'Bekijk en teken' : 'Bekijk';
+}
 
 /** The quotes someone was invited to sign. */
 export function SigningListPage() {
   const instance = useInstance();
+  const ref = useRef<HTMLDivElement>(null);
+  useRouterLinks(ref);
   const query = useQuery({
     queryKey: signingKeys.invitations,
     queryFn: fetchSigningInvitations,
@@ -18,8 +25,7 @@ export function SigningListPage() {
   const invitations = query.data?.invitations ?? [];
 
   return (
-    <nldd-simple-section>
-      <PageHeading text="Offertes om te tekenen" instanceName={instance?.name} />
+    <Page title="Offertes om te tekenen" instanceName={instance?.name} width="960px">
       {query.isPending ? <Loading /> : null}
       {query.isError ? <ErrorNotice message={errorMessage(query.error)} /> : null}
       {query.data && invitations.length === 0 ? (
@@ -29,35 +35,52 @@ export function SigningListPage() {
         />
       ) : null}
       {invitations.length > 0 ? (
-        <nldd-table
-          accessible-label="Offertes om te tekenen"
-          columns="minmax(200px,2fr) minmax(140px,1fr) minmax(120px,1fr) minmax(120px,1fr) 120px"
-        >
-          <nldd-table-row slot="header">
-            <nldd-text-cell text="Opdracht" />
-            <nldd-text-cell text="Gemaakt" />
-            <nldd-text-cell text="Geldig tot en met" />
-            <nldd-text-cell text="Status" />
-            <nldd-text-cell text="Actie" />
-          </nldd-table-row>
-          {invitations.map((invitation) => (
-            <nldd-table-row key={invitation.quote_id}>
-              <nldd-text-cell text={invitation.assignment_name} />
-              <nldd-text-cell text={formatDateTime(invitation.issued_at)} />
-              <nldd-text-cell text={formatDate(invitation.valid_until) || 'Geen einddatum'} />
-              <nldd-text-cell text={QUOTE_STATUS_LABELS[invitation.status] ?? invitation.status} />
-              <nldd-cell>
-                <nldd-link
-                  href={`/tekenen/${invitation.quote_id}`}
-                  text="Open"
-                  size="md"
-                  accessible-label={`Open de offerte voor ${invitation.assignment_name}`}
-                />
-              </nldd-cell>
+        <div ref={ref}>
+          <nldd-table
+            accessible-label="Offertes om te tekenen"
+            columns="minmax(220px,2fr) minmax(130px,1fr) minmax(130px,1fr) max-content"
+          >
+            <nldd-table-row slot="header">
+              <nldd-text-cell text="Offerte" />
+              <nldd-text-cell text="Geldig tot en met" />
+              <nldd-text-cell text="Stand" />
+              <nldd-text-cell text="Actie" />
             </nldd-table-row>
-          ))}
-        </nldd-table>
+            {invitations.map((invitation) => (
+              <nldd-table-row key={invitation.quote_id}>
+                <nldd-text-cell
+                  text={invitation.assignment_name}
+                  supporting-text={[invitation.reference, `gemaakt op ${formatDate(invitation.issued_at)}`]
+                    .filter(Boolean)
+                    .join(' · ')}
+                />
+                <nldd-text-cell text={formatDate(invitation.valid_until) || 'Geen einddatum'} />
+                <nldd-text-cell
+                  text={
+                    invitation.status === 'issued'
+                      ? 'Wacht op je akkoord'
+                      : (QUOTE_STATUS_LABELS[invitation.status] ?? invitation.status)
+                  }
+                />
+                <nldd-cell>
+                  <nldd-link
+                    href={`/tekenen/${invitation.quote_id}`}
+                    text={actionText(invitation.status)}
+                    size="md"
+                    accessible-label={[
+                      `${actionText(invitation.status)}: offerte`,
+                      invitation.reference,
+                      `voor ${invitation.assignment_name}`,
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                  />
+                </nldd-cell>
+              </nldd-table-row>
+            ))}
+          </nldd-table>
+        </div>
       ) : null}
-    </nldd-simple-section>
+    </Page>
   );
 }

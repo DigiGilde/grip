@@ -35,6 +35,13 @@ export function byDueGroup(tasks: readonly Task[], today: Date): Record<DueGroup
   return groups;
 }
 
+/** The first tasks by due date; a task without a date comes last. */
+export function firstByDue(tasks: readonly Task[], limit: number): Task[] {
+  return [...tasks]
+    .sort((a, b) => (a.due_on ?? '9999').localeCompare(b.due_on ?? '9999'))
+    .slice(0, limit);
+}
+
 /** The columns of the board, in reading order. */
 export const BOARD_COLUMNS: readonly { status: TaskStatus; title: string }[] = [
   { status: 'todo', title: 'Te doen' },

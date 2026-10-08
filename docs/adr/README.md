@@ -29,3 +29,5 @@ Een besluit dat anderen bindt staat hier als ADR: genummerd, met context, beslui
 | [0023](0023-aangeleverd-is-niet-gefactureerd.md) | Aangeleverd is niet gefactureerd | aanvaard |
 | [0024](0024-taken-feiten-en-het-plan.md) | Taken, feiten en het plan | aanvaard |
 | [0025](0025-interne-goedkeuring-van-een-offerte.md) | Een offerte kan eerst intern worden goedgekeurd | aanvaard |
+| [0026](0026-kenmerk-en-pdf-van-een-offerte.md) | Een offerte heeft een kenmerk en is een pdf | aanvaard |
+| [0027](0027-tarievenkaart-geldt-voor-een-periode.md) | Een tarievenkaart geldt voor een periode, en de prijs volgt de dag | aanvaard |

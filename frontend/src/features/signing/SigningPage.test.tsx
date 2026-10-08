@@ -179,6 +179,7 @@ describe('SigningListPage', () => {
         invitations: [
           {
             quote_id: 'q-1',
+            reference: 'VG-2026-0007',
             assignment_name: 'Opdracht Alfa',
             status: 'issued',
             issued_at: '2026-02-01T09:00:00Z',
@@ -192,6 +193,6 @@ describe('SigningListPage', () => {
     await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
     const link = container.querySelector('nldd-table nldd-link');
     expect(link?.getAttribute('href')).toBe('/tekenen/q-1');
-    expect(link?.getAttribute('accessible-label')).toBe('Open de offerte voor Opdracht Alfa');
+    expect(link?.getAttribute('accessible-label')).toBe('Bekijk en teken: offerte VG-2026-0007 voor Opdracht Alfa');
   });
 });

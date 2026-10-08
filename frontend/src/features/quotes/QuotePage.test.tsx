@@ -3,7 +3,7 @@ import { Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderApp } from '@/test/utils';
 import { QuotePage } from './QuotePage';
-import { mockApi, texts } from './testing';
+import { clickButton, mockApi, texts } from './testing';
 
 const HASH = 'a'.repeat(64);
 
@@ -81,15 +81,41 @@ const LINK_OFFER = {
 
 afterEach(() => vi.unstubAllGlobals());
 
+let lastCalls: { url: string; method: string; body: unknown }[] = [];
+
+const APPROVAL = {
+  quote_id: 'q-1',
+  approval_required: true,
+  approval_reason: 'vanaf € 100.000',
+  status: 'none',
+  may_offer: false,
+  blocked_message: 'Deze offerte kan pas worden aangeboden na interne goedkeuring.',
+  approver_available: true,
+  may_request_approval: true,
+  may_decide_approval: false,
+  may_withdraw: false,
+  current: null,
+  history: [],
+};
+
 interface Setup {
+  approval?: object;
   preview?: object;
   quotes?: object[];
   mayManage?: boolean;
   offers?: object[];
 }
 
-async function renderTab({ preview = PREVIEW, quotes = [], mayManage = true, offers = [] }: Setup) {
-  mockApi({
+async function renderTab({
+  preview = PREVIEW,
+  quotes = [],
+  mayManage = true,
+  offers = [],
+  approval,
+}: Setup) {
+  const { calls } = mockApi({
+    ...(approval ? { '/api/assignments/a-1/quote-approvals': { items: [approval] } } : {}),
+    'POST /api/quotes/q-1/approval/request': { ...APPROVAL, status: 'requested' },
     '/api/assignments/a-1/quote-preview': preview,
     '/api/assignments/a-1/quotes': { may_manage: mayManage, quotes },
     '/api/quotes/q-1': { ...(quotes[0] ?? QUOTE), content: CONTENT, offers, channels: CHANNELS },
@@ -112,6 +138,7 @@ async function renderTab({ preview = PREVIEW, quotes = [], mayManage = true, off
       ),
     );
   }
+  lastCalls = calls;
   return view.container;
 }
 
@@ -312,5 +339,122 @@ describe('QuotePage', () => {
     expect(texts(container, 'nldd-button')).toContain('Maak nieuwe offerte');
     expect(container.textContent).toMatch(/De begroting staat nu op €\s180\.000/);
     expect(primaries(container)).toEqual(['Bied aan']);
+  });
+
+  it('puts internal approval between making and offering only where it is required', async () => {
+    const container = await renderTab({ quotes: [QUOTE], approval: APPROVAL });
+    expect(texts(container, 'nldd-step-bar-item')).toEqual([
+      'Gemaakt',
+      'Interne goedkeuring',
+      'Aangeboden',
+      'Getekend of afgewezen',
+    ]);
+    expect(primaries(container)).toEqual(['Vraag goedkeuring']);
+    expect(texts(container, 'nldd-button')).not.toContain('Bied aan');
+    expect(texts(container, 'nldd-card nldd-menu-item')).not.toContain('Bied opnieuw aan');
+    // Why offering is not on offer yet.
+    expect(container.textContent).toContain('interne goedkeuring nodig (vanaf € 100.000)');
+    expect(container.textContent).toContain('pas worden aangeboden na interne goedkeuring');
+    clickButton(container, 'Vraag goedkeuring');
+    const openSheet = () =>
+      [...document.body.querySelectorAll('nldd-sheet')].find((el) => el.hasAttribute('open'));
+    await waitFor(() =>
+      expect(openSheet()?.querySelector('nldd-title')?.getAttribute('text')).toBe(
+        'Goedkeuring vragen',
+      ),
+    );
+    const sheet = openSheet();
+    sheet?.querySelector('nldd-form')?.dispatchEvent(new Event('submit', { cancelable: true }));
+    await waitFor(() => expect(lastCalls.some((call) => call.method === 'POST')).toBe(true));
+    expect(lastCalls.find((call) => call.method === 'POST')?.body).toEqual({ note: null });
+  });
+
+  it('waits in words while an approver has the quote', async () => {
+    const container = await renderTab({
+      quotes: [QUOTE],
+      approval: {
+        ...APPROVAL,
+        status: 'requested',
+        may_request_approval: false,
+        may_withdraw: true,
+        current: {
+          id: 'r-1',
+          status: 'requested',
+          requested_at: '2026-02-02T09:30:00Z',
+          requested_by_name: 'Opdracht Manager',
+          request_note: 'Graag voor vrijdag',
+        },
+      },
+    });
+    expect(container.textContent).toMatch(
+      /Wacht op goedkeuring sinds 2 feb 2026.*gevraagd door Opdracht Manager/,
+    );
+    expect(container.textContent).toContain('Toelichting bij de aanvraag: Graag voor vrijdag');
+    expect(primaries(container)).toEqual([]);
+    expect(texts(container, 'nldd-card nldd-menu-item')).toEqual([
+      'Trek de aanvraag in',
+      'Leg afwijzing vast',
+    ]);
+  });
+
+  it('leads to a new quote when the approver sent it back, with the note', async () => {
+    const container = await renderTab({
+      quotes: [QUOTE],
+      approval: {
+        ...APPROVAL,
+        status: 'sent_back',
+        may_request_approval: false,
+        current: {
+          id: 'r-1',
+          status: 'sent_back',
+          requested_at: '2026-02-02T09:30:00Z',
+          decided_at: '2026-02-03T11:00:00Z',
+          decided_by_name: 'Collega Goedkeurder',
+          decision_note: 'De looptijd klopt niet',
+        },
+      },
+    });
+    expect(container.textContent).toMatch(
+      /Teruggestuurd op 3 feb 2026.*door Collega Goedkeurder: De looptijd klopt niet/,
+    );
+    expect(primaries(container)).toEqual(['Maak nieuwe offerte']);
+  });
+
+  it('says where the right is granted when nobody can approve', async () => {
+    const container = await renderTab({
+      quotes: [QUOTE],
+      approval: { ...APPROVAL, approver_available: false },
+    });
+    const banner = container.querySelector('nldd-card nldd-banner');
+    expect(banner?.getAttribute('text')).toBe('Niemand kan deze offerte nu goedkeuren');
+    expect(banner?.getAttribute('supporting-text')).toContain('onder Team');
+    expect(primaries(container)).toEqual([]);
+  });
+
+  it('offers as before once the quote is approved, and shows no step where none is required', async () => {
+    const approved = await renderTab({
+      quotes: [QUOTE],
+      approval: {
+        ...APPROVAL,
+        status: 'approved',
+        may_offer: true,
+        blocked_message: null,
+        current: {
+          id: 'r-1',
+          status: 'approved',
+          requested_at: '2026-02-02T09:30:00Z',
+          decided_at: '2026-02-03T11:00:00Z',
+          decided_by_name: 'Collega Goedkeurder',
+        },
+      },
+    });
+    expect(primaries(approved)).toEqual(['Bied aan']);
+    expect(approved.textContent).toMatch(/Intern goedgekeurd op 3 feb 2026.*door Collega Goedkeurder/);
+    const plain = await renderTab({
+      quotes: [QUOTE],
+      approval: { ...APPROVAL, approval_required: false, may_offer: true, blocked_message: null },
+    });
+    expect(texts(plain, 'nldd-step-bar-item')).not.toContain('Interne goedkeuring');
+    expect(plain.textContent).not.toContain('goedkeuring');
   });
 });

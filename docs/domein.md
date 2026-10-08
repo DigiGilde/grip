@@ -40,7 +40,7 @@ UI-termen zijn Nederlands; code en schema gebruiken de Engelse naam.
 | Inzetschaal | `billing_scale` | De schaal waartegen iemand wordt gedeclareerd |
 | Categorie | `rate_category` | Tariefband A t/m E, elk voor twee schalen |
 | Maandtarief | `monthly_rate` | Tarief per FTE per maand voor een categorie in een jaar |
-| Tarievenleaflet | `rate_card` | Alle tarieven van een kalenderjaar |
+| Tarievenkaart (in Grist: Tarievenleaflet) | `rate_card` | De tarieven en de indeling van schalen in categorieen die gelden van een datum tot een datum. Vaak een kalenderjaar, maar een kaart kan op elke dag ingaan |
 | Inzet | `allocation` | Een persoon op een begrotingsregel, voor een periode, tegen een FTE-percentage |
 | Kostenpost | `cost_item` | Externe kosten, bijvoorbeeld een hostingcontract |
 | Factuurregel op een kostenpost | `invoice_line` | Een bedrag op een kostenpost, gerealiseerd of ingeschat. Dit is de inkoopkant |
@@ -85,11 +85,11 @@ Afspraken:
 
 | Entiteit | Velden | Bron in Grist |
 |---|---|---|
-| `rate_card` | `year` (PK), `status` (`draft`, `active`, `closed`) | nieuw |
-| `rate_band` | `year`, `category` (A t/m E), `monthly_rate`; uniek op (`year`, `category`) | Tarievenleaflet |
-| `scale_band` | `year`, `scale` (int), `category`; uniek op (`year`, `scale`) | Tarievenleaflet |
+| `rate_card` | `name`, `valid_from`, `valid_to` (optioneel), `status` (`draft`, `active`, `closed`) | nieuw |
+| `rate_band` | `rate_card_id`, `category` (A t/m E), `monthly_rate`; uniek op (kaart, `category`) | Tarievenleaflet |
+| `scale_band` | `rate_card_id`, `scale` (int), `category`; uniek op (kaart, `scale`) | Tarievenleaflet |
 
-Tarieven en de koppeling van schaal naar categorie zijn allebei per jaar, dus elk jaar kan een van beide veranderen.
+Tarieven en de koppeling van schaal naar categorie horen allebei bij een kaart, dus met elke nieuwe kaart kan een van beide veranderen. Een kaart geldt van een datum tot een datum, elke datum ([ADR 0027](adr/0027-tarievenkaart-geldt-voor-een-periode.md)). Kaarten die prijzen overlappen niet; een gat tussen twee kaarten mag bestaan en wordt gemeld, niet overbrugd.
 
 ### Mensen
 
@@ -143,14 +143,14 @@ Een kostenpost hoort niet bij een opdracht. De dekking kan over begrotingsregels
 
 ## Rekenregels
 
-Een maand is een kalendermaand. De voorbeelden gebruiken fictieve bedragen; bij de import worden ze vervangen door gevallen uit de echte Grist-export, en die worden de unittests.
+Een maand is een kalendermaand. Het tarief volgt de dag: `card(day)` is de tarievenkaart die op die dag geldt, `scale(person, day)` de inzetschaal van die dag. De voorbeelden gebruiken fictieve bedragen; bij de import worden ze vervangen door gevallen uit de echte Grist-export, en die worden de unittests.
 
 | # | Regel |
 |---|---|
-| R1 | `rate(person, month)` = `monthly_rate(year, category)`, waarbij `category` = `scale_band(year, billing_scale(person, month))` |
-| R2 | Inzet per maand = `fte_pct × rate(person, month) × month_fraction`. `month_fraction` is 1 voor een hele maand |
+| R1 | `rate(person, day)` = het maandtarief op `card(day)` van de categorie waarin `card(day)` de schaal `scale(person, day)` indeelt |
+| R2 | Inzet per maand = som over de stukken van de maand van `fte_pct × rate(person, stuk) × aandeel(stuk)`. Een stuk is een aaneengesloten reeks dagen waarin kaart en schaal gelijk blijven; zijn aandeel is zijn aantal dagen gedeeld door de dagen van de maand. Een maand zonder wijziging is een stuk en geeft `fte_pct × rate × month_fraction`, met `month_fraction` 1 voor een hele maand. De maand wordt een keer afgerond |
 | R3 | Inzetbedrag = som van R2 over de maanden in [`start_date`, `end_date`] |
-| R4 | `budgeted` van een personeelsregel = som over de maanden van `fte × monthly_rate(year, rate_category)` |
+| R4 | `budgeted` van een personeelsregel = som over de maanden van `fte ×` het maandtarief van `rate_category`, per stuk van de maand op de kaart die dan geldt. De regel houdt een categorie; alleen het tarief erachter verandert met de kaart |
 | R5 | `budgeted` van een vaste regel = `amount` |
 | R6 | `forecast` (prognose realisatie) van een kostenpost = som van de factuurregels, realisatie en inschatting |
 | R7 | Dekkingsbedrag `amount` = `pct × cost_item.forecast` |
@@ -159,8 +159,8 @@ Een maand is een kalendermaand. De voorbeelden gebruiken fictieve bedragen; bij 
 | R10 | `available` = `budgeted - used`. Negatief betekent overschrijding en moet opvallen |
 | R11 | Totalen per opdracht = som over de begrotingsregels |
 | R12 | KPI-realisatie(persoon, jaar) = som van de inzetbedragen van die persoon in de maanden van dat jaar |
-| R13 | KPI-target(persoon, jaar) = `target_pct ×` som over de maanden van het jaar van `rate(person, month)` |
-| R14 | Signaleer inzet van iemand die in een andere categorie declareert dan de begrotingsregel aanneemt: die regel gaat onder- of overschrijden |
+| R13 | KPI-target(persoon, jaar) = `target_pct ×` som over de maanden van het kalenderjaar van `rate(person, ...)`, binnen een maand met een wijziging per dag. Het target blijft een afspraak per jaar; het bedrag kan uit meer kaarten komen |
+| R14 | Signaleer inzet van iemand die in een andere categorie declareert dan de begrotingsregel aanneemt: die regel gaat onder- of overschrijden. Het signaal noemt de dag vanaf wanneer en de oorzaak: een promotie, een nieuwe tarievenkaart, of iemand die van begin af aan anders declareert |
 
 Reken in exacte decimalen en rond pas af op centen bij het tonen of vastleggen van een totaal.
 
@@ -181,19 +181,38 @@ De regels hierboven rekenen met geplande inzet. Verrekening gaat per maand op we
 
 Voor uitputting (R9) en KPI-realisatie (R12) geldt:
 
-- Een afgesloten maand telt met de vastgestelde inzet. Het vastgestelde percentage geldt voor de hele maand, zonder verdere verrekening naar kalenderdagen; een latere start of een eerder einde zit in het percentage dat de manager vaststelt.
+- Een afgesloten maand telt met de vastgestelde inzet. Het vastgestelde percentage geldt voor de hele maand, zonder verdere verrekening naar kalenderdagen; een latere start of een eerder einde zit in het percentage dat de manager vaststelt. Verandert de tarievenkaart of de inzetschaal binnen die maand, dan geldt het vastgestelde percentage voor elk stuk van de maand.
+- Een afsluiting bewaart het percentage, nooit een bedrag. Het bedrag van een afgesloten maand wordt berekend, ook later.
 - Een open maand telt met de geplande inzet, geprijsd volgens R2.
 - Overzichten tonen de twee delen apart: gerealiseerd (afgesloten maanden) en prognose (open maanden).
 
-## Meerdere jaren
+## Tarieven in de tijd
 
-- Er is een tarievenkaart per kalenderjaar. Een nieuw jaar begint als conceptkopie van het vorige.
-- Een gesloten jaar is vergrendeld. Wijzigen vraagt het recht beheerder en laat een auditregel achter.
-- Opdrachten, begrotingsregels en inzet hebben datums en mogen over 31 december lopen. Bedragen worden per maand gesplitst en geprijsd met het jaar van die maand (R1 t/m R4).
-- Een maand zonder actieve tarievenkaart is een validatiefout, nooit stilletjes nul.
-- De schaalhistorie per persoon (`person_scale.valid_from`) zorgt dat een promotie halverwege het jaar goed geprijsd wordt.
-- Elk overzicht heeft een jaarfilter plus een optie "hele looptijd". Standaard staat het huidige jaar.
+- Een tarievenkaart geldt van een datum tot een datum; een einddatum is optioneel. Een nieuwe kaart begint als conceptkopie van de kaart die vlak daarvoor geldt, met een verhoging en een afronding. Activeren beeindigt de vorige kaart op de dag ervoor.
+- Voor het activeren toont grip wat het doet: hoeveel begrotingsregels en hoeveel inzet vanaf de begindatum een ander bedrag krijgen, en met hoeveel in totaal.
+- Een gesloten kaart vergrendelt haar eigen periode. Wijzigen daarin vraagt het recht beheerder en laat een auditregel achter.
+- Opdrachten, begrotingsregels en inzet hebben datums en mogen over elke wisseling van kaart lopen, ook over 31 december. Bedragen worden per maand gesplitst en binnen de maand per dag geprijsd (R1 t/m R4).
+- Een dag zonder actieve tarievenkaart is een validatiefout, nooit stilletjes nul.
+- De schaalhistorie per persoon (`person_scale`, van datum tot datum) zorgt dat een promotie goed geprijsd wordt, op welke dag ze ook ingaat.
+- Elk overzicht heeft een jaarfilter plus een optie "hele looptijd". Standaard staat het huidige jaar. Subtotalen per kalenderjaar zijn een manier van tonen, niet van prijzen.
 - Een vaste begrotingsregel geldt voor een jaar. Loopt een vaste post over meerdere jaren, dan is er een regel per jaar.
+
+### De prijs van een voorbije maand is veranderd
+
+Wij factureren wat het ons kost, altijd tegen het juiste tarief. De prijs van een maand kan achteraf veranderen: een promotie waarover in september wordt besloten met ingang van 1 juli, of een tarievenkaart die in het verleden ingaat. Beide mogen worden vastgelegd. Er geldt een regel, wat de oorzaak ook is:
+
+| De maand is | Wat er gebeurt |
+|---|---|
+| Open | Prijst vanaf dat moment goed |
+| Afgesloten, niet aangeleverd | Prijst vanaf dat moment goed; alleen het percentage is vastgelegd |
+| Aangeleverd | De aanlevering blijft zoals ze was. Het verschil wordt een naverrekening om aan te leveren |
+| Gefactureerd | Hetzelfde; de naverrekening telt daarna als nog te factureren tot er een factuur op is vastgelegd |
+
+Een naverrekening is een eigen aanlevering. Haar regels verwijzen naar de maand ("Naverrekening 2026-07: Productmanager") en bevatten het verschil per inzet; een verschil kan negatief zijn. Wat voor een maand nog aan te leveren is, is altijd wat de maand nu kost min wat ervoor is aangeleverd.
+
+Voor het opslaan toont grip per opdracht welke afgesloten, aangeleverde en gefactureerde maanden worden geraakt en het verschil in euro. Ontstaat er een naverrekening, dan hoort de takenlaag dat (`billing_correction.arose`).
+
+Een begrotingsregel houdt de categorie waarop ze is begroot. Na een promotie loopt de regel over; het overzicht noemt de oorzaak en blokkeert niets.
 
 ## Schermen
 

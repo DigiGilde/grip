@@ -229,8 +229,10 @@ async def _shorten_for(
     Returns what was shortened, for the audit row of the activation. Cards
     that price never overlap, so anything else in the way is a refusal.
     """
-    shortened = None
     new_end = card.valid_to or date.max
+    to_shorten: RateCard | None = None
+    # Everything is checked before anything changes, so a refusal leaves the
+    # cards as they were.
     for other in await RateRepository(session).pricing_cards():
         if other.id == card.id:
             continue
@@ -241,14 +243,7 @@ async def _shorten_for(
             # The card valid until now: it ends the day before the new one.
             if other.status == "closed" and not allow_closed_year:
                 raise ClosedYearError(other.valid_from.year, other.name)
-            old_end = other.valid_to
-            other.valid_to = card.valid_from - timedelta(days=1)
-            shortened = {
-                "id": str(other.id),
-                "name": other.name,
-                "old_valid_to": old_end.isoformat() if old_end else None,
-                "new_valid_to": other.valid_to.isoformat(),
-            }
+            to_shorten = other
             continue
         if other.valid_from == card.valid_from:
             raise DomainValidationError(
@@ -260,6 +255,16 @@ async def _shorten_for(
             f"{date_text(other.valid_from)}. Geef deze kaart een einddatum van "
             f"uiterlijk {date_text(other.valid_from - timedelta(days=1))}."
         )
+    shortened = None
+    if to_shorten is not None:
+        old_end = to_shorten.valid_to
+        to_shorten.valid_to = card.valid_from - timedelta(days=1)
+        shortened = {
+            "id": str(to_shorten.id),
+            "name": to_shorten.name,
+            "old_valid_to": old_end.isoformat() if old_end else None,
+            "new_valid_to": to_shorten.valid_to.isoformat(),
+        }
     if shortened is not None:
         # Before the new card starts to price, or the two would overlap.
         await session.flush()
@@ -591,6 +596,35 @@ async def set_scale_band(
     return band
 
 
+async def _announce_scale(
+    session: AsyncSession,
+    person_id: UUID,
+    scale: PersonScale,
+    previous: int | None,
+    pending: dict[Any, int],
+    price_changes: Any,
+) -> None:
+    """Tell the rest that a scale changed, and which corrections arose."""
+    if price_changes.is_preview():
+        return
+    await events.emit(
+        session,
+        events.PERSON_SCALE_CHANGED,
+        {
+            "person_id": str(person_id),
+            "valid_from": scale.valid_from.isoformat(),
+            "valid_to": scale.valid_to.isoformat() if scale.valid_to else None,
+            "billing_scale": scale.billing_scale,
+            "previous_billing_scale": previous,
+        },
+    )
+    await price_changes.emit_new_corrections(
+        session,
+        pending,
+        cause=f"inzetschaal gewijzigd met ingang van {date_text(scale.valid_from)}",
+    )
+
+
 async def set_person_scale(
     session: AsyncSession,
     person_id: UUID,
@@ -628,33 +662,79 @@ async def set_person_scale(
 
     pending = await price_changes.pending_corrections(session)
     existing = await PersonDetailRepository(session).scales([person_id])
-    previous: int | None = None
-    for scale in existing:
-        if scale.valid_from < valid_from <= (scale.valid_to or date.max):
-            # The scale that held on that day ends the day before.
-            previous = scale.billing_scale
-            old = audit_fields(scale, _SCALE_FIELDS)
-            scale.valid_to = valid_from - timedelta(days=1)
-            record_audit(
-                session,
-                actor=actor,
-                action=UPDATE,
-                entity="person_scale",
-                entity_id=scale.id,
-                old_value=old,
-                new_value=audit_fields(scale, _SCALE_FIELDS),
-            )
+    same_start = next((s for s in existing if s.valid_from == valid_from), None)
+    if same_start is not None:
+        # A scale recorded wrongly is corrected in place: same start, other
+        # scale (and end, when one is given).
+        old = audit_fields(same_start, _SCALE_FIELDS)
+        previous = same_start.billing_scale
+        same_start.billing_scale = billing_scale
+        if valid_to is not None:
+            for other in existing:
+                if other is not same_start and (
+                    other.valid_from <= valid_to
+                    and (other.valid_to or date.max) >= valid_from
+                ):
+                    raise DomainValidationError(
+                        "Deze periode overlapt met een bestaande inzetschaal van "
+                        "de persoon."
+                    )
+            same_start.valid_to = valid_to
+        await session.flush()
+        record_audit(
+            session,
+            actor=actor,
+            action=UPDATE,
+            entity="person_scale",
+            entity_id=same_start.id,
+            old_value=old,
+            new_value={
+                **audit_fields(same_start, _SCALE_FIELDS),
+                **({"closed_year_override": closed} if closed else {}),
+            },
+        )
+        await _announce_scale(
+            session, person_id, same_start, previous, pending, price_changes
+        )
+        return same_start
+    # The scale that held on that day ends the day before.
+    cut = next(
+        (
+            scale
+            for scale in existing
+            if scale.valid_from < valid_from <= (scale.valid_to or date.max)
+        ),
+        None,
+    )
+    previous = cut.billing_scale if cut is not None else None
     if valid_to is None:
         later = [s.valid_from for s in existing if s.valid_from > valid_from]
         if later:
             valid_to = min(later) - timedelta(days=1)
+    # Checked before anything changes, so a refusal leaves no trace.
     for scale in existing:
-        ends = scale.valid_to or date.max
+        ends = (
+            valid_from - timedelta(days=1)
+            if scale is cut
+            else (scale.valid_to or date.max)
+        )
         new_ends = valid_to or date.max
         if scale.valid_from <= new_ends and ends >= valid_from:
             raise DomainValidationError(
                 "Deze periode overlapt met een bestaande inzetschaal van de persoon."
             )
+    if cut is not None:
+        old = audit_fields(cut, _SCALE_FIELDS)
+        cut.valid_to = valid_from - timedelta(days=1)
+        record_audit(
+            session,
+            actor=actor,
+            action=UPDATE,
+            entity="person_scale",
+            entity_id=cut.id,
+            old_value=old,
+            new_value=audit_fields(cut, _SCALE_FIELDS),
+        )
     scale = PersonScale(
         person_id=person_id,
         valid_from=valid_from,
@@ -674,23 +754,7 @@ async def set_person_scale(
             **({"closed_year_override": closed} if closed else {}),
         },
     )
-    if not price_changes.is_preview():
-        await events.emit(
-            session,
-            events.PERSON_SCALE_CHANGED,
-            {
-                "person_id": str(person_id),
-                "valid_from": valid_from.isoformat(),
-                "valid_to": valid_to.isoformat() if valid_to else None,
-                "billing_scale": billing_scale,
-                "previous_billing_scale": previous,
-            },
-        )
-        await price_changes.emit_new_corrections(
-            session,
-            pending,
-            cause=f"inzetschaal gewijzigd met ingang van {date_text(valid_from)}",
-        )
+    await _announce_scale(session, person_id, scale, previous, pending, price_changes)
     return scale
 
 

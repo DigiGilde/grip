@@ -7,6 +7,7 @@ import type { CaseTasks as CaseTasksData, Task } from './api';
 import { AssignmentTasksTab } from './CaseTasks';
 import { byDueGroup, closesBecause, dueGroup, endOfWeek, filterTasks, optionsOf } from './groups';
 import { movesOf } from './moves';
+import { MyTasksBlock } from './MyTasksBlock';
 import { TasksPage } from './TasksPage';
 
 function task(overrides: Partial<Task>): Task {
@@ -206,6 +207,47 @@ describe('the Taken tab of a case', () => {
     const { container } = renderTab({ ...CASE, can_add: false });
     await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
     expect(container.querySelector('nldd-button[text="Nieuwe taak"]')).toBeNull();
+  });
+});
+
+describe('the Taken tab when the API fails', () => {
+  it('shows one calm notice and no table', async () => {
+    stubApi({});
+    const { container } = renderApp(
+      <Routes>
+        <Route path="/opdrachten/:assignmentId/taken" element={<AssignmentTasksTab />} />
+      </Routes>,
+      { path: '/opdrachten/a-1/taken' },
+    );
+    await waitFor(() => expect(container.querySelector('nldd-inline-dialog, nldd-banner')).not.toBeNull());
+    expect(container.querySelector('nldd-table')).toBeNull();
+    expect(container.querySelector('nldd-button[text="Nieuwe taak"]')).toBeNull();
+  });
+});
+
+describe('MyTasksBlock', () => {
+  it('shows the first tasks by due date and a link to the rest', async () => {
+    stubApi({ '/api/tasks/mine': { items: [SOON, MANUAL, LATE] } });
+    const { container } = renderApp(<MyTasksBlock limit={2} />);
+    await waitFor(() => expect(container.querySelectorAll('nldd-link')).toHaveLength(3));
+    const links = [...container.querySelectorAll('nldd-link')];
+    expect(links.map((link) => link.getAttribute('text'))).toEqual([
+      LATE.title,
+      SOON.title,
+      'Alle taken (3)',
+    ]);
+    expect(links[0]).toHaveAttribute('href', '/taken?taak=t-late');
+    expect(links[2]).toHaveAttribute('href', '/taken');
+  });
+
+  it('is calm when there is nothing, and when the API fails', async () => {
+    stubApi({ '/api/tasks/mine': {} });
+    const empty = renderApp(<MyTasksBlock />);
+    await waitFor(() => expect(empty.container).toHaveTextContent('Niets te doen'));
+    empty.unmount();
+    stubApi({});
+    const failed = renderApp(<MyTasksBlock />);
+    await waitFor(() => expect(failed.container).toHaveTextContent('De taken zijn nu niet te laden.'));
   });
 });
 

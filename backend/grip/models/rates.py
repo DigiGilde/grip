@@ -26,7 +26,7 @@ class RateCard(Base):
 
     A card is valid from a date and to a date, or open-ended. Any date:
     often a card is a calendar year, but rates can change halfway through
-    one, on any day, and then a new card starts there (ADR 0021). Cards that
+    one, on any day, and then a new card starts there (ADR 0027). Cards that
     price (active and closed) do not overlap; a draft may overlap the card
     it is going to follow.
     """

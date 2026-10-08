@@ -39,7 +39,8 @@ Een sjabloon noemt een rol. Bij het lezen bepaalt grip wie die rol heeft.
 |---|---|
 | `owner` | De eigenaar van de opdracht |
 | `manager` | De eigenaar of een manager van de opdracht |
-| `planner`, `beheerder`, `tekenbevoegde`, `aanvrager` | Iedereen met dat recht in grip |
+| `planner`, `beheerder`, `tekenbevoegde`, `aanvrager`, `offertegoedkeurder` | Iedereen met dat recht in grip |
+| `maker` | Wie om goedkeuring van de offerte vroeg; anders de eigenaar van de opdracht |
 | `requester` | De aanvrager van de vacature |
 | `decision:hr_advice`, `decision:control_advice`, `decision:approval` | Wie op de vacature voor dat advies of akkoord is genoemd; voor het akkoord anders degene aan wie de aanvraag is gericht. Heeft die persoon geen account, dan is de taak van de aanvrager en staat ze op "wacht op een ander". |
 
@@ -59,6 +60,9 @@ Een sjabloon is voor de zaak als geheel, of herhaalt zich per onderwerp.
 | `quote_round` | Offerteronde; een afwijzing opent een nieuwe ronde |
 | `rejected_quote` | Afgewezen offerte |
 | `received_quote` | Offerte die deze instantie als opdrachtgever ontving |
+| `quote_approval` | Verzoek om interne goedkeuring van een offerte |
+| `sent_back_quote` | Offerte die bij de interne goedkeuring is teruggestuurd |
+| `correction_month` | Aangeleverde maand waarvan de prijs daarna is veranderd (nog zonder bron, zie onder) |
 | `open_role` | Begrotingsregel met personeel die nog niet is ingevuld |
 | `month_to_close` | Verstreken maand met inzet die nog niet is afgesloten |
 | `closed_month` | Afgesloten maand |
@@ -91,6 +95,9 @@ Een sjabloon is voor de zaak als geheel, of herhaalt zich per onderwerp.
 | `quote_accepted` | Offerteronde | De opdrachtgever akkoord heeft gegeven |
 | `quote_superseded` | Afgewezen offerte | Er daarna een nieuwe offerte is uitgegeven |
 | `quote_decided` | Ontvangen offerte | Er akkoord is gegeven of is afgewezen |
+| `approval_decided` | Verzoek om goedkeuring | De offerte is goedgekeurd of teruggestuurd |
+| `quote_superseded` | Teruggestuurde offerte | Er daarna een nieuwe offerte is uitgegeven |
+| `correction_delivered` | Maand met naverrekening | De naverrekening is aangeleverd |
 | `role_staffed` | Open rol | De rol is ingevuld |
 | `month_closed` | Maand | De maand is afgesloten |
 | `billing_delivered` | Afgesloten maand | De factuurgegevens zijn aangeleverd |
@@ -114,7 +121,7 @@ Een sjabloon is voor de zaak als geheel, of herhaalt zich per onderwerp.
 
 ### Ankerdata
 
-Een termijn telt werkdagen vanaf een anker: `month_end` (einde van de maand), `closed_on` (dag van afsluiten), `delivered_on` (dag van aanleveren), `requested_on` (dag van aanvragen), `needed_from` (begin van de rol). Feestdagen tellen nog als werkdag.
+Een termijn telt werkdagen vanaf een anker: `month_end` (einde van de maand), `closed_on` (dag van afsluiten), `delivered_on` (dag van aanleveren), `requested_on` (dag van aanvragen), `needed_from` (begin van de rol), `approval_requested_on` (dag van het verzoek om goedkeuring), `correction_arose_on` (dag waarop de naverrekening ontstond). Feestdagen tellen nog als werkdag.
 
 ### Gebeurtenissen
 
@@ -122,7 +129,7 @@ De takenlaag luistert naar alle bestaande domeingebeurtenissen en doet bij elk h
 
 ## Het meegeleverde plan
 
-Versie 2026.1, in `backend/grip/data/tasks/plan.json`. Twintig sjablonen.
+Versie 2026.2, in `backend/grip/data/tasks/plan.json`. Drieëntwintig sjablonen.
 
 ### Opdracht
 
@@ -130,6 +137,8 @@ Versie 2026.1, in `backend/grip/data/tasks/plan.json`. Twintig sjablonen.
 |---|---|---|---|---|---|
 | Offerte | Werk de aanvraag uit: maak de begroting | Externe potentiële opdracht | Feit: de begroting heeft een regel | Eigenaar | |
 | Offerte | Stel de offerte op | Per ronde, zodra er een begroting is | Feit: de offerte is uitgegeven | Eigenaar | |
+| Offerte | Beoordeel offerte (kenmerk) | Per verzoek om interne goedkeuring | Feit: de offerte is goedgekeurd of teruggestuurd | Offertegoedkeurder | 3 werkdagen na het verzoek |
+| Offerte | Maak een nieuwe offerte | Offerte teruggestuurd bij de goedkeuring | Feit: er is een nieuwe offerte uitgegeven | Wie om goedkeuring vroeg | |
 | Offerte | Bied de offerte aan | Offerte uitgegeven | Feit: de offerte is aangeboden | Eigenaar | |
 | Offerte | Wacht op akkoord van de opdrachtgever | Offerte aangeboden | Feit: de opdrachtgever heeft akkoord gegeven | Eigenaar, wacht op de opdrachtgever | |
 | Offerte | Verwerk de reactie van de opdrachtgever in een nieuwe offerte | Offerte afgewezen | Feit: er is een nieuwe offerte uitgegeven | Eigenaar | |
@@ -140,6 +149,11 @@ Versie 2026.1, in `backend/grip/data/tasks/plan.json`. Twintig sjablonen.
 | Uitvoering | Lever het eindrapport op | Externe opdracht afgerond | Feit: het eindrapport is uitgegeven | Eigenaar | |
 | Financiën | Lever de factuurgegevens aan | Per afgesloten maand, de oudste eerst | Feit: de factuurgegevens zijn aangeleverd | Eigenaar of manager | 5 werkdagen na het afsluiten |
 | Financiën | Leg vast dat de factuur is verstuurd | Factuurgegevens aangeleverd | Feit: de factuur is vastgelegd | Eigenaar of manager | 10 werkdagen na het aanleveren |
+| Financiën | Lever de naverrekening aan | Per aangeleverde maand met een naverrekening | Feit: de naverrekening is aangeleverd | Eigenaar of manager | 5 werkdagen na het ontstaan |
+
+Een verzoek om goedkeuring bestaat alleen als de instantie interne goedkeuring vraagt. Het verzoek zelf is dus de aanleiding; het plan leest de instelling niet. Wie offertes mag goedkeuren, ziet de taak ook zonder rol op de opdracht, zoals die persoon de offerte zelf mag lezen. Verder gaat er niets van de opdracht open.
+
+De taak voor de naverrekening staat in het plan en ontstaat nog niet: grip bewaart nog niet per maand dat er een naverrekening is ontstaan. Een sjabloon kan een soort gebeurtenis eisen (`requires_event`); bestaat die soort niet in deze versie van grip, dan wordt het sjabloon gecontroleerd en overgeslagen.
 
 ### Vacature
 
@@ -154,7 +168,7 @@ Versie 2026.1, in `backend/grip/data/tasks/plan.json`. Twintig sjablonen.
 | Werving | Stel de nieuwe collega voor aan Wies | Aanname vastgelegd | Feit, of met de hand | Aanvrager | |
 | Werving | Vraag een account en e-mailadres aan | Aanname vastgelegd | Feit, of met de hand | Aanvrager | |
 
-Achttien sjablonen sluiten alleen door hun feit. De laatste twee sluiten door hun feit en zijn ook af te vinken, omdat het werk buiten grip gebeurt en het feit later kan volgen. Een taak die iemand zelf toevoegt, sluit alleen met de hand.
+Eenentwintig sjablonen sluiten alleen door hun feit. De laatste twee sluiten door hun feit en zijn ook af te vinken, omdat het werk buiten grip gebeurt en het feit later kan volgen. Een taak die iemand zelf toevoegt, sluit alleen met de hand.
 
 Een taak vervalt als haar voorwaarden niet meer gelden voordat haar feit geldt, of als haar onderwerp verdwijnt. Geldt een feit later niet meer (een heropende maand), dan gaat de taak weer open.
 
