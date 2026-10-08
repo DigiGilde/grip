@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Organisatieverwijzing",
-  "description": "Verwijzing naar een organisatie op TOOI-URI. Een onderdeel zonder eigen vermelding gebruikt de TOOI-URI van de dichtstbijzijnde geregistreerde organisatie plus een eigen kenmerk.",
+  "description": "Verwijzing naar een organisatie op TOOI-URI. Een onderdeel zonder eigen vermelding gebruikt de TOOI-URI van de dichtstbijzijnde geregistreerde bovenliggende organisatie plus een eigen kenmerk in `unit_key`. Is er geen geregistreerde bovenliggende organisatie te vinden, dan geldt de organisatie van het systeem dat de verwijzing afgeeft.",
   "type": "object",
   "properties": {
     "tooi_uri": {

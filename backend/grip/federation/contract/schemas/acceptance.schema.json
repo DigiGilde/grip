@@ -43,7 +43,8 @@
       "description": "Wie tekende."
     },
     "organisation": {
-      "$ref": "organisation-ref.schema.json"
+      "$ref": "organisation-ref.schema.json",
+      "description": "De opdrachtgever namens wie is getekend. Komt het akkoord uit de eigen instantie van de opdrachtgever, dan is dit de afzender: een `instance_uri` hierin is die van de verzendende peer. De ontvanger volgt uit de offerte: de instantie die `quote_id` heeft uitgegeven."
     },
     "signed_at": {
       "type": "string",

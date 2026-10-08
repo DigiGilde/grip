@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: grip-opdrachtverkeer
-  version: 1.0.0-alpha.1
+  version: 1.1.0-alpha.1
   summary: Het verkeer tussen grip-instanties over aanvragen, offertes, akkoord, inzage, vacatures en doorgifte.
   description: |
     Elke grip-instantie biedt deze dienst aan achter de eigen FSC-inway, onder de dienstnaam
@@ -28,7 +28,8 @@ info:
     201 met een ontvangstbevestiging. Hetzelfde `id` met dezelfde inhoud geeft 200 met dezelfde
     bevestiging en `outcome` op `duplicate`; de ontvanger verwerkt het bericht niet opnieuw.
     Hetzelfde `id` met andere inhoud geeft 409. Een afzender mag een bericht dus herhalen tot hij
-    een bevestiging heeft.
+    een bevestiging heeft. De idempotentie geldt per verzendende peer: twee peers die toevallig
+    hetzelfde `id` gebruiken raken elkaar niet.
 
     **Pull.** Voortgang is standaard opvraagbaar. Uitputting en factuurgegevens alleen op verzoek,
     en alleen als de opdrachtnemer dat voor deze opdrachtgever heeft toegestaan; anders 403.
@@ -298,6 +299,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
   /vacancies:
     post:
       operationId: sendVacancy
@@ -437,6 +439,25 @@ paths:
               schema: { $ref: "../../schemas/handover-costs.schema.json" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "403": { $ref: "#/components/responses/Forbidden" }
+  /openapi.json:
+    get:
+      operationId: getOpenapi
+      tags: [Sleutels]
+      summary: Het contract dat deze instantie volgt
+      description: Dit contract als een document, in de versie die de instantie volgt. Zo ziet een afnemer met welke versie hij praat.
+      x-grip-caller: peer
+      x-grip-data-class: []
+      responses:
+        "200":
+          description: Het OpenAPI-document.
+          headers:
+            API-Version: { $ref: "#/components/headers/API-Version" }
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Een OpenAPI 3.1-document.
+        "403": { $ref: "#/components/responses/Forbidden" }
   /jwks:
     get:
       operationId: getJwks
@@ -487,7 +508,7 @@ components:
   headers:
     API-Version:
       description: Volledige versie van het contract dat deze implementatie volgt.
-      schema: { type: string, examples: ["1.0.0-alpha.1"] }
+      schema: { type: string, examples: ["1.1.0-alpha.1"] }
   responses:
     Received:
       description: Het bericht is voor het eerst ontvangen en vastgelegd.

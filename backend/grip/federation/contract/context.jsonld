@@ -55,6 +55,7 @@
     "edges": "kv:edges",
     "email": "kv:email",
     "end_date": "kv:end_date",
+    "errors": "kv:errors",
     "external_node_uris": {
       "@id": "kv:external_node_uris",
       "@type": "@id"
@@ -69,6 +70,7 @@
     "fte_pct": "kv:fte_pct",
     "function": "kv:function",
     "hash_algorithm": "kv:hash_algorithm",
+    "headcount": "kv:headcount",
     "id": "kv:id",
     "instance": "kv:instance",
     "instance_uri": {
@@ -89,6 +91,7 @@
     "milestones": "kv:milestones",
     "month": "kv:month",
     "monthly_rate": "kv:monthly_rate",
+    "monthly_rates_per_year": "kv:monthly_rates_per_year",
     "name": "kv:name",
     "namespace": {
       "@id": "kv:namespace",
@@ -134,6 +137,7 @@
     "snapshot_hash": "kv:snapshot_hash",
     "soort": "kv:soort",
     "sought_fte": "kv:sought_fte",
+    "spending": "kv:spending",
     "start": {
       "@id": "kv:start",
       "@type": "@id"

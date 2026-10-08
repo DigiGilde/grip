@@ -32,10 +32,10 @@
       ]
     },
     "contractor": {
-      "$ref": "organisation-ref.schema.json"
+      "$ref": "#/$defs/party"
     },
     "client": {
-      "$ref": "organisation-ref.schema.json"
+      "$ref": "#/$defs/party"
     },
     "parent_assignment_uri": {
       "anyOf": [
@@ -225,10 +225,32 @@
           "$ref": "period.schema.json"
         },
         "monthly_rate": {
-          "$ref": "money.schema.json"
+          "$ref": "money.schema.json",
+          "description": "Maandtarief per FTE, als dat voor de hele periode van de regel hetzelfde is."
         },
         "amount": {
           "$ref": "money.schema.json"
+        },
+        "monthly_rates_per_year": {
+          "type": "array",
+          "minItems": 2,
+          "description": "Maandtarief per FTE per kalenderjaar, bij een personeelsregel die over tariefjaren met een verschillend tarief loopt. Staat er in plaats van `monthly_rate`.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "year": {
+                "type": "integer",
+                "description": "Kalenderjaar."
+              },
+              "monthly_rate": {
+                "$ref": "money.schema.json"
+              }
+            },
+            "required": [
+              "year",
+              "monthly_rate"
+            ]
+          }
         }
       },
       "required": [
@@ -236,6 +258,19 @@
         "description",
         "kind",
         "amount"
+      ]
+    },
+    "party": {
+      "description": "Een partij bij de opdracht. De `instance_uri` is verplicht: onderdelen van een organisatie delen een TOOI-URI en zijn alleen aan hun instantie te onderscheiden.",
+      "allOf": [
+        {
+          "$ref": "organisation-ref.schema.json"
+        },
+        {
+          "required": [
+            "instance_uri"
+          ]
+        }
       ]
     }
   }

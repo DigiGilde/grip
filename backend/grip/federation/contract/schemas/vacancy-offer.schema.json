@@ -12,7 +12,7 @@
     "vacancy_id": {
       "type": "string",
       "format": "uuid",
-      "description": "Id van de vacature."
+      "description": "De uuid uit de URI van de vacature (niet het `id` van een vacaturebericht)."
     },
     "organisation": {
       "$ref": "organisation-ref.schema.json"

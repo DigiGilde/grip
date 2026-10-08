@@ -7,7 +7,7 @@
     "namespace": {
       "type": "string",
       "format": "uri",
-      "description": "Naamruimte van de typen in deze lijst."
+      "description": "Naamruimte van de eigen typen van dit corpus. Kerntypen dragen altijd de naamruimte van de kernlijst, ook in deze lijst; alleen typen die het corpus zelf heeft toegevoegd vallen onder deze naamruimte."
     },
     "node_types": {
       "type": "array",

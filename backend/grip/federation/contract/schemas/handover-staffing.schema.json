@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Doorgifte: bezetting",
-  "description": "Bemensing met namen, alleen voor de moederinstantie (gegevensklasse C). Gaat nooit naar een opdrachtgever.",
+  "description": "Bemensing voor de moederinstantie (gegevensklasse C). Standaard aantallen per opdracht en rol; met namen alleen als de dochterinstantie dat heeft aangezet. Gaat nooit naar een opdrachtgever.",
   "type": "object",
   "properties": {
     "period": {
@@ -9,7 +9,7 @@
     },
     "results": {
       "type": "array",
-      "description": "Inzet per persoon per opdracht.",
+      "description": "Inzet per persoon per opdracht, of per rol per opdracht als namen niet worden gedeeld.",
       "items": {
         "type": "object",
         "properties": {
@@ -46,13 +46,30 @@
           },
           "period": {
             "$ref": "period.schema.json"
+          },
+          "headcount": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Aantal personen in deze rol op deze opdracht, als de regel geen persoon noemt. `fte_pct` is dan de som van hun inzet."
           }
         },
         "required": [
           "assignment_uri",
-          "person",
           "fte_pct",
           "period"
+        ],
+        "description": "Een regel noemt ofwel een `person`, ofwel een `headcount`.",
+        "oneOf": [
+          {
+            "required": [
+              "person"
+            ]
+          },
+          {
+            "required": [
+              "headcount"
+            ]
+          }
         ]
       }
     }

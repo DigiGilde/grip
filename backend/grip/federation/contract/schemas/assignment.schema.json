@@ -83,6 +83,28 @@
         "format": "uri"
       },
       "uniqueItems": true
+    },
+    "spending": {
+      "type": "object",
+      "description": "Besteding in totalen. Alleen aanwezig in het antwoord aan een corpus-systeem waar de opdracht naar verwijst, zodat bij een node de fase en de besteding zichtbaar zijn. Geen regels en geen namen.",
+      "properties": {
+        "budgeted": {
+          "$ref": "money.schema.json"
+        },
+        "used": {
+          "$ref": "money.schema.json"
+        },
+        "as_of": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Moment waarop de totalen zijn berekend."
+        }
+      },
+      "required": [
+        "budgeted",
+        "used",
+        "as_of"
+      ]
     }
   },
   "required": [

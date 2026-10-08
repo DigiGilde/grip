@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Keten",
-  "description": "De nodes en edges op de paden tussen een node en de politieke input waar die uit voortkomt.",
+  "description": "De nodes en edges op de kortste paden tussen een node en de politieke input waar die uit voortkomt. Een politieke input en een node uit een ander corpus zijn eindpunten: daar wordt niet voorbij gezocht. De keten van een politieke input zelf is alleen die node, zonder edges.",
   "type": "object",
   "properties": {
     "start": {

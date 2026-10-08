@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Periode",
-  "description": "Periode met begin- en einddatum, beide inclusief.",
+  "description": "Periode met begin- en einddatum, beide inclusief. Een implementatie die intern een exclusieve einddatum voert, rekent die om voordat de periode over de grens gaat.",
   "type": "object",
   "properties": {
     "start_date": {
@@ -15,7 +15,7 @@
         "null"
       ],
       "format": "date",
-      "description": "Laatste dag van de periode; null als de periode open is."
+      "description": "Laatste dag van de periode, inclusief; null als de periode open is."
     }
   },
   "required": [

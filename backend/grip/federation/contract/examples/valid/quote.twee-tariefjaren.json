@@ -1,0 +1,85 @@
+{
+  "id": "5e0c7a11-3b2d-4c6f-8a90-b1c2d3e4f506",
+  "uri": "https://grip.opdrachtnemer.example/id/offerte/5e0c7a11-3b2d-4c6f-8a90-b1c2d3e4f506",
+  "assignment_uri": "https://grip.opdrachtgever.example/id/opdracht/3f2a8c54-6d1b-4f0e-9a77-1c2b3d4e5f60",
+  "request_id": "1a2b3c4d-0000-4000-8000-000000000001",
+  "contractor": {
+    "tooi_uri": "https://identifier.overheid.nl/tooi/id/oorg/oorg00000",
+    "name": "Voorbeelddienst",
+    "unit_key": "voorbeeldgilde",
+    "instance_uri": "https://grip.opdrachtnemer.example"
+  },
+  "client": {
+    "tooi_uri": "https://identifier.overheid.nl/tooi/id/ministerie/mnre0000",
+    "name": "Voorbeeldministerie",
+    "unit_key": "directie-voorbeeld",
+    "instance_uri": "https://grip.opdrachtgever.example"
+  },
+  "parent_assignment_uri": null,
+  "snapshot": {
+    "name": "Opdracht Alfa",
+    "context_refs": [
+      "https://corpus.voorbeeldministerie.example/id/node/0b6f1c1e-5a0e-4a53-9a43-0d3e1d6b2a03"
+    ],
+    "lines": [
+      {
+        "position": 1,
+        "description": "Productmanager",
+        "kind": "personnel",
+        "role": "Productmanager",
+        "fte": "0.8",
+        "rate_category": "D",
+        "period": {
+          "start_date": "2026-07-01",
+          "end_date": "2027-06-30"
+        },
+        "monthly_rates_per_year": [
+          {
+            "year": 2026,
+            "monthly_rate": {
+              "amount_cents": 1800000,
+              "currency": "EUR"
+            }
+          },
+          {
+            "year": 2027,
+            "monthly_rate": {
+              "amount_cents": 1890000,
+              "currency": "EUR"
+            }
+          }
+        ],
+        "amount": {
+          "amount_cents": 17712000,
+          "currency": "EUR"
+        }
+      }
+    ],
+    "subtotals_per_year": [
+      {
+        "year": 2026,
+        "amount": {
+          "amount_cents": 8640000,
+          "currency": "EUR"
+        }
+      },
+      {
+        "year": 2027,
+        "amount": {
+          "amount_cents": 9072000,
+          "currency": "EUR"
+        }
+      }
+    ],
+    "total": {
+      "amount_cents": 17712000,
+      "currency": "EUR"
+    },
+    "valid_until": "2026-06-30",
+    "conditions": "Fictieve voorwaarden."
+  },
+  "snapshot_hash": "ee0eb0ecc8f612b74833efb435d2d9131d7a24aaa60ac8960135b258e4f160af",
+  "hash_algorithm": "sha-256",
+  "canonicalization": "RFC8785",
+  "issued_at": "2026-06-01T10:00:00+02:00"
+}

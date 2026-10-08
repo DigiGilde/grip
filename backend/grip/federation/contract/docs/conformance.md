@@ -42,7 +42,7 @@ Test deze expliciet:
 | Inzage op verzoek | Operaties met `x-grip-on-request` geven 403 zolang de opdrachtnemer ze niet heeft toegestaan |
 | Peildatum | Een node opgevraagd met een `peildatum` in het verleden geeft de titel en status van die datum |
 | Ander corpus | Een node-URI uit een ander corpus wordt geaccepteerd waar een node-URI staat, en niet zelf opgelost |
-| Versie | Elk succesantwoord draagt `API-Version`; de implementatie serveert het contract op `/v1/openapi.json` |
+| Versie | Elk succesantwoord draagt `API-Version`; de implementatie serveert het contract op `/v1/openapi.json`. Voor grip-opdrachtverkeer is dat de operatie `getOpenapi`; voor corpus-context staat het pad niet in het contract en telt het niet mee in de vergelijking |
 | Bereikbaarheid | De federatieroutes zijn alleen via de inway bereikbaar; een verzoek dat de peer-header zelf zet en niet via de inway komt, wordt niet bediend |
 
 `scripts/validate.mjs` in deze repo laat zien hoe de offertehash en de JWS van het akkoord worden
