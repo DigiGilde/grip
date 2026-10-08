@@ -414,6 +414,7 @@ describe('AdminPage', () => {
     );
     expect(items).toEqual([
       PATHS.rates,
+      PATHS.quoteSettings,
       PATHS.peers,
       PATHS.organisations,
       PATHS.roles,

@@ -453,8 +453,10 @@ describe('QuotePage', () => {
       approval: { ...APPROVAL, approver_available: false },
     });
     const banner = container.querySelector('nldd-card nldd-banner');
-    expect(banner?.getAttribute('text')).toBe('Niemand kan deze offerte nu goedkeuren');
-    expect(banner?.getAttribute('supporting-text')).toContain('bij Team, onder Rechten in grip');
+    expect(banner?.getAttribute('text')).toBe(
+      'Deze offerte heeft interne goedkeuring nodig (vanaf € 100.000), en er is nog niemand die dat kan geven',
+    );
+    expect(banner?.getAttribute('supporting-text')).toMatch(/beheerder|Rechten in grip/);
     expect(primaries(container)).toEqual([]);
   });
 
@@ -483,5 +485,32 @@ describe('QuotePage', () => {
     });
     expect(texts(plain, 'nldd-step-bar-item')).not.toContain('Interne goedkeuring');
     expect(plain.textContent).not.toContain('goedkeuring');
+  });
+
+  it('shows nothing about approval for a quote that does not need it', async () => {
+    const container = await renderTab({
+      quotes: [QUOTE],
+      approval: {
+        ...APPROVAL,
+        approval_required: false,
+        may_offer: true,
+        blocked_message: null,
+        // Nobody holds the right, which is no concern where it is not asked for.
+        approver_available: false,
+        may_request_approval: true,
+        may_decide_approval: true,
+        may_withdraw: true,
+      },
+    });
+    expect(container.querySelector('nldd-banner')).toBeNull();
+    expect(container.textContent).not.toMatch(/goedkeur/i);
+    expect(texts(container, 'nldd-step-bar-item')).toEqual([
+      'Gemaakt',
+      'Aangeboden',
+      'Getekend of afgewezen',
+    ]);
+    expect(texts(container, 'nldd-button')).not.toContain('Beoordeel');
+    expect(texts(container, 'nldd-card nldd-menu-item').join(' ')).not.toMatch(/goedkeur|aanvraag/i);
+    expect(primaries(container)).toEqual(['Bied aan']);
   });
 });

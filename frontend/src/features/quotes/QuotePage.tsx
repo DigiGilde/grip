@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { errorMessage } from '@/api/client';
+import { useAuth } from '@/auth/context';
+import { PATHS } from '@/paths';
 import { Button, DateInput, TextInput } from '@/features/assignments/ui';
 import { useAssignmentShell } from '@/features/assignments/shell';
 import { useInstance } from '@/layout/useInstance';
@@ -88,6 +90,8 @@ export function QuotePage() {
   });
   const approval = approvals.data?.items?.find((item) => item.quote_id === current?.id) ?? null;
   const navigate = useNavigate();
+  const { state: auth } = useAuth();
+  const isAdmin = auth.status === 'authenticated' && auth.functions.includes('beheerder');
 
   const [dialog, setDialog] = useState<Dialog>(null);
   const [approvalNote, setApprovalNote] = useState('');
@@ -136,6 +140,7 @@ export function QuotePage() {
     else if (action.kind === 'request-approval') open('approval');
     else if (action.kind === 'new-quote') open('issue');
     else if (action.kind === 'review') navigate(approvalPath(current.id));
+    else if (action.kind === 'grant-right') navigate(PATHS.team);
     else if (action.kind === 'withdraw-approval') act(() => withdrawApproval(current.id));
     else if (action.kind === 'withdraw-link') {
       act(() => withdrawInvitation(current.id, action.invitationId));
@@ -211,6 +216,7 @@ export function QuotePage() {
                 detail={detail.data}
                 approval={approvals.isPending ? undefined : approval}
                 mayManage={mayManage}
+                isAdmin={isAdmin}
                 busy={run.isPending}
                 onAction={onCard}
               />

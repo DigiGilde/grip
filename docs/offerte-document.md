@@ -28,7 +28,7 @@ Het kenmerk hoort bij de vastgelegde inhoud en valt dus onder het echtheidskenme
 | `LETTERHEAD_LINES` | Waar de organisatie onder valt, als regels onder de naam, gescheiden door een verticale streep | Geen extra regels |
 | `LETTERHEAD_LOGO_PATH` | Pad naar de SVG met het Rijkslint en het rijkswapen | Een sober briefhoofd met alleen de naam |
 | `DOCUMENT_FONT_DIR` | Map met het lettertype van de Rijkshuisstijl | Verdana, of het dichtstbijzijnde schreefloze lettertype |
-| `QUOTE_REFERENCE_PREFIX` | Voorvoegsel van het kenmerk | Afgeleid van `INSTANCE_KEY` |
+| `QUOTE_REFERENCE_PREFIX` | Voorvoegsel van het kenmerk waarmee de omgeving begint. De beheerder wijzigt het daarna onder Beheer, Offertes | Afgeleid van `INSTANCE_KEY` |
 | `QUOTE_DEFAULT_CONDITIONS` | Voorwaarden die bij het maken van een offerte worden voorgesteld | Geen voorstel |
 
 ## Rijkslogo en lettertype

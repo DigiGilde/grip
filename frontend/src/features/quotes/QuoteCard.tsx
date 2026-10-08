@@ -40,6 +40,7 @@ export type CardAction =
   | { kind: "withdraw-approval" }
   | { kind: "review" }
   | { kind: "new-quote" }
+  | { kind: "grant-right" }
   | { kind: "withdraw-link"; invitationId: string }
   | { kind: "renew-link"; invitationId: string };
 
@@ -202,6 +203,8 @@ interface QuoteCardProps {
   /** Internal approval, where the organisation asks for it; undefined while loading. */
   approval?: ApprovalState | null;
   mayManage: boolean;
+  /** The reader is a beheerder, who can grant the right to approve. */
+  isAdmin?: boolean;
   busy: boolean;
   onAction: (action: CardAction) => void;
 }
@@ -215,6 +218,7 @@ export function QuoteCard({
   detail,
   approval,
   mayManage,
+  isAdmin = false,
   busy,
   onAction,
 }: QuoteCardProps) {
@@ -232,8 +236,12 @@ export function QuoteCard({
   // or decided it is history and stays in the details.
   const approvalText =
     open && offers.length === 0 ? approvalLine(approval) : null;
-  const mayReview = open && Boolean(approval?.may_decide_approval);
-  const mayWithdrawApproval = open && Boolean(approval?.may_withdraw);
+  // Nothing about approval shows for a quote that does not need it.
+  const required = approval?.approval_required === true;
+  const noApprover = blocked && approval?.approver_available === false;
+  const mayReview = open && required && Boolean(approval?.may_decide_approval);
+  const mayWithdrawApproval =
+    open && required && Boolean(approval?.may_withdraw);
   const name = detail?.content?.name ?? "";
   const current = steps.findIndex((step) => step.status === "current") + 1;
 
@@ -322,7 +330,34 @@ export function QuoteCard({
           </div>
         ) : null}
 
-        {approvalText ? (
+        {approvalText && noApprover ? (
+          <Stack gap="close">
+            <nldd-banner
+              variant="warning"
+              size="sm"
+              text={`Deze offerte heeft interne goedkeuring nodig${
+                approval?.approval_reason
+                  ? ` (${approval.approval_reason})`
+                  : ""
+              }, en er is nog niemand die dat kan geven`}
+              supporting-text={
+                isAdmin
+                  ? `Geef een collega het recht "${APPROVER_RIGHT}": open de persoon onder Team, bij Rechten in grip.`
+                  : "Vraag de beheerder om iemand het recht te geven."
+              }
+            />
+            {isAdmin ? (
+              <nldd-button-group>
+                <Button
+                  text="Ga naar Team"
+                  size="sm"
+                  onClick={() => onAction({ kind: "grant-right" })}
+                />
+              </nldd-button-group>
+            ) : null}
+          </Stack>
+        ) : null}
+        {approvalText && !noApprover ? (
           <Stack gap="close">
             <nldd-text>{approvalText}</nldd-text>
             {approval?.status === "requested" &&
@@ -330,14 +365,6 @@ export function QuoteCard({
               <Quiet>
                 Toelichting bij de aanvraag: {approval.current.request_note}
               </Quiet>
-            ) : null}
-            {blocked && approval && !approval.approver_available ? (
-              <nldd-banner
-                variant="warning"
-                size="sm"
-                text="Niemand kan deze offerte nu goedkeuren"
-                supporting-text={`Een beheerder kent het recht "${APPROVER_RIGHT}" toe bij Team, onder Rechten in grip van een persoon.`}
-              />
             ) : null}
           </Stack>
         ) : null}
