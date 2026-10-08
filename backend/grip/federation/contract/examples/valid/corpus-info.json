@@ -1,0 +1,9 @@
+{
+  "corpus": "https://corpus.voorbeeldministerie.example",
+  "name": "Corpus Voorbeeldministerie",
+  "managing_organisation": {
+    "tooi_uri": "https://identifier.overheid.nl/tooi/id/ministerie/mnre0000",
+    "name": "Voorbeeldministerie"
+  },
+  "contract_version": "1.0.0-alpha.1"
+}

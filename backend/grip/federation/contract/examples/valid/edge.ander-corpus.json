@@ -1,0 +1,6 @@
+{
+  "from": "https://corpus.voorbeeldministerie.example/id/node/0b6f1c1e-5a0e-4a53-9a43-0d3e1d6b2a02",
+  "to": "https://corpus.anderministerie.example/id/node/7c1d2f3a-1111-4222-8333-444455556666",
+  "type": "draagt_bij_aan",
+  "description": "Verwijzing naar een doel in een ander corpus."
+}

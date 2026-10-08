@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Doorgifte: opdrachten",
+  "description": "Opdrachten met status en bedragen, voor de moederinstantie (gegevensklassen A en B).",
+  "type": "object",
+  "properties": {
+    "as_of": {
+      "type": "string",
+      "format": "date",
+      "description": "Datum waarop deze stand geldt."
+    },
+    "results": {
+      "type": "array",
+      "description": "Opdrachten.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "assignment": {
+            "$ref": "assignment.schema.json"
+          },
+          "quoted_amount": {
+            "anyOf": [
+              {
+                "$ref": "money.schema.json"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "budgeted": {
+            "$ref": "money.schema.json"
+          },
+          "used": {
+            "$ref": "money.schema.json"
+          },
+          "available": {
+            "$ref": "money.schema.json"
+          }
+        },
+        "required": [
+          "assignment",
+          "budgeted",
+          "used",
+          "available"
+        ]
+      }
+    }
+  },
+  "required": [
+    "as_of",
+    "results"
+  ]
+}

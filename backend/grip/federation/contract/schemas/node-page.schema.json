@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pagina met nodes",
+  "description": "Zoekresultaat met nodes.",
+  "type": "object",
+  "properties": {
+    "results": {
+      "type": "array",
+      "description": "Gevonden nodes.",
+      "items": {
+        "$ref": "node.schema.json"
+      }
+    },
+    "page": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Paginanummer, vanaf 1."
+    },
+    "page_size": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100,
+      "description": "Aantal resultaten per pagina."
+    },
+    "total": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Totaal aantal resultaten."
+    }
+  },
+  "required": [
+    "results",
+    "page",
+    "page_size"
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Factuurgegevens",
+  "description": "Factuurgegevens van een afgesloten maand (gegevensklasse B). Geen factuur; de verrekening ontstaat in het financiele systeem.",
+  "type": "object",
+  "properties": {
+    "assignment_uri": {
+      "type": "string",
+      "format": "uri",
+      "description": "URI van de opdracht."
+    },
+    "month": {
+      "type": "string",
+      "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+      "description": "Maand, als JJJJ-MM."
+    },
+    "basis": {
+      "type": "string",
+      "enum": [
+        "actual_allocation",
+        "fixed_amount",
+        "actual_costs"
+      ],
+      "description": "Grondslag: werkelijke inzet per maand, vast bedrag of werkelijke kosten."
+    },
+    "lines": {
+      "type": "array",
+      "description": "Regels.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "Omschrijving van de regel. Nooit een persoonsnaam."
+          },
+          "amount": {
+            "$ref": "money.schema.json"
+          }
+        },
+        "required": [
+          "description",
+          "amount"
+        ]
+      }
+    },
+    "total": {
+      "$ref": "money.schema.json"
+    },
+    "closed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Moment waarop de maand is afgesloten. Met tijdzone (RFC 3339)."
+    }
+  },
+  "required": [
+    "assignment_uri",
+    "month",
+    "basis",
+    "lines",
+    "total",
+    "closed_at"
+  ]
+}

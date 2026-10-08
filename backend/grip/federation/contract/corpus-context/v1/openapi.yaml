@@ -1,0 +1,189 @@
+openapi: 3.1.0
+info:
+  title: corpus-context
+  version: 1.0.0-alpha.1
+  summary: Wat elk corpus-systeem aanbiedt zodat een opdracht naar zijn context kan verwijzen.
+  description: |
+    Een corpus beheert nodes (politieke input, doelen, instrumenten en meer) en de edges daartussen.
+    Elke instantie van een corpus-systeem biedt deze dienst aan achter de eigen FSC-inway, onder de
+    dienstnaam `corpus-context`. Er zijn meerdere corpora, bijvoorbeeld een per departement.
+
+    **Identiteit.** Een node heeft een URI die het corpus uitgeeft: `{corpus}/id/node/{uuid}`.
+    De `{corpus}` is een duurzaam domein per corpus. De `{nodeId}` in de paden hieronder is de
+    `{uuid}` uit die URI. Een afnemer kiest het juiste corpus aan de hand van het begin van de URI.
+
+    **Peildatum.** Titels en statussen veranderen. Met `peildatum` vraagt een afnemer de stand op
+    een datum op, voor verantwoording achteraf. Zonder `peildatum` geldt vandaag.
+
+    **Andere corpora.** Overal waar een node-URI staat, mag dat een URI uit een ander corpus zijn.
+    De dienst levert alleen nodes uit het eigen corpus; URIs uit een ander corpus worden daar opgehaald.
+
+    **Toegang.** De aanroeper is een FSC-peer. De implementatie bepaalt per peer welke nodes
+    zichtbaar zijn. Een node die niet zichtbaar is voor de aanroeper geeft 404, net als een node
+    die niet bestaat.
+
+    **Compatibiliteit.** Ontvangers negeren velden die ze niet kennen. Een minor-versie voegt
+    alleen optionele velden, typen of operaties toe.
+  contact:
+    name: Beheer grip-koppelvlakken
+    url: https://github.com/DigiGilde/grip-koppelvlakken/issues
+    email: koppelvlakken@grip-koppelvlakken.example
+servers:
+  - url: https://corpus.voorbeeldministerie.example/v1
+    description: Voorbeeld. Tussen organisaties loopt de aanroep via de eigen outway naar de inway van het corpus.
+tags:
+  - name: Corpus
+    description: Beschrijving van het corpus en zijn woordenlijst.
+  - name: Nodes
+    description: Nodes ophalen, zoeken en de keten naar de politieke input.
+paths:
+  /corpus:
+    get:
+      operationId: getCorpus
+      tags: [Corpus]
+      summary: Beschrijving van dit corpus
+      description: Basis-URI, beherende organisatie en de versie van het contract. Bedoeld voor het corpusregister van een afnemer.
+      responses:
+        "200":
+          description: Het corpus.
+          headers:
+            API-Version: { $ref: "#/components/headers/API-Version" }
+          content:
+            application/json:
+              schema: { $ref: "../../schemas/corpus-info.schema.json" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /vocabulary:
+    get:
+      operationId: getVocabulary
+      tags: [Corpus]
+      summary: Node-typen en edge-typen van dit corpus
+      description: De kernlijst plus de eigen typen van dit corpus. Eigen typen hebben `custom` op true en een URI in de naamruimte van het corpus.
+      responses:
+        "200":
+          description: De woordenlijst.
+          headers:
+            API-Version: { $ref: "#/components/headers/API-Version" }
+          content:
+            application/json:
+              schema: { $ref: "../../schemas/vocabulary.schema.json" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /nodes:
+    get:
+      operationId: searchNodes
+      tags: [Nodes]
+      summary: Nodes zoeken
+      description: Zoekt nodes op tekst en type. Bedoeld voor het kiezen van nodes bij een aanvraag of opdracht.
+      parameters:
+        - name: q
+          in: query
+          description: Zoektekst; zoekt in titel en omschrijving.
+          schema: { type: string, minLength: 2 }
+        - name: type
+          in: query
+          description: Beperk tot een of meer typen. Een kerntype als id, een eigen type als URI. Herhaal de parameter voor meerdere typen.
+          schema: { type: array, items: { type: string } }
+          style: form
+          explode: true
+        - { $ref: "#/components/parameters/peildatum" }
+        - name: page
+          in: query
+          description: Paginanummer, vanaf 1.
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: pageSize
+          in: query
+          description: Aantal resultaten per pagina.
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        "200":
+          description: Gevonden nodes.
+          headers:
+            API-Version: { $ref: "#/components/headers/API-Version" }
+          content:
+            application/json:
+              schema: { $ref: "../../schemas/node-page.schema.json" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /nodes/{nodeId}:
+    get:
+      operationId: getNode
+      tags: [Nodes]
+      summary: Een node ophalen
+      parameters:
+        - { $ref: "#/components/parameters/nodeId" }
+        - { $ref: "#/components/parameters/peildatum" }
+      responses:
+        "200":
+          description: De node zoals die gold op de peildatum.
+          headers:
+            API-Version: { $ref: "#/components/headers/API-Version" }
+          content:
+            application/json:
+              schema: { $ref: "../../schemas/node.schema.json" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /nodes/{nodeId}/chain:
+    get:
+      operationId: getNodeChain
+      tags: [Nodes]
+      summary: De keten van een node naar de politieke input
+      description: |
+        Geeft de nodes en edges op de paden tussen deze node en elke bereikbare node van het type
+        `politieke_input`. Edges worden in beide richtingen gevolgd. Edges van het type
+        `verwijst_naar` en `conflicteert_met` tellen niet mee. Is er geen politieke input
+        bereikbaar, dan bevat de keten alleen de startnode.
+
+        Loopt een pad naar een node in een ander corpus, dan staat de edge in `edges` en de URI
+        in `external_node_uris`; de keten gaat daar niet verder. De afnemer vraagt het vervolg op
+        bij dat andere corpus.
+      parameters:
+        - { $ref: "#/components/parameters/nodeId" }
+        - { $ref: "#/components/parameters/peildatum" }
+        - name: maxDepth
+          in: query
+          description: Maximaal aantal edges vanaf de startnode. Bij afkappen is `complete` false.
+          schema: { type: integer, minimum: 1, maximum: 10, default: 6 }
+      responses:
+        "200":
+          description: De keten.
+          headers:
+            API-Version: { $ref: "#/components/headers/API-Version" }
+          content:
+            application/json:
+              schema: { $ref: "../../schemas/chain.schema.json" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+components:
+  parameters:
+    nodeId:
+      name: nodeId
+      in: path
+      required: true
+      description: De uuid uit de node-URI.
+      schema: { type: string, format: uuid }
+    peildatum:
+      name: peildatum
+      in: query
+      description: Datum waarop titel en status moeten gelden. Standaard vandaag.
+      schema: { type: string, format: date }
+  headers:
+    API-Version:
+      description: Volledige versie van het contract dat deze implementatie volgt.
+      schema: { type: string, examples: ["1.0.0-alpha.1"] }
+  responses:
+    BadRequest:
+      description: Het verzoek is ongeldig.
+      content:
+        application/problem+json:
+          schema: { $ref: "../../schemas/problem.schema.json" }
+    Forbidden:
+      description: De aanroepende peer mag deze dienst of deze gegevens niet gebruiken.
+      content:
+        application/problem+json:
+          schema: { $ref: "../../schemas/problem.schema.json" }
+    NotFound:
+      description: Niet gevonden, of niet zichtbaar voor de aanroeper.
+      content:
+        application/problem+json:
+          schema: { $ref: "../../schemas/problem.schema.json" }

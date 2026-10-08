@@ -1,0 +1,24 @@
+{
+  "month": "2026-07",
+  "results": [
+    {
+      "assignment_uri": "https://grip.opdrachtgever.example/id/opdracht/3f2a8c54-6d1b-4f0e-9a77-1c2b3d4e5f60",
+      "month": "2026-07",
+      "basis": "actual_allocation",
+      "lines": [
+        {
+          "description": "Productmanager, 0,8 FTE",
+          "amount": {
+            "amount_cents": 1440000,
+            "currency": "EUR"
+          }
+        }
+      ],
+      "total": {
+        "amount_cents": 1440000,
+        "currency": "EUR"
+      },
+      "closed_at": "2026-08-03T09:00:00+02:00"
+    }
+  ]
+}

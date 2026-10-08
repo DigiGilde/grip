@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Vacature",
+  "description": "Open rol die een instantie uitzet bij een andere instantie.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Id van de vacature en van dit bericht. Bepaalt de idempotentie."
+    },
+    "uri": {
+      "type": "string",
+      "format": "uri",
+      "description": "URI van de vacature."
+    },
+    "organisation": {
+      "$ref": "organisation-ref.schema.json"
+    },
+    "assignment_uri": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "uri",
+          "description": "URI van de opdracht waar de rol bij hoort, als de uitzetter die wil delen."
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "role": {
+      "type": "string",
+      "description": "Rol."
+    },
+    "description": {
+      "type": "string",
+      "description": "Profiel en werkzaamheden."
+    },
+    "rate_category": {
+      "anyOf": [
+        {
+          "type": "string",
+          "enum": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+          ],
+          "description": "Tariefcategorie."
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "fte": {
+      "type": "string",
+      "pattern": "^\\d+(\\.\\d+)?$",
+      "description": "Omvang in FTE. Exacte decimaal als tekst, geen floating point."
+    },
+    "period": {
+      "$ref": "period.schema.json"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "filled",
+        "withdrawn"
+      ],
+      "description": "Stand van de vacature."
+    },
+    "contact_email": {
+      "type": "string",
+      "format": "email",
+      "description": "Functioneel e-mailadres voor reacties."
+    },
+    "respond_by": {
+      "type": "string",
+      "format": "date",
+      "description": "Uiterste reactiedatum."
+    },
+    "published_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Moment van uitzetten. Met tijdzone (RFC 3339)."
+    }
+  },
+  "required": [
+    "id",
+    "uri",
+    "organisation",
+    "role",
+    "fte",
+    "period",
+    "status",
+    "published_at"
+  ]
+}

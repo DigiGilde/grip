@@ -1,0 +1,31 @@
+{
+  "year": 2026,
+  "results": [
+    {
+      "description": "Hostingcontract",
+      "budgeted": {
+        "amount_cents": 1500000,
+        "currency": "EUR"
+      },
+      "forecast": {
+        "amount_cents": 1500000,
+        "currency": "EUR"
+      },
+      "covered": {
+        "amount_cents": 450000,
+        "currency": "EUR"
+      },
+      "coverage": [
+        {
+          "assignment_uri": "https://grip.opdrachtgever.example/id/opdracht/3f2a8c54-6d1b-4f0e-9a77-1c2b3d4e5f60",
+          "budget_line": "Hosting",
+          "pct": "30",
+          "amount": {
+            "amount_cents": 450000,
+            "currency": "EUR"
+          }
+        }
+      ]
+    }
+  ]
+}

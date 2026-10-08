@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Sleutelset",
+  "description": "Publieke sleutels (JWKS, RFC 7517) waarmee een instantie akkoordberichten ondertekent.",
+  "type": "object",
+  "properties": {
+    "keys": {
+      "type": "array",
+      "description": "Sleutels.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "kty": {
+            "type": "string",
+            "description": "Sleuteltype."
+          },
+          "kid": {
+            "type": "string",
+            "description": "Sleutel-id."
+          }
+        },
+        "required": [
+          "kty",
+          "kid"
+        ]
+      }
+    }
+  },
+  "required": [
+    "keys"
+  ]
+}

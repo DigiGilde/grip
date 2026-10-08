@@ -84,3 +84,11 @@ typecheck:
 # Install frontend dependencies
 install-frontend:
     cd frontend && npm install
+
+# ---------------------------------------------------------------------------
+# Federation
+# ---------------------------------------------------------------------------
+
+# Refresh the vendored contract from a checkout of the contract repo
+sync-contract CHECKOUT:
+    cd backend && uv run python -m grip.federation.sync_contract "{{ absolute_path(CHECKOUT) }}"

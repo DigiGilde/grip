@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Doorgifte: kosten en dekking",
+  "description": "Kostenposten met prognose en dekking, voor de moederinstantie (gegevensklasse B).",
+  "type": "object",
+  "properties": {
+    "year": {
+      "type": "integer",
+      "description": "Kalenderjaar."
+    },
+    "results": {
+      "type": "array",
+      "description": "Kostenposten.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "Omschrijving van de kostenpost."
+          },
+          "budgeted": {
+            "$ref": "money.schema.json"
+          },
+          "forecast": {
+            "$ref": "money.schema.json"
+          },
+          "covered": {
+            "$ref": "money.schema.json"
+          },
+          "coverage": {
+            "type": "array",
+            "description": "Dekking per begrotingsregel.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "assignment_uri": {
+                  "type": "string",
+                  "format": "uri",
+                  "description": "URI van de opdracht waarvan een begrotingsregel dekt."
+                },
+                "budget_line": {
+                  "type": "string",
+                  "description": "Omschrijving van de dekkende begrotingsregel."
+                },
+                "pct": {
+                  "type": "string",
+                  "pattern": "^\\d+(\\.\\d+)?$",
+                  "description": "Dekkingspercentage. Exacte decimaal als tekst, geen floating point."
+                },
+                "amount": {
+                  "$ref": "money.schema.json"
+                }
+              },
+              "required": [
+                "assignment_uri",
+                "pct",
+                "amount"
+              ]
+            }
+          }
+        },
+        "required": [
+          "description",
+          "budgeted",
+          "forecast",
+          "covered",
+          "coverage"
+        ]
+      }
+    }
+  },
+  "required": [
+    "year",
+    "results"
+  ]
+}

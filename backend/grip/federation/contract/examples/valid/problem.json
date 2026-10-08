@@ -1,0 +1,7 @@
+{
+  "type": "https://grip.example/problems/hash-mismatch",
+  "title": "Hash komt niet overeen",
+  "status": 409,
+  "detail": "De quote_hash hoort niet bij de uitgegeven offerte.",
+  "instance": "/v1/quotes/9d3b6c0e-2f41-4c8a-b0d2-6a1f5e7c8b90/acceptances"
+}

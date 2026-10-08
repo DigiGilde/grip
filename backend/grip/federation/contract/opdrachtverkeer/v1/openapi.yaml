@@ -1,0 +1,525 @@
+openapi: 3.1.0
+info:
+  title: grip-opdrachtverkeer
+  version: 1.0.0-alpha.1
+  summary: Het verkeer tussen grip-instanties over aanvragen, offertes, akkoord, inzage, vacatures en doorgifte.
+  description: |
+    Elke grip-instantie biedt deze dienst aan achter de eigen FSC-inway, onder de dienstnaam
+    `grip-opdrachtverkeer`. Een instantie kan opdrachtgever en opdrachtnemer zijn. Een opdracht is
+    lokaal volledig; dit verkeer is een laag erbovenop.
+
+    **Identiteit.** Opdrachten, offertes en vacatures hebben een URI van de instantie die ze
+    aanmaakt, bijvoorbeeld `{basis}/id/opdracht/{uuid}`. De `{assignmentId}`, `{quoteId}` en
+    `{vacancyId}` in de paden zijn de `{uuid}` uit die URI. Organisaties worden aangeduid met hun
+    TOOI-URI.
+
+    **Aanroeper.** De aanroeper is een FSC-peer. De ontvanger leidt de relatie af uit het peer-id:
+    opdrachtgever of opdrachtnemer van die opdracht, moederinstantie, of corpus. Elke operatie
+    noemt in `x-grip-caller` welke relatie vereist is. Een opdracht waar de aanroeper geen relatie
+    mee heeft geeft 404.
+
+    **Gegevensklassen.** Elke operatie noemt in `x-grip-data-class` de klassen die het bericht of
+    antwoord bevat: A opdracht-basis, B opdracht-financieel, C bemensing, D persoon-tarief,
+    E persoon-kosten, F persoon-KPI. De klassen D, E en F gaan nooit over de grens van een
+    instantie. Naar een opdrachtgever gaan geen namen van medewerkers; klasse C met namen gaat
+    alleen naar de moederinstantie.
+
+    **Push en idempotentie.** Elk gepusht bericht heeft een `id` (UUID). De eerste ontvangst geeft
+    201 met een ontvangstbevestiging. Hetzelfde `id` met dezelfde inhoud geeft 200 met dezelfde
+    bevestiging en `outcome` op `duplicate`; de ontvanger verwerkt het bericht niet opnieuw.
+    Hetzelfde `id` met andere inhoud geeft 409. Een afzender mag een bericht dus herhalen tot hij
+    een bevestiging heeft.
+
+    **Pull.** Voortgang is standaard opvraagbaar. Uitputting en factuurgegevens alleen op verzoek,
+    en alleen als de opdrachtnemer dat voor deze opdrachtgever heeft toegestaan; anders 403.
+
+    **Keten.** Een opdracht die is doorgezet draagt in `parent_assignment_uri` de URI van de
+    bovenliggende opdracht.
+
+    **Compatibiliteit.** Ontvangers negeren velden die ze niet kennen. Een minor-versie voegt
+    alleen optionele velden of operaties toe.
+  contact:
+    name: Beheer grip-koppelvlakken
+    url: https://github.com/DigiGilde/grip-koppelvlakken/issues
+    email: koppelvlakken@grip-koppelvlakken.example
+servers:
+  - url: https://grip.opdrachtnemer.example/v1
+    description: Voorbeeld. Tussen organisaties loopt de aanroep via de eigen outway naar de inway van de andere instantie.
+tags:
+  - name: Aanvraag en offerte
+    description: Van aanvraag tot akkoord of afwijzing.
+  - name: Inzage
+    description: Wat een opdrachtgever bij de opdrachtnemer opvraagt.
+  - name: Eindrapport
+    description: Afsluiting van een opdracht.
+  - name: Vacatures
+    description: Open rollen uitzetten bij andere instanties.
+  - name: Doorgifte
+    description: Wat een moederinstantie bij een onderdeel opvraagt.
+  - name: Corpus
+    description: Opdrachten bij een node.
+  - name: Sleutels
+    description: Publieke sleutels voor het controleren van een akkoord.
+paths:
+  /assignment-requests:
+    post:
+      operationId: sendAssignmentRequest
+      tags: [Aanvraag en offerte]
+      summary: Aanvraag sturen
+      description: De opdrachtgever vraagt de opdrachtnemer om een offerte. De context is een lijst node-URIs en mag leeg zijn. De opdrachtgever geeft de URI van de opdracht uit.
+      x-grip-caller: client
+      x-grip-data-class: [A]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "../../schemas/assignment-request.schema.json" }
+      responses:
+        "201": { $ref: "#/components/responses/Received" }
+        "200": { $ref: "#/components/responses/Duplicate" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /quotes:
+    post:
+      operationId: sendQuote
+      tags: [Aanvraag en offerte]
+      summary: Offerte sturen
+      description: |
+        De opdrachtnemer stuurt een uitgegeven offerte: een bevroren momentopname met de SHA-256 over
+        de canonieke JSON (RFC 8785) van `snapshot`. De ontvanger rekent de hash na en weigert bij
+        een verschil met 400.
+
+        Een offerte mag zonder voorafgaande aanvraag komen (`request_id` is dan null); de
+        opdrachtnemer geeft in dat geval de URI van de opdracht uit. Een gewijzigde offerte is een
+        nieuwe offerte met een nieuw `id`.
+      x-grip-caller: contractor
+      x-grip-data-class: [A, B]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "../../schemas/quote.schema.json" }
+      responses:
+        "201": { $ref: "#/components/responses/Received" }
+        "200": { $ref: "#/components/responses/Duplicate" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /quotes/{quoteId}/acceptances:
+    post:
+      operationId: sendAcceptance
+      tags: [Aanvraag en offerte]
+      summary: Akkoord sturen
+      description: |
+        De opdrachtgever geeft akkoord op een offerte. Het bericht legt vast wie tekende, namens
+        welke organisatie, wanneer, op welke versie (`quote_hash`) en in welke vorm.
+
+        Bij `form` `own_instance` ondertekent de instantie van de opdrachtgever het bericht met een
+        JWS. De ontvanger controleert de handtekening met de sleutels uit `GET /jwks` van de
+        afzender, en controleert dat de payload gelijk is aan de velden van het bericht. De vormen
+        `signing_link` en `uploaded_pdf` ontstaan bij de opdrachtnemer zelf; ze staan in het schema
+        zodat een akkoord in elke vorm kan worden doorgegeven in een keten.
+
+        Een `quote_hash` die niet hoort bij de uitgegeven offerte geeft 409, net als een offerte
+        waarop al een akkoord of afwijzing met een ander `id` is ontvangen.
+      x-grip-caller: client
+      x-grip-data-class: [A]
+      parameters:
+        - { $ref: "#/components/parameters/quoteId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "../../schemas/acceptance.schema.json" }
+      responses:
+        "201": { $ref: "#/components/responses/Received" }
+        "200": { $ref: "#/components/responses/Duplicate" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /quotes/{quoteId}/rejections:
+    post:
+      operationId: sendRejection
+      tags: [Aanvraag en offerte]
+      summary: Afwijzing sturen
+      description: De opdrachtgever wijst een offerte af. Dezelfde regels voor `quote_hash` en 409 als bij een akkoord.
+      x-grip-caller: client
+      x-grip-data-class: [A]
+      parameters:
+        - { $ref: "#/components/parameters/quoteId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "../../schemas/rejection.schema.json" }
+      responses:
+        "201": { $ref: "#/components/responses/Received" }
+        "200": { $ref: "#/components/responses/Duplicate" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /assignments:
+    get:
+      operationId: listAssignmentsByNode
+      tags: [Corpus]
+      summary: Opdrachten die naar een node verwijzen
+      description: Geeft de opdrachten waarvan `context_refs` deze node-URI bevat. Bedoeld voor een corpus-systeem dat opdrachten alleen-lezen bij een node toont. Alleen kerngegevens; geen bedragen en geen namen.
+      x-grip-caller: corpus
+      x-grip-data-class: [A]
+      parameters:
+        - name: nodeUri
+          in: query
+          required: true
+          description: Volledige URI van de node.
+          schema: { type: string, format: uri }
+        - { $ref: "#/components/parameters/page" }
+        - { $ref: "#/components/parameters/pageSize" }
+      responses:
+        "200":
+          description: Opdrachten bij deze node.
+          headers:
+            API-Version: { $ref: "#/components/headers/API-Version" }
+          content:
+            application/json:
+              schema: { $ref: "../../schemas/assignment-page.schema.json" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /assignments/{assignmentId}:
+    get:
+      operationId: getAssignment
+      tags: [Inzage]
+      summary: Kerngegevens van een opdracht
+      x-grip-caller: client
+      x-grip-data-class: [A]
+      parameters:
+        - { $ref: "#/components/parameters/assignmentId" }
+      responses:
+        "200":
+          description: De opdracht.
+          headers:
+            API-Version: { $ref: "#/components/headers/API-Version" }
+          content:
+            application/json:
+              schema: { $ref: "../../schemas/assignment.schema.json" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /assignments/{assignmentId}/progress:
+    get:
+      operationId: getProgress
+      tags: [Inzage]
+      summary: Status en voortgang
+      description: Standaard opvraagbaar door de opdrachtgever. Geen bedragen en geen namen.
+      x-grip-caller: client
+      x-grip-data-class: [A]
+      parameters:
+        - { $ref: "#/components/parameters/assignmentId" }
+      responses:
+        "200":
+          description: De voortgang.
+          headers:
+            API-Version: { $ref: "#/components/headers/API-Version" }
+          content:
+            application/json:
+              schema: { $ref: "../../schemas/progress.schema.json" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /assignments/{assignmentId}/budget-usage:
+    get:
+      operationId: getBudgetUsage
+      tags: [Inzage]
+      summary: Uitputting
+      description: Begroot, uitputting en beschikbaar. Alleen op verzoek; 403 als de opdrachtnemer dit voor deze opdrachtgever niet heeft toegestaan.
+      x-grip-caller: client
+      x-grip-data-class: [B]
+      x-grip-on-request: true
+      parameters:
+        - { $ref: "#/components/parameters/assignmentId" }
+        - name: year
+          in: query
+          description: Kalenderjaar. Zonder deze parameter de hele looptijd.
+          schema: { type: integer, minimum: 2000 }
+      responses:
+        "200":
+          description: De uitputting.
+          headers:
+            API-Version: { $ref: "#/components/headers/API-Version" }
+          content:
+            application/json:
+              schema: { $ref: "../../schemas/budget-usage.schema.json" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /assignments/{assignmentId}/billing-data:
+    get:
+      operationId: getBillingData
+      tags: [Inzage]
+      summary: Factuurgegevens van een maand
+      description: Factuurgegevens van een afgesloten maand. Alleen op verzoek; 403 als dat niet is toegestaan, 404 als de maand nog niet is afgesloten.
+      x-grip-caller: client
+      x-grip-data-class: [B]
+      x-grip-on-request: true
+      parameters:
+        - { $ref: "#/components/parameters/assignmentId" }
+        - { $ref: "#/components/parameters/month" }
+      responses:
+        "200":
+          description: De factuurgegevens.
+          headers:
+            API-Version: { $ref: "#/components/headers/API-Version" }
+          content:
+            application/json:
+              schema: { $ref: "../../schemas/billing-data.schema.json" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /assignments/{assignmentId}/final-report:
+    put:
+      operationId: sendFinalReport
+      tags: [Eindrapport]
+      summary: Eindrapport sturen
+      description: De opdrachtnemer stuurt het eindrapport naar de opdrachtgever. De aanroep gaat naar de instantie van de opdrachtgever. Een herzien rapport heeft een nieuw `id` en vervangt het vorige.
+      x-grip-caller: contractor
+      x-grip-data-class: [A, B]
+      parameters:
+        - { $ref: "#/components/parameters/assignmentId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "../../schemas/final-report.schema.json" }
+      responses:
+        "201": { $ref: "#/components/responses/Received" }
+        "200": { $ref: "#/components/responses/Duplicate" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /vacancies:
+    post:
+      operationId: sendVacancy
+      tags: [Vacatures]
+      summary: Vacature uitzetten
+      description: Een instantie zet een open rol uit bij een andere instantie waarmee ze een contract heeft. Een wijziging van de stand (ingevuld, ingetrokken) is hetzelfde bericht met een nieuw `id` en dezelfde `uri`.
+      x-grip-caller: peer
+      x-grip-data-class: [A]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "../../schemas/vacancy.schema.json" }
+      responses:
+        "201": { $ref: "#/components/responses/Received" }
+        "200": { $ref: "#/components/responses/Duplicate" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /vacancies/{vacancyId}/offers:
+    post:
+      operationId: sendVacancyOffer
+      tags: [Vacatures]
+      summary: Kandidaat aanbieden
+      description: Een instantie biedt een kandidaat aan voor een ontvangen vacature. De aanroep gaat naar de instantie die de vacature uitzette. Het aanbod bevat geen naam.
+      x-grip-caller: peer
+      x-grip-data-class: [C]
+      parameters:
+        - name: vacancyId
+          in: path
+          required: true
+          description: De uuid uit de vacature-URI.
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "../../schemas/vacancy-offer.schema.json" }
+      responses:
+        "201": { $ref: "#/components/responses/Received" }
+        "200": { $ref: "#/components/responses/Duplicate" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /handover/assignments:
+    get:
+      operationId: getHandoverAssignments
+      tags: [Doorgifte]
+      summary: Opdrachten met status en bedragen
+      x-grip-caller: parent
+      x-grip-data-class: [A, B]
+      responses:
+        "200":
+          description: Alle opdrachten van dit onderdeel.
+          headers:
+            API-Version: { $ref: "#/components/headers/API-Version" }
+          content:
+            application/json:
+              schema: { $ref: "../../schemas/handover-assignments.schema.json" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /handover/billing-data:
+    get:
+      operationId: getHandoverBillingData
+      tags: [Doorgifte]
+      summary: Factuurgegevens van een maand, alle opdrachten
+      x-grip-caller: parent
+      x-grip-data-class: [B]
+      parameters:
+        - { $ref: "#/components/parameters/month" }
+      responses:
+        "200":
+          description: Factuurgegevens per opdracht.
+          headers:
+            API-Version: { $ref: "#/components/headers/API-Version" }
+          content:
+            application/json:
+              schema: { $ref: "../../schemas/handover-billing-data.schema.json" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /handover/staffing:
+    get:
+      operationId: getHandoverStaffing
+      tags: [Doorgifte]
+      summary: Bezetting met namen
+      description: Inzet per persoon per opdracht in een maand. Alleen voor de moederinstantie; dit is de enige operatie die namen van medewerkers bevat.
+      x-grip-caller: parent
+      x-grip-data-class: [C]
+      parameters:
+        - { $ref: "#/components/parameters/month" }
+      responses:
+        "200":
+          description: De bezetting.
+          headers:
+            API-Version: { $ref: "#/components/headers/API-Version" }
+          content:
+            application/json:
+              schema: { $ref: "../../schemas/handover-staffing.schema.json" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /handover/capacity:
+    get:
+      operationId: getHandoverCapacity
+      tags: [Doorgifte]
+      summary: Capaciteit in totalen
+      x-grip-caller: parent
+      x-grip-data-class: [C]
+      responses:
+        "200":
+          description: Ingezette, beschikbare en gezochte capaciteit.
+          headers:
+            API-Version: { $ref: "#/components/headers/API-Version" }
+          content:
+            application/json:
+              schema: { $ref: "../../schemas/handover-capacity.schema.json" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /handover/costs:
+    get:
+      operationId: getHandoverCosts
+      tags: [Doorgifte]
+      summary: Kosten met prognose en dekking
+      x-grip-caller: parent
+      x-grip-data-class: [B]
+      parameters:
+        - name: year
+          in: query
+          required: true
+          description: Kalenderjaar.
+          schema: { type: integer, minimum: 2000 }
+      responses:
+        "200":
+          description: Kostenposten met dekking.
+          headers:
+            API-Version: { $ref: "#/components/headers/API-Version" }
+          content:
+            application/json:
+              schema: { $ref: "../../schemas/handover-costs.schema.json" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /jwks:
+    get:
+      operationId: getJwks
+      tags: [Sleutels]
+      summary: Publieke sleutels van deze instantie
+      description: De sleutels waarmee deze instantie akkoordberichten ondertekent. Een ontvanger haalt ze op bij de afzender om een JWS te controleren. Een sleutel die niet meer wordt gebruikt blijft opvraagbaar zolang er akkoorden mee zijn getekend.
+      x-grip-caller: peer
+      x-grip-data-class: []
+      responses:
+        "200":
+          description: De sleutelset.
+          headers:
+            API-Version: { $ref: "#/components/headers/API-Version" }
+          content:
+            application/json:
+              schema: { $ref: "../../schemas/jwks.schema.json" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+components:
+  parameters:
+    assignmentId:
+      name: assignmentId
+      in: path
+      required: true
+      description: De uuid uit de opdracht-URI.
+      schema: { type: string, format: uuid }
+    quoteId:
+      name: quoteId
+      in: path
+      required: true
+      description: De uuid uit de offerte-URI; gelijk aan het `id` van de offerte.
+      schema: { type: string, format: uuid }
+    month:
+      name: month
+      in: query
+      required: true
+      description: Maand, als JJJJ-MM.
+      schema: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$' }
+    page:
+      name: page
+      in: query
+      description: Paginanummer, vanaf 1.
+      schema: { type: integer, minimum: 1, default: 1 }
+    pageSize:
+      name: pageSize
+      in: query
+      description: Aantal resultaten per pagina.
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+  headers:
+    API-Version:
+      description: Volledige versie van het contract dat deze implementatie volgt.
+      schema: { type: string, examples: ["1.0.0-alpha.1"] }
+  responses:
+    Received:
+      description: Het bericht is voor het eerst ontvangen en vastgelegd.
+      headers:
+        API-Version: { $ref: "#/components/headers/API-Version" }
+      content:
+        application/json:
+          schema: { $ref: "../../schemas/receipt.schema.json" }
+    Duplicate:
+      description: Een bericht met dit id en deze inhoud was al ontvangen. Het is niet opnieuw verwerkt.
+      headers:
+        API-Version: { $ref: "#/components/headers/API-Version" }
+      content:
+        application/json:
+          schema: { $ref: "../../schemas/receipt.schema.json" }
+    BadRequest:
+      description: Het bericht of verzoek is ongeldig, bijvoorbeeld omdat het niet aan het schema voldoet of de hash niet klopt met de inhoud.
+      content:
+        application/problem+json:
+          schema: { $ref: "../../schemas/problem.schema.json" }
+    Forbidden:
+      description: De aanroepende peer heeft niet de vereiste relatie, of de gevraagde inzage is niet toegestaan.
+      content:
+        application/problem+json:
+          schema: { $ref: "../../schemas/problem.schema.json" }
+    NotFound:
+      description: Niet gevonden, of de aanroeper heeft er geen relatie mee.
+      content:
+        application/problem+json:
+          schema: { $ref: "../../schemas/problem.schema.json" }
+    Conflict:
+      description: Een bericht met dit id maar andere inhoud was al ontvangen, of het bericht past niet bij de huidige stand (verkeerde hash, al beantwoorde offerte).
+      content:
+        application/problem+json:
+          schema: { $ref: "../../schemas/problem.schema.json" }

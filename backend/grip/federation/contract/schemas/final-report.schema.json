@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Eindrapport",
+  "description": "Eindrapport van de opdrachtnemer: wat is afgesproken, wat is geleverd, wat niet, en wat het heeft gekost.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Id van dit bericht. Bepaalt de idempotentie."
+    },
+    "assignment_uri": {
+      "type": "string",
+      "format": "uri",
+      "description": "URI van de opdracht."
+    },
+    "period": {
+      "$ref": "period.schema.json"
+    },
+    "agreed": {
+      "type": "array",
+      "description": "Wat was afgesproken.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "delivered": {
+      "type": "array",
+      "description": "Wat is geleverd.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "not_delivered": {
+      "type": "array",
+      "description": "Wat niet is geleverd.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "Wat niet is geleverd."
+          },
+          "reason": {
+            "type": "string",
+            "description": "Waarom niet."
+          }
+        },
+        "required": [
+          "description"
+        ]
+      }
+    },
+    "total_cost": {
+      "$ref": "money.schema.json"
+    },
+    "summary": {
+      "type": "string",
+      "description": "Samenvatting."
+    },
+    "issued_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Moment van uitgeven. Met tijdzone (RFC 3339)."
+    }
+  },
+  "required": [
+    "id",
+    "assignment_uri",
+    "agreed",
+    "delivered",
+    "not_delivered",
+    "issued_at"
+  ]
+}

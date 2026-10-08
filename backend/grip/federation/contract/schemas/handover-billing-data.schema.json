@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Doorgifte: factuurgegevens",
+  "description": "Factuurgegevens van alle opdrachten in een maand, voor de moederinstantie (gegevensklasse B).",
+  "type": "object",
+  "properties": {
+    "month": {
+      "type": "string",
+      "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+      "description": "Maand, als JJJJ-MM."
+    },
+    "results": {
+      "type": "array",
+      "description": "Factuurgegevens per opdracht.",
+      "items": {
+        "$ref": "billing-data.schema.json"
+      }
+    }
+  },
+  "required": [
+    "month",
+    "results"
+  ]
+}

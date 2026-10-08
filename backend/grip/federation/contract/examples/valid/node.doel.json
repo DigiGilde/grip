@@ -1,0 +1,17 @@
+{
+  "uri": "https://corpus.voorbeeldministerie.example/id/node/0b6f1c1e-5a0e-4a53-9a43-0d3e1d6b2a02",
+  "type": "doel",
+  "title": "Overheidsdiensten hergebruiken gedeelde bouwstenen",
+  "description": "Fictief doel.",
+  "status": "actief",
+  "validity": {
+    "start_date": "2026-01-01",
+    "end_date": null
+  },
+  "managing_organisation": {
+    "tooi_uri": "https://identifier.overheid.nl/tooi/id/ministerie/mnre0000",
+    "name": "Voorbeeldministerie"
+  },
+  "corpus": "https://corpus.voorbeeldministerie.example",
+  "peildatum": "2026-07-01"
+}
