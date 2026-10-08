@@ -58,6 +58,19 @@ Een route roept een service aan, een service een repository. Sla geen laag over.
 - Spoor B (federatie) raakt geen domeintabellen rechtstreeks. Het verstuurt uit de outbox en verwerkt inkomende berichten via de servicelaag van spoor A.
 - De contracten voor `grip-opdrachtverkeer` en `corpus-context` staan in een aparte repo. Wijzig een contract daar, niet hier.
 
+## Schermen
+
+De volledige regels staan in `docs/ontwerp.md`.
+
+- Bouw een pagina met `Page` en `Section` uit `frontend/src/ui/layout`. Schrijf geen marge of padding in pixels.
+- Zet filters en de hoofdactie in `ActionBar`. Een scherm heeft één primaire knop.
+- Toevoegen en wijzigen gebeurt in een `FormSheet`. Laat geen formulier standaard openstaan en controleer pas bij opslaan.
+- Toon niet wat er niet is: geen lege of vergrendelde onderdelen, geen melding over wat iets niet is.
+- Zet de velden van een `nldd-form` in één vast element (`FormFields`); het formulier verplaatst zijn directe kinderen.
+- Luister bij een `select` in een `nldd-dropdown` naar de `change` van de dropdown zelf.
+- Schrijf gewoon Nederlands met de vaste woorden uit `docs/ontwerp.md`.
+- Meet een scherm in een zichtbaar browservenster voordat je het af noemt: één linkerrand, afstanden uit de schaal, gelijke hoogte van bedieningselementen.
+
 ## Tests
 
 - Schermtests worden met Playwright opgenomen door een persoon. Schrijf geen synthetische UI-interacties.
