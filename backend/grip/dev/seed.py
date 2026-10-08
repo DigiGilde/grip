@@ -75,6 +75,9 @@ from grip.services import assignments, costs, month_close, quotes, rates
 from grip.services.vacancies import service as vacancies
 
 EMAIL_DOMAIN = "voorbeeld.example"
+# Example organisations carry an identifier in the shape the contract asks
+# for (a TOOI URI), with codes that no real organisation has.
+EXAMPLE_TOOI = "https://identifier.overheid.nl/tooi/id"
 
 # Monthly rate per FTE in cents. Category D in 2026 is the worked example.
 RATES: dict[int, dict[str, int]] = {
@@ -447,17 +450,17 @@ async def seed(
     ministry = await assignments.upsert_organisation(
         db,
         name="Voorbeeldministerie",
-        tooi_uri=f"https://organisaties.{EMAIL_DOMAIN}/id/voorbeeldministerie",
+        tooi_uri=f"{EXAMPLE_TOOI}/ministerie/mnre9001",
     )
     agency = await assignments.upsert_organisation(
         db,
         name="Voorbeelddienst Uitvoering",
-        tooi_uri=f"https://organisaties.{EMAIL_DOMAIN}/id/voorbeelddienst",
+        tooi_uri=f"{EXAMPLE_TOOI}/oorg/oorg99001",
     )
     own = await assignments.upsert_organisation(
         db,
         name="Voorbeeldgilde",
-        tooi_uri=f"https://organisaties.{EMAIL_DOMAIN}/id/voorbeeldorganisatie",
+        tooi_uri=f"{EXAMPLE_TOOI}/oorg/oorg99002",
         unit_key="voorbeeldgilde",
         instance_uri=settings.INSTANCE_BASE_URI,
     )

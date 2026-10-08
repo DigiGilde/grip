@@ -90,6 +90,30 @@ async def test_line_manager_sees_rate_of_direct_reports_only(client, world, as_p
     assert not COST & set(report)
 
 
+async def test_line_manager_never_gets_cost_of_a_hired_report(
+    client, world, as_person, db_session
+):
+    """Being someone's line manager gives scale and rate, not cost or margin.
+
+    Cost and margin (class E) come only with managing an assignment the
+    person works on. The hired person here reports to a line manager who
+    manages no assignment.
+    """
+    world.hired.manager_id = world.lead.id
+    await db_session.flush()
+    as_person(world.lead)
+
+    listed = by_id((await _people(client))["items"], world.hired)
+    detail = await client.get(f"/api/people/{world.hired.id}")
+    assert detail.status_code == 200, detail.text
+    for seen in (listed, detail.json()):
+        assert seen["is_hired"] is True
+        assert not COST & set(seen)
+        assert seen["billing_scale"] == 14
+        for hire in seen["hires"]:
+            assert set(hire) == HIRE_FACTS
+
+
 async def test_person_sees_own_record_only(client, world, as_person):
     as_person(world.outsider)
     body = await _people(client)
