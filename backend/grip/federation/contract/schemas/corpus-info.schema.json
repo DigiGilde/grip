@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Corpus",
+  "description": "Beschrijving van een corpus en het contract dat het implementeert.",
+  "type": "object",
+  "properties": {
+    "corpus": {
+      "type": "string",
+      "format": "uri",
+      "description": "Basis-URI van het corpus. Duurzaam domein, geen hostnaam van het hostingplatform."
+    },
+    "name": {
+      "type": "string",
+      "description": "Naam van het corpus."
+    },
+    "managing_organisation": {
+      "$ref": "organisation-ref.schema.json"
+    },
+    "contract_version": {
+      "type": "string",
+      "description": "Volledige versie van het contract corpus-context die deze implementatie volgt.",
+      "pattern": "^\\d+\\.\\d+\\.\\d+"
+    }
+  },
+  "required": [
+    "corpus",
+    "name",
+    "managing_organisation",
+    "contract_version"
+  ]
+}

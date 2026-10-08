@@ -1,0 +1,161 @@
+{
+  "namespace": "https://grip-koppelvlakken.example/def/",
+  "node_types": [
+    {
+      "id": "dossier",
+      "uri": "https://grip-koppelvlakken.example/def/node-type/dossier",
+      "label_nl": "Dossier",
+      "description": "Bundeling van samenhangende nodes rond een beleidsonderwerp.",
+      "custom": false
+    },
+    {
+      "id": "doel",
+      "uri": "https://grip-koppelvlakken.example/def/node-type/doel",
+      "label_nl": "Doel",
+      "description": "Wat met beleid bereikt moet worden.",
+      "custom": false
+    },
+    {
+      "id": "instrument",
+      "uri": "https://grip-koppelvlakken.example/def/node-type/instrument",
+      "label_nl": "Instrument",
+      "description": "Middel waarmee een doel wordt nagestreefd, zoals wetgeving, een subsidie of een opdracht aan een uitvoerder.",
+      "custom": false
+    },
+    {
+      "id": "beleidskader",
+      "uri": "https://grip-koppelvlakken.example/def/node-type/beleidskader",
+      "label_nl": "Beleidskader",
+      "description": "Kader of principe waarbinnen beleid tot stand komt.",
+      "custom": false
+    },
+    {
+      "id": "maatregel",
+      "uri": "https://grip-koppelvlakken.example/def/node-type/maatregel",
+      "label_nl": "Maatregel",
+      "description": "Concrete actie die een doel of instrument uitvoert.",
+      "custom": false
+    },
+    {
+      "id": "politieke_input",
+      "uri": "https://grip-koppelvlakken.example/def/node-type/politieke_input",
+      "label_nl": "Politieke input",
+      "description": "Politieke wens of opdracht, zoals een passage uit het coalitieakkoord, een motie of een toezegging.",
+      "custom": false
+    },
+    {
+      "id": "probleem",
+      "uri": "https://grip-koppelvlakken.example/def/node-type/probleem",
+      "label_nl": "Probleem",
+      "description": "Maatschappelijk of bestuurlijk probleem waar beleid op reageert.",
+      "custom": false
+    },
+    {
+      "id": "effect",
+      "uri": "https://grip-koppelvlakken.example/def/node-type/effect",
+      "label_nl": "Effect",
+      "description": "Beoogd of gemeten gevolg van beleid: output, outcome of impact.",
+      "custom": false
+    },
+    {
+      "id": "beleidsoptie",
+      "uri": "https://grip-koppelvlakken.example/def/node-type/beleidsoptie",
+      "label_nl": "Beleidsoptie",
+      "description": "Mogelijke aanpak die wordt verkend, voorgesteld, gekozen of afgewezen.",
+      "custom": false
+    },
+    {
+      "id": "bron",
+      "uri": "https://grip-koppelvlakken.example/def/node-type/bron",
+      "label_nl": "Bron",
+      "description": "Document of publicatie waar andere nodes naar verwijzen.",
+      "custom": false
+    }
+  ],
+  "edge_types": [
+    {
+      "id": "implementeert",
+      "uri": "https://grip-koppelvlakken.example/def/edge-type/implementeert",
+      "label_nl": "Implementeert",
+      "description": "Het ene item implementeert of voert het andere uit.",
+      "custom": false
+    },
+    {
+      "id": "draagt_bij_aan",
+      "uri": "https://grip-koppelvlakken.example/def/edge-type/draagt_bij_aan",
+      "label_nl": "Draagt bij aan",
+      "description": "Het ene item draagt bij aan de realisatie van het andere.",
+      "custom": false
+    },
+    {
+      "id": "vloeit_voort_uit",
+      "uri": "https://grip-koppelvlakken.example/def/edge-type/vloeit_voort_uit",
+      "label_nl": "Vloeit voort uit",
+      "description": "Het ene item vloeit voort uit of is afgeleid van het andere.",
+      "custom": false
+    },
+    {
+      "id": "conflicteert_met",
+      "uri": "https://grip-koppelvlakken.example/def/edge-type/conflicteert_met",
+      "label_nl": "Conflicteert met",
+      "description": "Spanningen of tegenstrijdigheden tussen twee items.",
+      "custom": false
+    },
+    {
+      "id": "verwijst_naar",
+      "uri": "https://grip-koppelvlakken.example/def/edge-type/verwijst_naar",
+      "label_nl": "Verwijst naar",
+      "description": "Het ene item verwijst expliciet naar het andere.",
+      "custom": false
+    },
+    {
+      "id": "vereist",
+      "uri": "https://grip-koppelvlakken.example/def/edge-type/vereist",
+      "label_nl": "Vereist",
+      "description": "Het ene item is een voorwaarde voor het andere.",
+      "custom": false
+    },
+    {
+      "id": "evalueert",
+      "uri": "https://grip-koppelvlakken.example/def/edge-type/evalueert",
+      "label_nl": "Evalueert",
+      "description": "Het ene item beoordeelt of evalueert het andere.",
+      "custom": false
+    },
+    {
+      "id": "vervangt",
+      "uri": "https://grip-koppelvlakken.example/def/edge-type/vervangt",
+      "label_nl": "Vervangt",
+      "description": "Het ene item vervangt het andere.",
+      "custom": false
+    },
+    {
+      "id": "onderdeel_van",
+      "uri": "https://grip-koppelvlakken.example/def/edge-type/onderdeel_van",
+      "label_nl": "Onderdeel van",
+      "description": "Het ene item is een onderdeel of deelstrategie van het andere.",
+      "custom": false
+    },
+    {
+      "id": "leidt_tot",
+      "uri": "https://grip-koppelvlakken.example/def/edge-type/leidt_tot",
+      "label_nl": "Leidt tot",
+      "description": "Causale relatie: het ene item leidt tot het andere (probleem naar doel, maatregel naar effect).",
+      "custom": false
+    },
+    {
+      "id": "adresseert",
+      "uri": "https://grip-koppelvlakken.example/def/edge-type/adresseert",
+      "label_nl": "Adresseert",
+      "description": "Het ene item adresseert of pakt het andere aan (maatregel of instrument naar probleem).",
+      "custom": false
+    },
+    {
+      "id": "meet",
+      "uri": "https://grip-koppelvlakken.example/def/edge-type/meet",
+      "label_nl": "Meet",
+      "description": "Het ene item meet of monitort het andere (effect naar doel).",
+      "custom": false
+    }
+  ]
+}

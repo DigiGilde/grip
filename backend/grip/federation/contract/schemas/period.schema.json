@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Periode",
+  "description": "Periode met begin- en einddatum, beide inclusief.",
+  "type": "object",
+  "properties": {
+    "start_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Eerste dag van de periode."
+    },
+    "end_date": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date",
+      "description": "Laatste dag van de periode; null als de periode open is."
+    }
+  },
+  "required": [
+    "start_date"
+  ]
+}

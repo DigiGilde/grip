@@ -1,0 +1,19 @@
+{
+  "name": "grip-koppelvlakken",
+  "version": "1.0.0-alpha.1",
+  "private": true,
+  "description": "Contracten voor corpus-context en grip-opdrachtverkeer",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-vocab.mjs",
+    "lint": "spectral lint --fail-severity=warn corpus-context/v1/openapi.yaml opdrachtverkeer/v1/openapi.yaml",
+    "validate": "node scripts/build-vocab.mjs --check && node scripts/validate.mjs",
+    "docs": "node scripts/build-docs.mjs"
+  },
+  "devDependencies": {
+    "@redocly/cli": "2.60.0",
+    "@stoplight/spectral-cli": "6.17.0",
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1"
+  }
+}

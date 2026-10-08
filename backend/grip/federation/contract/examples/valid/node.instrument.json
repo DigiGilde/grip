@@ -1,0 +1,13 @@
+{
+  "uri": "https://corpus.voorbeeldministerie.example/id/node/0b6f1c1e-5a0e-4a53-9a43-0d3e1d6b2a03",
+  "type": "instrument",
+  "title": "Opdracht bouwsteen Alfa",
+  "description": null,
+  "status": "actief",
+  "managing_organisation": null,
+  "corpus": "https://corpus.voorbeeldministerie.example",
+  "peildatum": "2026-07-01",
+  "type_details": {
+    "soort": "overig"
+  }
+}

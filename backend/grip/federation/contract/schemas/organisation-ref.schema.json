@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Organisatieverwijzing",
+  "description": "Verwijzing naar een organisatie op TOOI-URI. Een onderdeel zonder eigen vermelding gebruikt de TOOI-URI van de dichtstbijzijnde geregistreerde organisatie plus een eigen kenmerk.",
+  "type": "object",
+  "properties": {
+    "tooi_uri": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://identifier\\.overheid\\.nl/tooi/",
+      "description": "TOOI-URI van de (dichtstbijzijnde) geregistreerde organisatie."
+    },
+    "name": {
+      "type": "string",
+      "description": "Naam van de organisatie of het onderdeel."
+    },
+    "unit_key": {
+      "type": "string",
+      "description": "Eigen kenmerk van het onderdeel binnen de organisatie, als het onderdeel zelf niet geregistreerd is.",
+      "pattern": "^[a-z0-9-]+$"
+    },
+    "instance_uri": {
+      "type": "string",
+      "format": "uri",
+      "description": "Basis-URI van de instantie van dit onderdeel, indien bekend."
+    }
+  },
+  "required": [
+    "tooi_uri",
+    "name"
+  ]
+}

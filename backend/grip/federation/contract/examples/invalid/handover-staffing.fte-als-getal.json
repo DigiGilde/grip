@@ -1,0 +1,19 @@
+{
+  "period": {
+    "start_date": "2026-07-01",
+    "end_date": "2027-06-30"
+  },
+  "results": [
+    {
+      "assignment_uri": "https://grip.opdrachtgever.example/id/opdracht/3f2a8c54-6d1b-4f0e-9a77-1c2b3d4e5f60",
+      "person": {
+        "name": "Voorbeeld Medewerker"
+      },
+      "fte_pct": 80,
+      "period": {
+        "start_date": "2026-07-01",
+        "end_date": "2027-06-30"
+      }
+    }
+  ]
+}

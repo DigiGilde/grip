@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Aanvraag",
+  "description": "Aanvraag van een opdrachtgever aan een opdrachtnemer, met de context als node-URIs.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Id van dit bericht. Bepaalt de idempotentie."
+    },
+    "assignment_uri": {
+      "type": "string",
+      "format": "uri",
+      "description": "URI van de opdracht, uitgegeven door de opdrachtgever."
+    },
+    "name": {
+      "type": "string",
+      "description": "Naam van de gevraagde opdracht."
+    },
+    "description": {
+      "type": "string",
+      "description": "Wat er gevraagd wordt."
+    },
+    "client": {
+      "$ref": "organisation-ref.schema.json"
+    },
+    "contractor": {
+      "$ref": "organisation-ref.schema.json"
+    },
+    "context_refs": {
+      "type": "array",
+      "description": "URIs van de nodes waar de aanvraag uit voortkomt. Mag leeg zijn.",
+      "items": {
+        "type": "string",
+        "format": "uri"
+      },
+      "uniqueItems": true
+    },
+    "desired_period": {
+      "$ref": "period.schema.json"
+    },
+    "budget_indication": {
+      "$ref": "money.schema.json"
+    },
+    "parent_assignment_uri": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "uri",
+          "description": "URI van de bovenliggende opdracht bij doorzetten in een keten."
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "contact_email": {
+      "type": "string",
+      "format": "email",
+      "description": "Functioneel e-mailadres voor vragen over de aanvraag."
+    },
+    "sent_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Moment van verzenden. Met tijdzone (RFC 3339)."
+    }
+  },
+  "required": [
+    "id",
+    "assignment_uri",
+    "name",
+    "client",
+    "contractor",
+    "context_refs",
+    "sent_at"
+  ]
+}

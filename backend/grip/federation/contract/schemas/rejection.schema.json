@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Afwijzing",
+  "description": "Afwijzing van een offerte door de opdrachtgever.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Id van dit bericht. Bepaalt de idempotentie."
+    },
+    "quote_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Id van de offerte."
+    },
+    "quote_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "De snapshot_hash van de afgewezen offerte."
+    },
+    "organisation": {
+      "$ref": "organisation-ref.schema.json"
+    },
+    "reason": {
+      "anyOf": [
+        {
+          "type": "string",
+          "description": "Reden van afwijzing."
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "rejected_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Moment van afwijzen. Met tijdzone (RFC 3339)."
+    }
+  },
+  "required": [
+    "id",
+    "quote_id",
+    "quote_hash",
+    "organisation",
+    "rejected_at"
+  ]
+}

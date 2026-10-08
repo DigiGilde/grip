@@ -1,0 +1,18 @@
+{
+  "id": "4e5f6a7b-0000-4000-8000-000000000002",
+  "quote_id": "9d3b6c0e-2f41-4c8a-b0d2-6a1f5e7c8b90",
+  "quote_hash": "80cf1b6e929ab9e4885bddd6a14ea3064c4d83ca190b2eae92c455befc1694a4",
+  "signer": {
+    "name": "Voorbeeld Ondertekenaar",
+    "email": "tekenbevoegde@opdrachtgever.example",
+    "function": "Tekenbevoegde"
+  },
+  "organisation": {
+    "tooi_uri": "https://identifier.overheid.nl/tooi/id/ministerie/mnre0000",
+    "name": "Voorbeeldministerie",
+    "unit_key": "directie-voorbeeld",
+    "instance_uri": "https://grip.opdrachtgever.example"
+  },
+  "signed_at": "2026-06-10T14:30:00+02:00",
+  "form": "own_instance"
+}

@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Edge",
+  "description": "Gerichte relatie tussen twee nodes. Beide uiteinden mogen in een ander corpus liggen.",
+  "type": "object",
+  "properties": {
+    "uri": {
+      "type": "string",
+      "format": "uri",
+      "description": "URI van de edge, indien het corpus die uitgeeft."
+    },
+    "from": {
+      "type": "string",
+      "format": "uri",
+      "description": "URI van de node waar de relatie vertrekt."
+    },
+    "to": {
+      "type": "string",
+      "format": "uri",
+      "description": "URI van de node waar de relatie aankomt."
+    },
+    "type": {
+      "description": "Type van de edge: een id uit de kernlijst in vocabulaire/, of de volledige URI van een eigen type in een eigen naamruimte.",
+      "anyOf": [
+        {
+          "type": "string",
+          "enum": [
+            "implementeert",
+            "draagt_bij_aan",
+            "vloeit_voort_uit",
+            "conflicteert_met",
+            "verwijst_naar",
+            "vereist",
+            "evalueert",
+            "vervangt",
+            "onderdeel_van",
+            "leidt_tot",
+            "adresseert",
+            "meet"
+          ]
+        },
+        {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://"
+        }
+      ]
+    },
+    "description": {
+      "anyOf": [
+        {
+          "type": "string",
+          "description": "Toelichting op de relatie."
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "from",
+    "to",
+    "type"
+  ]
+}

@@ -1,0 +1,242 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Offerte",
+  "description": "Uitgegeven offerte als bevroren momentopname met hash. Mag zonder voorafgaande aanvraag worden gestuurd (initiatief van de opdrachtnemer).",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Id van de offerte en van dit bericht. Bepaalt de idempotentie."
+    },
+    "uri": {
+      "type": "string",
+      "format": "uri",
+      "description": "URI van de offerte."
+    },
+    "assignment_uri": {
+      "type": "string",
+      "format": "uri",
+      "description": "URI van de opdracht. Uit de aanvraag, of uitgegeven door de opdrachtnemer als er geen aanvraag was."
+    },
+    "request_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "uuid",
+          "description": "Id van de aanvraag waarop deze offerte antwoordt; null bij eigen initiatief."
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "contractor": {
+      "$ref": "organisation-ref.schema.json"
+    },
+    "client": {
+      "$ref": "organisation-ref.schema.json"
+    },
+    "parent_assignment_uri": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "uri",
+          "description": "URI van de bovenliggende opdracht bij doorzetten in een keten."
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "snapshot": {
+      "$ref": "#/$defs/snapshot"
+    },
+    "snapshot_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "SHA-256 over de canonieke JSON (RFC 8785) van snapshot, in hexadecimalen."
+    },
+    "hash_algorithm": {
+      "type": "string",
+      "enum": [
+        "sha-256"
+      ],
+      "description": "Gebruikt hash-algoritme."
+    },
+    "canonicalization": {
+      "type": "string",
+      "enum": [
+        "RFC8785"
+      ],
+      "description": "Gebruikte canonicalisatie."
+    },
+    "document": {
+      "type": "object",
+      "properties": {
+        "media_type": {
+          "type": "string",
+          "enum": [
+            "application/pdf"
+          ],
+          "description": "Mediatype van het document."
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "SHA-256 over de bytes van het document."
+        },
+        "content_base64": {
+          "type": "string",
+          "contentEncoding": "base64",
+          "description": "Het document, base64-gecodeerd."
+        }
+      },
+      "required": [
+        "media_type",
+        "sha256"
+      ],
+      "description": "De offerte als leesbaar document, optioneel."
+    },
+    "issued_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Moment van uitgeven. Met tijdzone (RFC 3339)."
+    }
+  },
+  "required": [
+    "id",
+    "uri",
+    "assignment_uri",
+    "contractor",
+    "client",
+    "snapshot",
+    "snapshot_hash",
+    "hash_algorithm",
+    "canonicalization",
+    "issued_at"
+  ],
+  "$defs": {
+    "snapshot": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Naam van de opdracht zoals geoffreerd."
+        },
+        "context_refs": {
+          "type": "array",
+          "description": "Node-URIs waar de offerte naar verwijst. Mag leeg zijn.",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "lines": {
+          "type": "array",
+          "description": "Offerteregels.",
+          "items": {
+            "$ref": "#/$defs/quote_line"
+          },
+          "minItems": 1
+        },
+        "subtotals_per_year": {
+          "type": "array",
+          "description": "Subtotaal per kalenderjaar.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "year": {
+                "type": "integer",
+                "description": "Kalenderjaar."
+              },
+              "amount": {
+                "$ref": "money.schema.json"
+              }
+            },
+            "required": [
+              "year",
+              "amount"
+            ]
+          }
+        },
+        "total": {
+          "$ref": "money.schema.json"
+        },
+        "valid_until": {
+          "type": "string",
+          "format": "date",
+          "description": "Laatste dag waarop de offerte geldig is."
+        },
+        "conditions": {
+          "type": "string",
+          "description": "Voorwaarden en aannames."
+        }
+      },
+      "required": [
+        "name",
+        "context_refs",
+        "lines",
+        "total"
+      ],
+      "description": "De bevroren inhoud van de offerte. Verandert nooit na uitgifte."
+    },
+    "quote_line": {
+      "type": "object",
+      "properties": {
+        "position": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Volgorde van de regel."
+        },
+        "description": {
+          "type": "string",
+          "description": "Omschrijving van de regel."
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "personnel",
+            "fixed"
+          ],
+          "description": "personnel: een rol tegen FTE en tarief; fixed: een vast bedrag."
+        },
+        "role": {
+          "type": "string",
+          "description": "Rol, bij een personeelsregel. Nooit een persoonsnaam."
+        },
+        "fte": {
+          "type": "string",
+          "pattern": "^\\d+(\\.\\d+)?$",
+          "description": "Omvang in FTE, bij een personeelsregel. Exacte decimaal als tekst, geen floating point."
+        },
+        "rate_category": {
+          "type": "string",
+          "enum": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+          ],
+          "description": "Tariefcategorie."
+        },
+        "period": {
+          "$ref": "period.schema.json"
+        },
+        "monthly_rate": {
+          "$ref": "money.schema.json"
+        },
+        "amount": {
+          "$ref": "money.schema.json"
+        }
+      },
+      "required": [
+        "position",
+        "description",
+        "kind",
+        "amount"
+      ]
+    }
+  }
+}
