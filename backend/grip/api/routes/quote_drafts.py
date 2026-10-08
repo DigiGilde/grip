@@ -28,6 +28,7 @@ from grip.core.database import get_db
 from grip.federation.corpus import CorpusClient
 from grip.models.assignment import Assignment
 from grip.services import (
+    context_fetch,
     instance_settings,
     quote_drafts,
     quote_sender,
@@ -299,31 +300,24 @@ async def restart_quote_draft(
     return _draft_out(content, saved=True, may_edit=True)
 
 
-async def _context_lines(
+async def assignment_context(
     db: AsyncSession,
     corpus: CorpusClient,
     settings: Settings,
-    assignment: Assignment,
-) -> tuple[str, ...]:
-    """Titles of the nodes the assignment refers to and of the political
-    input they follow from. Empty when no corpus can be asked."""
-    linked = list(assignment.context_refs or [])
-    if not linked:
-        return ()
+    assignment: Assignment | None,
+) -> context_fetch.FetchedContext:
+    """Why this assignment exists, for a prompt: what the context sheet
+    shows a person, fetched with the same client."""
+    if assignment is None or not assignment.context_refs:
+        return context_fetch.FetchedContext()
     corpora = await node_picker.known_corpora(db, settings)
-    if not corpora or not corpora.outway_configured:
-        return ()
-    lines: list[str] = []
-    for uri in linked[:4]:
-        item, summary = await node_picker.resolve(db, corpus, uri, None, corpora)
-        if item.node is None:
-            continue
-        line = f"{item.node.type}: {item.node.title}"
-        origins = ", ".join(origin.title for origin in summary.origins[:2])
-        if origins:
-            line += f" (volgt uit: {origins})"
-        lines.append(line)
-    return tuple(lines)
+    return await context_fetch.for_assignment(
+        db,
+        assignment,
+        corpus=corpus,
+        reachable=bool(corpora) and corpora.outway_configured,
+        corpus_name=corpora.name,
+    )
 
 
 def _llm_problem(exc: Exception) -> DomainValidationError:
@@ -352,10 +346,15 @@ async def draft_quote_section(
     """Let the language model draft one section. The draft is a proposal: it
     counts for nothing until a person saves the section."""
     assignment = await _editable(db, decider, subject, assignment_id)
-    context = await _context_lines(db, corpus, settings, assignment)
+    context = await assignment_context(db, corpus, settings, assignment)
     try:
         content = await quote_drafts.draft_section(
-            db, assignment, key, actor=person, context=context
+            db,
+            assignment,
+            key,
+            actor=person,
+            context=context.lines,
+            context_state=context.state,
         )
     except (LlmNotConfiguredError, LlmResponseError) as exc:
         raise _llm_problem(exc) from exc

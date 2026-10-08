@@ -46,7 +46,6 @@ from grip.services import instance_settings, quote_prose, quote_sender
 from grip.services.errors import DomainError, DomainValidationError
 from grip.services.llm import ChatClient, get_chat_client
 from grip.services.quote_drafting import (
-    MAX_CONTEXT_LINES,
     MAX_OTHER_SECTIONS,
     PROMPT_VERSION,
     RoleFact,
@@ -520,7 +519,7 @@ async def section_input(
         period_start=assignment.start_date,
         period_end=assignment.end_date,
         roles=roles,
-        context=tuple(context)[:MAX_CONTEXT_LINES],
+        context=tuple(context),
         outline=tuple(
             other["heading"] for other in content["sections"] if other["included"]
         ),
@@ -550,6 +549,7 @@ async def draft_section(
     *,
     actor: Person | None,
     context: tuple[str, ...] = (),
+    context_state: str = "none",
     client: ChatClient | None = None,
     now: datetime | None = None,
 ) -> dict[str, Any]:
@@ -576,6 +576,9 @@ async def draft_section(
         "model": model_id,
         "prompt_version": PROMPT_VERSION,
         "at": (now or datetime.now(UTC)).isoformat(),
+        # "used", "none" or "unreachable": whether the draft had the policy
+        # context of the assignment, so the screen can say when it had not.
+        "context": context_state,
     }
     _stamp(section, "version", actor)
     return await _save(

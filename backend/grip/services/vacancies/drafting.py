@@ -16,6 +16,7 @@ from datetime import date
 from decimal import Decimal
 
 from grip.models.vacancy import ContractType, TextKind
+from grip.services.quote_drafting import CONTEXT_INSTRUCTION
 
 # Bump when a prompt changes; stored with every draft.
 PROMPT_VERSION = "vacature-2026-10-1"
@@ -193,7 +194,6 @@ def build_prompt(kind: TextKind | str, draft_input: DraftInput) -> tuple[str, st
 TAILORED_PROMPT_VERSION = "vacature-op-maat-2026-10-1"
 
 MAX_STANDARD_EXAMPLES = 2
-MAX_CONTEXT_LINES = 6
 MAX_INSTRUCTION_CHARS = 600
 
 # The style of the organisation, derived from its own vacancy texts (see
@@ -334,12 +334,13 @@ def build_tailored_prompt(draft_input: TailoredInput) -> tuple[str, str]:
         "<gegevens>",
         *(f"{label}: {value}" for label, value in facts),
     ]
-    if draft_input.context:
-        lines.append("Waar de opdracht uit voortkomt:")
-        lines.extend(
-            f"- {line.strip()}" for line in draft_input.context[:MAX_CONTEXT_LINES]
-        )
     lines.append("</gegevens>")
+    if draft_input.context:
+        # The whole block, as a quote section gets it: the policy nodes of the
+        # assignment and the chain up to the political input.
+        lines += ["", CONTEXT_INSTRUCTION, "", "<beleidscontext>"]
+        lines.extend(line.rstrip() for line in draft_input.context)
+        lines.append("</beleidscontext>")
     if draft_input.instruction:
         lines += [
             "",

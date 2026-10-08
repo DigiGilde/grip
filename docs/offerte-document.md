@@ -86,7 +86,9 @@ Alleen bij "Stel een concept op" en "Herschrijf", en alleen voor een onderdeel d
 | Opdrachtgever en opdrachtnemer | Ja | Als organisatie |
 | Looptijd van de opdracht | Ja | |
 | Per begrotingsregel: rol, omvang in fte, periode | Ja | |
-| Titels van de beleidsnodes en de politieke opdracht waaruit ze volgen | Ja | Als het corpus bereikbaar is |
+| Titel, soort, omschrijving, beherende organisatie, status en geldigheid van de contextnodes | Ja | Beleidstekst uit het corpus, geen persoonsgegevens; na de controle op namen |
+| De keten omhoog van elke contextnode: elk niveau met de relatie in woorden, titel, soort en omschrijving, tot en met de politieke opdracht (soort, referentie, datum) | Ja | Alle takken; een verwijzing naar een ander corpus alleen met de naam van dat corpus |
+| Notities bij de opdracht | Nee | |
 | De koppen van de offerte | Ja | |
 | Tekst van onderdelen die al zijn vastgesteld | Ja | Hooguit zes; na de controle op namen |
 | Bij herschrijven: de gekozen passage en de aanwijzing | Ja | Na de controle op namen |
@@ -95,6 +97,8 @@ Alleen bij "Stel een concept op" en "Herschrijf", en alleen voor een onderdeel d
 | Namen van medewerkers, beoogde personen | Nee | Tekst met een naam uit de instantie wordt geweigerd |
 | De naam van de contactpersoon bij de opdrachtgever | Nee | Staat in de geadresseerde, niet in wat meegaat |
 | Standaardteksten van de organisatie | Nee | |
+
+De context is hetzelfde als wat een persoon ziet in het contextpaneel van de opdracht, opgehaald met dezelfde koppeling (`grip/services/context_brief.py` en `context_fetch.py`). Ze heeft een budget van 6000 tekens: titels, soorten en relaties gaan altijd mee, omschrijvingen eerst van de politieke opdracht en dan van dichtbij naar veraf; wat niet past wordt weggelaten. Is het corpus niet bereikbaar, dan wordt het concept zonder context opgesteld en staat dat bij het concept (`generated.context` is `unreachable`). Het concept van een vacaturetekst krijgt hetzelfde blok.
 
 De lijst is in de code gesloten (`SectionInput` in `grip/services/quote_drafting.py`); een test faalt als er een veld bijkomt.
 

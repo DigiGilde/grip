@@ -41,7 +41,7 @@ from grip.models.assignment import Assignment
 from grip.models.person import Person
 from grip.models.vacancy import TextKind, TextSource, Vacancy, VacancyStatus
 from grip.repositories.vacancy import VacancyRepository
-from grip.services import instance_settings
+from grip.services import context_fetch, instance_settings
 from grip.services.errors import DomainValidationError, NotFoundError
 from grip.services.llm import LlmNotConfiguredError, LlmResponseError, get_chat_client
 from grip.services.llm.client import (
@@ -664,19 +664,19 @@ async def _context(
     settings: Settings,
     vacancy: Vacancy,
     assignment_id: UUID | None,
-) -> tuple[str, ...]:
+) -> context_fetch.FetchedContext:
+    """The policy context of the assignment the vacancy belongs to: the
+    same block a quote section gets."""
     if assignment_id is None:
-        return ()
+        return context_fetch.FetchedContext()
     assignment = await db.get(Assignment, assignment_id)
-    if assignment is None:
-        return ()
-    from grip.api.routes.quote_drafts import _context_lines
+    from grip.api.routes.quote_drafts import assignment_context
 
     try:
-        return await _context_lines(db, corpus, settings, assignment)
+        return await assignment_context(db, corpus, settings, assignment)
     except Exception:  # the corpus is a help, never a condition
         logger.warning("No corpus context for vacancy %s", vacancy.id, exc_info=True)
-        return ()
+        return context_fetch.FetchedContext(state=context_fetch.CONTEXT_UNREACHABLE)
 
 
 @router.post(
@@ -700,7 +700,11 @@ async def draft_tailored(
     context = await _context(db, corpus, settings, vacancy, assignment_id)
     try:
         await text_flow.draft_tailored(
-            db, vacancy, actor=person, instruction=body.instruction, context=context
+            db,
+            vacancy,
+            actor=person,
+            instruction=body.instruction,
+            context=context.lines,
         )
     except LlmNotConfiguredError as exc:
         raise DomainValidationError(str(exc)) from exc
@@ -712,7 +716,11 @@ async def draft_tailored(
             "Het taalmodel gaf geen antwoord. Probeer het later opnieuw, of "
             "begin met de standaardtekst."
         ) from exc
-    return await _again(db, decider, subject, vacancy_id, settings)
+    out = await _again(db, decider, subject, vacancy_id, settings)
+    # "used", "none" or "unreachable": so the screen can say that a draft was
+    # made without the context of the corpus when that could not be asked.
+    out["context"] = context.state
+    return out
 
 
 @router.post(

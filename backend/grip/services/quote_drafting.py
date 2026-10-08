@@ -23,7 +23,9 @@ from grip.services import quote_prose
 # Bump when a prompt changes; stored with every draft.
 PROMPT_VERSION = "offerte-2026-10-1"
 
-MAX_CONTEXT_LINES = 12
+# The context of an assignment is a block with a budget of its own
+# (grip.services.context_brief); this is only the ceiling a caller may not pass.
+MAX_CONTEXT_CHARS = 12000
 MAX_OTHER_SECTIONS = 6
 MAX_TEXT_CHARS = 6000
 
@@ -36,7 +38,21 @@ _SYSTEM = (
     "data, aantallen of toezeggingen. Ontbreekt iets, dan laat je het weg. Je "
     "noemt geen namen van personen. Je geeft alleen de tekst van het onderdeel "
     "terug, zonder kop, zonder inleiding of toelichting. Voor een opsomming "
-    "begin je elke regel met een streepje en een spatie."
+    "begin je elke regel met een streepje en een spatie. Krijg je geen "
+    "beleidscontext, dan zeg je niets over beleid of politiek waar de opdracht "
+    "uit voortkomt."
+)
+
+# How a model is to read the context block. Shared with the vacancy texts.
+CONTEXT_INSTRUCTION = (
+    "Beleidscontext van de opdracht, uit het corpus van de opdrachtgever. Elke "
+    "contextnode is een stuk beleid waar de opdracht naar verwijst; daaronder "
+    "staat waar het uit voortkomt, niveau voor niveau, tot aan de politieke "
+    "opdracht. Gebruik dit om te zeggen waarom de opdracht er is: noem de "
+    "doelen en de politieke opdracht bij hun naam en in hun eigen woorden. "
+    "Verzin geen beleid dat hier niet staat. Citeer geen tekst van een motie, "
+    "brief of akkoord die je niet hebt gekregen: je kent alleen de titel en de "
+    "omschrijving. Noem niet dat je een context hebt gekregen."
 )
 
 _REWRITE = (
@@ -71,8 +87,9 @@ class SectionInput:
     period_start: date | None = None
     period_end: date | None = None
     roles: tuple[RoleFact, ...] = ()
-    # Where the assignment comes from: titles of the policy nodes it refers
-    # to and of the political input they follow from.
+    # Why the assignment exists: the policy nodes it refers to and the chain
+    # up to the political input, as lines of one block
+    # (grip.services.context_brief). Policy text from the corpus.
     context: tuple[str, ...] = ()
     # The headings of the quote, so the section fits the whole.
     outline: tuple[str, ...] = ()
@@ -85,8 +102,8 @@ class SectionInput:
     def __post_init__(self) -> None:
         if not self.heading.strip():
             raise SectionInputError("Een concept heeft de kop van het onderdeel nodig.")
-        if len(self.context) > MAX_CONTEXT_LINES:
-            raise SectionInputError("Te veel contextregels voor een concept.")
+        if sum(len(line) for line in self.context) > MAX_CONTEXT_CHARS:
+            raise SectionInputError("De context voor een concept is te lang.")
         if len(self.settled) > MAX_OTHER_SECTIONS:
             raise SectionInputError("Te veel andere onderdelen voor een concept.")
 
@@ -178,8 +195,8 @@ def build_prompt(section_input: SectionInput) -> tuple[str, str]:
                 parts.append(role_period)
             lines.append("- " + ", ".join(parts))
     if section_input.context:
-        lines += ["", "Waar de opdracht uit voortkomt (beleid en politieke opdracht):"]
-        lines.extend(f"- {line.strip()}" for line in section_input.context)
+        lines += ["", CONTEXT_INSTRUCTION, ""]
+        lines.extend(line.rstrip() for line in section_input.context)
     if section_input.outline:
         lines += ["", "De onderdelen van de offerte, in volgorde:"]
         lines.extend(f"- {heading.strip()}" for heading in section_input.outline)
