@@ -122,6 +122,7 @@ async def test_share_of_an_assignment_one_may_not_see_stays_anonymous(
     assert [c["assignment_name"] for c in body["coverages"]] == ["Opdracht Alfa"]
     assert Decimal(body["hidden_coverage_pct"]) == Decimal(50)
     assert Decimal(body["pct_total"]) == Decimal(80)
+    assert Decimal(body["uncovered_pct"]) == Decimal(20)
     assert "Opdracht Beta" not in str(body)
 
     as_person(world.beheerder)

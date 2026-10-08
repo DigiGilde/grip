@@ -21,6 +21,7 @@ import { ClientAssignmentPage } from '@/features/client/ClientAssignmentPage';
 import { ClientPage } from '@/features/client/ClientPage';
 import { ReceivedQuotePage } from '@/features/client/ReceivedQuotePage';
 import { RequestQuotePage } from '@/features/client/RequestQuotePage';
+import { CostItemPage } from '@/features/costs/CostItemPage';
 import { CostsPage } from '@/features/costs/CostsPage';
 import { MonthClosePage } from '@/features/month-close/MonthClosePage';
 import { OverviewPage } from '@/features/overview/OverviewPage';
@@ -142,6 +143,7 @@ export function AppRoutes() {
         <Route path={PATHS.roles} element={<RolesAdminPage />} />
         <Route path={PATHS.rates} element={<RatesPage />} />
         <Route path={PATHS.teamPerson} element={<PersonPage />} />
+        <Route path={PATHS.costItem} element={<CostItemPage />} />
         <Route path={PATHS.ratesLegacy} element={<Navigate to={PATHS.rates} replace />} />
         <Route path={PATHS.wiesProposals} element={<WiesProposalsPage />} />
         <Route path={PATHS.reportAssignment} element={<AssignmentReportPage />} />

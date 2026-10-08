@@ -139,6 +139,7 @@ async def _item_out(
         covered_cents=overview.covered_cents,
         uncovered_cents=overview.uncovered_cents,
         pct_total=overview.pct_total,
+        uncovered_pct=overview.uncovered_pct,
         hidden_coverage_pct=hidden,
         invoice_lines=[
             InvoiceLineOut(

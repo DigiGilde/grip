@@ -16,6 +16,7 @@ export const PATHS = {
   quoteSettings: '/beheer/offertes',
   allocations: '/inzet',
   costs: '/kosten',
+  costItem: '/kosten/:costItemId',
   rates: '/beheer/tarieven',
   // Where the rate cards used to live; redirects to `rates`.
   ratesLegacy: '/tarieven',

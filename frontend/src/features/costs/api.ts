@@ -52,6 +52,8 @@ export interface CostItem {
   covered_cents: number | null;
   uncovered_cents: number | null;
   pct_total: string;
+  /** The share no budget line covers; null above 100 percent. */
+  uncovered_pct: string | null;
   /** Share covered by assignments the asker may not see. */
   hidden_coverage_pct: string;
   invoice_lines: InvoiceLine[];
@@ -74,7 +76,13 @@ export interface BudgetLineOption {
 }
 
 export const costsKey = (year: number | null) => ['costs', 'items', year] as const;
+export const costItemKey = (id: string, year: number | null) =>
+  ['costs', 'item', id, year] as const;
 export const COVERAGE_OPTIONS_KEY = ['costs', 'coverage-options'] as const;
+
+export function fetchCostItem(id: string, year: number | null): Promise<CostItem> {
+  return apiGet<CostItem>(`/api/costs/${id}`, { year });
+}
 
 export function fetchCostItems(year: number | null): Promise<CostItemList> {
   return apiGet<CostItemList>('/api/costs', { year });

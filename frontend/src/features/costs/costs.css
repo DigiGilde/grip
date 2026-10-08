@@ -1,0 +1,210 @@
+/*
+ * The two bars of a cost item, which no component provides: what is expected
+ * against the budget, and who pays for it. Colours come from the design
+ * system's palette. The covering budget lines are four steps of one hue,
+ * checked with the palette validator as an ordinal ramp against both
+ * surfaces; the lightest step and the uncovered part carry an edge, so every
+ * segment clears 3:1. Text never wears a segment colour.
+ */
+
+.cost-chart {
+  --cost-1: var(--primitives-color-lintblauw-750);
+  --cost-2: var(--primitives-color-lintblauw-600);
+  --cost-3: var(--primitives-color-lintblauw-450);
+  --cost-4: light-dark(var(--primitives-color-lintblauw-300), var(--primitives-color-lintblauw-350));
+  --cost-hidden: var(--primitives-color-neutral-500);
+  --cost-attention: var(--primitives-color-critical-600);
+  --cost-ink: var(--primitives-color-neutral-950);
+  --cost-muted: var(--primitives-color-neutral-650);
+  --cost-track: var(--primitives-color-neutral-150);
+  --cost-surface: var(--semantics-surfaces-base-background-color);
+}
+
+.cost-state {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.cost-bar {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  color: var(--cost-ink);
+}
+
+/* The name of the bar, and above the mark the word that goes with it. */
+.cost-bar__head {
+  position: relative;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: var(--cost-muted);
+}
+
+.cost-bar__mark-label {
+  position: absolute;
+  top: 0;
+  white-space: nowrap;
+  padding-inline: 6px;
+}
+
+.cost-bar__mark-label[data-side='before'] {
+  transform: translateX(-100%);
+}
+
+.cost-bar__plot {
+  position: relative;
+}
+
+/* The gap between segments is surface, not a stroke. */
+.cost-bar__track {
+  display: flex;
+  gap: 2px;
+  height: 16px;
+  border-radius: 4px;
+  overflow: hidden;
+  forced-color-adjust: none;
+}
+
+.cost-seg {
+  flex-basis: 0;
+  min-width: 4px;
+}
+
+.cost-seg[data-kind='received'] {
+  background: var(--cost-2);
+}
+
+.cost-seg[data-kind='expected'] {
+  background: var(--cost-4);
+  box-shadow: inset 0 0 0 1px var(--cost-2);
+}
+
+.cost-seg[data-kind='room'] {
+  background: var(--cost-track);
+}
+
+.cost-seg[data-step='1'],
+.cost-swatch[data-step='1'] {
+  background: var(--cost-1);
+}
+
+.cost-seg[data-step='2'],
+.cost-swatch[data-step='2'] {
+  background: var(--cost-2);
+}
+
+.cost-seg[data-step='3'],
+.cost-swatch[data-step='3'] {
+  background: var(--cost-3);
+}
+
+.cost-seg[data-step='4'],
+.cost-swatch[data-step='4'] {
+  background: var(--cost-4);
+  box-shadow: inset 0 0 0 1px var(--cost-2);
+}
+
+.cost-seg[data-kind='hidden'],
+.cost-swatch[data-kind='hidden'] {
+  background: var(--cost-hidden);
+}
+
+/* Nobody pays for this part: stripes and an edge, so it is not read as empty. */
+.cost-seg[data-kind='uncovered'],
+.cost-swatch[data-kind='uncovered'] {
+  background:
+    repeating-linear-gradient(135deg, var(--cost-attention) 0 2px, transparent 2px 6px)
+    var(--cost-surface);
+  box-shadow: inset 0 0 0 2px var(--cost-attention);
+}
+
+/* The budget: a line through the bar, with a ring of surface around it. */
+.cost-bar__mark {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--cost-ink);
+  box-shadow: 0 0 0 2px var(--cost-surface);
+  forced-color-adjust: none;
+}
+
+.cost-bar__mark[data-side='before'] {
+  margin-left: -2px;
+}
+
+.cost-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 24px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: var(--cost-muted);
+}
+
+.cost-legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cost-legend strong {
+  color: var(--cost-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.cost-legend__attention,
+.cost-legend__attention strong {
+  color: var(--primitives-color-critical-700);
+  font-weight: 700;
+}
+
+.cost-swatch {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  forced-color-adjust: none;
+}
+
+/* A covering budget line in the table: its colour in the bar, then its name. */
+.cost-line-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* The small bar in the list of cost items. */
+.cost-mini {
+  display: flex;
+  gap: 2px;
+  width: 96px;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  forced-color-adjust: none;
+}
+
+.cost-mini .cost-seg {
+  min-width: 3px;
+}
+
+.cost-mini .cost-seg[data-kind='uncovered'] {
+  box-shadow: inset 0 0 0 1px var(--cost-attention);
+}
+
+@media (forced-colors: active) {
+  .cost-seg,
+  .cost-swatch {
+    forced-color-adjust: auto;
+    border: 1px solid CanvasText;
+  }
+}

@@ -64,6 +64,13 @@ class CostItemOverview:
         return self.item.budgeted_cents - self.forecast_cents
 
     @property
+    def uncovered_pct(self) -> Decimal | None:
+        """The share no budget line covers; ``None`` above 100 percent."""
+        if self.pct_total > Decimal(100):
+            return None
+        return Decimal(100) - self.pct_total
+
+    @property
     def assignment_ids(self) -> frozenset[UUID]:
         return frozenset(c.assignment_id for c in self.coverages)
 

@@ -59,6 +59,8 @@ class CostItemOut(BaseModel):
     covered_cents: Annotated[int | None, _FIN]
     uncovered_cents: Annotated[int | None, _FIN]
     pct_total: Annotated[Decimal, _FIN]
+    # The share no budget line covers. Null above 100 percent.
+    uncovered_pct: Annotated[Decimal | None, _FIN]
     # Share covered by budget lines of assignments the asker may not see.
     hidden_coverage_pct: Annotated[Decimal, _FIN]
     invoice_lines: Annotated[list[InvoiceLineOut], nested()]

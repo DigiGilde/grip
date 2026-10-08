@@ -2,69 +2,125 @@ import { waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mockApi, texts } from '@/features/team/ui/testing';
 import { renderApp } from '@/test/utils';
+import type { CostItem } from './api';
 import { CostsPage } from './CostsPage';
 
-const ITEM = {
+const ITEM: CostItem = {
   id: 'c-1',
   description: 'Hostingcontract',
   budgeted_cents: 1600000,
   forecast_cents: 1500000,
   actual_cents: 1000000,
   estimate_cents: 500000,
-  covered_cents: 450000,
-  uncovered_cents: 1050000,
-  pct_total: '30.00',
+  variance_cents: 100000,
+  covered_cents: 1500000,
+  uncovered_cents: 0,
+  pct_total: '100.00',
+  uncovered_pct: '0.00',
   hidden_coverage_pct: '0',
   invoice_lines: [],
   coverages: [],
   may_edit: false,
 };
 
+const UNCOVERED = {
+  ...ITEM,
+  id: 'c-2',
+  description: 'Licenties',
+  covered_cents: 450000,
+  uncovered_cents: 1050000,
+  pct_total: '30.00',
+  uncovered_pct: '70.00',
+};
+
 afterEach(() => vi.unstubAllGlobals());
 
-async function renderCosts(body: object) {
-  mockApi({ '/api/costs': body, '/api/costs/coverage-options': { items: [] } });
-  const view = renderApp(<CostsPage />, { path: '/kosten' });
+async function renderCosts(body: object, path = '/kosten') {
+  const api = mockApi({ '/api/costs': body, '/api/costs/coverage-options': { items: [] } });
+  const view = renderApp(<CostsPage />, { path });
   await waitFor(() => expect(view.container.querySelector('nldd-table')).not.toBeNull());
-  return view.container;
+  return { container: view.container, calls: api.calls };
 }
 
+/** Amounts carry a non-breaking space after the euro sign; read them with a plain one. */
+const plain = (text: string | null | undefined) => (text ?? '').replace(/\u00a0/g, ' ');
+
+const names = (container: ParentNode) => texts(container, 'nldd-table nldd-link');
+
 describe('CostsPage', () => {
-  it('shows budgeted, forecast, covered and the uncovered remainder', async () => {
-    const container = await renderCosts({ items: [ITEM], year: null, may_create: false });
-    const cells = texts(container, 'nldd-table nldd-text-cell');
-    expect(cells).toContain('Hostingcontract');
-    expect(cells.some((text) => text.includes('16.000'))).toBe(true);
-    expect(cells.some((text) => text.includes('15.000'))).toBe(true);
-    expect(cells.some((text) => text.includes('4.500'))).toBe(true);
-    expect(cells.some((text) => text.includes('10.500'))).toBe(true);
-    expect(cells).toContain('30%');
-    expect(texts(container, 'nldd-button')).not.toContain('Kostenpost toevoegen');
+  it('shows per cost item the expected total against the budget and the coverage', async () => {
+    const { container } = await renderCosts({ items: [ITEM], year: null, may_create: false });
+    const link = container.querySelector('nldd-table nldd-link');
+    expect(link?.getAttribute('text')).toBe('Hostingcontract');
+    expect(link?.getAttribute('href')).toBe('/kosten/c-1');
+    const cells = [...container.querySelectorAll('nldd-table nldd-text-cell')];
+    expect(cells.some((cell) => cell.getAttribute('text')?.includes('15.000'))).toBe(true);
+    expect(
+      cells.some((cell) => plain(cell.getAttribute('supporting-text')) === 'van € 16.000 begroot'),
+    ).toBe(true);
+    expect(container.textContent).toContain('100% gedekt');
+    expect(container.querySelector('.cost-mini [data-kind="uncovered"]')).toBeNull();
   });
 
-  it('says unknown instead of an amount when the shares exceed 100 percent', async () => {
-    const container = await renderCosts({
-      items: [{ ...ITEM, covered_cents: null, uncovered_cents: null, pct_total: '120.00' }],
-      year: null,
-      may_create: true,
-    });
-    const cells = texts(container, 'nldd-table nldd-text-cell');
-    expect(cells.filter((text) => text === 'Onbekend')).toHaveLength(2);
-    expect(texts(container, 'nldd-button')).toContain('Kostenpost toevoegen');
-  });
-
-  it('flags a forecast above the budget', async () => {
-    const container = await renderCosts({
-      items: [{ ...ITEM, forecast_cents: 1700000 }],
+  it('puts what needs attention first and says what it is', async () => {
+    const overrun = { ...ITEM, id: 'c-3', description: 'Advies', variance_cents: -100000 };
+    const { container } = await renderCosts({
+      items: [ITEM, overrun, UNCOVERED],
       year: null,
       may_create: false,
     });
-    const flagged = container.querySelector('nldd-text-cell[color="critical"]');
-    expect(flagged?.getAttribute('supporting-text')).toBe('Boven begroting');
+    expect(names(container)).toEqual(['Licenties', 'Advies', 'Hostingcontract']);
+    expect(plain(container.textContent)).toContain('€ 10.500 ongedekt');
+    expect(container.textContent).toContain('Overschrijding');
+    expect(container.querySelector('.cost-mini [data-kind="uncovered"]')).not.toBeNull();
+    expect(container.querySelectorAll('nldd-text-cell[color="critical"]')).toHaveLength(1);
+  });
+
+  it('counts a received invoice without its document as attention', async () => {
+    const line = {
+      id: 'l-1',
+      reference: 'HOST-26-01',
+      description: null,
+      kind: 'actual' as const,
+      amount_cents: 1000000,
+      period: '2026-03-01',
+      attachments: [],
+    };
+    const { container } = await renderCosts({
+      items: [ITEM, { ...ITEM, id: 'c-4', description: 'Zonder bijlage', invoice_lines: [line] }],
+      year: null,
+      may_create: false,
+    });
+    expect(names(container)).toEqual(['Zonder bijlage', 'Hostingcontract']);
+    expect(container.textContent).toContain('1 factuur zonder bijlage');
+  });
+
+  it('offers one primary action, and only to who may add a cost item', async () => {
+    const reader = await renderCosts({ items: [ITEM], year: null, may_create: false });
+    expect(texts(reader.container, 'nldd-button')).toEqual([]);
+    vi.unstubAllGlobals();
+    const { container } = await renderCosts({ items: [ITEM], year: null, may_create: true });
+    const buttons = [...container.querySelectorAll('nldd-button')];
+    expect(buttons.map((button) => button.getAttribute('text'))).toEqual(['Nieuwe kostenpost']);
+    expect(buttons[0]?.getAttribute('appearance')).toBe('primary');
+    // No form is open, and no row carries a button.
+    expect(container.querySelector('nldd-table nldd-button')).toBeNull();
+    expect(document.body.querySelector('nldd-sheet[open]')).toBeNull();
+  });
+
+  it('asks for the year in the address and carries it to the cost item', async () => {
+    const { container, calls } = await renderCosts(
+      { items: [ITEM], year: 2026, may_create: false },
+      '/kosten?jaar=2026',
+    );
+    expect(calls.some((url) => url.includes('year=2026'))).toBe(true);
+    expect(container.querySelector('nldd-table nldd-link')?.getAttribute('href')).toBe(
+      '/kosten/c-1?jaar=2026',
+    );
   });
 
   it('explains an empty list', async () => {
-    const container = await renderCosts({ items: [], year: null, may_create: false });
+    const { container } = await renderCosts({ items: [], year: null, may_create: false });
     expect(texts(container, 'nldd-inline-dialog[slot="empty"]')).toEqual([
       'Er zijn geen kostenposten om te tonen',
     ]);
