@@ -44,7 +44,8 @@ UI-termen zijn Nederlands; code en schema gebruiken de Engelse naam.
 | Inzet | `allocation` | Een persoon op een begrotingsregel, voor een periode, tegen een FTE-percentage |
 | Kostenpost | `cost_item` | Externe kosten, bijvoorbeeld een hostingcontract |
 | Factuurregel op een kostenpost | `invoice_line` | Een bedrag op een kostenpost, gerealiseerd of ingeschat. Dit is de inkoopkant |
-| Realisatie, inschatting | `actual`, `estimate` | Soort factuurregel |
+| Ontvangen, verwacht | `actual`, `estimate` | Soort factuurregel: de factuur is binnen, of wordt nog verwacht. Op een kostenpost heet de som van de ontvangen facturen "Ontvangen" (bij een opdracht: Gerealiseerd) en de som van de verwachte "Nog verwacht" (bij een opdracht: Nog gepland). Begroot, Verwacht totaal en Afwijking heten hetzelfde als bij een opdracht; een afwijking van nul heet "Precies begroot" |
+| Ongedekt | `uncovered` | Het deel van het verwacht totaal van een kostenpost dat geen begrotingsregel dekt |
 | Kostendekking | `cost_coverage` | Welke begrotingsregel welk deel van een kostenpost dekt |
 | Target KPI % declarabel | `billability_target` | Deel van iemands jaar dat declarabel moet zijn |
 | Offerte | `quote` | Document dat uit de begroting van een opdracht wordt gemaakt. Na het maken wijzigt het niet meer |

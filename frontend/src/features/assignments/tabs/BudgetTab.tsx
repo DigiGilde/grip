@@ -73,8 +73,8 @@ function AssignmentPeriod({ assignment }: { assignment: AssignmentDetail }) {
 }
 
 /**
- * For who may change the budget while a quote is undecided: changing is
- * fine, and it means a new quote. Said before the change, not after.
+ * For who may change the budget: what a change means while a quote is with
+ * the client, and after one was signed. Said before the change, not after.
  */
 function OfferedQuoteNote({ assignmentId }: { assignmentId: string }) {
   const quotes = useQuery({
@@ -85,6 +85,16 @@ function OfferedQuoteNote({ assignmentId }: { assignmentId: string }) {
   const waiting = [...(quotes.data?.quotes ?? [])]
     .sort((a, b) => a.issued_at.localeCompare(b.issued_at))
     .at(-1);
+  // The signed quote is the agreement; the budget is not locked after it,
+  // so say what a change means.
+  if (waiting?.status === 'accepted') {
+    return (
+      <Quiet>
+        {`De getekende offerte${waiting.reference ? ` (${waiting.reference})` : ''} is de afspraak. ` +
+          'Wijzig je de begroting, dan wijkt die af van wat is getekend.'}
+      </Quiet>
+    );
+  }
   if (waiting?.status !== 'issued') return null;
   return (
     <Quiet>

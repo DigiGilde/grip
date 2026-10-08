@@ -1,3 +1,5 @@
+import { fetchAssignmentFinance, financeKeys } from '../financeApi';
+import { signalText } from '../financeText';
 import { ROW_ACTIONS_COLUMN, RowActions } from '@/ui/RowActions';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -84,9 +86,12 @@ function useAssignmentMutation<T>(
   });
 }
 
+const NO_PERSON = 'Kies een persoon.';
+
 function Roles({ assignment }: { assignment: AssignmentDetail }) {
   // Assigning owner and managers can be a right of its own, without any other edit right.
-  const canEdit = assignment.permissions.edit_basic || assignment.permissions.manage_roles === true;
+  // A response from before the right existed falls back on the basic edit right.
+  const canEdit = assignment.permissions.manage_roles ?? assignment.permissions.edit_basic;
   const [problem, setProblem] = useState<string | null>(null);
   const [adding, setAdding] = useState({ open: false, session: 0 });
   const [personId, setPersonId] = useState('');
@@ -154,7 +159,7 @@ function Roles({ assignment }: { assignment: AssignmentDetail }) {
       {canEdit && (
         <div>
           <Button
-            text="Voeg iemand toe"
+            text="Wijzig eigenaar en managers"
             onClick={() => {
               setPersonId('');
               setRole('manager');
@@ -172,13 +177,11 @@ function Roles({ assignment }: { assignment: AssignmentDetail }) {
         title={`Rol op ${assignment.name}`}
         submitText="Bewaar"
         busy={add.isPending}
-        error={
-          adding.open ? (problem ?? (people.isError ? errorMessage(people.error) : null)) : null
-        }
+        error={adding.open && people.isError ? errorMessage(people.error) : null}
         onClose={() => setAdding((current) => ({ ...current, open: false }))}
         onSubmit={() => {
           if (!personId) {
-            setProblem('Kies een persoon.');
+            setProblem(NO_PERSON);
             return;
           }
           add.mutate(undefined, {
@@ -188,6 +191,7 @@ function Roles({ assignment }: { assignment: AssignmentDetail }) {
       >
         <SelectInput
           label="Persoon"
+          {...(adding.open && problem === NO_PERSON ? { hint: problem } : {})}
           value={personId}
           onChange={setPersonId}
           placeholder="Kies een persoon"
@@ -199,7 +203,12 @@ function Roles({ assignment }: { assignment: AssignmentDetail }) {
         />
         <SelectInput
           label="Rol"
-          hint="Een opdracht heeft een eigenaar. De vorige eigenaar wordt manager."
+          // A refusal is about the role ("Wijs eerst een andere eigenaar aan"): said here.
+          hint={
+            adding.open && problem && problem !== NO_PERSON
+              ? problem
+              : 'Een opdracht heeft een eigenaar. De vorige eigenaar wordt manager.'
+          }
           value={role}
           onChange={setRole}
           options={Object.entries(ROLE_LABELS).map(([value, label]) => ({
@@ -432,6 +441,22 @@ function StatusActions({ assignment }: { assignment: AssignmentDetail }) {
   );
 }
 
+/**
+ * The budget differs from the signed quote: said here too, from the same
+ * signal as the Financieel tab, so nobody has to find it there.
+ */
+function AgreedDifference({ assignmentId }: { assignmentId: string }) {
+  const query = useQuery({
+    queryKey: financeKeys.assignment(assignmentId, 'all'),
+    queryFn: () => fetchAssignmentFinance(assignmentId, 'all'),
+    retry: false,
+  });
+  const signal = query.data?.signals.find((item) => item.kind === 'budget_differs_from_agreed');
+  if (!signal || !query.data) return null;
+  const { variant, text } = signalText(signal, query.data.free_room_threshold_pct);
+  return <nldd-banner variant={variant} size="sm" text={text} />;
+}
+
 /** Who and what the assignment is: parties, period, people in charge, context. */
 export function OverviewTab() {
   const assignment = useAssignmentShell();
@@ -441,6 +466,7 @@ export function OverviewTab() {
     <nldd-simple-section>
       <nldd-container gap="24">
         <NextSteps assignment={assignment} />
+        {assignment.permissions.read_financial && <AgreedDifference assignmentId={assignment.id} />}
         <nldd-container gap="12">
           <SectionHeading text="Gegevens" />
           {!assignment.permissions.edit_basic && (

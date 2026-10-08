@@ -299,7 +299,7 @@ describe('Bemensing tab', () => {
     expect(allText(tab)).not.toContain('%');
     // Looking without changing is said once, with who can.
     expect(allText(tab)).toContain(
-      'Je kunt de bemensing bekijken. Wijzigen kan de eigenaar (Voorbeeld Eigenaar) of een manager of een planner.',
+      'Je kunt de bemensing bekijken. Wijzigen kan de eigenaar (Voorbeeld Eigenaar), een manager of een planner.',
     );
   });
 

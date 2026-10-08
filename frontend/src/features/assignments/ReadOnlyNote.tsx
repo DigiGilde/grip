@@ -5,7 +5,7 @@ interface ReadOnlyNoteProps {
   assignment: AssignmentDetail;
   /** What the reader looks at, as in "Je kunt <what> bekijken": "deze begroting". */
   what: string;
-  /** Who else may change it besides the owner: "een manager", "een manager of een planner". */
+  /** Who else may change it, as the rest of the sentence after the owner. */
   others?: string;
 }
 
@@ -13,11 +13,11 @@ interface ReadOnlyNoteProps {
  * Said once, quietly, where the action would have been: the reader may look
  * and not change, and who can. Without it a missing button reads as "locked".
  */
-export function ReadOnlyNote({ assignment, what, others = 'een manager' }: ReadOnlyNoteProps) {
+export function ReadOnlyNote({ assignment, what, others = ' of een manager' }: ReadOnlyNoteProps) {
   const owner = assignment.roles.find((holder) => holder.role === 'owner');
   return (
     <Quiet>
-      {`Je kunt ${what} bekijken. Wijzigen kan de eigenaar${owner ? ` (${owner.name})` : ''} of ${others}.`}
+      {`Je kunt ${what} bekijken. Wijzigen kan de eigenaar${owner ? ` (${owner.name})` : ''}${others}.`}
     </Quiet>
   );
 }

@@ -154,6 +154,6 @@ Deze schermen gebruiken de bouwstenen nog niet. Tot ze over zijn, houdt `index.c
 | `features/assignments/ui.tsx` | `FormSheet`, `Loading`, `ErrorNotice`, `EmptyNotice` en `SectionHeading` vervangen door die uit `@/ui/layout`. De eigen `SectionHeading` staat op maat 3, de afspraak is 4. `InlineSelect` staat op een kleinere maat dan de knoppen ernaast. |
 | `features/assignments`, `features/allocations`, `features/overview` | De pagina's opbouwen met `Page` en `Section`. |
 | `features/team/ui/` | De eigen `Sheet`, `Form` en `QueryState` samenvoegen met `FormSheet` en de vaste toestanden. |
-| `features/team`, `features/rates`, `features/costs` | De pagina's opbouwen met `Page` en `Section`. |
+| `features/team`, `features/rates` | De pagina's opbouwen met `Page` en `Section`. |
 | `features/vacancies/VacancyDetailPage.tsx` | Zes secties onder elkaar, ruim drie schermen hoog. Tabs, zoals de opdrachtpagina. |
 | `features/function-framework` | Zestig groepen onder elkaar. Een zoekveld erboven. |

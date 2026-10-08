@@ -127,7 +127,7 @@ export function StaffingTab() {
           <ReadOnlyNote
             assignment={assignment}
             what="de bemensing"
-            others="een manager of een planner"
+            others=", een manager of een planner"
           />
         )}
         {canEdit && hasRoles && (

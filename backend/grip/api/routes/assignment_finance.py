@@ -196,6 +196,20 @@ async def get_assignment_finance(
         ],
         free_room_threshold_pct=data.free_room_threshold_pct,
     )
+    # The signed quote is the agreement; a budget changed afterwards differs
+    # from it, and nothing else would say so.
+    if key.agreed_cents is not None and key.agreed_minus_budgeted_cents:
+        head.signals.append(
+            SignalOut(
+                kind="budget_differs_from_agreed",
+                budget_line_id=None,
+                description=None,
+                amount_cents=key.agreed_minus_budgeted_cents,
+                pct=None,
+                count=None,
+                months=[],
+            )
+        )
     correction = await correction_due(db, assignment_id, differences)
     if correction is not None:
         head.signals.append(

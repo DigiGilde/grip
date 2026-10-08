@@ -38,6 +38,7 @@ export const NO_PERMISSIONS: AssignmentPermissions = {
   read_financial: false,
   read_staffing: false,
   read_roster: false,
+  manage_roles: false,
 };
 
 /** What each kind of reader gets, as the backend decides it. */
@@ -49,6 +50,7 @@ export const PERMISSIONS = {
     read_financial: true,
     read_staffing: true,
     read_roster: true,
+    manage_roles: true,
   },
   planner: { ...NO_PERMISSIONS, edit_staffing: true, read_staffing: true, read_roster: true },
   member: { ...NO_PERMISSIONS, read_roster: true },
