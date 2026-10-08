@@ -1,3 +1,4 @@
+import { DocumentLink as SharedDocumentLink, MoreButton } from '@/ui/Icon';
 import { StepBar } from '@/ui/StepBar';
 import { Button } from '@/features/assignments/ui';
 import { formatDate, formatEuro } from '@/lib/format';
@@ -70,7 +71,9 @@ function DecisionProof({
   return (
     <nldd-container layout="row" gap="16" vertical-alignment="center">
       <DocumentLink href={statementPageUrl('proof', row.id)} text="Bekijk bewijs" newTab />
-      {mayManage ? <DocumentLink href={bundleUrl('proof', row.id)} text="Download bewijs" /> : null}
+      {mayManage ? (
+        <DocumentLink href={bundleUrl('proof', row.id)} text="Download bewijs" download />
+      ) : null}
     </nldd-container>
   );
 }
@@ -189,11 +192,7 @@ function OfferRow({
                   />
                 </>
               ) : null}
-              <nldd-icon-button
-                icon="more"
-                size="sm"
-                text={`Meer acties voor de tekenlink${offer.recipient ? ` aan ${offer.recipient}` : ''}`}
-              >
+              <MoreButton name={`de tekenlink${offer.recipient ? ` aan ${offer.recipient}` : ''}`}>
                 <nldd-menu slot="popup" placement="bottom-start">
                   <MenuAction
                     text={works ? 'Verleng met 30 dagen' : 'Maak de tekenlink weer geldig'}
@@ -224,7 +223,7 @@ function OfferRow({
                     />
                   ) : null}
                 </nldd-menu>
-              </nldd-icon-button>
+              </MoreButton>
             </nldd-container>
           </>
         ) : null}
@@ -310,7 +309,11 @@ export function QuoteCard({
             <nldd-container layout="row" gap="16" vertical-alignment="center">
               <DocumentLink href={quoteDocumentUrl(quote.id)} text="Bekijk pdf" newTab />
               {quote.acceptance?.has_document ? (
-                <DocumentLink href={signedDocumentUrl(quote.id)} text="Getekend exemplaar" />
+                <DocumentLink
+                  href={signedDocumentUrl(quote.id)}
+                  text="Getekend exemplaar"
+                  download
+                />
               ) : null}
               <QuoteDetails
                 hash={quote.snapshot_hash}
@@ -439,7 +442,7 @@ export function QuoteCard({
               />
             ) : null}
             {mayManage || mayWithdrawApproval ? (
-              <nldd-icon-button icon="more" text="Meer acties voor deze offerte">
+              <MoreButton name="deze offerte" size="md">
                 <nldd-menu slot="popup" placement="bottom-start">
                   {mayWithdrawApproval ? (
                     <MenuAction
@@ -470,7 +473,7 @@ export function QuoteCard({
                     />
                   ) : null}
                 </nldd-menu>
-              </nldd-icon-button>
+              </MoreButton>
             ) : null}
           </nldd-container>
         ) : null}
@@ -503,12 +506,11 @@ export function EarlierQuoteRow({ quote }: { quote: QuoteSummary }) {
       />
       {quote.snapshot_hash !== undefined ? (
         <nldd-cell width="fit-content">
-          <nldd-link
+          <SharedDocumentLink
             href={quoteDocumentUrl(quote.id)}
-            text="Bekijk"
-            size="md"
-            target="_blank"
-            accessible-label={`Bekijk offerte ${quote.reference ?? formatDate(quote.issued_at)}`}
+            text="Bekijk pdf"
+            kind="view"
+            accessibleLabel={`Bekijk offerte ${quote.reference ?? formatDate(quote.issued_at)}`}
           />
         </nldd-cell>
       ) : null}

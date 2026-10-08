@@ -17,7 +17,7 @@ import {
   type VacancyHire,
 } from './api';
 import { todayIso, useVacancyChange } from './hooks';
-import { CheckboxInput, DateInput, SelectInput, TextInput } from './ui';
+import { Button, CheckboxInput, DateInput, SelectInput, TextInput } from './ui';
 
 /** Choice in the person picker for someone grip does not know yet. */
 const NEW_COLLEAGUE = 'new';
@@ -62,7 +62,8 @@ export function HireSheet({ vacancy, open, onClose }: SheetProps) {
     enabled: open,
   });
   const known = people.data ?? [];
-  const [personId, setPersonId] = useState(NEW_COLLEAGUE);
+  // A vacancy for a known candidate proposes that person, so the name is entered once.
+  const [personId, setPersonId] = useState(vacancy.candidate_person_id ?? NEW_COLLEAGUE);
   const [name, setName] = useState('');
   const [start, setStart] = useState(vacancy.start_date ?? todayIso());
   const [plan, setPlan] = useState(true);
@@ -107,7 +108,9 @@ export function HireSheet({ vacancy, open, onClose }: SheetProps) {
           ]}
         />
       )}
-      {isNew && <TextInput label="Naam van de nieuwe collega" value={name} onChange={setName} required />}
+      {isNew && (
+        <TextInput label="Naam van de nieuwe collega" value={name} onChange={setName} required />
+      )}
       <DateInput label="Start op" value={start} onChange={setStart} required />
       {onBudgetLine && (
         <CheckboxInput
@@ -155,13 +158,36 @@ export function RecruitmentRefSheet({
       <TextInput label="Systeem" value={system} onChange={setSystem} />
       <TextInput
         label="Kenmerk van de vacature"
-        hint="Leeg maakt de verwijzing ongedaan."
         value={reference}
         onChange={setReference}
         optional
       />
-      <TextInput label="Link" value={url} onChange={setUrl} keyboard="url" optional />
+      <TextInput
+        label="Link in het wervingssysteem"
+        hint="Voor recruiters. Het adres dat iedereen kan openen leg je vast bij Tekst."
+        value={url}
+        onChange={setUrl}
+        keyboard="url"
+        optional
+      />
     </FormSheet>
+  );
+}
+
+/** Takes the reference to the recruitment system away again. */
+export function RemoveRecruitmentRef({ vacancy }: { vacancy: Vacancy }) {
+  const change = useHireChange(
+    vacancy.id,
+    () => setRecruitmentRef(vacancy.id, { reference: '', url: null, system: null }),
+    () => undefined,
+  );
+  return (
+    <Button
+      text="Verwijder de verwijzing"
+      appearance="neutral-transparent"
+      loading={change.busy}
+      onClick={() => change.run(undefined)}
+    />
   );
 }
 

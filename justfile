@@ -246,6 +246,59 @@ preview port="8010":
     export DATABASE_URL="${PREVIEW_DATABASE_URL:-postgresql+asyncpg://grip:grip@localhost:5434/grip_preview}"
     export LETTERHEAD_LOGO_PATH="$root/frontend/node_modules/@nldd/design-system/dist/favicon.svg"
     export DOCUMENT_FONT_DIR="$root/frontend/node_modules/@nldd/design-system/dist/fonts"
+    # Drafting texts locally: the command-line tool with your own login, when
+    # it is installed and no model was chosen. Development only (ADR 0035).
+    if [ -z "${LLM_PROVIDER:-}" ] && [ -z "${VLAM_API_KEY:-}" ] && command -v claude >/dev/null 2>&1; then
+        export LLM_PROVIDER=claude_cli
+    fi
     cd backend
     uv run alembic upgrade head
     exec uv run uvicorn grip.core.app:create_app --factory --port {{port}}
+
+# Take the sender, the sections and the standard texts of a quote from a shipped profile
+quote-profile NAME:
+    cd backend && uv run python -m grip.dev.quote_profile {{ NAME }}
+
+# Rebuild favicon, app icons and the images in docs/merk from frontend/brand/mark.svg
+brand:
+    cd frontend && node scripts/build-brand.mjs
+
+# Remove the request forms of vacancies that closed longer ago than the instance keeps them
+vacancy-forms-retention:
+    cd backend && uv run python -m grip.services.vacancies.request_forms
+
+# Measure spacing of every page in a headless browser (servers must be running; see docs/ontwerp.md)
+check-spacing *ARGS:
+    cd frontend && node scripts/check-spacing.mjs {{ARGS}}
+
+# First login through the real SSO Rijk: starts grip against deploy/local/.env.sso
+# and shows, masked, what the provider sent and what grip did with it
+sso-check port="9011":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    env_file="deploy/local/.env.sso"
+    [ -f "$env_file" ] || { echo "Kopieer deploy/local/.env.sso.example naar $env_file en vul hem in (zie docs/lokaal.md)."; exit 1; }
+    set -a
+    . "$env_file"
+    set +a
+    [ -n "${OIDC_CLIENT_SECRET:-}" ] || { echo "OIDC_CLIENT_SECRET in $env_file is leeg."; exit 1; }
+    [ -n "${SESSION_SECRET_KEY:-}" ] || { echo "SESSION_SECRET_KEY in $env_file is leeg (openssl rand -hex 32)."; exit 1; }
+    export DEV_NO_AUTH=0 OIDC_DIAGNOSTICS=1
+    export FRONTEND_URL="http://localhost:{{port}}" BACKEND_URL="http://localhost:{{port}}"
+    export INSTANCE_NAME="Grip (controle SSO Rijk)"
+    export DATABASE_URL="postgresql+asyncpg://grip:grip@localhost:5434/grip_sso_check"
+    docker compose exec -T db psql -U grip -d postgres -Atc "select 1 from pg_database where datname='grip_sso_check'" | grep -q 1 \
+        || docker compose exec -T db psql -U grip -d postgres -qc "create database grip_sso_check"
+    cd backend
+    uv run alembic upgrade head
+    echo
+    echo "1. Open http://localhost:{{port}}/api/auth/login en log in met SSO Rijk."
+    echo "2. Je komt uit op het verslag. Open daarna http://localhost:{{port}}/api/auth/diagnose/reauth"
+    echo "   en let op of je opnieuw moet inloggen."
+    echo "3. Kopieer het verslag op http://localhost:{{port}}/api/auth/diagnose. Stop met Ctrl+C."
+    echo
+    exec uv run uvicorn grip.core.app:create_app --factory --port {{port}}
+
+# Make a key pair for notifications (web push); put the line in backend/.env
+push-key:
+    cd backend && DEV_NO_AUTH=1 uv run python -m grip.integrations.push.keys

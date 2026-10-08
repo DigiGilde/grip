@@ -11,7 +11,7 @@ import {
   beforeLeaving,
   clearDraft,
   createSigningIntent,
-  navigation,
+  leaveForDecision,
   readDraft,
   saveDraft,
   useDecisionReturn,
@@ -125,7 +125,7 @@ export function SigningPage() {
           : { reason: reason.trim() || null }),
       });
     },
-    onSuccess: (intent) => navigation.go(intent.authorize_url),
+    onSuccess: leaveForDecision,
     onError: (failure) => setError(errorMessage(failure)),
   });
   const decided = back.evidenceId !== null;
@@ -243,7 +243,7 @@ export function SigningPage() {
           {quote ? formatEuro(quote.content.total_cents) : ''}. Een akkoord is niet terug te
           draaien.
         </nldd-text>
-        <nldd-text>{beforeLeaving('accept')}</nldd-text>
+        <nldd-text>{beforeLeaving('accept', Boolean(leave.data?.passkey))}</nldd-text>
         <TextInput
           label="Je functie"
           value={signerFunction}
@@ -283,7 +283,7 @@ export function SigningPage() {
           De opdrachtnemer ziet dat de offerte is afgewezen, met de reden die je hier geeft.
           Afwijzen is niet terug te draaien.
         </nldd-text>
-        <nldd-text>{beforeLeaving('reject')}</nldd-text>
+        <nldd-text>{beforeLeaving('reject', Boolean(leave.data?.passkey))}</nldd-text>
         <TextInput label="Reden" value={reason} onChange={setReason} optional multiline />
       </FormSheet>
     </>

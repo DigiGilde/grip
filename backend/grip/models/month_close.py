@@ -140,6 +140,14 @@ class BillingExport(Base):
         ForeignKey("person.id", ondelete="SET NULL"),
         nullable=True,
     )
+    # The delivery to the financial administration this record went with.
+    # Empty for a record from before deliveries per billing period existed.
+    delivery_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("billing_delivery.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     created_at: Mapped[datetime] = created_at()
 
     lines: Mapped[list["BillingExportLine"]] = relationship(

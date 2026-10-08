@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="currentColor">
+  <!--
+    The product mark of grip: a bracket that holds a bar.
+    Grid 48, one weight of 8, drawn area 36 by 36, clear space 6 on every side.
+    One colour, no effects. Colours are applied by scripts/build-brand.mjs.
+  -->
+  <path d="M6 6h28v8H14v20h20v8H6z"/>
+  <path d="M24 20h18v8H24z"/>
+</svg>

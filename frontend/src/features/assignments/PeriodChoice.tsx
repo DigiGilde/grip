@@ -3,7 +3,7 @@ import { formatPeriod } from '@/lib/format';
 import { Button, DateInput } from './ui';
 
 interface PeriodChoiceProps {
-  /** What the period follows by default, as in "zelfde als de opdracht". */
+  /** What the period follows by default, as in "Loopt mee met de opdracht". */
   parent: string;
   parentStart?: string | null;
   parentEnd?: string | null;
@@ -38,15 +38,21 @@ export function PeriodChoice({
   const known = Boolean(parentStart && parentEnd);
   if (!own) {
     return (
-      <nldd-container gap="8">
+      <nldd-container gap="4">
+        {/* One calm line; the way out is a quiet link-like button under it. */}
         <nldd-text>
           {known
-            ? `Periode: zelfde als ${parent} (${formatPeriod(parentStart, parentEnd)})`
-            : `Periode: zelfde als ${parent}, die nog geen looptijd heeft`}
+            ? `Loopt mee met ${parent}: ${formatPeriod(parentStart, parentEnd)}`
+            : `Loopt mee met ${parent}; die heeft nog geen periode`}
         </nldd-text>
         {!known && whenMissing}
         <nldd-container layout="row">
-          <Button text="Afwijkende periode" onClick={() => onOwn(true)} />
+          <Button
+            text="Afwijkende periode"
+            size="sm"
+            appearance="neutral-transparent"
+            onClick={() => onOwn(true)}
+          />
         </nldd-container>
       </nldd-container>
     );
@@ -69,7 +75,12 @@ export function PeriodChoice({
         />
       </nldd-container>
       <nldd-container layout="row">
-        <Button text={`Zelfde als ${parent}`} onClick={() => onOwn(false)} />
+        <Button
+          text={`Laat meelopen met ${parent}`}
+          size="sm"
+          appearance="neutral-transparent"
+          onClick={() => onOwn(false)}
+        />
       </nldd-container>
     </nldd-container>
   );

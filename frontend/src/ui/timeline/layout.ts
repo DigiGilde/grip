@@ -32,6 +32,13 @@ export interface TimelineBar<B = unknown> {
   clippedEnd: boolean;
   /** A short mark before the label for a signal, e.g. "≠". */
   mark?: string;
+  /**
+   * Where in its first and last month the bar begins and ends, as the part
+   * of that month to leave free (0 to 1). Only drawn on a timeline that
+   * shows days; without them the bar covers whole months.
+   */
+  startOffset?: number;
+  endOffset?: number;
   data: B;
 }
 
@@ -77,7 +84,20 @@ export const EMPTY_CELL: TimelineCell = {
   description: '',
 };
 
-const MONTHS_SHORT = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
+const MONTHS_SHORT = [
+  'jan',
+  'feb',
+  'mrt',
+  'apr',
+  'mei',
+  'jun',
+  'jul',
+  'aug',
+  'sep',
+  'okt',
+  'nov',
+  'dec',
+];
 
 /** "okt", from a YYYY-MM or a date. */
 export function monthShort(iso: string): string {
@@ -147,7 +167,22 @@ export function barsInColumn<B>(row: { bars: TimelineBar<B>[] }, column: number)
 /** A cell in words: its figure, then every bar in it. */
 export function cellDescription(row: TimelineRow, column: number): string {
   const cell = row.cells[column];
-  const parts = [cell?.description ?? '', ...barsInColumn(row, column).map((bar) => bar.description)];
+  const parts = [
+    cell?.description ?? '',
+    ...barsInColumn(row, column).map((bar) => bar.description),
+  ];
   const text = parts.filter(Boolean).join('; ');
   return text || 'geen inzet';
+}
+
+/** The part of its month that lies before a day, and after it: 0 to 1. */
+export function dayOffsets(start: string, end: string): { startOffset: number; endOffset: number } {
+  const days = (iso: string) =>
+    new Date(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)), 0).getDate();
+  const startDay = Number(start.slice(8, 10));
+  const endDay = Number(end.slice(8, 10));
+  return {
+    startOffset: (startDay - 1) / days(start),
+    endOffset: (days(end) - endDay) / days(end),
+  };
 }

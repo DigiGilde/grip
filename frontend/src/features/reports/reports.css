@@ -10,7 +10,7 @@
 .grip-figures {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 12px;
+  gap: 16px;
   margin: 0;
 }
 
@@ -22,7 +22,7 @@
   background: var(--semantics-surfaces-base-background-color);
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   min-width: 0;
 }
 

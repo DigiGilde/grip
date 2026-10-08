@@ -1,4 +1,5 @@
 import { useRef, type ReactNode } from 'react';
+import { Brand } from '@/brand/Brand';
 import { useNlddEvent } from '@/components/nldd/events';
 import { PageHeading } from './PageHeading';
 
@@ -54,6 +55,7 @@ export function StatusPage({
             horizontal-alignment="center"
           >
             <div className="status-loading">
+              <Brand variant="compact" />
               <nldd-activity-indicator size="40" timing="instant" />
               <PageHeading text={title} inline />
               {children}
@@ -68,7 +70,10 @@ export function StatusPage({
     <nldd-app-view background="tinted">
       <nldd-page landmarks="page">
         <nldd-simple-section width="480px" vertical-alignment="center">
-          <PageHeading text={title} />
+          <nldd-container slot="header" gap="16">
+            <Brand variant="compact" />
+            <PageHeading text={title} inline />
+          </nldd-container>
           {children}
           <nldd-inline-dialog
             {...(variant ? { variant } : {})}

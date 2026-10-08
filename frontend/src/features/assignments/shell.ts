@@ -24,7 +24,7 @@ export const TAB_LABELS: Record<AssignmentTabKey, string> = {
   staffing: 'Bemensing',
   budget: 'Begroting',
   quote: 'Offerte',
-  monthClose: 'Maandafsluiting',
+  monthClose: 'Afsluiten en factureren',
   history: 'Geschiedenis',
 };
 

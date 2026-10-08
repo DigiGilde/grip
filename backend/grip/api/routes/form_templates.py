@@ -12,6 +12,8 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile, status
+from fastapi.responses import Response
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip.access import Action, DataClass, build_response, schema_classes
@@ -29,7 +31,7 @@ from grip.schema.form_templates import (
 )
 from grip.services.errors import DomainValidationError
 from grip.services.vacancies import form as forms
-from grip.services.vacancies import service
+from grip.services.vacancies import form_setup, service
 
 router = APIRouter(prefix="/form-templates", tags=["form-templates"])
 
@@ -236,3 +238,118 @@ async def activate_form_template(
     return build_response(
         _template_out(template, names), schema_classes(FormTemplateOut)
     )
+
+
+# --- looking at a stored form -------------------------------------------------------
+
+
+class FieldMappingIn(BaseModel):
+    """What fills one field. ``source`` null takes the mapping away."""
+
+    source: str | None = None
+    equals: Any = None
+
+
+def _detail(template: FormTemplate) -> dict[str, Any]:
+    return {
+        "id": str(template.id),
+        "name": template.name,
+        "file_name": template.file_name,
+        "is_active": template.is_active,
+        "fields": [
+            {
+                "name": view.name,
+                "type": view.type,
+                "label": view.label,
+                "source": view.source,
+                "equals": view.equals,
+                "fills": view.fills,
+                "state": view.state,
+            }
+            for view in form_setup.describe(template)
+        ],
+        "sources": [
+            {
+                "key": source.key,
+                "label": source.label,
+                "choices": [
+                    {"value": choice.value, "label": choice.label}
+                    for choice in source.choices
+                ],
+            }
+            for source in form_setup.SOURCES
+        ],
+    }
+
+
+def _inline_pdf(content: bytes, file_name: str) -> Response:
+    safe = file_name.encode("ascii", "ignore").decode("ascii") or "formulier.pdf"
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'inline; filename="{safe}"',
+            "Cache-Control": "private, no-store",
+        },
+    )
+
+
+@router.get("/{template_id}", response_model=None)
+async def read_form_template(
+    template_id: UUID,
+    subject: CurrentSubject,
+    decider: AccessDecider,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """The fields of a stored form and what fills each of them."""
+    await _require_beheer(decider, subject, Action.READ)
+    return _detail(await form_setup.get_template(db, template_id))
+
+
+@router.get("/{template_id}/file")
+async def read_form_template_file(
+    template_id: UUID,
+    subject: CurrentSubject,
+    decider: AccessDecider,
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    """The blank form itself, as it was delivered."""
+    await _require_beheer(decider, subject, Action.READ)
+    template = await form_setup.get_template(db, template_id)
+    return _inline_pdf(template.content, template.file_name)
+
+
+@router.get("/{template_id}/sample")
+async def read_form_template_sample(
+    template_id: UUID,
+    subject: CurrentSubject,
+    decider: AccessDecider,
+    vacancy_id: UUID | None = None,
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    """The form filled in, made the way the form of a vacancy is made.
+
+    For a vacancy it shows what its requester gets. Without one every field
+    holds an example value, so the whole mapping can be checked at a glance.
+    """
+    await _require_beheer(decider, subject, Action.EDIT)
+    content = await form_setup.sample(db, template_id, vacancy_id)
+    return _inline_pdf(content, "voorbeeld-aanvraagformulier.pdf")
+
+
+@router.put("/{template_id}/fields/{name}", response_model=None)
+async def set_form_template_field(
+    template_id: UUID,
+    name: str,
+    body: FieldMappingIn,
+    person: CurrentPerson,
+    subject: CurrentSubject,
+    decider: AccessDecider,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Say what fills one field of the form, from the fixed list of sources."""
+    await _require_beheer(decider, subject, Action.EDIT)
+    template = await form_setup.set_field(
+        db, template_id, name, source=body.source, equals=body.equals, actor=person
+    )
+    return _detail(template)

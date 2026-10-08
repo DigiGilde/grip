@@ -80,21 +80,24 @@ describe('VacancySetupPage', () => {
     await waitFor(() =>
       expect(container.querySelector('nldd-tag[text="In gebruik"]')).not.toBeNull(),
     );
-    expect(
-      container.querySelector('nldd-button[accessible-label="Gebruik het formulier Oud formulier"]'),
-    ).not.toBeNull();
-    expect(
-      container
-        .querySelector('nldd-text-cell[text="Oud formulier"]')
-        ?.getAttribute('supporting-text'),
-    ).toContain('2 koppelingen niet gecontroleerd');
+    // The form in use comes first; each row opens the form, the rest is in its menu.
+    const links = [...container.querySelectorAll('nldd-table nldd-link')];
+    expect(links.map((link) => link.getAttribute('text'))).toEqual([
+      'Aanvraagformulier vacature',
+      'Oud formulier',
+    ]);
+    const menus = [...container.querySelectorAll('nldd-table nldd-menu-item')].map((item) =>
+      item.getAttribute('text'),
+    );
+    expect(menus).toEqual(['Vervang het formulier', 'Neem weer in gebruik']);
+    expect(container.textContent).toContain('2 koppelingen niet gecontroleerd');
+    // With a form in use, delivering a new one is not the main thing to do here.
+    expect(container.querySelector('nldd-button[text="Lever een leeg formulier aan"]')).toBeNull();
     await waitFor(() =>
       expect(container.querySelector('nldd-text-cell[text="Niet ingesteld"]')).not.toBeNull(),
     );
     expect(
-      container
-        .querySelector('nldd-text-cell[overline="Status"]')
-        ?.getAttribute('supporting-text'),
+      container.querySelector('nldd-text-cell[overline="Status"]')?.getAttribute('supporting-text'),
     ).toBe('Ontbreekt: VLAM_API_KEY, VLAM_MODEL_ID');
     // The upload sheet stays in the document while closed.
     expect(document.body.querySelector('nldd-sheet')).not.toBeNull();

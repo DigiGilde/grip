@@ -226,9 +226,11 @@
 .grip-board__bar {
   position: absolute;
   z-index: 1;
-  left: 2px;
+  left: calc(2px + var(--start-offset, 0) * var(--board-column));
   top: calc(var(--board-total) + var(--lane) * var(--board-lane) + 2px);
-  width: calc(var(--span) * var(--board-column) - 4px);
+  width: calc(
+    (var(--span) - var(--start-offset, 0) - var(--end-offset, 0)) * var(--board-column) - 4px
+  );
   height: calc(var(--board-lane) - 4px);
   display: flex;
   align-items: center;
@@ -319,12 +321,13 @@
   box-shadow: inset 0 0 0 2px var(--board-ink);
 }
 
-/* The legend: the same marks as on the board, each with its word. */
+/* The legend: the same marks as on the board, each with its word. It belongs
+ * to the board, so it sits close under it, not against it. */
 .grip-board__legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 16px;
-  margin: 0;
+  gap: 8px 16px;
+  margin: 8px 0 0;
   padding: 0;
   list-style: none;
   font-size: 0.75rem;
@@ -388,4 +391,94 @@
   clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
+}
+
+/* A label that does not fit in its bar sits beside it, in the ink of the
+   page, instead of being cut off. */
+.grip-board__bar[data-label] {
+  overflow: visible;
+}
+
+.grip-board__bar[data-label] .grip-board__bar-label {
+  position: absolute;
+  overflow: visible;
+  color: var(--board-ink);
+}
+
+.grip-board__bar[data-label='after'] .grip-board__bar-label {
+  left: 100%;
+}
+
+.grip-board__bar[data-label='before'] .grip-board__bar-label {
+  right: 100%;
+}
+
+/* What a row can do besides its bars. */
+.grip-board__row-actions {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+}
+
+/* Days shown: the weeks as numbers under the month and as faint lines. */
+.grip-board__weeks {
+  position: relative;
+  display: block;
+  block-size: 14px;
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--board-muted);
+}
+
+.grip-board__weeks > span {
+  position: absolute;
+  left: calc(var(--at) * 100%);
+  padding-left: 3px;
+}
+
+.grip-board[data-days] td {
+  background-image: repeating-linear-gradient(
+    to right,
+    var(--board-line) 0 1px,
+    transparent 1px calc(700% / var(--days, 30))
+  );
+}
+
+.grip-board__table th[scope='row']:has(.grip-board__row-actions) .grip-board__name {
+  padding-right: 36px;
+}
+
+/* The whole period on screen in narrow columns: the figure per month gives
+   way to the bars, and the month names lose their extras. */
+.grip-board[data-compact] .grip-board__total {
+  visibility: hidden;
+}
+
+.grip-board[data-compact] .grip-board__closed-tag {
+  display: none;
+}
+
+.grip-board[data-compact] thead th {
+  padding-inline: 2px;
+  font-size: 0.6875rem;
+}
+
+/* On a narrow screen the names take less, so the months keep room. */
+@media (max-width: 640px) {
+  .grip-board {
+    --board-name: 9.5rem;
+  }
+
+  /* A name that does not fit takes a second line; it is not cut off. */
+  .grip-board__name {
+    white-space: normal;
+    overflow: visible;
+  }
+}
+
+/* The state of a row may take two lines; it is never cut off. */
+.grip-board__summary {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
 }

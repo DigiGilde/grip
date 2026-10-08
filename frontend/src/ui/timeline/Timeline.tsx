@@ -1,4 +1,11 @@
-import { useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
+import {
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 import { formatMonth } from '@/lib/format';
 import {
   barsInColumn,
@@ -19,14 +26,7 @@ export interface CellRef {
 }
 
 export type LegendItem =
-  | 'filled'
-  | 'established'
-  | 'tentative'
-  | 'open'
-  | 'demand'
-  | 'unavailable'
-  | 'over'
-  | 'mismatch';
+  'filled' | 'established' | 'tentative' | 'open' | 'demand' | 'unavailable' | 'over' | 'mismatch';
 
 const LEGEND_TEXT: Record<LegendItem, string> = {
   filled: 'Inzet, gepland',
@@ -55,18 +55,84 @@ interface TimelineProps<R, B> {
   /** A cell was activated: by keyboard always, by pointer on a stretch without one bar. */
   onCell: (row: TimelineRow<R, B>, column: number, source: 'keyboard' | 'pointer') => void;
   legend: readonly LegendItem[];
+  /**
+   * Widen the month columns so the months fill the width there is. For a
+   * timeline of one thing with a known period; a board that pages through
+   * months keeps its fixed columns.
+   */
+  fit?: boolean;
+  /**
+   * Show the weeks inside each month and draw bars from their first to
+   * their last day. For a period of a few months.
+   */
+  days?: boolean;
+  /** What a row can do besides its bars, drawn in the row header. */
+  rowActions?: (row: TimelineRow<R, B>) => ReactNode;
 }
 
-function Bar<B>({ bar, onActivate }: { bar: TimelineBar<B>; onActivate: () => void }) {
+/** The width of a month column on a board that pages through months. */
+const MIN_COLUMN = 72;
+/** The narrowest a column gets when the whole period has to fit the width. */
+const MIN_FIT_COLUMN = 30;
+/** Below this width a column has no room for its figure; the bars carry it. */
+const COMPACT_BELOW = 56;
+/** Days of the month that get a mark when days are shown: the weeks. */
+const WEEK_DAYS = [1, 8, 15, 22, 29];
+
+const daysIn = (month: string) =>
+  new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0).getDate();
+
+interface BarProps<B> {
+  bar: TimelineBar<B>;
+  onActivate: () => void;
+  /** Draw from the first to the last day instead of over whole months. */
+  days: boolean;
+  /** There is free room next to the bar for a label that does not fit in it. */
+  roomAfter: boolean;
+  roomBefore: boolean;
+  /** Changes when the columns change width, so the fit is measured again. */
+  columnWidth: number;
+}
+
+function Bar<B>({ bar, onActivate, days, roomAfter, roomBefore, columnWidth }: BarProps<B>) {
   const frame = bar.variant === 'demand';
+  const ref = useRef<HTMLSpanElement>(null);
+  const labelRef = useRef<HTMLSpanElement>(null);
+  // A name is never cut off when there is room beside the bar: it moves there.
+  const [outside, setOutside] = useState<'' | 'after' | 'before'>('');
+  useLayoutEffect(() => {
+    const el = ref.current;
+    const label = labelRef.current;
+    if (!el || !label) return;
+    const fits = label.scrollWidth <= el.clientWidth + 1;
+    setOutside(fits ? '' : roomAfter ? 'after' : roomBefore ? 'before' : '');
+  }, [
+    bar.label,
+    bar.mark,
+    bar.span,
+    bar.startOffset,
+    bar.endOffset,
+    columnWidth,
+    roomAfter,
+    roomBefore,
+  ]);
   return (
     // The bar is the pointer's way in. A keyboard or screen reader user gets
     // the same from the cell, whose text names every bar in it.
     <span
+      ref={ref}
       className="grip-board__bar"
       aria-hidden="true"
       title={bar.description}
-      style={{ '--span': bar.span, '--lane': bar.lane } as CSSProperties}
+      style={
+        {
+          '--span': bar.span,
+          '--lane': bar.lane,
+          ...(days
+            ? { '--start-offset': bar.startOffset ?? 0, '--end-offset': bar.endOffset ?? 0 }
+            : {}),
+        } as CSSProperties
+      }
       data-variant={bar.variant}
       {...(bar.variant === 'tentative' ? { 'data-tentative': '' } : {})}
       {...(bar.variant === 'open' ? { 'data-open': '' } : {})}
@@ -74,6 +140,7 @@ function Bar<B>({ bar, onActivate }: { bar: TimelineBar<B>; onActivate: () => vo
       {...(bar.mark ? { 'data-mark': bar.mark } : {})}
       {...(bar.clippedStart ? { 'data-clipped-start': '' } : {})}
       {...(bar.clippedEnd ? { 'data-clipped-end': '' } : {})}
+      {...(outside ? { 'data-label': outside } : {})}
       data-bar={bar.key}
       {...(frame
         ? {}
@@ -91,13 +158,31 @@ function Bar<B>({ bar, onActivate }: { bar: TimelineBar<B>; onActivate: () => vo
         />
       )}
       {!frame && (
-        <span className="grip-board__bar-label">
+        <span ref={labelRef} className="grip-board__bar-label">
           {bar.mark ? `${bar.mark} ` : ''}
           {bar.label}
         </span>
       )}
     </span>
   );
+}
+
+/** Whether the lane of a bar is free for a few columns on one side of it. */
+function laneIsFree<B>(
+  row: TimelineRow<unknown, B>,
+  bar: TimelineBar<B>,
+  side: 'after' | 'before',
+  months: number,
+) {
+  const end = bar.column + bar.span;
+  if (side === 'after' ? end >= months : bar.column === 0) return false;
+  return !row.bars.some((other) => {
+    if (other === bar || other.variant === 'demand' || other.lane !== bar.lane) return false;
+    const otherEnd = other.column + other.span;
+    return side === 'after'
+      ? other.column >= end && other.column < end + 3
+      : otherEnd <= bar.column && otherEnd > bar.column - 3;
+  });
 }
 
 /**
@@ -118,8 +203,30 @@ export function Timeline<R, B>({
   onBar,
   onCell,
   legend,
+  fit = false,
+  days = false,
+  rowActions,
 }: TimelineProps<R, B>) {
   const tableRef = useRef<HTMLTableElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  // With `fit` the months share the width that is left beside the names.
+  const [columnWidth, setColumnWidth] = useState(MIN_COLUMN);
+  const monthCount = months.length;
+  useLayoutEffect(() => {
+    if (!fit) return;
+    const box = scrollRef.current;
+    if (!box) return;
+    const measure = () => {
+      const name = box.querySelector<HTMLElement>('thead th')?.offsetWidth ?? 0;
+      const room = box.clientWidth - name - 2;
+      setColumnWidth(Math.max(MIN_FIT_COLUMN, Math.floor(room / Math.max(1, monthCount))));
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(box);
+    return () => observer.disconnect();
+  }, [fit, monthCount]);
   const rows = groups.flatMap((group) => group.rows);
   const [focus, setFocus] = useState<[number, number]>([0, 0]);
   const focusRow = Math.min(focus[0], Math.max(0, rows.length - 1));
@@ -133,9 +240,7 @@ export function Timeline<R, B>({
     const nextRow = Math.max(0, Math.min(rows.length - 1, row));
     const nextColumn = Math.max(0, Math.min(months.length - 1, column));
     setFocus([nextRow, nextColumn]);
-    tableRef.current
-      ?.querySelector<HTMLElement>(`[data-cell="${nextRow}-${nextColumn}"]`)
-      ?.focus();
+    tableRef.current?.querySelector<HTMLElement>(`[data-cell="${nextRow}-${nextColumn}"]`)?.focus();
   };
 
   const onKeyDown = (
@@ -163,8 +268,13 @@ export function Timeline<R, B>({
   };
 
   return (
-    <div className="grip-board">
-      <div className="grip-board__scroll">
+    <div
+      className="grip-board"
+      {...(days ? { 'data-days': '' } : {})}
+      {...(fit && columnWidth < COMPACT_BELOW ? { 'data-compact': '' } : {})}
+      style={fit ? ({ '--board-column': `${columnWidth}px` } as CSSProperties) : undefined}
+    >
+      <div ref={scrollRef} className="grip-board__scroll" data-spacing="grid">
         <table
           ref={tableRef}
           className="grip-board__table"
@@ -194,6 +304,19 @@ export function Timeline<R, B>({
                       afgesloten
                     </span>
                   )}
+                  {days && (
+                    // The weeks of the month, as the day each one starts on.
+                    <span className="grip-board__weeks" aria-hidden="true">
+                      {WEEK_DAYS.filter((day) => day <= daysIn(month)).map((day) => (
+                        <span
+                          key={day}
+                          style={{ '--at': (day - 1) / daysIn(month) } as CSSProperties}
+                        >
+                          {day}
+                        </span>
+                      ))}
+                    </span>
+                  )}
                 </th>
               ))}
             </tr>
@@ -220,6 +343,9 @@ export function Timeline<R, B>({
                         <span className="grip-board__attention">{row.attention}</span>
                       )}
                       {row.summary && <span className="grip-board__summary">{row.summary}</span>}
+                      {rowActions && (
+                        <span className="grip-board__row-actions">{rowActions(row)}</span>
+                      )}
                       {row.link && (
                         <nldd-link
                           class="grip-board__row-link"
@@ -233,8 +359,7 @@ export function Timeline<R, B>({
                       const cell = row.cells[column];
                       const state = cell?.state ?? 'none';
                       const starting = row.bars.filter((bar) => bar.column === column);
-                      const isSelected =
-                        selected?.rowKey === row.key && selected.column === column;
+                      const isSelected = selected?.rowKey === row.key && selected.column === column;
                       return (
                         <td
                           key={month}
@@ -242,6 +367,7 @@ export function Timeline<R, B>({
                           data-state={state}
                           data-actionable=""
                           className={column === nowIndex ? 'grip-board__now' : undefined}
+                          {...(days ? { style: { '--days': daysIn(month) } as CSSProperties } : {})}
                           tabIndex={index === focusRow && column === focusColumn ? 0 : -1}
                           aria-selected={isSelected}
                           onFocus={() => setFocus([index, column])}
@@ -261,7 +387,15 @@ export function Timeline<R, B>({
                             {cell?.text ?? ''}
                           </span>
                           {starting.map((bar) => (
-                            <Bar key={bar.key} bar={bar} onActivate={() => onBar(bar, row)} />
+                            <Bar
+                              key={bar.key}
+                              bar={bar}
+                              onActivate={() => onBar(bar, row)}
+                              days={days}
+                              columnWidth={fit ? columnWidth : MIN_COLUMN}
+                              roomAfter={laneIsFree(row, bar, 'after', months.length)}
+                              roomBefore={laneIsFree(row, bar, 'before', months.length)}
+                            />
                           ))}
                           <span className="grip-board__sr-only">
                             {cellDescription(row as TimelineRow, column)}

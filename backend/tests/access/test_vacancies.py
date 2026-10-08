@@ -191,7 +191,12 @@ async def test_function_framework_is_read_by_all_and_changed_by_the_beheerder(
 
 @pytest.mark.parametrize("action", list(Action))
 async def test_other_actions_do_not_apply(world, action) -> None:
-    if action in (Action.READ, Action.EDIT, Action.RECORD_DECISION):
+    if action in (
+        Action.READ,
+        Action.EDIT,
+        Action.RECORD_DECISION,
+        Action.REVIEW_TEXT,
+    ):
         return
     for who in EVERYONE - {"beheerder"}:
         assert not await world.ask(who, action, world.resource(open_role=True))
@@ -231,3 +236,46 @@ def test_facts_travel_as_resource_properties(world) -> None:
     assert properties["hr_advice_person_id"] == str(world.adviser)
     assert properties["decision_kind"] == "hr_advice"
     assert "approval_person_id" not in properties
+
+
+# --- judging a text ------------------------------------------------------------
+
+
+def _with_reviewer(world, who: str, *, open_role: bool = False):
+    person_id = world.subjects[who].person_id
+    return vacancy_resource(
+        world.vacancy,
+        assignment_id=world.assignment,
+        open_role=open_role,
+        named={"hr_advice": world.adviser, "approval": None},
+        text_reviewers=[person_id],
+    )
+
+
+@pytest.mark.parametrize("who", sorted(EVERYONE))
+async def test_review_text_is_for_editors_and_who_was_asked(world, who) -> None:
+    # Nobody was asked: only who may edit.
+    assert await world.ask(who, Action.REVIEW_TEXT, world.resource()) is (
+        who in EDITORS
+    )
+    # "member" was asked: that person too, and nobody else gains anything.
+    asked = _with_reviewer(world, "member")
+    assert await world.ask(who, Action.REVIEW_TEXT, asked) is (
+        who in EDITORS | {"member"}
+    )
+
+
+async def test_a_reviewer_reads_the_vacancy_without_names_and_cannot_edit(
+    world,
+) -> None:
+    asked = _with_reviewer(world, "member")
+    assert await world.ask("member", Action.READ, asked, DataClass.STAFFING_COUNTS)
+    assert not await world.ask("member", Action.READ, asked, DataClass.STAFFING)
+    assert not await world.ask("member", Action.EDIT, asked)
+    assert not await world.ask(
+        "member", Action.RECORD_DECISION, world.resource(decision_kind="hr_advice")
+    )
+    # Not asked: nothing.
+    assert not await world.ask(
+        "member", Action.READ, world.resource(), DataClass.STAFFING_COUNTS
+    )

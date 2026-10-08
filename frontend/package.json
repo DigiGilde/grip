@@ -5,18 +5,18 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "predev": "node scripts/copy-brand-assets.mjs",
     "build": "tsc -b && vite build",
-    "prebuild": "node scripts/copy-brand-assets.mjs",
     "preview": "vite preview",
     "lint": "eslint .",
     "typecheck": "tsc -b",
     "test": "vitest run",
     "test:watch": "vitest",
-    "generate:nldd-types": "node scripts/generate-nldd-types.mjs"
+    "generate:nldd-types": "node scripts/generate-nldd-types.mjs",
+    "brand": "node scripts/build-brand.mjs"
   },
   "dependencies": {
     "@nldd/design-system": "^0.8.96",
+    "@simplewebauthn/browser": "^13.3.0",
     "@tanstack/react-query": "^5.104.1",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",

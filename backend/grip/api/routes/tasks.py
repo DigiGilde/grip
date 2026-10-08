@@ -23,6 +23,7 @@ from grip.models.task import Task
 from grip.schema.tasks import (
     CaseKind,
     CaseTasksOut,
+    ChecklistItemOut,
     TaskCountsOut,
     TaskCreateIn,
     TaskListOut,
@@ -51,7 +52,22 @@ register_task_handlers()
 
 def _out(view: TaskView) -> TaskOut:
     task = view.task
+    told = view.telling
     return TaskOut(
+        headline=told.headline if told else task.title,
+        doer_title=told.title if told else task.title,
+        instruction=told.instruction if told else "",
+        needs_me=told.needs_me if told else False,
+        why=told.why if told else None,
+        then=told.then if told else None,
+        action_text=told.action_text if told else None,
+        work_href=told.work_href if told else task.link,
+        waits_on=told.waits_on if told else None,
+        blocked=told.blocked if told else None,
+        checklist=[
+            ChecklistItemOut(text=item.text, done=item.done)
+            for item in (told.checklist if told else [])
+        ],
         id=task.id,
         case_kind=task.case_kind,
         assignment_id=task.assignment_id if view.assignment_name else None,
@@ -116,14 +132,16 @@ async def list_my_tasks(
     """The open tasks that are mine to do, soonest first."""
     await _look(db, settings)
     access = _access(db, decider, subject)
-    views = await service.my_tasks(db, access, today=date.today())
-    counts = TaskCountsOut(
-        open=len(views),
-        to_do=sum(1 for view in views if view.task.status != "waiting"),
-        overdue=sum(1 for view in views if view.overdue),
-    )
+    today = date.today()
+    views = await service.my_tasks(db, access, today=today)
+    awaited = await service.awaited_tasks(db, access, today=today)
     return build_response(
-        TaskListOut(items=[_out(view) for view in views], counts=counts), _CLASSES
+        TaskListOut(
+            items=[_out(view) for view in views],
+            awaited=[_out(view) for view in awaited],
+            counts=TaskCountsOut(**service.counts_of(views)),
+        ),
+        _CLASSES,
     )
 
 
@@ -255,9 +273,20 @@ async def get_task(
     subject: CurrentSubject,
     decider: AccessDecider,
     db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
 ) -> dict[str, Any]:
     access = _access(db, decider, subject)
     task, _, _ = await _load(db, access, task_id)
+    # Look at the case first: whoever just did the work sees the task closed.
+    if task.case_kind == "vacancy" and task.vacancy_id is not None:
+        await engine.evaluate_vacancies(db, {task.vacancy_id})
+    elif task.assignment_id is not None:
+        await engine.evaluate_assignments(
+            db,
+            {task.assignment_id},
+            today=date.today(),
+            instance_base_uri=settings.INSTANCE_BASE_URI,
+        )
     return await _one(db, access, task)
 
 

@@ -3,6 +3,7 @@
  * close screens use that the assignment screens do not: a checkbox field, a
  * file field and a link. The rest comes from the assignment screens' helpers.
  */
+import { DocumentLink as SharedDocumentLink } from '@/ui/Icon';
 import { useRef, useState } from 'react';
 import { orUndef, useNlddEvent } from '@/components/nldd/events';
 import './register';
@@ -53,17 +54,25 @@ export function FileInput({ label, hint, accept, onChange, invalid }: FileInputP
   );
 }
 
-/** A link that leaves the screen: the quote document, a download. */
+/**
+ * A link in a row of links under a quote. `newTab` is a document shown in a
+ * new tab, `download` a file that is saved; both carry their fixed icon from
+ * `@/ui/Icon`. Without either it is a page of the application.
+ */
 export function DocumentLink({
   href,
   text,
   newTab,
+  download,
 }: {
   href: string;
   text: string;
   newTab?: boolean;
+  download?: boolean;
 }) {
-  return <nldd-link href={href} text={text} size="md" {...(newTab ? { target: '_blank' } : {})} />;
+  if (newTab) return <SharedDocumentLink href={href} text={text} kind="view" />;
+  if (download) return <SharedDocumentLink href={href} text={text} kind="download" />;
+  return <nldd-link href={href} text={text} size="md" />;
 }
 
 interface CopyButtonProps {

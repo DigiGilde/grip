@@ -168,6 +168,14 @@ function renderVacancy(vacancy: Vacancy, tab = '', extra: Record<string, unknown
   stubApi({
     [`/api/vacancies/${vacancy.id}`]: vacancy,
     '/api/vacancies/options': OPTIONS,
+    [`/api/vacancies/${vacancy.id}/request-forms`]: {
+      available: true,
+      may_make: true,
+      current: null,
+      earlier: [],
+      changed: [],
+      signed: [],
+    },
     [`/api/vacancies/${vacancy.id}/request-form/status`]: {
       available: true,
       file_name: 'formulier.pdf',
@@ -241,7 +249,14 @@ describe('the header of a vacancy', () => {
   it('leaves out the tab a reader has nothing on', () => {
     expect(visibleTabs(REQUESTED)).toContain('fulfilment');
     const reader = { ...REQUESTED, permissions: NO_PERMISSIONS };
-    expect(visibleTabs(reader)).toEqual(['request', 'tasks', 'decisions', 'text', 'procedure', 'history']);
+    expect(visibleTabs(reader)).toEqual([
+      'request',
+      'tasks',
+      'decisions',
+      'text',
+      'procedure',
+      'history',
+    ]);
     expect(visibleTabs(PUBLIC)).toEqual([]);
   });
 
@@ -327,12 +342,9 @@ describe('the Aanvraag tab', () => {
     expect(
       container.querySelector('nldd-banner[variant="warning"]')?.getAttribute('text'),
     ).toContain('Schaal 11 valt buiten de tariefcategorie van de begrotingsregel');
+    // The form itself is made and kept from here.
     await waitFor(() =>
-      expect(
-        container
-          .querySelector('nldd-button[text="Download aanvraagformulier (pdf)"]')
-          ?.getAttribute('href'),
-      ).toBe('/api/vacancies/v-1/request-form'),
+      expect(container.querySelector('nldd-button[text="Maak aanvraagformulier"]')).not.toBeNull(),
     );
   });
 
@@ -380,33 +392,225 @@ describe('the Advies en akkoord tab', () => {
   });
 });
 
+const TEXT_WORK = {
+  vacancy_id: 'v-1',
+  publications: [],
+  may_record_publication: false,
+  publication_missing: false,
+  drafting_available: false,
+  reviewer_options: [{ id: 'p-2', name: 'Fictieve Adviseur' }],
+  texts: [
+    {
+      kind: 'motivation',
+      needed: true,
+      state: 'in_review',
+      state_text: 'Ter beoordeling',
+      with_whom: 'Wacht op het oordeel van Fictieve Adviseur',
+      revising: false,
+      open_passages: [],
+      action: { key: 'withdraw', text: 'Neem terug om verder te schrijven' },
+      may_write: false,
+      may_remark: true,
+      may_settle: false,
+      versions: [
+        {
+          id: 't-1',
+          number: 1,
+          body: 'De rol is nodig voor de opdracht.',
+          source: 'human',
+          created_at: '2026-10-01T09:00:00Z',
+          created_by_name: 'Fictieve Eigenaar',
+          by_viewer: true,
+        },
+      ],
+      rounds: [
+        {
+          id: 'r-1',
+          round: 1,
+          version_number: 1,
+          offered_at: '2026-10-02T09:00:00Z',
+          withdrawn: false,
+          outcome: 'open',
+          verdicts: [{ reviewer_name: 'Fictieve Adviseur', is_viewer: false }],
+        },
+      ],
+      remarks: [],
+      latest_changes: [],
+    },
+    {
+      kind: 'vacancy_text',
+      needed: true,
+      state: 'returned',
+      state_text: 'Terug met opmerkingen',
+      with_whom: 'Terug bij Fictieve Eigenaar',
+      revising: false,
+      open_passages: ['[vul aan: de datum tot wanneer reageren kan]'],
+      action: { key: 'process', text: 'Verwerk de opmerkingen' },
+      may_write: true,
+      may_remark: true,
+      may_settle: false,
+      standard_text: { role: 'Software engineer', match: 'role', unread: false, missing: [] },
+      versions: [
+        {
+          id: 't-2',
+          number: 1,
+          body: 'Eerste opzet.',
+          source: 'template',
+          origin: 'Uit de standaardtekst Software engineer, versie 2026-10-08',
+          created_at: '2026-10-01T09:00:00Z',
+          by_viewer: true,
+        },
+        {
+          id: 't-3',
+          number: 2,
+          body: 'Bouw mee.\n\n## Dit ga je doen\n\nJe bouwt.\n\n- ontwerpen\n- testen',
+          source: 'human',
+          created_at: '2026-10-03T09:00:00Z',
+          created_by_name: 'Fictieve Eigenaar',
+          by_viewer: true,
+        },
+      ],
+      rounds: [
+        {
+          id: 'r-2',
+          round: 1,
+          version_number: 2,
+          offered_at: '2026-10-04T09:00:00Z',
+          withdrawn: false,
+          outcome: 'returned',
+          verdicts: [
+            {
+              reviewer_name: 'Fictieve Adviseur',
+              is_viewer: false,
+              verdict: 'remarks',
+              note: 'Maak de eisen concreter.',
+            },
+          ],
+        },
+      ],
+      remarks: [
+        {
+          id: 'm-1',
+          section: 'Dit ga je doen',
+          body: 'Te algemeen.',
+          version_number: 2,
+          created_at: '2026-10-04T10:00:00Z',
+          author_name: 'Fictieve Adviseur',
+          by_viewer: false,
+          answers: [],
+        },
+      ],
+      latest_changes: [
+        { heading: 'Dit ga je doen', change: 'added', summary: 'Dit ga je doen: toegevoegd.' },
+      ],
+    },
+  ],
+};
+
 describe('the Tekst tab', () => {
-  it('shows the newest version with its origin and keeps earlier ones closed', async () => {
-    const { container } = renderVacancy(REQUESTED, 'tekst');
-    await waitFor(() => expect(container.textContent).toContain('Concept van het model.'));
-    expect(container.textContent).toContain('Opgesteld door een taalmodel (testmodel-1)');
-    expect(container.textContent).not.toContain('Eerdere versie.');
-    expect(container.querySelector('nldd-button[text="Toon eerdere versies (1)"]')).not.toBeNull();
-    expect(container.querySelector('nldd-button[text="Stel vast"]')).not.toBeNull();
-    // No model is set up: drafting is not offered, and nothing says so.
-    expect(container.querySelector('nldd-button[text="Laat een concept opstellen"]')).toBeNull();
-    expect(container.textContent).not.toContain('niet ingesteld');
+  const WORK_PATH = '/api/vacancies/v-1/text-work';
+
+  it('shows where each text stands, who has it and one next step', async () => {
+    const { container } = renderVacancy(REQUESTED, 'tekst', { [WORK_PATH]: TEXT_WORK });
+    await waitFor(() => expect(container.textContent).toContain('Je bouwt.'));
     expect(
       [...container.querySelectorAll('nldd-title[heading-level="2"]')].map((el) =>
         el.getAttribute('text'),
       ),
-    ).toEqual(['Vacaturetekst', 'Aanleiding en motivatie']);
+    ).toEqual(['Aanleiding en motivatie', 'Vacaturetekst']);
+    expect(
+      [...container.querySelectorAll('nldd-tag')].map((el) => el.getAttribute('text')),
+    ).toEqual(expect.arrayContaining(['Ter beoordeling', 'Terug met opmerkingen']));
+    expect(container.textContent).toContain('Wacht op het oordeel van Fictieve Adviseur');
+    // The text reads as sections: a heading and a list, not raw marks.
+    expect(
+      container.querySelector('nldd-title[text="Dit ga je doen"]')?.getAttribute('heading-level'),
+    ).toBe('3');
+    expect(
+      [...container.querySelectorAll('nldd-rich-text li')].map((el) => el.textContent),
+    ).toEqual(['ontwerpen', 'testen']);
+    expect(container.textContent).not.toContain('## ');
+    // The header holds the primary action of the vacancy. On the tab one
+    // step leads, as a secondary button; the rest is quiet.
+    const within = (text: string) =>
+      container.querySelector(`nldd-button[text="${text}"]`)?.getAttribute('appearance');
+    expect(within('Verwerk de opmerkingen')).toBe('secondary');
+    expect(within('Neem terug om verder te schrijven')).toBe('neutral-transparent');
+    expect(container.querySelectorAll('nldd-button[appearance="primary"]').length).toBeLessThan(2);
+    // The round, the remark and what still has to be filled in.
+    expect(container.textContent).toContain('terug met opmerkingen (Fictieve Adviseur)');
+    expect(container.textContent).toContain('Dit ga je doen: Te algemeen.');
+    expect(container.textContent).toContain('Fictieve Adviseur: Maak de eisen concreter.');
+    expect(container.textContent).toContain('Nog in te vullen voor je kunt vaststellen');
+    expect(container.querySelector('nldd-button[text="Toon eerdere versies (1)"]')).not.toBeNull();
+    expect(container.textContent).not.toContain('Eerste opzet.');
+    // No model is set up: a tailored draft is not offered, and nothing says so.
+    expect(container.querySelector('nldd-button[text="Stel een tekst op maat op"]')).toBeNull();
+    expect(container.textContent).not.toContain('taalmodel');
+    expect(container.querySelector('nldd-button[text="Schrijf zelf"]')).toBeNull();
   });
 
-  it('offers drafting when the model is set up', async () => {
-    const { container } = renderVacancy(REQUESTED, 'tekst', {
-      '/api/vacancies/options': { ...OPTIONS, drafting_available: true },
-    });
+  it('starts an empty vacancy text from the standard text, with a tailored draft next to it', async () => {
+    const empty = {
+      ...TEXT_WORK,
+      drafting_available: true,
+      texts: [
+        {
+          ...TEXT_WORK.texts[1],
+          state: 'none',
+          state_text: 'Nog niet begonnen',
+          with_whom: null,
+          open_passages: [],
+          action: { key: 'start', text: 'Begin met de standaardtekst' },
+          versions: [],
+          rounds: [],
+          remarks: [],
+          latest_changes: [],
+        },
+      ],
+    };
+    const { container } = renderVacancy(REQUESTED, 'tekst', { [WORK_PATH]: empty });
     await waitFor(() =>
       expect(
-        container.querySelectorAll('nldd-button[text="Laat een concept opstellen"]'),
-      ).toHaveLength(2),
+        container.querySelector('nldd-button[text="Begin met de standaardtekst"]'),
+      ).not.toBeNull(),
     );
+    expect(
+      container
+        .querySelector('nldd-button[text="Begin met de standaardtekst"]')
+        ?.getAttribute('appearance'),
+    ).toBe('secondary');
+    expect(container.querySelector('nldd-button[text="Stel een tekst op maat op"]')).not.toBeNull();
+    expect(container.querySelector('nldd-button[text="Schrijf zelf"]')).not.toBeNull();
+    expect(container.textContent).toContain('Er is een standaardtekst voor Software engineer.');
+  });
+
+  it('shows where the vacancy is published as the closing fact', async () => {
+    const published = {
+      ...TEXT_WORK,
+      texts: [],
+      may_record_publication: true,
+      publications: [
+        {
+          id: 'pub-1',
+          place: 'government_wide',
+          place_text: 'Werken voor Nederland',
+          url: 'https://vacatures.example/v/1',
+          published_on: '2026-10-08',
+        },
+      ],
+    };
+    const { container } = renderVacancy(REQUESTED, 'tekst', { [WORK_PATH]: published });
+    await waitFor(() =>
+      expect(container.textContent).toContain(
+        'Gepubliceerd op Werken voor Nederland op 8 okt 2026',
+      ),
+    );
+    expect(
+      container.querySelector(
+        'nldd-button[text="Bekijk de vacature"], nldd-link[text="Bekijk de vacature"]',
+      ),
+    ).not.toBeNull();
   });
 });
 

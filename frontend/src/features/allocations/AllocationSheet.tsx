@@ -9,6 +9,7 @@ import {
   addAllocation,
   allocationKeys,
   fetchAllocationOptions,
+  fetchAllocationOptionsOf,
   updateAllocation,
   type Allocation,
   type LineChoice,
@@ -22,6 +23,11 @@ interface Props {
   allocation?: Allocation;
   /** What a new inzet starts from, e.g. the person and month picked on the board. */
   preset?: AllocationPreset;
+  /**
+   * The assignment whose page the sheet is on: only its lines are offered,
+   * without its name, and a single line is chosen already.
+   */
+  assignmentId?: string;
   /** Closed months of the inzet being changed (first days); they cannot change. */
   closedMonths?: readonly string[];
   onClose: () => void;
@@ -56,14 +62,15 @@ const initial = (allocation?: Allocation, preset?: AllocationPreset): FormState 
   pct: decimalToInput(allocation?.fte_pct),
 });
 
-function lineLabel(line: LineChoice): string {
+function lineLabel(line: LineChoice, withAssignment: boolean): string {
   const demand = [
     line.fte ? `${formatFte(line.fte)} FTE` : '',
     formatPeriod(line.start_date, line.end_date),
   ]
     .filter(Boolean)
     .join(', ');
-  return `${line.assignment_name}: ${line.description}${demand ? ` (${demand})` : ''}`;
+  const name = withAssignment ? `${line.assignment_name}: ${line.description}` : line.description;
+  return `${name}${demand ? ` (${demand})` : ''}`;
 }
 
 export function AllocationSheet({
@@ -71,6 +78,7 @@ export function AllocationSheet({
   session,
   allocation,
   preset,
+  assignmentId,
   closedMonths = [],
   onClose,
 }: Props) {
@@ -86,14 +94,25 @@ export function AllocationSheet({
   const set = (patch: Partial<FormState>) => setForm((current) => ({ ...current, ...patch }));
 
   const options = useQuery({
-    queryKey: allocationKeys.options,
-    queryFn: fetchAllocationOptions,
+    queryKey: assignmentId ? allocationKeys.optionsOf(assignmentId) : allocationKeys.options,
+    queryFn: () =>
+      assignmentId ? fetchAllocationOptionsOf(assignmentId) : fetchAllocationOptions(),
     enabled: open && !allocation,
   });
+  // Also filtered here, so an older server that ignores the context still
+  // offers nothing of another assignment.
+  const lines = (options.data?.lines ?? []).filter(
+    (line) => !assignmentId || line.assignment_id === assignmentId,
+  );
+  // One role to put someone on: it is chosen already.
+  const onlyLine = assignmentId && lines.length === 1 ? lines[0] : undefined;
+  if (onlyLine && !allocation && form.lineId === '') {
+    setForm((current) => ({ ...current, lineId: onlyLine.budget_line_id }));
+  }
 
   // Inzet runs over the period of its budget line unless it deviates. For an
   // existing inzet that follows, the dates in force are those of the line.
-  const chosenLine = options.data?.lines.find((line) => line.budget_line_id === form.lineId);
+  const chosenLine = lines.find((line) => line.budget_line_id === form.lineId);
   const follows = allocation?.period_source === 'line';
   const lineStart = chosenLine?.start_date ?? (follows ? allocation?.start_date : undefined);
   const lineEnd = chosenLine?.end_date ?? (follows ? allocation?.end_date : undefined);
@@ -139,9 +158,7 @@ export function AllocationSheet({
     save.mutate(pct);
   };
 
-  const title = allocation
-    ? `Inzet van ${allocation.person_name} bewerken`
-    : 'Nieuwe inzet';
+  const title = allocation ? `Inzet van ${allocation.person_name} bewerken` : 'Nieuwe inzet';
 
   return (
     <FormSheet
@@ -168,9 +185,9 @@ export function AllocationSheet({
             value={form.lineId}
             onChange={(lineId) => set({ lineId })}
             placeholder="Kies een begrotingsregel"
-            options={(options.data?.lines ?? []).map((line) => ({
+            options={lines.map((line) => ({
               value: line.budget_line_id,
-              label: lineLabel(line),
+              label: lineLabel(line, !assignmentId),
             }))}
             required
           />
@@ -184,16 +201,19 @@ export function AllocationSheet({
           supporting-text="Afgesloten maanden kun je hier niet wijzigen. Heropen de maand bij de maandafsluiting van de opdracht om dat wel te doen."
         />
       )}
-      <PeriodChoice
-        parent="de begrotingsregel"
-        parentStart={lineStart}
-        parentEnd={lineEnd}
-        own={form.ownPeriod}
-        onOwn={(ownPeriod) => set({ ownPeriod })}
-        startDate={form.startDate}
-        endDate={form.endDate}
-        onChange={set}
-      />
+      {/* Nothing to follow until a line is chosen. */}
+      {(allocation || chosenLine || form.ownPeriod) && (
+        <PeriodChoice
+          parent="de regel"
+          parentStart={lineStart}
+          parentEnd={lineEnd}
+          own={form.ownPeriod}
+          onOwn={(ownPeriod) => set({ ownPeriod })}
+          startDate={form.startDate}
+          endDate={form.endDate}
+          onChange={set}
+        />
+      )}
       <TextInput
         label="Inzet in procenten"
         hint="Deel van een volledige werkweek, bijvoorbeeld 50"

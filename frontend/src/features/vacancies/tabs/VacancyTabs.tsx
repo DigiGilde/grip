@@ -7,24 +7,22 @@ import { formatDate, formatFte, formatPercent } from '@/lib/format';
 import { PATHS } from '@/paths';
 import { ErrorNotice, Facts, Loading, Quiet, Section, Stack, type Fact } from '@/ui/layout';
 import { errorMessage } from '@/api/client';
-import {
-  DEFAULT_RECRUITMENT_SYSTEM,
-  VACANCY_KEYS,
-  fetchRequestFormStatus,
-  fetchVacancyHire,
-  hireKey,
-  requestFormUrl,
-  type Vacancy,
-} from '../api';
+import { DEFAULT_RECRUITMENT_SYSTEM, fetchVacancyHire, hireKey } from '../api';
 import { DecisionsSection } from '../DecisionsSection';
-import { RecruitmentRefSheet, WithdrawHireSheet, WithdrawVacancySheet } from '../HireSheets';
+import {
+  RecruitmentRefSheet,
+  RemoveRecruitmentRef,
+  WithdrawHireSheet,
+  WithdrawVacancySheet,
+} from '../HireSheets';
 import { budgetLineWarning } from '../labels';
 import { personPath } from '../paths';
 import { ProcedureSection } from '../ProcedureSection';
 import { useVacancyShell } from '../shell';
 import { requestItems, type RequestItem } from '../steps';
-import { TextsSection } from '../TextsSection';
-import { Button, LinkButton } from '../ui';
+import { RequestFormSection } from '../RequestFormSection';
+import { TextWork } from '../TextWork';
+import { Button } from '../ui';
 
 const NOT_FILLED = 'Nog niet ingevuld';
 
@@ -56,23 +54,6 @@ function RequestRow({ item, onOpen }: { item: RequestItem; onOpen?: () => void }
   );
 }
 
-function RequestForm({ vacancy }: { vacancy: Vacancy }) {
-  const { options } = useVacancyShell();
-  const status = useQuery({
-    queryKey: VACANCY_KEYS.formStatus(vacancy.id),
-    queryFn: () => fetchRequestFormStatus(vacancy.id),
-  });
-  if (status.isError) return <ErrorNotice message={errorMessage(status.error)} />;
-  if (!status.data) return null;
-  if (status.data.available) {
-    return <LinkButton text="Download aanvraagformulier (pdf)" href={requestFormUrl(vacancy.id)} download />;
-  }
-  // No blank form is set up: only who can set one up gets something to do.
-  return options?.can_manage_setup ? (
-    <LinkButton text="Stel het aanvraagformulier in" href={PATHS.vacancySetup} />
-  ) : null;
-}
-
 /** What the request form asks for, filled or visibly not, and the form itself. */
 export function RequestTab() {
   const { vacancy, openSheet } = useVacancyShell();
@@ -92,7 +73,11 @@ export function RequestTab() {
           <nldd-list accessible-label="Gegevens voor het aanvraagformulier">
             {items.map((item) =>
               item.where === 'texts' ? (
-                <nldd-list-item key={item.key} size="sm" href={`${PATHS.vacancies}/${vacancy.id}/tekst`}>
+                <nldd-list-item
+                  key={item.key}
+                  size="sm"
+                  href={`${PATHS.vacancies}/${vacancy.id}/tekst`}
+                >
                   <nldd-icon-cell
                     size="20"
                     icon={item.value ? 'check-circle-filled' : 'circle'}
@@ -117,9 +102,9 @@ export function RequestTab() {
           </nldd-list>
         </RouterLinks>
         {warning && <nldd-banner variant="warning" size="sm" text={warning} />}
-        {(vacancy.permissions.can_download_form || editable) && (
+        {vacancy.permissions.can_download_form && <RequestFormSection vacancyId={vacancy.id} />}
+        {editable && (
           <nldd-button-group>
-            {vacancy.permissions.can_download_form && <RequestForm vacancy={vacancy} />}
             {editable && (
               <Button
                 text="Wijzig functie, fte of periode"
@@ -144,10 +129,10 @@ export function DecisionsTab() {
 }
 
 export function TextTab() {
-  const { vacancy, options } = useVacancyShell();
+  const { vacancy } = useVacancyShell();
   return (
     <nldd-simple-section>
-      <TextsSection vacancy={vacancy} options={options} />
+      <TextWork vacancy={vacancy} />
     </nldd-simple-section>
   );
 }
@@ -182,7 +167,9 @@ export function FulfilmentTab() {
   const reference = query.data?.recruitment_ref;
   const hire = query.data?.hire;
   const proposed = hire?.proposed_allocation;
-  const staffing = vacancy.assignment_id ? assignmentTabPath(vacancy.assignment_id, 'staffing') : null;
+  const staffing = vacancy.assignment_id
+    ? assignmentTabPath(vacancy.assignment_id, 'staffing')
+    : null;
 
   const recruitment: Fact[] = reference
     ? [
@@ -248,6 +235,7 @@ export function FulfilmentTab() {
                 text={reference ? 'Wijzig verwijzing' : 'Leg verwijzing vast'}
                 onClick={() => setSheet('reference')}
               />
+              {reference && <RemoveRecruitmentRef vacancy={vacancy} />}
             </nldd-button-group>
           </Section>
           <Section title="Vervulling">

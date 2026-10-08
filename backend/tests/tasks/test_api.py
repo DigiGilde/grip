@@ -110,6 +110,8 @@ async def test_my_tasks_are_the_ones_for_my_role(as_person, world):
     assert titles(requester) == {
         "Bereid de aanvraag voor en dien haar in",
         "Vul de rol Ontwerper in",
+        "Schrijf de motivatie en stel haar vast",
+        "Schrijf de vacaturetekst en stel haar vast",
     }
 
     for person in (world.lezer, world.member, world.outsider):
@@ -309,7 +311,7 @@ async def test_the_tasks_of_a_vacancy_follow_the_vacancy_s_rights(as_person, wor
     requester = await as_person(world.requester).get(path)
     assert requester.status_code == 200
     body = requester.json()
-    assert [track["label"] for track in body["tracks"]] == ["Werving"]
+    assert [track["label"] for track in body["tracks"]] == ["Werving", "Teksten"]
     task = body["tracks"][0]["tasks"][0]
     assert task["case_label"] == "Vacature Developer"
     assert task["link"] == f"/vacatures/{world.vacancy.id}"

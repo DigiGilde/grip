@@ -28,6 +28,9 @@ NOT_DOMAIN: dict[str, str] = {
     "stream_event": "the stream itself",
     "http_session": "login sessions",
     "signing_intent": "a pending step of a signing session; the decision is the fact",
+    "push_outbox": "transport: a notification to send; its cause is recorded",
+    "push_notice": "bookkeeping: what a person was already notified about",
+    "push_cursor": "how far the notifier has read the stream",
     "federation_inbox": "transport: a received message; what it causes is recorded",
     "federation_outbox": "transport: a message to send; its cause is recorded",
     "task": "derived from the facts by the engine; a manual change is recorded "
@@ -49,8 +52,19 @@ COVERED_BY: dict[str, tuple[str, ...]] = {
     "outgoing_invoice": ("invoice",),
     "vacancy": ("vacancy_decision",),
     "vacancy_step": ("vacancy", "vacancy_decision"),
+    # A verdict is part of its round of review.
+    "vacancy_text_verdict": ("vacancy_text_review",),
+    # The shipped library brings its sections, texts and roles in one event.
+    "vacancy_text_shared_section": ("vacancy_text_library",),
+    "vacancy_text_template": ("vacancy_text_library",),
     # A role that is new to the catalogue enters it with the line that names it.
-    "catalogue_role": ("catalogue_role_sync", "budget_line", "allocation"),
+    "catalogue_role": (
+        "catalogue_role_sync",
+        "budget_line",
+        "allocation",
+        "vacancy_text_library",
+        "vacancy_text_template",
+    ),
     # A client that is not known yet is added with the request that names it.
     "organisation": ("organisation_sync", "assignment_request"),
     # Lines follow when a role is merged or the period of the assignment moves.
@@ -73,6 +87,8 @@ COVERED_BY: dict[str, tuple[str, ...]] = {
         "quote_acceptance",
         "vacancy",
         "final_report",
+        # The factuurverzoek is made with the delivery it belongs to.
+        "billing_delivery",
     ),
     "function_family": ("function_framework",),
     "function_group": ("function_framework",),

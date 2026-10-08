@@ -24,7 +24,7 @@ from grip.models.person import Person
 from grip.models.task import OPEN_STATUSES, Task, TaskCase, TaskNote
 from grip.models.vacancy import Vacancy
 from grip.services.errors import DomainValidationError, NotFoundError
-from grip.tasks import catalogue
+from grip.tasks import catalogue, telling
 from grip.tasks.access import TaskAccess
 from grip.tasks.plan import Plan, current_plan, plan_for
 
@@ -54,6 +54,12 @@ class TaskView:
     overdue: bool
     note_count: int = 0
     notes: list[NoteView] = field(default_factory=list)
+    # What this reader must hear about the task; set by ``telling.tell``.
+    telling: telling.Telling | None = None
+
+    @property
+    def needs_me(self) -> bool:
+        return self.telling is not None and self.telling.needs_me
 
 
 @dataclass
@@ -202,6 +208,7 @@ async def _views(
                 notes=notes,
             )
         )
+    await telling.tell(db, access, views, today=today)
     return views
 
 
@@ -251,16 +258,97 @@ async def my_tasks(
     return await _views(db, access, tasks, today=today)
 
 
+def counts_of(views: list[TaskView]) -> dict[str, int]:
+    """How much of the reader's own tasks needs the reader now."""
+    to_do = [view for view in views if view.needs_me]
+    return {
+        "open": len(views),
+        "to_do": len(to_do),
+        "overdue": sum(1 for view in to_do if view.overdue),
+    }
+
+
 async def my_counts(
     db: AsyncSession, access: TaskAccess, *, today: date
 ) -> dict[str, int]:
-    views = await my_tasks(db, access, today=today)
-    actionable = [view for view in views if view.task.status != "waiting"]
-    return {
-        "open": len(views),
-        "to_do": len(actionable),
-        "overdue": sum(1 for view in views if view.overdue),
-    }
+    return counts_of(await my_tasks(db, access, today=today))
+
+
+@dataclass(frozen=True)
+class ToDo:
+    """One task a person must do now, for a notification outside the screens."""
+
+    task_id: UUID
+    # The template of the plan, or "manual": a stable kind to group on.
+    kind: str
+    headline: str
+    instruction: str
+    # Where the work is done, inside the application.
+    href: str | None
+    due_on: date | None
+    overdue: bool
+
+
+async def to_do_of(db: AsyncSession, access: TaskAccess, *, today: date) -> list[ToDo]:
+    """What the person behind ``access`` must do now, the soonest first.
+
+    Never a task the person only waits on. A caller that notifies remembers
+    which ``task_id`` it told about: a task appears here when it opens for
+    the person or is handed to them, and ``overdue`` turns true when its
+    date passes.
+    """
+    return [
+        ToDo(
+            task_id=view.task.id,
+            kind=view.task.template_key or "manual",
+            headline=view.telling.headline if view.telling else view.task.title,
+            instruction=view.telling.instruction if view.telling else "",
+            href=view.telling.work_href if view.telling else view.task.link,
+            due_on=view.task.due_on,
+            overdue=view.overdue,
+        )
+        for view in await my_tasks(db, access, today=today)
+        if view.needs_me
+    ]
+
+
+async def awaited_tasks(
+    db: AsyncSession, access: TaskAccess, *, today: date
+) -> list[TaskView]:
+    """Open tasks of others on the cases the reader started.
+
+    The owner of an assignment and the requester of a vacancy wait for what
+    others must do on it: a planner who fills a role, an adviser who gives
+    advice. Those tasks are not theirs, and they want to see them.
+    """
+    person_id = access.subject.person_id
+    if person_id is None:
+        return []
+    owned = [
+        a for a, role in (await access.assignment_roles()).items() if role == "owner"
+    ]
+    requested = (
+        await db.scalars(select(Vacancy.id).where(Vacancy.requester_id == person_id))
+    ).all()
+    conditions = []
+    if owned:
+        conditions.append(
+            (Task.case_kind == "assignment") & Task.assignment_id.in_(owned)
+        )
+    if requested:
+        conditions.append(
+            (Task.case_kind == "vacancy") & Task.vacancy_id.in_(list(requested))
+        )
+    if not conditions:
+        return []
+    rows = await db.scalars(
+        select(Task)
+        .where(Task.status.in_(OPEN_STATUSES), or_(*conditions))
+        .options(selectinload(Task.notes))
+    )
+    tasks = sorted(rows.all(), key=_sort_key)
+    views = await _views(db, access, tasks, today=today)
+    return [view for view in views if not view.is_mine]
 
 
 async def all_tasks(
@@ -308,18 +396,22 @@ async def all_tasks(
     return views
 
 
+def _headline(view: TaskView) -> str:
+    return view.telling.title if view.telling else view.task.title
+
+
 def _standing(open_views: list[TaskView], done_views: list[TaskView]) -> str:
     """Where a track stands, in one line."""
     waiting = [v for v in open_views if v.task.status == "waiting"]
     doing = [v for v in open_views if v.task.status != "waiting"]
     if doing:
-        first = doing[0].task.title
+        first = _headline(doing[0])
         more = len(open_views) - 1
         return f"{first}, en {more} andere" if more > 0 else first
     if waiting:
-        return waiting[0].task.title
+        return _headline(waiting[0])
     if done_views:
-        return f"Laatst afgerond: {done_views[0].task.title}"
+        return f"Laatst afgerond: {_headline(done_views[0])}"
     return "Niets te doen"
 
 

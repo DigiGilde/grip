@@ -1,0 +1,636 @@
+{
+  "profile": "digigilde",
+  "version": "2026-10-08",
+  "title": "Standaard vacatureteksten DigiGilde",
+  "settings": {
+    "unit_name": "het DigiGilde",
+    "location": "Den Haag",
+    "website": "",
+    "contact": ""
+  },
+  "shared_sections": [
+    {
+      "key": "dit_krijg_je",
+      "heading": "Dit krijg je",
+      "body": "- Salaris in schaal {schaal}, volgens de cao Rijk\n- {contract}\n- {uren} uur per week\n- Standplaats {standplaats}, je werkt deels thuis en deels op kantoor of bij de opdrachtgever"
+    },
+    {
+      "key": "dit_bieden_we",
+      "heading": "Dit bieden we nog meer",
+      "body": "Naast je salaris krijg je een individueel keuzebudget (IKB). Het IKB bestaat uit geld (16,5% van je bruto jaarsalaris) en tijd. Je kiest zelf wat bij je past: je laat een deel uitbetalen wanneer jij dat wilt, je zet het om in verlof of je besteedt het aan fiscaal vriendelijke doelen.\n\nVerder mag je rekenen op:\n- ruimte om je te ontwikkelen, met studiefaciliteiten en tijd om kennis te delen met collega's;\n- volledige vergoeding van je reiskosten met het openbaar vervoer voor woon-werkverkeer;\n- een bijdrage voor je thuiswerkplek;\n- gedeeltelijk betaald ouderschapsverlof;\n- pensioen bij het ABP."
+    },
+    {
+      "key": "hier_kom_je_te_werken",
+      "heading": "Hier kom je te werken",
+      "body": "Je gaat werken bij {eenheid}. Wij zijn een techorganisatie binnen de Rijksoverheid. Onze specialisten werken op projectbasis aan opdrachten voor de hele Rijksoverheid, op het gebied van data, software en security. Omdat wij rijksbreed werken, kennen we de mensen met wie je kennis kunt uitwisselen en kunnen we oplossingen slim hergebruiken.\n\nWe werken vanuit vakmanschap, lef en verbinding. Onze collega's hebben bewust gekozen voor een loopbaan bij de overheid. We investeren in onszelf en in elkaar.\n\nWij zijn onderdeel van de {organisatie} van het ministerie van Binnenlandse Zaken en Koninkrijksrelaties. Meer weten? Kijk op {website}."
+    },
+    {
+      "key": "bijzonderheden",
+      "heading": "Bijzonderheden",
+      "body": "Interesse? Stuur je cv en motivatie als Word- of pdf-bestand via de sollicitatieknop. Reageren kan tot en met {sluitingsdatum}.\n\nZien we een match, dan nemen we contact met je op voor een eerste gesprek. De procedure bestaat uit twee gesprekken en een arbeidsvoorwaardengesprek. Een casus, opdracht of assessment kan deel uitmaken van de procedure, net als het opvragen van referenties en een (online) screening.\n\nHeb je vragen? Neem dan contact op met {contact}.\n\nAcquisitie naar aanleiding van deze vacature stellen wij niet op prijs."
+    },
+    {
+      "key": "iedereen_welkom",
+      "heading": "Iedereen is welkom",
+      "body": "De Rijksoverheid hecht waarde aan een diverse en inclusieve organisatie. Werken in divers samengestelde teams maakt ons werk beter en leuker. Het maakt niet uit waar je bent geboren, waar je in gelooft, hoe oud je bent of van wie je houdt: we zijn vooral nieuwsgierig naar jou. Iedereen is uitgenodigd om te solliciteren."
+    }
+  ],
+  "templates": [
+    {
+      "role": "Software engineer",
+      "aliases": [
+        "Developer",
+        "Ontwikkelaar",
+        "Engineer",
+        "Software developer",
+        "Backend developer"
+      ],
+      "scale_min": 11,
+      "scale_max": 13,
+      "function_group": "(Senior) Adviseur",
+      "origin": "example",
+      "sections": [
+        {
+          "key": "intro",
+          "heading": "",
+          "body": "Wil jij software bouwen die ertoe doet voor heel Nederland? Bij {eenheid} werk je als {functie} aan opdrachten voor de hele Rijksoverheid."
+        },
+        {
+          "key": "dit_ga_je_doen",
+          "heading": "Dit ga je doen",
+          "body": "Als {functie} ontwerp, bouw, test en verbeter je software voor onze opdrachtgevers. Je werkt op projectbasis aan maatschappelijke opdrachten en adviseert de opdrachtgever over de techniek. Je luistert goed, stelt kritische vragen en vertaalt wat een organisatie nodig heeft naar een oplossing die werkt.\n\nJe deelt je kennis binnen je opdracht en met je collega's van {eenheid}. Zo word je beter in je vak en helpen we elkaar verder.\n\nEen greep uit je werkzaamheden:\n- behoeften van de overheid analyseren en vertalen naar software;\n- schaalbare en veilige software ontwerpen en bouwen;\n- adviseren over technische architectuur;\n- zorgen dat de software voldoet aan wet- en regelgeving, zoals privacy en security;\n- samenwerken in een multidisciplinair team met collega's van de opdrachtgever en leveranciers."
+        },
+        {
+          "key": "over_de_opdracht",
+          "heading": "Dit doe je bij {opdracht}",
+          "optional": "assignment",
+          "body": "[vul aan: beschrijf in twee of drie zinnen wat het team maakt, voor wie, en wat jouw rol daarin is]"
+        },
+        {
+          "shared": "dit_krijg_je"
+        },
+        {
+          "shared": "dit_bieden_we"
+        },
+        {
+          "key": "dit_vragen_wij",
+          "heading": "Dit vragen wij",
+          "body": "Je bent een ontwikkelaar die wil groeien en kennis wil delen. Zie je een probleem, dan kaart je het aan. Zie je een kans, dan pak je die. Je schakelt makkelijk tussen opdrachten bij organisaties met elk hun eigen cultuur. Je bent integer en gaat zorgvuldig om met vertrouwelijke gegevens.\n\nVerder heb je:\n- een hbo- of wo-opleiding, bij voorkeur in de ICT;\n- minimaal vijf jaar relevante werkervaring als ontwikkelaar;\n- ruime programmeerervaring; we hechten meer aan sterk inzicht dan aan kennis van één taal;\n- ervaring met AI-ondersteund programmeren, of de bereidheid om dat snel te leren;\n- de gewoonte om je werk goed te documenteren, voor gebruikers en voor collega's;\n- ervaring met werkwijzen zoals Agile, Scrum en DevOps;\n- het vermogen om techniek uit te leggen aan mensen zonder technische achtergrond;\n- geen bezwaar om een deel van je tijd op locatie bij de opdrachtgever te werken;\n- je beheerst de Nederlandse taal uitstekend, in woord en geschrift."
+        },
+        {
+          "shared": "hier_kom_je_te_werken"
+        },
+        {
+          "shared": "bijzonderheden"
+        },
+        {
+          "shared": "iedereen_welkom"
+        }
+      ]
+    },
+    {
+      "role": "Staff engineer",
+      "aliases": [
+        "Senior engineer",
+        "Staff/Senior engineer",
+        "Lead developer",
+        "Tech lead"
+      ],
+      "scale_min": 12,
+      "scale_max": 13,
+      "function_group": "(Senior) Adviseur",
+      "origin": "example",
+      "sections": [
+        {
+          "key": "intro",
+          "heading": "",
+          "body": "Wil jij het technische fundament leggen waar anderen op verder bouwen? Als {functie} bij {eenheid} zet je een prototype om in een robuust platform."
+        },
+        {
+          "key": "dit_ga_je_doen",
+          "heading": "Dit ga je doen",
+          "body": "Als {functie} ben je de technische kartrekker. Je zet de visie neer voor een architectuur die klaar is voor productie, bouwt het fundament en zorgt dat het systeem veilig, schaalbaar en duurzaam is. Je schrijft zelf code en helpt het team betere keuzes te maken.\n\nJe werkt in een multidisciplinair team. Je zorgt dat de oplossing aansluit op bredere digitalisering bij de overheid, zoals Common Ground en de standaarden voor API's.\n\nEen greep uit je werkzaamheden:\n- de architectuur ontwerpen en bouwen;\n- tooling ontwikkelen waar het team en gebruikers mee verder kunnen;\n- koppelingen bouwen met registers en systemen van de overheid;\n- kwaliteit, veiligheid en beheerbaarheid bewaken;\n- kennis delen en collega's begeleiden."
+        },
+        {
+          "key": "over_de_opdracht",
+          "heading": "Dit doe je bij {opdracht}",
+          "optional": "assignment",
+          "body": "[vul aan: beschrijf in twee of drie zinnen wat het team maakt, voor wie, en wat jouw rol daarin is]"
+        },
+        {
+          "shared": "dit_krijg_je"
+        },
+        {
+          "shared": "dit_bieden_we"
+        },
+        {
+          "key": "dit_vragen_wij",
+          "heading": "Dit vragen wij",
+          "body": "Je hebt een visie op architectuur en weet die pragmatisch om te zetten in oplossingen. Je schrijft liever code dan dat je plaatjes maakt.\n\nVerder heb je:\n- ruime ervaring als backend- of platform-engineer;\n- minimaal vijf jaar ervaring in een vergelijkbare functie;\n- diepgaande kennis van één of meer moderne programmeertalen;\n- ervaring met schaalbare architecturen en het ontwerpen van API's;\n- ervaring met architecturen van de overheid, of de wil om je daarin te verdiepen;\n- plezier in samenwerken met juristen, beleidsmakers en ontwerpers;\n- de gewoonte om te documenteren en kennis actief te delen."
+        },
+        {
+          "shared": "hier_kom_je_te_werken"
+        },
+        {
+          "shared": "bijzonderheden"
+        },
+        {
+          "shared": "iedereen_welkom"
+        }
+      ]
+    },
+    {
+      "role": "Standards engineer",
+      "aliases": [
+        "Standaardenontwikkelaar"
+      ],
+      "scale_min": 12,
+      "scale_max": 13,
+      "function_group": "(Senior) Adviseur",
+      "origin": "example",
+      "sections": [
+        {
+          "key": "intro",
+          "heading": "",
+          "body": "Wil jij een standaard ontwikkelen waar de hele overheid op kan bouwen? Als {functie} bij {eenheid} maak je afspraken die werken in de praktijk."
+        },
+        {
+          "key": "dit_ga_je_doen",
+          "heading": "Dit ga je doen",
+          "body": "Als {functie} ontwikkel en beheer je een open standaard. Je zorgt dat de standaard eenduidig, toekomstbestendig en bruikbaar is voor alle overheidsorganisaties. Dat doe je samen met juristen, architecten, beleidsmakers en open source communities.\n\nJe schrijft heldere documentatie, begeleidt organisaties die de standaard gaan gebruiken en richt het beheer zo in dat de standaard zich kan blijven ontwikkelen.\n\nEen greep uit je werkzaamheden:\n- de standaard ontwerpen en uitwerken;\n- een open source referentie-implementatie maken;\n- documentatie schrijven en bijhouden;\n- organisaties begeleiden bij het toepassen;\n- aansluiten op nationale en internationale standaarden."
+        },
+        {
+          "key": "over_de_opdracht",
+          "heading": "Dit doe je bij {opdracht}",
+          "optional": "assignment",
+          "body": "[vul aan: beschrijf in twee of drie zinnen wat het team maakt, voor wie, en wat jouw rol daarin is]"
+        },
+        {
+          "shared": "dit_krijg_je"
+        },
+        {
+          "shared": "dit_bieden_we"
+        },
+        {
+          "key": "dit_vragen_wij",
+          "heading": "Dit vragen wij",
+          "body": "Je kunt ingewikkelde concepten vertalen naar heldere, toepasbare afspraken. Je bouwt graag aan overeenstemming en weet mensen met verschillende belangen mee te nemen.\n\nVerder heb je:\n- ervaring met formele talen en het ontwikkelen van standaarden;\n- minimaal vijf jaar ervaring in een vergelijkbare functie;\n- kennis van data-architectuur en informatiemodellering;\n- ervaring met het beheren van een open source community;\n- kennis van standaarden van de overheid en interoperabiliteit;\n- een heldere en gestructureerde schrijfstijl."
+        },
+        {
+          "shared": "hier_kom_je_te_werken"
+        },
+        {
+          "shared": "bijzonderheden"
+        },
+        {
+          "shared": "iedereen_welkom"
+        }
+      ]
+    },
+    {
+      "role": "UX designer",
+      "aliases": [
+        "Ontwerper",
+        "UX designer/researcher",
+        "UX researcher",
+        "Service designer",
+        "UX Designer/Developer"
+      ],
+      "scale_min": 11,
+      "scale_max": 12,
+      "function_group": "(Senior) Adviseur",
+      "origin": "example",
+      "sections": [
+        {
+          "key": "intro",
+          "heading": "",
+          "body": "Wil jij ingewikkelde overheidsdiensten begrijpelijk maken voor iedereen? Als {functie} bij {eenheid} ontwerp je voor mensen, niet voor systemen."
+        },
+        {
+          "key": "dit_ga_je_doen",
+          "heading": "Dit ga je doen",
+          "body": "Als {functie} zorg je dat diensten van de overheid begrijpelijk en bruikbaar zijn. Je doet onderzoek bij gebruikers, vertaalt wat je leert naar ontwerpen en test die met echte mensen. Je werkt iteratief, met prototypes, en zorgt vanaf de eerste dag voor toegankelijkheid.\n\nJe werkt in een multidisciplinair team en bouwt mee aan herbruikbare componenten, zoals een designsysteem.\n\nEen greep uit je werkzaamheden:\n- gebruikersonderzoek opzetten en uitvoeren;\n- interfaces en interacties ontwerpen;\n- prototypes maken en testen;\n- toegankelijkheid (WCAG) borgen;\n- bijdragen aan een designsysteem met herbruikbare componenten."
+        },
+        {
+          "key": "over_de_opdracht",
+          "heading": "Dit doe je bij {opdracht}",
+          "optional": "assignment",
+          "body": "[vul aan: beschrijf in twee of drie zinnen wat het team maakt, voor wie, en wat jouw rol daarin is]"
+        },
+        {
+          "shared": "dit_krijg_je"
+        },
+        {
+          "shared": "dit_bieden_we"
+        },
+        {
+          "key": "dit_vragen_wij",
+          "heading": "Dit vragen wij",
+          "body": "Je verplaatst je makkelijk in een ander en maakt ingewikkelde materie eenvoudig. Je werkt graag samen en vindt snel iets laten zien belangrijker dan lang polijsten.\n\nVerder heb je:\n- ervaring met gebruikersonderzoek en service design;\n- minimaal vijf jaar ervaring in een vergelijkbare functie;\n- kennis van interface- en interactieontwerp;\n- kennis van toegankelijkheid en inclusief ontwerpen;\n- ervaring met ingewikkelde informatiesystemen;\n- basiskennis van HTML en CSS, zodat je goed samenwerkt met ontwikkelaars."
+        },
+        {
+          "shared": "hier_kom_je_te_werken"
+        },
+        {
+          "shared": "bijzonderheden"
+        },
+        {
+          "shared": "iedereen_welkom"
+        }
+      ]
+    },
+    {
+      "role": "Frontend developer",
+      "aliases": [
+        "Frontend engineer",
+        "Front-end developer"
+      ],
+      "scale_min": 11,
+      "scale_max": 12,
+      "function_group": "(Senior) Adviseur",
+      "origin": "derived",
+      "sections": [
+        {
+          "key": "intro",
+          "heading": "",
+          "body": "Wil jij interfaces bouwen die voor iedereen werken? Als {functie} bij {eenheid} maak je diensten van de overheid toegankelijk en prettig in gebruik."
+        },
+        {
+          "key": "dit_ga_je_doen",
+          "heading": "Dit ga je doen",
+          "body": "Als {functie} bouw je de schermen waarmee burgers, ondernemers en ambtenaren werken. Je zet ontwerpen om in toegankelijke, snelle en onderhoudbare code. Je werkt nauw samen met ontwerpers en backend-ontwikkelaars en bouwt mee aan herbruikbare componenten.\n\nEen greep uit je werkzaamheden:\n- interfaces bouwen in HTML, CSS en JavaScript of TypeScript;\n- herbruikbare componenten maken en onderhouden;\n- toegankelijkheid (WCAG) testen en borgen;\n- samen met ontwerpers prototypes maken en testen;\n- koppelen met API's van de backend."
+        },
+        {
+          "key": "over_de_opdracht",
+          "heading": "Dit doe je bij {opdracht}",
+          "optional": "assignment",
+          "body": "[vul aan: beschrijf in twee of drie zinnen wat het team maakt, voor wie, en wat jouw rol daarin is]"
+        },
+        {
+          "shared": "dit_krijg_je"
+        },
+        {
+          "shared": "dit_bieden_we"
+        },
+        {
+          "key": "dit_vragen_wij",
+          "heading": "Dit vragen wij",
+          "body": "Je hebt oog voor detail en voor de gebruiker. Je wilt begrijpen voor wie je bouwt en vindt toegankelijkheid vanzelfsprekend.\n\nVerder heb je:\n- minimaal vijf jaar ervaring als frontend-ontwikkelaar;\n- ruime kennis van HTML, CSS en JavaScript of TypeScript;\n- ervaring met een modern framework of met web components;\n- kennis van toegankelijkheid en van testen met hulpmiddelen;\n- ervaring met werken in een designsysteem;\n- je beheerst de Nederlandse taal uitstekend, in woord en geschrift."
+        },
+        {
+          "shared": "hier_kom_je_te_werken"
+        },
+        {
+          "shared": "bijzonderheden"
+        },
+        {
+          "shared": "iedereen_welkom"
+        }
+      ]
+    },
+    {
+      "role": "Product owner",
+      "aliases": [
+        "PO",
+        "Productowner"
+      ],
+      "scale_min": 12,
+      "scale_max": 13,
+      "function_group": "Expert Iv",
+      "origin": "example",
+      "sections": [
+        {
+          "key": "intro",
+          "heading": "",
+          "body": "Wil jij richting geven aan digitale diensten die de hele overheid gebruikt? Als {functie} bij {eenheid} maak je van ambities concrete producten."
+        },
+        {
+          "key": "dit_ga_je_doen",
+          "heading": "Dit ga je doen",
+          "body": "Als {functie} vertaal je wensen en behoeften naar een heldere productvisie en naar werk waar het team mee verder kan. Je stelt prioriteiten, houdt overzicht en zorgt dat het team waarde levert. Je bent de schakel tussen beleid, uitvoering en techniek.\n\nJe onderhoudt een netwerk van belanghebbenden, zoals gebruikers, ministeries, uitvoeringsorganisaties en leveranciers. Je sluit aan op bestaande standaarden en programma's.\n\nEen greep uit je werkzaamheden:\n- een productvisie opstellen en uitdragen;\n- de backlog beheren en prioriteiten stellen;\n- afstemmen met belanghebbenden op alle niveaus;\n- het team helpen om doelgericht te werken;\n- resultaten zichtbaar maken voor opdrachtgever en gebruikers."
+        },
+        {
+          "key": "over_de_opdracht",
+          "heading": "Dit doe je bij {opdracht}",
+          "optional": "assignment",
+          "body": "[vul aan: beschrijf in twee of drie zinnen wat het team maakt, voor wie, en wat jouw rol daarin is]"
+        },
+        {
+          "shared": "dit_krijg_je"
+        },
+        {
+          "shared": "dit_bieden_we"
+        },
+        {
+          "key": "dit_vragen_wij",
+          "heading": "Dit vragen wij",
+          "body": "Je bent gewend om in ingewikkelde omgevingen resultaten te boeken. Je begrijpt de bestuurlijke werkelijkheid van de overheid en de technische werkelijkheid van systemen. Je staat stevig in je schoenen en kunt een advies goed overbrengen en verdedigen.\n\nVerder heb je:\n- wo-denkniveau;\n- ruime werkervaring in omgevingen met veel belanghebbenden;\n- technische kennis en ervaring met verschillende architecturen;\n- geduld en gevoel voor de belangen van anderen;\n- je beheerst de Nederlandse taal uitstekend, in woord en geschrift."
+        },
+        {
+          "shared": "hier_kom_je_te_werken"
+        },
+        {
+          "shared": "bijzonderheden"
+        },
+        {
+          "shared": "iedereen_welkom"
+        }
+      ]
+    },
+    {
+      "role": "Productmanager",
+      "aliases": [
+        "Product manager"
+      ],
+      "scale_min": 13,
+      "scale_max": 14,
+      "function_group": "Coördinerend / Specialistisch Adviseur",
+      "origin": "derived",
+      "sections": [
+        {
+          "key": "intro",
+          "heading": "",
+          "body": "Wil jij verantwoordelijk zijn voor een product dat de overheid beter laat werken? Als {functie} bij {eenheid} bepaal je de koers en zorg je dat die waargemaakt wordt."
+        },
+        {
+          "key": "dit_ga_je_doen",
+          "heading": "Dit ga je doen",
+          "body": "Als {functie} ben je verantwoordelijk voor de strategie, de roadmap en het resultaat van een product. Je weet wat gebruikers en opdrachtgevers nodig hebben, maakt keuzes en legt die uit. Je werkt samen met een of meer teams en met product owners, en zorgt voor draagvlak bij bestuurders.\n\nEen greep uit je werkzaamheden:\n- de productstrategie en roadmap bepalen;\n- sturen op resultaat en op wat het product oplevert;\n- afstemmen met opdrachtgevers, bestuurders en gebruikers;\n- samenwerken met product owners en teams;\n- zorgen voor financiering en continuïteit van het product."
+        },
+        {
+          "key": "over_de_opdracht",
+          "heading": "Dit doe je bij {opdracht}",
+          "optional": "assignment",
+          "body": "[vul aan: beschrijf in twee of drie zinnen wat het team maakt, voor wie, en wat jouw rol daarin is]"
+        },
+        {
+          "shared": "dit_krijg_je"
+        },
+        {
+          "shared": "dit_bieden_we"
+        },
+        {
+          "key": "dit_vragen_wij",
+          "heading": "Dit vragen wij",
+          "body": "Je denkt strategisch en handelt praktisch. Je kunt goed uitleggen waarom iets wel of niet gebeurt en houdt daarbij rekening met politieke en bestuurlijke verhoudingen.\n\nVerder heb je:\n- wo-denkniveau;\n- ruime ervaring met productmanagement van digitale diensten;\n- ervaring bij of met de overheid;\n- ervaring met Agile werken op de schaal van meerdere teams;\n- sterke vaardigheden in het omgaan met belanghebbenden;\n- je beheerst de Nederlandse taal uitstekend, in woord en geschrift."
+        },
+        {
+          "shared": "hier_kom_je_te_werken"
+        },
+        {
+          "shared": "bijzonderheden"
+        },
+        {
+          "shared": "iedereen_welkom"
+        }
+      ]
+    },
+    {
+      "role": "Programmamanager",
+      "aliases": [
+        "Programma manager",
+        "Projectmanager",
+        "Projectleider"
+      ],
+      "scale_min": 13,
+      "scale_max": 14,
+      "function_group": "Project-/Programmamanager",
+      "origin": "example",
+      "sections": [
+        {
+          "key": "intro",
+          "heading": "",
+          "body": "Wil jij een vernieuwend project van prototype naar vaste praktijk brengen? Als {functie} bij {eenheid} geef je richting en zorg je dat het gebeurt."
+        },
+        {
+          "key": "dit_ga_je_doen",
+          "heading": "Dit ga je doen",
+          "body": "Als {functie} leid je de doorontwikkeling van een project of programma. Je stuurt op resultaten, zorgt voor draagvlak en bewaakt de visie en de roadmap. Je werkt nauw samen met juristen, ontwikkelaars, beleidsmakers en uitvoeringsorganisaties.\n\nJe legt verbinding met andere digitaliseringstrajecten bij de overheid, zodat er samenhang ontstaat in plaats van overlap.\n\nEen greep uit je werkzaamheden:\n- de doorontwikkeling coördineren;\n- afstemmen met belanghebbenden en zorgen voor draagvlak;\n- prioriteiten stellen en keuzes voorbereiden;\n- organisaties begeleiden die meedoen aan een pilot;\n- de visie en de roadmap bewaken;\n- kansen voor samenwerking met andere initiatieven benutten."
+        },
+        {
+          "key": "over_de_opdracht",
+          "heading": "Dit doe je bij {opdracht}",
+          "optional": "assignment",
+          "body": "[vul aan: beschrijf in twee of drie zinnen wat het team maakt, voor wie, en wat jouw rol daarin is]"
+        },
+        {
+          "shared": "dit_krijg_je"
+        },
+        {
+          "shared": "dit_bieden_we"
+        },
+        {
+          "key": "dit_vragen_wij",
+          "heading": "Dit vragen wij",
+          "body": "Je ontwikkelt een visie en zet die om in praktische uitvoering. Je bent overtuigend, resultaatgericht en analytisch sterk. Je bent een teamspeler en weet de kracht van het team te benutten.\n\nVerder heb je:\n- aantoonbare ervaring met digitale diensten van de overheid;\n- minimaal vijf jaar ervaring in een vergelijkbare functie;\n- kennis van en ervaring met Agile en Scrum;\n- affiniteit met technologie en software-architectuur;\n- sterke vaardigheden in het omgaan met belanghebbenden, van technici tot bestuurders."
+        },
+        {
+          "shared": "hier_kom_je_te_werken"
+        },
+        {
+          "shared": "bijzonderheden"
+        },
+        {
+          "shared": "iedereen_welkom"
+        }
+      ]
+    },
+    {
+      "role": "Wetgevingsjurist",
+      "aliases": [
+        "Jurist",
+        "Wetgevingsjurist/PO"
+      ],
+      "scale_min": 12,
+      "scale_max": 13,
+      "function_group": "(Senior) Adviseur",
+      "origin": "example",
+      "sections": [
+        {
+          "key": "intro",
+          "heading": "",
+          "body": "Wil jij de brug slaan tussen recht en technologie? Als {functie} bij {eenheid} zorg je dat wat digitaal wordt uitgevoerd, juridisch klopt."
+        },
+        {
+          "key": "dit_ga_je_doen",
+          "heading": "Dit ga je doen",
+          "body": "Als {functie} vertaal je wet- en regelgeving naar heldere regels die digitaal kunnen worden toegepast. Je zorgt dat de juridische juistheid geborgd blijft. Je adviseert beleidsmakers en collega's over hoe regelgeving zo kan worden geschreven dat zij goed uitvoerbaar is.\n\nJe werkt nauw samen met ontwikkelaars en ontwerpers en maakt juridische taal toegankelijk voor hen.\n\nEen greep uit je werkzaamheden:\n- wetsartikelen analyseren en omzetten in logische regels;\n- de juridische juistheid van de uitwerking toetsen;\n- adviseren over uitvoerbare regelgeving;\n- rechtspraak op de juiste manier meenemen;\n- samenwerken met ontwikkelaars, ontwerpers en beleidsmakers."
+        },
+        {
+          "key": "over_de_opdracht",
+          "heading": "Dit doe je bij {opdracht}",
+          "optional": "assignment",
+          "body": "[vul aan: beschrijf in twee of drie zinnen wat het team maakt, voor wie, en wat jouw rol daarin is]"
+        },
+        {
+          "shared": "dit_krijg_je"
+        },
+        {
+          "shared": "dit_bieden_we"
+        },
+        {
+          "key": "dit_vragen_wij",
+          "heading": "Dit vragen wij",
+          "body": "Je bent pragmatisch en vindt de balans tussen juridische juistheid en uitvoerbaarheid. Je werkt graag samen en slaat bruggen tussen de juridische en de technische wereld.\n\nVerder heb je:\n- kennis van Nederlandse wetgeving en van het wetgevingsproces;\n- minimaal vijf jaar ervaring in een vergelijkbare functie;\n- ervaring met bestuursrecht;\n- affiniteit met digitalisering;\n- inzicht in logische structuren en beslisbomen;\n- een heldere manier van schrijven en uitleggen."
+        },
+        {
+          "shared": "hier_kom_je_te_werken"
+        },
+        {
+          "shared": "bijzonderheden"
+        },
+        {
+          "shared": "iedereen_welkom"
+        }
+      ]
+    },
+    {
+      "role": "Analist",
+      "aliases": [
+        "Business analist",
+        "Redesign analist",
+        "Informatieanalist"
+      ],
+      "scale_min": 11,
+      "scale_max": 13,
+      "function_group": "(Senior) Adviseur",
+      "origin": "example",
+      "sections": [
+        {
+          "key": "intro",
+          "heading": "",
+          "body": "Wil jij ingewikkelde vraagstukken van de overheid doorgronden en helpen oplossen? Als {functie} bij {eenheid} breng je structuur aan en maak je oplossingen tastbaar."
+        },
+        {
+          "key": "dit_ga_je_doen",
+          "heading": "Dit ga je doen",
+          "body": "Als {functie} analyseer je zelfstandig een vraagstuk: de regels, de processen, de gegevens en de systemen. Je maakt de kern van het probleem zichtbaar en kijkt ook naar de oorzaken erachter. Je vertaalt je inzichten naar oplossingen die haalbaar zijn.\n\nJe werkt bij en met overheidsorganisaties. Je begeleidt gesprekken en werksessies, verbindt verschillende gezichtspunten en helpt mensen om keuzes te maken.\n\nEen greep uit je werkzaamheden:\n- probleem- en oorzaakanalyses uitvoeren;\n- huidige en gewenste processen in kaart brengen;\n- regelgeving, gegevensstromen en systemen in samenhang analyseren;\n- werksessies begeleiden met mensen uit verschillende vakgebieden;\n- prototypes maken om een oplossing tastbaar te maken."
+        },
+        {
+          "key": "over_de_opdracht",
+          "heading": "Dit doe je bij {opdracht}",
+          "optional": "assignment",
+          "body": "[vul aan: beschrijf in twee of drie zinnen wat het team maakt, voor wie, en wat jouw rol daarin is]"
+        },
+        {
+          "shared": "dit_krijg_je"
+        },
+        {
+          "shared": "dit_bieden_we"
+        },
+        {
+          "key": "dit_vragen_wij",
+          "heading": "Dit vragen wij",
+          "body": "Je vraagt door tot je de kern te pakken hebt. Je werkt gestructureerd, neemt eigenaarschap en durft een onderbouwde afweging te maken, ook als niet alle informatie er is.\n\nVerder heb je:\n- wo-denk- en werkniveau;\n- affiniteit met ICT en met vraagstukken van de overheid;\n- het vermogen om bevindingen helder over te brengen;\n- goede communicatieve vaardigheden: je krijgt juristen, ICT'ers en beleidsmedewerkers mee;\n- ervaring met softwareontwikkeling of systeemontwerp is een pre;\n- je beheerst de Nederlandse taal uitstekend, in woord en geschrift."
+        },
+        {
+          "shared": "hier_kom_je_te_werken"
+        },
+        {
+          "shared": "bijzonderheden"
+        },
+        {
+          "shared": "iedereen_welkom"
+        }
+      ]
+    },
+    {
+      "role": "Adviseur",
+      "aliases": [
+        "Consultant",
+        "Tech consultant",
+        "Technisch adviseur"
+      ],
+      "scale_min": 11,
+      "scale_max": 13,
+      "function_group": "(Senior) Adviseur",
+      "origin": "derived",
+      "sections": [
+        {
+          "key": "intro",
+          "heading": "",
+          "body": "Wil jij organisaties van de Rijksoverheid helpen hun digitale ambities waar te maken? Als {functie} bij {eenheid} adviseer je en help je mee in de uitvoering."
+        },
+        {
+          "key": "dit_ga_je_doen",
+          "heading": "Dit ga je doen",
+          "body": "Als {functie} ondersteun je opdrachtgevers bij digitale vraagstukken. Je brengt de vraag in kaart, adviseert over de aanpak en helpt die uit te voeren. Je werkt op projectbasis en schakelt tussen inhoud, techniek en organisatie.\n\nEen greep uit je werkzaamheden:\n- de vraag van de opdrachtgever verhelderen;\n- adviseren over aanpak, techniek en organisatie;\n- meewerken aan de uitvoering in een multidisciplinair team;\n- voortgang en risico's bespreken met de opdrachtgever;\n- kennis delen met collega's."
+        },
+        {
+          "key": "over_de_opdracht",
+          "heading": "Dit doe je bij {opdracht}",
+          "optional": "assignment",
+          "body": "[vul aan: beschrijf in twee of drie zinnen wat het team maakt, voor wie, en wat jouw rol daarin is]"
+        },
+        {
+          "shared": "dit_krijg_je"
+        },
+        {
+          "shared": "dit_bieden_we"
+        },
+        {
+          "key": "dit_vragen_wij",
+          "heading": "Dit vragen wij",
+          "body": "Je luistert goed, stelt kritische vragen en maakt je standpunt duidelijk. Je schakelt makkelijk tussen organisaties en niveaus.\n\nVerder heb je:\n- hbo- of wo-werk- en denkniveau;\n- minimaal vijf jaar relevante werkervaring, waarvan een deel als adviseur;\n- kennis van digitalisering bij de overheid;\n- ervaring met Agile werken;\n- je beheerst de Nederlandse taal uitstekend, in woord en geschrift."
+        },
+        {
+          "shared": "hier_kom_je_te_werken"
+        },
+        {
+          "shared": "bijzonderheden"
+        },
+        {
+          "shared": "iedereen_welkom"
+        }
+      ]
+    },
+    {
+      "role": "Lab manager",
+      "aliases": [
+        "Labmanager"
+      ],
+      "scale_min": 12,
+      "scale_max": 13,
+      "function_group": "(Senior) Adviseur",
+      "origin": "derived",
+      "sections": [
+        {
+          "key": "intro",
+          "heading": "",
+          "body": "Wil jij een plek leiden waar de overheid samen leert en experimenteert? Als {functie} bij {eenheid} zorg je dat een lab loopt en resultaat oplevert."
+        },
+        {
+          "key": "dit_ga_je_doen",
+          "heading": "Dit ga je doen",
+          "body": "Als {functie} ben je verantwoordelijk voor de dagelijkse gang van zaken in een lab waar organisaties samen experimenteren en bouwen. Je haalt vraagstukken op, brengt de juiste mensen bij elkaar en zorgt dat experimenten leiden tot kennis die blijft.\n\nEen greep uit je werkzaamheden:\n- vraagstukken ophalen bij deelnemende organisaties;\n- experimenten plannen en begeleiden;\n- zorgen dat resultaten worden vastgelegd en gedeeld;\n- het netwerk van het lab onderhouden en uitbreiden;\n- de engineers van het lab ondersteunen bij prioriteiten."
+        },
+        {
+          "key": "over_de_opdracht",
+          "heading": "Dit doe je bij {opdracht}",
+          "optional": "assignment",
+          "body": "[vul aan: beschrijf in twee of drie zinnen wat het team maakt, voor wie, en wat jouw rol daarin is]"
+        },
+        {
+          "shared": "dit_krijg_je"
+        },
+        {
+          "shared": "dit_bieden_we"
+        },
+        {
+          "key": "dit_vragen_wij",
+          "heading": "Dit vragen wij",
+          "body": "Je bent een verbinder met gevoel voor techniek. Je houdt overzicht, maakt afspraken helder en zorgt dat dingen af komen.\n\nVerder heb je:\n- hbo- of wo-werk- en denkniveau;\n- ervaring met het leiden van innovatie- of ontwikkeltrajecten;\n- affiniteit met softwareontwikkeling en standaarden;\n- ervaring met samenwerken tussen meerdere organisaties;\n- je beheerst de Nederlandse taal uitstekend, in woord en geschrift."
+        },
+        {
+          "shared": "hier_kom_je_te_werken"
+        },
+        {
+          "shared": "bijzonderheden"
+        },
+        {
+          "shared": "iedereen_welkom"
+        }
+      ]
+    }
+  ]
+}

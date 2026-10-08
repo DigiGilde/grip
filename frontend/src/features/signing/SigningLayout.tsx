@@ -1,5 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import { useAuth } from '@/auth/context';
+import { Brand } from '@/brand/Brand';
+import { PRODUCT_NAME, instanceNames } from '@/brand/names';
 import { Button } from '@/features/assignments/ui';
 import { useInstance } from '@/layout/useInstance';
 import { useRouteFocus } from '@/layout/useRouteFocus';
@@ -22,7 +24,7 @@ export function SigningLayout() {
         ? state.person.name
         : null;
   useRouteFocus();
-  const instanceName = instance?.name ?? 'Grip';
+  const instanceName = instanceNames(instance?.name).organisation || PRODUCT_NAME;
 
   return (
     <>
@@ -30,7 +32,7 @@ export function SigningLayout() {
       <nldd-app-view>
         <nldd-page landmarks="page" accessible-label={`Tekenen bij ${instanceName}`}>
           <nldd-container padding="16" layout="wrap" gap="16" vertical-alignment="center">
-            <nldd-text>{instanceName}</nldd-text>
+            <Brand variant="signing" instanceName={instance?.name} />
             {signerName && <nldd-text>Ingelogd als {signerName}</nldd-text>}
             <Button text="Uitloggen" size="sm" onClick={logout} />
           </nldd-container>

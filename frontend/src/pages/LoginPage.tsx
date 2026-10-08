@@ -1,7 +1,18 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Navigate, useLocation } from 'react-router-dom';
 import { parseLoginError, safeReturnPath } from '@/api/auth';
+import { errorMessage } from '@/api/client';
+import { AUTH_STATUS_KEY } from '@/auth/authState';
 import { useAuth } from '@/auth/context';
+import {
+  isCancellation,
+  loginWithPasskey,
+  passkeyMadeHere,
+  passkeysSupported,
+} from '@/features/passkeys/api';
+import { Brand } from '@/brand/Brand';
+import { instanceNames } from '@/brand/names';
 import { useNlddEvent } from '@/components/nldd/events';
 import { useInstance } from '@/layout/useInstance';
 import { PATHS } from '@/paths';
@@ -25,8 +36,23 @@ export function LoginPage() {
   const location = useLocation();
   const instance = useInstance();
   const loginRef = useRef<HTMLElement>(null);
+  const passkeyRef = useRef<HTMLElement>(null);
+  const queryClient = useQueryClient();
+  const [passkeyBusy, setPasskeyBusy] = useState(false);
+  const [passkeyError, setPasskeyError] = useState<string | null>(null);
   const next = returnPath(location.state);
   useNlddEvent(loginRef, 'click', () => login(next));
+  useNlddEvent(passkeyRef, 'click', () => {
+    setPasskeyBusy(true);
+    setPasskeyError(null);
+    loginWithPasskey()
+      // The session exists now; asking again who is logged in moves on.
+      .then(() => queryClient.invalidateQueries({ queryKey: AUTH_STATUS_KEY }))
+      .catch((failure: unknown) => {
+        if (!isCancellation(failure)) setPasskeyError(errorMessage(failure));
+      })
+      .finally(() => setPasskeyBusy(false));
+  });
 
   if (state.status === 'loading') {
     return <StatusPage variant="loading" title="Grip wordt geladen" />;
@@ -41,15 +67,27 @@ export function LoginPage() {
     return <Navigate to={PATHS.signing} replace />;
   }
 
-  const instanceName = instance?.name ?? 'Grip';
+  const { organisation } = instanceNames(instance?.name);
   const loginAvailable = state.status === 'unauthenticated' && state.oidcConfigured;
+  // Offered only where it can work: the instance allows it, the browser can,
+  // and a passkey was once made in this browser.
+  const passkeyAvailable =
+    state.status === 'unauthenticated' &&
+    Boolean(state.passkeyLogin) &&
+    passkeysSupported() &&
+    passkeyMadeHere();
 
   return (
     <nldd-app-view background="tinted">
       <nldd-page landmarks="page">
         <nldd-simple-section width="400px" vertical-alignment="center">
           <nldd-container gap="24">
-            <PageHeading text={`Inloggen bij ${instanceName}`} instanceName={instance?.name} inline />
+            <Brand variant="login" />
+            <PageHeading
+              text={organisation ? `Inloggen bij ${organisation}` : 'Inloggen'}
+              instanceName={instance?.name}
+              inline
+            />
 
             {loginFailed(location.state) && (
               <nldd-banner
@@ -71,12 +109,23 @@ export function LoginPage() {
               />
             )}
 
+            {passkeyError && <nldd-banner variant="critical" size="sm" text={passkeyError} />}
+
             {loginAvailable && (
               <nldd-button
                 ref={loginRef}
                 appearance="primary"
                 width="full"
                 text="Inloggen met SSO Rijk"
+              />
+            )}
+            {passkeyAvailable && (
+              <nldd-button
+                ref={passkeyRef}
+                appearance="secondary"
+                width="full"
+                text="Inloggen met passkey"
+                {...(passkeyBusy ? { loading: true } : {})}
               />
             )}
           </nldd-container>

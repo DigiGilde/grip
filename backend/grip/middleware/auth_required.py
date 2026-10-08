@@ -27,10 +27,15 @@ from grip.core.problem import PROBLEM_MEDIA_TYPE, problem_bytes
 # Paths reachable without authentication. Keep this list small: everything
 # else under /api/ needs a valid session.
 PUBLIC_PREFIXES = (
+    # Logging in with a passkey: the assertion is the credential.
+    "/api/auth/passkey/",
     "/api/auth/login",
     "/api/auth/callback",
     "/api/auth/logout",
     "/api/auth/status",
+    # Answers 404 unless OIDC_DIAGNOSTICS is on, which is refused when
+    # deployed; a refused login has no session to reach it with.
+    "/api/auth/diagnose",
     "/api/health/",
 )
 
@@ -100,11 +105,20 @@ class AuthRequiredMiddleware:
         from grip.core.auth import (
             GUEST_API_PREFIX,
             GUEST_SESSION_KEY,
+            is_passkey_session,
+            passkey_session_expired,
             validate_session_token,
         )
 
         session: dict = scope.get("session", {})
-        if session.get("access_token") and session.get("person_id"):
+        if is_passkey_session(session):
+            # A session that began with a passkey: no token to revalidate,
+            # a shorter life instead. Whether the person is still active is
+            # decided per route, as for every session.
+            if not passkey_session_expired(session, self.settings):
+                await self.app(scope, receive, send)
+                return
+        elif session.get("access_token") and session.get("person_id"):
             if await validate_session_token(session, self.settings):
                 await self.app(scope, receive, send)
                 return

@@ -68,7 +68,24 @@ Het platform heeft een gedeelde OIDC-client voor lokale ontwikkeling: `developme
 3. Vul twee sessiesleutels in (`openssl rand -hex 32`) en je eigen e-mailadres bij `BOOTSTRAP_BEHEERDER_EMAILS`.
 4. `just local-up sso` en open http://localhost:9001.
 
-Dit pad is voorbereid maar niet uitgevoerd: daarvoor is het geheim nodig. Twee dingen kunnen dus nog tegenvallen. Grip laat alleen iemand binnen van wie de provider het e-mailadres als geverifieerd meldt; of deze realm dat doet voor adressen uit SSO Rijk is niet gecontroleerd. En of de client het terugkeeradres na uitloggen toestaat is ook niet gecontroleerd.
+Dit pad is voorbereid maar nog niet uitgevoerd: daarvoor is het geheim nodig.
+
+### De eerste keer: kijken wat er binnenkomt
+
+`just sso-check` start alleen de achterkant, rechtstreeks uit de werkmap, tegen dezelfde `.env.sso` en met een eigen lege database (`grip_sso_check` in de Postgres van `docker compose`). Er zijn geen images voor nodig.
+
+1. `just sso-check`
+2. Open http://localhost:9011/api/auth/login en log in met SSO Rijk. Je komt uit op een verslag in platte tekst.
+3. Open http://localhost:9011/api/auth/diagnose/reauth. Grip stuurt je opnieuw naar de provider met de vraag om opnieuw aan te melden. Let op of je echt opnieuw moet inloggen.
+4. Het verslag staat op http://localhost:9011/api/auth/diagnose. Stop met Ctrl+C.
+
+Het verslag toont welke claims er kwamen, of het adres als bevestigd is gemeld, de vorm van de vaste identiteit, de claims over de organisatie, wat grip met de aanmelding deed (ook bij een weigering, met de reden) en of de tweede aanmelding een nieuwer tijdstip van aanmelden had. Namen, adressen en kenmerken zijn gemaskeerd en tokens staan er niet in: het verslag kan gedeeld worden.
+
+De pagina bestaat alleen met `OIDC_DIAGNOSTICS=1`, en grip weigert te starten als dat in een uitgerolde omgeving aan staat. De cookie van deze sessie staat op `localhost` en heet hetzelfde als die van een andere lokale grip; log daar na afloop zo nodig opnieuw in.
+
+Wat de provider volgens de configuratie van het platform stuurt, en wat het platform voor grip moet inrichten, staat in [sso-rijk.md](sso-rijk.md).
+
+De lokale Keycloak (`just local-up keycloak`) heeft drie gebruikers om de paden te zien: `testbeheerder` (bekend, met een organisatie in de claims), `onbekend` (geen persoon in grip) en `onbevestigd` (bekend in grip, maar de provider staat niet in voor het adres).
 
 ## Twee instanties met FSC
 
@@ -227,6 +244,27 @@ De backend heeft dezelfde instellingen nodig als de worker: zonder `SMTP_HOST` e
 Bied daarna een offerte aan met een tekenlink. Binnen een paar seconden staat het bericht in het postvak, en op de offerte staat dat er gemaild is. `deploy/local/mail.sh inbox` geeft het postvak als JSON.
 
 Op het hostingplatform zet de dienst "E-mail versturen" de vijf `SMTP_`-instellingen, nadat een beheerder van het platform de aanvraag heeft goedgekeurd. Het afzenderadres ligt daar vast; de naam ernaast stel je in bij de dienst.
+
+## Meldingen
+
+Meldingen op het eigen apparaat staan uit tot de instantie een sleutelpaar heeft. `just push-key` maakt er een en print de regel voor `backend/.env` (dat bestand staat niet in git). Daarna versturen de worker en de server ermee. Uitproberen kan alleen met een build van de frontend, omdat de service worker niet onder de ontwikkelserver draait. De stappen staan in [meldingen.md](meldingen.md).
+
+## Teksten laten opstellen zonder VLAM
+
+Lokaal heeft niemand een sleutel voor VLAM. Staat het opdrachtregelprogramma `claude` op je computer en ben je daar ingelogd, dan kan grip dat gebruiken als ontwikkelmodel:
+
+```
+LLM_PROVIDER=claude_cli
+```
+
+`just preview` zet dit zelf aan als het programma is gevonden en er geen VLAM is ingesteld. Op de pagina "Vacatureformulier en taalmodel" staat welke aanbieder actief is, met een knop om de verbinding te testen.
+
+- Het werkt alleen in lokale ontwikkeling (`DEV_NO_AUTH` aan, geen `PUBLIC_HOST`). Daarbuiten weigert grip te starten met deze instelling.
+- Tekst die je laat opstellen gaat naar een dienst buiten de overheid. Gebruik alleen verzonnen gegevens.
+- Een concept duurt ongeveer twintig seconden.
+- Het model kies je met `CLAUDE_CLI_MODEL` (standaard `sonnet`), de wachttijd met `CLAUDE_CLI_TIMEOUT_SECONDS`.
+
+Zie ADR 0035.
 
 ## Wat hiermee is aangetoond
 

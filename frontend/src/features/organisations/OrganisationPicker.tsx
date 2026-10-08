@@ -1,3 +1,4 @@
+import { iconOf } from '@/ui/icons';
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
@@ -23,7 +24,6 @@ function eventValue(event: Event): string {
   const value = fromDetail ?? (event.target as { value?: unknown } | null)?.value;
   return value === undefined || value === null ? '' : String(value);
 }
-
 
 /**
  * What was typed, from the combo box's own `input` event. The native event of
@@ -127,7 +127,9 @@ function SearchField({
       disabled={orUndef(disabled)}
     >
       <nldd-menu
-        empty-text={results.isError ? 'De organisaties konden niet worden geladen' : 'Niets gevonden'}
+        empty-text={
+          results.isError ? 'De organisaties konden niet worden geladen' : 'Niets gevonden'
+        }
       >
         {items.map((item) => (
           <nldd-menu-item
@@ -142,7 +144,7 @@ function SearchField({
             {items.length > 0 ? <nldd-menu-divider /> : null}
             <nldd-menu-item
               value={ADD_ACTION}
-              icon="plus"
+              icon={iconOf('add')}
               text="Staat er niet tussen? Voeg een organisatie toe"
             />
           </>
@@ -221,11 +223,7 @@ export function AddOrganisationForm({ initialName, onAdded, onCancel }: AddFormP
         supporting-label="Kies de organisatie waar deze eenheid onder valt"
         optional
       >
-        <SearchField
-          selected={parent}
-          onSelect={setParent}
-          accessibleLabel="Hoort bij"
-        />
+        <SearchField selected={parent} onSelect={setParent} accessibleLabel="Hoort bij" />
       </nldd-form-field>
       <nldd-container layout="wrap" gap="8">
         <nldd-button

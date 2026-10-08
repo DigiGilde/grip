@@ -1,3 +1,4 @@
+import { Icon } from '@/ui/Icon';
 import type { ReactNode } from 'react';
 import { Quiet, Stack } from '@/ui/layout';
 import type { NodePath, PathStep } from './api';
@@ -59,8 +60,8 @@ function StepRow({ step, first, last, end, current, previousOrganisation, onStep
             Deze node
           </nldd-text>
         ) : null}
-        {opens ? <nldd-icon icon="chevron-right" size="16" /> : null}
-        {leaves ? <nldd-icon icon="external-link" size="16" /> : null}
+        {opens ? <Icon concept="open" /> : null}
+        {leaves ? <Icon concept="elsewhere" /> : null}
       </span>
     </>
   );

@@ -26,6 +26,10 @@ export interface AuthStatus {
    * pages are open to them.
    */
   guest?: AuthGuest | null;
+  /** Whether a passkey alone can log in here; the login page then offers it. */
+  passkey_login?: boolean;
+  /** Whether this session began with a passkey instead of the identity provider. */
+  passkey_session?: boolean;
 }
 
 export interface AuthGuest {

@@ -1,0 +1,364 @@
+{
+  "description": "Hoe een taak aan een lezer wordt verteld. Per sjabloon van het plan: de titel voor wie het werk doet ('title'), waar een ander op wacht ('awaited'), wat de doener moet doen ('do'), wat wie wacht leest ('wait'), de naam van de ene knop ('action'), waarom de taak er is ('why'), wat erna komt ('then', optioneel) en waar het werk gebeurt ('destination'). Onder 'situations' staan afwijkende teksten voor een stand die grip zelf herkent. Dit bestand hoort bij elke versie van het plan: een betere zin bereikt ook lopende zaken. Namen tussen accolades komen uit grip/tasks/telling.py; het bestand kan er geen bedenken.",
+  "destinations": {
+    "assignment.overview": "/opdrachten/{assignment_id}",
+    "assignment.budget": "/opdrachten/{assignment_id}/begroting",
+    "assignment.quote": "/opdrachten/{assignment_id}/offerte",
+    "assignment.staffing": "/opdrachten/{assignment_id}/bemensing",
+    "assignment.month": "/opdrachten/{assignment_id}/maandafsluiting?maand={repeat_key}",
+    "assignment.period": "/opdrachten/{assignment_id}/maandafsluiting?periode={repeat_key}",
+    "assignment.invoice": "/opdrachten/{assignment_id}/maandafsluiting?factuur={subject_id}",
+    "assignment.report": "/rapportage/opdrachten/{assignment_id}",
+    "quote.approval": "/goedkeuren/{subject_id}",
+    "received.quote": "/aanvragen/offerte/{subject_id}",
+    "vacancy.request": "/vacatures/{vacancy_id}",
+    "vacancy.decisions": "/vacatures/{vacancy_id}/advies",
+    "vacancy.text": "/vacatures/{vacancy_id}/tekst",
+    "vacancy.procedure": "/vacatures/{vacancy_id}/procedure",
+    "vacancy.fulfilment": "/vacatures/{vacancy_id}/vervulling"
+  },
+  "templates": {
+    "offerte.aanvraag_uitwerken": {
+      "title": "Maak de begroting",
+      "awaited": "De begroting",
+      "do": "Maak de begroting van {opdracht}: voeg de rollen en de vaste bedragen toe. Zonder begroting kan er geen offerte komen.",
+      "wait": "Je wacht op {wie}, die de begroting van {opdracht} maakt. Jij hoeft nu niets te doen.",
+      "action": "Maak de begroting",
+      "why": "{opdracht} is een potentiële opdracht voor {opdrachtgever} en heeft nog geen begroting.",
+      "then": "Daarna maak je de offerte.",
+      "destination": "assignment.budget"
+    },
+    "offerte.opstellen": {
+      "title": "Maak de offerte",
+      "awaited": "De offerte",
+      "do": "Maak de offerte voor {opdrachtgever} uit de begroting van {opdracht}.",
+      "wait": "Je wacht op {wie}, die de offerte voor {opdrachtgever} maakt. Jij hoeft nu niets te doen.",
+      "action": "Maak offerte",
+      "why": "{opdracht} heeft een begroting en nog geen offerte die geldt.",
+      "then": "Daarna bied je de offerte aan.",
+      "destination": "assignment.quote"
+    },
+    "offerte.intern_beoordelen": {
+      "title": "Beoordeel offerte {kenmerk}",
+      "awaited": "Interne goedkeuring van offerte {kenmerk}",
+      "do": "Lees offerte {kenmerk} voor {opdrachtgever} en keur haar goed, of stuur haar terug met een reden.",
+      "wait": "Je wacht op {wie}, die offerte {kenmerk} beoordeelt. Jij hoeft nu niets te doen.",
+      "action": "Beoordeel de offerte",
+      "why": "Voor offerte {kenmerk} is op {gevraagd_op} interne goedkeuring gevraagd door {gevraagd_door}.",
+      "then": "Na goedkeuring kan de offerte naar de opdrachtgever.",
+      "destination": "quote.approval"
+    },
+    "offerte.na_terugsturen_opnieuw_maken": {
+      "title": "Maak een nieuwe offerte",
+      "awaited": "Een nieuwe offerte",
+      "do": "Offerte {kenmerk} is bij de interne goedkeuring teruggestuurd. Pas de begroting van {opdracht} aan en maak daarna een nieuwe offerte.",
+      "wait": "Je wacht op {wie}, die na het terugsturen van offerte {kenmerk} een nieuwe offerte maakt. Jij hoeft nu niets te doen.",
+      "action": "Pas de begroting aan",
+      "why": "Offerte {kenmerk} is teruggestuurd bij de interne goedkeuring.",
+      "then": "Daarna vraag je opnieuw goedkeuring.",
+      "destination": "assignment.budget"
+    },
+    "offerte.aanbieden": {
+      "title": "Bied de offerte aan",
+      "awaited": "Het aanbieden van de offerte",
+      "do": "De offerte voor {opdrachtgever} is gemaakt. Bied haar aan: via grip, met een tekenlink of als document.",
+      "wait": "Je wacht op {wie}, die de offerte aan {opdrachtgever} aanbiedt. Jij hoeft nu niets te doen.",
+      "action": "Bied de offerte aan",
+      "why": "De offerte voor {opdracht} is gemaakt en nog niet aangeboden.",
+      "then": "Daarna wacht je op het akkoord van de opdrachtgever.",
+      "destination": "assignment.quote"
+    },
+    "offerte.wacht_op_akkoord": {
+      "title": "Leg het akkoord van de opdrachtgever vast",
+      "awaited": "Akkoord van de opdrachtgever",
+      "do": "De offerte ligt bij {opdrachtgever}. Kreeg je het akkoord buiten grip, leg het dan vast bij de offerte.",
+      "wait": "Je wacht op het akkoord van {opdrachtgever} op de offerte. Jij hoeft nu niets te doen. Kreeg je het akkoord buiten grip, leg het dan vast bij de offerte.",
+      "action": "Bekijk de offerte",
+      "why": "De offerte voor {opdracht} is aangeboden aan {opdrachtgever}.",
+      "then": "Na het akkoord kan de opdracht in uitvoering.",
+      "destination": "assignment.quote"
+    },
+    "offerte.reactie_verwerken": {
+      "title": "Maak een nieuwe offerte na de afwijzing",
+      "awaited": "Een nieuwe offerte na de afwijzing",
+      "do": "{opdrachtgever} heeft de offerte afgewezen. Verwerk de reactie in de begroting en maak een nieuwe offerte.",
+      "wait": "Je wacht op {wie}, die na de afwijzing een nieuwe offerte maakt. Jij hoeft nu niets te doen.",
+      "action": "Maak een nieuwe offerte",
+      "why": "De offerte voor {opdracht} is afgewezen.",
+      "destination": "assignment.quote"
+    },
+    "offerte.beoordelen_en_tekenen": {
+      "title": "Beoordeel de ontvangen offerte",
+      "awaited": "Het besluit over de ontvangen offerte",
+      "do": "Lees de offerte die je organisatie voor {opdracht} heeft ontvangen en geef akkoord, of wijs haar af.",
+      "wait": "Je wacht op {wie}, die de ontvangen offerte beoordeelt. Jij hoeft nu niets te doen.",
+      "action": "Beoordeel de offerte",
+      "why": "Je organisatie heeft een offerte ontvangen voor {opdracht}.",
+      "then": "Na het akkoord gaat de opdrachtnemer aan het werk.",
+      "destination": "received.quote"
+    },
+    "bemensing.rol_invullen": {
+      "title": "Vul de rol {rol} in",
+      "awaited": "De invulling van de rol {rol}",
+      "do": "De rol {rol} op {opdracht} is nog niet ingevuld. Plan iemand in, of open een vacature voor de rol.",
+      "wait": "Je wacht op {wie}, die de rol {rol} op {opdracht} invult. Jij hoeft nu niets te doen.",
+      "action": "Vul de rol in",
+      "why": "De rol {rol} staat op de begroting van {opdracht} en is nog niet helemaal ingevuld.",
+      "destination": "assignment.staffing"
+    },
+    "uitvoering.starten": {
+      "title": "Zet de opdracht in uitvoering",
+      "awaited": "De start van de opdracht",
+      "do": "Er is akkoord op {opdracht}. Zet de opdracht in uitvoering, zodat je maanden kunt afsluiten.",
+      "wait": "Je wacht op {wie}, die {opdracht} in uitvoering zet. Jij hoeft nu niets te doen.",
+      "action": "Zet in uitvoering",
+      "why": "Er is akkoord gegeven op de offerte voor {opdracht}.",
+      "then": "Daarna sluit je elke maand de inzet af.",
+      "destination": "assignment.overview"
+    },
+    "uitvoering.maand_afsluiten": {
+      "title": "Sluit {maand} af",
+      "awaited": "De afsluiting van {maand}",
+      "do": "Stel vast wie in {maand} hoeveel heeft gewerkt op {opdracht}, en sluit de maand af.",
+      "wait": "Je wacht op {wie}, die {maand} afsluit voor {opdracht}. Jij hoeft nu niets te doen.",
+      "action": "Sluit {maand} af",
+      "why": "{maand} is voorbij en er was inzet gepland op {opdracht}.",
+      "then": "Daarna lever je de factuurgegevens aan.",
+      "destination": "assignment.month"
+    },
+    "uitvoering.eindrapport": {
+      "title": "Lever het eindrapport op",
+      "awaited": "Het eindrapport",
+      "do": "{opdracht} is afgerond. Maak het eindrapport voor {opdrachtgever} en lever het op.",
+      "wait": "Je wacht op {wie}, die het eindrapport van {opdracht} oplevert. Jij hoeft nu niets te doen.",
+      "action": "Maak het eindrapport",
+      "why": "{opdracht} is afgerond en het eindrapport is nog niet opgeleverd.",
+      "destination": "assignment.report"
+    },
+    "financien.factuurgegevens_aanleveren": {
+      "title": "Lever {periode} aan",
+      "awaited": "De aanlevering van {periode}",
+      "do": "Alle maanden van {periode} zijn afgesloten. Lever de factuurgegevens van {opdracht} aan bij de financiële administratie.",
+      "wait": "Je wacht op {wie}, die {periode} aanlevert voor {opdracht}. Jij hoeft nu niets te doen.",
+      "action": "Lever aan",
+      "why": "Alle maanden van {periode} zijn afgesloten voor {opdracht}.",
+      "then": "Daarna leg je de factuur vast.",
+      "destination": "assignment.period"
+    },
+    "financien.factuur_vastleggen": {
+      "title": "Leg de factuur over {periode} vast",
+      "awaited": "De factuur over {periode}",
+      "do": "De factuurgegevens over {periode} zijn aangeleverd. Leg vast dat de factuur aan {opdrachtgever} is verstuurd, met het factuurnummer.",
+      "wait": "Je wacht op {wie}, die de factuur over {periode} vastlegt. Jij hoeft nu niets te doen.",
+      "action": "Leg factuur vast",
+      "why": "De factuurgegevens over {periode} zijn aangeleverd voor {opdracht}.",
+      "destination": "assignment.invoice"
+    },
+    "financien.naverrekening_aanleveren": {
+      "title": "Lever de naverrekening van {maand} aan",
+      "awaited": "De naverrekening van {maand}",
+      "do": "De prijs van {maand} is veranderd nadat de maand was aangeleverd. Lever de naverrekening van {opdracht} aan.",
+      "wait": "Je wacht op {wie}, die de naverrekening van {maand} aanlevert. Jij hoeft nu niets te doen.",
+      "action": "Lever de naverrekening aan",
+      "why": "Na het aanleveren van {maand} is een tarief of een schaal gewijzigd.",
+      "destination": "assignment.month"
+    },
+    "werving.aanvraag_voorbereiden": {
+      "title": "Vraag de vacature aan",
+      "awaited": "De aanvraag van de vacature",
+      "do": "De aanvraag voor {functie} is compleet. Vraag de vacature aan.",
+      "wait": "Je wacht op {wie}, die de vacature voor {functie} aanvraagt. Jij hoeft nu niets te doen.",
+      "action": "Vraag aan",
+      "why": "De vacature voor {functie} is gemaakt en nog niet aangevraagd.",
+      "then": "Daarna geven HR en concern control advies.",
+      "destination": "vacancy.request",
+      "situations": {
+        "incomplete": {
+          "do": "De aanvraag voor {functie} mist nog gegevens. Vul ze in; daarna vraag je de vacature aan.",
+          "action": "Bereid aanvraag voor"
+        }
+      }
+    },
+    "werving.advies_hr": {
+      "title": "Geef het advies van HR",
+      "awaited": "Het advies van HR",
+      "do": "Lees de aanvraag voor {functie} en leg je advies vast: akkoord of niet akkoord, met een toelichting.",
+      "wait": "Je wacht op het advies van HR van {wie}. Jij hoeft nu niets te doen.",
+      "action": "Leg vast",
+      "why": "De vacature voor {functie} is op {ingediend_op} aangevraagd door {aanvrager}.",
+      "then": "Na beide adviezen volgt het akkoord.",
+      "destination": "vacancy.decisions",
+      "situations": {
+        "unnamed": {
+          "title": "Noem wie het advies van HR geeft",
+          "do": "Er is nog niemand genoemd voor het advies van HR op de vacature voor {functie}. Kies wie het geeft. Heeft die persoon een account, dan krijgt die de taak.",
+          "wait": "Er is nog niemand genoemd voor het advies van HR. Wie de vacature beheert, kiest wie het geeft. Jij hoeft nu niets te doen.",
+          "action": "Noem iemand"
+        },
+        "unnamed_recorder": {
+          "title": "Leg het advies van HR vast",
+          "do": "Er is nog niemand genoemd voor het advies van HR op de vacature voor {functie}. Vraag het op en leg het vast, met de naam van wie het gaf.",
+          "action": "Leg vast"
+        },
+        "named_outside": {
+          "title": "Leg het advies van HR vast",
+          "do": "Het advies van HR komt van {wie}, die grip niet gebruikt. Leg het vast zodra je het hebt ontvangen.",
+          "wait": "Je wacht op het advies van HR van {wie}, die grip niet gebruikt. Vraag het zelf op; alleen een beheerder kan het daarna vastleggen.",
+          "action": "Leg vast"
+        }
+      }
+    },
+    "werving.advies_control": {
+      "title": "Geef het advies van concern control",
+      "awaited": "Het advies van concern control",
+      "do": "Lees de aanvraag voor {functie} en leg je advies vast: akkoord of niet akkoord, met een toelichting.",
+      "wait": "Je wacht op het advies van concern control van {wie}. Jij hoeft nu niets te doen.",
+      "action": "Leg vast",
+      "why": "De vacature voor {functie} is op {ingediend_op} aangevraagd door {aanvrager}.",
+      "then": "Na beide adviezen volgt het akkoord.",
+      "destination": "vacancy.decisions",
+      "situations": {
+        "unnamed": {
+          "title": "Noem wie het advies van concern control geeft",
+          "do": "Er is nog niemand genoemd voor het advies van concern control op de vacature voor {functie}. Kies wie het geeft. Heeft die persoon een account, dan krijgt die de taak.",
+          "wait": "Er is nog niemand genoemd voor het advies van concern control. Wie de vacature beheert, kiest wie het geeft. Jij hoeft nu niets te doen.",
+          "action": "Noem iemand"
+        },
+        "unnamed_recorder": {
+          "title": "Leg het advies van concern control vast",
+          "do": "Er is nog niemand genoemd voor het advies van concern control op de vacature voor {functie}. Vraag het op en leg het vast, met de naam van wie het gaf.",
+          "action": "Leg vast"
+        },
+        "named_outside": {
+          "title": "Leg het advies van concern control vast",
+          "do": "Het advies van concern control komt van {wie}, die grip niet gebruikt. Leg het vast zodra je het hebt ontvangen.",
+          "wait": "Je wacht op het advies van concern control van {wie}, die grip niet gebruikt. Vraag het zelf op; alleen een beheerder kan het daarna vastleggen.",
+          "action": "Leg vast"
+        }
+      }
+    },
+    "werving.akkoord": {
+      "title": "Geef akkoord op de vacature",
+      "awaited": "Het akkoord op de vacature",
+      "do": "HR en concern control hebben geadviseerd over de vacature voor {functie}. Leg je besluit vast: akkoord of niet akkoord.",
+      "wait": "Je wacht op het akkoord van {wie}. Jij hoeft nu niets te doen.",
+      "action": "Leg vast",
+      "why": "Beide adviezen op de vacature voor {functie} zijn vastgelegd.",
+      "then": "Na het akkoord kan de vacature worden opengesteld of vervuld.",
+      "destination": "vacancy.decisions",
+      "situations": {
+        "unnamed": {
+          "title": "Noem wie het akkoord geeft",
+          "do": "Er is nog niemand genoemd voor het akkoord op de vacature voor {functie}. Kies wie het geeft. Heeft die persoon een account, dan krijgt die de taak.",
+          "wait": "Er is nog niemand genoemd voor het akkoord. Wie de vacature beheert, kiest wie het geeft. Jij hoeft nu niets te doen.",
+          "action": "Noem iemand"
+        },
+        "unnamed_recorder": {
+          "title": "Leg het akkoord vast",
+          "do": "Er is nog niemand genoemd voor het akkoord op de vacature voor {functie}. Vraag het op en leg het vast, met de naam van wie het gaf.",
+          "action": "Leg vast"
+        },
+        "named_outside": {
+          "title": "Leg het akkoord vast",
+          "do": "Het akkoord komt van {wie}, die grip niet gebruikt. Leg het vast zodra je het hebt ontvangen.",
+          "wait": "Je wacht op het akkoord van {wie}, die grip niet gebruikt. Vraag het zelf op; alleen een beheerder kan het daarna vastleggen.",
+          "action": "Leg vast"
+        }
+      }
+    },
+    "werving.openstellen": {
+      "title": "Stel de vacature open",
+      "awaited": "De openstelling van de vacature",
+      "do": "Er is akkoord op de vacature voor {functie}. Stel haar open en leg vast waar en tot wanneer.",
+      "wait": "Je wacht op {wie}, die de vacature voor {functie} openstelt. Jij hoeft nu niets te doen.",
+      "action": "Stel open",
+      "why": "Het akkoord op de vacature voor {functie} is vastgelegd.",
+      "then": "Daarna leg je vast wie is aangenomen.",
+      "destination": "vacancy.procedure"
+    },
+    "werving.vervullen": {
+      "title": "Leg vast wie is aangenomen",
+      "awaited": "De vervulling van de vacature",
+      "do": "De vacature voor {functie} kan worden vervuld. Leg vast wie is aangenomen en per wanneer.",
+      "wait": "Je wacht op {wie}, die vastlegt wie voor {functie} is aangenomen. Jij hoeft nu niets te doen.",
+      "action": "Vervul",
+      "why": "De vacature voor {functie} is klaar om te vervullen.",
+      "then": "Daarna komt de nieuwe collega in Wies en krijgt die een account.",
+      "destination": "vacancy.fulfilment"
+    },
+    "werving.collega_voorstellen": {
+      "title": "Stel de nieuwe collega voor aan Wies",
+      "awaited": "De nieuwe collega in Wies",
+      "do": "Zorg dat de nieuwe collega voor {functie} in Wies komt te staan. Dat gebeurt buiten grip; rond de taak af als het is gedaan.",
+      "wait": "Je wacht op {wie}, die de nieuwe collega aan Wies voorstelt. Jij hoeft nu niets te doen.",
+      "action": "Bekijk de vervulling",
+      "why": "De aanname voor {functie} is vastgelegd en de collega is nog niet bekend in Wies.",
+      "destination": "vacancy.fulfilment"
+    },
+    "werving.account_aanvragen": {
+      "title": "Vraag een account en e-mailadres aan",
+      "awaited": "Het account van de nieuwe collega",
+      "do": "Vraag voor de nieuwe collega een account en een e-mailadres aan. Dat gebeurt buiten grip; leg het e-mailadres daarna vast bij de persoon.",
+      "wait": "Je wacht op {wie}, die een account en e-mailadres aanvraagt voor de nieuwe collega. Jij hoeft nu niets te doen.",
+      "action": "Bekijk de vervulling",
+      "why": "De aanname voor {functie} is vastgelegd en de collega heeft in grip nog geen e-mailadres.",
+      "destination": "vacancy.fulfilment"
+    },
+    "teksten.schrijven": {
+      "title": "Schrijf de {tekst}",
+      "awaited": "De {tekst}",
+      "do": "Schrijf de {tekst} voor {functie} en stel haar vast, of bied haar eerst aan ter beoordeling.",
+      "wait": "Je wacht op {wie}, die de {tekst} voor {functie} schrijft. Jij hoeft nu niets te doen.",
+      "action": "Schrijf de {tekst}",
+      "why": "De vacature voor {functie} heeft een {tekst} nodig en die is nog niet vastgesteld.",
+      "destination": "vacancy.text"
+    },
+    "teksten.beoordelen": {
+      "title": "Beoordeel de {tekst}",
+      "awaited": "Het oordeel over de {tekst}",
+      "do": "Lees de {tekst} voor {functie} en geef je oordeel: akkoord, of opmerkingen.",
+      "wait": "Je wacht op {wie}, die de {tekst} voor {functie} beoordeelt. Jij hoeft nu niets te doen.",
+      "action": "Beoordeel de {tekst}",
+      "why": "De {tekst} voor {functie} is ter beoordeling aangeboden.",
+      "then": "Na je oordeel gaat de tekst terug naar de schrijver.",
+      "destination": "vacancy.text"
+    },
+    "teksten.opmerkingen_verwerken": {
+      "title": "Verwerk de opmerkingen op de {tekst}",
+      "awaited": "De verwerking van de opmerkingen op de {tekst}",
+      "do": "De {tekst} voor {functie} is teruggekomen met opmerkingen. Verwerk ze, en bied de tekst opnieuw aan of stel haar vast.",
+      "wait": "Je wacht op {wie}, die de opmerkingen op de {tekst} verwerkt. Jij hoeft nu niets te doen.",
+      "action": "Verwerk de opmerkingen",
+      "why": "Een beoordelaar gaf opmerkingen op de {tekst} voor {functie}.",
+      "destination": "vacancy.text"
+    },
+    "werving.link_vastleggen": {
+      "title": "Leg de link naar de gepubliceerde vacature vast",
+      "awaited": "De link naar de gepubliceerde vacature",
+      "do": "De vacature voor {functie} staat open. Leg vast waar ze is gepubliceerd, met de link.",
+      "wait": "Je wacht op {wie}, die de link naar de gepubliceerde vacature vastlegt. Jij hoeft nu niets te doen.",
+      "action": "Leg de link vast",
+      "why": "De vacature voor {functie} is opengesteld en de link naar de publicatie ontbreekt nog.",
+      "destination": "vacancy.text"
+    },
+    "werving.formulier_maken": {
+      "title": "Maak het aanvraagformulier",
+      "awaited": "Het aanvraagformulier",
+      "do": "De vacature voor {functie} is aangevraagd. Maak het aanvraagformulier, zodat de adviseurs het kunnen invullen en tekenen. Is de vacature daarna gewijzigd, maak het dan opnieuw.",
+      "wait": "Je wacht op {wie}, die het aanvraagformulier voor {functie} maakt. Jij hoeft nu niets te doen.",
+      "action": "Maak aanvraagformulier",
+      "why": "De vacature voor {functie} is aangevraagd en er is geen aanvraagformulier dat klopt met de vacature.",
+      "then": "Daarna leg je het getekende formulier vast.",
+      "destination": "vacancy.request"
+    },
+    "werving.getekend_formulier_vastleggen": {
+      "title": "Leg het getekende formulier vast",
+      "awaited": "Het getekende formulier",
+      "do": "Er is akkoord op de vacature voor {functie}. Leg het getekende aanvraagformulier vast bij de vacature.",
+      "wait": "Je wacht op {wie}, die het getekende formulier voor {functie} vastlegt. Jij hoeft nu niets te doen.",
+      "action": "Leg getekend formulier vast",
+      "why": "Het akkoord op de vacature voor {functie} is vastgelegd en het getekende formulier ontbreekt nog.",
+      "destination": "vacancy.request"
+    }
+  }
+}

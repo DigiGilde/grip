@@ -35,3 +35,10 @@ Een besluit dat anderen bindt staat hier als ADR: genummerd, met context, beslui
 | [0029](0029-bewijs-van-een-akkoord.md) | Bewijs van een akkoord | aanvaard |
 | [0030](0030-het-bestand-van-een-offerte-ligt-vast.md) | Het bestand van een offerte ligt vast | aanvaard |
 | [0031](0031-tekenlink-per-mail.md) | De tekenlink gaat per mail, via een wachtrij | aanvaard |
+| [0032](0032-een-offerte-is-een-brief-met-tekst.md) | Een offerte is een brief met tekst | aanvaard |
+| [0036](0036-een-productmerk-naast-de-organisatie.md) | Een productmerk naast de organisatie | aanvaard |
+| [0037](0037-passkeys-en-een-installeerbare-applicatie.md) | Passkeys, en grip als installeerbare applicatie | aanvaard |
+| [0038](0038-een-taak-vertelt-wat-de-lezer-moet-doen.md) | Een taak vertelt wat de lezer moet doen | aanvaard |
+| [0039](0039-afsluiten-per-maand-aanleveren-per-periode.md) | Afsluiten per maand, aanleveren per factuurperiode | aanvaard |
+| [0040](0040-meldingen-op-het-eigen-apparaat.md) | Meldingen op het eigen apparaat | aanvaard |
+| [0041](0041-aanmelden-weigeren-met-een-reden-en-nooit-op-een-onbevestigd-adres.md) | Aanmelden: weigeren met een reden, en nooit op een onbevestigd adres | aanvaard |

@@ -39,7 +39,9 @@ SENDER_TEXT_FIELDS = ("organisation", "unit", "orders_email", "website")
 SENDER_LINE_FIELDS = ("part_of", "visiting_address", "postal_address")
 CONTACT_FIELDS = ("name", "role", "email", "phone")
 SIGNATORY_FIELDS = ("on_behalf_of", "name", "title", "organisation")
-BLOCK_FLAGS = ("included", "with_costs", "numbered", "draftable")
+# ``required``: the section stands in every quote; a writer cannot leave it
+# out or move it past another required section.
+BLOCK_FLAGS = ("included", "with_costs", "numbered", "draftable", "required")
 
 MAX_LINE = 200
 MAX_BLOCKS = 30
@@ -212,6 +214,8 @@ def check_blocks(value: Any) -> list[dict[str, Any]]:
             if not isinstance(flagged, bool):
                 raise DomainValidationError(f"Tekstblok '{key}': {flag} is aan of uit.")
             block[flag] = flagged
+        if block["required"]:
+            block["included"] = True
         blocks.append(block)
     if sum(1 for block in blocks if block["with_costs"]) > 1:
         raise DomainValidationError(
@@ -296,8 +300,14 @@ async def current_letter(session: AsyncSession) -> dict[str, Any]:
     return check_letter(stored if stored is not None else DEFAULT_LETTER)
 
 
-def placeholders(sender: dict[str, Any], *, year: int) -> dict[str, str]:
-    """What a standard text may refer to between braces."""
+def placeholders(
+    sender: dict[str, Any], *, year: int, billing: str = "per kwartaal"
+) -> dict[str, str]:
+    """What a standard text may refer to between braces.
+
+    ``billing`` is how the assignment is billed, in words ("per kwartaal"):
+    the letter then states the rhythm the system bills by.
+    """
     contact = sender["contact"]
     name = contact["name"]
     if name and contact["role"]:
@@ -310,6 +320,7 @@ def placeholders(sender: dict[str, Any], *, year: int) -> dict[str, str]:
         "opdrachtenadres": sender["orders_email"],
         "contactpersoon": contact_line,
         "jaar": str(year),
+        "factureren": billing,
     }
 
 

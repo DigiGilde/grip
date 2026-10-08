@@ -22,6 +22,8 @@ from grip.federation.inbox import run_inbox_loop
 from grip.federation.outbox import run_outbox_loop
 from grip.integrations.mail.config import is_configured as mail_is_configured
 from grip.integrations.mail.outbox import run_mail_loop
+from grip.integrations.push.config import is_configured as push_is_configured
+from grip.integrations.push.outbox import run_push_loop
 from grip.tasks.loop import run_task_loop
 
 logger = logging.getLogger(__name__)
@@ -51,6 +53,11 @@ async def main() -> None:
         loops.append(run_mail_loop(async_session, settings))
     else:
         logger.info("SMTP_HOST or SMTP_FROM is not set: no mail is sent")
+    # Notifications on people's devices: look for what waits, send what is due.
+    if push_is_configured(settings):
+        loops.append(run_push_loop(async_session, settings))
+    else:
+        logger.info("PUSH_VAPID_PRIVATE_KEY is not set: no notifications are sent")
     if not loops:
         logger.info("Nothing to run: federation, the task loop and mail are off")
         return

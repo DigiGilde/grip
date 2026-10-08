@@ -387,7 +387,7 @@ export function AssignmentReportPage() {
           ))}
         {report && (
           <>
-            <nldd-container layout="wrap" gap="12" vertical-alignment="center">
+            <nldd-container layout="wrap" gap="8" vertical-alignment="center">
               <nldd-badge
                 color={STATUS_COLORS[report.status] ?? 'neutral'}
                 text={statusLabel(report.status)}

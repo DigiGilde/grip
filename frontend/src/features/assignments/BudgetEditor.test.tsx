@@ -277,13 +277,13 @@ describe('budget line sheet', () => {
     const sheet = await openNewLine(container);
     await waitFor(() =>
       expect(plain(allText(sheet))).toContain(
-        'Periode: zelfde als de opdracht (1 jan 2026 t/m 31 dec 2026)',
+        'Loopt mee met de opdracht: 1 jan 2026 t/m 31 dec 2026',
       ),
     );
     expect(sheet.querySelector('nldd-form-field[label="Begindatum"]')).toBeNull();
     sheet.querySelector('nldd-button[text="Afwijkende periode"]')?.dispatchEvent(new Event('click'));
     await waitFor(() => expect(field(sheet, 'Begindatum')).not.toBeNull());
-    sheet.querySelector('nldd-button[text="Zelfde als de opdracht"]')?.dispatchEvent(new Event('click'));
+    sheet.querySelector('nldd-button[text="Laat meelopen met de opdracht"]')?.dispatchEvent(new Event('click'));
     await waitFor(() =>
       expect(sheet.querySelector('nldd-form-field[label="Begindatum"]')).toBeNull(),
     );
@@ -295,7 +295,7 @@ describe('budget line sheet', () => {
     await waitFor(() =>
       expect(sheet.querySelector('nldd-button[text="Bewaar de looptijd van de opdracht"]')).not.toBeNull(),
     );
-    expect(allText(sheet)).toContain('die nog geen looptijd heeft');
+    expect(allText(sheet)).toContain('die heeft nog geen periode');
   });
 
   it('names the rate card that is valid over the period, and says when the period crosses cards', async () => {

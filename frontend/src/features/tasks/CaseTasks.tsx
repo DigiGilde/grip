@@ -4,15 +4,7 @@ import { useParams } from 'react-router-dom';
 import { errorMessage } from '@/api/client';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { ActionBar } from '@/ui/ActionBar';
-import {
-  EmptyNotice,
-  ErrorNotice,
-  Facts,
-  FormSheet,
-  Loading,
-  Section,
-  Stack,
-} from '@/ui/layout';
+import { EmptyNotice, ErrorNotice, Facts, FormSheet, Loading, Section, Stack } from '@/ui/layout';
 import { DateInput, SelectInput, TextInput } from '@/features/vacancies/ui';
 import {
   TASK_KEYS,
@@ -117,7 +109,7 @@ export function CaseTasks({ kind, caseId }: { kind: CaseKind; caseId: string }) 
               <ActionBar
                 label="Acties voor de taken"
                 filters={[]}
-                actions={[{ text: 'Nieuwe taak', onClick: () => setAdding(true), primary: true }]}
+                actions={[{ text: 'Nieuwe taak', onClick: () => setAdding(true) }]}
               />
             )}
             {query.isPending && <Loading />}

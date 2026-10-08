@@ -2,7 +2,8 @@ import { useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { errorMessage } from '@/api/client';
-import { formatFte, formatPeriod } from '@/lib/format';
+import { assignmentKeys, fetchPersonOptions } from '@/features/assignments/api';
+import { formatDate, formatPeriod } from '@/lib/format';
 import { useInstance } from '@/layout/useInstance';
 import { useRouterLinks } from '@/layout/useRouterLinks';
 import { PATHS } from '@/paths';
@@ -11,8 +12,10 @@ import {
   ROLE_PARAM,
   VACANCY_KEYS,
   createVacancy,
+  fetchFilledRoles,
   fetchUnfilledRoles,
   fetchVacancies,
+  type FilledRole,
   type UnfilledRole,
   type VacancyOptions,
   type VacancySummary,
@@ -21,7 +24,15 @@ import {
 import { parseFte, useVacancyOptions } from './hooks';
 import { STATUS_COLORS, VACANCY_TYPE_LABELS, scaleAndFte } from './labels';
 import { ORDER_OPTIONS, orderVacancies, standingOf, statusWord, type ListOrder } from './list';
-import { DateInput, Note, SelectInput, TextInput } from './ui';
+import {
+  FILLED_GROUP,
+  KNOWN_CANDIDATE,
+  filledHint,
+  filledRoleLabel,
+  roleLabel,
+  typeConsequence,
+} from './newVacancy';
+import { DateInput, SelectInput, TextInput } from './ui';
 import { ErrorNotice, FormSheet, Loading, Page } from '@/ui/layout';
 
 const NO_BUDGET_LINE = 'none';
@@ -42,7 +53,13 @@ function summaryLine(vacancy: VacancySummary): string {
  * screen the type and the status column go, and the status moves above the
  * next step.
  */
-function VacancyTable({ vacancies, emptyText }: { vacancies: VacancySummary[]; emptyText: string }) {
+function VacancyTable({
+  vacancies,
+  emptyText,
+}: {
+  vacancies: VacancySummary[];
+  emptyText: string;
+}) {
   // A reader who only gets the published vacancies has no type or step.
   const withType = vacancies.some((vacancy) => vacancy.vacancy_type !== undefined);
   const withStep = vacancies.some((vacancy) => vacancy.step !== undefined);
@@ -115,15 +132,13 @@ interface CreateSheetProps {
   onClose: () => void;
   options: VacancyOptions | undefined;
   roles: UnfilledRole[];
-  /** The budget line to start with, when the visitor came from an unfilled role. */
+  /** Fully staffed roles: a vacancy there starts a replacement or a successor. */
+  filled: FilledRole[];
+  /** The budget line to start with, when the visitor came from a role. */
   initialLine?: string | null;
 }
 
-function roleLabel(role: UnfilledRole): string {
-  return `${role.assignment_name}: ${role.role ?? role.description} (${formatFte(role.unfilled_fte)} fte open)`;
-}
-
-function CreateSheet({ open, onClose, options, roles, initialLine }: CreateSheetProps) {
+function CreateSheet({ open, onClose, options, roles, filled, initialLine }: CreateSheetProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const withoutLine = options?.can_create_without_budget_line ?? false;
@@ -133,6 +148,8 @@ function CreateSheet({ open, onClose, options, roles, initialLine }: CreateSheet
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
   const [vacancyType, setVacancyType] = useState<VacancyType>('regulier');
+  // Empty until chosen; the line's intended person is the proposal.
+  const [candidate, setCandidate] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -141,8 +158,31 @@ function CreateSheet({ open, onClose, options, roles, initialLine }: CreateSheet
     ...(withoutLine
       ? [{ value: NO_BUDGET_LINE, label: 'Geen begrotingsregel (niet declarabel)' }]
       : []),
+    ...filled.map((role) => ({
+      value: role.budget_line_id,
+      label: filledRoleLabel(role),
+      group: FILLED_GROUP,
+    })),
   ];
   const loose = line === NO_BUDGET_LINE;
+  const chosenRole = [...roles, ...filled].find((role) => role.budget_line_id === line);
+  const chosenFilled = filled.find((role) => role.budget_line_id === line);
+  // Under the select: who fills the chosen role (the closed select cuts a
+  // long option off), or why the list of open roles is short.
+  const roleHint = chosenFilled
+    ? filledHint(chosenFilled)
+    : roles.length === 0
+      ? 'Alle rollen op je begrotingen zijn ingevuld.'
+      : '';
+  const forCandidate = KNOWN_CANDIDATE.has(vacancyType) && !loose;
+  const intended = chosenRole?.intended_person_id ?? '';
+  const candidateId = candidate || intended;
+  const people = useQuery({
+    queryKey: assignmentKeys.personOptions,
+    queryFn: fetchPersonOptions,
+    enabled: open && forCandidate,
+    retry: false,
+  });
 
   async function submit() {
     setError(null);
@@ -159,6 +199,10 @@ function CreateSheet({ open, onClose, options, roles, initialLine }: CreateSheet
       setError('Het aantal fte is een getal groter dan nul, bijvoorbeeld 0,8.');
       return;
     }
+    if (forCandidate && !candidateId) {
+      setError('Kies de kandidaat voor wie deze vacature is.');
+      return;
+    }
     setBusy(true);
     try {
       const vacancy = await createVacancy({
@@ -171,6 +215,7 @@ function CreateSheet({ open, onClose, options, roles, initialLine }: CreateSheet
             }
           : { budget_line_id: line }),
         vacancy_type: vacancyType,
+        ...(forCandidate && candidateId ? { candidate_person_id: candidateId } : {}),
       });
       void queryClient.invalidateQueries({ queryKey: ['vacancies'] });
       onClose();
@@ -194,7 +239,7 @@ function CreateSheet({ open, onClose, options, roles, initialLine }: CreateSheet
     >
       <SelectInput
         label="Rol"
-        hint="Een rol op een begroting die nog niet is ingevuld. Functie, fte en periode komen van de begrotingsregel."
+        {...(roleHint ? { hint: roleHint } : {})}
         value={line}
         onChange={setLine}
         options={lineOptions}
@@ -213,10 +258,31 @@ function CreateSheet({ open, onClose, options, roles, initialLine }: CreateSheet
         label="Type vacature"
         value={vacancyType}
         onChange={(value) => setVacancyType(value as VacancyType)}
-        hint="Bepaalt de procedure: een vacature voor een beoogde of gerede kandidaat wordt niet opengesteld."
+        {...(typeConsequence(vacancyType) ? { hint: typeConsequence(vacancyType) } : {})}
         options={options?.vacancy_types ?? []}
       />
-      <Note>Functienaam, schaal, type contract en geadresseerde vul je hierna in.</Note>
+      {forCandidate && (
+        <SelectInput
+          label="Kandidaat"
+          hint={
+            candidateId && candidateId !== intended
+              ? 'Wordt ook de beoogde persoon van de begrotingsregel.'
+              : candidateId
+                ? 'De beoogde persoon van de begrotingsregel.'
+                : undefined
+          }
+          value={candidateId}
+          onChange={setCandidate}
+          placeholder="Kies de kandidaat"
+          options={(people.data ?? []).map((person) => ({
+            value: person.id,
+            label: person.starts_on
+              ? `${person.name}, start op ${formatDate(person.starts_on)}`
+              : person.name,
+          }))}
+          required
+        />
+      )}
     </FormSheet>
   );
 }
@@ -234,10 +300,19 @@ export function VacanciesPage() {
 
   const vacancies = useQuery({ queryKey: VACANCY_KEYS.list, queryFn: fetchVacancies });
   const roles = useQuery({ queryKey: VACANCY_KEYS.unfilledRoles, queryFn: fetchUnfilledRoles });
+  const filledRoles = useQuery({
+    queryKey: VACANCY_KEYS.filledRoles,
+    queryFn: fetchFilledRoles,
+    retry: false,
+  });
   const options = useVacancyOptions();
 
   const unfilled = roles.data ?? [];
-  const canCreate = unfilled.length > 0 || (options.data?.can_create_without_budget_line ?? false);
+  const filled = Array.isArray(filledRoles.data) ? filledRoles.data : [];
+  const canCreate =
+    unfilled.length > 0 ||
+    filled.length > 0 ||
+    (options.data?.can_create_without_budget_line ?? false);
 
   return (
     <div ref={containerRef}>
@@ -255,6 +330,7 @@ export function VacanciesPage() {
           ]}
           actions={[
             { text: 'Open rollen', href: PATHS.vacancyOpenRoles },
+            ...(canCreate ? [{ text: 'Standaardteksten', href: PATHS.vacancyStandardTexts }] : []),
             ...(options.data?.can_manage_setup
               ? [{ text: 'Formulier en taalmodel', href: PATHS.vacancySetup }]
               : []),
@@ -281,6 +357,7 @@ export function VacanciesPage() {
         onClose={() => setCreating(false)}
         options={options.data}
         roles={unfilled}
+        filled={filled}
         initialLine={requestedLine}
       />
     </div>

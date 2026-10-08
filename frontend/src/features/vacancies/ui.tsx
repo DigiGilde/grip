@@ -104,7 +104,15 @@ export function TextInput({
   );
 }
 
-export function DateInput({ label, value, onChange, optional, hint, required, invalid }: FieldProps) {
+export function DateInput({
+  label,
+  value,
+  onChange,
+  optional,
+  hint,
+  required,
+  invalid,
+}: FieldProps) {
   const ref = useRef<HTMLElement>(null);
   useNlddEvent(ref, 'change', (event) => onChange(eventValue(event)));
   useNlddEvent(ref, 'input', (event) => onChange(eventValue(event)));
@@ -127,6 +135,8 @@ export function DateInput({ label, value, onChange, optional, hint, required, in
 export interface Option {
   value: string;
   label: string;
+  /** Options with the same group are listed together under that heading. */
+  group?: string;
 }
 
 interface SelectProps extends Omit<FieldProps, 'invalid'> {
@@ -160,10 +170,23 @@ export function SelectInput({
       <nldd-dropdown ref={ref} required={orUndef(required)} disabled={orUndef(disabled)}>
         <select value={value} onChange={(event) => onChange(event.target.value)}>
           {placeholder !== undefined && <option value="">{placeholder}</option>}
-          {options.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
+          {options
+            .filter((option) => !option.group)
+            .map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          {[...new Set(options.map((option) => option.group).filter(Boolean))].map((group) => (
+            <optgroup key={group} label={group}>
+              {options
+                .filter((option) => option.group === group)
+                .map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+            </optgroup>
           ))}
         </select>
       </nldd-dropdown>

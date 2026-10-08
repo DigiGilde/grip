@@ -134,9 +134,7 @@ describe('OrganisationPicker', () => {
     const { container, api } = await renderPicker();
     const combo = container.querySelector('nldd-combo-box')!;
     fire(combo, 'input', 'communicatie');
-    await waitFor(() =>
-      expect(api.calls.some((url) => url.includes('q=communicatie'))).toBe(true),
-    );
+    await waitFor(() => expect(api.calls.some((url) => url.includes('q=communicatie'))).toBe(true));
   });
 
   it('ignores the native input event that passes through the element', async () => {
@@ -146,9 +144,7 @@ describe('OrganisationPicker', () => {
     act(() => {
       combo.dispatchEvent(new Event('input'));
     });
-    await waitFor(() =>
-      expect(api.calls.some((url) => url.includes('q=communicatie'))).toBe(true),
-    );
+    await waitFor(() => expect(api.calls.some((url) => url.includes('q=communicatie'))).toBe(true));
   });
 
   it('hands the chosen organisation to the form', async () => {
@@ -176,7 +172,10 @@ describe('OrganisationPicker', () => {
       'fetch',
       vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
         if (init?.method === 'POST') {
-          expect(JSON.parse(String(init.body))).toEqual({ name: 'Voorbeeldgilde', parent_id: null });
+          expect(JSON.parse(String(init.body))).toEqual({
+            name: 'Voorbeeldgilde',
+            parent_id: null,
+          });
           return new Response(JSON.stringify(GUILD), {
             status: 201,
             headers: { 'Content-Type': 'application/json' },
@@ -236,7 +235,9 @@ describe('OrganisationsAdminPage', () => {
       auth: ADMIN,
     });
     await waitFor(() =>
-      expect(view.container.querySelector('nldd-button[text="Haal het register op"]')).not.toBeNull(),
+      expect(
+        view.container.querySelector('nldd-button[text="Haal het register op"]'),
+      ).not.toBeNull(),
     );
     return view.container;
   }
@@ -249,10 +250,12 @@ describe('OrganisationsAdminPage', () => {
       registry_organisations: 0,
       manual_organisations: 0,
     });
-    expect(texts(container, 'nldd-inline-dialog')).toContain('Het register is nog niet opgehaald');
+    expect(container.querySelector('nldd-text')?.textContent).toContain(
+      'Het register is nog niet opgehaald',
+    );
   });
 
-  it('shows the last run with what it changed and the manual organisations', async () => {
+  it('shows when the register was last fetched and the manual organisations', async () => {
     const container = await renderAdmin(
       {
         running: false,
@@ -271,11 +274,13 @@ describe('OrganisationsAdminPage', () => {
       },
       [GUILD],
     );
-    const banner = container.querySelector('nldd-banner[variant="success"]');
-    expect(banner?.getAttribute('supporting-text')).toBe(
-      '12 toegevoegd, 3880 ongewijzigd, 1 afgesloten',
-    );
-    expect(texts(container, 'nldd-text-cell')).toContain('3893 organisaties uit het register');
+    // The state is one calm line; a result notice only right after fetching.
+    expect(container.querySelector('nldd-banner')).toBeNull();
+    const state = [...container.querySelectorAll('nldd-text')]
+      .map((el) => el.textContent)
+      .join(' ');
+    expect(state).toContain('Laatst opgehaald op 8 okt 2026.');
+    expect(state).toContain('3893 organisaties uit het register, 1 zelf toegevoegd.');
     await waitFor(() =>
       expect(texts(container, 'nldd-table nldd-text-cell')).toContain('Voorbeeldgilde'),
     );

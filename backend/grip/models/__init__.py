@@ -30,6 +30,12 @@ from grip.models.role import PersonRole, Role
 from grip.models.stream_event import StreamEvent
 
 __all__ = [
+    "VacancyPublication",
+    "VacancyTextRemark",
+    "VacancyTextReview",
+    "VacancyTextSharedSection",
+    "VacancyTextTemplate",
+    "VacancyTextVerdict",
     "AuditLog",
     "HttpSession",
     "InstanceSetting",
@@ -174,4 +180,46 @@ __all__ += ["MailOutbox"]
 # The text of a quote in preparation (migration 0029_quote_draft).
 from grip.models.quote_draft import QuoteDraft  # noqa: E402
 
+# Standard vacancy texts, review rounds and publications
+# (migration 0030_vacancy_text_work).
+from grip.models.vacancy_text_flow import (  # noqa: E402
+    VacancyPublication,
+    VacancyTextRemark,
+    VacancyTextReview,
+    VacancyTextSharedSection,
+    VacancyTextTemplate,
+    VacancyTextVerdict,
+)
+
 __all__ += ["QuoteDraft"]
+
+# Passkeys (migration 0031_passkeys).
+from grip.models.passkey import PasskeyCredential  # noqa: E402
+
+__all__ += ["PasskeyCredential"]
+
+# Billing per period (migration 0032_billing_delivery): the terms of an
+# assignment and what was handed to the financial administration.
+from grip.models.billing_delivery import (  # noqa: E402
+    BillingDelivery,
+    BillingTerms,
+)
+
+__all__ += ["BillingDelivery", "BillingTerms"]
+
+# Notifications on a person's device (migration 0033_push).
+from grip.models.push import (  # noqa: E402
+    NotificationPreference,
+    PushCursor,
+    PushNotice,
+    PushOutbox,
+    PushSubscription,
+)
+
+__all__ += [
+    "NotificationPreference",
+    "PushCursor",
+    "PushNotice",
+    "PushOutbox",
+    "PushSubscription",
+]

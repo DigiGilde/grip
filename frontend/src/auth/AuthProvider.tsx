@@ -2,6 +2,8 @@ import { useMemo, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { fetchAuthStatus, loginUrl, LOGOUT_URL } from '@/api/auth';
 import { errorMessage } from '@/api/client';
+import { switchOff } from '@/features/notifications/api';
+import { clearKeptFiles } from '@/pwa/serviceWorker';
 import { AUTH_STATUS_KEY, toAuthState } from './authState';
 import { AuthContext, type AuthContextValue, type AuthState } from './context';
 
@@ -12,7 +14,12 @@ function login(next?: string): void {
 }
 
 function logout(): void {
-  window.location.assign(LOGOUT_URL);
+  // Nothing of this session's shell stays behind on a shared device.
+  // Whoever logs out leaves this device: it gets no notifications after.
+  void switchOff()
+    .catch(() => undefined)
+    .then(clearKeptFiles)
+    .finally(() => window.location.assign(LOGOUT_URL));
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {

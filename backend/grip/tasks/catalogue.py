@@ -26,9 +26,12 @@ SUBJECTS: dict[str, frozenset[str]] = {
             "open_role",
             "month_to_close",
             "closed_month",
+            "billing_period",
         }
     ),
-    "vacancy": frozenset({"case"}),
+    # text: a text the vacancy needs (the motivation, the vacancy text).
+    # text_review: one person asked to judge the latest version of a text.
+    "vacancy": frozenset({"case", "text", "text_review"}),
 }
 
 # Facts about the case as a whole.
@@ -67,6 +70,10 @@ CASE_FACTS: dict[str, frozenset[str]] = {
             "hire_recorded",
             "colleague_known_in_wies",
             "colleague_has_email",
+            "publication_recorded",
+            "request_form_in_use",
+            "request_form_current",
+            "request_form_signed",
         }
     ),
 }
@@ -83,6 +90,20 @@ SUBJECT_FACTS: dict[str, frozenset[str]] = {
     "open_role": frozenset({"role_staffed"}),
     "month_to_close": frozenset({"month_closed"}),
     "closed_month": frozenset({"billing_delivered", "invoice_recorded"}),
+    # A month or a calendar quarter, as the assignment is billed.
+    "billing_period": frozenset(
+        {"period_ready", "period_delivered", "period_invoiced"}
+    ),
+    "text": frozenset(
+        {
+            "text_due",
+            "text_in_review",
+            "text_returned",
+            "text_settled",
+            "text_moved_on",
+        }
+    ),
+    "text_review": frozenset({"verdict_given"}),
 }
 
 # Dates a deadline can count from, per subject kind.
@@ -97,6 +118,9 @@ ANCHORS: dict[str, frozenset[str]] = {
     "open_role": frozenset({"needed_from"}),
     "month_to_close": frozenset({"month_end"}),
     "closed_month": frozenset({"closed_on", "delivered_on"}),
+    "billing_period": frozenset({"ready_on", "delivered_on"}),
+    "text": frozenset(),
+    "text_review": frozenset({"offered_on"}),
 }
 
 # Who a task can be for. A role is resolved when the task is read, except
@@ -107,7 +131,9 @@ FUNCTION_ROLES = frozenset(
 )
 # The person a subject names: who asked for approval of a quote. Without such
 # a person the task is for the owner of the assignment.
-SUBJECT_PERSON_ROLES = frozenset({"maker"})
+# "writer": who wrote or offered a text of a vacancy; "reviewer": who was
+# asked to judge it.
+SUBJECT_PERSON_ROLES = frozenset({"maker", "writer", "reviewer"})
 VACANCY_PERSON_ROLES = frozenset(
     {
         "requester",
@@ -118,7 +144,10 @@ VACANCY_PERSON_ROLES = frozenset(
 )
 ASSIGNEES: dict[str, frozenset[str]] = {
     "assignment": ASSIGNMENT_ROLES | FUNCTION_ROLES | SUBJECT_PERSON_ROLES,
-    "vacancy": ASSIGNMENT_ROLES | FUNCTION_ROLES | VACANCY_PERSON_ROLES,
+    "vacancy": ASSIGNMENT_ROLES
+    | FUNCTION_ROLES
+    | VACANCY_PERSON_ROLES
+    | frozenset({"writer", "reviewer"}),
 }
 
 ROLE_LABELS: dict[str, str] = {
@@ -154,6 +183,8 @@ FACT_LABELS: dict[str, str] = {
     "final_report_issued": "het eindrapport is uitgegeven",
     "billing_delivered": "de factuurgegevens zijn aangeleverd",
     "invoice_recorded": "de factuur is vastgelegd",
+    "period_delivered": "de periode is aangeleverd",
+    "period_invoiced": "de factuur over de periode is vastgelegd",
     "requested": "de aanvraag is ingediend",
     "hr_advice_given": "het advies van HR is vastgelegd",
     "control_advice_given": "het advies van concern control is vastgelegd",
@@ -162,6 +193,12 @@ FACT_LABELS: dict[str, str] = {
     "hire_recorded": "de aanname is vastgelegd",
     "colleague_known_in_wies": "de collega is bekend in Wies",
     "colleague_has_email": "de collega heeft een e-mailadres",
+    "text_settled": "de tekst is vastgesteld",
+    "verdict_given": "het oordeel is gegeven",
+    "text_moved_on": "er is een nieuwe versie of de tekst is vastgesteld",
+    "publication_recorded": "de link naar de gepubliceerde vacature is vastgelegd",
+    "request_form_current": "het aanvraagformulier is gemaakt en klopt met de vacature",
+    "request_form_signed": "het getekende formulier is vastgelegd",
 }
 
 

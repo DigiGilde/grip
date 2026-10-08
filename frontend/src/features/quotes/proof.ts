@@ -10,6 +10,7 @@ import { formatEuro } from '@/lib/format';
 import type { Fact } from '@/ui/layout';
 import { formatDateTime } from './format';
 import { PATHS } from '@/paths';
+import { confirmWithPasskey, type PasskeyStep } from '@/features/passkeys/api';
 
 export interface DecisionIntent {
   id: string;
@@ -18,6 +19,8 @@ export interface DecisionIntent {
   expires_at: string;
   /** False where no identity provider is set up: nobody vouches for who decides. */
   reauthentication: boolean;
+  /** Set when this person can confirm the decision with a passkey first. */
+  passkey?: PasskeyStep | null;
 }
 
 export type DecisionKind = 'accept_received' | 'reject_received' | 'approve' | 'send_back';
@@ -37,7 +40,11 @@ export interface DecisionStatement {
   /** On whose behalf: an organisation as the contract names it, or just a name. */
   namens?: string | { name?: string | null; naam?: string | null } | null;
   wanneer?: { ontvangen_op?: string | null; aangemeld_op?: string | null };
-  hoe?: { aanmelding?: { ontbreekt_omdat?: string | null } };
+  hoe?: {
+    aanmelding?: { ontbreekt_omdat?: string | null };
+    /** Present when the person confirmed the decision with a passkey. */
+    passkey?: { gebruiker_geverifieerd?: boolean } | null;
+  };
   toelichting?: string | null;
 }
 
@@ -138,6 +145,19 @@ export const navigation = {
   },
 };
 
+/**
+ * Leave for the identity provider to make the decision of this intent. Who
+ * has a passkey is asked to confirm with it first; whatever the device
+ * answers, the decision goes on.
+ */
+export function leaveForDecision(intent: DecisionIntent): void {
+  if (!intent.passkey) {
+    navigation.go(intent.authorize_url);
+    return;
+  }
+  void confirmWithPasskey(intent.passkey).finally(() => navigation.go(intent.authorize_url));
+}
+
 // --- what the person filled in, across the round trip ------------------------
 
 const DRAFT_PREFIX = 'grip.besluit.';
@@ -176,13 +196,18 @@ export function clearDraft(quoteId: string): void {
 // --- words --------------------------------------------------------------------
 
 /** What is said before the browser leaves, per decision. */
-export function beforeLeaving(decision: 'accept' | 'reject' | 'approve' | 'send_back'): string {
+export function beforeLeaving(
+  decision: 'accept' | 'reject' | 'approve' | 'send_back',
+  withPasskey = false,
+): string {
   const after = {
     accept: 'Daarna is je akkoord vastgelegd.',
     reject: 'Daarna is je afwijzing vastgelegd.',
     approve: 'Daarna is je goedkeuring vastgelegd.',
     send_back: 'Daarna is de offerte teruggestuurd.',
   }[decision];
+  // Known once the intent is back: this person's device asks for the passkey.
+  if (withPasskey) return `Bevestig met je passkey. ${after}`;
   return `Om te bevestigen dat jij dit bent, log je opnieuw in. ${after}`;
 }
 
@@ -269,6 +294,7 @@ export function receiptFacts(evidence: Pick<Evidence, 'decision' | 'statement'>)
       : (statement.namens?.name ?? statement.namens?.naam ?? null);
   if (behalf) facts.push({ label: 'Namens', value: behalf });
   facts.push({ label: 'Wanneer', value: formatDateTime(statement.wanneer?.ontvangen_op) });
+  if (statement.hoe?.passkey) facts.push({ label: 'Bevestigd met', value: 'Passkey' });
   if (statement.toelichting) facts.push({ label: 'Toelichting', value: statement.toelichting });
   return facts;
 }

@@ -13,6 +13,7 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip.core.audit import CREATE, UPDATE, record_audit
@@ -38,6 +39,7 @@ from grip.services import events
 from grip.services import function_framework as framework
 from grip.services.errors import DomainError, DomainValidationError, NotFoundError
 from grip.services.llm import ChatClient, get_chat_client
+from grip.services.phase import Phase, is_tentative, phase_of
 from grip.services.vacancies import form as forms
 from grip.services.vacancies.drafting import (
     MAX_EXAMPLES,
@@ -397,7 +399,21 @@ def _plain(value: Any) -> Any:
 
 
 async def get_vacancy(db: AsyncSession, vacancy_id: UUID) -> Vacancy:
-    return await _get(db, vacancy_id)
+    vacancy = await _get(db, vacancy_id)
+    # Who was asked to review a text: a fact the access rules need, carried
+    # on the loaded object (see grip.access.vacancies).
+    from grip.models.vacancy_text_flow import VacancyTextReview, VacancyTextVerdict
+
+    rows = await db.scalars(
+        select(VacancyTextVerdict.reviewer_id)
+        .join(VacancyTextReview, VacancyTextReview.id == VacancyTextVerdict.review_id)
+        .where(
+            VacancyTextReview.vacancy_id == vacancy.id,
+            VacancyTextReview.withdrawn_at.is_(None),
+        )
+    )
+    vacancy.text_reviewer_ids = tuple(set(rows))  # type: ignore[attr-defined]
+    return vacancy
 
 
 async def list_vacancies(
@@ -422,6 +438,36 @@ class UnfilledRole:
     start_date: date | None
     end_date: date | None
     declarable: bool
+    # The assignment is not agreed yet: the role may not happen.
+    tentative: bool = False
+    # The colleague the line is meant for, when one is named.
+    intended_person_id: UUID | None = None
+
+
+@dataclass(frozen=True)
+class RoleFiller:
+    person_id: UUID
+    person_name: str
+    until: date
+
+
+@dataclass(frozen=True)
+class FilledRole:
+    """A personnel budget line that is fully staffed. A vacancy for it is how
+    a replacement or a successor starts."""
+
+    budget_line_id: UUID
+    assignment_id: UUID
+    assignment_name: str
+    description: str
+    role: str | None
+    fte: Decimal
+    start_date: date | None
+    end_date: date | None
+    declarable: bool
+    tentative: bool
+    filled_by: tuple[RoleFiller, ...]
+    intended_person_id: UUID | None = None
 
 
 _LIVE_STATUSES = (
@@ -472,9 +518,81 @@ async def unfilled_roles(
                 start_date=line.start_date,
                 end_date=line.end_date,
                 declarable=assignment.kind == "external",
+                tentative=is_tentative(assignment.status),
+                intended_person_id=line.intended_person_id,
             )
         )
     return roles
+
+
+async def filled_roles(
+    db: AsyncSession, *, today: date | None = None
+) -> list[FilledRole]:
+    """Personnel budget lines without room left and no vacancy running yet.
+
+    The counterpart of ``unfilled_roles``, by the same count. Lines whose own
+    period is over and lines of an assignment that has ended are left out.
+    """
+    day = today or date.today()
+    repo = VacancyRepository(db)
+    taken = await repo.budget_lines_with_vacancy(_LIVE_STATUSES)
+    found: list[tuple[BudgetLine, Assignment, list[Any]]] = []
+    for line, assignment in await repo.personnel_lines():
+        if line.id in taken or line.fte is None:
+            continue
+        if line.end_date is not None and line.end_date < day:
+            continue
+        if phase_of(assignment.status) is Phase.CLOSED:
+            continue
+        current = [a for a in line.allocations if a.end_date >= day]
+        staffed = sum((Decimal(a.fte_pct) / Decimal(100) for a in current), Decimal(0))
+        if not current or Decimal(line.fte) - staffed > 0:
+            continue
+        found.append((line, assignment, current))
+    person_ids = {a.person_id for _, _, current in found for a in current}
+    names: dict[UUID, str] = {}
+    if person_ids:
+        rows = await db.execute(
+            select(Person.id, Person.name).where(Person.id.in_(person_ids))
+        )
+        names = {row[0]: row[1] for row in rows}
+    return [
+        FilledRole(
+            budget_line_id=line.id,
+            assignment_id=assignment.id,
+            assignment_name=assignment.name,
+            description=line.description,
+            role=line.role,
+            fte=Decimal(line.fte),
+            start_date=line.start_date,
+            end_date=line.end_date,
+            declarable=assignment.kind == "external",
+            tentative=is_tentative(assignment.status),
+            filled_by=tuple(
+                RoleFiller(a.person_id, names.get(a.person_id, ""), a.end_date)
+                for a in sorted(current, key=lambda a: (a.end_date, str(a.person_id)))
+            ),
+            intended_person_id=line.intended_person_id,
+        )
+        for line, assignment, current in found
+    ]
+
+
+KNOWN_CANDIDATE_TYPES = frozenset({VacancyType.beoogd.value, VacancyType.gerede.value})
+
+
+async def candidate_of(db: AsyncSession, vacancy: Vacancy) -> tuple[UUID, str] | None:
+    """Who a vacancy for a known candidate is for: the intended person of its
+    budget line. One fact, kept on the line; a vacancy holds no copy."""
+    if vacancy.vacancy_type not in KNOWN_CANDIDATE_TYPES:
+        return None
+    if vacancy.budget_line_id is None:
+        return None
+    line = await db.get(BudgetLine, vacancy.budget_line_id)
+    if line is None or line.intended_person_id is None:
+        return None
+    person = await db.get(Person, line.intended_person_id)
+    return (person.id, person.name) if person is not None else None
 
 
 # --- the procedure ---------------------------------------------------------

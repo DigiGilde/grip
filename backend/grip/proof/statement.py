@@ -117,8 +117,14 @@ def build_statement(
     instance_name: str,
     instance_base_uri: str,
     note: str | None = None,
+    passkey: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """The statement as a plain structure, ready to be made canonical."""
+    """The statement as a plain structure, ready to be made canonical.
+
+    ``passkey`` is what ``grip.proof.passkey.statement_element`` gives when
+    the person confirmed the decision with a passkey. A statement without
+    one has no such member, so statements from before passkeys read the same.
+    """
     how: dict[str, Any] = {
         "kanaal": CHANNEL_TERMS[channel],
         "aanmelding": {
@@ -133,6 +139,8 @@ def build_statement(
         "id_token_sha256": authentication.id_token_sha256,
         "nonce": authentication.nonce_inputs,
     }
+    if passkey is not None:
+        how["passkey"] = passkey
     return {
         "soort": STATEMENT_TYPE,
         "versie": STATEMENT_VERSION,

@@ -49,6 +49,12 @@ export interface StandingFacts {
    * longer matches it. Undefined when not known: then nothing is said.
    */
   budgetMoved?: boolean;
+  /**
+   * The text of the next quote, when someone started writing it: how many
+   * sections still stand in the way of making the quote. Undefined when no
+   * draft was saved or the reader may not know.
+   */
+  draftProblems?: number;
   /** First day as yyyy-mm-dd, to tell whether a quote has expired. */
   today: string;
 }
@@ -148,16 +154,26 @@ export function standing(facts: StandingFacts): Standing | null {
   const act = facts.mayAct;
   const lastQuote = facts.quotes ? latest(facts.quotes, (quote) => quote.issued_at) : undefined;
   const expired =
-    lastQuote?.status === 'issued' && !!lastQuote.valid_until && lastQuote.valid_until < facts.today;
+    lastQuote?.status === 'issued' &&
+    !!lastQuote.valid_until &&
+    lastQuote.valid_until < facts.today;
   const inForce = lastQuote?.status === 'issued' && !expired ? lastQuote : undefined;
   // Without the list of quotes, the assignment itself still says one was made.
   const quoteMade =
-    facts.quotes !== undefined ? inForce !== undefined : facts.status === 'quoted' || !!facts.quoteSeen;
+    facts.quotes !== undefined
+      ? inForce !== undefined
+      : facts.status === 'quoted' || !!facts.quoteSeen;
   const lastOffer = inForce && facts.offers ? latest(facts.offers, (o) => o.offered_at) : undefined;
   const withApproval = !!inForce?.approval;
   const position = inForce ? quotePosition(inForce, facts.offers) : null;
 
-  const keys: StepKey[] = ['budget', 'quote', ...(withApproval ? ['approval' as const] : []), 'offer', 'agreement'];
+  const keys: StepKey[] = [
+    'budget',
+    'quote',
+    ...(withApproval ? ['approval' as const] : []),
+    'offer',
+    'agreement',
+  ];
   const answer = (
     current: StepKey,
     advice: string,
@@ -204,14 +220,16 @@ export function standing(facts: StandingFacts): Standing | null {
   if (position === 'approval' && inForce?.approval === 'requested') {
     return answer(
       'approval',
-      inForce.blockedMessage ?? 'De offerte wacht op intern akkoord voordat zij naar de opdrachtgever kan.',
+      inForce.blockedMessage ??
+        'De offerte wacht op intern akkoord voordat zij naar de opdrachtgever kan.',
       toQuote,
     );
   }
   if (position === 'approval') {
     return answer(
       'approval',
-      inForce?.blockedMessage ?? 'Deze offerte heeft intern akkoord nodig voordat zij naar de opdrachtgever kan.',
+      inForce?.blockedMessage ??
+        'Deze offerte heeft intern akkoord nodig voordat zij naar de opdrachtgever kan.',
       { text: 'Vraag intern akkoord', tab: 'quote' },
     );
   }
@@ -250,6 +268,27 @@ export function standing(facts: StandingFacts): Standing | null {
       'De opdrachtgever heeft de offerte afgewezen. Maak een nieuwe offerte, of sluit de opdracht af.',
       toQuote,
     );
+  }
+  if ((facts.budgetLines ?? 0) > 0 && facts.draftProblems !== undefined) {
+    // Someone started on the letter: writing it is the step, until it is whole.
+    const open = facts.draftProblems;
+    const standing = answer(
+      'quote',
+      open > 0
+        ? `De offerte is nog niet af: ${open === 1 ? 'een onderdeel mist' : `${open} onderdelen missen`} tekst of is nog niet vastgesteld.`
+        : 'De tekst van de offerte is af. Bekijk het voorbeeld en maak de offerte.',
+      open > 0
+        ? { text: 'Schrijf de offerte', tab: 'quote' }
+        : { text: 'Maak de offerte', tab: 'quote' },
+    );
+    return open > 0
+      ? {
+          ...standing,
+          steps: standing.steps.map((step) =>
+            step.key === 'quote' ? { ...step, text: 'Schrijf de offerte' } : step,
+          ),
+        }
+      : standing;
   }
   if ((facts.budgetLines ?? 0) > 0) {
     return answer(

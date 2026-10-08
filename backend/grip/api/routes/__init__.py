@@ -5,6 +5,7 @@ from grip.api.routes.assignment_finance import router as assignment_finance_rout
 from grip.api.routes.assignments import router as assignments_router
 from grip.api.routes.auth import router as auth_router
 from grip.api.routes.billing import router as billing_router
+from grip.api.routes.billing_periods import router as billing_periods_router
 from grip.api.routes.budget_lines import router as budget_lines_router
 from grip.api.routes.catalogue_roles import router as catalogue_roles_router
 from grip.api.routes.client_requests import router as client_requests_router
@@ -20,8 +21,12 @@ from grip.api.routes.integrations_wies import router as integrations_wies_router
 from grip.api.routes.kpi import router as kpi_router
 from grip.api.routes.month_close import router as month_close_router
 from grip.api.routes.node_picker import router as node_picker_router
+from grip.api.routes.notifications import router as notifications_router
 from grip.api.routes.organisations import router as organisations_router
 from grip.api.routes.overview import router as overview_router
+from grip.api.routes.passkeys import login_router as passkey_login_router
+from grip.api.routes.passkeys import people_router as passkey_people_router
+from grip.api.routes.passkeys import router as passkeys_router
 from grip.api.routes.peers import router as peers_router
 from grip.api.routes.people import router as people_router
 from grip.api.routes.person_roles import router as person_roles_router
@@ -36,6 +41,10 @@ from grip.api.routes.signing import router as signing_router
 from grip.api.routes.tasks import router as tasks_router
 from grip.api.routes.vacancies import router as vacancies_router
 from grip.api.routes.vacancy_hire import router as vacancy_hire_router
+from grip.api.routes.vacancy_request_forms import (
+    router as vacancy_request_forms_router,
+)
+from grip.api.routes.vacancy_texts import router as vacancy_texts_router
 from grip.events.logboek import log_sensitive_reads
 
 # Every route notes which sensitive data it returned (grip.events.logboek).
@@ -43,6 +52,10 @@ from grip.events.logboek import log_sensitive_reads
 api_router = APIRouter(dependencies=[Depends(log_sensitive_reads)])
 api_router.include_router(health_router)
 api_router.include_router(auth_router)
+api_router.include_router(passkey_login_router)
+api_router.include_router(passkeys_router)
+api_router.include_router(passkey_people_router)
+api_router.include_router(notifications_router)
 api_router.include_router(instance_router)
 api_router.include_router(organisations_router)
 api_router.include_router(assignments_router)
@@ -54,13 +67,16 @@ api_router.include_router(rates_router)
 api_router.include_router(people_router)
 api_router.include_router(kpi_router)
 api_router.include_router(costs_router)
+api_router.include_router(vacancy_request_forms_router)
 api_router.include_router(vacancies_router)
 api_router.include_router(vacancy_hire_router)
+api_router.include_router(vacancy_texts_router)
 api_router.include_router(form_templates_router)
 api_router.include_router(quotes_router)
 api_router.include_router(signing_router)
 api_router.include_router(month_close_router)
 api_router.include_router(billing_router)
+api_router.include_router(billing_periods_router)
 api_router.include_router(integrations_wies_router)
 api_router.include_router(peers_router)
 api_router.include_router(received_quotes_router)

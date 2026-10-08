@@ -14,7 +14,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import undefer
 
@@ -162,6 +162,9 @@ async def store_document(
         sha256=hashlib.sha256(content).hexdigest(),
         content=content,
         uploaded_by_id=actor.id if actor is not None else None,
+        # The moment of this write, not of the transaction: versions of one
+        # document made in one transaction keep their order.
+        created_at=func.clock_timestamp(),
     )
     session.add(document)
     await session.flush()

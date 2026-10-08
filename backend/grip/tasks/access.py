@@ -145,6 +145,18 @@ class TaskAccess:
         read = await self._may(Action.READ, resource, DataClass.ASSIGNMENT_BASIC)
         return CaseRights(read=read, edit=False)
 
+    async def may_record_decision(
+        self, vacancy: Vacancy, assignment_id: UUID | None, kind: str
+    ) -> bool:
+        """Whether the reader may record this advice or approval on the vacancy."""
+        resource = vacancy_resource(
+            vacancy.id,
+            assignment_id=assignment_id,
+            named={d.kind: d.person_id for d in vacancy.decisions},
+            decision_kind=kind,
+        )
+        return await self._may(Action.RECORD_DECISION, resource)
+
     async def assignment_roles(self) -> dict[UUID, str]:
         """The assignments this person owns or manages, with the role."""
         if self._roles is None:

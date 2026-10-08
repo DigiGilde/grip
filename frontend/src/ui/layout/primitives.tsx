@@ -171,6 +171,39 @@ export function CardGrid({ itemWidth = '280px', children }: CardGridProps) {
   );
 }
 
+interface NameLineProps {
+  /** The name: a link, or text. One line of body size; a row is never a heading. */
+  children: ReactNode;
+  /** Status labels that belong to the name. They sit on the name's line, centred on it. */
+  badges?: ReactNode;
+  /** One quiet line under the name. */
+  detail?: ReactNode;
+}
+
+/**
+ * A name with its status: the one way to put a badge behind a name.
+ *
+ * The name and its badges share a line and a centre, so a small badge does
+ * not hang at the top of a taller name. When the line is too narrow the
+ * badges move under the name, left-aligned, at the tight distance; they never
+ * end up alone at the right.
+ */
+export function NameLine({ children, badges, detail }: NameLineProps) {
+  return (
+    <nldd-container gap={GAP.tight}>
+      <nldd-container
+        layout="wrap"
+        gap={badges ? GAP.close : GAP.tight}
+        vertical-alignment="center"
+      >
+        {children}
+        {badges}
+      </nldd-container>
+      {detail ? <Quiet>{detail}</Quiet> : null}
+    </nldd-container>
+  );
+}
+
 /** Secondary text: a hint, a date, the context of a figure. */
 export function Quiet({ children }: { children: ReactNode }) {
   return (

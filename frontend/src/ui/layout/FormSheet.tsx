@@ -49,9 +49,7 @@ interface SubmitButtonProps {
 }
 
 function SubmitButton({ text, loading }: SubmitButtonProps) {
-  return (
-    <nldd-button appearance="primary" type="submit" text={text} loading={orUndef(loading)} />
-  );
+  return <nldd-button appearance="primary" type="submit" text={text} loading={orUndef(loading)} />;
 }
 
 export function FormSheet({
@@ -116,7 +114,5 @@ export function FormSheet({
  * the single direct child of nldd-form.
  */
 export function FormFields({ children }: { children: ReactNode }) {
-  return (
-    <nldd-container gap="20">{children}</nldd-container>
-  );
+  return <nldd-container gap="20">{children}</nldd-container>;
 }

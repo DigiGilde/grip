@@ -11,6 +11,7 @@ from grip.api.assignment_support import DbSession, RequestAccess, YearFilter, pa
 from grip.api.routes.assignment_finance import figures_out
 from grip.schema.board import (
     AssignmentStaffingOut,
+    OverbookedOut,
     RoleBarOut,
     RoleGapOut,
     RoleMonthOut,
@@ -344,6 +345,17 @@ async def get_assignment_staffing(
             open_fte=data.open_fte,
             open_from=data.open_from,
             overbooked_count=len(data.overbooked_person_ids),
+            overbooked=[
+                OverbookedOut(
+                    person_id=o.person_id,
+                    person_name=o.person_name,
+                    month=o.month,
+                    pct=o.pct,
+                )
+                for o in data.overbooked
+            ]
+            if sees_time
+            else [],
         ),
         classes,
     )

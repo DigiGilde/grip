@@ -3,8 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
 import { useInstance } from '@/layout/useInstance';
 import { formatDate } from '@/lib/format';
-import { PageHeading } from '@/pages/PageHeading';
-import { Button } from '@/features/team/ui/controls';
+import { ActionBar } from '@/ui/ActionBar';
+import { ErrorNotice, Page, Quiet, Section, Stack } from '@/ui/layout';
 import { EmptyRows, QueryState } from '@/features/team/ui/states';
 import {
   fetchSyncStatus,
@@ -20,7 +20,8 @@ import './nldd';
 
 const POLL_MS = 5000;
 
-function LastRun({ status }: { status: SyncStatus }) {
+/** The state of the register in one calm line; a notice only for what needs attention. */
+function RegisterState({ status, justFetched }: { status: SyncStatus; justFetched: boolean }) {
   const run = status.last_run;
   if (status.running) {
     return (
@@ -31,29 +32,34 @@ function LastRun({ status }: { status: SyncStatus }) {
       />
     );
   }
-  if (!run) {
-    return (
-      <nldd-inline-dialog
-        text="Het register is nog niet opgehaald"
-        supporting-text="Tot die tijd bestaat de lijst alleen uit organisaties die zelf zijn toegevoegd."
-      />
-    );
-  }
+  const counts = `${status.registry_organisations} organisaties uit het register, ${status.manual_organisations} zelf toegevoegd.`;
+  if (!run) return <Quiet>Het register is nog niet opgehaald. {counts}</Quiet>;
   if (run.status === 'failed') {
     return (
-      <nldd-banner
-        variant="critical"
-        text={`Ophalen op ${formatDate(run.finished_at)} is mislukt`}
-        supporting-text={run.error ?? 'Er is niets gewijzigd.'}
-      />
+      <Stack gap="related">
+        <nldd-banner
+          variant="critical"
+          text={`Ophalen op ${formatDate(run.finished_at)} is mislukt`}
+          supporting-text={run.error ?? 'Er is niets gewijzigd.'}
+        />
+        <Quiet>{counts}</Quiet>
+      </Stack>
     );
   }
   return (
-    <nldd-banner
-      variant="success"
-      text={`Laatst opgehaald op ${formatDate(run.finished_at)}`}
-      supporting-text={syncSummary(run.result)}
-    />
+    <Stack gap="related">
+      {justFetched ? (
+        <nldd-banner
+          variant="success"
+          size="sm"
+          text="Het register is opgehaald"
+          supporting-text={syncSummary(run.result)}
+        />
+      ) : null}
+      <Quiet>
+        Laatst opgehaald op {formatDate(run.finished_at)}. {counts}
+      </Quiet>
+    </Stack>
   );
 }
 
@@ -98,12 +104,15 @@ export function OrganisationsAdminPage() {
     queryFn: () => searchOrganisations({ source: 'manual', page_size: 100 }),
   });
 
-  // When a run ends, every list of organisations on screen is out of date.
+  // When a run ends, every list of organisations on screen is out of date,
+  // and that is the one moment its result is news.
   const running = status.data?.running ?? false;
   const wasRunning = useRef(false);
+  const [justFetched, setJustFetched] = useState(false);
   useEffect(() => {
     if (wasRunning.current && !running) {
       void queryClient.invalidateQueries({ queryKey: organisationKeys.all });
+      setJustFetched(true);
     }
     wasRunning.current = running;
   }, [running, queryClient]);
@@ -120,97 +129,80 @@ export function OrganisationsAdminPage() {
   const manualItems = manual.data?.items ?? [];
 
   return (
-    <nldd-simple-section>
-      <PageHeading text="Organisaties" instanceName={instance?.name} />
-      <nldd-container gap="32">
-        <nldd-container gap="16">
-          <nldd-title size={4} text="Overheidsregister" heading-level={2} />
-          <nldd-rich-text>
-            <p>
-              De lijst met organisaties komt uit het openbare register van
-              organisaties.overheid.nl. Ophalen brengt de lijst in lijn met het register:
-              nieuwe organisaties komen erbij, gewijzigde worden bijgewerkt en opgeheven
-              organisaties krijgen een einddatum. Een organisatie waar een opdracht naar
-              verwijst verdwijnt nooit.
-            </p>
-          </nldd-rich-text>
-          <QueryState query={status}>
-            {status.data ? (
-              <>
-                {problem ? <nldd-banner variant="critical" text={problem} /> : null}
-                <LastRun status={status.data} />
-                <nldd-text-cell
-                  text={`${status.data.registry_organisations} organisaties uit het register`}
-                  supporting-text={`${status.data.manual_organisations} zelf toegevoegd`}
-                />
-                <nldd-container layout="wrap" gap="16">
-                  <Button
-                    text="Haal het register op"
-                    appearance="primary"
-                    loading={sync.isPending}
-                    disabled={running}
-                    onClick={() => sync.mutate()}
-                  />
-                </nldd-container>
-              </>
-            ) : null}
-          </QueryState>
-        </nldd-container>
+    <Page title="Organisaties" instanceName={instance?.name} spacing="sections">
+      <ActionBar
+        label="Organisaties bijwerken"
+        actions={[
+          ...(adding ? [] : [{ text: 'Organisatie toevoegen', onClick: () => setAdding(true) }]),
+          ...(status.data
+            ? [
+                {
+                  text: 'Haal het register op',
+                  primary: true,
+                  loading: sync.isPending,
+                  disabled: running,
+                  onClick: () => sync.mutate(),
+                },
+              ]
+            : []),
+        ]}
+      />
 
-        <nldd-container gap="16">
-          <nldd-title size={4} text="Zelf toegevoegd" heading-level={2} />
-          <nldd-rich-text>
-            <p>
-              Partijen die niet in het register staan, zoals een stichting of een bedrijf, en
-              eenheden binnen een organisatie, zoals een gilde of een team.
-            </p>
-          </nldd-rich-text>
-          <QueryState query={manual}>
-            <nldd-table
-              accessible-label="Organisaties die zelf zijn toegevoegd"
-              columns="minmax(200px,2fr) minmax(240px,3fr)"
-            >
-              <nldd-table-row slot="header">
-                <nldd-text-cell text="Naam" />
-                <nldd-text-cell text="Valt onder" />
+      <Section title="Overheidsregister" description="Uit organisaties.overheid.nl">
+        <QueryState query={status}>
+          {status.data ? (
+            <>
+              {problem ? <ErrorNotice message={problem} /> : null}
+              <RegisterState status={status.data} justFetched={justFetched} />
+            </>
+          ) : null}
+        </QueryState>
+      </Section>
+
+      <Section
+        title="Zelf toegevoegd"
+        description="Partijen buiten het register, en eenheden binnen een organisatie"
+      >
+        <QueryState query={manual}>
+          <nldd-table
+            accessible-label="Organisaties die zelf zijn toegevoegd"
+            columns="minmax(200px,2fr) minmax(240px,3fr)"
+          >
+            <nldd-table-row slot="header">
+              <nldd-text-cell text="Naam" />
+              <nldd-text-cell text="Valt onder" />
+            </nldd-table-row>
+            {manualItems.map((organisation) => (
+              <nldd-table-row key={organisation.id}>
+                <nldd-text-cell text={organisationText(organisation)} />
+                <nldd-text-cell text={organisationPlace(organisation) || 'Staat op zichzelf'} />
               </nldd-table-row>
-              {manualItems.map((organisation) => (
-                <nldd-table-row key={organisation.id}>
-                  <nldd-text-cell text={organisationText(organisation)} />
-                  <nldd-text-cell text={organisationPlace(organisation) || 'Staat op zichzelf'} />
-                </nldd-table-row>
-              ))}
-              <EmptyRows
-                text="Er is nog niets zelf toegevoegd"
-                supportingText="Toevoegen kan hier, en overal waar je een organisatie kiest."
-              />
-            </nldd-table>
-          </QueryState>
-          {adding ? (
-            <AddOrganisationForm
-              initialName=""
-              onAdded={() => setAdding(false)}
-              onCancel={() => setAdding(false)}
+            ))}
+            <EmptyRows
+              text="Er is nog niets zelf toegevoegd"
+              supportingText="Toevoegen kan hier, en overal waar je een organisatie kiest."
             />
-          ) : (
-            <nldd-container layout="wrap" gap="16">
-              <Button text="Organisatie toevoegen" onClick={() => setAdding(true)} />
-            </nldd-container>
-          )}
-        </nldd-container>
-
-        <nldd-container gap="16">
-          <nldd-title size={4} text="Opzoeken" heading-level={2} />
-          <OrganisationPicker
-            label="Organisatie"
-            supportingLabel="Zoek op naam of afkorting om te zien wat de lijst over een organisatie weet"
-            value={lookedUp?.id ?? null}
-            onChange={setLookedUp}
-            allowAdd={false}
+          </nldd-table>
+        </QueryState>
+        {adding ? (
+          <AddOrganisationForm
+            initialName=""
+            onAdded={() => setAdding(false)}
+            onCancel={() => setAdding(false)}
           />
-          {lookedUp ? <Details organisation={lookedUp} /> : null}
-        </nldd-container>
-      </nldd-container>
-    </nldd-simple-section>
+        ) : null}
+      </Section>
+
+      <Section title="Opzoeken">
+        <OrganisationPicker
+          label="Organisatie"
+          supportingLabel="Zoek op naam of afkorting om te zien wat de lijst over een organisatie weet"
+          value={lookedUp?.id ?? null}
+          onChange={setLookedUp}
+          allowAdd={false}
+        />
+        {lookedUp ? <Details organisation={lookedUp} /> : null}
+      </Section>
+    </Page>
   );
 }

@@ -153,3 +153,142 @@ class CorrectInvoiceIn(BaseModel):
 
 class WithdrawInvoiceIn(BaseModel):
     reason: str = Field(min_length=1, max_length=2000)
+
+
+# -- billing per period -------------------------------------------------------
+
+
+class BillingTermsOut(BaseModel):
+    """How the assignment is billed, as a term of the agreement."""
+
+    # month | quarter
+    rhythm: Annotated[str, A]
+    # True when the assignment follows the instance and has no terms of its own.
+    rhythm_is_default: Annotated[bool, A] = False
+    # What the client gave for the invoice: where it goes and its reference.
+    details: Annotated[dict[str, str], B] = Field(default_factory=dict)
+    # Keys of details the financial administration cannot do without.
+    missing_details: Annotated[list[str], B] = Field(default_factory=list)
+    names_on_specification: Annotated[bool, B] = False
+
+
+class BillingTermsIn(BaseModel):
+    rhythm: str | None = None
+    details: dict[str, str | None] | None = None
+    names_on_specification: bool | None = None
+
+
+class PeriodMonthOut(BaseModel):
+    month: Annotated[str, A]
+    label: Annotated[str, A]
+    # closed | to_close | running | upcoming
+    state: Annotated[str, A]
+    closed_at: Annotated[datetime | None, A] = None
+    closed_by_name: Annotated[str | None, A] = None
+    # Established when closed, else what the plan gives.
+    amount_cents: Annotated[int | None, B] = None
+    delivered_cents: Annotated[int | None, B] = None
+    correction_cents: Annotated[int, B] = 0
+
+
+class BillingDeliveryOut(BaseModel):
+    """What went to the financial administration, to whom and how."""
+
+    id: Annotated[UUID, B]
+    reference: Annotated[str, B]
+    period_key: Annotated[str, B]
+    total_cents: Annotated[int, B]
+    # mail | self
+    via: Annotated[str, B]
+    recipient: Annotated[str | None, B] = None
+    delivered_at: Annotated[datetime, B]
+    delivered_by_name: Annotated[str | None, B] = None
+    has_document: Annotated[bool, B] = False
+    # queued | sent | failed, when grip mailed it.
+    mail_state: Annotated[str | None, B] = None
+    invoice_id: Annotated[UUID | None, B] = None
+    invoice_number: Annotated[str | None, B] = None
+
+
+class BillingPeriodOut(BaseModel):
+    key: Annotated[str, A]
+    # "derde kwartaal 2026" or "juli 2026".
+    label: Annotated[str, A]
+    # "juli t/m september 2026".
+    span: Annotated[str, A]
+    # running | to_close | ready | delivered | invoiced
+    state: Annotated[str, A]
+    months: Annotated[list[PeriodMonthOut], nested()] = Field(default_factory=list)
+    # Sum of the closed months.
+    closed_cents: Annotated[int | None, B] = None
+    # What a delivery made now would hold.
+    to_deliver_cents: Annotated[int | None, B] = None
+    delivered_cents: Annotated[int, B] = 0
+    invoiced_cents: Annotated[int, B] = 0
+    deliveries: Annotated[list[BillingDeliveryOut], nested()] = Field(
+        default_factory=list
+    )
+    invoice_numbers: Annotated[list[str], B] = Field(default_factory=list)
+    # Whether an invoice can be recorded for what was delivered.
+    awaits_invoice: Annotated[bool, B] = False
+    last_step_at: Annotated[datetime | None, A] = None
+
+
+class NextStepOut(BaseModel):
+    """The one thing to do now on this assignment."""
+
+    # close_month | deliver | record_invoice | none
+    kind: Annotated[str, A]
+    month: Annotated[str | None, A] = None
+    month_label: Annotated[str | None, A] = None
+    period_key: Annotated[str | None, A] = None
+    period_label: Annotated[str | None, A] = None
+    amount_cents: Annotated[int | None, B] = None
+    # For "none": the first day something can be done, and what.
+    from_date: Annotated[date | None, A] = None
+
+
+class BillingOverviewOut(BaseModel):
+    assignment_id: Annotated[UUID, A]
+    assignment_name: Annotated[str, A]
+    client_name: Annotated[str | None, A] = None
+    # Whether closing months has started (from a verbal agreement on).
+    closing_started: Annotated[bool, A] = False
+    # Whether billing data may be produced (from formal acceptance on).
+    billable: Annotated[bool, A] = False
+    may_close: Annotated[bool, A] = False
+    may_deliver: Annotated[bool, A] = False
+    may_record_invoice: Annotated[bool, A] = False
+    may_edit_terms: Annotated[bool, A] = False
+    terms: Annotated[BillingTermsOut, nested()]
+    next_step: Annotated[NextStepOut, nested()]
+    periods: Annotated[list[BillingPeriodOut], nested()] = Field(default_factory=list)
+    # Periods that have not begun, as a count and where they end.
+    upcoming_count: Annotated[int, A] = 0
+    upcoming_until: Annotated[str | None, A] = None
+    closed_cents: Annotated[int | None, B] = None
+    delivered_cents: Annotated[int, B] = 0
+    invoiced_cents: Annotated[int, B] = 0
+    # Whether grip can mail the financial administration.
+    can_mail: Annotated[bool, A] = False
+    recipient: Annotated[str | None, B] = None
+
+
+class DeliverIn(BaseModel):
+    period_key: str
+    # mail | self
+    via: str
+    note: str | None = None
+
+
+class PeriodInvoiceIn(BaseModel):
+    invoice_number: str
+    invoice_date: date
+    amount_cents: int
+    note: str | None = None
+
+
+class BatchDeliverIn(BaseModel):
+    # Pairs of assignment and period.
+    items: list[dict[str, str]]
+    via: str

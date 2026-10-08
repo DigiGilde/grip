@@ -51,15 +51,26 @@ describe('RequireAuth', () => {
 
   it('shows a loading page and no content while the status is unknown', () => {
     renderGuarded({ status: 'loading' });
-    expect(screen.getByRole('heading', { level: 1, name: 'Grip wordt geladen' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Grip wordt geladen' }),
+    ).toBeInTheDocument();
     expect(screen.queryByText('protected content')).not.toBeInTheDocument();
   });
 
   it('shows the error and no content when the status request failed', () => {
     const retry = vi.fn();
-    const { container } = renderGuarded({ status: 'error', message: 'Server onbereikbaar.', retry });
-    expect(screen.getByRole('heading', { level: 1, name: 'Grip is niet bereikbaar' })).toBeInTheDocument();
-    expect(container.querySelector('nldd-inline-dialog')).toHaveAttribute('text', 'Server onbereikbaar.');
+    const { container } = renderGuarded({
+      status: 'error',
+      message: 'Server onbereikbaar.',
+      retry,
+    });
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Grip is niet bereikbaar' }),
+    ).toBeInTheDocument();
+    expect(container.querySelector('nldd-inline-dialog')).toHaveAttribute(
+      'text',
+      'Server onbereikbaar.',
+    );
     expect(screen.queryByText('protected content')).not.toBeInTheDocument();
 
     container.querySelector('nldd-button')?.dispatchEvent(new Event('click'));
@@ -140,7 +151,13 @@ describe('an invited signer without a person record', () => {
       }),
     ).toEqual(GUEST);
     expect(
-      toAuthState({ authenticated: false, oidc_configured: true, person: null, functions: [], guest: null }),
+      toAuthState({
+        authenticated: false,
+        oidc_configured: true,
+        person: null,
+        functions: [],
+        guest: null,
+      }),
     ).toEqual({ status: 'unauthenticated', oidcConfigured: true });
   });
 

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="currentColor">
+  <!-- two instances that hold each other: each frame passes through the other -->
+  <path d="M7 7h24v10h-6v-4H13v12h4v6H7z"/>
+  <path d="M41 41H17V31h6v4h12V23h-4v-6h10z"/>
+</svg>

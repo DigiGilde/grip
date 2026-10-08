@@ -70,12 +70,18 @@ export const allocationKeys = {
   all: ['allocations'] as const,
   list: (year: string) => ['allocations', 'list', year] as const,
   options: ['allocations', 'options'] as const,
+  /** The options for the form on the page of one assignment. */
+  optionsOf: (assignmentId: string) => ['allocations', 'options', assignmentId] as const,
 };
 
 export const fetchAllocations = (year: string) =>
   apiGet<AllocationList>('/api/allocations', { year });
 
 export const fetchAllocationOptions = () => apiGet<AllocationOptions>('/api/allocations/options');
+
+/** The same for the form on the page of one assignment: only that assignment's lines. */
+export const fetchAllocationOptionsOf = (assignmentId: string) =>
+  apiGet<AllocationOptions>('/api/allocations/options', { assignment_id: assignmentId });
 
 export const addAllocation = (input: AllocationInput) =>
   apiPost<Allocation>('/api/allocations', input);

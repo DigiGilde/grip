@@ -4,7 +4,7 @@ import type { AuthGuest, AuthPerson } from '@/api/auth';
 export type AuthState =
   | { status: 'loading' }
   | { status: 'error'; message: string; retry: () => void }
-  | { status: 'unauthenticated'; oidcConfigured: boolean }
+  | { status: 'unauthenticated'; oidcConfigured: boolean; passkeyLogin?: boolean }
   /** Known to the identity provider, but without a person record in this instance. */
   | { status: 'no-access' }
   /** Invited to sign a quote, without a person record: the signing pages only. */

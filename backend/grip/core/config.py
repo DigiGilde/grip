@@ -107,6 +107,11 @@ class Settings(BaseSettings):
     # Accept an identity provider over plain http. Local development only (a
     # Keycloak in a container); refused in a deployed environment.
     OIDC_ALLOW_INSECURE_HTTP: bool = False
+    # Show, after a login, what the identity provider sent (with every value
+    # that identifies someone masked) on /api/auth/diagnose. For the first
+    # login against a new provider on a developer's machine; refused in a
+    # deployed environment.
+    OIDC_DIAGNOSTICS: bool = False
 
     # Comma-separated email addresses that get the beheerder function at
     # startup. This is how the first beheerder of an instance comes to exist.
@@ -122,6 +127,42 @@ class Settings(BaseSettings):
     SESSION_COOKIE_DOMAIN: str = ""
     SESSION_COOKIE_SECURE: bool = False
     SESSION_TTL_SECONDS: int = 60 * 60 * 24 * 7
+
+    # Passkeys (WebAuthn). The relying party is the host people open grip
+    # on; id and origin follow from FRONTEND_URL unless set. A passkey is
+    # bound to that host: moving grip to another domain makes registered
+    # passkeys unusable, and people register them again.
+    PASSKEY_RP_ID: str = ""
+    PASSKEY_RP_NAME: str = ""
+    PASSKEY_ORIGIN: str = ""
+    # A session that began with a passkey instead of the identity provider
+    # is shorter than an ordinary one.
+    PASSKEY_SESSION_TTL_SECONDS: int = 60 * 60 * 12
+    # Logging in with a passkey alone is possible for this many days after
+    # the person last logged in through the identity provider. After that
+    # the provider is asked again, so someone it no longer knows cannot keep
+    # coming in with a key. 0 switches logging in with a passkey off.
+    PASSKEY_LOGIN_MAX_AGE_DAYS: int = 30
+
+    # Notifications on a person's own device (web push). The private key of
+    # the instance's key pair, as 32 bytes base64url or as PEM; make one with
+    # ``python -m grip.integrations.push.keys``. Empty: no notifications, and
+    # everything else works. A secret of the instance.
+    PUSH_VAPID_PRIVATE_KEY: str = ""
+    # Who a push service can reach about this sender: a mailto: or https:
+    # address. Empty falls back to FRONTEND_URL.
+    PUSH_VAPID_SUBJECT: str = ""
+    # At most this many notifications per person per day.
+    PUSH_DAILY_CAP: int = 6
+    # Tasks that open within this many seconds of each other become one
+    # notification.
+    PUSH_BATCH_SECONDS: int = 90
+    # How long a push service keeps a message for a device that is off.
+    PUSH_TTL_SECONDS: int = 60 * 60 * 12
+    # How often the worker looks for something to notify about.
+    PUSH_SCAN_INTERVAL_SECONDS: int = 60
+    # The time zone of quiet hours and of "today" for the daily cap.
+    PUSH_TIMEZONE: str = "Europe/Amsterdam"
 
     # VLAM, the language model the government operates itself (drafting of
     # vacancy texts). VLAM_API_URL is injected by the hosting platform's vlam
@@ -157,6 +198,19 @@ class Settings(BaseSettings):
     # A few sentences about the organisation, given to the model as context
     # when it drafts a vacancy text. Must not contain names of people.
     VACANCY_ORGANISATION_DESCRIPTION: str = ""
+    # Which language model drafts texts. Empty: VLAM when it is configured,
+    # otherwise none. "claude_cli" runs the command-line tool installed on
+    # the developer's machine with that person's own login. It is a
+    # development provider: text sent to it leaves the government's own model
+    # service, so it is refused outside local development (see ADR 0035).
+    LLM_PROVIDER: str = ""
+    CLAUDE_CLI_COMMAND: str = "claude"
+    CLAUDE_CLI_MODEL: str = "sonnet"
+    CLAUDE_CLI_TIMEOUT_SECONDS: int = 240
+    # The shipped library of standard vacancy texts to load at start (a file
+    # in grip/data/vacancy_texts). Empty loads none. Loading never overwrites
+    # a text a person changed.
+    VACANCY_TEXT_PROFILE: str = "digigilde"
 
     # Comma-separated IP addresses or CIDR ranges of the proxies in front of
     # the backend. Only from these are X-Forwarded-Proto, -Host and -For
@@ -275,6 +329,33 @@ class Settings(BaseSettings):
         return self
 
     @model_validator(mode="after")
+    def _validate_llm_provider(self) -> "Settings":
+        """The development model provider exists only in local development.
+
+        The condition is the one that allows DEV_NO_AUTH: no identity
+        provider and not deployed. Text sent to this provider leaves the
+        government's own model service.
+        """
+        provider = self.LLM_PROVIDER.strip().lower()
+        if provider not in ("", "none", "vlam", "claude_cli"):
+            raise ValueError(
+                "LLM_PROVIDER kent alleen vlam, claude_cli of none; "
+                f"'{self.LLM_PROVIDER}' is onbekend."
+            )
+        if provider == "claude_cli" and not self.is_local_development:
+            raise ValueError(
+                "LLM_PROVIDER=claude_cli is alleen voor lokale ontwikkeling "
+                "(DEV_NO_AUTH aan en geen PUBLIC_HOST). In een uitgerolde "
+                "omgeving gaat tekst alleen naar VLAM."
+            )
+        return self
+
+    @property
+    def is_local_development(self) -> bool:
+        """Running on a developer's machine: no login and not deployed."""
+        return bool(self.DEV_NO_AUTH) and not self.PUBLIC_HOST
+
+    @model_validator(mode="after")
     def _validate_oidc_transport(self) -> "Settings":
         """Refuse an identity provider over plain http at startup.
 
@@ -284,6 +365,12 @@ class Settings(BaseSettings):
         here says so at once. The discovery document's own endpoints are
         checked when the application starts (grip.core.auth.check_oidc_transport).
         """
+        if self.OIDC_DIAGNOSTICS and self.PUBLIC_HOST:
+            raise ValueError(
+                "OIDC_DIAGNOSTICS mag niet aan staan in een gedeployde omgeving "
+                "(PUBLIC_HOST is gezet). Het is bedoeld voor een eerste "
+                "aanmelding op een ontwikkelmachine."
+            )
         if self.OIDC_ALLOW_INSECURE_HTTP and self.PUBLIC_HOST:
             raise ValueError(
                 "OIDC_ALLOW_INSECURE_HTTP mag niet aan staan in een gedeployde "
@@ -333,6 +420,18 @@ class Settings(BaseSettings):
             self.FRONTEND_URL = "http://localhost:5183"
         if not self.CORS_ORIGINS:
             self.CORS_ORIGINS = [self.FRONTEND_URL]
+        return self
+
+    @model_validator(mode="after")
+    def _derive_passkey_relying_party(self) -> "Settings":
+        """The relying party of passkeys is the frontend's host."""
+        parsed = urlparse(self.FRONTEND_URL) if self.FRONTEND_URL else None
+        if not self.PASSKEY_RP_ID and parsed and parsed.hostname:
+            self.PASSKEY_RP_ID = parsed.hostname
+        if not self.PASSKEY_ORIGIN and parsed and parsed.scheme and parsed.netloc:
+            self.PASSKEY_ORIGIN = f"{parsed.scheme}://{parsed.netloc}"
+        if not self.PASSKEY_RP_NAME:
+            self.PASSKEY_RP_NAME = self.INSTANCE_NAME
         return self
 
 

@@ -28,7 +28,11 @@ const OVER = {
   name: 'Opdracht Zeta 2026',
   attention: [
     { kind: 'overrun', text: 'Verwacht totaal € 3.000 boven de begroting.', tab: 'finance' },
-    { kind: 'months_not_closed', text: '2 maanden met inzet zijn nog niet afgesloten.', tab: 'monthClose' },
+    {
+      kind: 'months_not_closed',
+      text: '2 maanden met inzet zijn nog niet afgesloten.',
+      tab: 'monthClose',
+    },
   ],
 };
 const PIPELINE = { ...FIGURES, budgeted_cents: 5000000, expected_total_cents: 5000000 };
@@ -42,7 +46,13 @@ const PROSPECT = {
   reference_month: null,
 };
 const LATER = { ...PROSPECT, assignment_id: 'a4', name: 'Opdracht Eta 2027', in_year: false };
-const DONE = { ...ROW, assignment_id: 'a5', name: 'Opdracht Gamma 2025', status: 'completed', phase: 'closed' as const };
+const DONE = {
+  ...ROW,
+  assignment_id: 'a5',
+  name: 'Opdracht Gamma 2025',
+  status: 'completed',
+  phase: 'closed' as const,
+};
 
 const FULL = {
   year: 2026,
@@ -76,7 +86,9 @@ describe('OverviewPage', () => {
     // Above the figures and the lists.
     const order = [...container.querySelectorAll('nldd-title[text], .grip-tiles, nldd-table')];
     expect(order[0]?.getAttribute('text')).toBe('Wat vraagt aandacht');
-    const links = [...container.querySelectorAll('nldd-link')].map((link) => link.getAttribute('href'));
+    const links = [...container.querySelectorAll('nldd-link')].map((link) =>
+      link.getAttribute('href'),
+    );
     expect(links).toContain('/opdrachten/a3/financieel');
     expect(links).toContain('/opdrachten/a3/maandafsluiting');
     expect(allText(container)).toContain('Verwacht totaal € 3.000 boven de begroting.');
@@ -169,32 +181,25 @@ describe('OverviewPage', () => {
     ).toContain('/opdrachten/a1/bemensing');
   });
 
-  it('shows the first tasks of the reader with a link to Taken', async () => {
-    const task = (id: string, due: string | null) => ({
-      id,
-      title: `Taak ${id}`,
-      case_label: 'Opdracht Alfa 2026',
-      status: 'todo',
-      due_on: due,
-      link: `/opdrachten/a1/taken?taak=${id}`,
-    });
-    const { container } = renderPage(FULL, {
-      items: [task('t2', '2026-11-01'), task('t1', '2026-10-10'), { ...task('t3', null), status: 'done' }],
-      counts: {},
-    });
+  it('gives the tasks of the reader a place of their own', async () => {
+    // What a task says, and which are the reader's to do, is tested with the
+    // tasks feature; the start page only places the block under its heading.
+    const { container } = renderPage(FULL, { items: [], awaited: [], counts: {} });
     await waitFor(() =>
       expect(container.querySelector('nldd-title[text="Mijn taken"]')).not.toBeNull(),
     );
-    const links = [...container.querySelectorAll('nldd-link')].map((link) => link.getAttribute('text'));
-    expect(links.indexOf('Taak t1')).toBeLessThan(links.indexOf('Taak t2'));
-    expect(links).not.toContain('Taak t3');
-    expect(links).toContain('Naar Taken');
+    await waitFor(() => expect(container.textContent).toContain('Niets te doen'));
   });
 });
 
 describe('start page model', () => {
   it('puts an overrun first, then other points, then the rest by name', () => {
-    const other = { ...ROW, assignment_id: 'b', name: 'Beta', attention: [{ kind: 'not_priced', text: 'x.', tab: 'budget' }] };
+    const other = {
+      ...ROW,
+      assignment_id: 'b',
+      name: 'Beta',
+      attention: [{ kind: 'not_priced', text: 'x.', tab: 'budget' }],
+    };
     expect(sortRows([ROW, other, OVER], 'attention').map((row) => row.name)).toEqual([
       'Opdracht Zeta 2026',
       'Beta',

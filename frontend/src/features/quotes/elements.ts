@@ -13,3 +13,5 @@ import '@nldd/design-system/icon-button';
 import '@nldd/design-system/list';
 import '@nldd/design-system/menu';
 import '@nldd/design-system/step-bar';
+import '@nldd/design-system/rich-text';
+import '@nldd/design-system/multi-line-text-field';

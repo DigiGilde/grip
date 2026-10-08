@@ -394,6 +394,99 @@ def _check_identity(
         )
 
 
+def _check_passkey(
+    bundle: dict[str, Any], statement: dict[str, Any], report: Report
+) -> None:
+    """The passkey assertion, when the decision was confirmed with one.
+
+    The statement (signed by the instance) holds the public key, the
+    relying party and the inputs of the challenge; the bundle holds what
+    the device signed. Nothing is said when no passkey was used.
+    """
+    from grip.proof.jose import b64url_decode
+    from grip.proof.passkey import (
+        PasskeyError,
+        assertion_hash,
+        check_assertion,
+        compute_challenge,
+    )
+
+    stated = _object(statement.get("hoe")).get("passkey")
+    carried = _object(bundle.get("passkey")).get("assertion")
+    if stated is None and carried is None:
+        return
+    if not isinstance(stated, dict):
+        report.wrong(
+            "De bundel bevat een bevestiging met een passkey, maar de verklaring "
+            "noemt er geen."
+        )
+        return
+    if not isinstance(carried, dict):
+        report.not_proven(
+            "De verklaring noemt een bevestiging met een passkey, maar die zit "
+            "niet in de bundel en is dus niet na te gaan."
+        )
+        return
+    if assertion_hash(carried) != stated.get("assertion_sha256"):
+        report.wrong(
+            "De bevestiging met een passkey in de bundel is een andere dan die de "
+            "verklaring noemt."
+        )
+        return
+    inputs = _object(stated.get("uitdaging"))
+    quote = _object(statement.get("offerte"))
+    try:
+        challenge = compute_challenge(inputs)
+    except (KeyError, TypeError, ValueError):
+        report.wrong("De uitdaging van de passkey is niet te berekenen.")
+        return
+    if inputs.get("vingerafdruk") != quote.get("vingerafdruk"):
+        report.wrong("De passkey tekende voor een andere offerte.")
+        return
+    if (inputs.get("bestand_sha256") or "") != (quote.get("bestand_sha256") or ""):
+        report.wrong("De passkey tekende voor een ander document.")
+        return
+    if inputs.get("besluit") != statement.get("besluit"):
+        report.wrong("De passkey tekende voor een ander besluit.")
+        return
+    try:
+        facts = check_assertion(
+            carried,
+            public_key_cose=b64url_decode(str(stated.get("publieke_sleutel_cose"))),
+            challenge=challenge,
+            rp_id=str(stated.get("rp_id") or ""),
+            origin=str(stated.get("origin") or ""),
+        )
+    except (PasskeyError, ValueError) as exc:
+        report.wrong(f"De bevestiging met een passkey klopt niet: {exc}")
+        return
+    report.proven(
+        "Een passkey tekende voor precies dit besluit: de uitdaging is berekend "
+        "uit de vingerafdruk van de offerte, de hash van het document, het "
+        "besluit en het kenmerk, en de handtekening klopt met de publieke "
+        f"sleutel in de verklaring (op {stated.get('origin')})."
+    )
+    if facts.user_verified:
+        report.proven(
+            "Het apparaat met de passkey meldde dat het zijn gebruiker heeft "
+            "geverifieerd (vingerafdruk, gezicht of pincode) voor deze handeling."
+        )
+    registration = _object(stated.get("registratie"))
+    when = registration.get("geregistreerd_op") or "onbekend"
+    if registration.get("uitgever"):
+        how = (
+            f"in een sessie die was aangemeld bij {registration.get('uitgever')} "
+            f"als {registration.get('subject')}"
+        )
+    else:
+        how = str(registration.get("ontbreekt_omdat") or "zonder bekende aanmelding")
+    report.not_proven(
+        f"De passkey is op {when} in deze instantie vastgelegd, {how}. Dat de "
+        "passkey bij deze persoon hoort berust op die registratie van de "
+        "instantie. Welke mens het apparaat bediende is hiermee niet bewezen."
+    )
+
+
 def _kid_of(compact: str) -> str | None:
     try:
         header = json.loads(
@@ -475,6 +568,7 @@ def verify_bundle(
     report.statement = statement
     _check_document(bundle, statement, report, held=held_document)
     _check_identity(bundle, statement, fingerprint, report, online=online)
+    _check_passkey(bundle, statement, report)
     _check_timestamp(bundle, payload, report, tsa_roots=tsa_roots)
 
     authority = _object(statement.get("bevoegdheid"))

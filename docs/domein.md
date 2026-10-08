@@ -31,7 +31,11 @@ UI-termen zijn Nederlands; code en schema gebruiken de Engelse naam.
 | Investeerruimte in geld (voorlopig) | `room` | Wat de organisatie in een jaar verdient boven wat zij moet verdienen: de verwachte omzet van externe opdrachten met akkoord (gerealiseerd plus nog gepland, ook op mondeling akkoord), min de som van de declarabiliteitstargets, min ongedekte kosten, min wat interne opdrachten volgens hun begroting gebruiken. Negatief is een tekort. De pijplijn telt niet mee en staat er apart bij. De definitie is nog niet bevestigd; het scherm zegt daarom wat er geteld is |
 | Investeerruimte in tijd (voorlopig) | `free capacity` | De capaciteit die deze maand en de drie maanden erna niet is ingepland, in FTE en gewaardeerd tegen het inzettarief van elke persoon in die maand. Iedereen telt als voltijds, tot er een deeltijdfactor per persoon is |
 | Peildatum van de stand | `reference_month` | De laatst afgesloten maand van een opdracht. Tot en met die maand zijn bedragen werkelijk, daarna planning |
-| Aangeleverd | `delivered` | De factuurgegevens van een afgesloten maand zijn geëxporteerd voor de financiële administratie. Het is geen factuur |
+| Aangeleverd | `delivered` | De factuurgegevens van een factuurperiode zijn als factuurverzoek aan de financiële administratie gegeven: per mail met een link, of door de opdrachtmanager zelf. Het is geen factuur |
+| Factuurperiode | `billing period` | De periode waarover wordt gefactureerd: een maand of een kalenderkwartaal, volgens de factuurafspraken van de opdracht. Zie ADR 0039 |
+| Factuurafspraken | `billing_terms` | Het ritme van factureren, het factuuradres en het kenmerk van de opdrachtgever |
+| Aanlevering | `billing_delivery` | Wat voor één factuurperiode aan de financiële administratie is gegeven, met het factuurverzoek als bewaard document |
+| Factuurverzoek | `factuurverzoek` | Het document van een aanlevering: bedrag, factuuradres, afspraak en specificatie per maand |
 | Nog aan te leveren | `to_deliver` | De vastgestelde inzet van afgesloten maanden, geprijsd, min wat is aangeleverd |
 | Gefactureerd | `invoiced` | Er is een factuur verstuurd. Grip weet dat alleen doordat iemand het heeft vastgelegd; tot dan heet geen bedrag gefactureerd |
 | Nog te factureren | `to_invoice` | Aangeleverd min gefactureerd: aangeleverd, en in grip nog geen factuur vastgelegd |

@@ -1,3 +1,5 @@
+import { documentTitle } from '@/brand/names';
+import { iconOf } from '@/ui/icons';
 import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -133,7 +135,7 @@ function Heading({ name, end, children }: HeadingProps) {
   const ref = useRef<HTMLElement>(null);
   useRouterLinks(ref);
   useEffect(() => {
-    document.title = [name, instance?.name ?? 'Grip'].join(' - ');
+    document.title = documentTitle(name, instance?.name);
   }, [name, instance?.name]);
   return (
     <nldd-container ref={ref} slot="header" gap="8">
@@ -607,7 +609,7 @@ function KpiSection({
           <nldd-tag
             slot="end"
             color={standing === 'on-track' ? 'success' : 'warning'}
-            icon={standing === 'on-track' ? 'check' : 'warning'}
+            icon={iconOf(standing === 'on-track' ? 'done' : 'attention')}
             text={KPI_STANDING_TEXT[standing]}
           />
         )}

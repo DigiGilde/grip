@@ -30,3 +30,7 @@ class AuthStatus(BaseModel):
     # line_manager, team_member. For the navigation only; no route trusts it.
     relations: list[str] = []
     guest: GuestSummary | None = None
+    # Whether a passkey alone can log in here: the login page then offers it.
+    passkey_login: bool = False
+    # Whether this session began with a passkey instead of the provider.
+    passkey_session: bool = False

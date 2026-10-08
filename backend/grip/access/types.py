@@ -98,6 +98,8 @@ class Action(StrEnum):
     MANAGE_ROLES = "manage_roles"
     # Record an advice or the approval on a vacancy request.
     RECORD_DECISION = "record_decision"
+    # Judge a text of a vacancy that was offered for review, and remark on it.
+    REVIEW_TEXT = "review_text"
     # Ask for internal approval of a made quote, and give or refuse it.
     REQUEST_QUOTE_APPROVAL = "request_quote_approval"
     DECIDE_QUOTE_APPROVAL = "decide_quote_approval"

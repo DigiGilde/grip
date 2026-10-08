@@ -20,7 +20,12 @@ describe('standing', () => {
 
   it('starts at the budget', () => {
     const result = standing(facts({ budgetLines: 0, quotes: [] }));
-    expect(states(result)).toEqual(['budget:current', 'quote:future', 'offer:future', 'agreement:future']);
+    expect(states(result)).toEqual([
+      'budget:current',
+      'quote:future',
+      'offer:future',
+      'agreement:future',
+    ]);
     expect(result?.action).toEqual({ text: 'Maak de begroting', tab: 'budget' });
   });
 
@@ -30,9 +35,31 @@ describe('standing', () => {
     expect(result?.advice).toBe('De begroting staat. Maak er een offerte van.');
   });
 
+  it('says to write the quote while a started letter is not whole, and to make it once it is', () => {
+    const writing = standing(facts({ budgetLines: 2, quotes: [], draftProblems: 2 }));
+    expect(writing?.current).toBe('quote');
+    expect(writing?.steps.find((step) => step.key === 'quote')?.text).toBe('Schrijf de offerte');
+    expect(writing?.action?.text).toBe('Schrijf de offerte');
+    expect(writing?.advice).toContain('2 onderdelen missen');
+    const whole = standing(facts({ budgetLines: 2, quotes: [], draftProblems: 0 }));
+    expect(whole?.steps.find((step) => step.key === 'quote')?.text).toBe('Offerte maken');
+    expect(whole?.action?.text).toBe('Maak de offerte');
+    // No letter started: as before.
+    const none = standing(facts({ budgetLines: 2, quotes: [] }));
+    expect(none?.action?.text).toBe('Maak de offerte');
+    expect(none?.advice).toContain('De begroting staat');
+  });
+
   it('asks to offer a quote that was made and not offered', () => {
-    const result = standing(facts({ status: 'quoted', budgetLines: 2, quotes: [issued], offers: [] }));
-    expect(states(result)).toEqual(['budget:done', 'quote:done', 'offer:current', 'agreement:future']);
+    const result = standing(
+      facts({ status: 'quoted', budgetLines: 2, quotes: [issued], offers: [] }),
+    );
+    expect(states(result)).toEqual([
+      'budget:done',
+      'quote:done',
+      'offer:current',
+      'agreement:future',
+    ]);
     expect(result?.action?.text).toBe('Bied de offerte aan');
   });
 
@@ -44,18 +71,30 @@ describe('standing', () => {
         quotes: [issued],
         offers: [
           { channel: 'document', offered_at: '2026-10-02T10:00:00Z' },
-          { channel: 'signing_link', offered_at: '2026-10-08T10:00:00Z', invitationState: 'invited' },
+          {
+            channel: 'signing_link',
+            offered_at: '2026-10-08T10:00:00Z',
+            invitationState: 'invited',
+          },
         ],
       }),
     );
-    expect(states(result)).toEqual(['budget:done', 'quote:done', 'offer:done', 'agreement:current']);
+    expect(states(result)).toEqual([
+      'budget:done',
+      'quote:done',
+      'offer:done',
+      'agreement:current',
+    ]);
     expect(result?.advice).toBe('Aangeboden met een tekenlink op 8 okt 2026; nog geen reactie.');
     expect(result?.action?.text).toBe('Open de offerte');
   });
 
   it('offers to record the signed document when the quote went as a document', () => {
     const result = standing(
-      facts({ quotes: [issued], offers: [{ channel: 'document', offered_at: '2026-10-02T10:00:00Z' }] }),
+      facts({
+        quotes: [issued],
+        offers: [{ channel: 'document', offered_at: '2026-10-02T10:00:00Z' }],
+      }),
     );
     expect(result?.advice).toBe('Aangeboden als document op 2 okt 2026; nog geen reactie.');
     expect(result?.action?.text).toBe('Leg het getekende akkoord vast');
@@ -65,7 +104,13 @@ describe('standing', () => {
     const result = standing(
       facts({
         quotes: [issued],
-        offers: [{ channel: 'signing_link', offered_at: '2026-10-08T10:00:00Z', invitationState: 'opened' }],
+        offers: [
+          {
+            channel: 'signing_link',
+            offered_at: '2026-10-08T10:00:00Z',
+            invitationState: 'opened',
+          },
+        ],
       }),
     );
     expect(result?.advice).toContain('geopend, nog niet getekend');
@@ -91,7 +136,16 @@ describe('standing', () => {
     expect(approved?.steps.map((step) => step.key)).toContain('approval');
     // Needed and not asked yet: asking is the step, in the server's words when it gives them.
     const needed = standing(
-      facts({ quotes: [{ ...issued, approval: 'none', blockedMessage: 'Vanaf € 100.000 is intern akkoord nodig.' }], offers: [] }),
+      facts({
+        quotes: [
+          {
+            ...issued,
+            approval: 'none',
+            blockedMessage: 'Vanaf € 100.000 is intern akkoord nodig.',
+          },
+        ],
+        offers: [],
+      }),
     );
     expect(needed?.current).toBe('approval');
     expect(needed?.advice).toBe('Vanaf € 100.000 is intern akkoord nodig.');
@@ -108,10 +162,14 @@ describe('standing', () => {
   });
 
   it('asks for a new quote when the last one expired or was rejected', () => {
-    const expired = standing(facts({ budgetLines: 2, quotes: [{ ...issued, valid_until: '2026-10-01' }] }));
+    const expired = standing(
+      facts({ budgetLines: 2, quotes: [{ ...issued, valid_until: '2026-10-01' }] }),
+    );
     expect(expired?.current).toBe('quote');
     expect(expired?.advice).toBe('De offerte is verlopen op 1 okt 2026. Maak een nieuwe offerte.');
-    const rejected = standing(facts({ budgetLines: 2, quotes: [{ ...issued, status: 'rejected' }] }));
+    const rejected = standing(
+      facts({ budgetLines: 2, quotes: [{ ...issued, status: 'rejected' }] }),
+    );
     expect(rejected?.current).toBe('quote');
     expect(rejected?.advice).toContain('afgewezen');
   });
@@ -119,7 +177,12 @@ describe('standing', () => {
   it('says less, never something else, when the quotes or offers are not known', () => {
     // Only the assignment itself is known: a quote exists, nothing about offers.
     const result = standing(facts({ status: 'quoted' }));
-    expect(states(result)).toEqual(['budget:done', 'quote:done', 'offer:current', 'agreement:future']);
+    expect(states(result)).toEqual([
+      'budget:done',
+      'quote:done',
+      'offer:current',
+      'agreement:future',
+    ]);
     expect(result?.advice).toBe('De offerte is gemaakt.');
     expect(result?.action?.text).toBe('Ga naar de offerte');
   });
@@ -141,7 +204,12 @@ describe('standing', () => {
         budgetMoved: true,
       }),
     );
-    expect(states(result)).toEqual(['budget:done', 'quote:current', 'offer:future', 'agreement:future']);
+    expect(states(result)).toEqual([
+      'budget:done',
+      'quote:current',
+      'offer:future',
+      'agreement:future',
+    ]);
     expect(result?.advice).toContain('De offerte klopt niet meer');
     expect(result?.action).toEqual({ text: 'Maak een nieuwe offerte', tab: 'quote' });
   });

@@ -90,6 +90,8 @@ class TextKind(enum.StrEnum):
 class TextSource(enum.StrEnum):
     human = "human"
     model = "model"
+    # Filled from the standard text of the role, before a person changed it.
+    template = "template"
 
 
 def _in(column: str, values: type[enum.StrEnum]) -> str:
@@ -351,6 +353,9 @@ class VacancyText(Base):
         ForeignKey("vacancy_text.id", ondelete="SET NULL"),
         nullable=True,
     )
+    # The standard text this version was filled from, as it read then:
+    # "Software engineer, versie 2026-10-08".
+    template_label: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.clock_timestamp()
     )

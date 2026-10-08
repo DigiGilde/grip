@@ -61,7 +61,7 @@ from grip.proof.bundle import BUNDLE_MEDIA_TYPE, render_page
 from grip.proof.decisions import execute
 from grip.proof.statement import parse_statement
 from grip.proof.verify import verify_bundle
-from grip.services import quote_views
+from grip.services import passkeys, quote_views
 from grip.services.errors import DomainError, DomainValidationError, NotFoundError
 
 logger = logging.getLogger(__name__)
@@ -129,6 +129,32 @@ def _intent_out(
     }
 
 
+async def _intent_with_passkey(
+    db: AsyncSession,
+    intent: SigningIntent,
+    prefix: str,
+    settings: Settings,
+    person: Person | None,
+) -> dict[str, Any]:
+    """The intent, with whether this person can confirm it with a passkey.
+
+    When ``passkey`` is not None the screen asks the device first (options,
+    then the assertion) and navigates to ``authorize_url`` afterwards. It is
+    an addition: skipping it, or a device that refuses, leaves the decision
+    possible exactly as without a passkey.
+    """
+    out = _intent_out(intent, prefix, settings)
+    out["passkey"] = (
+        {
+            "options_url": f"/api/{prefix}/intents/{intent.id}/passkey/options",
+            "verify_url": f"/api/{prefix}/intents/{intent.id}/passkey",
+        }
+        if await passkeys.available_for(db, person, settings)
+        else None
+    )
+    return out
+
+
 # --- creating an intent --------------------------------------------------------
 
 
@@ -180,7 +206,7 @@ async def create_signing_intent(
         },
         return_path=_safe_path(body.return_path, f"/tekenen/{quote.id}"),
     )
-    return _intent_out(intent, "signing", settings)
+    return await _intent_with_passkey(db, intent, "signing", settings, person)
 
 
 _KINDS = {
@@ -250,7 +276,7 @@ async def create_decision_intent(
         },
         return_path=_safe_path(body.return_path, default),
     )
-    return _intent_out(intent, "proof", settings)
+    return await _intent_with_passkey(db, intent, "proof", settings, person)
 
 
 # --- to the identity provider and back ------------------------------------------
@@ -392,6 +418,107 @@ async def authorize_decision_intent(
     if intent.channel == "signing_link" or not _owns(intent, person.id, person.email):
         raise HTTPException(status_code=404, detail="Niet gevonden")
     return await _authorize(request, intent, db, settings)
+
+
+# --- confirming with a passkey, before going to the identity provider -----------
+
+
+class PasskeyAssertionIn(BaseModel):
+    # What navigator.credentials.get returned, as JSON.
+    credential: str = Field(max_length=20000)
+
+
+async def _own_intent(
+    db: AsyncSession, intent_id: UUID, person: Person, *, signing_link: bool
+) -> SigningIntent:
+    intent = await flow.get_intent(db, intent_id)
+    if (intent.channel == "signing_link") != signing_link or not _owns(
+        intent, person.id, person.email
+    ):
+        raise HTTPException(status_code=404, detail="Niet gevonden")
+    return intent
+
+
+async def _passkey_options(
+    db: AsyncSession, intent: SigningIntent, person: Person, settings: Settings
+) -> dict[str, str]:
+    return {
+        "options_json": await passkeys.decision_options(db, intent, person, settings)
+    }
+
+
+async def _passkey_confirm(
+    db: AsyncSession,
+    intent: SigningIntent,
+    person: Person,
+    settings: Settings,
+    body: PasskeyAssertionIn,
+) -> dict[str, bool]:
+    try:
+        await passkeys.confirm_decision(
+            db, intent, person, settings, credential=body.credential
+        )
+    except passkeys.PasskeyRefusedError as exc:
+        raise HTTPException(status_code=400, detail=exc.message) from exc
+    return {"confirmed": True}
+
+
+@router.post("/intents/{intent_id}/passkey/options", response_model=None)
+async def decision_passkey_options(
+    intent_id: UUID,
+    person: CurrentPerson,
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, str]:
+    """The challenge a passkey signs for this decision."""
+    intent = await _own_intent(db, intent_id, person, signing_link=False)
+    return await _passkey_options(db, intent, person, settings)
+
+
+@router.post("/intents/{intent_id}/passkey", response_model=None)
+async def decision_passkey_confirm(
+    intent_id: UUID,
+    body: PasskeyAssertionIn,
+    person: CurrentPerson,
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, bool]:
+    """Check what the passkey signed and keep it with the decision."""
+    intent = await _own_intent(db, intent_id, person, signing_link=False)
+    return await _passkey_confirm(db, intent, person, settings, body)
+
+
+async def _signer_person(db: AsyncSession, signer: Signer) -> Person:
+    """A passkey belongs to a person of this instance; a guest has none."""
+    person = await db.get(Person, signer.person_id) if signer.person_id else None
+    if person is None:
+        raise HTTPException(status_code=404, detail="Niet gevonden")
+    return person
+
+
+@signing_router.post("/intents/{intent_id}/passkey/options", response_model=None)
+async def signing_passkey_options(
+    intent_id: UUID,
+    signer: CurrentSigner,
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, str]:
+    person = await _signer_person(db, signer)
+    intent = await _own_intent(db, intent_id, person, signing_link=True)
+    return await _passkey_options(db, intent, person, settings)
+
+
+@signing_router.post("/intents/{intent_id}/passkey", response_model=None)
+async def signing_passkey_confirm(
+    intent_id: UUID,
+    body: PasskeyAssertionIn,
+    signer: CurrentSigner,
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, bool]:
+    person = await _signer_person(db, signer)
+    intent = await _own_intent(db, intent_id, person, signing_link=True)
+    return await _passkey_confirm(db, intent, person, settings, body)
 
 
 def pending_intent(request: Request) -> dict[str, str] | None:

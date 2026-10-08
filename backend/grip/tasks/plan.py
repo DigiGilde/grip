@@ -66,6 +66,9 @@ class Track:
 @dataclass(frozen=True)
 class Plan:
     version: str
+    # Older versions whose running cases move to this one: where the old
+    # arrangement of the work is wrong, not merely older.
+    replaces: tuple[str, ...]
     tracks: dict[str, tuple[Track, ...]]
     templates: dict[str, tuple[Template, ...]]
 
@@ -187,7 +190,12 @@ def parse_plan(data: dict[str, Any]) -> Plan:
             seen.add(template.key)
             parsed.append(template)
         templates[case_kind] = tuple(parsed)
-    return Plan(version=version, tracks=tracks, templates=templates)
+    replaces = data.get("replaces") or ()
+    if not all(isinstance(old, str) and old for old in replaces):
+        raise PlanError("Onder 'replaces' staan versies van het plan.")
+    return Plan(
+        version=version, replaces=tuple(replaces), tracks=tracks, templates=templates
+    )
 
 
 def load_plan(path: Path = DEFAULT_PLAN_FILE) -> Plan:

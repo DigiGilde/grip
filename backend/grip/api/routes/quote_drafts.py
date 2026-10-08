@@ -14,7 +14,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -63,12 +63,16 @@ class LetterIn(BaseModel):
     closing: str | None = None
     client_signatory: dict[str, str] | None = None
     billing_annex: bool | None = None
+    # The ``head_version`` the writer started from; a mismatch answers 409.
+    head_version: int | None = None
 
 
 class SectionIn(BaseModel):
     body: str | None = None
     heading: str | None = None
     included: bool | None = None
+    # The ``version`` of the section the writer started from.
+    version: int | None = None
 
 
 class NewSectionIn(BaseModel):
@@ -79,6 +83,7 @@ class NewSectionIn(BaseModel):
 class OutlineIn(BaseModel):
     keys: list[str]
     new_sections: list[NewSectionIn] = Field(default_factory=list)
+    outline_version: int | None = None
 
 
 class RewriteIn(BaseModel):
@@ -151,13 +156,37 @@ def _problems(content: dict[str, Any]) -> list[dict[str, str]]:
 def _draft_out(
     content: dict[str, Any], *, saved: bool, may_edit: bool
 ) -> dict[str, Any]:
+    sections = [
+        {**section, **quote_drafts.section_rules(section)}
+        for section in content["sections"]
+    ]
     return {
         "saved": saved,
         "may_edit": may_edit,
         "drafting_available": is_llm_configured(),
         "problems": _problems(content),
-        **content,
+        **{**content, "sections": sections},
     }
+
+
+def _conflict(
+    exc: quote_drafts.DraftConflictError, content: dict[str, Any]
+) -> JSONResponse:
+    """409 with what is there now, so the screen can show it next to the
+    writer's own text."""
+    return JSONResponse(
+        status_code=409,
+        media_type="application/problem+json",
+        content={
+            "type": "about:blank",
+            "title": "Conflict",
+            "status": 409,
+            "detail": str(exc),
+            "changed_by": exc.changed_by,
+            "changed_at": exc.changed_at,
+            "current": _draft_out(content, saved=True, may_edit=True),
+        },
+    )
 
 
 @router.get("/assignments/{assignment_id}/quote-draft", response_model=None)
@@ -183,13 +212,19 @@ async def update_quote_draft(
     subject: CurrentSubject,
     decider: AccessDecider,
     db: AsyncSession = Depends(get_db),
-) -> dict[str, Any]:
+) -> Any:
     """Change subject, addressee, salutation, opening, closing or the
     signatory of the client."""
     assignment = await _editable(db, decider, subject, assignment_id)
-    content = await quote_drafts.update_letter(
-        db, assignment, body.model_dump(exclude_unset=True), actor=person
-    )
+    fields = body.model_dump(exclude_unset=True)
+    fields.pop("head_version", None)
+    try:
+        content = await quote_drafts.update_letter(
+            db, assignment, fields, actor=person, expected_version=body.head_version
+        )
+    except quote_drafts.DraftConflictError as exc:
+        current, _ = await quote_drafts.read_draft(db, assignment)
+        return _conflict(exc, current)
     return _draft_out(content, saved=True, may_edit=True)
 
 
@@ -204,18 +239,23 @@ async def save_quote_section(
     subject: CurrentSubject,
     decider: AccessDecider,
     db: AsyncSession = Depends(get_db),
-) -> dict[str, Any]:
+) -> Any:
     """Save a section. Saving is what settles a text the model drafted."""
     assignment = await _editable(db, decider, subject, assignment_id)
-    content = await quote_drafts.save_section(
-        db,
-        assignment,
-        key,
-        actor=person,
-        body=body.body,
-        heading=body.heading,
-        included=body.included,
-    )
+    try:
+        content = await quote_drafts.save_section(
+            db,
+            assignment,
+            key,
+            actor=person,
+            body=body.body,
+            heading=body.heading,
+            included=body.included,
+            expected_version=body.version,
+        )
+    except quote_drafts.DraftConflictError as exc:
+        current, _ = await quote_drafts.read_draft(db, assignment)
+        return _conflict(exc, current)
     return _draft_out(content, saved=True, may_edit=True)
 
 
@@ -227,16 +267,21 @@ async def set_quote_outline(
     subject: CurrentSubject,
     decider: AccessDecider,
     db: AsyncSession = Depends(get_db),
-) -> dict[str, Any]:
+) -> Any:
     """Reorder the sections, drop one, or add a section of your own."""
     assignment = await _editable(db, decider, subject, assignment_id)
-    content = await quote_drafts.set_outline(
-        db,
-        assignment,
-        body.keys,
-        actor=person,
-        new_sections=[item.model_dump() for item in body.new_sections],
-    )
+    try:
+        content = await quote_drafts.set_outline(
+            db,
+            assignment,
+            body.keys,
+            actor=person,
+            new_sections=[item.model_dump() for item in body.new_sections],
+            expected_version=body.outline_version,
+        )
+    except quote_drafts.DraftConflictError as exc:
+        current, _ = await quote_drafts.read_draft(db, assignment)
+        return _conflict(exc, current)
     return _draft_out(content, saved=True, may_edit=True)
 
 

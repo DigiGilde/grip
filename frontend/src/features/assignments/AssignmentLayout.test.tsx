@@ -9,7 +9,20 @@ import { FIGURES, PERMISSIONS, allText, assignment, finance, mockApi } from './t
 
 afterEach(() => vi.unstubAllGlobals());
 
-const MONTHS = ['2026-01-01','2026-02-01','2026-03-01','2026-04-01','2026-05-01','2026-06-01','2026-07-01','2026-08-01','2026-09-01','2026-10-01','2026-11-01','2026-12-01'];
+const MONTHS = [
+  '2026-01-01',
+  '2026-02-01',
+  '2026-03-01',
+  '2026-04-01',
+  '2026-05-01',
+  '2026-06-01',
+  '2026-07-01',
+  '2026-08-01',
+  '2026-09-01',
+  '2026-10-01',
+  '2026-11-01',
+  '2026-12-01',
+];
 
 const STAFFING = {
   assignment_id: 'a1',
@@ -22,6 +35,9 @@ const STAFFING = {
   open_fte: '0.30',
   open_from: '2026-10-01',
   overbooked_count: 1,
+  overbooked: [
+    { person_id: 'p1', person_name: 'Voorbeeld Een', month: '2026-10-01', pct: '140.0' },
+  ],
   roles: [
     {
       budget_line_id: 'l1',
@@ -119,7 +135,9 @@ function renderShell(
 
 async function tabs(container: HTMLElement) {
   await waitFor(() => expect(container.querySelector('nldd-tab-bar')).not.toBeNull());
-  return [...container.querySelectorAll('nldd-tab-bar-item')].map((item) => item.getAttribute('text'));
+  return [...container.querySelectorAll('nldd-tab-bar-item')].map((item) =>
+    item.getAttribute('text'),
+  );
 }
 
 describe('AssignmentLayout', () => {
@@ -132,7 +150,7 @@ describe('AssignmentLayout', () => {
       'Bemensing',
       'Begroting',
       'Offerte',
-      'Maandafsluiting',
+      'Afsluiten en factureren',
       'Geschiedenis',
     ]);
     const hrefs = [...container.querySelectorAll('nldd-tab-bar-item')].map((item) =>
@@ -153,7 +171,13 @@ describe('AssignmentLayout', () => {
 
   it('shows a planner no money tab', async () => {
     const { container } = renderShell(PERMISSIONS.planner);
-    expect(await tabs(container)).toEqual(['Overzicht', 'Taken', 'Bemensing', 'Maandafsluiting', 'Geschiedenis']);
+    expect(await tabs(container)).toEqual([
+      'Overzicht',
+      'Taken',
+      'Bemensing',
+      'Afsluiten en factureren',
+      'Geschiedenis',
+    ]);
   });
 
   it('shows a team member the overview and the team', async () => {
@@ -169,7 +193,7 @@ describe('AssignmentLayout', () => {
       'Financieel',
       'Begroting',
       'Offerte',
-      'Maandafsluiting',
+      'Afsluiten en factureren',
       'Geschiedenis',
     ]);
   });
@@ -194,13 +218,22 @@ describe('AssignmentLayout', () => {
 
     const planner = renderShell(PERMISSIONS.planner);
     await tabs(planner.container);
-    expect(planner.container.querySelector('nldd-table[accessible-label^="Kerncijfers"]')).toBeNull();
+    expect(
+      planner.container.querySelector('nldd-table[accessible-label^="Kerncijfers"]'),
+    ).toBeNull();
     expect(allText(planner.container)).not.toContain('€');
   });
 
   it('asks for the whole period, and does not call a budget without inzet all room', async () => {
     // An assignment that lies entirely in a later year: budgeted, nothing planned yet.
-    const later = { ...FIGURES, realised_total_cents: 0, expected_total_cents: 0, variance_cents: 43440000, variance_pct: '100', budgeted_cents: 43440000 };
+    const later = {
+      ...FIGURES,
+      realised_total_cents: 0,
+      expected_total_cents: 0,
+      variance_cents: 43440000,
+      variance_pct: '100',
+      budgeted_cents: 43440000,
+    };
     const { container } = renderShell(
       PERMISSIONS.owner,
       '/opdrachten/a1',
@@ -258,7 +291,9 @@ describe('Bemensing tab', () => {
     expect(gap.textContent).toContain('0,3 FTE open');
     // The row label is quiet: the role with the asked FTE as a small figure.
     expect(tab.querySelector('.grip-board__name')?.textContent).toBe('Productmanager0,8 FTE');
-    expect(tab.querySelector('.grip-board__attention')?.textContent).toContain('0,3 FTE open vanaf okt');
+    expect(tab.querySelector('.grip-board__attention')?.textContent).toContain(
+      '0,3 FTE open vanaf okt',
+    );
     expect(tab.querySelectorAll('h2, h3')).toHaveLength(0);
   });
 
@@ -266,14 +301,25 @@ describe('Bemensing tab', () => {
     const { container } = renderShell(PERMISSIONS.planner, '/opdrachten/a1/bemensing');
     await waitFor(() => expect(container.querySelector('table[role="grid"]')).not.toBeNull());
     const text = allText(tabOf(container));
-    expect(text).toContain('0 van 1 volledig ingevuld');
-    expect(text).toContain('0,3 FTE');
-    expect(text).toContain('vanaf oktober 2026');
-    expect(text).toContain('1 persoon');
+    // One sentence of state, not three boxes.
+    expect(text).toContain('De rol is nog open: Productmanager, 0,3 FTE vanaf oktober 2026.');
+    expect(
+      tabOf(container).querySelector('nldd-table[accessible-label="Hoe de rollen ervoor staan"]'),
+    ).toBeNull();
+    // The double booking is one signal: who, when, how much, and where to look.
+    expect(text).toContain('Voorbeeld Een zit in oktober 2026 op 140%.');
+    expect(tabOf(container).querySelector('nldd-link[href="/team/p1"]')).not.toBeNull();
     expect(text).toContain('andere categorie');
     expect(text).toContain('start op 1 dec 2026');
     expect(text).not.toContain('€');
-    expect(tabOf(container).querySelector('nldd-link[href="/inzet?opdracht=a1"]')).not.toBeNull();
+    // The board is a quiet action in the bar, not a loose link.
+    expect(tabOf(container).querySelector('nldd-link[href="/inzet?opdracht=a1"]')).toBeNull();
+    // The legend names only what the picture shows.
+    const legend = [...tabOf(container).querySelectorAll('.grip-board__legend li')].map(
+      (li) => li.textContent,
+    );
+    expect(legend.some((item) => item?.includes('Niet inzetbaar'))).toBe(false);
+    expect(legend.length).toBeLessThanOrEqual(6);
   });
 
   it('is the same picture for an owner, plus the ways to act', async () => {
@@ -292,9 +338,16 @@ describe('Bemensing tab', () => {
   });
 
   it('shows a team member names per role and nothing of time', async () => {
-    const { container } = renderShell(PERMISSIONS.member, '/opdrachten/a1/bemensing', {}, NAMES_ONLY);
+    const { container } = renderShell(
+      PERMISSIONS.member,
+      '/opdrachten/a1/bemensing',
+      {},
+      NAMES_ONLY,
+    );
     await waitFor(() =>
-      expect(container.querySelector('nldd-table[accessible-label="Wie op welke rol zit"]')).not.toBeNull(),
+      expect(
+        container.querySelector('nldd-table[accessible-label="Wie op welke rol zit"]'),
+      ).not.toBeNull(),
     );
     const tab = tabOf(container);
     expect(tab.querySelector('table[role="grid"]')).toBeNull();
@@ -308,7 +361,12 @@ describe('Bemensing tab', () => {
 
   it('leads an empty assignment to the budget, or says whose turn it is', async () => {
     const empty = { ...NAMES_ONLY, roles: [] };
-    const owner = renderShell(PERMISSIONS.owner, '/opdrachten/a1/bemensing', { phase: 'potential', status: 'draft' }, empty);
+    const owner = renderShell(
+      PERMISSIONS.owner,
+      '/opdrachten/a1/bemensing',
+      { phase: 'potential', status: 'draft' },
+      empty,
+    );
     await waitFor(() =>
       expect(owner.container.querySelector('nldd-button[text="Maak de begroting"]')).not.toBeNull(),
     );
@@ -320,8 +378,13 @@ describe('Bemensing tab', () => {
     const planner = renderShell(PERMISSIONS.planner, '/opdrachten/a1/bemensing', {}, empty);
     await waitFor(() =>
       expect(
-        planner.container.querySelector('nldd-inline-dialog[text="Deze opdracht heeft nog geen rollen"]'),
-      ).toHaveAttribute('supporting-text', expect.stringContaining('Voorbeeld Eigenaar maakt eerst de begroting')),
+        planner.container.querySelector(
+          'nldd-inline-dialog[text="Deze opdracht heeft nog geen rollen"]',
+        ),
+      ).toHaveAttribute(
+        'supporting-text',
+        expect.stringContaining('Voorbeeld Eigenaar maakt eerst de begroting'),
+      ),
     );
     expect(planner.container.querySelector('nldd-button[text="Maak de begroting"]')).toBeNull();
   });

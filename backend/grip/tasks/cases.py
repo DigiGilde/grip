@@ -8,6 +8,7 @@ fact in the catalogue is computed here and nowhere else.
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from decimal import Decimal
@@ -20,6 +21,7 @@ from sqlalchemy.orm import selectinload
 
 from grip.models.assignment import Allocation, Assignment, BudgetLine
 from grip.models.audit_log import AuditLog
+from grip.models.billing_delivery import BillingDelivery, BillingTerms
 from grip.models.month_close import BillingExport, MonthClose
 from grip.models.organisation import Organisation
 from grip.models.outgoing_invoice import OutgoingInvoice, OutgoingInvoiceDelivery
@@ -28,7 +30,7 @@ from grip.models.quote import Quote, QuoteApproval, QuoteOffer
 from grip.models.task import OPEN_STATUSES, Task
 from grip.models.vacancy import Vacancy
 from grip.models.vacancy_hire import VacancyHire
-from grip.services import phase
+from grip.services import billing_periods, phase
 
 MONTHS_NL = (
     "januari",
@@ -293,6 +295,28 @@ async def load_assignment_cases(
         )
     ).all()
     exports_by_close = _grouped(exports, "month_close_id")
+    # How each assignment is billed: its own terms, or else the instance's.
+    from grip.services import billing_deliveries, instance_settings
+
+    default_rhythm = await instance_settings.get(
+        db, billing_deliveries.DEFAULT_RHYTHM.key
+    )
+    rows = await db.execute(
+        select(BillingTerms.assignment_id, BillingTerms.rhythm).where(
+            BillingTerms.assignment_id.in_(ids)
+        )
+    )
+    rhythms = {row[0]: row[1] for row in rows}
+    deliveries = (
+        await db.execute(
+            select(
+                BillingDelivery.assignment_id,
+                BillingDelivery.period_key,
+                BillingDelivery.delivered_at,
+            ).where(BillingDelivery.assignment_id.in_(ids))
+        )
+    ).all()
+    deliveries_by_assignment = _grouped(deliveries, "assignment_id")
     export_ids = [export.id for export in exports]
     invoiced: set[UUID] = set()
     if export_ids:
@@ -483,6 +507,18 @@ async def load_assignment_cases(
                 )
             )
         subjects["closed_month"] = closed_months
+        subjects["billing_period"] = _billing_periods(
+            rhythms.get(assignment.id, default_rhythm),
+            months_with_inzet=_months_with_inzet(own_allocations, today),
+            closed_by_month=closed_by_month,
+            exports_by_close=exports_by_close,
+            invoiced=invoiced,
+            delivered_keys={
+                d.period_key: d.delivered_at.date()
+                for d in deliveries_by_assignment.get(assignment.id, [])
+            },
+            today=today,
+        )
 
         snapshots.append(
             CaseSnapshot(
@@ -497,6 +533,87 @@ async def load_assignment_cases(
     return snapshots
 
 
+def period_words(key: str) -> str:
+    """A period key in words: "juli 2026", "het derde kwartaal van 2026"."""
+    year, rest = key.split("-", 1)
+    if rest.startswith("Q"):
+        ordinal = ("eerste", "tweede", "derde", "vierde")[int(rest[1:]) - 1]
+        return f"het {ordinal} kwartaal van {year}"
+    return f"{MONTHS_NL[int(rest) - 1]} {year}"
+
+
+def _billing_periods(
+    rhythm: str,
+    *,
+    months_with_inzet: list[date],
+    closed_by_month: dict[date, Any],
+    exports_by_close: dict[Any, list[Any]],
+    invoiced: set[UUID],
+    delivered_keys: dict[str, date],
+    today: date,
+) -> list[Subject]:
+    """The billing periods of an assignment that have work in them.
+
+    A period is ready to deliver when every month in it with planned work is
+    closed and nothing more can come: its last month is closed, or it is over.
+    """
+    from grip.calc import Month
+
+    if rhythm not in billing_periods.RHYTHMS:
+        rhythm = billing_periods.MONTHLY
+    months = sorted(set(months_with_inzet) | set(closed_by_month))
+    periods = billing_periods.periods_of([Month.of(m) for m in months], rhythm)
+    with_work = set(months_with_inzet)
+    subjects = []
+    for period in periods:
+        days = [m.first_day for m in period.months]
+        closed = [closed_by_month[d] for d in days if d in closed_by_month]
+        if not closed:
+            continue
+        open_work = [d for d in days if d in with_work and d not in closed_by_month]
+        # A quarter runs to its calendar end, also when the work stops sooner.
+        if rhythm == billing_periods.QUARTERLY:
+            last = period.last
+            while billing_periods.quarter_of(last.next()) == billing_periods.quarter_of(
+                last
+            ):
+                last = last.next()
+            period_end = last.last_day
+        else:
+            period_end = period.end
+        ready = not open_work and (
+            period_end < today or _month_start(period_end) in closed_by_month
+        )
+        exports = [e for close in closed for e in exports_by_close.get(close.id, [])]
+        delivered_on = delivered_keys.get(period.key) or (
+            max(e.created_at.date() for e in exports)
+            if exports
+            and all(exports_by_close.get(close.id) for close in closed)
+            and ready
+            else None
+        )
+        subjects.append(
+            Subject(
+                kind="billing_period",
+                repeat_key=period.key,
+                # The months of the period, for the address of the invoice sheet.
+                subject_id=",".join(month_key(d) for d in days),
+                facts={
+                    "period_ready": ready,
+                    "period_delivered": delivered_on is not None,
+                    "period_invoiced": bool(exports)
+                    and all(e.id in invoiced for e in exports),
+                },
+                anchors={
+                    "ready_on": max(close.closed_at.date() for close in closed),
+                    "delivered_on": delivered_on,
+                },
+                variables={"periode": period_words(period.key)},
+            )
+        )
+    return subjects
+
+
 # --- vacancies ----------------------------------------------------------------
 
 
@@ -509,6 +626,104 @@ async def live_vacancy_ids(db: AsyncSession, *, today: date) -> set[UUID]:
     )
     ids |= {row[0] for row in rows}
     return ids | await open_task_case_ids(db, "vacancy")
+
+
+async def _vacancy_text_subjects(
+    db: AsyncSession, vacancies: Sequence[Vacancy]
+) -> tuple[dict[UUID, dict[str, list[Subject]]], set[UUID]]:
+    """The texts of each vacancy as subjects, and which vacancies have a
+    public address recorded.
+
+    A text a vacancy needs is a subject with where it stands; every person
+    asked to judge its latest version is one too.
+    """
+    from grip.models.vacancy_text_flow import VacancyPublication
+    from grip.services.vacancies import text_flow
+
+    result: dict[UUID, dict[str, list[Subject]]] = {}
+    for vacancy in vacancies:
+        works = await text_flow.work_of(db, vacancy)
+        texts: list[Subject] = []
+        reviews: list[Subject] = []
+        for kind, work in works.items():
+            if not work.needed and not work.versions:
+                continue
+            word = text_flow.KIND_WORDS[kind]
+            state = work.state
+            returned_before = any(
+                review.withdrawn_at is None
+                and any(v.verdict == "remarks" for v in review.verdicts)
+                for review in work.reviews
+            )
+            texts.append(
+                Subject(
+                    kind="text",
+                    repeat_key=kind,
+                    subject_id=kind,
+                    facts={
+                        "text_due": text_flow.is_due(vacancy, kind),
+                        "text_in_review": state == text_flow.STATE_IN_REVIEW,
+                        "text_returned": state == text_flow.STATE_RETURNED,
+                        "text_settled": state == text_flow.STATE_SETTLED,
+                        "text_moved_on": returned_before
+                        and state != text_flow.STATE_RETURNED,
+                    },
+                    variables={"tekst": word},
+                    person_id=work.writer_id,
+                )
+            )
+            review = work.round
+            if review is None:
+                continue
+            for verdict in review.verdicts:
+                reviews.append(
+                    Subject(
+                        kind="text_review",
+                        repeat_key=f"{kind}:{review.round}:{verdict.reviewer_id}",
+                        subject_id=str(review.id),
+                        facts={"verdict_given": verdict.verdict is not None},
+                        anchors={"offered_on": review.offered_at.date()},
+                        variables={"tekst": word},
+                        person_id=verdict.reviewer_id,
+                    )
+                )
+        result[vacancy.id] = {"text": texts, "text_review": reviews}
+    ids = [vacancy.id for vacancy in vacancies]
+    published = set(
+        await db.scalars(
+            select(VacancyPublication.vacancy_id).where(
+                VacancyPublication.vacancy_id.in_(ids)
+            )
+        )
+    )
+    return result, published
+
+
+async def _request_form_facts(db: AsyncSession, vacancy: Vacancy) -> dict[str, bool]:
+    """Where the request form of a vacancy stands.
+
+    Only looked at while the request runs or was just approved: reading the
+    kept form is work, and before or long after that nobody needs one.
+    """
+    from grip.repositories.vacancy import FormTemplateRepository
+    from grip.services.vacancies import request_forms, service
+
+    facts = {
+        "request_form_in_use": False,
+        "request_form_current": False,
+        "request_form_signed": False,
+    }
+    if vacancy.status not in ("requested", "approved"):
+        return facts
+    template = await FormTemplateRepository(db).active(service.VACANCY_REQUEST_FORM)
+    if template is None:
+        return facts
+    standing = await request_forms.standing(db, vacancy)
+    return {
+        "request_form_in_use": True,
+        "request_form_current": bool(standing.versions) and not standing.changed,
+        "request_form_signed": bool(standing.signed),
+    }
 
 
 async def load_vacancy_cases(
@@ -549,6 +764,8 @@ async def load_vacancy_cases(
             ).all()
         }
 
+    text_subjects, published = await _vacancy_text_subjects(db, vacancies)
+
     snapshots = []
     for vacancy in vacancies:
         status = vacancy.status
@@ -578,6 +795,8 @@ async def load_vacancy_cases(
             "hire_recorded": hire is not None and status == "filled",
             "colleague_known_in_wies": hired is not None and bool(hired.wies_public_id),
             "colleague_has_email": hired is not None and bool(hired.email),
+            "publication_recorded": vacancy.id in published,
+            **await _request_form_facts(db, vacancy),
         }
         people: dict[str, UUID | None] = {"requester": vacancy.requester_id}
         for kind in ("hr_advice", "control_advice", "approval"):
@@ -600,7 +819,8 @@ async def load_vacancy_cases(
                             kind="case",
                             anchors={"requested_on": vacancy.requested_on},
                         )
-                    ]
+                    ],
+                    **text_subjects.get(vacancy.id, {}),
                 },
                 people=people,
             )

@@ -427,6 +427,10 @@ async def complete_intent(
             f"Je hebt het recht {authority.right} niet (meer) in deze instantie.",
         )
     on_behalf_of = intent.params.get("organisation")
+    # A passkey assertion made for this decision, checked when it came in.
+    from grip.services import passkeys
+
+    confirmed = await passkeys.element_for(db, intent, settings)
     statement = build_statement(
         statement_id=str(uuid.uuid4()),
         action=intent.action,
@@ -454,6 +458,7 @@ async def complete_intent(
         instance_name=settings.INSTANCE_NAME,
         instance_base_uri=settings.INSTANCE_BASE_URI,
         note=(intent.params.get("note") or "").strip() or None,
+        passkey=confirmed[0] if confirmed else None,
     )
     signed = sign_statement(
         statement, private_key=signing_key.private_key, kid=signing_key.kid
@@ -475,6 +480,7 @@ async def complete_intent(
         instance_jwks=instance_jwks,
         timestamp_reply=reply,
         timestamp_authority=authority_url,
+        passkey=confirmed[1] if confirmed else None,
         person_id=person.id if person is not None else None,
         email=intent.email,
     )
@@ -496,6 +502,7 @@ async def complete_intent(
             "quote_hash": quote.snapshot_hash,
             "document_sha256": kept.sha256,
             "identity_statement": id_token is not None,
+            "passkey": confirmed is not None,
             "timestamp": reply is not None,
         },
     )
@@ -546,4 +553,5 @@ async def bundle_of(
         if evidence.timestamp_reply
         else None,
         timestamp_authority=evidence.timestamp_authority,
+        passkey_assertion=evidence.passkey,
     )

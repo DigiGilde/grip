@@ -8,6 +8,9 @@ model id is configuration and never a constant in the code.
 
 from __future__ import annotations
 
+import asyncio
+import json
+import shutil
 from typing import Protocol
 
 from openai import AsyncOpenAI
@@ -46,6 +49,8 @@ class ChatClient(Protocol):
 
 class VlamClient:
     """VLAM through its OpenAI-compatible API."""
+
+    provider = "vlam"
 
     def __init__(self, *, api_key: str, base_url: str, model_id: str) -> None:
         self._client = AsyncOpenAI(api_key=api_key, base_url=base_url)
@@ -89,16 +94,160 @@ def vlam_missing_settings(settings: Settings) -> list[str]:
     return missing
 
 
+PROVIDER_VLAM = "vlam"
+PROVIDER_CLAUDE_CLI = "claude_cli"
+PROVIDER_NONE = "none"
+
+# Stored as the model of a draft, so a local draft can never pass as one of
+# VLAM: "claude-cli:<model>".
+CLI_MODEL_PREFIX = "claude-cli:"
+
+
+class ClaudeCliClient:
+    """The command-line tool on a developer's machine, as a model provider.
+
+    Development only. It runs the tool as a subprocess in print mode with
+    the person's own login: no key in grip, no tools, no stored session. The
+    settings refuse this provider outside local development, and so does the
+    constructor.
+    """
+
+    provider = PROVIDER_CLAUDE_CLI
+
+    def __init__(self, *, command: str, model: str, timeout: float) -> None:
+        self._command = command
+        self._model = model
+        self._timeout = timeout
+        self._answered_model: str | None = None
+
+    @property
+    def model_id(self) -> str:
+        return CLI_MODEL_PREFIX + (self._answered_model or self._model)
+
+    def _arguments(self, system: str) -> list[str]:
+        return [
+            self._command,
+            "--print",
+            "--output-format",
+            "json",
+            "--tools",
+            "",
+            "--no-session-persistence",
+            "--setting-sources",
+            "",
+            "--strict-mcp-config",
+            "--disable-slash-commands",
+            "--model",
+            self._model,
+            "--system-prompt",
+            system,
+        ]
+
+    async def complete(self, *, system: str, user: str, max_tokens: int = 1500) -> str:
+        if shutil.which(self._command) is None:
+            raise LlmResponseError(
+                "Het lokale ontwikkelmodel is niet gevonden: het commando "
+                f"'{self._command}' staat niet op deze computer."
+            )
+        process = await asyncio.create_subprocess_exec(
+            *self._arguments(system),
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            out, err = await asyncio.wait_for(
+                process.communicate(user.encode("utf-8")), timeout=self._timeout
+            )
+        except TimeoutError as exc:
+            process.kill()
+            await process.wait()
+            raise LlmResponseError(
+                "Het lokale ontwikkelmodel gaf binnen "
+                f"{int(self._timeout)} seconden geen antwoord."
+            ) from exc
+        return self._parse(
+            out.decode("utf-8", "replace"), err.decode("utf-8", "replace")
+        )
+
+    async def list_models(self) -> list[str]:
+        """The one model this provider is set to."""
+        return [self.model_id]
+
+    def _parse(self, out: str, err: str) -> str:
+        try:
+            answer = json.loads(out)
+        except ValueError as exc:
+            detail = (err or out).strip().splitlines()[-1:] or [""]
+            if "login" in (err + out).lower():
+                raise LlmResponseError(
+                    "Het lokale ontwikkelmodel is niet ingelogd. Log in met het "
+                    "commando zelf en probeer het opnieuw."
+                ) from exc
+            raise LlmResponseError(
+                "Het lokale ontwikkelmodel gaf geen leesbaar antwoord. "
+                + detail[0][:200]
+            ) from exc
+        if not isinstance(answer, dict) or answer.get("is_error"):
+            text = str((answer or {}).get("result") or "")[:200]
+            if "login" in text.lower() or "auth" in text.lower():
+                raise LlmResponseError(
+                    "Het lokale ontwikkelmodel is niet ingelogd. Log in met het "
+                    "commando zelf en probeer het opnieuw."
+                )
+            raise LlmResponseError("Het lokale ontwikkelmodel gaf een fout. " + text)
+        usage = answer.get("modelUsage")
+        if isinstance(usage, dict) and usage:
+            self._answered_model = next(iter(usage))
+        text = str(answer.get("result") or "").strip()
+        if not text:
+            raise LlmResponseError("Het lokale ontwikkelmodel gaf een leeg antwoord.")
+        return text
+
+
+def active_provider(settings: Settings | None = None) -> str:
+    """Which provider drafts: the setting, or VLAM when it is configured."""
+    settings = settings or get_settings()
+    chosen = settings.LLM_PROVIDER.strip().lower()
+    if chosen == PROVIDER_NONE:
+        return PROVIDER_NONE
+    if chosen == PROVIDER_CLAUDE_CLI:
+        # The settings refuse this outside local development; checked again
+        # here because a Settings object can be built by hand.
+        return PROVIDER_CLAUDE_CLI if settings.is_local_development else PROVIDER_NONE
+    return PROVIDER_VLAM if not vlam_missing_settings(settings) else PROVIDER_NONE
+
+
+def provider_label(model_id: str | None) -> str | None:
+    """How a draft's origin reads, from the model id stored with it."""
+    if not model_id:
+        return None
+    if model_id.startswith(CLI_MODEL_PREFIX):
+        model = model_id[len(CLI_MODEL_PREFIX) :]
+        return f"Claude via de lokale ontwikkelomgeving, {model}"
+    return f"VLAM, {model_id}"
+
+
 def is_llm_configured(settings: Settings | None = None) -> bool:
-    return not vlam_missing_settings(settings or get_settings())
+    settings = settings or get_settings()
+    provider = active_provider(settings)
+    if provider == PROVIDER_CLAUDE_CLI:
+        return shutil.which(settings.CLAUDE_CLI_COMMAND) is not None
+    return provider == PROVIDER_VLAM
 
 
-def get_chat_client(settings: Settings | None = None) -> VlamClient:
+def get_chat_client(settings: Settings | None = None) -> ChatClient:
     """Build the client, or raise a clear error when configuration is missing."""
     settings = settings or get_settings()
+    if active_provider(settings) == PROVIDER_CLAUDE_CLI:
+        return ClaudeCliClient(
+            command=settings.CLAUDE_CLI_COMMAND,
+            model=settings.CLAUDE_CLI_MODEL,
+            timeout=float(settings.CLAUDE_CLI_TIMEOUT_SECONDS),
+        )
     missing = vlam_missing_settings(settings)
-    if missing:
-        raise LlmNotConfiguredError(missing)
+    if missing or settings.LLM_PROVIDER.strip().lower() == PROVIDER_NONE:
+        raise LlmNotConfiguredError(missing or ["LLM_PROVIDER"])
     return VlamClient(
         api_key=settings.VLAM_API_KEY,
         base_url=resolve_vlam_base_url(settings.VLAM_API_URL, settings.VLAM_BASE_URL),

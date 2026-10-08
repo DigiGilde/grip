@@ -2,7 +2,7 @@ import { waitFor } from '@testing-library/react';
 import { Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { clickButton, mockApi, texts } from '@/features/quotes/testing';
-import { navigation } from '@/features/quotes/proof';
+import { navigation, receiptFacts } from '@/features/quotes/proof';
 import { renderApp } from '@/test/utils';
 import { SigningListPage } from './SigningListPage';
 import { SigningPage } from './SigningPage';
@@ -165,6 +165,42 @@ describe('SigningPage', () => {
     // Still open: nothing was decided.
     expect(texts(container, 'nldd-button')).toContain('Geef akkoord');
     go.mockRestore();
+  });
+
+  it('says to confirm with the passkey once the intent asks for it, and states it on the receipt', async () => {
+    const go = vi.spyOn(navigation, 'go').mockImplementation(() => {});
+    const { container } = renderSigning({
+      '/api/signing/quotes/q-1': QUOTE,
+      'POST /api/signing/quotes/q-1/intents': {
+        id: 'in-1',
+        authorize_url: '/api/signing/intents/in-1/authorize',
+        expires_at: '2026-02-03T10:05:00Z',
+        reauthentication: true,
+        passkey: {
+          options_url: '/api/signing/intents/in-1/passkey/options',
+          verify_url: '/api/signing/intents/in-1/passkey',
+        },
+      },
+    });
+    await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
+    clickButton(container, 'Wijs af');
+    await waitFor(() => expect(openSheet()).toBeDefined());
+    const sheet = openSheet() as Element;
+    expect(sheet.textContent).toContain('log je opnieuw in');
+    sheet.querySelector('nldd-form')?.dispatchEvent(new Event('submit', { cancelable: true }));
+    await waitFor(() =>
+      expect(sheet.textContent).toContain(
+        'Bevestig met je passkey. Daarna is je afwijzing vastgelegd.',
+      ),
+    );
+    go.mockRestore();
+    expect(
+      receiptFacts({
+        decision: 'accept',
+        statement: { ...EVIDENCE.statement, hoe: { passkey: { gebruiker_geverifieerd: true } } },
+      }),
+    ).toContainEqual({ label: 'Bevestigd met', value: 'Passkey' });
+    expect(receiptFacts(EVIDENCE).some((fact) => fact.label === 'Bevestigd met')).toBe(false);
   });
 
   it('shows the receipt on return, with nothing about how the login went', async () => {

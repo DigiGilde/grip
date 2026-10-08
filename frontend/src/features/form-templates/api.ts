@@ -1,5 +1,5 @@
 /** Form templates and the language model configuration. Beheerder only. */
-import { ApiError, apiGet, apiPost, getCsrfToken, type ProblemDetails } from '@/api/client';
+import { ApiError, apiGet, apiPost, apiPut, getCsrfToken, type ProblemDetails } from '@/api/client';
 
 export interface FormTemplate {
   id: string;
@@ -54,13 +54,12 @@ const BASE = '/api/form-templates';
 
 export const fetchFormTemplates = () => apiGet<FormTemplate[]>(BASE);
 export const fetchBundledMappings = () => apiGet<BundledMapping[]>(`${BASE}/bundled-mappings`);
-export const activateFormTemplate = (id: string) =>
-  apiPost<FormTemplate>(`${BASE}/${id}/activate`);
+export const activateFormTemplate = (id: string) => apiPost<FormTemplate>(`${BASE}/${id}/activate`);
 export const fetchLanguageModel = (check = false) =>
   apiGet<LanguageModel>('/api/vacancies/language-model', { check: check || undefined });
 
 /** A multipart post: the shared client only sends JSON. */
-async function postForm<T>(path: string, form: FormData): Promise<T> {
+export async function postForm<T>(path: string, form: FormData): Promise<T> {
   const response = await fetch(path, {
     method: 'POST',
     headers: {
@@ -115,3 +114,49 @@ export function uploadFormTemplate(
   form.append('activate', 'true');
   return postForm<FormTemplate>(BASE, form);
 }
+
+/** A field of a stored form, with what fills it. */
+export interface TemplateField {
+  name: string;
+  type: string;
+  /** The caption of the field on the form, when the mapping names one. */
+  label?: string | null;
+  source?: string | null;
+  equals?: string | boolean | null;
+  /** What grip puts in the field, in plain words. */
+  fills?: string | null;
+  /** In the form and filled, in the form and not filled, or gone from the form. */
+  state: 'mapped' | 'unfilled' | 'missing';
+}
+
+export interface FieldSource {
+  key: string;
+  label: string;
+  /** Empty for a text source; a tick box takes one of these. */
+  choices: { value: string | boolean; label: string }[];
+}
+
+export interface TemplateDetail {
+  id: string;
+  name: string;
+  file_name: string;
+  is_active: boolean;
+  fields: TemplateField[];
+  sources: FieldSource[];
+}
+
+export const templateKey = (id: string) => ['form-templates', 'detail', id] as const;
+
+export const fetchTemplateDetail = (id: string) => apiGet<TemplateDetail>(`${BASE}/${id}`);
+
+export const setTemplateField = (
+  id: string,
+  name: string,
+  change: { source: string | null; equals?: string | boolean | null },
+) => apiPut<TemplateDetail>(`${BASE}/${id}/fields/${encodeURIComponent(name)}`, change);
+
+export const templateFileUrl = (id: string) => `${BASE}/${id}/file`;
+
+/** The form filled in for a vacancy, or with example values when none is given. */
+export const templateSampleUrl = (id: string, vacancyId?: string) =>
+  `${BASE}/${id}/sample${vacancyId ? `?vacancy_id=${encodeURIComponent(vacancyId)}` : ''}`;

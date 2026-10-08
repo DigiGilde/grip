@@ -35,6 +35,7 @@ import {
   type SharedSheet,
 } from './shell';
 import { vacancySteps, type StepAction } from './steps';
+import { PublishedLinks } from './TextWork';
 import { Button, Paragraphs } from './ui';
 
 function currentTab(id: string, pathname: string, tabs: VacancyTabKey[]): VacancyTabKey {
@@ -127,6 +128,8 @@ function Belonging({ vacancy }: { vacancy: Vacancy }) {
     vacancy.vacancy_type ? VACANCY_TYPE_LABELS[vacancy.vacancy_type] : null,
     scaleAndFte(vacancy.scale, vacancy.fte),
     formatPeriod(vacancy.start_date, vacancy.end_date),
+    // Only in the answer for who may see staffing.
+    vacancy.candidate_name ? `voor ${vacancy.candidate_name}` : '',
   ].filter(Boolean);
   return (
     <nldd-container layout="row" gap="8" vertical-alignment="center">
@@ -202,6 +205,7 @@ export function VacancyLayout() {
             </RouterLinks>
           )}
           {vacancy && <Belonging vacancy={vacancy} />}
+          {vacancy && <PublishedLinks vacancyId={vacancy.id} />}
           {vacancy && whole && (
             <>
               <Steps vacancy={vacancy} current={current} onSheet={setSheet} />

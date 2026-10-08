@@ -263,9 +263,6 @@ describe('creating a vacancy', () => {
       el.getAttribute('label'),
     );
     expect(labels).toEqual(['Rol', 'Type vacature']);
-    expect(sheet.textContent).toContain(
-      'Functienaam, schaal, type contract en geadresseerde vul je hierna in.',
-    );
   });
 });
 
@@ -286,7 +283,7 @@ describe('FunctionFrameworkPage', () => {
     expect(rows.every((row) => !row.hasAttribute('expanded'))).toBe(true);
     expect(container.querySelector('nldd-table')).toBeNull();
     expect(container.textContent).toContain('3 functiegroepen in 2 functiefamilies');
-    expect(container.querySelector('a[href="https://bron.example/functiegebouw"]')).not.toBeNull();
+    expect(container.querySelector('nldd-link[href="https://bron.example/functiegebouw"]')).not.toBeNull();
     // One primary action; the reload is the quiet one next to it.
     const primary = container.querySelectorAll('nldd-button[appearance="primary"]');
     expect([...primary].map((button) => button.getAttribute('text'))).toEqual([

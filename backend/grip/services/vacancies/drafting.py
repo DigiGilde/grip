@@ -185,3 +185,190 @@ def build_prompt(kind: TextKind | str, draft_input: DraftInput) -> tuple[str, st
             lines.append(f"Voorbeeld {number}:")
             lines.append(example.strip()[:MAX_EXAMPLE_CHARS])
     return _SYSTEM, "\n".join(lines)
+
+
+# --- a tailored vacancy text, with the standard text as example ---------------
+
+# Bump when the tailored prompt changes; stored with every draft.
+TAILORED_PROMPT_VERSION = "vacature-op-maat-2026-10-1"
+
+MAX_STANDARD_EXAMPLES = 2
+MAX_CONTEXT_LINES = 6
+MAX_INSTRUCTION_CHARS = 600
+
+# The style of the organisation, derived from its own vacancy texts (see
+# docs/vacatureteksten.md).
+_TAILORED_SYSTEM = (
+    "Je schrijft vacatureteksten voor een organisatie van de Rijksoverheid. "
+    "Houd je aan deze regels.\n"
+    "- Schrijf in de je-vorm, actief en concreet, op taalniveau B1. Zinnen van "
+    "hooguit twintig woorden. Geen jargon dat een buitenstaander niet kent, "
+    "geen Engelse modewoorden, geen uitroeptekens.\n"
+    "- Begin niet elke alinea met 'Je'. Wissel af, maar blijf de lezer "
+    "aanspreken.\n"
+    "- Gebruik alleen de gegevens die je krijgt. Verzin geen feiten, bedragen, "
+    "namen, data, opleidingseisen, arbeidsvoorwaarden of opdrachtgevers.\n"
+    "- Beloof niets over salaris, contract, verlof of doorgroei: die onderdelen "
+    "voegt de organisatie zelf toe.\n"
+    "- Noem geen namen van personen.\n"
+    "- Stel geen eisen die mensen onnodig uitsluiten. Vraag ervaring en "
+    "vaardigheden, geen leeftijd, afkomst of 'jong en dynamisch'.\n"
+    "- Geef alleen de gevraagde onderdelen terug, in de gevraagde vorm, zonder "
+    "inleiding of toelichting."
+)
+
+
+@dataclass(frozen=True)
+class StandardExample:
+    """A standard text of the organisation, as an example for the model."""
+
+    role: str
+    # Only the role's own sections; the shared ones are never sent.
+    text: str
+
+
+@dataclass(frozen=True)
+class OutlineSection:
+    key: str
+    heading: str
+    # Words to aim for, from the length of the standard text.
+    words: int
+
+
+@dataclass(frozen=True)
+class TailoredInput:
+    """Everything a tailored draft may be based on. Nothing else is sent."""
+
+    role: str
+    outline: tuple[OutlineSection, ...]
+    scale_band: str | None = None
+    fte: Decimal | None = None
+    period_start: date | None = None
+    period_end: date | None = None
+    contract_type: ContractType | None = None
+    assignment_name: str | None = None
+    client_name: str | None = None
+    unit_name: str | None = None
+    # Titles of the corpus nodes the assignment refers to, with the political
+    # input they follow from.
+    context: tuple[str, ...] = ()
+    # What the person adds: "leg nadruk op ...".
+    instruction: str | None = None
+    examples: tuple[StandardExample, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not self.role or not self.role.strip():
+            raise DraftInputError("Een concept heeft minstens de rol nodig.")
+        if not self.outline:
+            raise DraftInputError("Een concept heeft onderdelen nodig om te schrijven.")
+        if len(self.examples) > MAX_STANDARD_EXAMPLES + 1:
+            raise DraftInputError(
+                "Geef hooguit drie standaardteksten mee als voorbeeld."
+            )
+        if self.instruction and len(self.instruction) > MAX_INSTRUCTION_CHARS:
+            raise DraftInputError(
+                f"Houd de aanwijzing korter dan {MAX_INSTRUCTION_CHARS} tekens."
+            )
+
+    def free_text(self) -> list[str]:
+        """Every piece of text a person typed, for the name check."""
+        parts = [
+            self.role,
+            self.assignment_name,
+            self.client_name,
+            self.unit_name,
+            self.instruction,
+            *self.context,
+            *(example.text for example in self.examples),
+        ]
+        return [part for part in parts if part]
+
+
+ALLOWED_TAILORED_FIELDS: frozenset[str] = frozenset(
+    f.name for f in fields(TailoredInput)
+)
+
+
+def build_tailored_prompt(draft_input: TailoredInput) -> tuple[str, str]:
+    """The system and user message for a tailored vacancy text.
+
+    Three clearly separated parts: what to write, the facts as data, and the
+    examples as examples. The answer comes back as the same sections, each
+    under a line ``## <kop>``, so it lands in the same editor.
+    """
+    facts: list[tuple[str, str]] = [("Rol", draft_input.role.strip())]
+    if draft_input.unit_name:
+        facts.append(("Onderdeel", draft_input.unit_name.strip()))
+    if draft_input.scale_band:
+        facts.append(("Schaal", draft_input.scale_band))
+    if draft_input.fte is not None:
+        facts.append(("Omvang (fte)", _format_fte(draft_input.fte)))
+    period = _format_period(draft_input.period_start, draft_input.period_end)
+    if period:
+        facts.append(("Periode", period))
+    if draft_input.contract_type is not None:
+        facts.append(
+            ("Soort contract", CONTRACT_LABELS[ContractType(draft_input.contract_type)])
+        )
+    if draft_input.assignment_name:
+        facts.append(("Opdracht", draft_input.assignment_name.strip()))
+    if draft_input.client_name:
+        facts.append(("Opdrachtgever", draft_input.client_name.strip()))
+
+    lines = [
+        "Schrijf een concept voor een vacaturetekst op maat.",
+        "",
+        "Schrijf precies deze onderdelen, in deze volgorde. Zet boven elk "
+        "onderdeel een regel '## ' met de kop zoals hieronder; het eerste "
+        "onderdeel zonder kop begint met '## Inleiding'.",
+    ]
+    for section in draft_input.outline:
+        heading = section.heading or "Inleiding"
+        lines.append(f"- {heading} (ongeveer {section.words} woorden)")
+    lines += [
+        "",
+        "Een lijst schrijf je met een streepje per regel. Schrijf geen andere "
+        "onderdelen: wat de organisatie biedt, waar je komt te werken en hoe "
+        "je solliciteert staan al vast en komen er later bij.",
+        "",
+        "<gegevens>",
+        *(f"{label}: {value}" for label, value in facts),
+    ]
+    if draft_input.context:
+        lines.append("Waar de opdracht uit voortkomt:")
+        lines.extend(
+            f"- {line.strip()}" for line in draft_input.context[:MAX_CONTEXT_LINES]
+        )
+    lines.append("</gegevens>")
+    if draft_input.instruction:
+        lines += [
+            "",
+            "<aanwijzing>",
+            draft_input.instruction.strip(),
+            "</aanwijzing>",
+        ]
+    for number, example in enumerate(draft_input.examples, start=1):
+        lines += [
+            "",
+            f'<voorbeeld nummer="{number}" rol="{example.role}">',
+            "Dit is een standaardtekst van de organisatie. Neem de toon, de "
+            "opbouw en de lengte over. Neem de inhoud alleen over waar die "
+            "ook voor deze rol en deze opdracht klopt.",
+            example.text.strip()[:MAX_EXAMPLE_CHARS],
+            "</voorbeeld>",
+        ]
+    return _TAILORED_SYSTEM, "\n".join(lines)
+
+
+def parse_sections(answer: str) -> list[tuple[str, str]]:
+    """The model's answer as (heading, body) pairs; text before a heading
+    belongs to the opening."""
+    result: list[tuple[str, list[str]]] = []
+    for line in answer.strip().splitlines():
+        if line.startswith("## "):
+            result.append((line[3:].strip(), []))
+        elif result:
+            result[-1][1].append(line)
+        elif line.strip():
+            result.append(("Inleiding", [line]))
+    return [(heading, "\n".join(body).strip()) for heading, body in result]

@@ -38,6 +38,53 @@ def build_bundle(
     instance_jwks: dict[str, Any],
     timestamp_reply: bytes | None = None,
     timestamp_authority: str | None = None,
+    passkey_assertion: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    bundle = _bundle(
+        quote_canonical=quote_canonical,
+        quote_fingerprint=quote_fingerprint,
+        quote_reference=quote_reference,
+        quote_uri=quote_uri,
+        document=document,
+        document_sha256=document_sha256,
+        document_fixed=document_fixed,
+        statement_jws=statement_jws,
+        statement_hash=statement_hash,
+        id_token=id_token,
+        idp_jwks=idp_jwks,
+        idp_discovery=idp_discovery,
+        instance_name=instance_name,
+        instance_base_uri=instance_base_uri,
+        instance_jwks=instance_jwks,
+        timestamp_reply=timestamp_reply,
+        timestamp_authority=timestamp_authority,
+    )
+    # What the person's own device signed for this decision. The public key
+    # and the challenge it must fit are in the statement.
+    if passkey_assertion is not None:
+        bundle["passkey"] = {"assertion": passkey_assertion}
+    return bundle
+
+
+def _bundle(
+    *,
+    quote_canonical: bytes,
+    quote_fingerprint: str,
+    quote_reference: str | None,
+    quote_uri: str,
+    document: bytes | None,
+    document_sha256: str | None,
+    document_fixed: str | None,
+    statement_jws: str,
+    statement_hash: str,
+    id_token: str | None,
+    idp_jwks: dict[str, Any] | None,
+    idp_discovery: dict[str, Any] | None,
+    instance_name: str,
+    instance_base_uri: str,
+    instance_jwks: dict[str, Any],
+    timestamp_reply: bytes | None,
+    timestamp_authority: str | None,
 ) -> dict[str, Any]:
     return {
         "soort": BUNDLE_TYPE,
@@ -172,6 +219,16 @@ def render_page(statement: dict[str, Any], findings: list[tuple[str, str]]) -> s
         _row("Identiteitsprovider", who.get("uitgever") or "geen"),
         _row("Grondslag van de bevoegdheid", basis),
     ]
+    passkey = how.get("passkey")
+    if isinstance(passkey, dict):
+        registered = (passkey.get("registratie") or {}).get("geregistreerd_op")
+        rows.append(
+            _row(
+                "Bevestigd met een passkey",
+                f"op {_when(passkey.get('bevestigd_op'))}, met een passkey die op "
+                f"{_when(registered)} in deze instantie is vastgelegd",
+            )
+        )
     if statement.get("toelichting"):
         rows.append(_row("Toelichting", statement["toelichting"]))
 

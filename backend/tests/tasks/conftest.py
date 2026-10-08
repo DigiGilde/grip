@@ -194,6 +194,13 @@ class Builder:
         await self.db.flush()
         return approval
 
+    async def terms(self, assignment: Assignment, rhythm: str) -> None:
+        """Bill this assignment per "month" or per "quarter"."""
+        from grip.models.billing_delivery import BillingTerms
+
+        self.db.add(BillingTerms(assignment_id=assignment.id, rhythm=rhythm))
+        await self.db.flush()
+
     async def close(self, assignment: Assignment, month: date) -> MonthClose:
         close = MonthClose(assignment_id=assignment.id, month=month, closed_at=NOW)
         self.db.add(close)

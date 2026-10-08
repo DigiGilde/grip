@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="currentColor">
+  <!-- from wish to goal to assignment: two steps down, the last one is the thing you hold -->
+  <circle cx="11" cy="11" r="5"/>
+  <path d="M9 14h4v10h8v4H9z"/>
+  <circle cx="24" cy="26" r="5"/>
+  <path d="M22 29h4v8h4v4h-8z"/>
+  <path d="M28 30h13v13H28z"/>
+</svg>

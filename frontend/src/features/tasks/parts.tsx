@@ -1,77 +1,36 @@
 /**
- * The parts every task screen shares: the menu of what a task can do, the
- * table of tasks, and the sheet with one task.
+ * The parts every task screen shares: the table of tasks, and the sheet that
+ * tells one task.
+ *
+ * A task is told to its reader in this order: what to do (or who must do
+ * what), on what, why it is there, by when, and the one action that does it.
+ * A task that is the reader's to do is activated by its name and goes to the
+ * place where the work is done; any other task opens to be read.
  */
-import { useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { errorMessage } from '@/api/client';
-import { useNlddEvent } from '@/components/nldd/events';
+import { orUndef, useNlddEvent } from '@/components/nldd/events';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { formatDate } from '@/lib/format';
-import { Facts, FormSheet, Quiet, Stack, type Fact } from '@/ui/layout';
-import { OpenCell, OpenRow, ROW_ACTIONS_COLUMN } from '@/ui/RowActions';
-import { TextInput } from '@/features/vacancies/ui';
-import {
-  TASK_KEYS,
-  addTaskNote,
-  fetchTask,
-  setTaskStatus,
-  type Task,
-  type TaskStatus,
-} from './api';
-import { STATUS_COLORS, closesBecause, whoLine } from './groups';
-import { movesOf } from './moves';
+import { Facts, Quiet, Stack, type Fact } from '@/ui/layout';
+import { OpenCell, OpenRow, ROW_ACTIONS_COLUMN, RowActions } from '@/ui/RowActions';
+import { Button, TextInput } from '@/features/vacancies/ui';
+import { TASK_KEYS, addTaskNote, fetchTask, setTaskStatus, type Task } from './api';
+import { useTaskActions } from './actions';
+import { aboutLine, aboutLinks, finishesHere, goesToWork, headlineOf, workHref } from './telling';
 
 if (import.meta.env.MODE !== 'test') void import('./register');
 
-function useMoveTask() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, status }: { id: string; status: TaskStatus }) => setTaskStatus(id, status),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: TASK_KEYS.all }),
-  });
-}
-
-function MoveItem({ text, onChoose }: { text: string; onChoose: () => void }) {
-  const ref = useRef<HTMLElement>(null);
-  useNlddEvent(ref, 'select', onChoose);
-  return <nldd-menu-item ref={ref} text={text} />;
-}
-
-/**
- * One quiet button with what a task can do: move it between the columns, or
- * go to where the work is. Reached with Tab and worked with the arrow keys,
- * so nothing on the board needs dragging.
- */
-export function TaskMenu({ task }: { task: Task }) {
-  const move = useMoveTask();
-  const moves = movesOf(task);
-  if (moves.length === 0 && !task.link) return null;
-  return (
-    <nldd-icon-button
-      icon="more"
-      size="sm"
-      appearance="neutral-transparent"
-      popup-type="menu"
-      accessible-label={`Meer acties voor ${task.title}`}
-      text={`Meer acties voor ${task.title}`}
-    >
-      <nldd-menu slot="popup" placement="bottom-end">
-        {moves.map((item) => (
-          <MoveItem
-            key={item.status}
-            text={item.text}
-            onChoose={() => move.mutate({ id: task.id, status: item.status })}
-          />
-        ))}
-        {task.link && <nldd-menu-item text="Ga naar het werk" href={task.link} />}
-      </nldd-menu>
-    </nldd-icon-button>
-  );
-}
-
-export function StatusBadge({ task }: { task: Task }) {
-  return <nldd-badge color={STATUS_COLORS[task.status]} text={task.status_label} />;
+/** The quiet line under the name of a task in a list. */
+function detailLine(task: Task, withCase: boolean): string | undefined {
+  const parts = [
+    task.needs_me !== true && task.waits_on ? `Wacht op ${task.waits_on}` : null,
+    withCase ? aboutLine(task) : null,
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(' · ') : undefined;
 }
 
 interface TaskTableProps {
@@ -79,137 +38,252 @@ interface TaskTableProps {
   tasks: readonly Task[];
   /** Leave the case out on the page of the case itself. */
   withCase?: boolean;
+  /** Opens a task to be read. */
   onOpen: (id: string) => void;
 }
 
 /**
- * Tasks as a table: what to do, for whom, by when and how it stands. The
- * row opens the task; the menu at the end moves it.
+ * Tasks as a table: what, on what and by when. The name of a task that is
+ * the reader's to do leads to the place where it is done; the name of any
+ * other task opens it. The menu at the end holds the rest.
  */
 export function TaskTable({ label, tasks, withCase = true, onOpen }: TaskTableProps) {
-  const columns = `minmax(260px,2fr) minmax(180px,1fr) 130px 170px ${ROW_ACTIONS_COLUMN}`;
+  const navigate = useNavigate();
+  const actionsOf = useTaskActions(onOpen);
+  const columns = `minmax(280px,1fr) 180px ${ROW_ACTIONS_COLUMN}`;
   const narrow = `minmax(180px,1fr) 110px ${ROW_ACTIONS_COLUMN}`;
   return (
     <nldd-table accessible-label={label} columns={columns} sm-columns={narrow}>
       <nldd-table-row slot="header">
         <nldd-text-cell text="Taak" />
-        <nldd-text-cell text="Voor wie" hide-below="md" />
         <nldd-text-cell text="Vóór" />
-        <nldd-text-cell text="Status" hide-below="md" />
         <nldd-cell />
       </nldd-table-row>
-      {tasks.map((task) => (
-        <OpenRow key={task.id} onOpen={() => onOpen(task.id)}>
-          <OpenCell
-            text={task.title}
-            supportingText={withCase ? `${task.case_label} · ${task.track_label}` : undefined}
-            accessibleLabel={`Open ${task.title}`}
-            onOpen={() => onOpen(task.id)}
-          />
-          <nldd-text-cell hide-below="md" text={whoLine(task)} />
-          <nldd-text-cell
-            text={formatDate(task.due_on)}
-            {...(task.overdue ? { color: 'critical', 'supporting-text': 'Te laat' } : {})}
-          />
-          <nldd-cell hide-below="md">
-            <StatusBadge task={task} />
-          </nldd-cell>
-          <nldd-cell>
-            <TaskMenu task={task} />
-          </nldd-cell>
-        </OpenRow>
-      ))}
+      {tasks.map((task) => {
+        const name = headlineOf(task);
+        const href = workHref(task);
+        const activate = goesToWork(task) && href ? () => navigate(href) : () => onOpen(task.id);
+        return (
+          <OpenRow key={task.id} onOpen={activate}>
+            <OpenCell
+              text={name}
+              supportingText={detailLine(task, withCase)}
+              accessibleLabel={goesToWork(task) ? `${name}: ga naar het werk` : `Bekijk ${name}`}
+              onOpen={activate}
+            />
+            <nldd-text-cell
+              text={formatDate(task.due_on)}
+              {...(task.overdue ? { color: 'critical', 'supporting-text': 'Te laat' } : {})}
+            />
+            <RowActions name={name} actions={actionsOf(task)} />
+          </OpenRow>
+        );
+      })}
     </nldd-table>
   );
 }
 
+function closedWords(task: Task): string | undefined {
+  if (!task.completed_at) return undefined;
+  const by = task.completed_by_fact
+    ? ''
+    : task.completed_by_name
+      ? `, door ${task.completed_by_name}`
+      : '';
+  return `${formatDate(task.completed_at)}${by}`;
+}
+
+function AboutLinks({ task }: { task: Task }) {
+  const links = aboutLinks(task);
+  if (links.length === 0) return <nldd-text>{task.case_label}</nldd-text>;
+  return (
+    <nldd-container gap="4">
+      {links.map((link) => (
+        <nldd-link key={link.href} href={link.href} text={link.text} />
+      ))}
+    </nldd-container>
+  );
+}
+
 function taskFacts(task: Task): Fact[] {
-  const closed = task.completed_at
-    ? task.completed_by_fact
-      ? `${formatDate(task.completed_at)}, vanzelf`
-      : `${formatDate(task.completed_at)}${task.completed_by_name ? `, door ${task.completed_by_name}` : ''}`
+  const due = task.due_on
+    ? `${formatDate(task.due_on)}${task.overdue ? ', te laat' : ''}`
     : undefined;
   return [
-    { label: 'Hoort bij', value: `${task.case_label} · ${task.track_label}` },
-    { label: 'Voor wie', value: task.assignee_label },
-    { label: 'Wacht op', value: task.status === 'waiting' ? (task.waiting_on ?? undefined) : undefined },
-    { label: 'Vóór', value: formatDate(task.due_on) || undefined },
-    { label: 'Status', value: task.status_label },
-    { label: 'Afgerond', value: closed },
+    { label: 'Waarover', value: <AboutLinks task={task} /> },
+    { label: 'Waarom nu', value: task.why ?? undefined },
+    { label: 'Vóór', value: due },
+    { label: 'Vervolg', value: task.then ?? undefined },
+    { label: 'Van wie', value: task.is_mine ? undefined : task.assignee_label },
+    { label: 'Afgerond', value: closedWords(task) },
   ].filter((fact) => fact.value !== undefined);
 }
 
+/** What the request still misses, as one plain sentence. */
+function missingWords(task: Task): string | null {
+  const missing = (task.checklist ?? []).filter((item) => !item.done).map((item) => item.text);
+  if (missing.length === 0) return null;
+  return `Ontbreekt nog: ${missing.join(', ').toLowerCase()}.`;
+}
+
+interface TaskSheetProps {
+  taskId: string | null;
+  onClose: () => void;
+}
+
 /**
- * One task: its facts, why it closes, and the notes. The one action is
- * adding a note; moving the task is in its menu.
+ * One task, told to its reader: what to do or who must do it, on what, why
+ * and by when. Its one button does the work or leads to it; who only waits
+ * gets no button. A note is the quiet thing at the end.
  */
-export function TaskSheet({ taskId, onClose }: { taskId: string | null; onClose: () => void }) {
+export function TaskSheet({ taskId, onClose }: TaskSheetProps) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const sheetRef = useRef<HTMLElement>(null);
+  const barRef = useRef<HTMLElement>(null);
+  const titleId = useId();
   const [note, setNote] = useState('');
+  const [writing, setWriting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // The sheet keeps its last task while it slides out.
   const [lastId, setLastId] = useState<string | null>(null);
   if (taskId && taskId !== lastId) {
     setLastId(taskId);
     setNote('');
+    setWriting(false);
     setError(null);
   }
   const shownId = taskId ?? lastId;
+  useNlddEvent(sheetRef, 'close', onClose);
+  useNlddEvent(barRef, 'dismiss', onClose);
   const query = useQuery({
     queryKey: TASK_KEYS.detail(shownId ?? ''),
     queryFn: () => fetchTask(shownId ?? ''),
     enabled: shownId !== null,
   });
+  const refresh = () => queryClient.invalidateQueries({ queryKey: TASK_KEYS.all });
   const save = useMutation({
     mutationFn: () => addTaskNote(shownId ?? '', note.trim()),
     onSuccess: () => {
       setNote('');
+      setWriting(false);
       setError(null);
-      void queryClient.invalidateQueries({ queryKey: TASK_KEYS.all });
+      void refresh();
+    },
+    onError: (failure) => setError(errorMessage(failure)),
+  });
+  const finish = useMutation({
+    mutationFn: () => setTaskStatus(shownId ?? '', 'done'),
+    onSuccess: () => {
+      void refresh();
+      onClose();
     },
     onError: (failure) => setError(errorMessage(failure)),
   });
   const task = query.data;
-  const because = task ? closesBecause(task) : null;
+  const title = task ? headlineOf(task) : 'Taak';
+  const href = task ? workHref(task) : null;
   const notes = task?.notes ?? [];
+  const problem = error ?? (query.isError ? errorMessage(query.error) : null);
+  const missing = task ? missingWords(task) : null;
 
-  return (
-    <FormSheet
-      open={taskId !== null}
-      title={task?.title ?? 'Taak'}
-      submitText="Bewaar notitie"
-      onSubmit={() => {
-        if (note.trim() === '') setError('Schrijf eerst een notitie.');
-        else save.mutate();
-      }}
-      onClose={onClose}
-      busy={save.isPending}
-      error={error ?? (query.isError ? errorMessage(query.error) : null)}
-    >
-      {task && (
-        <Stack gap="group">
-          <Facts label={`Gegevens van ${task.title}`} facts={taskFacts(task)} labelWidth="120px" />
-          {because && <Quiet>{because}</Quiet>}
-          {task.link && (
-            <RouterLinks>
-              <nldd-link href={task.link} text="Ga naar het werk" size="md" />
-            </RouterLinks>
-          )}
-          {notes.length > 0 && (
-            <Stack gap="related">
-              {notes.map((item) => (
-                <Stack key={item.id} gap="tight">
-                  <nldd-text>{item.body}</nldd-text>
-                  <Quiet>
-                    {[item.author_name, formatDate(item.created_at)].filter(Boolean).join(' · ')}
-                  </Quiet>
-                </Stack>
-              ))}
+  return createPortal(
+    <nldd-sheet ref={sheetRef} open={orUndef(taskId !== null)} placement="right" width="480px">
+      <nldd-page>
+        <nldd-top-title-bar
+          ref={barRef}
+          slot="header"
+          text={title}
+          dismiss-text="Sluit"
+          collapse-anchor={titleId}
+        />
+        <nldd-simple-section>
+          <nldd-title id={titleId} slot="header" size={2} text={title} heading-level={1} />
+          <RouterLinks>
+            <Stack gap="group">
+              {problem ? <nldd-banner variant="critical" size="sm" text={problem} /> : null}
+              {task && (
+                <>
+                  <Stack gap="related">
+                    {task.instruction ? <nldd-text>{task.instruction}</nldd-text> : null}
+                    {missing ? <nldd-text>{missing}</nldd-text> : null}
+                    {task.blocked ? (
+                      <nldd-banner variant="warning" size="sm" text={task.blocked} />
+                    ) : null}
+                    {finishesHere(task) ? (
+                      <nldd-button-group>
+                        <Button
+                          text="Rond af"
+                          appearance="primary"
+                          loading={finish.isPending}
+                          onClick={() => finish.mutate()}
+                        />
+                        {href ? <nldd-button href={href} text="Ga naar het werk" /> : null}
+                      </nldd-button-group>
+                    ) : task.action_text && href ? (
+                      <nldd-button-group>
+                        <Button
+                          text={task.action_text}
+                          appearance="primary"
+                          onClick={() => {
+                            onClose();
+                            navigate(href);
+                          }}
+                        />
+                      </nldd-button-group>
+                    ) : href && task.status !== 'done' && task.status !== 'obsolete' ? (
+                      <nldd-link href={href} text="Ga naar de plek van het werk" size="md" />
+                    ) : null}
+                  </Stack>
+                  <Facts
+                    label={`Over de taak ${title}`}
+                    facts={taskFacts(task)}
+                    labelWidth="120px"
+                  />
+                  {notes.length > 0 && (
+                    <Stack gap="related">
+                      {notes.map((item) => (
+                        <Stack key={item.id} gap="tight">
+                          <nldd-text>{item.body}</nldd-text>
+                          <Quiet>
+                            {[item.author_name, formatDate(item.created_at)]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </Quiet>
+                        </Stack>
+                      ))}
+                    </Stack>
+                  )}
+                  {writing ? (
+                    <Stack gap="related">
+                      <TextInput label="Notitie" value={note} onChange={setNote} multiline />
+                      <nldd-button-group>
+                        <Button
+                          text="Bewaar notitie"
+                          loading={save.isPending}
+                          onClick={() => {
+                            if (note.trim() === '') setError('Schrijf eerst een notitie.');
+                            else save.mutate();
+                          }}
+                        />
+                      </nldd-button-group>
+                    </Stack>
+                  ) : (
+                    <nldd-button-group>
+                      <Button
+                        text="Schrijf een notitie"
+                        appearance="neutral-transparent"
+                        onClick={() => setWriting(true)}
+                      />
+                    </nldd-button-group>
+                  )}
+                </>
+              )}
             </Stack>
-          )}
-        </Stack>
-      )}
-      <TextInput label="Notitie" value={note} onChange={setNote} multiline />
-    </FormSheet>
+          </RouterLinks>
+        </nldd-simple-section>
+      </nldd-page>
+    </nldd-sheet>,
+    document.body,
   );
 }

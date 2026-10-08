@@ -1,3 +1,4 @@
+import { iconOf } from '@/ui/icons';
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
@@ -15,7 +16,6 @@ function eventValue(event: Event): string {
   const value = fromDetail ?? (event.target as { value?: unknown } | null)?.value;
   return value === undefined || value === null ? '' : String(value);
 }
-
 
 /**
  * What was typed, from the combo box's own `input` event. The native event of
@@ -169,7 +169,7 @@ export function RolePicker({
                 {matches.length > 0 ? <nldd-menu-divider /> : null}
                 <nldd-menu-item
                   value={ADD_ACTION}
-                  icon="plus"
+                  icon={iconOf('add')}
                   text={`Staat er niet tussen? Voeg "${typedName}" toe als rol`}
                 />
               </>

@@ -292,17 +292,25 @@ def _board_start(value: str | None) -> Month:
 
 
 @router.get("/options", response_model=None)
-async def allocation_options(access: RequestAccess, db: DbSession) -> dict[str, Any]:
-    """People and personnel lines to choose from when adding inzet."""
+async def allocation_options(
+    access: RequestAccess, db: DbSession, assignment_id: UUID | None = None
+) -> dict[str, Any]:
+    """People and personnel lines to choose from when adding inzet.
+
+    With ``assignment_id`` only the lines of that assignment: the form on
+    the page of an assignment offers nothing of another one.
+    """
     await access.require(Action.READ, Resource.person(), ROSTER)
     if PLANNER in access.subject.functions:
-        lines = await views.line_options(db)
+        allowed = None if assignment_id is None else {assignment_id}
     else:
         person_id = access.subject.person_id
-        managed = (
+        allowed = (
             await views.managed_assignment_ids(db, person_id) if person_id else set()
         )
-        lines = await views.line_options(db, only_assignment_ids=managed)
+        if assignment_id is not None:
+            allowed &= {assignment_id}
+    lines = await views.line_options(db, only_assignment_ids=allowed)
     line_items = []
     for option in lines:
         resource = Resource.assignment(option.assignment_id)

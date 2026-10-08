@@ -1,3 +1,4 @@
+import { ExternalLink, IconCell } from '@/ui/Icon';
 import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
@@ -52,10 +53,19 @@ function GroupSheet({ families, group, open, onClose }: GroupSheetProps) {
   const [validTo, setValidTo] = useState(group?.valid_to ?? '');
   const [problem, setProblem] = useState<string | null>(null);
   const save = useMutation({
-    mutationFn: (input: { family_id: string; name: string; scales: number[]; valid_to: string | null }) =>
+    mutationFn: (input: {
+      family_id: string;
+      name: string;
+      scales: number[];
+      valid_to: string | null;
+    }) =>
       group
         ? updateFunctionGroup(group.id, input)
-        : createFunctionGroup({ family_id: input.family_id, name: input.name, scales: input.scales }),
+        : createFunctionGroup({
+            family_id: input.family_id,
+            name: input.name,
+            scales: input.scales,
+          }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['function-framework'] });
       onClose();
@@ -68,9 +78,16 @@ function GroupSheet({ families, group, open, onClose }: GroupSheetProps) {
     if (!name.trim()) return setProblem('Vul de naam van de functiegroep in.');
     if (!familyId) return setProblem('Kies de functiefamilie.');
     if (parsed === null) {
-      return setProblem('Vul de schalen in als getallen van 1 tot en met 19, bijvoorbeeld 11, 12, 13.');
+      return setProblem(
+        'Vul de schalen in als getallen van 1 tot en met 19, bijvoorbeeld 11, 12, 13.',
+      );
     }
-    save.mutate({ family_id: familyId, name: name.trim(), scales: parsed, valid_to: validTo || null });
+    save.mutate({
+      family_id: familyId,
+      name: name.trim(),
+      scales: parsed,
+      valid_to: validTo || null,
+    });
   }
 
   return (
@@ -110,7 +127,6 @@ function GroupSheet({ families, group, open, onClose }: GroupSheetProps) {
     </FormSheet>
   );
 }
-
 
 interface GroupRowsProps {
   groups: (FunctionGroup & { family_name?: string })[];
@@ -178,7 +194,7 @@ function FamilyRow({ family, open, onToggle }: FamilyRowProps) {
   const count = family.groups.length;
   return (
     <nldd-list-item ref={ref} button expanded={orUndef(open)}>
-      <nldd-icon-cell size="20" color="secondary" icon="chevron-right" {...DISCLOSURE} />
+      <IconCell concept="open" {...DISCLOSURE} />
       <nldd-spacer-cell size="8" />
       <nldd-text-cell text={family.name} />
       <nldd-text-cell
@@ -237,7 +253,11 @@ function Toolbar({ query, onQuery, canManage, onAdd, onReload, reloading }: Tool
               text="Laad referentiebestand opnieuw"
               loading={orUndef(reloading)}
             />
-            <nldd-menu-item ref={reloadMenuRef} slot="overflow" text="Laad referentiebestand opnieuw" />
+            <nldd-menu-item
+              ref={reloadMenuRef}
+              slot="overflow"
+              text="Laad referentiebestand opnieuw"
+            />
           </nldd-toolbar-item>
           <nldd-toolbar-item slot="end" priority={2}>
             <nldd-button ref={addRef} size="md" appearance="primary" text="Voeg functiegroep toe" />
@@ -299,10 +319,8 @@ export function FunctionFrameworkPage() {
         <Stack gap="tight">
           <Quiet>
             {groupCount} functiegroepen in {families.length} functiefamilies, overgenomen van{' '}
-            <a href={source.source_url} target="_blank" rel="noreferrer">
-              functiegebouwrijksoverheid.nl
-            </a>{' '}
-            op {formatDate(source.read_on)}
+            <ExternalLink inline href={source.source_url} text="functiegebouwrijksoverheid.nl" /> op{' '}
+            {formatDate(source.read_on)}
           </Quiet>
           {reload.data && <Quiet>{reloadSummary(reload.data)}</Quiet>}
         </Stack>

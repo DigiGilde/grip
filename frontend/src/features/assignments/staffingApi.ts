@@ -55,6 +55,8 @@ export interface AssignmentStaffing {
   open_fte?: string | null;
   open_from?: string | null;
   overbooked_count?: number;
+  /** Who is above 100 percent in a month they work here, with the first such month. */
+  overbooked?: { person_id?: string; person_name?: string; month: string; pct: string }[];
 }
 
 export const staffingKeys = {

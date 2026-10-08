@@ -183,8 +183,6 @@ describe('QuotePage', () => {
     expect(cells).toContain('Productmanager');
     // Scales first, as on the rate leaflet a client knows.
     expect(cells).toContain('14 en 15 (categorie D)');
-    // What "maak" does not say by itself.
-    expect(container.textContent).toContain('Daarna wijzigt de offerte niet meer');
     expect(container.querySelector('nldd-card')).toBeNull();
   });
 

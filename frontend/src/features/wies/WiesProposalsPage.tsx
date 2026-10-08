@@ -22,7 +22,7 @@ function Result({ applied }: { applied: AppliedChange[] }) {
   const done = applied.filter((change) => change.applied).length;
   const skipped = applied.filter((change) => !change.applied);
   return (
-    <nldd-container gap="12">
+    <nldd-container gap="16">
       <nldd-banner
         variant={skipped.length > 0 ? 'warning' : 'success'}
         text={

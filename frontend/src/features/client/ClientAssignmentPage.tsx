@@ -1,3 +1,4 @@
+import { BackLink } from '@/ui/Icon';
 import { useRef, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
@@ -129,9 +130,7 @@ function ProgressView({ progress }: { progress: Progress }) {
           ))}
         </nldd-table>
       ) : null}
-      {delivered.length > 0 ? (
-        <nldd-text>Geleverd: {delivered.join('; ')}.</nldd-text>
-      ) : null}
+      {delivered.length > 0 ? <nldd-text>Geleverd: {delivered.join('; ')}.</nldd-text> : null}
       {notDelivered.length > 0 ? (
         <nldd-text>Niet geleverd: {notDelivered.join('; ')}.</nldd-text>
       ) : null}
@@ -283,7 +282,7 @@ export function ClientAssignmentPage() {
       <nldd-simple-section>
         <PageHeading text={assignment?.name ?? 'Aanvraag'} instanceName={instance?.name} />
         <nldd-container gap="16">
-          <nldd-link href={clientPath()} text="Terug naar aanvragen" />
+          <BackLink href={clientPath()} text="Terug naar aanvragen" />
           {query.isPending ? <Loading /> : null}
           {query.isError && notFound ? (
             <EmptyNotice
@@ -342,8 +341,8 @@ export function ClientAssignmentPage() {
               <nldd-container gap="16">
                 <nldd-text>
                   De uitputting haal je alleen op als je erom vraagt. De opdrachtnemer geeft de
-                  cijfers als financiële inzage onderdeel is van het contract. Elke opvraging
-                  wordt vastgelegd.
+                  cijfers als financiële inzage onderdeel is van het contract. Elke opvraging wordt
+                  vastgelegd.
                 </nldd-text>
                 <div>
                   <Button

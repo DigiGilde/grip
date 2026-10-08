@@ -1,9 +1,10 @@
+import { RowActions, ROW_ACTIONS_COLUMN } from '@/ui/RowActions';
 import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
 import { orUndef, useNlddEvent } from '@/components/nldd/events';
 import { centsToInput, parseEuroToCents } from '@/features/assignments/money';
-import { Button, DateInput, TextInput } from '@/features/assignments/ui';
+import { DateInput, TextInput } from '@/features/assignments/ui';
 import { formatDateTime } from '@/features/quotes/format';
 import { formatDate, formatEuro, formatMonth } from '@/lib/format';
 import { FormSheet, Section } from '@/ui/layout';
@@ -44,7 +45,9 @@ export function BillingTotals({ status }: { status: BillingStatus }) {
         <nldd-text-cell text={formatEuro(status.delivered_cents)} horizontal-alignment="right" />
         <nldd-text-cell
           text={
-            toDeliver === null || toDeliver === undefined ? 'Niet te berekenen' : formatEuro(toDeliver)
+            toDeliver === null || toDeliver === undefined
+              ? 'Niet te berekenen'
+              : formatEuro(toDeliver)
           }
           horizontal-alignment="right"
         />
@@ -213,59 +216,49 @@ export function Invoices({ assignmentId, status, recordFor, onRecordDone }: Invo
         <Section title="Facturen" level={2}>
           <nldd-table
             accessible-label="Vastgelegde facturen"
-            columns={
-              mayRecord
-                ? 'minmax(120px,1fr) minmax(110px,1fr) minmax(160px,1.4fr) minmax(110px,1fr) minmax(200px,1.8fr) 210px'
-                : 'minmax(120px,1fr) minmax(110px,1fr) minmax(160px,1.4fr) minmax(110px,1fr) minmax(200px,1.8fr)'
-            }
+            columns={`minmax(160px,1.4fr) minmax(160px,1.6fr) minmax(200px,2fr) minmax(120px,1fr) ${ROW_ACTIONS_COLUMN}`}
+            sm-columns={`minmax(140px,1fr) minmax(100px,auto) ${ROW_ACTIONS_COLUMN}`}
           >
             <nldd-table-row slot="header">
-              <nldd-text-cell text="Factuurnummer" />
-              <nldd-text-cell text="Factuurdatum" />
-              <nldd-text-cell text="Maanden" />
-              <nldd-text-cell text="Factuurbedrag" horizontal-alignment="right" />
-              <nldd-text-cell text="Vergeleken met aangeleverd" />
-              {mayRecord ? <nldd-text-cell text="Actie" /> : null}
+              <nldd-text-cell text="Factuur" />
+              <nldd-text-cell hide-below="md" text="Over" />
+              <nldd-text-cell hide-below="md" text="Vergeleken met aangeleverd" />
+              <nldd-text-cell text="Bedrag" horizontal-alignment="right" />
+              <nldd-cell />
             </nldd-table-row>
             {inForce.map((invoice) => (
               <nldd-table-row key={invoice.id}>
                 <nldd-text-cell
                   text={invoice.invoice_number}
-                  supporting-text={
-                    invoice.source === 'financial_system'
-                      ? 'Uit het financiële systeem'
-                      : `Vastgelegd door ${invoice.recorded_by_name ?? 'onbekend'} op ${formatDateTime(invoice.recorded_at)}`
-                  }
+                  supporting-text={formatDate(invoice.invoice_date)}
                 />
-                <nldd-text-cell text={formatDate(invoice.invoice_date)} />
-                <nldd-text-cell text={monthsText(invoice.months)} />
                 <nldd-text-cell
-                  text={formatEuro(invoice.amount_cents)}
+                  hide-below="md"
+                  size="sm"
+                  color="secondary"
+                  text={monthsText(invoice.months)}
+                />
+                <nldd-text-cell
+                  hide-below="md"
+                  size="sm"
+                  text={differenceText(invoice)}
+                  color={invoice.difference_cents !== 0 ? 'warning' : 'secondary'}
+                />
+                <nldd-text-cell
+                  text={`**${formatEuro(invoice.amount_cents)}**`}
                   horizontal-alignment="right"
                 />
-                <nldd-text-cell
-                  text={differenceText(invoice)}
-                  supporting-text={`Aangeleverd: ${formatEuro(invoice.delivered_cents)}`}
-                  {...(invoice.difference_cents !== 0 ? { color: 'warning' } : {})}
+                <RowActions
+                  name={`factuur ${invoice.invoice_number}`}
+                  actions={
+                    mayRecord
+                      ? [
+                          { text: 'Corrigeer', onSelect: () => edit({ kind: 'correct', invoice }) },
+                          { text: 'Trek in', onSelect: () => edit({ kind: 'withdraw', invoice }) },
+                        ]
+                      : []
+                  }
                 />
-                {mayRecord ? (
-                  <nldd-cell>
-                    <nldd-button-group>
-                      <Button
-                        size="sm"
-                        text="Corrigeer"
-                        accessibleLabel={`Corrigeer factuur ${invoice.invoice_number}`}
-                        onClick={() => edit({ kind: 'correct', invoice })}
-                      />
-                      <Button
-                        size="sm"
-                        text="Trek in"
-                        accessibleLabel={`Trek factuur ${invoice.invoice_number} in`}
-                        onClick={() => edit({ kind: 'withdraw', invoice })}
-                      />
-                    </nldd-button-group>
-                  </nldd-cell>
-                ) : null}
               </nldd-table-row>
             ))}
           </nldd-table>
@@ -411,8 +404,8 @@ export function Invoices({ assignmentId, status, recordFor, onRecordDone }: Invo
         }}
       >
         <nldd-text>
-          Voor een factuur die hier ten onrechte is vastgelegd. De maanden staan daarna weer
-          als aangeleverd. De vastlegging en de reden blijven bewaard.
+          Voor een factuur die hier ten onrechte is vastgelegd. De maanden staan daarna weer als
+          aangeleverd. De vastlegging en de reden blijven bewaard.
         </nldd-text>
         <TextInput label="Reden" value={reason} onChange={setReason} required multiline />
       </FormSheet>

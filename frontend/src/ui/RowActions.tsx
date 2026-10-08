@@ -7,11 +7,13 @@
  * of the row, `RowActions`, in a column of the fixed width
  * `ROW_ACTIONS_COLUMN`, so the column before it ends on the same position in
  * every row. A destructive item asks for confirmation and says what goes
- * with it. No "Acties" header and no text buttons in a row.
+ * with it. No "Acties" header and no text buttons in a row. Menu items carry
+ * no icons: the word says it, and a destructive item has its colour.
  */
 import { useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { orUndef, useNlddEvent } from '@/components/nldd/events';
+import { MoreButton } from './Icon';
 
 /** The track for the actions column in a table's `columns`. */
 export const ROW_ACTIONS_COLUMN = '48px';
@@ -63,6 +65,20 @@ interface RowActionsProps {
 
 /** The last cell of a row: one quiet button with the menu of what else the row can do. */
 export function RowActions({ name, actions }: RowActionsProps) {
+  if (actions.length === 0) return <nldd-cell />;
+  return (
+    <nldd-cell>
+      <RowMenu name={name} actions={actions} />
+    </nldd-cell>
+  );
+}
+
+/**
+ * The same button and menu without a table cell around it, for a row that
+ * is not an nldd-table row (the row header of a timeline). Draws nothing
+ * without actions.
+ */
+export function RowMenu({ name, actions }: RowActionsProps) {
   const [asking, setAsking] = useState<RowAction | null>(null);
   const dialogRef = useRef<HTMLElement>(null);
   useNlddEvent(dialogRef, 'close', () => setAsking(null));
@@ -71,17 +87,10 @@ export function RowActions({ name, actions }: RowActionsProps) {
   if (asking && asking !== lastAsked) setLastAsked(asking);
   const shown = asking ?? lastAsked;
 
-  if (actions.length === 0) return <nldd-cell />;
+  if (actions.length === 0) return null;
   return (
-    <nldd-cell>
-      <nldd-icon-button
-        icon="more"
-        size="sm"
-        appearance="neutral-transparent"
-        popup-type="menu"
-        accessible-label={`Meer acties voor ${name}`}
-        text={`Meer acties voor ${name}`}
-      >
+    <>
+      <MoreButton name={name}>
         <nldd-menu slot="popup" placement="bottom-end">
           {actions.map((action) => (
             <MenuItem
@@ -91,7 +100,7 @@ export function RowActions({ name, actions }: RowActionsProps) {
             />
           ))}
         </nldd-menu>
-      </nldd-icon-button>
+      </MoreButton>
       {createPortal(
         <nldd-modal-dialog
           ref={dialogRef}
@@ -115,12 +124,13 @@ export function RowActions({ name, actions }: RowActionsProps) {
         </nldd-modal-dialog>,
         document.body,
       )}
-    </nldd-cell>
+    </>
   );
 }
 
 /** Controls inside a row that have their own action; a click on them is not the row's. */
-const OWN_CONTROLS = 'nldd-icon-button, nldd-button, nldd-menu, nldd-menu-item, nldd-link, a, button';
+const OWN_CONTROLS =
+  'nldd-icon-button, nldd-button, nldd-menu, nldd-menu-item, nldd-link, a, button';
 
 interface OpenRowProps {
   /** Opens or edits what the row stands for. */
@@ -164,7 +174,13 @@ interface OpenCellProps {
 }
 
 /** The first cell of a row: the name, which a keyboard activates with Enter. */
-export function OpenCell({ text, supportingText, accessibleLabel, onOpen, children }: OpenCellProps) {
+export function OpenCell({
+  text,
+  supportingText,
+  accessibleLabel,
+  onOpen,
+  children,
+}: OpenCellProps) {
   const ref = useRef<HTMLElement>(null);
   useNlddEvent(
     ref,

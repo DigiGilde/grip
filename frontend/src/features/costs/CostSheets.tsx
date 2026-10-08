@@ -1,3 +1,4 @@
+import { DocumentLink } from '@/ui/Icon';
 import { useId, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
@@ -297,11 +298,11 @@ export function InvoiceSheet({ item, target, onClose }: InvoiceSheetProps) {
               <nldd-list-item key={attachment.id}>
                 <nldd-cell width="full">
                   <Stack gap="tight">
-                    <nldd-link
+                    <DocumentLink
+                      kind="download"
                       href={attachmentUrl(item.id, line.id, attachment.id)}
                       text={attachment.filename}
-                      start-icon="download"
-                      accessible-label={`Download ${attachment.filename}, ${formatBytes(attachment.size_bytes)}`}
+                      accessibleLabel={`Download ${attachment.filename}, ${formatBytes(attachment.size_bytes)}`}
                     />
                     <Quiet>
                       {[

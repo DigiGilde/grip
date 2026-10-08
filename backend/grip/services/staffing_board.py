@@ -338,6 +338,17 @@ class RoleStaffing:
 
 
 @dataclass(frozen=True)
+class Overbooked:
+    """Someone on the assignment who is above 100 percent in a month in which
+    they work on it, counting everything they do: the first such month."""
+
+    person_id: UUID
+    person_name: str
+    month: date
+    pct: Decimal
+
+
+@dataclass(frozen=True)
 class AssignmentStaffing:
     assignment_id: UUID
     months: tuple[date, ...]
@@ -353,6 +364,8 @@ class AssignmentStaffing:
     # People on this assignment who are above 100 percent in a month in which
     # they work on it, counting everything they do.
     overbooked_person_ids: tuple[UUID, ...]
+    # The same people with the first month and the percentage, for the signal.
+    overbooked: tuple[Overbooked, ...] = ()
 
     @property
     def staffed_count(self) -> int:
@@ -555,21 +568,29 @@ async def assignment_staffing(
     )
 
     overbooked: set[UUID] = set()
+    overbooked_detail: list[Overbooked] = []
     if person_ids and span:
         for person in await steering.occupancy(session, span):
             if person.person_id not in person_ids:
                 continue
-            over = {_first(cell.month) for cell in person.cells if cell.over}
-            for view in allocation_views:
-                allocation = view.allocation
-                if allocation.person_id != person.person_id:
-                    continue
+            over = {_first(cell.month): cell.pct for cell in person.cells if cell.over}
+            here = sorted(
+                m
+                for m in over
                 if any(
-                    allocation.start_date <= Month.of(m).last_day
-                    and allocation.end_date >= m
-                    for m in over
-                ):
-                    overbooked.add(person.person_id)
+                    view.allocation.person_id == person.person_id
+                    and view.allocation.start_date <= Month.of(m).last_day
+                    and view.allocation.end_date >= m
+                    for view in allocation_views
+                )
+            )
+            if here:
+                overbooked.add(person.person_id)
+                # The first month from now on, else the first at all.
+                month = next((m for m in here if m >= current), here[0])
+                overbooked_detail.append(
+                    Overbooked(person.person_id, person.person_name, month, over[month])
+                )
 
     return AssignmentStaffing(
         assignment_id=assignment_id,
@@ -581,4 +602,5 @@ async def assignment_staffing(
         open_fte=open_fte,
         open_from=open_from,
         overbooked_person_ids=tuple(sorted(overbooked, key=str)),
+        overbooked=tuple(sorted(overbooked_detail, key=lambda o: o.person_name)),
     )

@@ -1,3 +1,4 @@
+import { BackLink } from '@/ui/Icon';
 import { useRef, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
@@ -15,7 +16,7 @@ import {
   beforeLeaving,
   clearDraft,
   createDecisionIntent,
-  navigation,
+  leaveForDecision,
   readDraft,
   saveDraft,
   useDecisionReturn,
@@ -160,12 +161,12 @@ export function ReceivedQuotePage() {
   };
   const accept = useMutation({
     mutationFn: () => leaveFor('accept_received'),
-    onSuccess: (intent) => navigation.go(intent.authorize_url),
+    onSuccess: leaveForDecision,
     onError: (failure) => setError(errorMessage(failure)),
   });
   const reject = useMutation({
     mutationFn: () => leaveFor('reject_received'),
-    onSuccess: (intent) => navigation.go(intent.authorize_url),
+    onSuccess: leaveForDecision,
     onError: (failure) => setRejectError(errorMessage(failure)),
   });
   if (back.evidenceId) clearDraft(quoteId);
@@ -192,7 +193,7 @@ export function ReceivedQuotePage() {
           instanceName={instance?.name}
         />
         <nldd-container gap="16">
-          <nldd-link href={clientPath('offertes')} text="Terug naar ontvangen offertes" />
+          <BackLink href={clientPath('offertes')} text="Terug naar ontvangen offertes" />
           {query.isPending ? <Loading /> : null}
           {query.isError && notFound ? (
             <EmptyNotice
@@ -265,7 +266,7 @@ export function ReceivedQuotePage() {
               namens welke organisatie je tekent en op welk moment. Het akkoord wordt ondertekend
               met de sleutel van deze instantie en naar {contractor} gestuurd.
             </nldd-text>
-            <nldd-text>{beforeLeaving('accept')}</nldd-text>
+            <nldd-text>{beforeLeaving('accept', Boolean(accept.data?.passkey))}</nldd-text>
             <TextInput
               label="Je functie"
               value={signerFunction}
@@ -323,7 +324,7 @@ export function ReceivedQuotePage() {
           {contractor} ziet dat de offerte is afgewezen, met de reden die je hier geeft. Afwijzen is
           niet terug te draaien.
         </nldd-text>
-        <nldd-text>{beforeLeaving('reject')}</nldd-text>
+        <nldd-text>{beforeLeaving('reject', Boolean(reject.data?.passkey))}</nldd-text>
         <TextInput label="Reden" value={reason} onChange={setReason} optional multiline />
       </FormSheet>
     </div>

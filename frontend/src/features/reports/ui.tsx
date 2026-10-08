@@ -26,7 +26,7 @@ export function ReportBlock({
 }) {
   return (
     <section data-testid={testId} aria-label={title}>
-      <nldd-container gap="12">
+      <nldd-container gap="16">
         <nldd-container gap="4">
           {!bare && <SectionHeading text={title} />}
           {note && (

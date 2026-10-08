@@ -20,10 +20,11 @@ function useWaiting(): (route: AppRoute) => { count: number; words: string } | n
     refetchInterval: 60_000,
     retry: false,
   });
-  const open = counts.data?.open ?? 0;
+  // What the reader must do now. A task that waits on someone else is not counted.
+  const toDo = counts.data?.to_do ?? 0;
   return (route) =>
-    route.path === PATHS.tasks && open > 0
-      ? { count: open, words: open === 1 ? '1 open taak' : `${open} open taken` }
+    route.path === PATHS.tasks && toDo > 0
+      ? { count: toDo, words: toDo === 1 ? '1 taak te doen' : `${toDo} taken te doen` }
       : null;
 }
 

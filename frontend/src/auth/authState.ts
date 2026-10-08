@@ -7,7 +7,11 @@ export const AUTH_STATUS_KEY = ['auth', 'status'] as const;
 export function toAuthState(status: AuthStatus): AuthState {
   if (!status.authenticated) {
     if (status.guest) return { status: 'guest', guest: status.guest };
-    return { status: 'unauthenticated', oidcConfigured: status.oidc_configured };
+    return {
+      status: 'unauthenticated',
+      oidcConfigured: status.oidc_configured,
+      ...(status.passkey_login ? { passkeyLogin: true } : {}),
+    };
   }
   if (!status.person) return { status: 'no-access' };
   return {

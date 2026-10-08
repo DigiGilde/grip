@@ -16,13 +16,43 @@ export interface TaskNote {
   author_name?: string | null;
 }
 
+export interface ChecklistItem {
+  text: string;
+  done?: boolean;
+}
+
 export interface Task {
   id: string;
   case_kind: CaseKind;
   assignment_id?: string | null;
+  /** Present when the reader may see the assignment. */
+  assignment_name?: string | null;
   vacancy_id?: string | null;
+  vacancy_title?: string | null;
   case_label: string;
+  /** The title the plan gave the task. Show `headline` instead. */
   title: string;
+  /** The task in a few words for this reader: what to do, or what is waited for. */
+  headline?: string;
+  /** What must happen, whoever reads it: for an overview of everyone's work. */
+  doer_title?: string;
+  /** The sentence addressed to this reader. */
+  instruction?: string;
+  /** The reader must act now; absent when the reader waits or only looks on. */
+  needs_me?: boolean;
+  /** What happened that made the task. */
+  why?: string | null;
+  /** What comes after it. */
+  then?: string | null;
+  /** The name of the one action; absent when the reader has nothing to do now. */
+  action_text?: string | null;
+  /** Where the work is done, inside the application. */
+  work_href?: string | null;
+  /** Who is waited on, when that is not the reader. */
+  waits_on?: string | null;
+  /** Nobody can do this until something outside the task changes. */
+  blocked?: string | null;
+  checklist?: ChecklistItem[];
   track: string;
   track_label: string;
   status: TaskStatus;
@@ -33,7 +63,7 @@ export interface Task {
   assignee_person_id?: string | null;
   assignee_label: string;
   waiting_on?: string | null;
-  /** Where the work is done, inside the application. */
+  /** The link the plan gave the task. Use `work_href` instead. */
   link?: string | null;
   is_mine?: boolean;
   can_change?: boolean;
@@ -55,7 +85,10 @@ export interface TaskCounts {
 }
 
 export interface TaskList {
+  /** The reader's own tasks: to do, and waiting on someone else. */
   items: Task[];
+  /** Tasks of others on the cases the reader started. */
+  awaited: Task[];
   counts: TaskCounts;
 }
 
@@ -98,7 +131,11 @@ export const TASK_KEYS = {
 };
 
 function asList(body: Partial<TaskList>): TaskList {
-  return { items: body.items ?? [], counts: { ...NO_COUNTS, ...body.counts } };
+  return {
+    items: body.items ?? [],
+    awaited: body.awaited ?? [],
+    counts: { ...NO_COUNTS, ...body.counts },
+  };
 }
 
 export const fetchMyTasks = async () => asList(await apiGet<Partial<TaskList>>(`${BASE}/mine`));

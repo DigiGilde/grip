@@ -443,10 +443,15 @@ async def test_opening_steps_and_the_minimum(
 
 
 async def test_ready_candidate_is_not_opened(
-    client, act_as, manager, beheerder, budget_line
+    client, act_as, manager, beheerder, colleague, budget_line
 ) -> None:
     act_as(manager)
-    vacancy = await _create(client, budget_line, vacancy_type="gerede")
+    vacancy = await _create(
+        client,
+        budget_line,
+        vacancy_type="gerede",
+        candidate_person_id=str(colleague.id),
+    )
     assert vacancy["has_openings"] is False
     assert [s["kind"] for s in vacancy["procedure"]] == [
         "request",
@@ -794,10 +799,15 @@ async def test_fill_needs_the_approval(
 
 
 async def test_a_ready_candidate_is_filled_without_opening(
-    client, act_as, manager, beheerder, budget_line
+    client, act_as, manager, beheerder, colleague, budget_line
 ) -> None:
     act_as(manager)
-    vacancy = await _create(client, budget_line, vacancy_type="gerede")
+    vacancy = await _create(
+        client,
+        budget_line,
+        vacancy_type="gerede",
+        candidate_person_id=str(colleague.id),
+    )
     await _approve(client, act_as, beheerder, vacancy["id"])
     response = await client.post(f"{BASE}/{vacancy['id']}/fill", json={})
     assert response.status_code == 200, response.text

@@ -19,6 +19,7 @@
  */
 import { useRef } from 'react';
 import { orUndef, useNlddEvent } from '@/components/nldd/events';
+import { iconAttribute } from './icons';
 
 if (import.meta.env.MODE !== 'test') {
   void import('@nldd/design-system/dropdown');
@@ -47,8 +48,16 @@ export interface ActionBarAction {
   onClick?: () => void;
   /** A download or a page: rendered as a link styled as a button. */
   href?: string;
+  /**
+   * What the link does when it leaves the page: `download` saves a file,
+   * `elsewhere` opens a new tab. Each gets its fixed icon; other actions
+   * have none, because their verb says it.
+   */
+  kind?: 'download' | 'elsewhere';
   primary?: boolean;
   loading?: boolean;
+  /** Held while something else has to finish first. */
+  disabled?: boolean;
 }
 
 function eventValue(event: Event): string {
@@ -69,9 +78,7 @@ function OverflowOption({
 }) {
   const ref = useRef<HTMLElement>(null);
   useNlddEvent(ref, 'select', () => onSelect(option.value));
-  return (
-    <nldd-menu-item ref={ref} type="radio" text={option.label} selected={orUndef(selected)} />
-  );
+  return <nldd-menu-item ref={ref} type="radio" text={option.label} selected={orUndef(selected)} />;
 }
 
 function FilterItem({ filter }: { filter: ActionBarFilter }) {
@@ -127,12 +134,16 @@ function ActionItem({ action }: { action: ActionBarAction }) {
         appearance={appearance}
         text={action.text}
         loading={orUndef(action.loading)}
+        disabled={orUndef(action.disabled)}
         {...(action.href ? { href: action.href } : {})}
+        {...(action.kind === 'elsewhere' ? { target: '_blank' } : {})}
+        {...iconAttribute(action.kind)}
       />
       <nldd-menu-item
         ref={menuRef}
         slot="overflow"
         text={action.text}
+        disabled={orUndef(action.disabled)}
         {...(action.href ? { href: action.href } : {})}
       />
     </nldd-toolbar-item>

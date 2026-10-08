@@ -39,6 +39,14 @@ Wat wordt nagerekend:
 
 Dezelfde controle zit achter `POST /api/proof/verify` (voor een persoon van de instantie), `POST /api/signing/verify` (voor wie tekent, ook een uitgenodigde gast) en achter de samenvatting die grip bij een besluit toont. Beide vragen een sessie en weigeren een bundel boven 12 MB. Zonder sessie controleer je met het commando.
 
+## Een bevestiging met een passkey
+
+Heeft de persoon een passkey, dan bevat de bundel ook wat het eigen apparaat voor dit besluit ondertekende (`passkey.assertion`). De verklaring noemt onder `hoe.passkey` de publieke sleutel, het adres waaraan de passkey gebonden is, de gegevens waaruit de uitdaging is berekend en de registratie van de passkey in de instantie.
+
+De controle rekent de uitdaging na uit die gegevens, vergelijkt haar met wat het apparaat ondertekende en controleert de handtekening met de publieke sleutel. Bewezen is dan dat een apparaat met deze vastgelegde passkey voor precies dit besluit tekende en zijn gebruiker verifieerde. Niet bewezen is welke mens het apparaat bediende; dat de passkey bij de persoon hoort, berust op de registratie van de instantie.
+
+Een bundel zonder passkey zegt er niets over. Zie [passkeys-en-installeren.md](passkeys-en-installeren.md).
+
 ## Wat een bundel niet bewijst
 
 Het commando zegt het zelf, per bundel. De vaste punten:

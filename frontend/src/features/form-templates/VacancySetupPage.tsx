@@ -1,10 +1,21 @@
 import { useState } from 'react';
+import { ModelStatusSection } from '@/features/vacancies/ModelStatusSection';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { ApiError, errorMessage } from '@/api/client';
 import { formatDate } from '@/lib/format';
 import { useInstance } from '@/layout/useInstance';
+import { PATHS } from '@/paths';
+import { OpenCell, OpenRow, ROW_ACTIONS_COLUMN, RowActions } from '@/ui/RowActions';
 import { VACANCY_KEYS } from '@/features/vacancies/api';
-import { Button, CheckboxInput, FileInput, Note, SelectInput, TextInput } from '@/features/vacancies/ui';
+import {
+  Button,
+  CheckboxInput,
+  FileInput,
+  Note,
+  SelectInput,
+  TextInput,
+} from '@/features/vacancies/ui';
 import {
   EmptyNotice,
   ErrorNotice,
@@ -48,8 +59,8 @@ function Inspection({ inspection }: { inspection: FormInspection }) {
     <>
       <SectionHeading text="Velden in dit formulier" level={3} />
       <Note>
-        Van elk veld de naam, het soort en waar het volgens de koppeling mee wordt gevuld. De
-        inhoud van een veld wordt nooit getoond.
+        Van elk veld de naam, het soort en waar het volgens de koppeling mee wordt gevuld. De inhoud
+        van een veld wordt nooit getoond.
       </Note>
       {inspection.problem && <ErrorNotice message={inspection.problem} />}
       {inspection.missing_fields.length > 0 && (
@@ -154,9 +165,9 @@ function UploadSheet({
       error={problem}
     >
       <Note>
-        Het lege formulier van je organisatie, als invulbare pdf. Grip vult het per vacature in.
-        Een formulier dat nog is ingevuld bevat namen en wordt geweigerd, tenzij je het eerst
-        laat leegmaken.
+        Het lege formulier van je organisatie, als invulbare pdf. Grip vult het per vacature in. Een
+        formulier dat nog is ingevuld bevat namen en wordt geweigerd, tenzij je het eerst laat
+        leegmaken.
       </Note>
       <FileInput
         label="Formulier (pdf)"
@@ -202,6 +213,7 @@ function UploadSheet({
 
 function Templates() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [uploading, setUploading] = useState(false);
   const templates = useQuery({ queryKey: SETUP_KEYS.templates, queryFn: fetchFormTemplates });
   const mappings = useQuery({ queryKey: SETUP_KEYS.bundled, queryFn: fetchBundledMappings });
@@ -213,50 +225,76 @@ function Templates() {
     },
   });
 
+  const inUse = templates.data?.find((template) => template.is_active);
+  const earlier = (templates.data ?? []).filter((template) => !template.is_active);
+  const open = (template: FormTemplate) =>
+    navigate(PATHS.formTemplate.replace(':templateId', template.id));
+
   return (
-    <Section
-      title="Aanvraagformulier"
-      description="Een nieuw aanvraagformulier wordt gemaakt van het formulier dat in gebruik is."
-    >
+    <Section title="Aanvraagformulier">
       {templates.isPending && <Loading />}
       {templates.isError && <ErrorNotice message={errorMessage(templates.error)} />}
       {activate.isError && <ErrorNotice message={errorMessage(activate.error)} />}
       {templates.data && (
-        <nldd-list appearance="box-base" accessible-label="Formulieren">
-          {templates.data.map((template) => (
-            <nldd-list-item key={template.id}>
-              <nldd-text-cell text={template.name} supporting-text={templateLine(template)} />
-              <nldd-spacer-cell size="8" />
+        <nldd-table
+          accessible-label="Formulieren"
+          columns={`minmax(260px,1fr) 140px ${ROW_ACTIONS_COLUMN}`}
+        >
+          <nldd-table-row slot="header">
+            <nldd-text-cell text="Formulier" />
+            <nldd-text-cell text="Stand" />
+            <nldd-cell />
+          </nldd-table-row>
+          {[...(inUse ? [inUse] : []), ...earlier].map((template) => (
+            <OpenRow key={template.id} onOpen={() => open(template)}>
+              <OpenCell
+                text={template.name}
+                supportingText={templateLine(template)}
+                accessibleLabel={`Bekijk het formulier ${template.name}`}
+                onOpen={() => open(template)}
+              />
               <nldd-cell>
                 {template.is_active ? (
                   <nldd-tag color="success" text="In gebruik" />
                 ) : (
-                  <Button
-                    text="Gebruik dit formulier"
-                    size="sm"
-                    accessibleLabel={`Gebruik het formulier ${template.name}`}
-                    loading={activate.isPending && activate.variables === template.id}
-                    onClick={() => activate.mutate(template.id)}
-                  />
+                  <nldd-text color="secondary" size="sm">
+                    Eerder gebruikt
+                  </nldd-text>
                 )}
               </nldd-cell>
-            </nldd-list-item>
+              <nldd-cell>
+                <RowActions
+                  name={template.name}
+                  actions={
+                    template.is_active
+                      ? [{ text: 'Vervang het formulier', onSelect: () => setUploading(true) }]
+                      : [
+                          {
+                            text: 'Neem weer in gebruik',
+                            onSelect: () => activate.mutate(template.id),
+                          },
+                        ]
+                  }
+                />
+              </nldd-cell>
+            </OpenRow>
           ))}
           <nldd-inline-dialog
             slot="empty"
             text="Nog geen formulier"
             supporting-text="Lever het lege aanvraagformulier van je organisatie aan om het per vacature te laten invullen."
           />
-        </nldd-list>
+        </nldd-table>
       )}
-      <nldd-spacer size="8" />
-      <nldd-button-group>
-        <Button
-          text="Lever een leeg formulier aan"
-          appearance="primary"
-          onClick={() => setUploading(true)}
-        />
-      </nldd-button-group>
+      {templates.data && !inUse ? (
+        <nldd-button-group>
+          <Button
+            text="Lever een leeg formulier aan"
+            appearance="primary"
+            onClick={() => setUploading(true)}
+          />
+        </nldd-button-group>
+      ) : null}
       <UploadSheet
         // The mappings arrive after the first render; start the form with them.
         key={`upload-${mappings.data?.length ?? 0}-${templates.data?.length ?? 0}`}
@@ -341,11 +379,7 @@ export function VacancySetupPage() {
   const denied = access.error instanceof ApiError && access.error.status === 403;
 
   return (
-    <Page
-      title="Vacatureformulier en taalmodel"
-      instanceName={instance?.name}
-      spacing="sections"
-    >
+    <Page title="Vacatureformulier en taalmodel" instanceName={instance?.name} spacing="sections">
       {denied ? (
         <EmptyNotice
           text="Dit is voor beheerders"
@@ -355,6 +389,7 @@ export function VacancySetupPage() {
         <Templates />
       )}
       {!denied && !access.isPending ? <LanguageModelSection /> : null}
+      {!denied && !access.isPending ? <ModelStatusSection /> : null}
     </Page>
   );
 }

@@ -29,6 +29,15 @@ _PUBLIC_ROUTES: dict[str, str] = {
     "/api/auth/callback": "OIDC redirect target",
     "/api/auth/logout": "ends the session",
     "/api/auth/status": "tells the frontend whether anyone is logged in",
+    "/api/auth/diagnose": (
+        "404 unless OIDC_DIAGNOSTICS is on (refused when deployed): shows, "
+        "masked, what the provider sent, also after a refused login"
+    ),
+    "/api/auth/diagnose/reauth": (
+        "404 unless OIDC_DIAGNOSTICS is on: starts the forced re-authentication test"
+    ),
+    "/api/auth/passkey/options": "logging in with a passkey: gives a challenge",
+    "/api/auth/passkey/verify": "logging in with a passkey: the assertion is checked",
     "/api/instance": "name and base URI only; the login page shows the name",
     "/api/integrations/wies/export": "no session: a machine with a key (Wies)",
     "/api/integrations/wies/proposed-colleagues": (

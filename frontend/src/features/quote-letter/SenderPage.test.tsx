@@ -27,6 +27,7 @@ const DATA: QuoteSender = {
       with_costs: false,
       numbered: true,
       draftable: true,
+      required: false,
     },
     {
       key: 'kosten',
@@ -37,6 +38,7 @@ const DATA: QuoteSender = {
       with_costs: true,
       numbered: true,
       draftable: false,
+      required: false,
     },
     {
       key: 'scope',
@@ -47,6 +49,7 @@ const DATA: QuoteSender = {
       with_costs: false,
       numbered: true,
       draftable: false,
+      required: false,
     },
   ],
   letter: { opening: 'Hierbij de offerte.', closing: '', billing_annex: true },

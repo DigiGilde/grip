@@ -1,3 +1,4 @@
+import { BackLink, DocumentLink } from '@/ui/Icon';
 import { useRef, useState } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -102,12 +103,7 @@ export function CostItemPage() {
         spacing="sections"
       >
         <Stack gap="group">
-          <nldd-link
-            size="sm"
-            href={costsPath(year)}
-            text="Terug naar Kosten en facturen"
-            start-icon="arrow-left"
-          />
+          <BackLink href={costsPath(year)} text="Terug naar Kosten" />
           {notFound ? (
             <EmptyNotice
               text="Deze kostenpost is niet gevonden"
@@ -171,7 +167,12 @@ function State({ item }: { item: CostItem }) {
   const over = item.variance_cents < 0;
   const figures: Figure[] = [
     item.budgeted_cents === 0
-      ? { label: COST_LABELS.budgeted, value: formatEuro(0), detail: 'Nog niet begroot', quiet: true }
+      ? {
+          label: COST_LABELS.budgeted,
+          value: formatEuro(0),
+          detail: 'Nog niet begroot',
+          quiet: true,
+        }
       : { label: COST_LABELS.budgeted, value: formatEuro(item.budgeted_cents) },
     { label: COST_LABELS.forecast, value: formatEuro(item.forecast_cents) },
     {
@@ -254,13 +255,13 @@ function Invoices({ item, onOpen }: InvoicesProps) {
                 <nldd-cell hide-below="md">
                   <nldd-container gap="4">
                     {line.attachments.map((attachment) => (
-                      <nldd-link
+                      <DocumentLink
                         key={attachment.id}
+                        kind="download"
                         size="sm"
                         href={attachmentUrl(item.id, line.id, attachment.id)}
                         text={attachment.filename}
-                        start-icon="download"
-                        accessible-label={`Download ${attachment.filename}, ${formatBytes(attachment.size_bytes)}`}
+                        accessibleLabel={`Download ${attachment.filename}, ${formatBytes(attachment.size_bytes)}`}
                       />
                     ))}
                   </nldd-container>
@@ -344,7 +345,11 @@ function Coverages({ item, onOpen }: CoveragesProps) {
               <nldd-cell>
                 <nldd-container gap="4">
                   <span className="cost-line-name cost-chart">
-                    <span className="cost-swatch" data-step={coverageStep(index)} aria-hidden="true" />
+                    <span
+                      className="cost-swatch"
+                      data-step={coverageStep(index)}
+                      aria-hidden="true"
+                    />
                     <nldd-link href={finance} text={coverage.assignment_name} />
                   </span>
                   <nldd-text size="sm" color="secondary">

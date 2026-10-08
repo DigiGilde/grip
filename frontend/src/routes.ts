@@ -78,6 +78,13 @@ export const APP_ROUTES: readonly AppRoute[] = [
     for: ['beheerder', 'lezer', 'assignment_manager'],
   },
   {
+    path: PATHS.billing,
+    title: 'Factureren',
+    icon: 'document',
+    area: 'work',
+    for: ['beheerder', 'lezer', 'assignment_manager'],
+  },
+  {
     path: PATHS.reports,
     title: 'Rapportage',
     icon: 'chart-x-y-axis-line',

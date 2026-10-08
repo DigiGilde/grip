@@ -8,6 +8,8 @@ export const PATHS = {
   assignmentStaffing: '/opdrachten/:assignmentId/bemensing',
   assignmentBudget: '/opdrachten/:assignmentId/begroting',
   assignmentQuote: '/opdrachten/:assignmentId/offerte',
+  // Preparing the quote as a letter: its own page, outside the tabs.
+  assignmentQuoteDraft: '/opdrachten/:assignmentId/offerte/schrijven',
   assignmentMonthClose: '/opdrachten/:assignmentId/maandafsluiting',
   signing: '/tekenen',
   signingQuote: '/tekenen/:quoteId',
@@ -20,6 +22,8 @@ export const PATHS = {
   allocations: '/inzet',
   costs: '/kosten',
   costItem: '/kosten/:costItemId',
+  billing: '/factureren',
+  billingDelivery: '/factureren/:deliveryId',
   rates: '/beheer/tarieven',
   // Where the rate cards used to live; redirects to `rates`.
   ratesLegacy: '/tarieven',
@@ -28,12 +32,18 @@ export const PATHS = {
   vacancies: '/vacatures',
   vacancyOpenRoles: '/vacatures/open-rollen',
   vacancySetup: '/vacatures/beheer',
+  vacancyStandardTexts: '/vacatures/standaardteksten',
+  formTemplate: '/vacatures/beheer/formulier/:templateId',
   functionFramework: '/beheer/functiegebouw',
   vacancyDetail: '/vacatures/:vacancyId',
   client: '/aanvragen',
   clientRequest: '/aanvragen/nieuw',
   clientAssignment: '/aanvragen/opdracht/:assignmentId',
   receivedQuote: '/aanvragen/offerte/:quoteId',
+  // A person's own passkeys.
+  security: '/beveiliging',
+  // How and where a person is notified.
+  notifications: '/meldingen',
   admin: '/beheer',
   activity: '/beheer/activiteit',
   peers: '/beheer/koppelingen',

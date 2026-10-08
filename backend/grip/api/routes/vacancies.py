@@ -40,6 +40,7 @@ from grip.core.auth import CurrentPerson
 from grip.core.config import Settings, get_settings
 from grip.core.database import get_db
 from grip.core.problem import problem_response
+from grip.models.assignment import BudgetLine
 from grip.models.vacancy import (
     ContractType,
     DecisionKind,
@@ -58,6 +59,7 @@ from grip.schema.vacancies import (
     DecisionIn,
     DecisionOut,
     DraftIn,
+    FilledRoleOut,
     LanguageModelOut,
     OpenFormFieldOut,
     OpenRoleOut,
@@ -66,6 +68,7 @@ from grip.schema.vacancies import (
     PublishedTextOut,
     PublishIn,
     RequestFormStatusOut,
+    RoleFillerOut,
     StepIn,
     StepOptionOut,
     SubmitRequest,
@@ -79,6 +82,7 @@ from grip.schema.vacancies import (
     VacancySummaryOut,
     VacancyUpdate,
 )
+from grip.services import budget_intent
 from grip.services import function_framework as framework
 from grip.services.errors import DomainValidationError, NotFoundError
 from grip.services.llm import (
@@ -204,6 +208,7 @@ def _resource(
         open_role=_is_open_role(vacancy),
         named={decision.kind: decision.person_id for decision in vacancy.decisions},
         decision_kind=decision_kind.value if decision_kind else None,
+        text_reviewers=getattr(vacancy, "text_reviewer_ids", ()),
     )
 
 
@@ -489,6 +494,7 @@ async def _vacancy_response(
             if candidate.is_valid_on(date.today())
             and set(candidate.scales) & set(line_scales)
         ]
+    candidate = await service.candidate_of(db, vacancy)
     out = VacancyOut(
         id=vacancy.id,
         function_title=vacancy.function_title,
@@ -509,6 +515,8 @@ async def _vacancy_response(
         budget_line_id=vacancy.budget_line_id,
         assignment_id=assignment_id,
         assignment_name=assignment_name,
+        candidate_person_id=candidate[0] if candidate else None,
+        candidate_name=candidate[1] if candidate else None,
         requested_on=vacancy.requested_on,
         created_at=vacancy.created_at,
         has_openings=StepKind.internal_opening
@@ -637,6 +645,7 @@ async def list_vacancies(
             status=VacancyStatus(vacancy.status),
             vacancy_type=VacancyType(vacancy.vacancy_type),
             declarable=vacancy.declarable,
+            budget_line_id=vacancy.budget_line_id,
             assignment_name=assignment_name,
             requested_on=vacancy.requested_on,
             current_step=current,
@@ -694,7 +703,11 @@ async def list_unfilled_roles(
     """Budget lines with room left, for which the viewer may open a vacancy."""
     editable: dict[UUID, bool] = {}
     result: list[dict[str, Any]] = []
-    for role in await service.unfilled_roles(db):
+    unfilled = await service.unfilled_roles(db)
+    intended = await VacancyRepository(db).person_names_by_id(
+        role.intended_person_id for role in unfilled if role.intended_person_id
+    )
+    for role in unfilled:
         if role.assignment_id not in editable:
             editable[role.assignment_id] = bool(
                 await decide(
@@ -717,12 +730,69 @@ async def list_unfilled_roles(
             start_date=role.start_date,
             end_date=role.end_date,
             declarable=role.declarable,
+            tentative=role.tentative,
+            intended_person_id=role.intended_person_id,
+            intended_person_name=intended.get(role.intended_person_id)
+            if role.intended_person_id
+            else None,
         )
         permitted = await permitted_classes(
             decider,
             subject,
             vacancy_resource(None, assignment_id=role.assignment_id),
             schema_classes(UnfilledRoleOut),
+        )
+        result.append(build_response(out, permitted))
+    return result
+
+
+@router.get("/filled-roles", response_model=None)
+async def list_filled_roles(
+    subject: CurrentSubject,
+    decider: AccessDecider,
+    db: AsyncSession = Depends(get_db),
+) -> list[dict[str, Any]]:
+    """Fully staffed budget lines for which the viewer may open a vacancy.
+
+    A vacancy for a filled role starts a replacement or a successor. Who
+    fills the role is only in the answer for who may see staffing.
+    """
+    editable: dict[UUID, bool] = {}
+    result: list[dict[str, Any]] = []
+    filled = await service.filled_roles(db)
+    intended = await VacancyRepository(db).person_names_by_id(
+        role.intended_person_id for role in filled if role.intended_person_id
+    )
+    for role in filled:
+        resource = vacancy_resource(None, assignment_id=role.assignment_id)
+        if role.assignment_id not in editable:
+            editable[role.assignment_id] = bool(
+                await decide(decider, subject, Action.EDIT, resource)
+            )
+        if not editable[role.assignment_id]:
+            continue
+        out = FilledRoleOut(
+            budget_line_id=role.budget_line_id,
+            assignment_id=role.assignment_id,
+            assignment_name=role.assignment_name,
+            description=role.description,
+            role=role.role,
+            fte=role.fte,
+            start_date=role.start_date,
+            end_date=role.end_date,
+            declarable=role.declarable,
+            tentative=role.tentative,
+            filled_by=[
+                RoleFillerOut(person_name=f.person_name, until=f.until)
+                for f in role.filled_by
+            ],
+            intended_person_id=role.intended_person_id,
+            intended_person_name=intended.get(role.intended_person_id)
+            if role.intended_person_id
+            else None,
+        )
+        permitted = await permitted_classes(
+            decider, subject, resource, schema_classes(FilledRoleOut)
         )
         result.append(build_response(out, permitted))
     return result
@@ -839,6 +909,42 @@ async def create_vacancy(
         Action.EDIT,
         vacancy_resource(None, assignment_id=assignment_id),
     )
+
+    known_candidate = body.vacancy_type.value in service.KNOWN_CANDIDATE_TYPES
+    if body.candidate_person_id is not None and not known_candidate:
+        raise DomainValidationError(
+            "Een kandidaat hoort alleen bij een vacature voor een beoogde of "
+            "gerede kandidaat."
+        )
+    if known_candidate and body.budget_line_id is not None:
+        # The candidate is the intended person of the line: one fact.
+        line = await db.get(BudgetLine, body.budget_line_id)
+        current = line.intended_person_id if line is not None else None
+        chosen = body.candidate_person_id or current
+        if chosen is None:
+            raise DomainValidationError(
+                "Een vacature voor een beoogde of gerede kandidaat heeft een "
+                "kandidaat nodig. Kies wie het is."
+            )
+        if chosen != current and assignment_id is not None:
+            # Naming someone on a role is staffing, as on the budget itself.
+            await require(
+                decider,
+                subject,
+                Action.READ,
+                Resource.person(),
+                DataClass.STAFFING_ROSTER,
+            )
+            await require(
+                decider,
+                subject,
+                Action.EDIT,
+                Resource.allocation(assignment_id, chosen),
+                DataClass.STAFFING,
+            )
+            await budget_intent.update_line(
+                db, body.budget_line_id, actor=person, intended_person_id=chosen
+            )
 
     if body.budget_line_id is not None:
         vacancy = await service.create_vacancy_from_budget_line(

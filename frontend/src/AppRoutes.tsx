@@ -21,13 +21,18 @@ import { ClientAssignmentPage } from '@/features/client/ClientAssignmentPage';
 import { ClientPage } from '@/features/client/ClientPage';
 import { ReceivedQuotePage } from '@/features/client/ReceivedQuotePage';
 import { RequestQuotePage } from '@/features/client/RequestQuotePage';
+import { BillingPage } from '@/features/billing/BillingPage';
+import { DeliveryPage } from '@/features/billing/DeliveryPage';
 import { CostItemPage } from '@/features/costs/CostItemPage';
+import { NotificationsPage } from '@/features/notifications/NotificationsPage';
+import { SecurityPage } from '@/features/passkeys/SecurityPage';
 import { CostsPage } from '@/features/costs/CostsPage';
 import { MonthClosePage } from '@/features/month-close/MonthClosePage';
 import { OverviewPage } from '@/features/overview/OverviewPage';
 import { QuotePage } from '@/features/quotes/QuotePage';
 import { ApprovalListPage } from '@/features/quotes/ApprovalListPage';
 import { ApprovalPage } from '@/features/quotes/ApprovalPage';
+import { QuoteDraftPage } from '@/features/quotes/QuoteDraftPage';
 import { QuoteSettingsPage } from '@/features/quotes/QuoteSettingsPage';
 import { SenderPage } from '@/features/quote-letter/SenderPage';
 import { VerifyProofPage } from '@/features/quotes/VerifyProofPage';
@@ -47,9 +52,11 @@ import { ReportTopicPage } from '@/features/reports/ReportTopicPage';
 import { PersonPage } from '@/features/team/PersonPage';
 import { TeamPage } from '@/features/team/TeamPage';
 import { VacancySetupPage } from '@/features/form-templates/VacancySetupPage';
+import { FormTemplatePage } from '@/features/form-templates/FormTemplatePage';
 import { FunctionFrameworkPage } from '@/features/function-framework/FunctionFrameworkPage';
 import { WiesProposalsPage } from '@/features/wies/WiesProposalsPage';
 import { OpenRolesPage } from '@/features/vacancies/OpenRolesPage';
+import { StandardTextsPage } from '@/features/vacancies/StandardTextsPage';
 import { VacanciesPage } from '@/features/vacancies/VacanciesPage';
 import { VACANCY_TAB_SEGMENTS } from '@/features/vacancies/paths';
 import {
@@ -72,6 +79,7 @@ const SCREENS: Record<string, ReactElement> = {
   [PATHS.assignments]: <AssignmentsPage />,
   [PATHS.allocations]: <AllocationsPage />,
   [PATHS.costs]: <CostsPage />,
+  [PATHS.billing]: <BillingPage />,
   [PATHS.team]: <TeamPage />,
   [PATHS.vacancies]: <VacanciesPage />,
   [PATHS.reports]: <ReportsPage />,
@@ -127,6 +135,8 @@ export function AppRoutes() {
         <Route path={PATHS.activity} element={<ActivityPage />} />
         <Route path={PATHS.vacancyOpenRoles} element={<OpenRolesPage />} />
         <Route path={PATHS.vacancySetup} element={<VacancySetupPage />} />
+        <Route path={PATHS.vacancyStandardTexts} element={<StandardTextsPage />} />
+        <Route path={PATHS.formTemplate} element={<FormTemplatePage />} />
         <Route path={PATHS.functionFramework} element={<FunctionFrameworkPage />} />
         {/* One vacancy: a shared header with the steps, and a tab per concern. */}
         <Route path={PATHS.vacancyDetail} element={<VacancyLayout />}>
@@ -141,6 +151,7 @@ export function AppRoutes() {
         <Route path={PATHS.clientRequest} element={<RequestQuotePage />} />
         <Route path={PATHS.clientAssignment} element={<ClientAssignmentPage />} />
         <Route path={PATHS.receivedQuote} element={<ReceivedQuotePage />} />
+        <Route path={PATHS.assignmentQuoteDraft} element={<QuoteDraftPage />} />
         <Route path={PATHS.quoteApprovals} element={<ApprovalListPage />} />
         <Route path={PATHS.quoteApproval} element={<ApprovalPage />} />
         <Route path={PATHS.quoteSettings} element={<QuoteSettingsPage />} />
@@ -151,6 +162,9 @@ export function AppRoutes() {
         <Route path={PATHS.rates} element={<RatesPage />} />
         <Route path={PATHS.teamPerson} element={<PersonPage />} />
         <Route path={PATHS.costItem} element={<CostItemPage />} />
+        <Route path={PATHS.billingDelivery} element={<DeliveryPage />} />
+        <Route path={PATHS.security} element={<SecurityPage />} />
+        <Route path={PATHS.notifications} element={<NotificationsPage />} />
         <Route path={PATHS.ratesLegacy} element={<Navigate to={PATHS.rates} replace />} />
         <Route path={PATHS.wiesProposals} element={<WiesProposalsPage />} />
         <Route path={PATHS.reportAssignment} element={<AssignmentReportPage />} />

@@ -5,6 +5,11 @@ import { createRoot } from 'react-dom/client';
 import './components/nldd/register';
 import App from './App';
 import './index.css';
+import { watchInstallPrompt } from './pwa/install';
+import { registerServiceWorker } from './pwa/serviceWorker';
+
+registerServiceWorker();
+watchInstallPrompt();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

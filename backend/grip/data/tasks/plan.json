@@ -1,5 +1,8 @@
 {
-  "version": "2026.2",
+  "version": "2026.3",
+  "replaces": [
+    "2026.2"
+  ],
   "description": "Het meegeleverde plan. Een taak ontstaat als alles onder 'when' waar is en sluit zodra het feit onder 'done_when' waar is. Namen van onderwerpen ('for'), feiten en rollen komen uit de catalogus in grip/tasks/catalogue.py; het plan kan er geen bedenken.",
   "case_kinds": {
     "assignment": {
@@ -200,41 +203,42 @@
         {
           "key": "financien.factuurgegevens_aanleveren",
           "track": "financien",
-          "title": "Lever de factuurgegevens van {maand} aan",
-          "for": "closed_month",
-          "only_first": true,
-          "when": [
-            "contractor",
-            "external",
-            "may_bill"
-          ],
-          "done_when": "billing_delivered",
-          "assignee": "manager",
-          "due": {
-            "working_days": 5,
-            "after": "closed_on"
-          },
-          "link": "/opdrachten/{assignment_id}/maandafsluiting?maand={repeat_key}"
-        },
-        {
-          "key": "financien.factuur_vastleggen",
-          "track": "financien",
-          "title": "Leg vast dat de factuur over {maand} is verstuurd",
-          "for": "closed_month",
+          "title": "Lever {periode} aan",
+          "for": "billing_period",
           "only_first": true,
           "when": [
             "contractor",
             "external",
             "may_bill",
-            "billing_delivered"
+            "period_ready"
           ],
-          "done_when": "invoice_recorded",
+          "done_when": "period_delivered",
+          "assignee": "manager",
+          "due": {
+            "working_days": 5,
+            "after": "ready_on"
+          },
+          "link": "/opdrachten/{assignment_id}/maandafsluiting?periode={repeat_key}"
+        },
+        {
+          "key": "financien.factuur_vastleggen",
+          "track": "financien",
+          "title": "Leg de factuur over {periode} vast",
+          "for": "billing_period",
+          "only_first": true,
+          "when": [
+            "contractor",
+            "external",
+            "may_bill",
+            "period_delivered"
+          ],
+          "done_when": "period_invoiced",
           "assignee": "manager",
           "due": {
             "working_days": 10,
             "after": "delivered_on"
           },
-          "link": "/opdrachten/{assignment_id}/maandafsluiting?maand={repeat_key}"
+          "link": "/opdrachten/{assignment_id}/maandafsluiting?factuur={subject_id}"
         },
         {
           "key": "financien.naverrekening_aanleveren",
@@ -262,6 +266,10 @@
         {
           "key": "werving",
           "label": "Werving"
+        },
+        {
+          "key": "teksten",
+          "label": "Teksten"
         }
       ],
       "templates": [
@@ -375,6 +383,85 @@
           "manual": true,
           "assignee": "requester",
           "link": "/vacatures/{vacancy_id}/vervulling"
+        },
+        {
+          "key": "teksten.schrijven",
+          "track": "teksten",
+          "title": "Schrijf de {tekst} en stel haar vast",
+          "for": "text",
+          "when": [
+            "text_due",
+            "not text_in_review",
+            "not text_returned"
+          ],
+          "done_when": "text_settled",
+          "assignee": "writer",
+          "link": "/vacatures/{vacancy_id}/tekst"
+        },
+        {
+          "key": "teksten.beoordelen",
+          "track": "teksten",
+          "title": "Beoordeel de {tekst}",
+          "for": "text_review",
+          "when": [],
+          "done_when": "verdict_given",
+          "assignee": "reviewer",
+          "due": {
+            "working_days": 3,
+            "after": "offered_on"
+          },
+          "link": "/vacatures/{vacancy_id}/tekst"
+        },
+        {
+          "key": "teksten.opmerkingen_verwerken",
+          "track": "teksten",
+          "title": "Verwerk de opmerkingen op de {tekst}",
+          "for": "text",
+          "when": [
+            "text_returned"
+          ],
+          "done_when": "text_moved_on",
+          "assignee": "writer",
+          "link": "/vacatures/{vacancy_id}/tekst"
+        },
+        {
+          "key": "werving.link_vastleggen",
+          "track": "werving",
+          "title": "Leg de link naar de gepubliceerde vacature vast",
+          "for": "case",
+          "when": [
+            "opened",
+            "needs_opening"
+          ],
+          "done_when": "publication_recorded",
+          "assignee": "requester",
+          "link": "/vacatures/{vacancy_id}/tekst"
+        },
+        {
+          "key": "werving.formulier_maken",
+          "track": "werving",
+          "title": "Maak het aanvraagformulier",
+          "for": "case",
+          "when": [
+            "in_procedure",
+            "request_form_in_use"
+          ],
+          "done_when": "request_form_current",
+          "assignee": "requester",
+          "link": "/vacatures/{vacancy_id}"
+        },
+        {
+          "key": "werving.getekend_formulier_vastleggen",
+          "track": "werving",
+          "title": "Leg het getekende formulier vast",
+          "for": "case",
+          "when": [
+            "approval_given",
+            "request_form_in_use"
+          ],
+          "done_when": "request_form_signed",
+          "assignee": "requester",
+          "link": "/vacatures/{vacancy_id}"
         }
       ]
     }

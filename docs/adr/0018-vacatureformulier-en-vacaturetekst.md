@@ -36,3 +36,14 @@ De tekst:
 - Een formulier dat wijzigt bij de organisatie vraagt een nieuwe veldkoppeling, geen nieuwe versie van grip.
 - De kwaliteit van een concept hangt af van het model dat VLAM aanbiedt. De prompt en een paar vaste voorbeelden staan in de repo en hebben tests op vorm, niet op inhoud.
 - Het gegenereerde formulier bevat namen van collega's. Het valt onder klasse C en wordt niet langer bewaard dan de vacature loopt.
+
+## Aanvulling (2026-10-08): het formulier wordt bewaard
+
+De eerste uitwerking maakte het formulier bij elke download opnieuw en bewaarde niets. Dat is herzien: een formulier dat bij elke klik opnieuw wordt gemaakt, kan morgen anders zijn dan wat de adviseur gisteren kreeg.
+
+- "Maak aanvraagformulier" vult het formulier een keer en bewaart het bestand bij de vacature, met de hash, wie het maakte en wanneer. Elke weergave en download geeft die bytes.
+- Is de vacature, een advies of het akkoord daarna veranderd, dan zegt het scherm dat het formulier achterloopt en wat er veranderde. "Maak opnieuw" maakt een nieuwe versie; eerdere versies blijven staan.
+- Het bewaarde formulier blijft invulbaar. Een exemplaar dat buiten grip is aangevuld of getekend, wordt als eigen document bij de vacature vastgelegd.
+- De regel over bewaren blijft en is nu afgedwongen: is de vacature vervuld, ingetrokken of afgewezen, dan worden het formulier en het getekende exemplaar verwijderd na het aantal dagen van de instelling `vacancy.request_form_retention_days` (standaard 0: bij de eerstvolgende opruimronde). `just vacancy-forms-retention` voert die ronde uit; plan hem naast de opruimronde van de gebeurtenissen.
+- Toegang als het formulier zelf: wie de bemensing van de vacature mag zien, ziet de bestanden; wie de vacature mag bewerken, maakt en legt vast.
+- grip tekent de tekst van een veld zelf, uit het lettertype dat het formulier meedraagt. Een ingevuld formulier ziet er daardoor in elke viewer hetzelfde uit en houdt de eigen aankruisvakjes van het formulier.

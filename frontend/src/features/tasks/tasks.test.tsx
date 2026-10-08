@@ -5,10 +5,12 @@ import { MainNavigation } from '@/layout/MainNavigation';
 import { renderApp } from '@/test/utils';
 import type { CaseTasks as CaseTasksData, Task } from './api';
 import { AssignmentTasksTab } from './CaseTasks';
-import { byDueGroup, closesBecause, dueGroup, endOfWeek, filterTasks, optionsOf } from './groups';
+import { filterTasks, optionsOf } from './groups';
 import { movesOf } from './moves';
 import { MyTasksBlock } from './MyTasksBlock';
+import { TaskBar } from './TaskBar';
 import { TasksPage } from './TasksPage';
+import { aboutLine, dueWords, goesToWork, myWork, workHref } from './telling';
 
 function task(overrides: Partial<Task>): Task {
   return {
@@ -29,6 +31,14 @@ function task(overrides: Partial<Task>): Task {
     can_complete: false,
     closes_by_fact: true,
     closing_fact_label: 'de maand is afgesloten',
+    assignment_name: 'Opdracht Alfa 2026',
+    headline: overrides.title ?? 'Sluit september 2026 af',
+    instruction: 'Stel vast wie in september 2026 hoeveel heeft gewerkt, en sluit de maand af.',
+    needs_me: true,
+    why: 'September 2026 is voorbij en er was inzet gepland.',
+    then: 'Daarna lever je de factuurgegevens aan.',
+    action_text: 'Sluit september 2026 af',
+    work_href: '/opdrachten/a-1/maandafsluiting?maand=2026-09',
     ...overrides,
   };
 }
@@ -45,15 +55,42 @@ const MANUAL = task({
   assignee_label: 'Fictieve Collega',
   is_mine: false,
   link: null,
+  work_href: null,
+  needs_me: false,
+  action_text: null,
+  instruction: 'Deze taak is van Fictieve Collega. Jij hoeft nu niets te doen.',
+  why: null,
+  then: null,
 });
 const WAITING = task({
   id: 't-wait',
   title: 'Wacht op akkoord van de opdrachtgever',
+  headline: 'Akkoord van de opdrachtgever',
+  instruction:
+    'Je wacht op het akkoord van Voorbeeldministerie op de offerte. Jij hoeft nu niets te doen.',
+  needs_me: false,
+  action_text: null,
+  waits_on: 'Voorbeeldministerie',
+  work_href: '/opdrachten/a-2/offerte',
   status: 'waiting',
   status_label: 'Wacht op een ander',
   waiting_on: 'de opdrachtgever',
   track_label: 'Offerte',
   case_label: 'Opdracht Beta 2026',
+  assignment_id: 'a-2',
+  assignment_name: 'Opdracht Beta 2026',
+});
+/** A task of someone else on a case I started: I wait for it. */
+const AWAITED = task({
+  id: 't-awaited',
+  title: 'Vul de rol Ontwerper in',
+  headline: 'De invulling van de rol Ontwerper',
+  instruction: 'Je wacht op een planner, die de rol Ontwerper invult. Jij hoeft nu niets te doen.',
+  is_mine: false,
+  needs_me: false,
+  action_text: null,
+  waits_on: 'een planner',
+  work_href: '/opdrachten/a-1/bemensing',
 });
 
 /** Answers GET requests from a table of path to body; anything else is a 404. */
@@ -73,22 +110,33 @@ function stubApi(routes: Record<string, unknown>) {
 
 afterEach(() => vi.unstubAllGlobals());
 
+describe('telling', () => {
+  it('splits what I must do from what I wait for, the soonest first', () => {
+    const work = myWork([SOON, WAITING, LATE], [AWAITED]);
+    expect(work.toDo).toEqual([LATE, SOON]);
+    expect(work.waiting.map((item) => item.id).sort()).toEqual(['t-awaited', 't-wait']);
+  });
+
+  it('sends who must do a task to the place of the work, with the task in the address', () => {
+    expect(goesToWork(LATE)).toBe(true);
+    expect(workHref(LATE)).toBe('/opdrachten/a-1/maandafsluiting?maand=2026-09&bij-taak=t-late');
+    expect(workHref(AWAITED)).toBe('/opdrachten/a-1/bemensing?bij-taak=t-awaited');
+    // Who waits reads the task; a task of your own is finished where it is read.
+    expect(goesToWork(WAITING)).toBe(false);
+    expect(goesToWork({ ...MANUAL, needs_me: true, is_mine: true })).toBe(false);
+  });
+
+  it('names what a task is about and by when', () => {
+    expect(aboutLine(LATE)).toBe('Opdracht Alfa 2026');
+    expect(
+      aboutLine(task({ case_kind: 'vacancy', vacancy_id: 'v-1', vacancy_title: 'Developer' })),
+    ).toBe('Vacature Developer · Opdracht Alfa 2026');
+    expect(dueWords(LATE)).toBe('Te laat: vóór 7 okt 2026');
+    expect(dueWords(task({ due_on: null }))).toBe('');
+  });
+});
+
 describe('grouping', () => {
-  const thursday = new Date(2026, 9, 8);
-
-  it('ends the week on Sunday', () => {
-    expect(endOfWeek(thursday)).toBe('2026-10-11');
-    expect(endOfWeek(new Date(2026, 9, 11))).toBe('2026-10-11');
-  });
-
-  it('sorts tasks into too late, this week and later', () => {
-    expect(dueGroup(LATE, thursday)).toBe('overdue');
-    expect(dueGroup(SOON, thursday)).toBe('thisWeek');
-    expect(dueGroup(task({ due_on: '2026-10-12' }), thursday)).toBe('later');
-    expect(dueGroup(task({ due_on: null }), thursday)).toBe('later');
-    expect(byDueGroup([LATE, SOON], thursday).overdue).toEqual([LATE]);
-  });
-
   it('filters the board on case, track and person', () => {
     const all = [LATE, MANUAL, WAITING];
     const none = { caseLabel: '', track: '', assignee: '' };
@@ -106,14 +154,12 @@ describe('grouping', () => {
 });
 
 describe('what a task allows', () => {
-  it('cannot be ticked when a fact closes it, and says which fact', () => {
+  it('cannot be ticked when a fact closes it', () => {
     expect(movesOf(LATE).map((move) => move.text)).toEqual(['Begin', 'Wacht op een ander']);
-    expect(closesBecause(LATE)).toBe('Sluit vanzelf zodra de maand is afgesloten.');
   });
 
   it('can be ticked when it is a task of your own', () => {
     expect(movesOf(MANUAL).map((move) => move.text)).toContain('Rond af');
-    expect(closesBecause(MANUAL)).toBeNull();
   });
 
   it('offers nothing to a reader who may not change it', () => {
@@ -122,29 +168,40 @@ describe('what a task allows', () => {
 });
 
 describe('TasksPage', () => {
-  it('shows my tasks with the late ones first', async () => {
-    stubApi({ '/api/tasks/mine': { items: [SOON, LATE], counts: { open: 2, to_do: 2, overdue: 1 } } });
+  it('shows what I must do apart from what I wait for', async () => {
+    stubApi({ '/api/tasks/mine': { items: [SOON, LATE, WAITING], awaited: [AWAITED] } });
     const { container } = renderApp(<TasksPage />, { path: '/taken' });
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Taken');
-    await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
+    await waitFor(() => expect(container.querySelectorAll('nldd-table')).toHaveLength(2));
     const headings = [...container.querySelectorAll('nldd-title[heading-level="2"]')].map((el) =>
       el.getAttribute('text'),
     );
-    expect(headings[0]).toBe('Te laat');
-    expect(container.querySelector('nldd-table')).toHaveAttribute('accessible-label', 'Te laat');
-    // Nothing is open by default.
+    expect(headings).toEqual(['Te doen', 'Wacht op anderen']);
+    const [toDo, waiting] = [...container.querySelectorAll('nldd-table')];
+    // The late one first; each task by what to do, and on what.
+    const names = (table: Element | undefined) =>
+      [...(table?.querySelectorAll('nldd-table-row:not([slot]) nldd-link') ?? [])].map((el) =>
+        el.getAttribute('text'),
+      );
+    expect(names(toDo)).toEqual(['Sluit september 2026 af', 'Vul de rol Ontwerper in']);
+    expect(names(waiting).sort()).toEqual([
+      'Akkoord van de opdrachtgever',
+      'De invulling van de rol Ontwerper',
+    ]);
+    expect(waiting).toHaveTextContent('Wacht op Voorbeeldministerie · Opdracht Beta 2026');
+    expect(waiting).toHaveTextContent('Wacht op een planner');
+    // Nothing is open by default, and no word about how tasks close.
     expect(container.ownerDocument.querySelector('nldd-sheet[open]')).toBeNull();
+    expect(container).not.toHaveTextContent('Sluit vanzelf');
   });
 
   it('says so when there is nothing to do', async () => {
     stubApi({ '/api/tasks/mine': {} });
     const { container } = renderApp(<TasksPage />, { path: '/taken' });
-    await waitFor(() =>
-      expect(container.querySelector('[text="Niets te doen"]')).not.toBeNull(),
-    );
+    await waitFor(() => expect(container.querySelector('[text="Niets te doen"]')).not.toBeNull());
   });
 
-  it('draws the board in four columns and explains a task that closes by itself', async () => {
+  it('draws the board in four columns, each task in the words for this reader', async () => {
     stubApi({ '/api/tasks': { items: [LATE, MANUAL, WAITING] } });
     const { container } = renderApp(<TasksPage />, { path: '/taken?weergave=bord' });
     await waitFor(() => expect(container.querySelectorAll('nldd-card')).toHaveLength(3));
@@ -152,23 +209,103 @@ describe('TasksPage', () => {
       el.getAttribute('text'),
     );
     expect(columns).toEqual(['Te doen (2)', 'Bezig (0)', 'Wacht op een ander (1)', 'Klaar (0)']);
-    expect(container).toHaveTextContent('Sluit vanzelf zodra de maand is afgesloten.');
-    expect(container).toHaveTextContent('Wacht op de opdrachtgever');
-    // Every card opens by a link and moves by a menu: no dragging needed.
+    expect(container).not.toHaveTextContent('Sluit vanzelf');
+    expect(container).toHaveTextContent('wacht op Voorbeeldministerie');
+    expect(container).toHaveTextContent('Voor jou');
+    // Every card opens by a link.
     const link = container.querySelector('nldd-card nldd-link');
     expect(link).toHaveAttribute('href', '/taken?weergave=bord&taak=t-late');
-    expect(container.querySelectorAll('nldd-card nldd-icon-button')).toHaveLength(3);
+    // And moves by a menu: no dragging needed.
+    expect(container.querySelectorAll('nldd-card nldd-menu')).toHaveLength(3);
   });
 
-  it('opens the task named in the address', async () => {
+  it('tells a task I must do: what, why, by when, and one button that leads to the work', async () => {
     stubApi({
       '/api/tasks/mine': { items: [LATE] },
-      '/api/tasks/t-late': { ...LATE, notes: [{ id: 'n-1', body: 'Uren nog niet compleet.', created_at: '2026-10-08T09:00:00Z', author_name: 'Fictieve Collega' }] },
+      '/api/tasks/t-late': {
+        ...LATE,
+        notes: [
+          {
+            id: 'n-1',
+            body: 'Uren nog niet compleet.',
+            created_at: '2026-10-08T09:00:00Z',
+            author_name: 'Fictieve Collega',
+          },
+        ],
+      },
     });
     renderApp(<TasksPage />, { path: '/taken?taak=t-late' });
     await waitFor(() => expect(document.body).toHaveTextContent('Uren nog niet compleet.'));
-    expect(document.querySelector('nldd-sheet')).toHaveAttribute('open');
-    expect(document.body).toHaveTextContent('Sluit vanzelf zodra de maand is afgesloten.');
+    const sheet = document.querySelector('nldd-sheet');
+    expect(sheet).toHaveAttribute('open');
+    expect(sheet).toHaveTextContent('Stel vast wie in september 2026 hoeveel heeft gewerkt');
+    expect(sheet).not.toHaveTextContent('Sluit vanzelf');
+    // One primary button, named after the work; the note is not it.
+    const primary = [...(sheet?.querySelectorAll('nldd-button[appearance="primary"]') ?? [])];
+    expect(primary.map((el) => el.getAttribute('text'))).toEqual(['Sluit september 2026 af']);
+    expect(sheet?.querySelector('nldd-button[text="Bewaar notitie"]')).toBeNull();
+    expect(sheet?.querySelector('nldd-button[text="Schrijf een notitie"]')).not.toBeNull();
+    // What it is about is a link to the thing itself.
+    expect(sheet?.querySelector('nldd-link[href="/opdrachten/a-1"]')).toHaveAttribute(
+      'text',
+      'Opdracht Alfa 2026',
+    );
+    const labels = [
+      ...(sheet?.querySelectorAll('nldd-list-item nldd-text-cell[color="secondary"]') ?? []),
+    ];
+    expect(labels.map((el) => el.getAttribute('text'))).toEqual([
+      'Waarover',
+      'Waarom nu',
+      'Vóór',
+      'Vervolg',
+    ]);
+  });
+
+  it('gives who waits no button, and says who is waited on', async () => {
+    stubApi({ '/api/tasks/mine': { items: [WAITING] }, '/api/tasks/t-wait': WAITING });
+    renderApp(<TasksPage />, { path: '/taken?taak=t-wait' });
+    const sheet = () => document.querySelector('nldd-sheet');
+    await waitFor(() => expect(sheet()).toHaveTextContent('Je wacht op het akkoord van'));
+    expect(sheet()?.querySelector('nldd-button[appearance="primary"]')).toBeNull();
+    expect(
+      sheet()?.querySelector('nldd-link[text="Ga naar de plek van het werk"]'),
+    ).toHaveAttribute('href', '/opdrachten/a-2/offerte?bij-taak=t-wait');
+  });
+
+  it('says why nobody can do a task and who can change that', async () => {
+    const blocked = {
+      ...AWAITED,
+      blocked: 'Niemand heeft het recht Planner in grip. Een beheerder geeft dat recht bij Team.',
+    };
+    stubApi({ '/api/tasks/mine': { awaited: [blocked] }, '/api/tasks/t-awaited': blocked });
+    renderApp(<TasksPage />, { path: '/taken?taak=t-awaited' });
+    await waitFor(() =>
+      expect(document.querySelector('nldd-sheet nldd-banner[variant="warning"]')).toHaveAttribute(
+        'text',
+        blocked.blocked,
+      ),
+    );
+  });
+
+  it('lists what a request still misses', async () => {
+    const request = task({
+      id: 't-req',
+      headline: 'Vraag de vacature aan',
+      action_text: 'Bereid aanvraag voor',
+      work_href: '/vacatures/v-1',
+      checklist: [
+        { text: 'Schaal' },
+        { text: 'Soort contract' },
+        { text: 'Functienaam', done: true },
+      ],
+    });
+    stubApi({ '/api/tasks/mine': { items: [request] }, '/api/tasks/t-req': request });
+    renderApp(<TasksPage />, { path: '/taken?taak=t-req' });
+    await waitFor(() =>
+      expect(document.querySelector('nldd-sheet')).toHaveTextContent(
+        'Ontbreekt nog: schaal, soort contract.',
+      ),
+    );
   });
 });
 
@@ -179,8 +316,22 @@ describe('the Taken tab of a case', () => {
     plan_version: '2026.1',
     can_add: true,
     tracks: [
-      { key: 'offerte', label: 'Offerte', open_count: 0, waiting_count: 0, standing: 'Niets te doen', tasks: [] },
-      { key: 'uitvoering', label: 'Uitvoering', open_count: 1, waiting_count: 0, standing: LATE.title, tasks: [LATE] },
+      {
+        key: 'offerte',
+        label: 'Offerte',
+        open_count: 0,
+        waiting_count: 0,
+        standing: 'Niets te doen',
+        tasks: [],
+      },
+      {
+        key: 'uitvoering',
+        label: 'Uitvoering',
+        open_count: 1,
+        waiting_count: 0,
+        standing: LATE.title,
+        tasks: [LATE],
+      },
     ],
   };
 
@@ -219,25 +370,37 @@ describe('the Taken tab when the API fails', () => {
       </Routes>,
       { path: '/opdrachten/a-1/taken' },
     );
-    await waitFor(() => expect(container.querySelector('nldd-inline-dialog, nldd-banner')).not.toBeNull());
+    await waitFor(() =>
+      expect(container.querySelector('nldd-inline-dialog, nldd-banner')).not.toBeNull(),
+    );
     expect(container.querySelector('nldd-table')).toBeNull();
     expect(container.querySelector('nldd-button[text="Nieuwe taak"]')).toBeNull();
   });
 });
 
 describe('MyTasksBlock', () => {
-  it('shows the first tasks by due date and a link to the rest', async () => {
-    stubApi({ '/api/tasks/mine': { items: [SOON, MANUAL, LATE] } });
+  it('shows what I must do first, each as a link to its work, and a link to the rest', async () => {
+    const third = task({
+      id: 't-3',
+      title: 'Bied de offerte aan',
+      work_href: '/opdrachten/a-1/offerte',
+    });
+    stubApi({ '/api/tasks/mine': { items: [SOON, WAITING, third, LATE] } });
     const { container } = renderApp(<MyTasksBlock limit={2} />);
     await waitFor(() => expect(container.querySelectorAll('nldd-link')).toHaveLength(3));
     const links = [...container.querySelectorAll('nldd-link')];
+    // What waits on someone else is not on the start page.
     expect(links.map((link) => link.getAttribute('text'))).toEqual([
       LATE.title,
       SOON.title,
       'Alle taken (3)',
     ]);
-    expect(links[0]).toHaveAttribute('href', '/taken?taak=t-late');
+    expect(links[0]).toHaveAttribute(
+      'href',
+      '/opdrachten/a-1/maandafsluiting?maand=2026-09&bij-taak=t-late',
+    );
     expect(links[2]).toHaveAttribute('href', '/taken');
+    expect(container).toHaveTextContent('Opdracht Alfa 2026 · Te laat: vóór 7 okt 2026');
   });
 
   it('is calm when there is nothing, and when the API fails', async () => {
@@ -247,18 +410,62 @@ describe('MyTasksBlock', () => {
     empty.unmount();
     stubApi({});
     const failed = renderApp(<MyTasksBlock />);
-    await waitFor(() => expect(failed.container).toHaveTextContent('De taken zijn nu niet te laden.'));
+    await waitFor(() =>
+      expect(failed.container).toHaveTextContent('De taken zijn nu niet te laden.'),
+    );
+  });
+});
+
+describe('TaskBar', () => {
+  function renderBar(path: string) {
+    return renderApp(
+      <Routes>
+        <Route path="*" element={<TaskBar />} />
+      </Routes>,
+      { path },
+    );
+  }
+
+  it('says on the page of the work which task the reader came to do', async () => {
+    stubApi({ '/api/tasks/t-late': LATE });
+    const { container } = renderBar(
+      '/opdrachten/a-1/maandafsluiting?maand=2026-09&bij-taak=t-late',
+    );
+    await waitFor(() => expect(container.querySelector('nldd-banner')).not.toBeNull());
+    const bar = container.querySelector('nldd-banner');
+    expect(bar).toHaveAttribute('text', 'Taak: Sluit september 2026 af');
+    expect(bar?.getAttribute('supporting-text')).toContain('Stel vast wie in september 2026');
+    expect(bar?.getAttribute('supporting-text')).toContain('Te laat: vóór 7 okt 2026.');
+    expect(bar?.querySelector('nldd-button')).toHaveAttribute('href', '/taken');
+  });
+
+  it('says so when the work is done', async () => {
+    stubApi({ '/api/tasks/t-late': { ...LATE, status: 'done' } });
+    const { container } = renderBar('/opdrachten/a-1/maandafsluiting?bij-taak=t-late');
+    await waitFor(() =>
+      expect(container.querySelector('nldd-banner')).toHaveAttribute(
+        'text',
+        'Gedaan: Sluit september 2026 af',
+      ),
+    );
+    expect(container.querySelector('nldd-banner')).toHaveAttribute('variant', 'success');
+  });
+
+  it('draws nothing on a page that was not opened for a task', () => {
+    stubApi({});
+    const { container } = renderBar('/opdrachten/a-1/maandafsluiting');
+    expect(container.querySelector('nldd-banner')).toBeNull();
   });
 });
 
 describe('the navigation', () => {
-  it('carries the number of my open tasks, beside the label and in words', async () => {
+  it('counts what I must do, not what waits on others', async () => {
     stubApi({ '/api/tasks/count': { open: 3, to_do: 2, overdue: 1 } });
     const { container } = renderApp(<MainNavigation />, { path: '/' });
     const item = () => container.querySelector('nldd-menu-bar-item[href="/taken"]');
-    await waitFor(() => expect(item()?.querySelector('nldd-badge')).toHaveAttribute('number', '3'));
+    await waitFor(() => expect(item()?.querySelector('nldd-badge')).toHaveAttribute('number', '2'));
     expect(item()).toHaveAttribute('text', 'Taken');
-    expect(item()).toHaveAttribute('accessible-label', 'Taken, 3 open taken');
+    expect(item()).toHaveAttribute('accessible-label', 'Taken, 2 taken te doen');
   });
 
   it('shows the plain word when there is nothing', async () => {

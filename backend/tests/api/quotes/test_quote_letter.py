@@ -468,3 +468,129 @@ def test_the_prompt_for_a_rewrite_carries_only_the_passage():
     )
     assert "Een zin." in user and "Korter." in user
     assert "geen namen van personen" in system
+
+
+# --- two writers, and what a writer may do with a section ---------------------------
+
+
+async def test_a_stale_save_is_refused_with_what_is_there_now(act_as, configured):
+    world = configured
+    url = f"/api/assignments/{world.assignment.id}/quote-draft"
+    first = await _write(act_as, world, "inleiding", "Eerste tekst.")
+    version = first["sections"][0]["version"]
+    assert version == 1 and first["sections"][0]["changed_by"] == world.manager.name
+
+    # Someone saves in between; the writer still holds the old version.
+    await _write(act_as, world, "inleiding", "Tekst van een ander.")
+    stale = await act_as(world.manager).put(
+        f"{url}/sections/inleiding", json={"body": "Mijn tekst.", "version": version}
+    )
+    assert stale.status_code == 409, stale.text
+    problem = stale.json()
+    assert problem["changed_by"] == world.manager.name and problem["changed_at"]
+    assert problem["current"]["sections"][0]["body"] == "Tekst van een ander."
+    assert problem["current"]["sections"][0]["version"] == 2
+
+    # With the version that is there now the save goes through.
+    ok = await act_as(world.manager).put(
+        f"{url}/sections/inleiding", json={"body": "Mijn tekst.", "version": 2}
+    )
+    assert ok.status_code == 200 and ok.json()["sections"][0]["version"] == 3
+    # Another section is not touched by this: its version stands.
+    assert ok.json()["sections"][2]["version"] == 0
+
+
+async def test_the_head_and_the_outline_have_their_own_version(act_as, configured):
+    world = configured
+    url = f"/api/assignments/{world.assignment.id}/quote-draft"
+    client = act_as(world.manager)
+    head = await client.patch(url, json={"subject": "Offerte A", "head_version": 0})
+    assert head.status_code == 200 and head.json()["head_version"] == 1
+    stale = await client.patch(url, json={"subject": "Offerte B", "head_version": 0})
+    assert stale.status_code == 409
+    assert stale.json()["current"]["subject"] == "Offerte A"
+
+    keys = ["inleiding", "kosten", "voorwaarden"]
+    moved = await client.put(
+        f"{url}/outline", json={"keys": keys, "outline_version": 0}
+    )
+    assert moved.status_code == 200 and moved.json()["outline_version"] == 1
+    again = await client.put(
+        f"{url}/outline", json={"keys": keys, "outline_version": 0}
+    )
+    assert again.status_code == 409
+
+
+async def test_the_outline_of_the_organisation_says_what_a_writer_may_do(
+    act_as, configured, db_session
+):
+    world = configured
+    blocks = [dict(block) for block in BLOCKS]
+    blocks[2]["required"] = True
+    await instance_settings.set_values(
+        db_session, {quote_sender.TEXT_BLOCKS.key: blocks}, actor=world.beheerder
+    )
+    url = f"/api/assignments/{world.assignment.id}/quote-draft"
+    client = act_as(world.manager)
+    draft = (await client.get(url)).json()
+    rules = {
+        s["key"]: (s["optional"], s["removable"], s["movable"])
+        for s in draft["sections"]
+    }
+    assert rules == {
+        "inleiding": (True, False, True),
+        # The amounts stand somewhere in every quote, wherever the writer puts them.
+        "kosten": (False, False, True),
+        "voorwaarden": (False, False, False),
+    }
+
+    # The server holds the same lines.
+    left_out = await client.put(f"{url}/sections/voorwaarden", json={"included": False})
+    assert left_out.status_code == 422 and "elke offerte" in left_out.json()["detail"]
+    removed = await client.put(
+        f"{url}/outline", json={"keys": ["kosten", "voorwaarden"]}
+    )
+    assert removed.status_code == 422 and "Laat het weg" in removed.json()["detail"]
+    assert (
+        await client.put(f"{url}/sections/inleiding", json={"included": False})
+    ).status_code == 200
+
+    # A section the writer adds may move and may go again.
+    added = await client.put(
+        f"{url}/outline",
+        json={
+            "keys": ["eigen", "inleiding", "kosten", "voorwaarden"],
+            "new_sections": [{"key": "eigen", "heading": "Eigen onderdeel"}],
+        },
+    )
+    assert added.status_code == 200, added.text
+    own = added.json()["sections"][0]
+    assert (own["optional"], own["removable"], own["movable"]) == (True, True, True)
+    gone = await client.put(
+        f"{url}/outline", json={"keys": ["inleiding", "kosten", "voorwaarden"]}
+    )
+    assert gone.status_code == 200
+    assert [s["key"] for s in gone.json()["sections"]] == [
+        "inleiding",
+        "kosten",
+        "voorwaarden",
+    ]
+
+
+async def test_required_sections_keep_their_order(act_as, world, db_session):
+    blocks = [
+        {"key": "a", "heading": "A", "body": "Tekst.", "required": True},
+        {"key": "tussen", "heading": "Tussen"},
+        {"key": "b", "heading": "B", "body": "Tekst.", "required": True},
+    ]
+    await instance_settings.set_values(
+        db_session, {quote_sender.TEXT_BLOCKS.key: blocks}, actor=world.beheerder
+    )
+    url = f"/api/assignments/{world.assignment.id}/quote-draft/outline"
+    client = act_as(world.manager)
+    swapped = await client.put(url, json={"keys": ["b", "tussen", "a"]})
+    assert (
+        swapped.status_code == 422 and "onderlinge volgorde" in swapped.json()["detail"]
+    )
+    moved = await client.put(url, json={"keys": ["tussen", "a", "b"]})
+    assert moved.status_code == 200

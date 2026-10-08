@@ -7,23 +7,14 @@ import { apiGet, apiPatch, apiPost, apiPut } from '@/api/client';
 import { withLists } from '@/lib/absent';
 
 export type VacancyStatus =
-  | 'draft'
-  | 'requested'
-  | 'approved'
-  | 'rejected'
-  | 'open'
-  | 'filled'
-  | 'withdrawn';
+  'draft' | 'requested' | 'approved' | 'rejected' | 'open' | 'filled' | 'withdrawn';
 export type VacancyType = 'regulier' | 'specialistisch' | 'beoogd' | 'gerede';
 export type ContractType = 'temporary_project' | 'temporary_before_permanent';
 export type DecisionKind = 'hr_advice' | 'control_advice' | 'approval';
 export type TextKind = 'vacancy_text' | 'motivation';
 export type Channel = 'internal' | 'federated' | 'recruitment';
 export type OpeningStep =
-  | 'internal_opening'
-  | 'priority_candidates'
-  | 'government_wide_opening'
-  | 'external_market';
+  'internal_opening' | 'priority_candidates' | 'government_wide_opening' | 'external_market';
 
 export interface PublishedText {
   body: string;
@@ -93,6 +84,8 @@ export interface VacancySummary {
   status: VacancyStatus;
   vacancy_type?: VacancyType;
   declarable?: boolean;
+  /** The role it is for; absent for a vacancy without a budget line. */
+  budget_line_id?: string | null;
   assignment_name?: string | null;
   requested_on?: string | null;
   current_step?: string | null;
@@ -124,6 +117,9 @@ export interface Vacancy {
   budget_line_id?: string | null;
   assignment_id?: string | null;
   assignment_name?: string | null;
+  /** Who a vacancy for a known candidate is for; only for who may see staffing. */
+  candidate_person_id?: string | null;
+  candidate_name?: string | null;
   requested_on?: string | null;
   created_at?: string;
   has_openings?: boolean;
@@ -170,6 +166,17 @@ export interface UnfilledRole {
   start_date?: string | null;
   end_date?: string | null;
   declarable: boolean;
+  /** The assignment is not agreed yet: "onder voorbehoud". */
+  tentative?: boolean;
+  /** Who the line is meant for; only for who may see staffing. */
+  intended_person_id?: string | null;
+  intended_person_name?: string | null;
+}
+
+/** A fully staffed role: a vacancy for it starts a replacement or a successor. */
+export interface FilledRole extends Omit<UnfilledRole, 'unfilled_fte'> {
+  /** Who fills it and until when; absent without the right to see staffing. */
+  filled_by?: { person_name: string; until: string }[];
 }
 
 export interface Option {
@@ -209,6 +216,8 @@ export interface VacancyCreate {
   start_date?: string | null;
   end_date?: string | null;
   addressee_name?: string | null;
+  /** For an intended or ready candidate: who it is. Kept on the budget line. */
+  candidate_person_id?: string;
 }
 
 export type VacancyUpdate = Partial<Omit<VacancyCreate, 'budget_line_id'>> & {
@@ -234,6 +243,7 @@ export const VACANCY_KEYS = {
   list: ['vacancies', 'list'] as const,
   openRoles: ['vacancies', 'open-roles'] as const,
   unfilledRoles: ['vacancies', 'unfilled-roles'] as const,
+  filledRoles: ['vacancies', 'filled-roles'] as const,
   options: ['vacancies', 'options'] as const,
   detail: (id: string) => ['vacancies', 'detail', id] as const,
   formStatus: (id: string) => ['vacancies', 'form-status', id] as const,
@@ -241,12 +251,12 @@ export const VACANCY_KEYS = {
 
 // The procedure, decisions and text versions are absent for a reader who
 // sees only the published vacancy.
-const whole = (vacancy: Vacancy): Vacancy =>
-  withLists(vacancy, 'procedure', 'decisions', 'texts');
+const whole = (vacancy: Vacancy): Vacancy => withLists(vacancy, 'procedure', 'decisions', 'texts');
 
 export const fetchVacancies = () => apiGet<VacancySummary[]>(BASE);
 export const fetchOpenRoles = () => apiGet<OpenRole[]>(`${BASE}/open-roles`);
 export const fetchUnfilledRoles = () => apiGet<UnfilledRole[]>(`${BASE}/unfilled-roles`);
+export const fetchFilledRoles = () => apiGet<FilledRole[]>(`${BASE}/filled-roles`);
 export const fetchVacancyOptions = () => apiGet<VacancyOptions>(`${BASE}/options`);
 export const fetchVacancy = (id: string) => apiGet<Vacancy>(`${BASE}/${id}`).then(whole);
 export const fetchRequestFormStatus = (id: string) =>
@@ -256,7 +266,9 @@ export const createVacancy = (body: VacancyCreate) => apiPost<Vacancy>(BASE, bod
 export const updateVacancy = (id: string, body: VacancyUpdate) =>
   apiPatch<Vacancy>(`${BASE}/${id}`, body).then(whole);
 export const submitVacancy = (id: string, requestedOn?: string) =>
-  apiPost<Vacancy>(`${BASE}/${id}/submit`, requestedOn ? { requested_on: requestedOn } : {}).then(whole);
+  apiPost<Vacancy>(`${BASE}/${id}/submit`, requestedOn ? { requested_on: requestedOn } : {}).then(
+    whole,
+  );
 export const recordDecision = (id: string, kind: DecisionKind, body: DecisionInput) =>
   apiPut<Vacancy>(`${BASE}/${id}/decisions/${kind}`, body).then(whole);
 export const setOpeningStep = (

@@ -1,0 +1,47 @@
+/*
+ * The mark takes the lintblauw of the design system, in the step that holds
+ * on the surface of each colour scheme. One colour, no effects.
+ */
+.brand-mark {
+  flex: none;
+  fill: light-dark(
+    var(--primitives-color-reference-lintblauw),
+    var(--primitives-color-lintblauw-750)
+  );
+}
+
+/* Product and organisation as one block: the mark, the word, and below it whose grip this is. */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--primitives-space-12);
+}
+
+.brand-word {
+  font-weight: var(--primitives-font-weight-body-bold);
+  font-size: 1.125rem;
+  line-height: 1.2;
+}
+
+.brand-word-large {
+  font-size: 1.75rem;
+}
+
+/* The lines beside the mark: the name, and under it one quiet line. */
+.brand-lines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--primitives-space-2);
+  min-width: max-content;
+}
+
+.brand-name {
+  font-weight: var(--primitives-font-weight-body-bold);
+  line-height: 1.2;
+}
+
+.brand-quiet {
+  color: var(--semantics-content-secondary-color);
+  font-size: 0.875rem;
+  line-height: 1.3;
+}

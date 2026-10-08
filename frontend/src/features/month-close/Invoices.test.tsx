@@ -71,7 +71,9 @@ describe('Invoices', () => {
     const cells = texts(container, 'nldd-table nldd-text-cell');
     expect(cells).toContain('F-2026-001');
     expect(cells.some((text) => /^€\s100 minder dan aangeleverd$/.test(text))).toBe(true);
-    expect(texts(container, 'nldd-button')).toEqual(['Corrigeer', 'Trek in']);
+    // The row has one quiet menu, not two buttons.
+    expect(texts(container, 'nldd-button')).toEqual([]);
+    expect(texts(container, 'nldd-menu-item')).toEqual(['Corrigeer', 'Trek in']);
     // No form is open by default.
     expect(openSheet()).toBeUndefined();
   });
@@ -157,7 +159,9 @@ describe('Invoices', () => {
 describe('BillingTotals', () => {
   it('never calls a delivered amount invoiced', () => {
     const { container } = renderApp(
-      <BillingTotals status={status({ invoiced_cents: 0, to_invoice_cents: 2880000, invoices: [] })} />,
+      <BillingTotals
+        status={status({ invoiced_cents: 0, to_invoice_cents: 2880000, invoices: [] })}
+      />,
     );
     const figures = texts(container, 'nldd-table-row:not([slot]) nldd-text-cell');
     expect(figures[0]).toContain('28.800');

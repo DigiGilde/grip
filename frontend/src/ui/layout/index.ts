@@ -4,6 +4,7 @@ export {
   ErrorNotice,
   Facts,
   Loading,
+  NameLine,
   Page,
   Quiet,
   Section,

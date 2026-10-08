@@ -28,6 +28,11 @@ class TaskNoteOut(BaseModel):
     author_name: Annotated[str | None, A] = None
 
 
+class ChecklistItemOut(BaseModel):
+    text: Annotated[str, A]
+    done: Annotated[bool, A] = False
+
+
 class TaskOut(BaseModel):
     id: Annotated[UUID, A]
     case_kind: Annotated[str, A]
@@ -59,6 +64,23 @@ class TaskOut(BaseModel):
     completed_by_fact: Annotated[bool, A] = False
     note_count: Annotated[int, A] = 0
     notes: Annotated[list[TaskNoteOut], nested()] = Field(default_factory=list)
+    # The task as this reader must hear it. ``headline`` is what to do, or
+    # what is waited for; ``instruction`` the sentence addressed to the
+    # reader; ``needs_me`` whether the reader must act now.
+    headline: Annotated[str, A] = ""
+    # What must happen, whoever reads it: for an overview of everyone's work.
+    doer_title: Annotated[str, A] = ""
+    instruction: Annotated[str, A] = ""
+    needs_me: Annotated[bool, A] = False
+    why: Annotated[str | None, A] = None
+    then: Annotated[str | None, A] = None
+    # The one action; absent when the reader has nothing to do now.
+    action_text: Annotated[str | None, A] = None
+    # Where the work is done, inside the application.
+    work_href: Annotated[str | None, A] = None
+    waits_on: Annotated[str | None, A] = None
+    blocked: Annotated[str | None, A] = None
+    checklist: Annotated[list[ChecklistItemOut], nested()] = Field(default_factory=list)
 
 
 class TaskCountsOut(BaseModel):
@@ -69,6 +91,9 @@ class TaskCountsOut(BaseModel):
 
 class TaskListOut(BaseModel):
     items: Annotated[list[TaskOut], nested()] = Field(default_factory=list)
+    # Tasks of others on the cases the reader started: what the reader
+    # waits for. Never the reader's own.
+    awaited: Annotated[list[TaskOut], nested()] = Field(default_factory=list)
     counts: Annotated[TaskCountsOut, nested()] = Field(default_factory=TaskCountsOut)
 
 

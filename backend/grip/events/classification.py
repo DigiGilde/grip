@@ -101,6 +101,9 @@ SPECS: dict[str, Spec] = {
     "month_close": _spec(B, B, _ASSIGNMENT),
     "billing_export": _spec(B, B, _ASSIGNMENT),
     "billing_correction": _spec(B, B, _ASSIGNMENT),
+    # A delivery to the financial administration and the terms it follows.
+    "billing_delivery": _spec(B, B, _ASSIGNMENT),
+    "billing_terms": _spec(A, B, _ASSIGNMENT),
     "outgoing_invoice": _spec(B, B, _ASSIGNMENT),
     "invoice_line": _spec(B, B, _ASSIGNMENT),
     "invoice_attachment": _spec(B, B, _ASSIGNMENT),
@@ -124,6 +127,11 @@ SPECS: dict[str, Spec] = {
     "vacancy_recruitment_ref": _spec(DataClass.STAFFING_COUNTS, C, _VACANCY),
     "vacancy_offer_received": _spec(DataClass.STAFFING_COUNTS, C, _VACANCY),
     "vacancy_hire": _spec(DataClass.STAFFING_COUNTS, C, _VACANCY),
+    # The course of a text and where a vacancy stands published: no names
+    # beyond who acted, like the text versions themselves.
+    "vacancy_text_review": _spec(DataClass.STAFFING_COUNTS, C, _VACANCY),
+    "vacancy_text_remark": _spec(DataClass.STAFFING_COUNTS, C, _VACANCY),
+    "vacancy_publication": _spec(DataClass.STAFFING_COUNTS, C, _VACANCY),
     # -- administration of the instance ---------------------------------
     "rate_card": _spec(ADMIN),
     "rate_band": _spec(ADMIN),
@@ -136,7 +144,18 @@ SPECS: dict[str, Spec] = {
     "function_family": _spec(ADMIN),
     "function_group": _spec(ADMIN),
     "form_template": _spec(ADMIN),
+    "vacancy_text_template": _spec(ADMIN),
+    "vacancy_text_shared_section": _spec(ADMIN),
+    "vacancy_text_library": _spec(ADMIN),
     "instance_setting": _spec(ADMIN),
+    # Who has a passkey, and when one was made, used or withdrawn.
+    # Who logged in through the identity provider, and who was refused and
+    # why. A refusal names the address that was offered.
+    "login": _spec(ADMIN),
+    "passkey_credential": _spec(ADMIN),
+    # Which devices a person lets grip notify, and how they want to be told.
+    "push_subscription": _spec(ADMIN),
+    "notification_preference": _spec(ADMIN),
     "peer": _spec(ADMIN),
     "stream": _spec(ADMIN),
 }

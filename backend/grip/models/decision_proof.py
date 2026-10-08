@@ -77,6 +77,9 @@ class SigningIntent(Base):
         ForeignKey("decision_evidence.id", ondelete="SET NULL"),
         nullable=True,
     )
+    # The assertion of a passkey the person made for this decision, checked
+    # when it came in; None when no passkey was used (grip.proof.passkey).
+    passkey: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     # Why it ended without a decision, in a code the screen can explain.
     failure: Mapped[str | None] = mapped_column(String(60), nullable=True)
     created_at: Mapped[datetime] = created_at()
@@ -129,6 +132,8 @@ class DecisionEvidence(Base):
     idp_jwks: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     idp_discovery: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     instance_jwks: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    # The passkey assertion made for this decision, as the browser sent it.
+    passkey: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     timestamp_reply: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     timestamp_authority: Mapped[str | None] = mapped_column(String(500), nullable=True)
     # Who the statement is about, to find it again without parsing it:

@@ -54,6 +54,7 @@ Ze staan in `frontend/src/ui/layout/` en `frontend/src/ui/`.
 | `FilterSelect` | Eén keuzelijst op de gewone maat. |
 | `OpenRow`, `OpenCell`, `RowActions` (`@/ui/RowActions`) | Een rij die opent, en één stille knop met een menu voor de overige acties. |
 | `ActionBar` (`@/ui/ActionBar`) | Filters links, de hoofdactie rechts, alles op één maat. |
+| `NameLine` | Een naam met zijn status: het label staat op de regel van de naam, in het midden ervan, met hooguit één gedempte regel eronder. |
 | `Loading`, `ErrorNotice`, `EmptyNotice` | Laden, een fout, en niets om te tonen, steeds in dezelfde vorm. |
 
 ### Afstanden
@@ -146,22 +147,48 @@ Deze pagina's volgen dat nog niet:
 | `features/vacancies/VacanciesPage.tsx` | Twee links in de `ActionBar`; "Formulier en taalmodel" hoort alleen onder Beheer |
 | `features/signing/SigningLayout.tsx` | Een eigen kop met losse tekst; de naam van de instantie als link naar het begin en het account als knop met een menu, zoals in de hoofdbalk |
 
-## Twee valkuilen in het designsysteem
+## Drie valkuilen in het designsysteem
 
 **`nldd-form` verplaatst zijn kinderen.** Het zet zijn directe kinderen in een eigen formulierelement. Verschijnt er daarna een veld, dan vindt React de plek niet meer en wordt de pagina leeg. Zet de velden daarom in één vast element: `FormSheet` en `FormFields` doen dat.
 
 **Een keuzelijst in `nldd-dropdown` verstuurt zijn eigen gebeurtenis.** De dropdown houdt de `change` van de `select` erin tegen en verstuurt er zelf een. Een `onChange` op de `select` alleen gaat dus nooit af. Luister met `useNlddEvent` op de dropdown: `FilterSelect` en `ActionBar` doen dat.
 
+**Een cel hoort in een rij.** `nldd-text-cell` en `nldd-cell` krijgen hun hoogte van de rij van een tabel of lijst. Los op een pagina heeft zo'n cel geen hoogte: de tekst wordt wel getekend, maar valt over wat eronder staat. Gebruik buiten een rij `Quiet`, `Facts` of gewone tekst.
+
 ## Meten in een browser
 
-Een scherm is pas gecontroleerd als het in een browser is gemeten. Wat je meet:
+Een scherm is pas gecontroleerd als het in een browser is gemeten en bekeken. Daar is één commando voor:
 
-- de horizontale positie van koppen, tekst en tabellen: één waarde;
-- de verzameling afstanden op de pagina: alleen waarden uit de schaal;
-- de hoogte van bedieningselementen in een rij: één waarde;
-- de hoogte van het document tegenover het venster, voor een pagina die past.
+```
+just check-spacing
+```
 
-Meet in een tabblad dat zichtbaar is, of wek de schil eerst. In een verborgen tabblad vuurt de browser geen `ResizeObserver`. De schil denkt dan dat het scherm smal is en telt de hoogte van de werkbalk niet mee, waardoor elke pagina 73 pixels te hoog lijkt. Dat is een meetfout, geen fout in grip: in een zichtbaar venster is het document precies zo hoog als het venster.
+Het laadt elke route uit `AppRoutes.tsx` in een browser zonder venster, als beheerder en als eigenaar van een opdracht, op 1280 en 390 breed, en meldt per pagina:
+
+| Bevinding | Betekenis |
+|---|---|
+| `collapsed` | Een onderdeel zonder hoogte waarvan de inhoud toch wordt getekend |
+| `overlap` | Twee blokken onder elkaar die over elkaar vallen |
+| `touching` | Twee verschillende blokken zonder ruimte ertussen |
+| `off-scale` | Een afstand die geen stap van de schaal is |
+| `edge` | Een blok dat niet op de linkerrand van zijn buren begint |
+| `height` | Bedieningselementen in één rij met een verschillende hoogte |
+| `tight` | Tekst dichter dan 8 op de rand van een eigen vlak |
+| `badge` | Een label dat niet in het midden van de regel van zijn naam staat |
+| `overflow` | De pagina schuift opzij |
+| `clipped` | Tekst die door zijn vak wordt afgesneden |
+
+De servers moeten draaien. Het commando gebruikt een eigen hostnaam (`spacing.localhost`), zodat het de sessie in je eigen browser niet raakt. Handige opties:
+
+- `just check-spacing --only /beheer --verbose` meet een deel en toont elke bevinding met de plek.
+- `just check-spacing --shots <map>` bewaart van elke pagina een afbeelding. Bekijk ze: de meting vindt afstanden en overlap, het oog vindt wat slecht leest.
+- `just check-spacing --only /opdrachten --click "Nieuwe opdracht"` drukt eerst op een knop, om een geopend formulier te meten.
+
+Een getekend raster dat zijn eigen cellen plaatst, zoals de tijdbalk, krijgt `data-spacing="grid"` en wordt als één blok gemeten, net als een tabel.
+
+Twee meetfouten om te kennen. In een verborgen tabblad van een gewone browser vuurt geen `ResizeObserver`: de schil denkt dan dat het scherm smal is. En een afbeelding van de hele pagina in plaats van het venster doet hetzelfde. Het commando meet en fotografeert daarom in een eigen venster van vaste maat.
+
+Naast de meting bewaakt een test de bron (`ui/layout/spacing.guard.test.ts`): een `gap` buiten de schaal of een marge in pixels in een nieuw bestand laat de build falen. De bestaande uitzonderingen staan er met hun aantal in en mogen alleen minder worden.
 
 ## Controlelijst voor een nieuw scherm
 
@@ -186,3 +213,60 @@ Deze schermen gebruiken de bouwstenen nog niet. Tot ze over zijn, houdt `index.c
 | `features/team`, `features/rates` | De pagina's opbouwen met `Page` en `Section`. |
 | `features/vacancies/VacancyDetailPage.tsx` | Zes secties onder elkaar, ruim drie schermen hoog. Tabs, zoals de opdrachtpagina. |
 | `features/function-framework` | Zestig groepen onder elkaar. Een zoekveld erboven. |
+
+## Iconen
+
+Tekst gaat voor. Een icoon staat er alleen als het moet of als het het vaste beeld van een onderdeel is, en hetzelfde beeld betekent overal hetzelfde. Code noemt daarom nooit een icoon maar een begrip; `frontend/src/ui/icons.ts` beslist het beeld, de plek en de naam. De test `icons.guard.test.ts` faalt op een icoonnaam, een los icoonelement of een teken als icoon (pijl, vinkje, uitroepteken) buiten die basis.
+
+Alle iconen komen uit het designsysteem. Heeft een begrip daar geen passend beeld, dan krijgt het geen icoon.
+
+### Waar wel, waar niet
+
+| | Plek |
+|---|---|
+| Verplicht | Een knop zonder tekst (het rijmenu, sluiten). Een link die de pagina verlaat: nieuw tabblad, document, andere site. Een download. Een stand of signaal dat los staat van tekst. |
+| Toegestaan | De terugverwijzing boven een titel. Een rij die opent. Een keuze "voeg toe" onder in een keuzelijst. Het ingeklapte hoofdmenu, waar elk onderdeel zijn beeld heeft. |
+| Verboden | Naast een kop. In lopende tekst. Op een knop met een werkwoord ("Wijzig", "Nieuwe opdracht", "Bewaar"), ook de hoofdknop. In een menu met acties: het woord zegt het, verwijderen heeft zijn kleur. Op elke rij van een tabel wat de kolomkop kan zeggen. Twee iconen op een element. Een icoon dat alleen de tekst van een label herhaalt. |
+
+### Plek, maat en naam
+
+- Het icoon staat voor de tekst. Erachter staan alleen de beelden die verder wijzen: de pagina verlaten en een rij die opent.
+- Een maat per plek: 16 in of naast tekst, 20 in een cel, 24 los. Nooit schalen met CSS.
+- Een icoon naast tekst is versiering en onzichtbaar voor hulpsoftware. Een knop zonder tekst heet naar het vaste werkwoord van zijn begrip plus waar het over gaat: "Meer acties voor Developer", "Download offerte.pdf, 120 kB".
+- Betekenis hangt nooit alleen aan beeld of kleur: een stand heeft ook een woord.
+- Verwijderen heeft overal dezelfde vorm: het woord "Verwijder", de kleur van een onomkeerbare actie en een vraag om bevestiging. Het icoon (prullenbak) alleen waar geen plaats is voor het woord.
+
+### Begrippen
+
+| Begrip | Icoon | Wanneer |
+|---|---|---|
+| `more` | more | Het ene knopje met wat een rij of kaart nog meer kan |
+| `add` | plus | Iets nieuws toevoegen vanuit een keuzelijst |
+| `remove` | trash | Verwijderen, alleen zonder plaats voor het woord |
+| `download` | download | Een bestand dat op het apparaat van de lezer komt |
+| `upload` | upload | Een bestand dat de lezer aanlevert |
+| `back` | arrow-left | Terug naar het onderdeel waar een pagina bij hoort |
+| `elsewhere` | external-link, achter de tekst | Alles wat buiten deze pagina opent |
+| `open` | chevron-right, achter de tekst | Een rij of regel die opent of uitklapt |
+| `close` | close | Een paneel of dialoog sluiten |
+| `copy` | copy | Naar het klembord, alleen zonder plaats voor het woord |
+| `search` | search | Zoeken in een lijst |
+| `undo` | arrow-u-turn-backward | Terug naar een eerdere stand |
+| `done` | check-circle-filled | Klaar, vastgesteld, volledig |
+| `todo` | circle | Nog te doen, niets mis |
+| `waiting` | clock | Wacht, op tijd of op een ander |
+| `attention` | warning | Vraagt aandacht: over begroting, te laat, dubbel geboekt |
+| `error` | error | Misgegaan |
+| `info` | info-circle | Goed om te weten |
+| `locked` | lock | Vastgelegd en niet meer te wijzigen |
+| `start`, `task`, `assignment`, `staffing`, `vacancy`, `team`, `cost`, `report`, `request`, `settings` | house, check-list, folder, calendar-event, person-badge-plus, person-2, euro-sign, chart-x-y-axis-line, paper-plane, gear | Het onderdeel in het hoofdmenu, en hetzelfde ding elders |
+| `person`, `account`, `logout`, `menu` | person, person-circle, logout, list | Het accountmenu en de menuknop |
+| `document`, `history`, `proof`, `security`, `organisation`, `node`, `mail` | document, clock-arrow-counter-clockwise, seal-check-mark, key, building, tree-structure, mail | Het ding zelf, waar het een beeld nodig heeft |
+
+De meldingen (`nldd-inline-dialog` met `variant`), de stappenbalk en de bevestigingsdialoog tekenen hun eigen icoon; grip zet daar niets overheen.
+
+### In code
+
+- `iconAttribute('download')` geeft het attribuut voor een knop of link met tekst; `iconOf` de naam voor een menu-item of label; `iconLabel('more', naam)` de naam van een knop zonder tekst.
+- `@/ui/Icon`: `Icon`, `IconCell`, `MoreButton`, `BackLink`, `DocumentLink` (bekijken of downloaden) en `ExternalLink`.
+- `ActionBar` neemt `kind: 'download' | 'elsewhere'` op een actie die de pagina verlaat.

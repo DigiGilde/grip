@@ -97,7 +97,7 @@ function KeyFigureTable({ finance }: { finance: AssignmentFinance }) {
       <nldd-text size="sm">
         Grip verstuurt geen facturen. Aangeleverd betekent dat de factuurgegevens van een
         afgesloten maand zijn geëxporteerd. Een bedrag telt pas als gefactureerd wanneer
-        iemand op het tabblad Maandafsluiting heeft vastgelegd dat de factuur is verstuurd.
+        iemand op het tabblad Afsluiten en factureren heeft vastgelegd dat de factuur is verstuurd.
       </nldd-text>
     </nldd-container>
   );

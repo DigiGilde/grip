@@ -14,17 +14,22 @@
  *   edge        a block that starts left of or right of its siblings
  *   height      controls in one row with different heights
  *   tight       text closer than 8 to the edge of the box it sits in
+ *   badge       a status label not centred on the line of the name it follows
  *   overflow    the page scrolls sideways
  *   clipped     text cut off by its box
  *
  * Usage (servers must be running; see `just check-spacing`):
  *   node scripts/check-spacing.mjs --base http://spacing.localhost:5231
  *     [--persons "Bente Beheer,Lotte Leiding"] [--widths 1280,390]
- *     [--only /beheer] [--json out.json] [--verbose]
+ *     [--only /beheer] [--json out.json] [--shots dir] [--verbose]
+ *     [--click "Nieuwe opdracht"]   press this button first, to measure an open sheet
+ *
+ * --shots saves a picture of every page next to the findings. Look at them:
+ * the measure finds gaps and overlaps, the eye finds what reads badly.
  *
  * Exit code 1 when there are findings, so it can guard a change.
  */
-import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { chromium } from 'playwright-core';
@@ -44,6 +49,8 @@ const WIDTHS = String(args.widths ?? '1280,390')
   .map(Number);
 const ONLY = typeof args.only === 'string' ? args.only : null;
 const VERBOSE = Boolean(args.verbose);
+const CLICK = typeof args.click === 'string' ? args.click : null;
+const SHOTS = typeof args.shots === 'string' ? args.shots : null;
 const DEV_PERSON_COOKIE = 'grip_dev_person';
 
 const src = path.resolve(import.meta.dirname, '../src');
@@ -175,6 +182,10 @@ function measure() {
   const CONTROLS =
     'nldd-button, nldd-dropdown, nldd-text-field, nldd-number-field, nldd-date-field, nldd-search-field, ' +
     'nldd-icon-button, nldd-menu-button, nldd-segmented-control';
+  // Sheets, dialogs and popovers lie over the page; measure them when open, on their own.
+  const OVERLAYS = 'nldd-sheet, nldd-modal, nldd-modal-dialog, nldd-popover, nldd-window, dialog';
+  // A designed grid (a timeline, a chart) lays out its own cells, like a table.
+  const GRID = '[data-spacing="grid"]';
   const findings = [];
   const round = (n) => Math.round(n);
 
@@ -197,6 +208,7 @@ function measure() {
       return rect.width > 0 && rect.height > 0 ? rect : null;
     }
     if (node.nodeType !== Node.ELEMENT_NODE) return null;
+    if (node.matches(OVERLAYS)) return null;
     const style = getComputedStyle(node);
     if (style.display === 'none' || style.visibility === 'hidden') return null;
     if (style.position === 'fixed' || style.position === 'absolute') return null;
@@ -258,6 +270,8 @@ function measure() {
           return [];
         }
       }
+      // A spacer is the space itself, not a block next to it.
+      if (child.nodeName === 'NLDD-SPACER') continue;
       const rect = box(child);
       if (rect) out.push({ node: child, rect });
     }
@@ -272,7 +286,7 @@ function measure() {
 
   const walk = (el, depth) => {
     if (el.nodeType !== Node.ELEMENT_NODE) return;
-    if (LEAF.has(el.tagName.toLowerCase())) return;
+    if (LEAF.has(el.tagName.toLowerCase()) || el.matches(GRID)) return;
     const items = parts(el);
     if (items.length === 0) return;
 
@@ -295,6 +309,7 @@ function measure() {
       const below = rowBox(rows[i]);
       const gap = round(below.top - above.bottom);
       const pair = `${describe(rows[i - 1][0].node)} | ${describe(rows[i][0].node)}`;
+      if (rows[i][0].node.nodeName === 'NLDD-FORM-ACTIONS') continue;
       if (gap < -1) findings.push({ kind: 'overlap', gap, where: pair });
       else if (gap <= 1) findings.push({ kind: 'touching', gap, where: pair });
       else if (![...SCALE].some((step) => Math.abs(step - gap) <= 1)) {
@@ -370,8 +385,13 @@ function measure() {
     for (const item of items) walk(item.node, depth + 1);
   };
 
+  // A closed sheet keeps its boxes; only an open one is on screen.
+  const shown = (el) => {
+    const overlay = el.closest(OVERLAYS);
+    return !overlay || overlay.hasAttribute('open');
+  };
   const roots = [...document.querySelectorAll('nldd-simple-section')].filter(
-    (section) => !section.parentElement?.closest('nldd-simple-section'),
+    (section) => !section.parentElement?.closest('nldd-simple-section') && shown(section),
   );
   const main = document.querySelector('#inhoud, main');
   for (const root of roots.length > 0 ? roots : main ? [main] : []) walk(root, 0);
@@ -383,6 +403,16 @@ function measure() {
       if (el.shadowRoot) deep(el.shadowRoot, visit);
     }
   };
+  /** Inside something that scrolls sideways by design (a wide table on a phone). */
+  const inScroller = (el) => {
+    for (let node = el; node; node = node.parentElement ?? node.getRootNode()?.host) {
+      if (node.nodeType !== Node.ELEMENT_NODE) continue;
+      const style = getComputedStyle(node);
+      const scrolls = style.overflowX === 'auto' || style.overflowX === 'scroll';
+      if (scrolls && node.scrollWidth > node.clientWidth + 1) return true;
+    }
+    return false;
+  };
   const doc = document.scrollingElement;
   if (doc.scrollWidth > window.innerWidth + 1) {
     findings.push({
@@ -393,11 +423,16 @@ function measure() {
   }
   deep(document, (el) => {
     const rect = el.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) return;
+    if (rect.width <= 1 || rect.height <= 1) return;
     const style = getComputedStyle(el);
+    // Text for screen readers only.
+    if (style.clipPath !== 'none' || style.clip !== 'auto') return;
+    if (el.closest?.(OVERLAYS) && !el.closest(OVERLAYS).hasAttribute('open')) return;
     const scrolls = style.overflowX === 'auto' || style.overflowX === 'scroll';
     if (
       scrolls &&
+      !(el.tagName === 'NLDD-TABLE' || el.getRootNode()?.host?.tagName === 'NLDD-TABLE') &&
+      !el.matches(GRID) &&
       el.scrollWidth > el.clientWidth + 1 &&
       rect.height > 200 &&
       rect.width > window.innerWidth * 0.6
@@ -420,7 +455,12 @@ function measure() {
     ) {
       findings.push({ kind: 'clipped', gap: el.scrollWidth - el.clientWidth, where: describe(el) });
     }
-    if (hasText && rect.right > window.innerWidth + 1 && rect.left < window.innerWidth) {
+    if (
+      hasText &&
+      rect.right > window.innerWidth + 1 &&
+      rect.left < window.innerWidth &&
+      !inScroller(el)
+    ) {
       findings.push({
         kind: 'clipped',
         gap: round(rect.right - window.innerWidth),
@@ -428,6 +468,20 @@ function measure() {
       });
     }
   });
+
+  // A badge behind a name belongs on the name's line, centred on it.
+  for (const badge of document.querySelectorAll('nldd-badge, nldd-tag')) {
+    const rect = badge.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) continue;
+    if (badge.closest(OVERLAYS) && !badge.closest(OVERLAYS).hasAttribute('open')) continue;
+    const before = badge.previousElementSibling;
+    if (!before || before.matches('nldd-badge, nldd-tag')) continue;
+    const other = ink(before) ?? before.getBoundingClientRect();
+    if (other.width === 0 || other.height === 0 || !sameRow(other, rect)) continue;
+    const off = round(rect.top + rect.height / 2 - (other.top + other.height / 2));
+    if (Math.abs(off) > 2)
+      findings.push({ kind: 'badge', gap: off, where: `${describe(before)} | ${describe(badge)}` });
+  }
 
   const title = document.querySelector('#page-heading')?.textContent?.trim() ?? document.title;
   return { title, findings, blocks: roots.length };
@@ -452,12 +506,13 @@ async function main() {
     throw new Error(`No example person found at ${BASE}; are the servers running?`);
   const list = await routes();
 
+  if (SHOTS) mkdirSync(SHOTS, { recursive: true });
   const browser = await chromium.launch({ executablePath: browserPath(), headless: true });
   const results = [];
   for (const person of persons) {
     for (const width of WIDTHS) {
       const context = await browser.newContext({
-        viewport: { width, height: 900 },
+        viewport: { width, height: 1400 },
         colorScheme: 'dark',
       });
       await context.addCookies([{ name: DEV_PERSON_COOKIE, value: person.id, url: BASE }]);
@@ -473,7 +528,18 @@ async function main() {
             },
           );
           await page.waitForTimeout(250);
+          if (CLICK) {
+            // Open a sheet first: the button with this text, as a user would.
+            await page.locator(`nldd-button[text="${CLICK}"]`).first().click({ timeout: 5000 });
+            await page.waitForTimeout(600);
+          }
           const measured = await page.evaluate(measure);
+          // A page without content is a crash or a redirect to nowhere, not a clean page.
+          if (measured.blocks === 0) throw new Error('lege pagina: de applicatie toont niets');
+          if (SHOTS) {
+            const file = `${route.name.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '')}-${person.name.split(' ')[0].toLowerCase()}-${width}.png`;
+            await page.screenshot({ path: path.join(SHOTS, file), fullPage: false });
+          }
           results.push({ person: person.name, width, ...route, ...measured });
         } catch (error) {
           results.push({
@@ -505,6 +571,7 @@ async function main() {
       c.clipped * 10 +
       c.height * 5 +
       c.tight * 5 +
+      c.badge * 5 +
       c.edge * 3 +
       c['off-scale']
     );

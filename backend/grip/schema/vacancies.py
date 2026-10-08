@@ -123,6 +123,9 @@ class VacancySummaryOut(BaseModel):
     status: Annotated[VacancyStatus, PUBLIC]
     vacancy_type: Annotated[VacancyType, NO_NAMES]
     declarable: Annotated[bool, NO_NAMES]
+    # The role the vacancy is for, so the staffing of an assignment can say
+    # that a vacancy is running for it.
+    budget_line_id: Annotated[UUID | None, NO_NAMES] = None
     assignment_name: Annotated[str | None, NO_NAMES] = None
     requested_on: Annotated[date | None, NO_NAMES] = None
     # Label of the last recorded step, and of the one that comes next.
@@ -157,6 +160,10 @@ class VacancyOut(BaseModel):
     budget_line_id: Annotated[UUID | None, NO_NAMES] = None
     assignment_id: Annotated[UUID | None, NO_NAMES] = None
     assignment_name: Annotated[str | None, NO_NAMES] = None
+    # For an intended or ready candidate: who it is. Personal data, only for
+    # who may see staffing; never in a published or federated vacancy.
+    candidate_person_id: Annotated[UUID | None, FULL] = None
+    candidate_name: Annotated[str | None, FULL] = None
     requested_on: Annotated[date | None, NO_NAMES] = None
     created_at: Annotated[datetime, NO_NAMES]
     # Whether this type of vacancy is opened at all (not for an intended or
@@ -217,6 +224,38 @@ class UnfilledRoleOut(BaseModel):
     start_date: Annotated[date | None, NO_NAMES] = None
     end_date: Annotated[date | None, NO_NAMES] = None
     declarable: Annotated[bool, NO_NAMES]
+    # The assignment is not agreed yet: "onder voorbehoud".
+    tentative: Annotated[bool, NO_NAMES] = False
+    # The intended person of the line: who a vacancy for a known candidate
+    # would be for. Staffing data.
+    intended_person_id: Annotated[UUID | None, FULL] = None
+    intended_person_name: Annotated[str | None, FULL] = None
+
+
+class RoleFillerOut(BaseModel):
+    person_name: Annotated[str, FULL]
+    until: Annotated[date, FULL]
+
+
+class FilledRoleOut(BaseModel):
+    """A fully staffed personnel line: a vacancy for it starts a replacement
+    or a successor. Who fills it is staffing, and absent without that class."""
+
+    budget_line_id: Annotated[UUID, NO_NAMES]
+    assignment_id: Annotated[UUID, NO_NAMES]
+    assignment_name: Annotated[str, NO_NAMES]
+    description: Annotated[str, NO_NAMES]
+    role: Annotated[str | None, NO_NAMES] = None
+    fte: Annotated[Decimal, NO_NAMES]
+    start_date: Annotated[date | None, NO_NAMES] = None
+    end_date: Annotated[date | None, NO_NAMES] = None
+    declarable: Annotated[bool, NO_NAMES]
+    tentative: Annotated[bool, NO_NAMES] = False
+    filled_by: Annotated[list[RoleFillerOut], nested()] = []
+    # The intended person of the line: who a vacancy for a known candidate
+    # would be for. Staffing data.
+    intended_person_id: Annotated[UUID | None, FULL] = None
+    intended_person_name: Annotated[str | None, FULL] = None
 
 
 class OptionOut(BaseModel):
@@ -302,6 +341,9 @@ class VacancyCreate(BaseModel):
     function_group_id: UUID | None = None
     scale_deviation_reason: str | None = Field(default=None, max_length=2000)
     addressee_id: UUID | None = None
+    # For a vacancy for an intended or ready candidate: who it is. The same
+    # fact as the intended person of the budget line, and kept there.
+    candidate_person_id: UUID | None = None
 
 
 class VacancyUpdate(BaseModel):

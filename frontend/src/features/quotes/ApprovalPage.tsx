@@ -29,7 +29,7 @@ import {
   beforeLeaving,
   clearDraft,
   createDecisionIntent,
-  navigation,
+  leaveForDecision,
   readDraft,
   saveDraft,
   useDecisionReturn,
@@ -87,7 +87,7 @@ export function ApprovalPage() {
         return_path: approvalPath(quoteId),
       });
     },
-    onSuccess: (intent) => navigation.go(intent.authorize_url),
+    onSuccess: leaveForDecision,
     onError: (failure) => setError(errorMessage(failure)),
   });
   if (back.evidenceId) clearDraft(quoteId);
@@ -224,7 +224,7 @@ export function ApprovalPage() {
           Je keurt offerte {quote?.quote_reference ?? ''} van{' '}
           {quote?.total_cents !== undefined ? formatEuro(quote.total_cents) : ''} goed.
         </nldd-text>
-        <nldd-text>{beforeLeaving('approve')}</nldd-text>
+        <nldd-text>{beforeLeaving('approve', Boolean(decide.data?.passkey))}</nldd-text>
         <TextInput label="Opmerking" value={note} onChange={setNote} optional multiline />
       </FormSheet>
 
@@ -246,7 +246,7 @@ export function ApprovalPage() {
         <nldd-text>
           Wie de offerte maakte leest je toelichting en maakt een nieuwe offerte.
         </nldd-text>
-        <nldd-text>{beforeLeaving('send_back')}</nldd-text>
+        <nldd-text>{beforeLeaving('send_back', Boolean(decide.data?.passkey))}</nldd-text>
         <TextInput label="Wat moet er anders" value={note} onChange={setNote} required multiline />
       </FormSheet>
     </>

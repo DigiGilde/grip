@@ -36,6 +36,8 @@ export interface TextBlock {
   with_costs: boolean;
   numbered: boolean;
   draftable: boolean;
+  /** Stands in every quote; a writer cannot leave it out. */
+  required: boolean;
 }
 
 export interface LetterTexts {

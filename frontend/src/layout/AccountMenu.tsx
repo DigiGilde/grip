@@ -2,6 +2,8 @@ import { useRef } from 'react';
 import { useNlddEvent } from '@/components/nldd/events';
 import { useAuth } from '@/auth/context';
 import { PATHS } from '@/paths';
+import { install, useCanInstall } from '@/pwa/install';
+import { ICONS } from '@/ui/icons';
 import { DevPersonSwitch, useViewingAs } from './DevPersonSwitch';
 import { useInstance } from './useInstance';
 import { useRouterLinks } from './useRouterLinks';
@@ -17,6 +19,15 @@ export function LogoutMenuItem({ slot }: LogoutItemProps) {
   const ref = useRef<HTMLElement>(null);
   useNlddEvent(ref, 'select', logout);
   return <nldd-menu-item ref={ref} {...(slot ? { slot } : {})} icon="logout" text="Uitloggen" />;
+}
+
+/** "Installeer grip", only while the browser offers to install it. */
+function InstallMenuItem() {
+  const canInstall = useCanInstall();
+  const ref = useRef<HTMLElement>(null);
+  useNlddEvent(ref, 'select', () => void install());
+  if (!canInstall) return null;
+  return <nldd-menu-item ref={ref} icon={ICONS.download.icon} text="Installeer grip" />;
 }
 
 interface AccountMenuProps {
@@ -60,6 +71,13 @@ export function AccountMenu({ placement, compact }: AccountMenuProps) {
           href={PATHS.teamPerson.replace(':personId', person.id)}
         />
       )}
+      {person && (
+        <nldd-menu-item icon={ICONS.notify.icon} text="Meldingen" href={PATHS.notifications} />
+      )}
+      {person && (
+        <nldd-menu-item icon={ICONS.security.icon} text="Beveiliging" href={PATHS.security} />
+      )}
+      <InstallMenuItem />
       <LogoutMenuItem />
       <DevPersonSwitch currentId={person?.id ?? null} />
     </nldd-menu>

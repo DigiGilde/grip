@@ -56,9 +56,12 @@ if [ ! -f "$tls/ca-bundle.crt" ]; then
     cat "$tls/ca.crt" >> "$tls/ca-bundle.crt"
 fi
 
-# A realm with one confidential client and two fictional people: one who is
-# known in grip (bootstrapped as beheerder) and one who is not, to see the
-# "geen toegang" path. The user ids are fixed: Keycloak keeps no data here,
+# A realm with one confidential client and three fictional people: one who is
+# known in grip (bootstrapped as beheerder), one who is not, to see the
+# "geen toegang" path, and one who is known in grip but whose address the
+# provider does not vouch for (what a person gets who changes their own
+# address at the provider). The client passes the organisation on the way the
+# platform's realms do (organization.name and organization.number). The user ids are fixed: Keycloak keeps no data here,
 # and grip binds a person to the subject on first login, so a new id after
 # every restart would lock the person out.
 cat > "$state/keycloak/grip-realm.json" <<REALM
@@ -67,6 +70,18 @@ cat > "$state/keycloak/grip-realm.json" <<REALM
   "enabled": true,
   "sslRequired": "none",
   "registrationAllowed": false,
+  "components": {
+    "org.keycloak.userprofile.UserProfileProvider": [
+      {
+        "providerId": "declarative-user-profile",
+        "config": {
+          "kc.user.profile.config": [
+            "{\\"attributes\\":[{\\"name\\":\\"username\\"},{\\"name\\":\\"email\\"},{\\"name\\":\\"firstName\\"},{\\"name\\":\\"lastName\\"}],\\"unmanagedAttributePolicy\\":\\"ENABLED\\"}"
+          ]
+        }
+      }
+    ]
+  },
   "clients": [
     {
       "clientId": "grip",
@@ -84,7 +99,35 @@ cat > "$state/keycloak/grip-realm.json" <<REALM
       "attributes": {
         "pkce.code.challenge.method": "S256",
         "post.logout.redirect.uris": "http://localhost:9001/*##http://localhost:9002/*"
-      }
+      },
+      "protocolMappers": [
+        {
+          "name": "Organization Name Passthrough",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "organization.name",
+            "claim.name": "organization.name",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "Organization Number Passthrough",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "organization.number",
+            "claim.name": "organization.number",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
     }
   ],
   "users": [
@@ -96,6 +139,10 @@ cat > "$state/keycloak/grip-realm.json" <<REALM
       "email": "testbeheerder@grip.invalid",
       "firstName": "Test",
       "lastName": "Beheerder",
+      "attributes": {
+        "organization.name": ["Voorbeelddienst"],
+        "organization.number": ["00000001"]
+      },
       "credentials": [
         {"type": "password", "value": "$KEYCLOAK_USER_PASSWORD", "temporary": false}
       ]
@@ -108,6 +155,18 @@ cat > "$state/keycloak/grip-realm.json" <<REALM
       "email": "onbekend@grip.invalid",
       "firstName": "Onbekende",
       "lastName": "Bezoeker",
+      "credentials": [
+        {"type": "password", "value": "$KEYCLOAK_USER_PASSWORD", "temporary": false}
+      ]
+    },
+    {
+      "id": "33333333-3333-4333-8333-333333333333",
+      "username": "onbevestigd",
+      "enabled": true,
+      "emailVerified": false,
+      "email": "onbevestigd@grip.invalid",
+      "firstName": "Onbevestigd",
+      "lastName": "Adres",
       "credentials": [
         {"type": "password", "value": "$KEYCLOAK_USER_PASSWORD", "temporary": false}
       ]
@@ -134,7 +193,7 @@ OIDC_ISSUER=https://localhost:9443/realms/grip
 OIDC_DISCOVERY_URL=https://keycloak:8443/realms/grip/.well-known/openid-configuration
 OIDC_CLIENT_ID=grip
 OIDC_CLIENT_SECRET=$KEYCLOAK_CLIENT_SECRET
-BOOTSTRAP_BEHEERDER_EMAILS=testbeheerder@grip.invalid
+BOOTSTRAP_BEHEERDER_EMAILS=testbeheerder@grip.invalid,onbevestigd@grip.invalid
 KEYCLOAK_ADMIN_PASSWORD=$KEYCLOAK_ADMIN_PASSWORD
 ENV
 

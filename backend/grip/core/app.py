@@ -34,6 +34,22 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await bootstrap_beheerders(db, settings)
         await db.commit()
 
+    # The shipped standard vacancy texts come along with the application.
+    # Loading is idempotent and leaves what a person changed alone.
+    if settings.VACANCY_TEXT_PROFILE.strip():
+        from grip.services.vacancies import library
+
+        async with async_session() as db:
+            try:
+                await library.load_profile(db, settings.VACANCY_TEXT_PROFILE.strip())
+                await db.commit()
+            except Exception:
+                await db.rollback()
+                logging.getLogger(__name__).exception(
+                    "Loading the standard vacancy texts failed; the application "
+                    "starts without them."
+                )
+
     # Domain events are emitted inside web requests, so the handlers that
     # turn them into outbox messages must be registered here as well as in
     # the worker.

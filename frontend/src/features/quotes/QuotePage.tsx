@@ -14,7 +14,6 @@ import {
   fetchQuoteDetail,
   fetchQuotePreview,
   fetchQuotes,
-  issueQuote,
   offerQuote,
   quoteKeys,
   recordRejection,
@@ -33,6 +32,7 @@ import {
   requestApproval,
   withdrawApproval,
 } from './approval';
+import { draftKeys, fetchDraft, quoteDraftPath } from './draftApi';
 import { OfferSheet } from './OfferSheet';
 import { fetchQuoteEvidence, proofKeys } from './proof';
 import { EarlierQuoteRow, QuoteCard, type CardAction } from './QuoteCard';
@@ -40,7 +40,7 @@ import { QuoteContentTable } from './QuoteContentTable';
 import { partMonthNote, rateChangeNote } from './format';
 import { FileInput } from './ui';
 
-type Dialog = 'issue' | 'offer' | 'upload' | 'reject' | 'approval' | null;
+type Dialog = 'offer' | 'upload' | 'reject' | 'approval' | null;
 
 function differenceText(preview: QuotePreview): string | null {
   const difference = preview.difference_cents;
@@ -100,6 +100,13 @@ export function QuotePage() {
     retry: false,
   });
   const navigate = useNavigate();
+  // The words of the next quote, when someone started on them.
+  const draft = useQuery({
+    queryKey: draftKeys.draft(assignmentId),
+    queryFn: () => fetchDraft(assignmentId),
+    enabled: preview.data?.may_issue === true,
+    retry: false,
+  });
   const { state: auth } = useAuth();
   const isAdmin = auth.status === 'authenticated' && auth.functions.includes('beheerder');
 
@@ -108,10 +115,6 @@ export function QuotePage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
 
-  const [validUntil, setValidUntil] = useState('');
-  // Undefined until the person types: the field then shows the proposed text.
-  const [conditions, setConditions] = useState<string | undefined>(undefined);
-  const [clientReference, setClientReference] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [signerName, setSignerName] = useState('');
   const [signerEmail, setSignerEmail] = useState('');
@@ -152,7 +155,7 @@ export function QuotePage() {
     else if (action.kind === 'upload') open('upload');
     else if (action.kind === 'reject') open('reject');
     else if (action.kind === 'request-approval') open('approval');
-    else if (action.kind === 'new-quote') open('issue');
+    else if (action.kind === 'new-quote') navigate(quoteDraftPath(assignmentId));
     else if (action.kind === 'review') navigate(approvalPath(current.id));
     else if (action.kind === 'grant-right') navigate(PATHS.team);
     else if (action.kind === 'withdraw-approval') act(() => withdrawApproval(current.id));
@@ -175,7 +178,6 @@ export function QuotePage() {
   const canIssue = Boolean(data?.may_issue && data.can_issue);
   const showPreview = Boolean(data?.may_issue) && current?.status !== 'accepted' && !waiting;
   const difference = data ? differenceText(data) : null;
-  const conditionsText = conditions ?? data?.default_conditions ?? '';
   const partMonth = data?.content
     ? [partMonthNote(data.content.lines), rateChangeNote(data.content.lines)]
         .filter(Boolean)
@@ -215,15 +217,11 @@ export function QuotePage() {
                 <Stack gap="close">
                   <nldd-button-group>
                     <Button
-                      text="Maak offerte"
+                      text={draft.data?.saved ? 'Ga verder met de offerte' : 'Maak offerte'}
                       appearance="primary"
-                      onClick={() => open('issue')}
+                      onClick={() => navigate(quoteDraftPath(assignmentId))}
                     />
                   </nldd-button-group>
-                  <Quiet>
-                    Daarna wijzigt de offerte niet meer; voor een andere begroting maak je een
-                    nieuwe.
-                  </Quiet>
                 </Stack>
               ) : null}
             </Section>
@@ -249,7 +247,11 @@ export function QuotePage() {
                       ? 'De begroting is gewijzigd sinds deze offerte; het totaal is gelijk gebleven.'
                       : `De begroting is gewijzigd sinds deze offerte en staat nu op ${formatEuro(data.content.total_cents)}.`}
                   </Quiet>
-                  <Button text="Maak nieuwe offerte" size="sm" onClick={() => open('issue')} />
+                  <Button
+                    text="Maak nieuwe offerte"
+                    size="sm"
+                    onClick={() => navigate(quoteDraftPath(assignmentId))}
+                  />
                 </nldd-container>
               ) : null}
             </Stack>
@@ -270,46 +272,6 @@ export function QuotePage() {
           ) : null}
         </Stack>
       </nldd-simple-section>
-
-      <FormSheet
-        open={dialog === 'issue'}
-        title="Offerte maken"
-        submitText="Maak offerte"
-        busy={run.isPending}
-        error={dialog === 'issue' ? formError : null}
-        onClose={close}
-        onSubmit={() =>
-          submit(() =>
-            issueQuote(assignmentId, {
-              valid_until: validUntil || null,
-              conditions: conditionsText.trim() || null,
-              client_reference: clientReference.trim() || null,
-            }),
-          )
-        }
-      >
-        <nldd-text>
-          De offerte legt de begroting vast zoals die nu is
-          {data?.content ? `: ${formatEuro(data.content.total_cents)}` : ''}. Ze krijgt een eigen
-          kenmerk
-          {waiting ? ' en vervangt de offerte die nu openstaat' : ''}. Daarna wijzigt ze niet meer.
-        </nldd-text>
-        <DateInput label="Geldig tot en met" value={validUntil} onChange={setValidUntil} optional />
-        <TextInput
-          label="Kenmerk van de opdrachtgever"
-          hint="Bijvoorbeeld een zaak- of ordernummer. Staat op de offerte als 'Uw kenmerk'."
-          value={clientReference}
-          onChange={setClientReference}
-          optional
-        />
-        <TextInput
-          label="Voorwaarden"
-          value={conditionsText}
-          onChange={setConditions}
-          optional
-          multiline
-        />
-      </FormSheet>
 
       <OfferSheet
         open={dialog === 'offer'}

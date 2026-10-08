@@ -29,6 +29,10 @@ Who gets what:
   the person named for that decision when that person has an account.
   Putting the name of an adviser on the vacancy without a decision is
   editing.
+- Judge a text and remark on it (``REVIEW_TEXT``): whoever may edit the
+  vacancy, and a person asked to review one of its texts. That person also
+  reads the vacancy without names (``STAFFING_COUNTS``): the text versions
+  are part of that view. Being asked gives nothing else.
 - Form templates and the configuration of the language model: beheerder
   only, for every action.
 - The function families and groups of the Functiegebouw Rijk: read by every
@@ -45,7 +49,7 @@ them with the request.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from uuid import UUID
 
 from grip.access.relations import RelationSource
@@ -80,6 +84,8 @@ DECISION_KINDS = ("hr_advice", "control_advice", "approval")
 
 _OPEN_ROLE = "open_role"
 _DECISION_KIND = "decision_kind"
+# The persons asked to review a text of the vacancy, comma separated.
+_TEXT_REVIEWERS = "text_reviewer_ids"
 _NO_GRANT = "no_grant"
 
 
@@ -94,6 +100,7 @@ def vacancy_resource(
     open_role: bool = False,
     named: Mapping[str, UUID | None] | None = None,
     decision_kind: str | None = None,
+    text_reviewers: Iterable[UUID] = (),
 ) -> Resource:
     """A vacancy as the resource of a decision.
 
@@ -101,6 +108,7 @@ def vacancy_resource(
     ``open_role`` says the vacancy is published with an established text.
     ``named`` maps a decision kind to the person named for it.
     ``decision_kind`` is the decision a ``RECORD_DECISION`` request is about.
+    ``text_reviewers`` are the persons asked to review a text of the vacancy.
     ``vacancy_id=None`` stands for a vacancy that does not exist yet, or for
     the collection.
     """
@@ -112,6 +120,9 @@ def vacancy_resource(
             properties.append((_named_property(kind), str(person_id)))
     if decision_kind is not None:
         properties.append((_DECISION_KIND, decision_kind))
+    reviewers = sorted({str(person_id) for person_id in text_reviewers})
+    if reviewers:
+        properties.append((_TEXT_REVIEWERS, ",".join(reviewers)))
     return Resource(
         ResourceKind.VACANCY,
         id=vacancy_id,
@@ -157,6 +168,13 @@ async def evaluate(relations: RelationSource, req: AccessRequest) -> Decision:
         return allow(reason) if reason else deny(_NO_GRANT)
     if req.action is Action.RECORD_DECISION:
         return _records_decision(req)
+    if req.action is Action.REVIEW_TEXT:
+        reason = await _editor_reason(relations, req)
+        if reason:
+            return allow(reason)
+        if _is_text_reviewer(req):
+            return allow("relation:text_reviewer")
+        return deny(_NO_GRANT)
     if req.action is Action.READ:
         return await _reads(relations, req)
     return deny("not_applicable")
@@ -179,6 +197,11 @@ async def _editor_reason(relations: RelationSource, req: AccessRequest) -> str |
 def _is_named(req: AccessRequest, kinds: tuple[str, ...] = DECISION_KINDS) -> bool:
     me = str(req.subject.person_id)
     return any(req.resource.property(_named_property(kind)) == me for kind in kinds)
+
+
+def _is_text_reviewer(req: AccessRequest) -> bool:
+    asked = (req.resource.property(_TEXT_REVIEWERS) or "").split(",")
+    return str(req.subject.person_id) in asked
 
 
 def _records_decision(req: AccessRequest) -> Decision:
@@ -215,6 +238,9 @@ async def _reads(relations: RelationSource, req: AccessRequest) -> Decision:
 
     if _LEZER in req.subject.functions:
         return allow("function:lezer")
+    if req.resource.id is not None and _is_text_reviewer(req):
+        # Asked to judge a text: the vacancy without names, texts included.
+        return allow("relation:text_reviewer")
     if data_class is DataClass.STAFFING_COUNTS:
         return deny(_NO_GRANT)
 

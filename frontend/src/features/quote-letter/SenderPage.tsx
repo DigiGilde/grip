@@ -52,6 +52,7 @@ const NEW_BLOCK: TextBlock = {
   with_costs: false,
   numbered: true,
   draftable: true,
+  required: false,
 };
 
 const MARKS_HINT =
@@ -217,7 +218,9 @@ export function SenderPage() {
                       onOpen={edit}
                     />
                     <nldd-text-cell text={blockKind(item)} />
-                    <nldd-text-cell text={item.included ? 'Staat erin' : 'Op verzoek'} />
+                    <nldd-text-cell
+                      text={item.required ? 'Altijd' : item.included ? 'Staat erin' : 'Op verzoek'}
+                    />
                     <nldd-cell>
                       <RowActions
                         name={item.heading}
@@ -435,6 +438,13 @@ export function SenderPage() {
           onChange={(hint) => setBlock((now) => ({ ...now, hint }))}
           multiline
           optional
+        />
+        <CheckboxInput
+          label="Staat in elke offerte: de schrijver kan het niet weglaten"
+          checked={block.required}
+          onChange={(required) =>
+            setBlock((now) => ({ ...now, required, included: required || now.included }))
+          }
         />
         <CheckboxInput
           label="Staat standaard in een nieuwe offerte"

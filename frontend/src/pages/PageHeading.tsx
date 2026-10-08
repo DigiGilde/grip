@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { documentTitle } from '@/brand/names';
 
 /** The id the layout focuses after a route change. */
 export const PAGE_HEADING_ID = 'page-heading';
@@ -24,7 +25,7 @@ interface PageHeadingProps {
  */
 export function PageHeading({ text, instanceName, lead, inline }: PageHeadingProps) {
   useEffect(() => {
-    document.title = [text, instanceName ?? 'Grip'].join(' - ');
+    document.title = documentTitle(text, instanceName);
   }, [text, instanceName]);
 
   return (

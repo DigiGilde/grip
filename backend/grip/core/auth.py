@@ -18,9 +18,10 @@ from __future__ import annotations
 
 import logging
 import time
-from collections.abc import Callable, Coroutine
+from collections.abc import Callable, Coroutine, Mapping
+from dataclasses import dataclass
 from typing import Annotated, Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import httpx
 from authlib.integrations.starlette_client import OAuth
@@ -34,9 +35,10 @@ from grip.core.async_cache import AsyncTTLCache
 from grip.core.audit import UPDATE, record_audit
 from grip.core.config import Settings, get_settings
 from grip.core.database import get_db
+from grip.events import stream
 from grip.models.person import Person
 from grip.models.role import BEHEERDER
-from grip.repositories.person import PersonRepository
+from grip.repositories.person import PersonRepository, normalize_email
 
 logger = logging.getLogger(__name__)
 
@@ -292,15 +294,95 @@ def get_oauth(settings: Settings) -> OAuth | None:
 # ---------------------------------------------------------------------------
 
 
-async def resolve_person_for_login(
+# Why a login was refused. The codes are stable: they are stored with the
+# refusal, so a beheerder can see what stopped someone and act on it.
+REFUSED_NO_SUBJECT = "geen_subject"
+REFUSED_NO_EMAIL = "geen_emailadres"
+# The provider did not vouch for the address: the claim is false or absent.
+# This check is the defence against someone changing their own address at
+# the provider to that of a colleague; it is never relaxed.
+REFUSED_EMAIL_UNVERIFIED = "emailadres_niet_bevestigd"
+REFUSED_UNKNOWN = "onbekend"
+REFUSED_INACTIVE = "inactief"
+# The person exists, but was bound to another identity at the provider.
+REFUSED_OTHER_SUBJECT = "andere_aanmelding"
+
+MATCHED_BY_SUBJECT = "subject"
+MATCHED_BY_EMAIL = "emailadres_eerste_aanmelding"
+
+
+@dataclass(frozen=True)
+class LoginMatch:
+    """What a login led to: a person and the rule that found them, or why not.
+
+    ``candidate`` is the person a refusal is about, when there is one (an
+    inactive person, a person bound to another identity).
+    """
+
+    person: Person | None = None
+    rule: str | None = None
+    refusal: str | None = None
+    candidate: Person | None = None
+
+
+def email_verified_claim(claims: Mapping[str, Any]) -> bool | None:
+    """The claim as sent: True, False, or ``None`` when it is absent."""
+    value = claims.get("email_verified")
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value.strip().lower() == "true"
+    return bool(value)
+
+
+def display_name_from_claims(claims: Mapping[str, Any]) -> str:
+    """A name to show. Never the provider's user id.
+
+    In the platform realm ``preferred_username`` is overridden with the
+    SSO Rijk user id (a urn), so it only serves as a name when it does not
+    look like an identifier.
+    """
+    name = str(claims.get("name") or "").strip()
+    if name:
+        return name
+    given = str(claims.get("given_name") or "").strip()
+    family = str(claims.get("family_name") or "").strip()
+    if given or family:
+        return f"{given} {family}".strip()
+    fallback = str(claims.get("preferred_username") or "").strip()
+    if fallback.lower().startswith("urn:") or "@" in fallback:
+        return ""
+    return fallback
+
+
+def organisation_from_claims(claims: Mapping[str, Any]) -> dict[str, str]:
+    """Name and number of the person's organisation, as the provider says.
+
+    The platform's realms pass them on as ``organization.name`` and
+    ``organization.number``; a dotted claim name arrives as a nested object
+    unless the mapper escapes the dot, so both shapes are read. A claim,
+    not a fact grip checked: it says what SSO Rijk has on record.
+    """
+    nested = claims.get("organization")
+    found: dict[str, str] = {}
+    for key in ("name", "number"):
+        value = nested.get(key) if isinstance(nested, Mapping) else None
+        if value is None:
+            value = claims.get(f"organization.{key}")
+        if value is not None and str(value).strip():
+            found[key] = str(value).strip()
+    return found
+
+
+async def match_login(
     db: AsyncSession,
     *,
     sub: str,
     email: str,
-    email_verified: bool,
+    email_verified: bool | None,
     name: str = "",
-) -> Person | None:
-    """Return the active person this identity may log in as, or ``None``.
+) -> LoginMatch:
+    """Match an identity to the active person it may log in as.
 
     1. A person already bound to ``sub``.
     2. Otherwise a person with this email that is not bound to any subject
@@ -310,19 +392,25 @@ async def resolve_person_for_login(
     Nobody is created here: an unknown identity gets no access.
     """
     if not sub:
-        return None
+        return LoginMatch(refusal=REFUSED_NO_SUBJECT)
     repo = PersonRepository(db)
 
     person = await repo.get_by_oidc_subject(sub)
     if person is not None:
-        return person if person.is_active else None
+        if not person.is_active:
+            return LoginMatch(refusal=REFUSED_INACTIVE, candidate=person)
+        return LoginMatch(person=person, rule=MATCHED_BY_SUBJECT)
 
-    if not email or not email_verified:
-        return None
+    if not email:
+        return LoginMatch(refusal=REFUSED_NO_EMAIL)
+    if email_verified is not True:
+        return LoginMatch(refusal=REFUSED_EMAIL_UNVERIFIED)
 
     person = await repo.get_by_email(email)
-    if person is None or not person.is_active:
-        return None
+    if person is None:
+        return LoginMatch(refusal=REFUSED_UNKNOWN)
+    if not person.is_active:
+        return LoginMatch(refusal=REFUSED_INACTIVE, candidate=person)
     if person.oidc_subject is not None:
         # The person exists and the provider vouches for the email, but the
         # login was bound to another subject earlier: the provider was
@@ -336,7 +424,7 @@ async def resolve_person_for_login(
             "unbind the login of this person to let it bind again",
             person.id,
         )
-        return None
+        return LoginMatch(refusal=REFUSED_OTHER_SUBJECT, candidate=person)
 
     person.oidc_subject = sub
     # A provisioned person may have been entered with only an email address.
@@ -353,7 +441,64 @@ async def resolve_person_for_login(
     )
     await db.flush()
     logger.info("Bound OIDC subject to person %s on first login", person.id)
-    return person
+    return LoginMatch(person=person, rule=MATCHED_BY_EMAIL)
+
+
+async def resolve_person_for_login(
+    db: AsyncSession,
+    *,
+    sub: str,
+    email: str,
+    email_verified: bool,
+    name: str = "",
+) -> Person | None:
+    """Return the active person this identity may log in as, or ``None``."""
+    match = await match_login(
+        db, sub=sub, email=email, email_verified=email_verified, name=name
+    )
+    return match.person
+
+
+LOGIN_SUBJECT = "login"
+
+
+def record_login(
+    db: AsyncSession,
+    match: LoginMatch,
+    *,
+    email: str,
+    as_guest: bool = False,
+) -> None:
+    """Put a login, or a refused one, in the event stream.
+
+    A refusal names the address that was offered: without it a beheerder
+    cannot tell who to add or unbind. The events are for beheer only.
+    """
+    person = match.person or match.candidate
+    address = normalize_email(email) if email else ""
+    if match.person is not None:
+        event_type, payload = (
+            "login.succeeded",
+            {"rule": match.rule},
+        )
+    elif as_guest:
+        event_type, payload = (
+            "login.guest",
+            {"email": address},
+        )
+    else:
+        event_type, payload = (
+            "login.refused",
+            {"reason": match.refusal, "email": address},
+        )
+    stream.append(
+        db,
+        event_type,
+        subject=(LOGIN_SUBJECT, uuid4()),
+        actor_person_id=match.person.id if match.person else None,
+        person_id=person.id if person else None,
+        payload=payload,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -528,10 +673,17 @@ async def resolve_person(
 
     session: dict[str, Any] = request.scope.get("session", {})
     person_id = session.get("person_id")
-    if not person_id or not session.get("access_token"):
-        return None
-    if not await validate_session_token(session, settings):
-        return None
+    if is_passkey_session(session):
+        # No token to validate: the session lives for a fixed, shorter time,
+        # and the person is loaded again below like for any other session.
+        if passkey_session_expired(session, settings):
+            session.clear()
+            return None
+    else:
+        if not person_id or not session.get("access_token"):
+            return None
+        if not await validate_session_token(session, settings):
+            return None
     try:
         person = await PersonRepository(db).get(UUID(person_id))
     except ValueError:
@@ -540,6 +692,34 @@ async def resolve_person(
         session.clear()
         return None
     return person
+
+
+# A session that began with a passkey holds no tokens of the identity
+# provider: {"created_at": <epoch seconds>} next to ``person_id``.
+PASSKEY_SESSION_KEY = "passkey_session"
+
+
+def is_passkey_session(session: dict[str, Any]) -> bool:
+    """Whether the session began with a passkey instead of the provider."""
+    return isinstance(session.get(PASSKEY_SESSION_KEY), dict) and bool(
+        session.get("person_id")
+    )
+
+
+def passkey_session_expired(session: dict[str, Any], settings: Settings) -> bool:
+    started = (session.get(PASSKEY_SESSION_KEY) or {}).get("created_at")
+    if not isinstance(started, int | float):
+        return True
+    return time.time() - started > settings.PASSKEY_SESSION_TTL_SECONDS
+
+
+def start_passkey_session(session: dict[str, Any], person: Person) -> None:
+    """Replace whatever the session held by a login of ``person``."""
+    session.clear()
+    session[PASSKEY_SESSION_KEY] = {"created_at": time.time()}
+    session["person_id"] = str(person.id)
+    # New session id after login, against session fixation.
+    session["_rotate"] = True
 
 
 # Session key for an invited signer without a person record in this

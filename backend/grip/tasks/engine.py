@@ -120,6 +120,12 @@ def _assignee(
     if role in catalogue.SUBJECT_PERSON_ROLES:
         if subject.person_id is not None:
             return subject.person_id, None, None, False
+        if case.case_kind == "vacancy":
+            # Nobody wrote yet: the requester starts, or else a planner.
+            requester = case.people.get("requester")
+            if requester is not None:
+                return requester, None, None, False
+            return None, "planner", None, False
         return None, "owner", None, False
     if role in catalogue.VACANCY_PERSON_ROLES:
         person_id = case.people.get(role)
@@ -307,6 +313,12 @@ async def _case_plans(
                 .on_conflict_do_nothing()
             )
         else:
+            current = current_plan()
+            if row.plan_version in current.replaces:
+                # The current plan takes over the cases of this version. What
+                # the old plan asked and the new one does not, lapses below;
+                # what both ask keeps its task.
+                row.plan_version = current.version
             plan = plan_for(row.plan_version)
             row.evaluated_at = now
         plans[case.case_id] = plan

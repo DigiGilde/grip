@@ -26,6 +26,8 @@ async def test_status_without_any_person(client):
         "functions": [],
         "relations": [],
         "guest": None,
+        "passkey_login": False,
+        "passkey_session": False,
     }
 
 

@@ -1,590 +1,423 @@
-import { useRef, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Fragment, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { errorMessage } from '@/api/client';
-import { orUndef, useNlddEvent } from '@/components/nldd/events';
-import { Button, TextInput } from '@/features/assignments/ui';
+import { useNlddEvent } from '@/components/nldd/events';
+import { Button } from '@/features/assignments/ui';
 import { useAssignmentShell } from '@/features/assignments/shell';
-import { formatDateTime } from '@/features/quotes/format';
-import { DocumentLink, MenuAction } from '@/features/quotes/ui';
+import { formatDate, formatEuro } from '@/lib/format';
 import { useInstance } from '@/layout/useInstance';
-import { formatEuro, formatMonth, formatPercent } from '@/lib/format';
 import { PageHeading } from '@/pages/PageHeading';
-import { EmptyNotice, ErrorNotice, FormSheet, Loading, Quiet, Section, Stack } from '@/ui/layout';
-import { BillingTotals, Invoices } from './BillingSection';
+import { OpenRow, RowActions, ROW_ACTIONS_COLUMN, type RowAction } from '@/ui/RowActions';
+import { EmptyNotice, ErrorNotice, Loading, Stack } from '@/ui/layout';
+import { Invoices } from './BillingSection';
+import { billingKey, fetchBillingStatus } from './api';
 import {
-  billingKey,
-  closeMonth,
-  createExport,
-  exportCsvUrl,
-  fetchBillingStatus,
-  fetchExports,
-  fetchMonth,
-  fetchTimeline,
-  monthKeys,
-  normalisePercent,
-  percentInput,
-  reopenMonth,
-  type BillingExport,
-  type MonthBilling,
-  type MonthDetail,
-  type MonthLine,
-  type MonthState,
-} from './api';
-import { billingStateRemark, billingStateText } from './billingText';
-import { INVOICE_PARAM, MONTH_PARAM, monthsFromParam } from './paths';
+  billingOverviewKey,
+  deliveryCsvUrl,
+  deliveryDocumentUrl,
+  fetchBillingOverview,
+  type BillingOverview,
+  type BillingPeriod,
+  type PeriodMonth,
+} from './billingApi';
+import { DeliverSheet, PeriodInvoiceSheet, TermsSheet } from './BillingSheets';
+import { MonthSheet } from './MonthSheet';
+import { INVOICE_PARAM, MONTH_PARAM, PERIOD_PARAM, monthsFromParam } from './paths';
+import {
+  PERIOD_STATE_COLOR,
+  PERIOD_STATE_TEXT,
+  RHYTHM_TEXT,
+  periodAmount,
+  periodLine,
+  stepAction,
+  stepLine,
+  stepTitle,
+} from './periodText';
 
-function has(lines: MonthLine[], field: keyof MonthLine): boolean {
-  return lines.some((line) => field in line);
+const COLUMNS = `minmax(200px,2fr) 210px minmax(180px,2fr) minmax(120px,1fr) ${ROW_ACTIONS_COLUMN}`;
+const NARROW_COLUMNS = `minmax(140px,1fr) minmax(100px,auto) ${ROW_ACTIONS_COLUMN}`;
+
+function euro(cents: number | null | undefined): string {
+  return cents === null || cents === undefined ? '' : formatEuro(cents);
 }
 
-function PercentCell({
-  label,
-  value,
-  invalid,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  invalid: boolean;
-  onChange: (value: string) => void;
-}) {
-  const ref = useRef<HTMLElement>(null);
-  useNlddEvent(ref, 'input', (event) => {
-    const detail = (event as CustomEvent<{ value?: unknown }>).detail;
-    const target = event.target as { value?: unknown } | null;
-    onChange(String(detail?.value ?? target?.value ?? ''));
-  });
-  return (
-    <nldd-cell>
-      <nldd-text-field
-        ref={ref}
-        size="sm"
-        width="96px"
-        value={value}
-        keyboard="decimal"
-        accessible-label={label}
-        invalid={orUndef(invalid)}
-      />
-    </nldd-cell>
-  );
-}
-
-function MonthTable({
-  detail,
-  editable,
-  edits,
-  onEdit,
-}: {
-  detail: MonthDetail;
-  editable: boolean;
-  edits: Record<string, string>;
-  onEdit: (allocationId: string, value: string) => void;
-}) {
-  const lines = detail.lines;
-  const showPct = has(lines, 'planned_fte_pct');
-  const showRate = has(lines, 'category');
-  const showEstablished = showPct && (detail.closed || editable);
-  const columns = [
-    'minmax(160px,1.5fr)',
-    'minmax(140px,1.2fr)',
-    ...(showPct ? ['100px'] : []),
-    ...(showEstablished ? ['130px'] : []),
-    ...(showRate ? ['90px', 'minmax(110px,1fr)', 'minmax(110px,1fr)'] : []),
-    ...(showRate && detail.closed ? ['minmax(110px,1fr)'] : []),
-  ].join(' ');
-
-  return (
-    <nldd-table accessible-label={`Inzet in ${formatMonth(detail.month)}`} columns={columns}>
-      <nldd-table-row slot="header">
-        <nldd-text-cell text="Persoon" />
-        <nldd-text-cell text="Rol" />
-        {showPct ? <nldd-text-cell text="Gepland" horizontal-alignment="right" /> : null}
-        {showEstablished ? (
-          <nldd-text-cell text="Vastgesteld" horizontal-alignment="right" />
-        ) : null}
-        {showRate ? (
-          <>
-            <nldd-text-cell text="Categorie" />
-            <nldd-text-cell text="Maandtarief" horizontal-alignment="right" />
-            <nldd-text-cell text="Bedrag gepland" horizontal-alignment="right" />
-          </>
-        ) : null}
-        {showRate && detail.closed ? (
-          <nldd-text-cell text="Bedrag vastgesteld" horizontal-alignment="right" />
-        ) : null}
-      </nldd-table-row>
-      {lines.map((line) => {
-        const typed = edits[line.allocation_id];
-        const value = typed ?? percentInput(line.planned_fte_pct);
-        return (
-          <nldd-table-row key={line.allocation_id}>
-            <nldd-text-cell text={line.person_name} />
-            <nldd-text-cell text={line.description} />
-            {showPct ? (
-              <nldd-text-cell
-                text={formatPercent(line.planned_fte_pct)}
-                horizontal-alignment="right"
-              />
-            ) : null}
-            {showEstablished && editable ? (
-              <PercentCell
-                label={`Vastgesteld percentage van ${line.person_name}`}
-                value={value}
-                invalid={normalisePercent(value) === null}
-                onChange={(next) => onEdit(line.allocation_id, next)}
-              />
-            ) : null}
-            {showEstablished && !editable ? (
-              <nldd-text-cell
-                text={formatPercent(line.established_fte_pct)}
-                horizontal-alignment="right"
-              />
-            ) : null}
-            {showRate ? (
-              <>
-                <nldd-text-cell text={line.category ?? ''} />
-                <nldd-text-cell
-                  text={formatEuro(line.monthly_rate_cents)}
-                  horizontal-alignment="right"
-                />
-                <nldd-text-cell
-                  text={formatEuro(line.planned_amount_cents)}
-                  horizontal-alignment="right"
-                />
-              </>
-            ) : null}
-            {showRate && detail.closed ? (
-              <nldd-text-cell
-                text={formatEuro(line.established_amount_cents)}
-                horizontal-alignment="right"
-              />
-            ) : null}
-          </nldd-table-row>
-        );
-      })}
-    </nldd-table>
-  );
-}
-
-
-/** The month's state in one word, as a label. */
-function StateBadge({ state, billing }: { state: MonthState; billing: MonthBilling | undefined }) {
-  if (billing?.state === 'invoiced') return <nldd-badge color="success" text="Gefactureerd" />;
-  if (billing?.state === 'delivered') return <nldd-badge color="accent" text="Aangeleverd" />;
-  if (state.closed) return <nldd-badge color="neutral" text="Afgesloten" />;
-  if (state.closable) return <nldd-badge color="warning" text="Af te sluiten" />;
-  return <nldd-badge color="neutral" text="Nog niet voorbij" />;
-}
-
-/** What happened to the month, in words. */
-function stateLine(state: MonthState, billing: MonthBilling | undefined): string {
-  if (billing && billing.state !== 'not_delivered') return billingStateText(billing);
-  if (state.closed) {
-    return `Afgesloten op ${formatDateTime(state.closed_at)}${state.closed_by_name ? ` door ${state.closed_by_name}` : ''}`;
+/** Where a month stands, as words in its own row. */
+function monthLine(month: PeriodMonth): string {
+  if (month.state === 'closed') {
+    const who = month.closed_by_name ? ` door ${month.closed_by_name}` : '';
+    const correction = (month.correction_cents ?? 0) !== 0 ? ' · gewijzigd na de aanlevering' : '';
+    return `Afgesloten op ${formatDate(month.closed_at)}${who}${correction}`;
   }
+  if (month.state === 'to_close') return 'Af te sluiten';
+  if (month.state === 'running') return 'Loopt nog';
   return '';
 }
 
-interface MonthRowProps {
-  state: MonthState;
-  billing: MonthBilling | undefined;
-  selected: boolean;
-  mayClose: boolean;
-  mayDeliver: boolean;
-  mayRecord: boolean;
-  csvUrl: string | null;
-  busy: boolean;
-  onShow: () => void;
-  onDeliver: () => void;
-  onRecord: () => void;
+interface NowProps {
+  overview: BillingOverview;
+  onAct: () => void;
 }
 
 /**
- * One month in the timeline. It carries the next step of that month, and
- * only when there is one: close it, deliver its billing data, record the
- * invoice. A month that is not over has no action.
+ * The one thing to do now. It is the first and largest thing on the tab and
+ * carries the only accent: its button. With nothing due it says so, and
+ * names when the next thing comes.
  */
-function MonthRow({
-  state,
-  billing,
-  selected,
-  mayClose,
-  mayDeliver,
-  mayRecord,
-  csvUrl,
-  busy,
-  onShow,
-  onDeliver,
-  onRecord,
-}: MonthRowProps) {
-  const name = formatMonth(state.month);
-  const remark = billing ? billingStateRemark(billing) : null;
-  const toClose = !state.closed && state.closable && mayClose && !selected;
-  const toDeliver = state.closed && mayDeliver && (!billing || billing.state === 'not_delivered');
-  const toRecord = billing?.state === 'delivered' && mayRecord;
-  const amount = billing?.invoiced_cents ?? billing?.delivered_cents ?? billing?.deliverable_cents;
+function Now({ overview, onAct }: NowProps) {
+  const step = overview.next_step;
+  const may =
+    (step.kind === 'close_month' && overview.may_close) ||
+    (step.kind === 'deliver' && overview.may_deliver) ||
+    (step.kind === 'record_invoice' && overview.may_record_invoice);
+  const waiting = step.kind !== 'none' && !may;
   return (
-    <nldd-table-row {...(selected ? { 'aria-current': 'true' } : {})}>
-      <nldd-text-cell
-        text={name}
-        {...(state.reopen_count > 0
-          ? { 'supporting-text': `${state.reopen_count} keer heropend` }
-          : {})}
-      />
-      <nldd-cell>
-        <StateBadge state={state} billing={billing} />
-      </nldd-cell>
-      <nldd-text-cell
-        text={stateLine(state, billing)}
-        {...(remark ? { 'supporting-text': remark, color: 'warning' } : {})}
-      />
-      <nldd-text-cell
-        text={amount === null || amount === undefined ? '' : formatEuro(amount)}
-        horizontal-alignment="right"
-      />
-      <nldd-cell>
-        <nldd-container layout="row" gap="8" vertical-alignment="center">
-          {toClose ? (
-            <Button size="sm" text="Sluit af" accessibleLabel={`Sluit ${name} af`} onClick={onShow} />
-          ) : null}
-          {toDeliver ? (
-            <Button
-              size="sm"
-              text="Lever aan"
-              accessibleLabel={`Lever de factuurgegevens van ${name} aan`}
-              disabled={busy}
-              onClick={onDeliver}
-            />
-          ) : null}
-          {toRecord ? (
-            <Button
-              size="sm"
-              text="Leg factuur vast"
-              accessibleLabel={`Leg de factuur van ${name} vast`}
-              onClick={onRecord}
-            />
-          ) : null}
-          {state.closed && !selected ? (
-            <nldd-icon-button icon="more" size="sm" text={`Meer over ${name}`}>
-              <nldd-menu slot="popup" placement="bottom-end">
-                <MenuAction text="Bekijk de inzet" onSelect={onShow} />
-              </nldd-menu>
-            </nldd-icon-button>
-          ) : null}
-          {csvUrl && selected ? <DocumentLink href={csvUrl} text="CSV" /> : null}
-        </nldd-container>
-      </nldd-cell>
-    </nldd-table-row>
+    <nldd-card background="tinted" accessible-label={step.kind === 'none' ? 'Stand' : 'Nu te doen'}>
+      <nldd-container padding="24" gap="16">
+        <nldd-title
+          size={2}
+          heading-level={2}
+          overline={
+            step.kind === 'none' ? 'Niets te doen' : waiting ? 'Wacht op een ander' : 'Nu te doen'
+          }
+          text={stepTitle(step)}
+          supporting-text={
+            waiting
+              ? 'Dit kan de eigenaar of een manager van de opdracht.'
+              : stepLine(step, overview)
+          }
+        />
+        {may ? (
+          <nldd-button-group>
+            <Button appearance="primary" text={stepAction(step)} onClick={onAct} />
+          </nldd-button-group>
+        ) : null}
+      </nldd-container>
+    </nldd-card>
+  );
+}
+
+/** Three small figures over the whole assignment; one that says nothing is left out. */
+function Figures({ overview }: { overview: BillingOverview }) {
+  const figures = [
+    { label: 'Afgesloten', cents: overview.closed_cents },
+    { label: 'Aangeleverd', cents: overview.delivered_cents },
+    { label: 'Gefactureerd', cents: overview.invoiced_cents },
+  ].filter((figure) => figure.cents);
+  if (figures.length === 0) return null;
+  return (
+    <nldd-text size="sm" color="secondary">
+      {figures.map((figure, index) => (
+        <Fragment key={figure.label}>
+          {index > 0 ? ' · ' : ''}
+          {figure.label} <strong>{euro(figure.cents)}</strong>
+        </Fragment>
+      ))}
+    </nldd-text>
+  );
+}
+
+/** A link in a sentence that acts in place instead of leaving the page. */
+function InlineAction({ text, onAct }: { text: string; onAct: () => void }) {
+  const ref = useRef<HTMLElement>(null);
+  useNlddEvent(ref, 'click', (event) => {
+    event.preventDefault();
+    onAct();
+  });
+  return <nldd-link ref={ref} href="#" text={text} size="sm" />;
+}
+
+interface PeriodRowsProps {
+  overview: BillingOverview;
+  period: BillingPeriod;
+  /** The period the one thing to do now is in: the only row that stands out. */
+  isNext: boolean;
+  expanded: boolean;
+  onToggle: () => void;
+  onMonth: (month: string) => void;
+  onDeliver: () => void;
+  onInvoice: () => void;
+}
+
+/**
+ * A billing period as one line to scan: which period, where it stands, the
+ * last step and the amount. Its months are detail and show on demand. A
+ * period of one month is the month itself and opens it.
+ */
+function PeriodRows({
+  overview,
+  period,
+  isNext,
+  expanded,
+  onToggle,
+  onMonth,
+  onDeliver,
+  onInvoice,
+}: PeriodRowsProps) {
+  const single = period.months.length === 1 && overview.terms.rhythm === 'month';
+  const delivery = (period.deliveries ?? []).at(-1);
+  const actions: RowAction[] = [];
+  if (period.state === 'ready' && overview.may_deliver && overview.billable) {
+    actions.push({ text: 'Lever aan', onSelect: onDeliver });
+  }
+  if (period.awaits_invoice && overview.may_record_invoice) {
+    actions.push({ text: 'Leg factuur vast', onSelect: onInvoice });
+  }
+  if (delivery?.has_document) {
+    actions.push({ text: 'Bekijk factuurverzoek (pdf)', href: deliveryDocumentUrl(delivery.id) });
+    actions.push({ text: 'Download als bestand (csv)', href: deliveryCsvUrl(delivery.id) });
+  }
+  const amount = periodAmount(period);
+  const done = period.state === 'invoiced';
+  const open = single ? () => onMonth(period.months[0]?.month ?? '') : onToggle;
+  return (
+    <>
+      <OpenRow onOpen={open}>
+        <nldd-text-cell
+          text={`**${period.label.charAt(0).toUpperCase()}${period.label.slice(1)}**`}
+          {...(period.months.length > 1 ? { 'supporting-text': period.span } : {})}
+          {...(done ? { color: 'secondary' } : {})}
+        />
+        <nldd-cell hide-below="md">
+          <nldd-badge
+            color={isNext ? PERIOD_STATE_COLOR[period.state] : 'neutral'}
+            text={PERIOD_STATE_TEXT[period.state]}
+          />
+        </nldd-cell>
+        <nldd-text-cell hide-below="md" size="sm" color="secondary" text={periodLine(period)} />
+        <nldd-text-cell
+          horizontal-alignment="right"
+          text={amount ? `**${euro(amount)}**` : ''}
+          {...(done ? { color: 'secondary' } : {})}
+          hide-above="sm"
+          supporting-text={PERIOD_STATE_TEXT[period.state]}
+        />
+        <nldd-text-cell
+          hide-below="md"
+          horizontal-alignment="right"
+          text={amount ? `**${euro(amount)}**` : ''}
+          {...(done ? { color: 'secondary' } : {})}
+        />
+        <RowActions name={period.label} actions={actions} />
+      </OpenRow>
+      {expanded && !single
+        ? period.months.map((month) => (
+            <OpenRow key={month.month} onOpen={() => onMonth(month.month)}>
+              <nldd-cell>
+                <nldd-container padding-left="24">
+                  <nldd-text size="sm" color="secondary">
+                    {month.label}
+                  </nldd-text>
+                </nldd-container>
+              </nldd-cell>
+              <nldd-cell hide-below="md" />
+              <nldd-text-cell hide-below="md" size="sm" color="secondary" text={monthLine(month)} />
+              <nldd-text-cell
+                size="sm"
+                color="secondary"
+                horizontal-alignment="right"
+                text={euro(month.amount_cents)}
+              />
+              <nldd-cell />
+            </OpenRow>
+          ))
+        : null}
+    </>
   );
 }
 
 /**
- * The monthly close of one assignment: establish the actual inzet per
- * month, deliver the billing data, record the invoice. The oldest month
- * that should be closed leads; each closed month carries its next step.
+ * Closing and billing of one assignment. Two acts with their own rhythm:
+ * a month is settled soon after it ends; a billing period, a month or a
+ * quarter by the agreement, goes to the financial administration once all
+ * its months are settled. The tab leads with the one thing to do now, shows
+ * the periods as the course, and keeps months and people for on demand.
  */
 export function MonthClosePage() {
   const { assignmentId = '' } = useParams();
   const shell = useAssignmentShell();
-  const [searchParams, setSearchParams] = useSearchParams();
   const instance = useInstance();
-  const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const timeline = useQuery({
-    queryKey: monthKeys.timeline(assignmentId),
-    queryFn: () => fetchTimeline(assignmentId),
+  const overview = useQuery({
+    queryKey: billingOverviewKey(assignmentId),
+    queryFn: () => fetchBillingOverview(assignmentId),
   });
-  const started = timeline.data?.closing_started ?? false;
-  const months = timeline.data?.months ?? [];
-  const mayClose = timeline.data?.may_close ?? false;
-  const due = months.filter((m) => !m.closed && m.closable);
-  const requested = searchParams.get(MONTH_PARAM);
-  // Without a choice: the oldest month that waits to be closed.
-  const selected =
-    months.find((m) => m.month === requested)?.month ??
-    (mayClose ? due[0]?.month : undefined) ??
-    null;
-
-  const billing = useQuery({
+  const data = overview.data;
+  const started = data?.closing_started ?? false;
+  const status = useQuery({
     queryKey: billingKey(assignmentId),
     queryFn: () => fetchBillingStatus(assignmentId),
     enabled: started,
   });
-  const detail = useQuery({
-    queryKey: monthKeys.detail(assignmentId, selected ?? ''),
-    queryFn: () => fetchMonth(assignmentId, selected ?? ''),
-    enabled: started && selected !== null,
-  });
-  const exports = useQuery({
-    queryKey: monthKeys.exports(assignmentId),
-    queryFn: () => fetchExports(assignmentId),
-    enabled: started,
-  });
 
-  const [edits, setEdits] = useState<Record<string, string>>({});
-  const [error, setError] = useState<string | null>(null);
-  const [reopening, setReopening] = useState(false);
-  const [reason, setReason] = useState('');
-  const [reopenError, setReopenError] = useState<string | null>(null);
-  const [recordFor, setRecordFor] = useState<string[] | null>(null);
-  // The address can ask to record an invoice for some months.
-  const fromAddress = monthsFromParam(searchParams.get(INVOICE_PARAM));
-  const recording = recordFor ?? (fromAddress.length > 0 ? fromAddress : null);
+  const [toggled, setToggled] = useState<Record<string, boolean>>({});
+  const [delivering, setDelivering] = useState<string | null>(null);
+  const [invoicing, setInvoicing] = useState<string | null>(null);
+  const [terms, setTerms] = useState(false);
+  const [correcting, setCorrecting] = useState<string[] | null>(null);
 
-  const select = (month: string) => {
-    setEdits({});
-    setError(null);
-    setSearchParams({ [MONTH_PARAM]: month }, { replace: true });
+  const setParam = (name: string, value: string | null) => {
+    const next = new URLSearchParams(searchParams);
+    if (value === null) next.delete(name);
+    else next.set(name, value);
+    setSearchParams(next, { replace: true });
+  };
+  const month = searchParams.get(MONTH_PARAM);
+  // An address can ask for a step: a period to deliver, months to invoice.
+  const periodFromAddress = searchParams.get(PERIOD_PARAM);
+  const invoiceMonths = monthsFromParam(searchParams.get(INVOICE_PARAM));
+
+  const periods = data?.periods ?? [];
+  const step = data?.next_step;
+  const find = (key: string | null) => periods.find((period) => period.key === key) ?? null;
+  const periodOfMonth = (wanted: string | null | undefined) =>
+    periods.find((period) => period.months.some((entry) => entry.month === wanted)) ?? null;
+  // Open by default: only the period the next step is in.
+  const current =
+    step?.period_key ?? periodOfMonth(step?.month)?.key ?? periods.at(-1)?.key ?? null;
+  const isExpanded = (key: string) => toggled[key] ?? key === current;
+
+  const act = () => {
+    if (!step) return;
+    if (step.kind === 'close_month' && step.month) setParam(MONTH_PARAM, step.month);
+    if (step.kind === 'deliver') setDelivering(step.period_key);
+    if (step.kind === 'record_invoice') setInvoicing(step.period_key);
   };
 
-  const run = useMutation({
-    mutationFn: (action: () => Promise<unknown>) => action(),
-    onSuccess: async () => {
-      setEdits({});
-      setError(null);
-      setReopening(false);
-      await queryClient.invalidateQueries({ queryKey: ['months', assignmentId] });
-      await queryClient.invalidateQueries({ queryKey: ['assignments'] });
-      await queryClient.invalidateQueries({ queryKey: ['tasks'] });
-    },
-    onError: (failure) => setError(errorMessage(failure)),
-  });
-
-  const data = detail.data;
-  const status = billing.data;
-  const billingOf = (month: string) => status?.months?.find((m) => m.month === month);
-  const latestExport = (month: string): BillingExport | undefined =>
-    exports.data?.exports.find((entry) => entry.month === month);
-  const editable = Boolean(data && !data.closed && data.may_close);
-  const anyClosed = months.some((m) => m.closed);
-  const showBilling = Boolean(status?.billable && anyClosed && status.delivered_cents !== undefined);
-  const mayDeliver = Boolean(status?.billable && mayClose);
-  const name = timeline.data?.assignment_name;
-  const title = name ? `Maandafsluiting ${name}` : 'Maandafsluiting';
-
-  const close = () => {
-    if (!data || !selected) return;
-    const established: { allocation_id: string; fte_pct: string }[] = [];
-    for (const line of data.lines) {
-      const typed = edits[line.allocation_id];
-      if (typed === undefined) continue;
-      const pct = normalisePercent(typed);
-      if (pct === null) {
-        setError(
-          `Het vastgestelde percentage van ${line.person_name} is geen getal tussen 0 en 100.`,
-        );
-        return;
-      }
-      if (Number(pct) !== Number(line.planned_fte_pct)) {
-        established.push({ allocation_id: line.allocation_id, fte_pct: pct });
-      }
-    }
-    run.mutate(() => closeMonth(assignmentId, selected, established));
-  };
-
-  const csvOf = (month: string): string | null => {
-    const entry = latestExport(month);
-    return entry && entry.lines.some((line) => 'amount_cents' in line)
-      ? exportCsvUrl(entry.id)
-      : null;
-  };
+  const invoiceFromAddress = periodOfMonth(invoiceMonths[0])?.key ?? null;
+  const deliverKey =
+    delivering ?? (periodFromAddress && data?.may_deliver ? periodFromAddress : null);
+  const deliverTarget = find(deliverKey);
+  const invoiceTarget = find(invoicing ?? invoiceFromAddress);
+  const title = data
+    ? `Afsluiten en factureren ${data.assignment_name}`
+    : 'Afsluiten en factureren';
+  const invoices = status.data?.invoices ?? [];
+  const client = data?.terms.details?.organisation ?? data?.client_name;
 
   return (
     <>
       <nldd-simple-section>
         {/* Inside the tabs of an assignment the shell shows the name and the way back. */}
         {shell ? null : <PageHeading text={title} instanceName={instance?.name} />}
-        <Stack gap="group">
-          {timeline.isPending ? <Loading /> : null}
-          {timeline.isError ? <ErrorNotice message={errorMessage(timeline.error)} /> : null}
+        {overview.isPending ? <Loading /> : null}
+        {overview.isError ? <ErrorNotice message={errorMessage(overview.error)} /> : null}
+        {data && !started ? (
+          <EmptyNotice text="Maanden afsluiten kan zodra er een akkoord is" />
+        ) : null}
+        {data && started && periods.length === 0 && data.upcoming_count === 0 ? (
+          <EmptyNotice
+            text="Deze opdracht heeft nog geen maanden"
+            supportingText="Geef de opdracht een periode of zet iemand in."
+          />
+        ) : null}
 
-          {timeline.data && !started ? (
-            <EmptyNotice text="Maanden afsluiten kan zodra er een akkoord is" />
-          ) : null}
-          {timeline.data && started && months.length === 0 ? (
-            <EmptyNotice
-              text="Deze opdracht heeft nog geen maanden"
-              supportingText="Geef de opdracht een periode of zet iemand in."
-            />
-          ) : null}
+        {data && started && (periods.length > 0 || data.upcoming_count > 0) ? (
+          <Stack gap="section">
+            <Now overview={data} onAct={act} />
 
-          {started && error ? <ErrorNotice message={error} /> : null}
-
-          {started && selected && data ? (
-            <Section
-              title={
-                data.closed ? `${formatMonth(selected)}` : `${formatMonth(selected)} afsluiten`
-              }
-              level={2}
-            >
-              {data.pricing_problem ? (
-                <nldd-banner
-                  variant="warning"
-                  size="sm"
-                  text="De bedragen van deze maand kunnen niet worden berekend"
-                  supporting-text={data.pricing_problem}
-                />
-              ) : null}
-              {data.lines.length > 0 ? (
-                <MonthTable
-                  detail={data}
-                  editable={editable}
-                  edits={edits}
-                  onEdit={(id, value) => setEdits((current) => ({ ...current, [id]: value }))}
-                />
-              ) : (
-                <EmptyNotice text="In deze maand is niemand ingezet" />
-              )}
-              {data.planned_total_cents !== undefined ? (
-                <Quiet>
-                  Gepland {formatEuro(data.planned_total_cents)}
-                  {data.established_total_cents !== null &&
-                  data.established_total_cents !== undefined
-                    ? ` · vastgesteld ${formatEuro(data.established_total_cents)}`
-                    : ''}
-                  {data.closed
-                    ? ` · afgesloten op ${formatDateTime(data.closed_at)}${data.closed_by_name ? ` door ${data.closed_by_name}` : ''}`
-                    : ''}
-                </Quiet>
-              ) : null}
-              {data.may_close || data.may_reopen ? (
-                <nldd-button-group>
-                  {data.may_close ? (
-                    <Button
-                      text={`Sluit ${formatMonth(selected)} af`}
-                      appearance="primary"
-                      loading={run.isPending && !reopening}
-                      onClick={close}
-                    />
-                  ) : null}
-                  {data.may_reopen ? (
-                    <Button
-                      text="Heropen"
-                      accessibleLabel={`Heropen ${formatMonth(selected)}`}
-                      onClick={() => {
-                        setReopenError(null);
-                        setReopening(true);
-                      }}
-                    />
-                  ) : null}
-                </nldd-button-group>
-              ) : null}
-              {data.history.some((record) => record.reopened_at) ? (
+            <Stack gap="related">
+              <Stack gap="tight">
+                <nldd-title size={4} heading-level={2} text="Perioden" />
+                <Figures overview={data} />
+              </Stack>
+              {periods.length > 0 ? (
                 <nldd-table
-                  accessible-label="Eerdere afsluitingen van deze maand"
-                  columns="minmax(160px,1fr) minmax(160px,1fr) minmax(200px,2fr)"
+                  accessible-label="Perioden van de opdracht"
+                  columns={COLUMNS}
+                  sm-columns={NARROW_COLUMNS}
                 >
                   <nldd-table-row slot="header">
-                    <nldd-text-cell text="Afgesloten" />
-                    <nldd-text-cell text="Heropend" />
-                    <nldd-text-cell text="Reden" />
+                    <nldd-text-cell text="Periode" />
+                    <nldd-text-cell hide-below="md" text="Stand" />
+                    <nldd-text-cell hide-below="md" text="Laatste stap" />
+                    <nldd-text-cell text="Bedrag" horizontal-alignment="right" />
+                    <nldd-cell />
                   </nldd-table-row>
-                  {data.history
-                    .filter((record) => record.reopened_at)
-                    .map((record) => (
-                      <nldd-table-row key={record.closed_at}>
-                        <nldd-text-cell
-                          text={formatDateTime(record.closed_at)}
-                          {...(record.closed_by_name
-                            ? { 'supporting-text': record.closed_by_name }
-                            : {})}
-                        />
-                        <nldd-text-cell
-                          text={formatDateTime(record.reopened_at)}
-                          {...(record.reopened_by_name
-                            ? { 'supporting-text': record.reopened_by_name }
-                            : {})}
-                        />
-                        <nldd-text-cell text={record.reopen_reason ?? ''} />
-                      </nldd-table-row>
-                    ))}
+                  {periods.map((period) => (
+                    <Fragment key={period.key}>
+                      <PeriodRows
+                        overview={data}
+                        period={period}
+                        isNext={period.key === current && data.next_step.kind !== 'none'}
+                        expanded={isExpanded(period.key)}
+                        onToggle={() =>
+                          setToggled((now) => ({ ...now, [period.key]: !isExpanded(period.key) }))
+                        }
+                        onMonth={(wanted) => setParam(MONTH_PARAM, wanted)}
+                        onDeliver={() => setDelivering(period.key)}
+                        onInvoice={() => setInvoicing(period.key)}
+                      />
+                    </Fragment>
+                  ))}
                 </nldd-table>
               ) : null}
-            </Section>
-          ) : null}
-          {started && selected && detail.isPending ? <Loading /> : null}
-          {started && selected && detail.isError ? (
-            <ErrorNotice message={errorMessage(detail.error)} />
-          ) : null}
+              <nldd-text size="sm" color="secondary">
+                {[
+                  data.upcoming_count > 0
+                    ? `Nog ${data.upcoming_count} ${
+                        data.terms.rhythm === 'quarter'
+                          ? data.upcoming_count === 1
+                            ? 'kwartaal'
+                            : 'kwartalen'
+                          : data.upcoming_count === 1
+                            ? 'maand'
+                            : 'maanden'
+                      } te gaan, t/m ${data.upcoming_until ?? ''}`
+                    : null,
+                  `Factureren ${RHYTHM_TEXT[data.terms.rhythm]}`,
+                  client && data.terms.details ? `factuur aan ${client}` : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+                {data.may_edit_terms ? (
+                  <>
+                    {' · '}
+                    <InlineAction text="Wijzig factuurafspraken" onAct={() => setTerms(true)} />
+                  </>
+                ) : null}
+              </nldd-text>
+            </Stack>
 
-          {started && months.length > 0 ? (
-            <Section title="Maanden" level={2}>
-              <nldd-table
-                accessible-label="Maanden van de opdracht"
-                columns="minmax(130px,1fr) 150px minmax(240px,2.4fr) minmax(110px,1fr) minmax(170px,1.2fr)"
-              >
-                <nldd-table-row slot="header">
-                  <nldd-text-cell text="Maand" />
-                  <nldd-text-cell text="Stand" />
-                  <nldd-text-cell text="Laatste stap" />
-                  <nldd-text-cell text="Bedrag" horizontal-alignment="right" />
-                  <nldd-text-cell text="Volgende stap" />
-                </nldd-table-row>
-                {months.map((state) => (
-                  <MonthRow
-                    key={state.month}
-                    state={state}
-                    billing={billingOf(state.month)}
-                    selected={state.month === selected}
-                    mayClose={mayClose}
-                    mayDeliver={mayDeliver}
-                    mayRecord={Boolean(status?.may_record_invoice)}
-                    csvUrl={csvOf(state.month)}
-                    busy={run.isPending}
-                    onShow={() => select(state.month)}
-                    onDeliver={() => run.mutate(() => createExport(assignmentId, state.month))}
-                    onRecord={() => setRecordFor([state.month])}
-                  />
-                ))}
-              </nldd-table>
-              {showBilling && status ? <BillingTotals status={status} /> : null}
-            </Section>
-          ) : null}
-
-          {started && status && status.delivered_cents !== undefined ? (
-            <Invoices
-              assignmentId={assignmentId}
-              status={status}
-              recordFor={recording}
-              onRecordDone={() => {
-                setRecordFor(null);
-                if (fromAddress.length > 0) {
-                  const next = new URLSearchParams(searchParams);
-                  next.delete(INVOICE_PARAM);
-                  setSearchParams(next, { replace: true });
-                }
-              }}
-            />
-          ) : null}
-        </Stack>
+            {status.data && invoices.length > 0 ? (
+              <Invoices
+                assignmentId={assignmentId}
+                status={status.data}
+                recordFor={correcting}
+                onRecordDone={() => setCorrecting(null)}
+              />
+            ) : null}
+          </Stack>
+        ) : null}
       </nldd-simple-section>
 
-      <FormSheet
-        open={reopening}
-        title="Maand heropenen"
-        submitText="Heropen"
-        busy={run.isPending && reopening}
-        error={reopenError}
-        onClose={() => setReopening(false)}
-        onSubmit={() => {
-          if (!selected) return;
-          if (!reason.trim()) {
-            setReopenError('Geef een reden voor het heropenen.');
-            return;
-          }
-          run.mutate(() => reopenMonth(assignmentId, selected, reason.trim()), {
-            onSuccess: () => setReason(''),
-            onError: (failure) => setReopenError(errorMessage(failure)),
-          });
-        }}
-      >
-        <nldd-text>
-          Na heropenen telt deze maand weer met de geplande inzet, tot de maand opnieuw wordt
-          afgesloten. De eerdere afsluiting en de reden blijven bewaard.
-        </nldd-text>
-        <TextInput label="Reden" value={reason} onChange={setReason} required multiline />
-      </FormSheet>
+      <MonthSheet
+        assignmentId={assignmentId}
+        month={started ? month : null}
+        onClose={() => setParam(MONTH_PARAM, null)}
+      />
+      {data ? (
+        <>
+          <DeliverSheet
+            overview={data}
+            period={deliverTarget?.state === 'ready' ? deliverTarget : null}
+            onClose={() => {
+              setDelivering(null);
+              if (periodFromAddress) setParam(PERIOD_PARAM, null);
+            }}
+          />
+          <PeriodInvoiceSheet
+            overview={data}
+            period={invoiceTarget?.awaits_invoice && data.may_record_invoice ? invoiceTarget : null}
+            onClose={() => {
+              setInvoicing(null);
+              if (invoiceMonths.length > 0) setParam(INVOICE_PARAM, null);
+            }}
+          />
+          <TermsSheet overview={data} open={terms} onClose={() => setTerms(false)} />
+        </>
+      ) : null}
     </>
   );
 }

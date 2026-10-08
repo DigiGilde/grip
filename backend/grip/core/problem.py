@@ -138,6 +138,8 @@ def domain_error_status(exc: Exception) -> int:
 
     if isinstance(exc, errors.NotFoundError):
         return 404
+    if getattr(exc, "http_status", None) == 409:
+        return 409
     if isinstance(
         exc,
         errors.IllegalTransitionError

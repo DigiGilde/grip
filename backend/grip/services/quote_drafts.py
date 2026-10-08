@@ -15,7 +15,9 @@ Shape of ``QuoteDraft.content``::
          "numbered", "draftable",
          "origin": "empty" | "standard" | "written" | "generated",
          "generated": {"model", "prompt_version", "at"} | null,
-         "settled": true}
+         "settled": true,
+         "required": false, "custom": false,
+         "version": 3, "changed_by": "...", "changed_at": "..."}
       ]
     }
 
@@ -41,7 +43,7 @@ from grip.models.person import Person
 from grip.models.quote_draft import QuoteDraft
 from grip.repositories.domain import AssignmentRepository
 from grip.services import instance_settings, quote_prose, quote_sender
-from grip.services.errors import DomainValidationError
+from grip.services.errors import DomainError, DomainValidationError
 from grip.services.llm import ChatClient, get_chat_client
 from grip.services.quote_drafting import (
     MAX_CONTEXT_LINES,
@@ -68,6 +70,63 @@ class FrozenLetter:
     provenance: list[dict[str, Any]]
 
 
+class DraftConflictError(DomainError):
+    """Someone else saved this part of the draft in the meantime."""
+
+    def __init__(self, what: str, by: str | None, at: str | None) -> None:
+        who = f" door {by}" if by else ""
+        super().__init__(
+            f"{what} is intussen gewijzigd{who}. Bekijk de nieuwe tekst en sla "
+            "daarna opnieuw op."
+        )
+        self.changed_by = by
+        self.changed_at = at
+
+
+def _normalise(content: dict[str, Any]) -> dict[str, Any]:
+    """A draft from before versions and section rules, in today's shape."""
+    content.setdefault("head_version", 0)
+    content.setdefault("outline_version", 0)
+    for section in content["sections"]:
+        section.setdefault("version", 0)
+        section.setdefault("required", False)
+        section.setdefault("custom", False)
+    return content
+
+
+def section_rules(section: dict[str, Any]) -> dict[str, bool]:
+    """What a writer may do with a section, from the organisation's outline.
+
+    - ``optional``: may be left out of this quote. Not a section the
+      organisation requires, and not the one that carries the amounts.
+    - ``removable``: may be taken out of the draft altogether. Only a
+      section the writer added; one from the outline is left out instead.
+    - ``movable``: may change place. A required section keeps its place
+      among the other required sections.
+    """
+    fixed = bool(section.get("required")) or bool(section.get("with_costs"))
+    return {
+        "optional": not fixed,
+        "removable": bool(section.get("custom")),
+        "movable": not section.get("required"),
+    }
+
+
+def _check_version(
+    expected: int | None, current: int, what: str, holder: dict[str, Any]
+) -> None:
+    if expected is not None and expected != current:
+        raise DraftConflictError(
+            what, holder.get("changed_by"), holder.get("changed_at")
+        )
+
+
+def _stamp(holder: dict[str, Any], key: str, actor: Person | None) -> None:
+    holder[key] = int(holder.get(key, 0)) + 1
+    holder["changed_by"] = actor.name if actor is not None else None
+    holder["changed_at"] = datetime.now(UTC).isoformat()
+
+
 def _section_from_block(
     block: dict[str, Any], values: dict[str, str]
 ) -> dict[str, Any]:
@@ -81,6 +140,9 @@ def _section_from_block(
         "with_costs": block["with_costs"],
         "numbered": block["numbered"],
         "draftable": block["draftable"],
+        "required": block["required"],
+        "custom": False,
+        "version": 0,
         "origin": "standard" if body else "empty",
         "generated": None,
         "settled": True,
@@ -104,7 +166,14 @@ async def start_content(
     sender = await quote_sender.current_sender(session)
     letter = await quote_sender.current_letter(session)
     blocks = await quote_sender.current_blocks(session)
-    values = quote_sender.placeholders(sender, year=today.year)
+    # The letter states the rhythm the assignment is billed by.
+    from grip.services import billing_deliveries
+    from grip.services.billing_periods import RHYTHM_TEXTS
+
+    terms = await billing_deliveries.terms_of(session, assignment.id)
+    values = quote_sender.placeholders(
+        sender, year=today.year, billing=RHYTHM_TEXTS[terms.rhythm]
+    )
     client = await client_of(session, assignment)
     addressee = [client.name] if client is not None else []
     if assignment.client_contact:
@@ -123,6 +192,8 @@ async def start_content(
             "organisation": client.name if client is not None else "",
         },
         "sections": [_section_from_block(block, values) for block in blocks],
+        "head_version": 0,
+        "outline_version": 0,
     }
 
 
@@ -137,7 +208,7 @@ async def read_draft(
     that was never saved is the organisation's start, not yet a row."""
     row = await find_draft(session, assignment.id)
     if row is not None:
-        return copy.deepcopy(row.content), True
+        return _normalise(copy.deepcopy(row.content)), True
     return await start_content(session, assignment), False
 
 
@@ -202,9 +273,13 @@ async def update_letter(
     fields: dict[str, Any],
     *,
     actor: Person | None,
+    expected_version: int | None = None,
 ) -> dict[str, Any]:
     """Change the parts around the sections. Only the fields given change."""
     content, _ = await read_draft(session, assignment)
+    _check_version(
+        expected_version, content["head_version"], "De kop van de offerte", content
+    )
     known = {*LETTER_FIELDS, "addressee", "client_signatory", "billing_annex"}
     unknown = sorted(set(fields) - known)
     if unknown:
@@ -240,6 +315,7 @@ async def update_letter(
         if not isinstance(fields["billing_annex"], bool):
             raise DomainValidationError("De bijlage Factuurinformatie is aan of uit.")
         content["billing_annex"] = fields["billing_annex"]
+    _stamp(content, "head_version", actor)
     return await _save(
         session,
         assignment,
@@ -265,6 +341,7 @@ async def save_section(
     body: str | None = None,
     heading: str | None = None,
     included: bool | None = None,
+    expected_version: int | None = None,
 ) -> dict[str, Any]:
     """A person saves a section: the text is settled from here on.
 
@@ -273,12 +350,23 @@ async def save_section(
     """
     content, _ = await read_draft(session, assignment)
     section = _find(content, key)
+    _check_version(
+        expected_version,
+        section["version"],
+        f"Het onderdeel '{section['heading']}'",
+        section,
+    )
     if heading is not None:
         heading = _line(heading, "De kop", 200)
         if not heading:
             raise DomainValidationError("Een onderdeel heeft een kop nodig.")
         section["heading"] = heading
     if included is not None:
+        if not included and not section_rules(section)["optional"]:
+            raise DomainValidationError(
+                f"Het onderdeel '{section['heading']}' staat in elke offerte en kan "
+                "niet worden weggelaten."
+            )
         section["included"] = bool(included)
     if body is not None:
         text = _prose(body, f"Onderdeel '{section['heading']}'")
@@ -289,6 +377,7 @@ async def save_section(
             section["generated"] = None
         section["body"] = text
         section["settled"] = True
+    _stamp(section, "version", actor)
     return await _save(
         session,
         assignment,
@@ -305,11 +394,14 @@ async def set_outline(
     *,
     actor: Person | None,
     new_sections: list[dict[str, Any]] | None = None,
+    expected_version: int | None = None,
 ) -> dict[str, Any]:
     """The sections in a new order. A key left out is removed; a new section
     comes in with its heading."""
     content, _ = await read_draft(session, assignment)
+    _check_version(expected_version, content["outline_version"], "De volgorde", content)
     by_key = {section["key"]: section for section in content["sections"]}
+    before = [section["key"] for section in content["sections"]]
     for raw in new_sections or []:
         key = _line(raw.get("key"), "De sleutel", 40).lower()
         if not key or not key.replace("-", "").replace("_", "").isalnum():
@@ -331,6 +423,9 @@ async def set_outline(
             "with_costs": False,
             "numbered": True,
             "draftable": True,
+            "required": False,
+            "custom": True,
+            "version": 0,
             "origin": "empty",
             "generated": None,
             "settled": True,
@@ -342,7 +437,23 @@ async def set_outline(
         raise DomainValidationError(f"Onbekend onderdeel: {', '.join(missing)}.")
     if len(keys) > MAX_SECTIONS:
         raise DomainValidationError(f"Hooguit {MAX_SECTIONS} onderdelen.")
+    for key in before:
+        if key not in keys and not section_rules(by_key[key])["removable"]:
+            raise DomainValidationError(
+                f"Het onderdeel '{by_key[key]['heading']}' hoort bij de opbouw van "
+                "de organisatie. Laat het weg uit deze offerte in plaats van het "
+                "te verwijderen."
+            )
+
+    def fixed(order: list[str]) -> list[str]:
+        return [key for key in order if not section_rules(by_key[key])["movable"]]
+
+    if fixed(before) != fixed([key for key in keys if key in before]):
+        raise DomainValidationError(
+            "De onderdelen die in elke offerte staan, houden hun onderlinge volgorde."
+        )
     content["sections"] = [by_key[key] for key in keys]
+    _stamp(content, "outline_version", actor)
     return await _save(
         session, assignment, content, actor=actor, change={"outline": list(keys)}
     )
@@ -466,6 +577,7 @@ async def draft_section(
         "prompt_version": PROMPT_VERSION,
         "at": (now or datetime.now(UTC)).isoformat(),
     }
+    _stamp(section, "version", actor)
     return await _save(
         session,
         assignment,

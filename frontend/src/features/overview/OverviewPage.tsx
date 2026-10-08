@@ -8,7 +8,12 @@ import {
   referenceText,
   varianceWord,
 } from '@/features/assignments/financeText';
-import { PHASE_LABELS, STATUS_COLORS, statusLabel, type Phase } from '@/features/assignments/labels';
+import {
+  PHASE_LABELS,
+  STATUS_COLORS,
+  statusLabel,
+  type Phase,
+} from '@/features/assignments/labels';
 import { assignmentPath, assignmentTabPath } from '@/features/assignments/paths';
 import { Button } from '@/features/assignments/ui';
 // The tiles are those of the Rapportage landing view, so the two pages look alike.
@@ -17,7 +22,16 @@ import { useInstance } from '@/layout/useInstance';
 import { useRouterLinks } from '@/layout/useRouterLinks';
 import { formatEuro, formatMonth } from '@/lib/format';
 import { ActionBar } from '@/ui/ActionBar';
-import { EmptyNotice, ErrorNotice, Loading, Page, Quiet, Section, Stack } from '@/ui/layout';
+import {
+  EmptyNotice,
+  ErrorNotice,
+  Loading,
+  NameLine,
+  Page,
+  Quiet,
+  Section,
+  Stack,
+} from '@/ui/layout';
 import { OpenRow } from '@/ui/RowActions';
 import { fetchOverview, hasFigures, overviewKeys, type Figures, type OverviewRow } from './api';
 import {
@@ -31,12 +45,25 @@ import {
 } from './model';
 import { MyTasks } from './MyTasks';
 import './overview.css';
-import { WHOLE_PERIOD, YEAR_FILTER_LABEL, currentYearChoice, periodLabel, yearOptions } from './years';
+import {
+  WHOLE_PERIOD,
+  YEAR_FILTER_LABEL,
+  currentYearChoice,
+  periodLabel,
+  yearOptions,
+} from './years';
 
 /** How many attention points show before "Toon alle". */
 const ATTENTION_LIMIT = 4;
 
 /** Part 1: what needs the reader, each point a link to where it is solved. */
+/** The status a phase implies; a row shows its status only when it says more. */
+const PHASE_DEFAULT_STATUS: Record<Phase, string | undefined> = {
+  potential: undefined,
+  active: 'in_progress',
+  closed: 'completed',
+};
+
 function Attention({ rows }: { rows: readonly OverviewRow[] }) {
   const [all, setAll] = useState(false);
   const items = attentionItems(rows);
@@ -123,37 +150,42 @@ function AssignmentList({ phase, rows, subtotal, period }: ListProps) {
         {rows.map((row) => {
           const figures = hasFigures(row.figures) ? row.figures : null;
           return (
-            <OpenRow key={row.assignment_id} onOpen={() => navigate(assignmentPath(row.assignment_id))}>
+            <OpenRow
+              key={row.assignment_id}
+              onOpen={() => navigate(assignmentPath(row.assignment_id))}
+            >
               <nldd-cell>
-                <nldd-container gap="4">
-                  <nldd-container layout="row" gap="8">
-                    <nldd-link
-                      href={
-                        money
-                          ? assignmentTabPath(row.assignment_id, 'finance')
-                          : assignmentPath(row.assignment_id)
-                      }
-                      text={row.name}
-                    />
-                    <nldd-badge
-                      size="sm"
-                      color={STATUS_COLORS[row.status] ?? 'neutral'}
-                      text={statusLabel(row.status)}
-                    />
-                  </nldd-container>
-                  {money && phase !== 'potential' && reference === undefined && figures && (
-                    <nldd-text color="secondary" size="sm">
-                      {row.reference_month
+                <NameLine
+                  badges={
+                    // The section heading already says what phase this is;
+                    // a status is news only where it says more than that.
+                    row.status === PHASE_DEFAULT_STATUS[phase] ? undefined : (
+                      <nldd-badge
+                        size="sm"
+                        color={STATUS_COLORS[row.status] ?? 'neutral'}
+                        text={statusLabel(row.status)}
+                      />
+                    )
+                  }
+                  detail={
+                    row.pricing_error ||
+                    (money && phase !== 'potential' && reference === undefined && figures
+                      ? row.reference_month
                         ? `Stand t/m ${formatMonth(row.reference_month)}`
-                        : 'Nog geen maand afgesloten'}
-                    </nldd-text>
-                  )}
-                  {row.pricing_error && (
-                    <nldd-text color="secondary" size="sm">
-                      {row.pricing_error}
-                    </nldd-text>
-                  )}
-                </nldd-container>
+                        : 'Nog geen maand afgesloten'
+                      : undefined)
+                  }
+                >
+                  <nldd-link
+                    size="md"
+                    href={
+                      money
+                        ? assignmentTabPath(row.assignment_id, 'finance')
+                        : assignmentPath(row.assignment_id)
+                    }
+                    text={row.name}
+                  />
+                </NameLine>
               </nldd-cell>
               {money && (
                 <nldd-text-cell

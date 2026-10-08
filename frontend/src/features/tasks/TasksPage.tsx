@@ -18,19 +18,12 @@ import {
   Stack,
 } from '@/ui/layout';
 import { TASK_KEYS, fetchBoard, fetchMyTasks, type Task } from './api';
-import {
-  ALL,
-  BOARD_COLUMNS,
-  DUE_GROUPS,
-  MINE,
-  byDueGroup,
-  closesBecause,
-  filterTasks,
-  optionsOf,
-  whoLine,
-} from './groups';
+import { ALL, BOARD_COLUMNS, MINE, filterTasks, optionsOf } from './groups';
 import { TASK_PARAM, useOpenTask } from './moves';
-import { TaskMenu, TaskSheet, TaskTable } from './parts';
+import { RowMenu } from '@/ui/RowActions';
+import { useTaskActions } from './actions';
+import { TaskSheet, TaskTable } from './parts';
+import { aboutLine, headlineOf, myWork } from './telling';
 
 const VIEW_PARAM = 'weergave';
 type View = 'mine' | 'board';
@@ -39,52 +32,69 @@ const VIEWS = [
   { value: 'board', label: 'Bord' },
 ] as const;
 
-/** My open tasks, the ones that are late first. */
+/**
+ * My work in two groups: what I must do now, and what I wait for. The second
+ * holds my own tasks that wait on someone, and the tasks of others on the
+ * assignments I own and the vacancies I requested.
+ */
 function MyTasks({ onOpen }: { onOpen: (id: string) => void }) {
   const query = useQuery({ queryKey: TASK_KEYS.mine, queryFn: fetchMyTasks });
   if (query.isPending) return <Loading />;
   if (query.isError) return <ErrorNotice message={errorMessage(query.error)} />;
-  const tasks = query.data.items;
-  if (tasks.length === 0) return <EmptyNotice text="Niets te doen" />;
-  const groups = byDueGroup(tasks, new Date());
+  const { toDo, waiting } = myWork(query.data.items, query.data.awaited);
+  if (toDo.length === 0 && waiting.length === 0) return <EmptyNotice text="Niets te doen" />;
   return (
     <Stack gap="section">
-      {DUE_GROUPS.filter((group) => groups[group.key].length > 0).map((group) => (
-        <Section key={group.key} title={group.title}>
-          <TaskTable label={group.title} tasks={groups[group.key]} onOpen={onOpen} />
+      <Section title="Te doen">
+        {toDo.length > 0 ? (
+          <TaskTable label="Te doen" tasks={toDo} onOpen={onOpen} />
+        ) : (
+          <Quiet>Niets te doen</Quiet>
+        )}
+      </Section>
+      {waiting.length > 0 && (
+        <Section title="Wacht op anderen">
+          <TaskTable label="Wacht op anderen" tasks={waiting} onOpen={onOpen} />
         </Section>
-      ))}
+      )}
     </Stack>
   );
 }
 
-function BoardCard({ task }: { task: Task }) {
+function BoardCard({ task, onOpen }: { task: Task; onOpen: (id: string) => void }) {
   const { pathname, search } = useLocation();
-  // The title is a link that opens the task and keeps the filters.
+  const actionsOf = useTaskActions(onOpen);
+  // The board shows everyone's work, so a task is named by what must happen.
+  const name = task.doer_title || headlineOf(task);
+  // The name is a link that opens the task and keeps the filters.
   const params = new URLSearchParams(search);
   params.set(TASK_PARAM, task.id);
   const href = `${pathname}?${params.toString()}`;
-  const because = closesBecause(task);
   const due = formatDate(task.due_on);
+  const who = [
+    task.is_mine ? 'Voor jou' : `Voor ${task.assignee_label}`,
+    task.status === 'waiting' && task.waits_on ? `wacht op ${task.waits_on}` : null,
+  ]
+    .filter(Boolean)
+    .join(', ');
   return (
     <nldd-card>
       <nldd-container gap="8">
         <nldd-container layout="row" gap="8">
-          <nldd-link href={href} text={task.title} />
+          <nldd-link href={href} text={name} />
           <nldd-spacer />
-          <TaskMenu task={task} />
+          <RowMenu name={name} actions={actionsOf(task)} />
         </nldd-container>
-        <Quiet>{task.case_label}</Quiet>
-        <Quiet>{[whoLine(task), due && `vóór ${due}`].filter(Boolean).join(' · ')}</Quiet>
+        <Quiet>{aboutLine(task)}</Quiet>
+        <Quiet>{[who, due && `vóór ${due}`].filter(Boolean).join(' · ')}</Quiet>
         {task.overdue && <nldd-badge color="critical" text="Te laat" />}
-        {because && task.status !== 'done' && <Quiet>{because}</Quiet>}
       </nldd-container>
     </nldd-card>
   );
 }
 
 /** Every task the reader may see, as columns. Moving a card is in its menu. */
-function Board() {
+function Board({ onOpen }: { onOpen: (id: string) => void }) {
   const [params, setParams] = useSearchParams();
   const query = useQuery({ queryKey: TASK_KEYS.board, queryFn: fetchBoard });
   const filter = {
@@ -141,7 +151,7 @@ function Board() {
                 <SectionHeading text={`${column.title} (${tasks.length})`} />
                 <Stack gap="close">
                   {tasks.map((task) => (
-                    <BoardCard key={task.id} task={task} />
+                    <BoardCard key={task.id} task={task} onOpen={onOpen} />
                   ))}
                 </Stack>
               </Stack>
@@ -177,7 +187,7 @@ export function TasksPage() {
           ]}
           actions={[]}
         />
-        {view === 'mine' ? <MyTasks onOpen={openTask} /> : <Board />}
+        {view === 'mine' ? <MyTasks onOpen={openTask} /> : <Board onOpen={openTask} />}
       </Page>
       <TaskSheet taskId={openId} onClose={() => openTask(null)} />
     </div>

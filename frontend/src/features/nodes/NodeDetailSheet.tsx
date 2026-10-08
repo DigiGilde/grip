@@ -1,18 +1,11 @@
+import { ExternalLink } from '@/ui/Icon';
 import { useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
 import { orUndef, useNlddEvent } from '@/components/nldd/events';
 import { Button } from '@/features/assignments/ui';
-import {
-  ErrorNotice,
-  Facts,
-  Loading,
-  Quiet,
-  SectionHeading,
-  Stack,
-  type Fact,
-} from '@/ui/layout';
+import { ErrorNotice, Facts, Loading, Quiet, SectionHeading, Stack, type Fact } from '@/ui/layout';
 import { formatDate, formatPeriod } from '@/lib/format';
 import type { NodeLookup } from './api';
 import { nodeTypeLabel } from './labels';
@@ -60,7 +53,7 @@ function Source({ item }: { item: NodeLookup }) {
   return (
     <nldd-container layout="wrap" gap="16">
       {item.corpus_name ? <Quiet>Uit {item.corpus_name}</Quiet> : null}
-      <nldd-link href={item.uri} target="_blank" text="Open in het corpus" />
+      <ExternalLink href={item.uri} text="Open in het corpus" />
     </nldd-container>
   );
 }
@@ -113,9 +106,8 @@ function Detail({ item, onStep }: { item: NodeLookup; onStep: (uri: string) => v
           <NodePathView paths={paths} currentUri={item.uri} onStep={onStep} />
         )}
         <Quiet>
-          Titel en status zijn die van {node.peildatum ? formatDate(node.peildatum) : 'vandaag'}.
-          De keten is altijd de keten van nu: een corpus bewaart niet hoe de verbanden vroeger
-          liepen.
+          Titel en status zijn die van {node.peildatum ? formatDate(node.peildatum) : 'vandaag'}. De
+          keten is altijd de keten van nu: een corpus bewaart niet hoe de verbanden vroeger liepen.
         </Quiet>
       </Stack>
 

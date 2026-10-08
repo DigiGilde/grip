@@ -5,18 +5,40 @@ import { useNavigate } from 'react-router-dom';
 import { errorMessage } from '@/api/client';
 import { AllocationSheet, type AllocationPreset } from '@/features/allocations/AllocationSheet';
 import type { Allocation } from '@/features/allocations/api';
-import { VACANCY_KEYS, fetchUnfilledRoles, newVacancyPath } from '@/features/vacancies/api';
+import {
+  VACANCY_KEYS,
+  fetchFilledRoles,
+  fetchUnfilledRoles,
+  fetchVacancies,
+  newVacancyPath,
+  type VacancySummary,
+} from '@/features/vacancies/api';
+import { STATUS_LABELS as VACANCY_STATUS_LABELS } from '@/features/vacancies/labels';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { formatMonth } from '@/lib/format';
 import { PATHS } from '@/paths';
 import { ActionBar } from '@/ui/ActionBar';
+import { Stack } from '@/ui/layout';
+import { RowMenu, type RowAction } from '@/ui/RowActions';
 import { CellPanel } from '@/ui/timeline/CellPanel';
-import { barsInColumn, cellDescription, type TimelineBar, type TimelineRow } from '@/ui/timeline/layout';
+import {
+  barsInColumn,
+  cellDescription,
+  type TimelineBar,
+  type TimelineRow,
+} from '@/ui/timeline/layout';
 import { Timeline } from '@/ui/timeline/Timeline';
 import { useRateCards } from '../rateText';
 import { useAssignmentShell } from '../shell';
 import { fetchAssignmentStaffing, staffingKeys, type RoleStaffing } from '../staffingApi';
-import { lastDayOfMonth, staffingRows, staffingSummary, type RoleBarData } from '../staffingModel';
+import {
+  lastDayOfMonth,
+  legendOf,
+  overbookedSignals,
+  staffingRows,
+  staffingSentence,
+  type RoleBarData,
+} from '../staffingModel';
 import { assignmentTabPath } from '../paths';
 import { ownersText } from '../steps';
 import { Button, ErrorNotice, Loading } from '../ui';
@@ -28,6 +50,16 @@ interface SheetState {
   preset?: AllocationPreset;
   closedMonths?: string[];
 }
+
+/** Up to this many months the timeline shows the weeks and draws by day. */
+const SHOW_DAYS_UP_TO = 3;
+
+/** A vacancy in one of these states no longer runs for its role. */
+const ENDED_VACANCY = new Set<string>(['filled', 'withdrawn', 'rejected']);
+
+/** Where a running vacancy stands, in the words of the vacancy list. */
+const vacancyState = (vacancy: VacancySummary) =>
+  (vacancy.step_detail ?? VACANCY_STATUS_LABELS[vacancy.status] ?? '').toLowerCase();
 
 type Row = TimelineRow<RoleStaffing, RoleBarData>;
 type Bar = TimelineBar<RoleBarData>;
@@ -56,11 +88,31 @@ export function StaffingTab() {
     enabled: assignmentId !== '',
     retry: false,
   });
+  const filledRoles = useQuery({
+    queryKey: VACANCY_KEYS.filledRoles,
+    queryFn: fetchFilledRoles,
+    enabled: assignmentId !== '',
+    retry: false,
+  });
+  const vacancies = useQuery({
+    queryKey: VACANCY_KEYS.list,
+    queryFn: fetchVacancies,
+    enabled: assignmentId !== '',
+    retry: false,
+  });
   if (!assignment) return null;
 
   const staffing = query.data;
+  const listOf = <T,>(data: T[] | undefined) => (Array.isArray(data) ? data : []);
+  // A vacancy can be opened for an open role and for a filled one (a successor).
   const mayOpenVacancy = new Set(
-    (Array.isArray(vacancyRoles.data) ? vacancyRoles.data : []).map((role) => role.budget_line_id),
+    [...listOf(vacancyRoles.data), ...listOf(filledRoles.data)].map((role) => role.budget_line_id),
+  );
+  // The vacancy that is running for a role, when there is one.
+  const runningVacancy = new Map(
+    listOf(vacancies.data)
+      .filter((vacancy) => vacancy.budget_line_id && !ENDED_VACANCY.has(vacancy.status))
+      .map((vacancy) => [vacancy.budget_line_id as string, vacancy] as const),
   );
   const canEdit = assignment.permissions.edit_staffing;
   const mayBudget = assignment.permissions.edit_financial;
@@ -68,15 +120,19 @@ export function StaffingTab() {
   const hasInzet = (staffing?.roles ?? []).some(
     (role) => role.bars.length > 0 || (role.names ?? []).length > 0,
   );
-  const seesTime = staffing ? staffing.roles.some((role) => role.months && role.months.length > 0) : false;
-  const groups = staffing
-    ? staffingRows(staffing, (role) =>
-        !role.fully_staffed && mayOpenVacancy.has(role.budget_line_id)
-          ? { href: newVacancyPath(role.budget_line_id), text: 'Open een vacature' }
-          : null,
-        rates.name,
-      )
-    : [];
+  const seesTime = staffing
+    ? staffing.roles.some((role) => role.months && role.months.length > 0)
+    : false;
+  const groups = (staffing ? staffingRows(staffing, () => null, rates.name) : []).map((group) => ({
+    ...group,
+    // The state of a role says so when a vacancy is running for it.
+    rows: group.rows.map((row) => {
+      const vacancy = runningVacancy.get(row.data.budget_line_id);
+      return vacancy
+        ? { ...row, summary: `${row.summary}. Vacature: ${vacancyState(vacancy)}` }
+        : row;
+    }),
+  }));
   const months = staffing?.months ?? [];
   const first = months[0];
   const last = months[months.length - 1];
@@ -118,11 +174,71 @@ export function StaffingTab() {
     if (month) openSheet({ preset: { lineId: row.data.budget_line_id, startDate: month } });
   };
 
+  // What a role can do besides its bars: plan someone, change who is on it,
+  // open or look at its vacancy, change the role itself.
+  const roleActions = (row: Row): RowAction[] => {
+    const role = row.data;
+    const vacancy = runningVacancy.get(role.budget_line_id);
+    return [
+      ...(role.can_fill
+        ? [
+            {
+              text: 'Zet iemand in',
+              onSelect: () => openSheet({ preset: { lineId: role.budget_line_id } }),
+            },
+          ]
+        : []),
+      ...row.bars
+        .filter((bar) => bar.data.bar?.can_edit)
+        .map((bar) => ({
+          text: `Wijzig of beëindig de inzet van ${bar.data.bar?.person_name ?? ''}`,
+          onSelect: () => actOnBar(bar, row),
+        })),
+      ...(vacancy
+        ? [
+            {
+              text: 'Bekijk de vacature',
+              onSelect: () => navigate(PATHS.vacancyDetail.replace(':vacancyId', vacancy.id)),
+            },
+          ]
+        : mayOpenVacancy.has(role.budget_line_id)
+          ? [
+              {
+                text: 'Open een vacature voor deze rol',
+                onSelect: () => navigate(newVacancyPath(role.budget_line_id)),
+              },
+            ]
+          : []),
+      ...(mayBudget
+        ? [
+            {
+              text: 'Wijzig de rol in de begroting',
+              onSelect: () => navigate(assignmentTabPath(assignment.id, 'budget')),
+            },
+          ]
+        : []),
+    ];
+  };
+
   const selectedMonth = selected ? months[selected.column] : undefined;
 
   return (
     <nldd-simple-section>
-      <nldd-container gap="16">
+      <nldd-container gap="24">
+        {hasRoles && seesTime && (
+          <ActionBar
+            label="Bemensing"
+            actions={[
+              {
+                text: 'Bekijk op het bord Inzet',
+                href: `${PATHS.allocations}?opdracht=${assignment.id}`,
+              },
+              ...(canEdit
+                ? [{ text: 'Nieuwe inzet', onClick: () => openSheet({}), primary: true }]
+                : []),
+            ]}
+          />
+        )}
         {!canEdit && (
           <ReadOnlyNote
             assignment={assignment}
@@ -130,11 +246,25 @@ export function StaffingTab() {
             others=", een manager of een planner"
           />
         )}
-        {canEdit && hasRoles && (
-          <ActionBar
-            label="Bemensing"
-            actions={[{ text: 'Nieuwe inzet', onClick: () => openSheet({}), primary: true }]}
-          />
+        {staffing && hasRoles && seesTime && (
+          <Stack gap="close">
+            <nldd-text>{staffingSentence(staffing)}</nldd-text>
+            {/* Attention only when there is something: who, when and how much. */}
+            <RouterLinks>
+              {overbookedSignals(staffing).map((signal) => (
+                <nldd-container key={signal.key} layout="row" gap="8">
+                  <nldd-text>{`${signal.text}.`}</nldd-text>
+                  {signal.personId && (
+                    <nldd-link
+                      href={PATHS.teamPerson.replace(':personId', signal.personId)}
+                      text="Bekijk"
+                      accessible-label={`Bekijk ${signal.text}`}
+                    />
+                  )}
+                </nldd-container>
+              ))}
+            </RouterLinks>
+          </Stack>
         )}
         {assignment.phase === 'potential' && hasInzet && (
           <nldd-banner
@@ -168,7 +298,10 @@ export function StaffingTab() {
         )}
         {staffing && staffing.roles.length > 0 && !seesTime && (
           // A team member sees who is on the team, not when or how much.
-          <nldd-table accessible-label="Wie op welke rol zit" columns="minmax(200px,1fr) minmax(240px,2fr)">
+          <nldd-table
+            accessible-label="Wie op welke rol zit"
+            columns="minmax(200px,1fr) minmax(240px,2fr)"
+          >
             <nldd-table-row slot="header">
               <nldd-text-cell text="Rol" />
               <nldd-text-cell text="Wie" />
@@ -184,32 +317,6 @@ export function StaffingTab() {
         {staffing && seesTime && first && last && (
           <>
             <RouterLinks>
-              <nldd-table
-                accessible-label="Hoe de rollen ervoor staan"
-                columns="repeat(3, minmax(180px, 1fr))"
-              >
-                <nldd-table-row slot="header">
-                  {staffingSummary(staffing).map((figure) => (
-                    <nldd-text-cell key={figure.label} text={figure.label} />
-                  ))}
-                </nldd-table-row>
-                <nldd-table-row>
-                  {staffingSummary(staffing).map((figure) => (
-                    <nldd-text-cell
-                      key={figure.label}
-                      text={figure.attention ? `**${figure.value}**` : figure.value}
-                      {...(figure.detail ? { 'supporting-text': figure.detail } : {})}
-                    />
-                  ))}
-                </nldd-table-row>
-              </nldd-table>
-              {(staffing.overbooked_count ?? 0) > 0 && (
-                <nldd-link
-                  href={`${PATHS.allocations}?opdracht=${assignment.id}`}
-                  text="Bekijk deze opdracht op het bord Inzet"
-                  size="md"
-                />
-              )}
               <Timeline
                 label={`Bemensing per rol, ${formatMonth(first)} t/m ${formatMonth(last)}`}
                 rowHeader="Rol"
@@ -220,22 +327,34 @@ export function StaffingTab() {
                 selected={selected ? { rowKey: selected.row.key, column: selected.column } : null}
                 onBar={actOnBar}
                 onCell={(row, column, source) => {
-                  if (source === 'pointer' && row.data.can_fill && barsInColumn(row, column).length === 0) {
+                  if (
+                    source === 'pointer' &&
+                    row.data.can_fill &&
+                    barsInColumn(row, column).length === 0
+                  ) {
                     proposeFrom(row, column);
                     return;
                   }
                   setSelected({ row, column });
                 }}
-                legend={['demand', 'filled', 'established', 'tentative', 'open', 'over', 'mismatch']}
+                legend={legendOf(groups)}
+                fit
+                days={months.length <= SHOW_DAYS_UP_TO}
+                rowActions={(row) => <RowMenu name={row.label} actions={roleActions(row)} />}
               />
             </RouterLinks>
             {selected && selectedMonth && (
               <CellPanel
                 cellKey={`${selected.row.key}-${selected.column}`}
                 title={`${selected.row.label}, ${formatMonth(selectedMonth)}`}
-                summary={selected.row.cells[selected.column]?.description ?? cellDescription(selected.row as TimelineRow, selected.column)}
+                summary={
+                  selected.row.cells[selected.column]?.description ??
+                  cellDescription(selected.row as TimelineRow, selected.column)
+                }
                 items={barsInColumn(selected.row, selected.column).map((bar) => {
-                  const editable = bar.data.gap ? selected.row.data.can_fill : bar.data.bar?.can_edit;
+                  const editable = bar.data.gap
+                    ? selected.row.data.can_fill
+                    : bar.data.bar?.can_edit;
                   return {
                     key: bar.key,
                     text: bar.description,
@@ -267,6 +386,7 @@ export function StaffingTab() {
         session={sheet.session}
         allocation={sheet.allocation}
         preset={sheet.preset}
+        assignmentId={assignment.id}
         closedMonths={sheet.closedMonths}
         onClose={() => setSheet((current) => ({ ...current, open: false }))}
       />

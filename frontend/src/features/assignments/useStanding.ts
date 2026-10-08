@@ -3,6 +3,7 @@ import { fetchQuoteDetail, fetchQuotes, quoteKeys } from '@/features/quotes/api'
 import { approvalKeys, fetchApprovals } from '@/features/quotes/approval';
 import { assignmentKeys, fetchBudget, type AssignmentDetail } from './api';
 import { standing, type Standing } from './standing';
+import { draftKeys, fetchDraft } from '@/features/quotes/draftApi';
 import { ownersText } from './steps';
 
 /** Gathers the facts for `standing` from what the reader may fetch. */
@@ -43,6 +44,13 @@ export function useStanding(assignment: AssignmentDetail): Standing | null {
       ? { approval: state.status, blockedMessage: state.blocked_message ?? null }
       : {};
   };
+  // The letter in preparation, for who may read the money of the assignment.
+  const draft = useQuery({
+    queryKey: draftKeys.draft(assignment.id),
+    queryFn: () => fetchDraft(assignment.id),
+    enabled: potential && money,
+    retry: false,
+  });
   // Until the quotes have answered, say nothing rather than a first guess.
   if (potential && money && (quotes.isPending || approvals.isPending)) return null;
   if (inForce?.status === 'issued' && detail.isPending) return null;
@@ -52,6 +60,7 @@ export function useStanding(assignment: AssignmentDetail): Standing | null {
     mayAct: money,
     owners: ownersText(assignment),
     quoteSeen: assignment.pipeline_amount_source === 'quote',
+    ...(draft.data?.saved ? { draftProblems: draft.data.problems.length } : {}),
     // Decided on the server from the content of budget and quote.
     ...(quotes.data?.budget_moved === true ? { budgetMoved: true } : {}),
     ...(budget.data ? { budgetLines: budget.data.lines.length } : {}),

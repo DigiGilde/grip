@@ -11,6 +11,7 @@ const block = (over: Partial<TextBlock>): TextBlock => ({
   with_costs: false,
   numbered: true,
   draftable: false,
+  required: false,
   ...over,
 });
 

@@ -21,6 +21,7 @@ describe('route table', () => {
       'Vacatures',
       'Team',
       'Kosten en facturen',
+      'Factureren',
       'Rapportage',
       'Aanvragen',
       'Beheer',
@@ -42,6 +43,7 @@ describe('route table', () => {
       'Vacatures',
       'Team',
       'Kosten en facturen',
+      'Factureren',
       'Rapportage',
     ]);
     expect(titles(['planner'])).toEqual([
@@ -65,6 +67,7 @@ describe('route table', () => {
       'Opdrachten',
       'Vacatures',
       'Kosten en facturen',
+      'Factureren',
       'Rapportage',
     ]);
     expect(titles([], ['team_member'])).toEqual([
@@ -128,7 +131,7 @@ describe('routes', () => {
       const headings = screen.getAllByRole('heading', { level: 1 });
       expect(headings).toHaveLength(1);
       expect(headings[0]).toHaveTextContent(title);
-      expect(document.title).toBe(`${title} - Testinstantie`);
+      expect(document.title).toBe(`${title} · Testinstantie · grip`);
 
       const current = container.querySelectorAll('nldd-menu-bar-item[current]');
       expect(current).toHaveLength(1);

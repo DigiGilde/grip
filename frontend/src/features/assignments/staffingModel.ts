@@ -3,6 +3,7 @@ import { mismatchText } from '@/features/allocations/board/model';
 import { formatDate, formatFte, formatMonth, formatPercent, formatPeriod } from '@/lib/format';
 import {
   assignLanes,
+  dayOffsets,
   monthKey,
   monthShort,
   placePeriod,
@@ -81,11 +82,26 @@ function roleAttention(role: RoleStaffing): string {
   const first = (role.gaps ?? [])[0];
   if (first) parts.push(gapText(first));
   const over = (role.months ?? []).filter((month) => month.over);
-  if (over.length > 0) parts.push(`meer ingezet dan gevraagd in ${over.map((m) => monthShort(m.month)).join(', ')}`);
+  if (over.length > 0)
+    parts.push(`meer ingezet dan gevraagd in ${over.map((m) => monthShort(m.month)).join(', ')}`);
   if (role.bars.some((bar) => bar.before_start)) parts.push('inzet voor de startdatum');
-  if (role.bars.some((bar) => bar.outside_role_period)) parts.push('inzet buiten de periode van de rol');
+  if (role.bars.some((bar) => bar.outside_role_period))
+    parts.push('inzet buiten de periode van de rol');
   const text = parts.join('; ');
   return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/** Day offsets only at an end that lies inside the months on screen. */
+function clippedOffsets(
+  place: { clippedStart: boolean; clippedEnd: boolean },
+  start: string,
+  end: string,
+): { startOffset: number; endOffset: number } {
+  const offsets = dayOffsets(start, end);
+  return {
+    startOffset: place.clippedStart ? 0 : offsets.startOffset,
+    endOffset: place.clippedEnd ? 0 : offsets.endOffset,
+  };
 }
 
 /** The roles as one group of timeline rows; `linkFor` adds the vacancy link. */
@@ -102,7 +118,10 @@ export function staffingRows(
       if (!place) continue;
       const closed = new Set(bar.closed_months.map(monthKey));
       let closedSpan = 0;
-      while (closedSpan < place.span && closed.has(monthKey(months[place.column + closedSpan] ?? ''))) {
+      while (
+        closedSpan < place.span &&
+        closed.has(monthKey(months[place.column + closedSpan] ?? ''))
+      ) {
         closedSpan += 1;
       }
       const flagged = bar.before_start || bar.outside_role_period;
@@ -117,6 +136,8 @@ export function staffingRows(
         description: describeRoleBar(bar, name),
         variant: bar.tentative ? 'tentative' : 'filled',
         ...(flagged ? { mark: '!' } : bar.category_mismatch ? { mark: '≠' } : {}),
+        // Where in its first and last month the inzet begins and ends.
+        ...clippedOffsets(place, bar.start_date, bar.end_date),
         data: { bar },
       });
     }
@@ -145,10 +166,13 @@ export function staffingRows(
         label: '',
         description: '',
         variant: 'demand',
+        ...clippedOffsets(frame, role.start_date, role.end_date),
         data: {},
       });
     }
-    const byMonth = new Map((role.months ?? []).map((month) => [monthKey(month.month), month] as const));
+    const byMonth = new Map(
+      (role.months ?? []).map((month) => [monthKey(month.month), month] as const),
+    );
     const names = new Set(role.bars.map((bar) => bar.person_name));
     return {
       key: role.budget_line_id,
@@ -187,29 +211,52 @@ export function lastDayOfMonth(iso: string): string {
   return `${iso.slice(0, 7)}-${String(day).padStart(2, '0')}`;
 }
 
-/** The answer before the board: how the roles stand, in a few figures. */
-export function staffingSummary(staffing: AssignmentStaffing): { label: string; value: string; detail: string; attention: boolean }[] {
-  const roles = staffing.role_count ?? staffing.roles.length;
-  const staffed = staffing.staffed_count ?? 0;
-  const over = staffing.overbooked_count ?? 0;
-  return [
-    {
-      label: 'Rollen',
-      value: `${staffed} van ${roles} volledig ingevuld`,
-      detail: roles === staffed ? 'Geen open rollen' : `${roles - staffed} ${roles - staffed === 1 ? 'rol heeft' : 'rollen hebben'} ruimte`,
-      attention: false,
-    },
-    {
-      label: 'Nog open',
-      value: staffing.open_fte ? `${formatFte(staffing.open_fte)} FTE` : 'Niets',
-      detail: staffing.open_from ? `vanaf ${formatMonth(staffing.open_from)}` : 'Alles is ingevuld',
-      attention: Boolean(staffing.open_fte),
-    },
-    {
-      label: 'Elders dubbel geboekt',
-      value: over === 0 ? 'Niemand' : over === 1 ? '1 persoon' : `${over} personen`,
-      detail: over === 0 ? '' : 'Boven 100% in een maand waarin ze hier werken',
-      attention: over > 0,
-    },
-  ];
+/**
+ * The state of the staffing in one sentence: everything filled, or which
+ * roles are open, how much and from when.
+ */
+export function staffingSentence(staffing: AssignmentStaffing): string {
+  const roles = staffing.roles;
+  const open = roles.filter((role) => !role.fully_staffed);
+  if (roles.length === 0) return '';
+  if (open.length === 0)
+    return roles.length === 1 ? 'De rol is ingevuld.' : 'Alle rollen zijn ingevuld.';
+  const named = open.map((role) => {
+    const gap = (role.gaps ?? [])[0];
+    const name = role.description || role.role || 'Rol';
+    return gap ? `${name}, ${formatFte(gap.open_fte)} FTE vanaf ${formatMonth(gap.start)}` : name;
+  });
+  if (roles.length === 1) return `De rol is nog open: ${named[0]}.`;
+  const verb = open.length === 1 ? 'is' : 'zijn';
+  return `${open.length} van ${roles.length} rollen ${verb} nog open: ${named.join('; ')}.`;
+}
+
+/** "Sem Senior zit in oktober 2026 op 140%", one per person who is double booked. */
+export function overbookedSignals(
+  staffing: AssignmentStaffing,
+): { key: string; text: string; personId: string | null }[] {
+  return (staffing.overbooked ?? []).map((item) => ({
+    key: item.person_id ?? item.month,
+    // A whole percentage: the signal is that it is over, not by how many tenths.
+    text: `${item.person_name ?? 'Iemand'} zit in ${formatMonth(item.month)} op ${Math.round(Number(item.pct))}%`,
+    personId: item.person_id ?? null,
+  }));
+}
+
+/** The kinds of mark that actually occur in the rows, for the legend. */
+export function legendOf(
+  groups: TimelineGroup<RoleStaffing, RoleBarData>[],
+): ('demand' | 'filled' | 'established' | 'tentative' | 'open' | 'over' | 'mismatch')[] {
+  const rows = groups.flatMap((group) => group.rows);
+  const bars = rows.flatMap((row) => row.bars);
+  const has = {
+    demand: bars.some((bar) => bar.variant === 'demand'),
+    filled: bars.some((bar) => bar.variant === 'filled'),
+    established: bars.some((bar) => bar.closedSpan > 0),
+    tentative: bars.some((bar) => bar.variant === 'tentative'),
+    open: bars.some((bar) => bar.variant === 'open'),
+    over: rows.some((row) => row.cells.some((cell) => cell.state === 'over')),
+    mismatch: bars.some((bar) => bar.mark === '≠'),
+  };
+  return (Object.keys(has) as (keyof typeof has)[]).filter((kind) => has[kind]);
 }

@@ -123,6 +123,15 @@ class RoleStaffingOut(BaseModel):
     can_fill: Annotated[bool, in_class(C)]
 
 
+class OverbookedOut(BaseModel):
+    """Someone on the assignment above 100 percent, with the first month."""
+
+    person_id: Annotated[UUID, in_class(ROSTER)]
+    person_name: Annotated[str, in_class(ROSTER)]
+    month: Annotated[date, in_class(C)]
+    pct: Annotated[Decimal, in_class(C)]
+
+
 class AssignmentStaffingOut(BaseModel):
     assignment_id: Annotated[UUID, in_class(A)]
     months: Annotated[list[date], in_class(A)]
@@ -135,3 +144,4 @@ class AssignmentStaffingOut(BaseModel):
     open_fte: Annotated[Decimal | None, in_class(C)]
     open_from: Annotated[date | None, in_class(C)]
     overbooked_count: Annotated[int, in_class(C)]
+    overbooked: Annotated[list[OverbookedOut], nested()] = []

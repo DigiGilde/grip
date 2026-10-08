@@ -198,6 +198,7 @@ async def test_one_month_to_close_at_a_time_with_a_deadline(
 ):
     person = await create_person("dev@example.org")
     assignment = await build.assignment(status="in_progress")
+    await build.terms(assignment, "month")
     line = await build.line(assignment)
     await build.allocation(line, person)
     await evaluate()
@@ -217,7 +218,7 @@ async def test_one_month_to_close_at_a_time_with_a_deadline(
         ("Sluit februari 2026 af", "todo"),
     ]
     delivery = await one(db_session, "financien.factuurgegevens_aanleveren")
-    assert delivery.title == "Lever de factuurgegevens van januari 2026 aan"
+    assert delivery.title == "Lever januari 2026 aan"
 
     export = await build.export(close)
     await evaluate()
@@ -229,6 +230,97 @@ async def test_one_month_to_close_at_a_time_with_a_deadline(
     await build.invoice(export)
     await evaluate()
     assert (await one(db_session, "financien.factuur_vastleggen")).status == "done"
+
+
+async def test_a_quarter_is_delivered_once_when_all_its_months_are_closed(
+    db_session, build, evaluate, create_person
+):
+    """Closing stays monthly; delivering follows the billing period."""
+    person = await create_person("dev@example.org")
+    assignment = await build.assignment(status="in_progress")
+    await build.terms(assignment, "quarter")
+    await build.allocation(await build.line(assignment), person)
+    closes = [await build.close(assignment, date(2026, 1, 1))]
+    closes.append(await build.close(assignment, date(2026, 2, 1)))
+    await evaluate()
+    # Two of three months closed: nothing to deliver yet, no monthly nagging.
+    assert await tasks(db_session, key="financien.factuurgegevens_aanleveren") == []
+
+    closes.append(await build.close(assignment, date(2026, 3, 1)))
+    await evaluate()
+    delivery = await one(db_session, "financien.factuurgegevens_aanleveren")
+    assert delivery.title == "Lever het eerste kwartaal van 2026 aan"
+    assert delivery.repeat_key == "2026-Q1"
+    assert delivery.link.endswith("/maandafsluiting?periode=2026-Q1")
+    assert delivery.due_on == add_working_days(NOW.date(), 5)
+
+    exports = [await build.export(close) for close in closes]
+    await evaluate()
+    assert delivery.status == "done"
+    invoice = await one(db_session, "financien.factuur_vastleggen")
+    assert invoice.title == "Leg de factuur over het eerste kwartaal van 2026 vast"
+    assert invoice.link.endswith("?factuur=2026-01,2026-02,2026-03")
+    for export in exports:
+        await build.invoice(export)
+    await evaluate()
+    assert invoice.status == "done"
+
+
+async def test_the_current_plan_takes_over_cases_of_the_version_it_replaces(
+    db_session, build, evaluate, create_person
+):
+    """An open task the old plan made per month lapses when the period task
+    takes its place; the case moves to the current plan."""
+    from grip.models.task import TaskCase
+    from grip.tasks.plan import current_plan
+
+    person = await create_person("dev@example.org")
+    assignment = await build.assignment(status="in_progress")
+    await build.terms(assignment, "quarter")
+    await build.allocation(await build.line(assignment), person)
+    for month in (1, 2, 3):
+        await build.close(assignment, date(2026, month, 1))
+    # As plan 2026.2 left it: one delivery task per closed month.
+    db_session.add(
+        TaskCase(
+            case_kind="assignment",
+            case_id=assignment.id,
+            plan_version="2026.2",
+            evaluated_at=NOW,
+        )
+    )
+    old = Task(
+        case_kind="assignment",
+        assignment_id=assignment.id,
+        origin="plan",
+        template_key="financien.factuurgegevens_aanleveren",
+        plan_version="2026.2",
+        repeat_key="2026-01",
+        dedupe_key=(
+            f"financien.factuurgegevens_aanleveren|assignment:{assignment.id}|2026-01"
+        ),
+        title="Lever de factuurgegevens van januari 2026 aan",
+        track="financien",
+        subject_kind="closed_month",
+        subject_id="2026-01",
+        assignee_role="manager",
+        status="todo",
+        closing_fact="billing_delivered",
+    )
+    db_session.add(old)
+    await db_session.flush()
+
+    await evaluate()
+    await db_session.refresh(old)
+    assert old.status == "obsolete"
+    case = await db_session.get(TaskCase, ("assignment", assignment.id))
+    assert case.plan_version == current_plan().version
+    fresh = [
+        task
+        for task in await tasks(db_session, key="financien.factuurgegevens_aanleveren")
+        if task.is_open
+    ]
+    assert [task.title for task in fresh] == ["Lever het eerste kwartaal van 2026 aan"]
 
 
 async def test_a_reopened_month_reopens_its_task(
@@ -504,3 +596,105 @@ async def test_no_approval_task_without_a_request(db_session, build, evaluate):
     await build.quote(assignment)
     await evaluate()
     assert await tasks(db_session, key="offerte.intern_beoordelen") == []
+
+
+# --- the texts of a vacancy ----------------------------------------------------
+
+
+async def test_the_work_on_a_text_comes_as_tasks_closed_by_facts(
+    db_session, build, evaluate, create_person
+):
+    from grip.models.vacancy import Vacancy
+    from grip.services.vacancies import text_flow
+
+    requester = await create_person("schrijver@example.org", name="Fictieve Schrijver")
+    reviewer = await create_person("lezer2@example.org", name="Fictieve Meelezer")
+    vacancy = await build.vacancy(status="draft", requester=requester)
+    await evaluate()
+
+    async def of(template: str, status: str | None = None):
+        rows = [t for t in await tasks(db_session) if t.template_key == template]
+        return [t for t in rows if status is None or t.status == status]
+
+    writing = await of("teksten.schrijven", "todo")
+    assert {t.title for t in writing} == {
+        "Schrijf de motivatie en stel haar vast",
+        "Schrijf de vacaturetekst en stel haar vast",
+    }
+    assert {t.assignee_person_id for t in writing} == {requester.id}
+
+    row = await db_session.get(Vacancy, vacancy.id)
+    first = await text_flow.save_version(
+        db_session,
+        row,
+        "vacancy_text",
+        actor=requester,
+        body="Eerste versie.",
+        based_on_id=None,
+    )
+    review = await text_flow.offer_for_review(
+        db_session, row, "vacancy_text", actor=requester, reviewer_ids=[reviewer.id]
+    )
+    await evaluate()
+    judging = await of("teksten.beoordelen", "todo")
+    assert [(t.title, t.assignee_person_id) for t in judging] == [
+        ("Beoordeel de vacaturetekst", reviewer.id)
+    ]
+    assert judging[0].due_on is not None
+    # While it lies with the reviewer, nobody is asked to write it.
+    assert [t.title for t in await of("teksten.schrijven", "todo")] == [
+        "Schrijf de motivatie en stel haar vast"
+    ]
+
+    await text_flow.give_verdict(
+        db_session, row, review.id, actor=reviewer, verdict="remarks", note="Concreter."
+    )
+    await evaluate()
+    assert [t.status for t in await of("teksten.beoordelen")] == ["done"]
+    back = await of("teksten.opmerkingen_verwerken", "todo")
+    assert [(t.title, t.assignee_person_id) for t in back] == [
+        ("Verwerk de opmerkingen op de vacaturetekst", requester.id)
+    ]
+
+    second = await text_flow.save_version(
+        db_session,
+        row,
+        "vacancy_text",
+        actor=requester,
+        body="Tweede versie.",
+        based_on_id=first.id,
+    )
+    await evaluate()
+    assert [t.status for t in await of("teksten.opmerkingen_verwerken")] == ["done"]
+    assert "Schrijf de vacaturetekst en stel haar vast" in {
+        t.title for t in await of("teksten.schrijven", "todo")
+    }
+
+    await text_flow.settle(db_session, row, second.id, actor=requester)
+    await evaluate()
+    done = {t.title: t.status for t in await of("teksten.schrijven")}
+    assert done["Schrijf de vacaturetekst en stel haar vast"] == "done"
+    assert done["Schrijf de motivatie en stel haar vast"] == "todo"
+
+
+async def test_an_open_vacancy_asks_for_its_public_address(
+    db_session, build, evaluate, create_person
+):
+    from grip.models.vacancy import Vacancy
+    from grip.services.vacancies import text_flow
+
+    requester = await create_person("opener@example.org")
+    vacancy = await build.vacancy(status="open", requester=requester)
+    await evaluate()
+    link = await one(db_session, "werving.link_vastleggen")
+    assert (link.status, link.assignee_person_id) == ("todo", requester.id)
+    row = await db_session.get(Vacancy, vacancy.id)
+    await text_flow.set_publication(
+        db_session,
+        row,
+        actor=requester,
+        place="government_wide",
+        url="https://vacatures.example/v/1",
+    )
+    await evaluate()
+    assert (await one(db_session, "werving.link_vastleggen")).status == "done"
