@@ -74,3 +74,28 @@ export function latestEnd(
     .sort()[0];
   return next ? dayBefore(next) : null;
 }
+
+/** The day after an ISO date. */
+export function dayAfter(iso: string): string {
+  const date = new Date(`${iso}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + 1);
+  return date.toISOString().slice(0, 10);
+}
+
+/**
+ * Where a new rate card most likely starts: the day after the last day any
+ * existing card covers, so the cards follow each other without a gap. When
+ * the last card has no end date, or there is no card yet, the first day of
+ * the year after it (or after today).
+ */
+export function proposedStart(
+  today: string,
+  cards: Pick<RateCard, 'valid_from' | 'valid_to'>[],
+): string {
+  if (cards.length === 0) return firstDayOfNextYear(today);
+  const last = [...cards].sort((a, b) => a.valid_from.localeCompare(b.valid_from)).at(-1)!;
+  const ends = cards.map((card) => card.valid_to).filter((end): end is string => Boolean(end));
+  const lastEnd = ends.sort().at(-1);
+  if (last.valid_to && lastEnd) return dayAfter(lastEnd);
+  return firstDayOfNextYear(last.valid_from > today ? last.valid_from : today);
+}

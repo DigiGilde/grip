@@ -35,7 +35,7 @@ import {
 import { activationSentences } from './impact';
 import {
   MOMENT_COLORS,
-  firstDayOfNextYear,
+  proposedStart,
   latestEnd,
   momentLabel,
   momentOf,
@@ -506,7 +506,7 @@ function NewCardForm({
   onInvalid,
   onSave,
 }: Omit<NewCardSheetProps, 'open'>) {
-  const [validFrom, setValidFrom] = useState(firstDayOfNextYear(today));
+  const [validFrom, setValidFrom] = useState(() => proposedStart(today, cards));
   // A card that starts before a later one ends the day before that one;
   // the end date follows the start date until someone sets it by hand.
   const [endTyped, setEndTyped] = useState<string | null>(null);
