@@ -272,7 +272,7 @@ describe('AssignmentLayout', () => {
       status: 'draft',
     });
     await tabs(container);
-    expect(container.querySelector('nldd-badge[text="Potentiële opdracht"]')).not.toBeNull();
+    expect(container.textContent).toContain('Potentiële opdracht');
     expect(container.querySelector('nldd-badge[text="In voorbereiding"]')).not.toBeNull();
   });
 });
@@ -471,7 +471,7 @@ describe('where an assignment stands, in its head', () => {
     await waitFor(() => expect(primaries(container)).toEqual(['Maak offerte']));
     // The course says where it stands; no status tag says it again.
     expect(container.querySelector('nldd-badge[text="Concept"]')).toBeNull();
-    expect(container.querySelector('nldd-badge[text="Potentiële opdracht"]')).not.toBeNull();
+    expect(container.textContent).toContain('Potentiële opdracht');
   });
 
   it('gives someone who waits the sentence and no button', async () => {

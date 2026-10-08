@@ -14,6 +14,7 @@ from datetime import date, timedelta
 import pytest
 
 from grip.models.person import Person
+from grip.models.quote import QuoteRejection
 from grip.models.vacancy import VacancyText
 from grip.services import instance_settings, quote_approval
 from grip.services.canonical import canonical_form, hash_of
@@ -284,17 +285,103 @@ async def test_a_potential_assignment_walks_to_an_agreement(
     assert found["next"]["action_text"] == "Zet in uitvoering"
 
 
-async def test_a_reader_who_only_watches_hears_who_is_waited_on(
+async def test_the_sentence_fits_how_the_reader_stands_to_the_step(
     as_person, build, people
 ):
-    assignment = await build.assignment(status="draft", owner=people.owner)
+    """Who acts is told what to do, who runs the case with them waits, and
+    who only looks on is told where it stands: no "je wacht", no deadline."""
+    assignment = await build.assignment(
+        status="draft", owner=people.owner, managers=(people.planner,)
+    )
+
+    acts = (await _course(as_person(people.owner), "assignment", assignment.id))[
+        "course"
+    ]["next"]
+    assert acts["part"] == "acts"
+    assert acts["mine"] is True
+    assert acts["action_text"] == "Maak de begroting"
+
+    waits = (await _course(as_person(people.planner), "assignment", assignment.id))[
+        "course"
+    ]["next"]
+    # A manager may do it too, or waits for the owner: never a bystander.
+    assert waits["part"] in ("acts", "waits")
+    if waits["part"] == "waits":
+        assert waits["sentence"].startswith("Je wacht op")
+
     found = (await _course(as_person(people.reader), "assignment", assignment.id))[
         "course"
     ]
+    watches = found["next"]
     assert found["current_label"] == "Begroting"
-    assert found["next"]["mine"] is False
-    assert found["next"]["action_text"] is None
-    assert found["next"]["sentence"].startswith("Je wacht op")
+    assert watches["part"] == "watches"
+    assert watches["mine"] is False
+    assert watches["action_text"] is None
+    assert watches["sentence"] == "Eva Eigenaar is aan zet: de begroting."
+    assert "wacht" not in watches["sentence"].lower()
+    assert "jij" not in watches["sentence"].lower()
+    assert watches["due_on"] is None
+    assert watches["overdue"] is False
+    assert watches["missing"] == []
+
+
+async def test_who_waits_for_a_step_of_their_own_case_is_told_so(
+    as_person, build, people, db_session
+):
+    client_org = await build.organisation("Voorbeeldministerie")
+    assignment = await build.assignment(
+        status="quoted", owner=people.owner, client=client_org
+    )
+    await build.line(assignment)
+    quote = await build.quote(assignment)
+    await build.offer(quote)
+    waits = (await _course(as_person(people.owner), "assignment", assignment.id))[
+        "course"
+    ]["next"]
+    assert waits["part"] == "waits"
+    assert waits["sentence"].startswith("Je wacht op het akkoord van Voorbeeld")
+
+
+async def test_a_rejected_quote_is_a_step_back_with_its_reason(
+    as_person, build, people, db_session
+):
+    client_org = await build.organisation("Voorbeeldministerie")
+    assignment = await build.assignment(
+        status="quoted", owner=people.owner, client=client_org
+    )
+    await build.line(assignment)
+    quote = await build.quote(assignment)
+    await build.offer(quote)
+    quote.status = "rejected"
+    assignment.status = "rejected"
+    db_session.add(
+        QuoteRejection(
+            quote_id=quote.id,
+            quote_hash=quote.snapshot_hash,
+            reason="Het budget is lager vastgesteld.",
+            rejected_at=NOW,
+        )
+    )
+    await db_session.flush()
+
+    found = (await _course(as_person(people.owner), "assignment", assignment.id))[
+        "course"
+    ]
+    # Not an end for who made the quote: back at the quote, with a way on.
+    assert found["ended"] is None
+    assert found["current_label"] == "Offerte"
+    assert found["next"]["part"] == "acts"
+    assert found["next"]["action_text"] == "Maak een nieuwe offerte"
+    sentence = found["next"]["sentence"]
+    assert sentence.startswith("Voorbeeldministerie heeft offerte")
+    assert 'De reden: "Het budget is lager vastgesteld".' in sentence
+
+    # Who only looks on hears where it stands, not why the client said no.
+    watches = (await _course(as_person(people.reader), "assignment", assignment.id))[
+        "course"
+    ]["next"]
+    assert watches["part"] == "watches"
+    assert "reden" not in watches["sentence"].lower()
 
 
 async def test_internal_approval_is_a_step_only_where_it_is_required(
@@ -365,11 +452,11 @@ async def test_a_quote_that_expired_puts_the_course_back_at_the_quote(
 async def test_an_assignment_that_ended_says_how_and_asks_nothing(
     as_person, build, people
 ):
-    assignment = await build.assignment(status="rejected", owner=people.owner)
+    assignment = await build.assignment(status="cancelled", owner=people.owner)
     found = (await _course(as_person(people.owner), "assignment", assignment.id))[
         "course"
     ]
-    assert found is None or found["ended"] == "Afgewezen"
+    assert found is None or found["ended"] == "Geannuleerd"
     if found:
         assert found["next"] is None
 

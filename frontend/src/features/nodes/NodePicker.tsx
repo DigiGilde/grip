@@ -91,7 +91,8 @@ function ResultRow({
 /**
  * Pick the nodes an assignment follows from. Searches the corpora this
  * instance has a contract with, shows the chain up to the political input
- * for each chosen node, and accepts a pasted URI. Context is optional: when
+ * for each chosen node, and accepts a pasted URI. Context is optional (the
+ * page says so in the heading over the picker): when
  * no corpus is connected or one does not answer, the picker says so and the
  * user goes on without, or with bare URIs.
  */
@@ -152,46 +153,39 @@ export function NodePicker({ value, onChange, max = 50 }: NodePickerProps) {
 
   return (
     <nldd-container gap="16">
-      <nldd-text>
-        Context is de politieke wens, het doel of het instrument waar deze aanvraag uit volgt. Je
-        kiest nodes uit een corpus of plakt een URI. Context is niet verplicht.
-      </nldd-text>
-
-      <SectionHeading text="Gekozen context" level={3} />
-      {value.length === 0 ? (
-        <EmptyNotice
-          text="Nog geen context gekozen"
-          supportingText="Je kunt de aanvraag ook zonder context versturen."
-        />
-      ) : (
-        <NodeCardGrid label="Gekozen context">
-          {value.map((uri, index) => {
-            const lookup = lookups[index];
-            const item: NodeLookup = lookup?.data ?? {
-              uri,
-              resolved: false,
-              problem: 'Deze URI kon niet worden opgezocht. Hij blijft bewaard zoals hij is.',
-            };
-            const name = item.node?.title ?? uri;
-            return (
-              <NodeCard
-                key={uri}
-                item={item}
-                pending={lookup?.isPending}
-                onOpen={setOpenUri}
-                action={
-                  <Button
-                    text="Verwijder"
-                    size="sm"
-                    accessibleLabel={`Verwijder ${name} uit de context`}
-                    onClick={() => remove(uri)}
-                  />
-                }
-              />
-            );
-          })}
-        </NodeCardGrid>
-      )}
+      {/* Nothing chosen is not news: the heading comes with the first node. */}
+      {value.length > 0 ? (
+        <>
+          <SectionHeading text="Gekozen context" level={3} />
+          <NodeCardGrid label="Gekozen context">
+            {value.map((uri, index) => {
+              const lookup = lookups[index];
+              const item: NodeLookup = lookup?.data ?? {
+                uri,
+                resolved: false,
+                problem: 'Deze URI kon niet worden opgezocht. Hij blijft bewaard zoals hij is.',
+              };
+              const name = item.node?.title ?? uri;
+              return (
+                <NodeCard
+                  key={uri}
+                  item={item}
+                  pending={lookup?.isPending}
+                  onOpen={setOpenUri}
+                  action={
+                    <Button
+                      text="Verwijder"
+                      size="sm"
+                      accessibleLabel={`Verwijder ${name} uit de context`}
+                      onClick={() => remove(uri)}
+                    />
+                  }
+                />
+              );
+            })}
+          </NodeCardGrid>
+        </>
+      ) : null}
       {full ? (
         <nldd-banner
           variant="warning"

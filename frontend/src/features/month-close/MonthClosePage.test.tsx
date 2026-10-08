@@ -318,7 +318,8 @@ describe('MonthClosePage', () => {
     const { container } = renderTab(OVERVIEW);
     await waitFor(() => expect(container.querySelector('nldd-card')).not.toBeNull());
     const block = container.querySelector('nldd-card') as Element;
-    expect(block.querySelector('nldd-title')?.getAttribute('overline')).toBe('Nu te doen');
+    // The head of the assignment says "now"; the block does not say it again.
+    expect(block.querySelector('nldd-title')?.getAttribute('overline')).toBeNull();
     expect(block.querySelector('nldd-title')?.getAttribute('text')).toMatch(
       /^Het tweede kwartaal 2026 is klaar: €/,
     );

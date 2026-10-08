@@ -160,8 +160,10 @@ function Bar<B>({ bar, onActivate, days, roomAfter, roomBefore, columnWidth }: B
       )}
       {!frame && (
         <span ref={labelRef} className="grip-board__bar-label">
+          {/* A signal is a sign before the label; the legend gives it its word. */}
           {bar.mark === 'attention' ? <Icon concept="attention" /> : null}
-          {bar.mark === 'mismatch' ? 'Ander tarief · ' : bar.mark ? ' ' : ''}
+          {bar.mark === 'mismatch' ? <Icon concept="cost" /> : null}
+          {bar.mark ? ' ' : ''}
           {bar.label}
         </span>
       )}
@@ -421,7 +423,9 @@ export function Timeline<R, B>({
               <span className="grip-board__legend-over">
                 <Icon concept="attention" />
               </span>
-            ) : item === 'mismatch' ? null : (
+            ) : item === 'mismatch' ? (
+              <Icon concept="cost" />
+            ) : (
               <span className="grip-board__swatch" data-kind={item} aria-hidden="true" />
             )}
             {LEGEND_TEXT[item]}

@@ -721,6 +721,48 @@ def specification(
     return ordered
 
 
+async def _replaced(
+    session: AsyncSession, delivery: BillingDelivery, exports: list[BillingExport]
+) -> list[dict[str, Any]]:
+    """The months this delivery delivers again, with the request it replaces.
+
+    A month that is reopened after it was delivered and closed again is
+    delivered anew, in full. The earlier request still lists the month, so
+    this one says which part of which request no longer counts: without it
+    the financial administration would bill the month twice.
+    """
+    again = {e.month: e for e in exports if e.kind != "correction"}
+    if not again:
+        return []
+    earlier = (
+        await session.execute(
+            select(BillingExport, BillingDelivery.reference)
+            .join(BillingDelivery, BillingDelivery.id == BillingExport.delivery_id)
+            .where(
+                BillingExport.assignment_id == delivery.assignment_id,
+                BillingExport.month.in_(again),
+                BillingExport.kind != "correction",
+                BillingExport.delivery_id != delivery.id,
+            )
+            .order_by(BillingExport.month, BillingExport.created_at)
+        )
+    ).all()
+    # The last earlier request per month is the one this replaces.
+    last: dict[date, tuple[BillingExport, str]] = {}
+    for export, reference in earlier:
+        if export.created_at <= again[export.month].created_at:
+            last[export.month] = (export, reference)
+    return [
+        {
+            "month_label": billing_periods.month_name(Month.of(month)),
+            "reference": reference,
+            "amount_cents": export.total_cents,
+            "difference_cents": again[month].total_cents - export.total_cents,
+        }
+        for month, (export, reference) in sorted(last.items())
+    ]
+
+
 async def document_content(
     session: AsyncSession, delivery: BillingDelivery
 ) -> dict[str, Any]:
@@ -760,6 +802,7 @@ async def document_content(
     )
     return {
         "reference": delivery.reference,
+        "replaces": await _replaced(session, delivery, exports),
         "sender": await quotes.sender_name(session, assignment),
         "assignment_name": assignment.name,
         "assignment_uri": assignment.uri,

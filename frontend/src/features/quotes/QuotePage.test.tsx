@@ -162,7 +162,7 @@ async function renderTab({
     // The card is complete once the quote's offers and channels are in.
     await waitFor(() =>
       expect(
-        view.container.querySelector('nldd-card nldd-step-bar')?.getAttribute('data-ready'),
+        view.container.querySelector('nldd-card[data-ready]')?.getAttribute('data-ready'),
       ).toBe('true'),
     );
   }
@@ -254,11 +254,8 @@ describe('QuotePage', () => {
     expect(title?.getAttribute('text')).toMatch(/^€\s172\.800$/);
     expect(title?.getAttribute('overline')).toBe('Offerte VG-2026-0007');
     expect(texts(container, 'nldd-card nldd-badge')).toEqual(['Offerte gemaakt']);
-    expect(texts(container, 'nldd-step-bar-item')).toEqual([
-      'Gemaakt',
-      'Aangeboden',
-      'Getekend of afgewezen',
-    ]);
+    // The steps are the assignment's, in its head: the card draws none.
+    expect(container.querySelector('nldd-step-bar')).toBeNull();
     expect(container.textContent).toContain('Geldig t/m 31 mrt 2026');
     expect(container.textContent).toContain('Gemaakt op 1 feb 2026 door Opdracht Manager');
     // The one thing to do after making a quote.
@@ -307,10 +304,8 @@ describe('QuotePage', () => {
     expect(container.querySelector('nldd-table')).toBeNull();
     // Withdrawing and renewing sit in the row's menu.
     expect(texts(row, 'nldd-menu-item')).toEqual(['Verleng met 30 dagen', 'Trek de tekenlink in']);
-    // The bar says where the quote is, not step one.
-    expect(
-      [...container.querySelectorAll('nldd-step-bar-item')].map((el) => el.getAttribute('status')),
-    ).toEqual(['past', 'past', 'current']);
+    // The tag says where the quote is.
+    expect(texts(container, 'nldd-card nldd-badge')).toEqual(['Aangeboden']);
   });
 
   it('makes recording the signed copy the step when the quote went out as a document', async () => {
@@ -408,7 +403,6 @@ describe('QuotePage', () => {
     expect(container.textContent).toContain(
       'door Tekenaar Voorbeeld (Directeur) namens Voorbeeldministerie',
     );
-    expect(texts(container, 'nldd-step-bar-item')).toEqual(['Gemaakt', 'Aangeboden', 'Getekend']);
     expect(primaries(container)).toEqual([]);
     expect(container.querySelector('nldd-card nldd-icon-button')).toBeNull();
   });
@@ -476,12 +470,6 @@ describe('QuotePage', () => {
 
   it('puts internal approval between making and offering only where it is required', async () => {
     const container = await renderTab({ quotes: [QUOTE], approval: APPROVAL });
-    expect(texts(container, 'nldd-step-bar-item')).toEqual([
-      'Gemaakt',
-      'Interne goedkeuring',
-      'Aangeboden',
-      'Getekend of afgewezen',
-    ]);
     expect(primaries(container)).toEqual(['Vraag goedkeuring']);
     expect(texts(container, 'nldd-button')).not.toContain('Bied aan');
     expect(texts(container, 'nldd-card nldd-menu-item')).not.toContain('Bied opnieuw aan');
@@ -598,7 +586,6 @@ describe('QuotePage', () => {
         blocked_message: null,
       },
     });
-    expect(texts(plain, 'nldd-step-bar-item')).not.toContain('Interne goedkeuring');
     expect(plain.textContent).not.toContain('goedkeuring');
   });
 
@@ -619,11 +606,6 @@ describe('QuotePage', () => {
     });
     expect(container.querySelector('nldd-banner')).toBeNull();
     expect(container.textContent).not.toMatch(/goedkeur/i);
-    expect(texts(container, 'nldd-step-bar-item')).toEqual([
-      'Gemaakt',
-      'Aangeboden',
-      'Getekend of afgewezen',
-    ]);
     expect(texts(container, 'nldd-button')).not.toContain('Beoordeel');
     expect(texts(container, 'nldd-card nldd-menu-item').join(' ')).not.toMatch(
       /goedkeur|aanvraag/i,

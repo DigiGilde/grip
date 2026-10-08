@@ -37,7 +37,7 @@ describe('ActionBar', () => {
     );
     const items = [...container.querySelectorAll('nldd-toolbar-item')];
     expect(items.map((item) => item.getAttribute('slot'))).toEqual(['start', 'end', 'end']);
-    expect(items.map((item) => item.getAttribute('priority'))).toEqual(['1', '2', '3']);
+    expect(items.map((item) => item.getAttribute('priority'))).toEqual(['2', '1', '3']);
     expect(container.querySelector('nldd-button[href="/api/x.csv"]')).not.toBeNull();
   });
 

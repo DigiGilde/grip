@@ -82,7 +82,9 @@ export function FunctionGroupPicker({
       >
         <nldd-menu>
           {suggested.length > 0 && (
-            <nldd-menu-group text="Past bij de begrotingsregel">{suggested.map(item)}</nldd-menu-group>
+            <nldd-menu-group text="Past bij de begrotingsregel">
+              {suggested.map(item)}
+            </nldd-menu-group>
           )}
           {suggested.length > 0 && others.length > 0 ? (
             <nldd-menu-group text="Overige functiegroepen">{others.map(item)}</nldd-menu-group>

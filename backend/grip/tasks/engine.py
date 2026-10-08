@@ -17,7 +17,7 @@ never makes a second task. The engine never writes to a domain table.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
@@ -50,6 +50,9 @@ class Outcome:
     obsolete: int = 0
     reopened: int = 0
     cases: int = 0
+    # The facts this run read, for a caller that tells about the same cases
+    # right after: reading them twice costs a priced budget per open quote.
+    snapshots: list[CaseSnapshot] = field(default_factory=list)
 
     def add(self, other: Outcome) -> None:
         self.created += other.created
@@ -398,7 +401,9 @@ async def evaluate_assignments(
     cases = await load_assignment_cases(
         db, assignment_ids, today=today, instance_base_uri=instance_base_uri
     )
-    return await _reconcile(db, cases, now=now or datetime.now(UTC))
+    outcome = await _reconcile(db, cases, now=now or datetime.now(UTC))
+    outcome.snapshots = cases
+    return outcome
 
 
 async def evaluate_vacancies(
@@ -406,7 +411,9 @@ async def evaluate_vacancies(
 ) -> Outcome:
     await db.flush()
     cases = await load_vacancy_cases(db, vacancy_ids)
-    return await _reconcile(db, cases, now=now or datetime.now(UTC))
+    outcome = await _reconcile(db, cases, now=now or datetime.now(UTC))
+    outcome.snapshots = cases
+    return outcome
 
 
 async def evaluate_all(

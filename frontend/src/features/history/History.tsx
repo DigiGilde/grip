@@ -3,7 +3,6 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '@/auth/context';
 import { useInstance } from '@/layout/useInstance';
-import { PATHS } from '@/paths';
 import { Button } from '@/features/team/ui/controls';
 import { ActionBar } from '@/ui/ActionBar';
 import { EmptyNotice, LoadError, Loading, Page, Quiet, Stack, NoAccess } from '@/ui/layout';
@@ -16,6 +15,7 @@ import {
   type EventFilters,
 } from './api';
 import { KIND_LABELS, formatMoment, moments, type Moment } from './words';
+import { useAdminBack } from '@/layout/useAdminBack';
 
 /** How many lines of an action show before the reader asks for the rest. */
 const SHOWN = 3;
@@ -195,6 +195,7 @@ function startOf(days: number): string {
 /** Everything that happened in the instance, for the beheerder. */
 export function ActivityPage() {
   const instance = useInstance();
+  const adminBack = useAdminBack();
   const { state } = useAuth();
   const isAdmin = state.status === 'authenticated' && state.functions.includes('beheerder');
   const [kind, setKind] = useState(ALL);
@@ -223,11 +224,7 @@ export function ActivityPage() {
   );
 
   return (
-    <Page
-      title="Activiteit"
-      instanceName={instance?.name}
-      back={{ href: PATHS.admin, text: 'Terug naar Beheer' }}
-    >
+    <Page title="Activiteit" instanceName={instance?.name} back={adminBack}>
       {isAdmin ? (
         <>
           <ActionBar

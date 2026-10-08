@@ -23,6 +23,7 @@ settings: they are files.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -324,8 +325,24 @@ def placeholders(
     }
 
 
+def without_value_line(text: str, name: str) -> str:
+    """The text without the line that holds only ``{name}``, and without the
+    bold label right above it: a label says nothing when its value is missing."""
+    pattern = (
+        r"(?m)^(?:\*\*[^\n]*\*\*[ \t]*\n)?\{"
+        + re.escape(name)
+        + r"\}[ \t]*(?:\n(?:[ \t]*\n)?|\Z)"
+    )
+    return re.sub(pattern, "", text)
+
+
 def fill_placeholders(text: str, values: dict[str, str]) -> str:
-    """Replace ``{naam}`` by its value; an unknown name stays as written."""
+    """Replace ``{naam}`` by its value; an unknown name stays as written.
+
+    A value that is empty takes its own line and the label above it along."""
+    for name, value in values.items():
+        if not value:
+            text = without_value_line(text, name)
     for name, value in values.items():
         text = text.replace("{" + name + "}", value)
     return text

@@ -25,7 +25,7 @@ from grip.access.types import Action, DataClass, Resource, ResourceKind, Subject
 from grip.access.vacancies import vacancy_resource
 from grip.events import words
 from grip.events.classification import DEFAULT, class_from, class_of_field, spec_for
-from grip.models.assignment import BudgetLine
+from grip.models.assignment import Assignment, BudgetLine
 from grip.models.person import Person
 from grip.models.stream_event import CASE_ASSIGNMENT, CASE_VACANCY, StreamEvent
 from grip.models.vacancy import Vacancy
@@ -285,6 +285,15 @@ async def _names(db: AsyncSession, ids: set[UUID]) -> dict[UUID, str]:
     return {row[0]: row[1] for row in rows}
 
 
+async def _assignment_names(db: AsyncSession, ids: set[UUID]) -> dict[UUID, str]:
+    if not ids:
+        return {}
+    rows = await db.execute(
+        select(Assignment.id, Assignment.name).where(Assignment.id.in_(ids))
+    )
+    return {row[0]: row[1] for row in rows}
+
+
 async def read(
     db: AsyncSession,
     access: EventAccess,
@@ -321,6 +330,16 @@ async def read(
     ids = {e.actor_person_id for e, *_ in shown if e.actor_person_id}
     ids |= {e.person_id for e, _c, _d, sees in shown if sees and e.person_id}
     names = await _names(db, ids)
+    # The assignment a role is on, for a reader who may see which one it is.
+    assignment_ids = {
+        e.case_id
+        for e, changes, _d, _s in shown
+        if e.subject_kind == "assignment_role"
+        and e.case_kind == "assignment"
+        and e.case_id
+        and any(c.visible and c.field == "assignment_id" for c in changes)
+    }
+    assignment_names = await _assignment_names(db, assignment_ids)
     page = Page(next_before=None if exhausted else cursor)
     for event, changes, details, sees_person in shown:
         page.events.append(
@@ -358,6 +377,10 @@ async def read(
                     event.subject_kind,
                     names.get(event.person_id)
                     if sees_person and event.person_id
+                    else None,
+                    changes=changes,
+                    case_name=assignment_names.get(event.case_id)
+                    if event.case_id
                     else None,
                 ),
                 lines=tuple(

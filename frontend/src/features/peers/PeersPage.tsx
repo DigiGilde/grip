@@ -2,13 +2,13 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/auth/context';
 import { useInstance } from '@/layout/useInstance';
-import { PATHS } from '@/paths';
 import { ActionBar } from '@/ui/ActionBar';
 import { Page, NoAccess } from '@/ui/layout';
 import { OpenCell, OpenRow } from '@/ui/RowActions';
 import { EmptyRows, QueryState } from '@/features/team/ui/states';
 import { PEERS_KEY, ROLE_LABELS, fetchPeers, type Peer } from './api';
 import { PeerSheet } from './PeerSheet';
+import { useAdminBack } from '@/layout/useAdminBack';
 
 function grantSummary(peer: Peer, services: string[]): string {
   const recorded = services.filter((service) => peer.grant_hashes[service]);
@@ -23,6 +23,7 @@ function grantSummary(peer: Peer, services: string[]): string {
  */
 export function PeersPage() {
   const instance = useInstance();
+  const adminBack = useAdminBack();
   const { state } = useAuth();
   const isAdmin = state.status === 'authenticated' && state.functions.includes('beheerder');
   const query = useQuery({ queryKey: PEERS_KEY, queryFn: fetchPeers, enabled: isAdmin });
@@ -34,11 +35,7 @@ export function PeersPage() {
 
   return (
     <>
-      <Page
-        title="Koppelingen"
-        instanceName={instance?.name}
-        back={{ href: PATHS.admin, text: 'Terug naar Beheer' }}
-      >
+      <Page title="Koppelingen" instanceName={instance?.name} back={adminBack}>
         {/* Only once the list is there: who may not read it may not add to it. */}
         {query.isSuccess ? (
           <ActionBar

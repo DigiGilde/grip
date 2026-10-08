@@ -514,7 +514,7 @@ describe('NodePicker', () => {
       expect(texts(container, 'nldd-banner[variant="neutral"]')[0]).toContain('geen corpus'),
     );
     expect(container.querySelector('nldd-search-field')).toBeNull();
-    expect(texts(container, 'nldd-inline-dialog')).toContain('Nog geen context gekozen');
+    expect(texts(container, 'nldd-inline-dialog')).not.toContain('Nog geen context gekozen');
     expect(texts(container, 'nldd-button')).toContain('Voeg URI toe');
   });
 

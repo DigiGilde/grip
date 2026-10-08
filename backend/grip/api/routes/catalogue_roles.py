@@ -39,6 +39,7 @@ def _out(row: RoleRow) -> CatalogueRoleOut:
         is_active=role.is_active,
         needs_review=role.needs_review,
         usage_count=row.usage_count,
+        also_known_as=list(row.also_known_as),
     )
 
 

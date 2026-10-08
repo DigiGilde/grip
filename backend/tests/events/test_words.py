@@ -263,3 +263,44 @@ async def test_changes_are_found_among_a_hundred_times_as_many_reads(
     kinds = {item["type"] for item in everything["items"]}
     assert "data.read" in kinds
     assert (await reader.get("/api/events", params={"kind": "iets"})).status_code == 422
+
+
+def test_a_right_is_named_with_what_happened_to_it():
+    granted = [_Seen("function", new="lezer"), _Seen("person_id", new="x")]
+    assert words.title(
+        "person_role.created", "person_role", "Lot Lid", changes=granted
+    ) == ("Recht lezer aan Lot Lid toegekend")
+    revoked = [_Seen("function", old="lezer"), _Seen("ended", new="2026-03-01")]
+    assert words.title(
+        "person_role.updated", "person_role", "Lot Lid", changes=revoked
+    ) == ("Recht lezer van Lot Lid ingetrokken")
+    # A reader who may not see which right still reads what happened.
+    hidden = [_Seen("function", visible=False), _Seen("ended", new="2026-03-01")]
+    assert words.title("person_role.updated", "person_role", None, changes=hidden) == (
+        "Recht in grip ingetrokken"
+    )
+
+
+def test_a_role_on_an_assignment_names_the_role_and_the_assignment():
+    role = [_Seen("role", new="manager"), _Seen("assignment_id", new="x")]
+    assert (
+        words.title(
+            "assignment_role.created",
+            "assignment_role",
+            "Lot Lid",
+            changes=role,
+            case_name="Opdracht Alfa",
+        )
+        == "Lot Lid is manager van Opdracht Alfa"
+    )
+    gone = [_Seen("role", old="manager")]
+    assert (
+        words.title(
+            "assignment_role.deleted", "assignment_role", "Lot Lid", changes=gone
+        )
+        == "Lot Lid is geen manager meer van de opdracht"
+    )
+    assert (
+        words.title("assignment_role.created", "assignment_role", None, changes=role)
+        == "Rol op de opdracht toegevoegd"
+    )

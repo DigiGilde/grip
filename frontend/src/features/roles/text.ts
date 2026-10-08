@@ -14,30 +14,49 @@ export function foldName(value: string): string {
   return folded;
 }
 
+/** The other name of a role that fits what was typed, when its own name does not. */
+export function matchedOtherName(role: CatalogueRole, typed: string): string | null {
+  const words = foldName(typed).split(' ').filter(Boolean);
+  if (words.length === 0) return null;
+  const fits = (name: string) => words.every((word) => foldName(name).includes(word));
+  if (fits(role.name)) return null;
+  return (role.also_known_as ?? []).find(fits) ?? null;
+}
+
 /**
- * The roles that fit what was typed: every word must occur in the name. A
- * name that starts with the query comes first, the rest stays alphabetical.
+ * The roles that fit what was typed: every word must occur in the name, or
+ * in another name the role goes by. A name that starts with the query comes
+ * first, a role found by another name last; the rest stays alphabetical.
  */
 export function matchRoles(roles: CatalogueRole[], typed: string): CatalogueRole[] {
   const query = foldName(typed);
   if (!query) return roles;
   const words = query.split(' ');
-  const hits = roles.filter((role) => {
+  const onName = (role: CatalogueRole) => {
     const name = foldName(role.name);
     return words.every((word) => name.includes(word));
-  });
+  };
+  const hits = roles.filter((role) => onName(role) || matchedOtherName(role, typed) !== null);
   const rank = (role: CatalogueRole) => {
     const name = foldName(role.name);
     if (name === query) return 0;
-    return name.startsWith(query) ? 1 : 2;
+    if (name.startsWith(query)) return 1;
+    return onName(role) ? 2 : 3;
   };
   return [...hits].sort((a, b) => rank(a) - rank(b));
 }
 
-/** Whether a role with exactly this name is in the list, whatever the capitals. */
+/**
+ * Whether a role with exactly this name is in the list, whatever the
+ * capitals. Another name a role goes by counts: it is that role.
+ */
 export function hasExactRole(roles: CatalogueRole[], typed: string): boolean {
   const query = foldName(typed);
-  return roles.some((role) => foldName(role.name) === query);
+  return roles.some(
+    (role) =>
+      foldName(role.name) === query ||
+      (role.also_known_as ?? []).some((name) => foldName(name) === query),
+  );
 }
 
 export function sourceText(role: CatalogueRole): string {

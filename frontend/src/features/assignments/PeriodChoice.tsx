@@ -15,7 +15,7 @@ interface PeriodChoiceProps {
   onChange: (patch: { startDate?: string; endDate?: string }) => void;
   /** Said under the begin date, for example where a proposal comes from. */
   hint?: string;
-  /** Shown when the parent has no period yet: a way to set it right here. */
+  /** Shown when the parent has no period yet: the fields that ask for it. */
   whenMissing?: ReactNode;
 }
 
@@ -38,12 +38,14 @@ export function PeriodChoice({
   const known = Boolean(parentStart && parentEnd);
   if (!own) {
     return (
-      <nldd-container gap="4">
+      <nldd-container gap="8">
         {/* One calm line; the way out is a quiet link-like button under it. */}
         <nldd-text>
           {known
             ? `Loopt mee met ${parent}: ${formatPeriod(parentStart, parentEnd)}`
-            : `Loopt mee met ${parent}; die heeft nog geen periode`}
+            : whenMissing
+              ? `Loopt mee met ${parent}. Die heeft nog geen periode: vul haar hier in, zij wordt bij ${parent} bewaard.`
+              : `Loopt mee met ${parent}; die heeft nog geen periode`}
         </nldd-text>
         {!known && whenMissing}
         <nldd-container layout="row">

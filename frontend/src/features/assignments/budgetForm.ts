@@ -51,6 +51,20 @@ export function proposedYear(parent?: ParentPeriod, today = new Date()): string 
   return String(first);
 }
 
+/**
+ * Whether a fixed amount stands in a year the assignment does not run in.
+ * New ones are refused; one from before that rule is flagged so it gets fixed.
+ */
+export function yearOutsidePeriod(
+  line: Pick<BudgetLine, 'kind' | 'year'>,
+  parent?: ParentPeriod,
+): boolean {
+  if (line.kind !== 'fixed' || !line.year || !parent?.start) return false;
+  const first = Number(parent.start.slice(0, 4));
+  const last = parent.end ? Number(parent.end.slice(0, 4)) : null;
+  return line.year < first || (last !== null && line.year > last);
+}
+
 export function lineForm(line?: BudgetLine, parent?: ParentPeriod): LineForm {
   return {
     ownPeriod: line?.kind !== 'fixed' && hasOwnPeriod(line, parent),

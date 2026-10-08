@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { intendedText, lineForm, lineInput, previewInput, proposedYear } from './budgetForm';
+import {
+  intendedText,
+  lineForm,
+  lineInput,
+  previewInput,
+  proposedYear,
+  yearOutsidePeriod,
+} from './budgetForm';
 
 const personnel = {
   ...lineForm(),
@@ -162,5 +169,19 @@ describe('the year of a new fixed amount', () => {
     expect(proposedYear({ start: '2026-07-01', end: '2027-06-30' }, today)).toBe('2026');
     expect(proposedYear({ start: '', end: '' }, today)).toBe('2026');
     expect(proposedYear(undefined, today)).toBe('2026');
+  });
+});
+
+describe('yearOutsidePeriod', () => {
+  const parent = { start: '2027-01-01', end: '2027-12-31' };
+
+  it('flags a fixed amount in a year the assignment does not run in', () => {
+    expect(yearOutsidePeriod({ kind: 'fixed', year: 2026 }, parent)).toBe(true);
+    expect(yearOutsidePeriod({ kind: 'fixed', year: 2027 }, parent)).toBe(false);
+  });
+
+  it('says nothing about personnel or an assignment without a period', () => {
+    expect(yearOutsidePeriod({ kind: 'personnel', year: null }, parent)).toBe(false);
+    expect(yearOutsidePeriod({ kind: 'fixed', year: 2026 }, { start: '', end: '' })).toBe(false);
   });
 });

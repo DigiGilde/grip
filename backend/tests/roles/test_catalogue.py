@@ -14,6 +14,7 @@ from grip.integrations.wies.client import WiesSkill, WiesUnavailableError, parse
 from grip.models.assignment import Assignment, BudgetLine, line_display_name
 from grip.models.audit_log import AuditLog
 from grip.models.catalogue_role import CatalogueRole, CatalogueRoleSyncRun
+from grip.models.vacancy_text_flow import VacancyTextTemplate
 from grip.services import catalogue_roles as service
 from grip.services.errors import DomainValidationError
 
@@ -650,3 +651,54 @@ async def test_sync_through_the_api(
     assert status["last_run"]["status"] == "completed"
     assert status["last_run"]["result"]["created"] == 2
     assert status["roles"] == 2
+
+
+# --- one catalogue, several words ------------------------------------------------
+
+
+async def _standard_text(db, role: CatalogueRole, name: str, aliases: list[str]):
+    db.add(
+        VacancyTextTemplate(
+            catalogue_role_id=role.id, role_name=name, aliases=aliases, sections=[]
+        )
+    )
+    await db.flush()
+
+
+async def test_a_role_is_found_by_the_names_the_standard_texts_know(db_session):
+    developer = await service.create_role(db_session, name="Developer", actor=None)
+    await service.create_role(db_session, name="Adviseur", actor=None)
+    await _standard_text(
+        db_session, developer, "Software engineer", ["Developer", "Ontwikkelaar"]
+    )
+
+    found = await service.list_roles(db_session, query="software eng")
+
+    assert [row.role.name for row in found] == ["Developer"]
+    assert found[0].also_known_as == ("Software engineer", "Ontwikkelaar")
+
+
+async def test_adding_a_name_a_role_already_goes_by_gives_that_role(db_session):
+    developer = await service.create_role(db_session, name="Developer", actor=None)
+    await _standard_text(db_session, developer, "Software engineer", [])
+
+    again = await service.create_role(db_session, name="software  engineer", actor=None)
+
+    assert again.id == developer.id
+    assert await _count(db_session, CatalogueRole) == 1
+
+
+async def test_a_wies_skill_takes_the_role_that_goes_by_its_name(db_session):
+    developer = await service.create_role(db_session, name="Developer", actor=None)
+    await _standard_text(db_session, developer, "Software engineer", ["Developer"])
+
+    counts = await service.apply_wies_skills(
+        db_session, [WiesSkill(public_id=SKILL_A, name="Software engineer")]
+    )
+
+    assert (counts.adopted, counts.created) == (1, 0)
+    roles = await _roles(db_session)
+    assert list(roles) == ["Software engineer"]
+    assert roles["Software engineer"].id == developer.id
+    row = await service.with_usage(db_session, roles["Software engineer"])
+    assert row.also_known_as == ("Developer",)

@@ -5,7 +5,6 @@ import { errorMessage } from '@/api/client';
 import { orUndef, useNlddEvent } from '@/components/nldd/events';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { useInstance } from '@/layout/useInstance';
-import { PATHS } from '@/paths';
 import { formatDate } from '@/lib/format';
 import { Button, DateInput, SelectInput, TextInput } from '@/features/vacancies/ui';
 import {
@@ -32,6 +31,7 @@ import {
   type FunctionFamily,
   type FunctionGroup,
 } from './api';
+import { useAdminBack } from '@/layout/useAdminBack';
 
 if (import.meta.env.MODE !== 'test') {
   void import('@nldd/design-system/search-field');
@@ -286,6 +286,7 @@ function Toolbar({ query, onQuery, canManage, onAdd, onReload, reloading }: Tool
  */
 export function FunctionFrameworkPage() {
   const instance = useInstance();
+  const adminBack = useAdminBack();
   const queryClient = useQueryClient();
   const framework = useQuery({
     queryKey: FRAMEWORK_KEYS.all,
@@ -314,11 +315,7 @@ export function FunctionFrameworkPage() {
 
   return (
     <RouterLinks>
-      <Page
-        title="Functiegebouw Rijk"
-        instanceName={instance?.name}
-        back={{ href: PATHS.admin, text: 'Terug naar Beheer' }}
-      >
+      <Page title="Functiegebouw Rijk" instanceName={instance?.name} back={adminBack}>
         <Toolbar
           query={query}
           onQuery={setQuery}

@@ -4,9 +4,11 @@ import { errorMessage } from '@/api/client';
 import { useInstance } from '@/layout/useInstance';
 import { formatDate } from '@/lib/format';
 import { ActionBar } from '@/ui/ActionBar';
-import { ErrorNotice, Page, Quiet, Section, Stack } from '@/ui/layout';
+import { TextField } from '@/ui/fields';
+import { ErrorNotice, FormSheet, Page, Quiet, Section, Stack } from '@/ui/layout';
 import { EmptyRows, QueryState } from '@/features/team/ui/states';
 import {
+  createOrganisation,
   fetchSyncStatus,
   organisationKeys,
   searchOrganisations,
@@ -14,10 +16,10 @@ import {
   type Organisation,
   type SyncStatus,
 } from './api';
-import { AddOrganisationForm, OrganisationPicker } from './OrganisationPicker';
+import { OrganisationPicker } from './OrganisationPicker';
 import { organisationPlace, organisationText, syncSummary } from './text';
 import './nldd';
-import { PATHS } from '@/paths';
+import { useAdminBack } from '@/layout/useAdminBack';
 
 const POLL_MS = 5000;
 
@@ -84,15 +86,67 @@ function Details({ organisation }: { organisation: Organisation }) {
   );
 }
 
+/** Adding an organisation by hand: a name and, for a unit, what it belongs to. */
+function AddSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const [name, setName] = useState('');
+  const [parent, setParent] = useState<Organisation | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+  const add = useMutation({
+    mutationFn: () => createOrganisation({ name: name.trim(), parent_id: parent?.id ?? null }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: organisationKeys.all });
+      onClose();
+    },
+    onError: (error) => setProblem(errorMessage(error)),
+  });
+  return (
+    <FormSheet
+      open={open}
+      title="Organisatie toevoegen"
+      submitText="Voeg toe"
+      busy={add.isPending}
+      error={problem}
+      onClose={onClose}
+      onSubmit={() => {
+        if (!name.trim()) {
+          setProblem('Geef de organisatie een naam.');
+          return;
+        }
+        setProblem(null);
+        add.mutate();
+      }}
+    >
+      <TextField
+        label="Naam"
+        hint="Voor een partij die niet in het overheidsregister staat, of een eenheid binnen een organisatie"
+        value={name}
+        onChange={setName}
+        required
+      />
+      <OrganisationPicker
+        label="Hoort bij"
+        supportingLabel="Kies de organisatie waar deze eenheid onder valt"
+        value={parent?.id ?? null}
+        onChange={setParent}
+        optional
+        allowAdd={false}
+      />
+    </FormSheet>
+  );
+}
+
 /**
  * For the beheerder: where the list of organisations comes from, when it was
  * last brought in line with the public register, and what was added by hand.
  */
 export function OrganisationsAdminPage() {
   const instance = useInstance();
+  const adminBack = useAdminBack();
   const queryClient = useQueryClient();
   const [problem, setProblem] = useState<string | null>(null);
-  const [adding, setAdding] = useState(false);
+  // The key makes every opening start with an empty form.
+  const [adding, setAdding] = useState({ open: false, session: 0 });
   const [lookedUp, setLookedUp] = useState<Organisation | null>(null);
 
   const status = useQuery({
@@ -130,16 +184,14 @@ export function OrganisationsAdminPage() {
   const manualItems = manual.data?.items ?? [];
 
   return (
-    <Page
-      title="Organisaties"
-      instanceName={instance?.name}
-      spacing="sections"
-      back={{ href: PATHS.admin, text: 'Terug naar Beheer' }}
-    >
+    <Page title="Organisaties" instanceName={instance?.name} spacing="sections" back={adminBack}>
       <ActionBar
         label="Organisaties bijwerken"
         actions={[
-          ...(adding ? [] : [{ text: 'Organisatie toevoegen', onClick: () => setAdding(true) }]),
+          {
+            text: 'Organisatie toevoegen',
+            onClick: () => setAdding((current) => ({ open: true, session: current.session + 1 })),
+          },
           ...(status.data
             ? [
                 {
@@ -187,13 +239,6 @@ export function OrganisationsAdminPage() {
             <EmptyRows text="Nog niets zelf toegevoegd" />
           </nldd-table>
         </QueryState>
-        {adding ? (
-          <AddOrganisationForm
-            initialName=""
-            onAdded={() => setAdding(false)}
-            onCancel={() => setAdding(false)}
-          />
-        ) : null}
       </Section>
 
       <Section title="Opzoeken">
@@ -206,6 +251,11 @@ export function OrganisationsAdminPage() {
         />
         {lookedUp ? <Details organisation={lookedUp} /> : null}
       </Section>
+      <AddSheet
+        key={adding.session}
+        open={adding.open}
+        onClose={() => setAdding((current) => ({ ...current, open: false }))}
+      />
     </Page>
   );
 }

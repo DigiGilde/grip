@@ -93,3 +93,23 @@ def test_only_differences_make_it_a_naverrekening() -> None:
     assert "Na te verrekenen over eerste kwartaal 2026" in html
     assert "Te factureren over" not in html
     assert "bovenop wat eerder over de periode is aangeleverd" in html
+
+
+def test_a_month_delivered_again_names_the_request_it_replaces() -> None:
+    content = _content([_line("2026-02", "februari 2026", 2965000)])
+    content["replaces"] = [
+        {
+            "month_label": "februari 2026",
+            "reference": "VG-F-2026-0001/2026-Q1",
+            "amount_cents": 3290000,
+            "difference_cents": -325000,
+        }
+    ]
+    html = render_html(content, Letterhead())
+    assert "Dit verzoek vervangt februari 2026 uit factuurverzoek" in html
+    assert "VG-F-2026-0001/2026-Q1" in html
+    assert "Het verschil is -€ 3.250,00." in html
+    # A first delivery replaces nothing and says nothing about it.
+    assert "vervangt" not in render_html(
+        _content([_line("2026-02", "februari 2026", 2965000)]), Letterhead()
+    )

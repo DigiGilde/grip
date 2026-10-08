@@ -1,13 +1,12 @@
 import { fetchAssignmentFinance, financeKeys } from '../financeApi';
 import { signalText } from '../financeText';
-import { ActionBar, type ActionBarAction } from '@/ui/ActionBar';
 import { Facts as FactList, Quiet, Section, Stack } from '@/ui/layout';
 import { ROW_ACTIONS_COLUMN, RowActions, RowMenu, type RowAction } from '@/ui/RowActions';
 import { useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
 import { formatDate } from '@/lib/format';
-import { AssignmentContextView } from '../../nodes';
+import { AssignmentContextView, NodePicker } from '../../nodes';
 import {
   assignmentKeys,
   fetchPersonOptions,
@@ -211,19 +210,19 @@ function ContextRefs({ assignment }: { assignment: AssignmentDetail }) {
   const canEdit = assignment.permissions.edit_basic;
   const [problem, setProblem] = useState<string | null>(null);
   const [adding, setAdding] = useState({ open: false, session: 0 });
-  const [uri, setUri] = useState('');
+  const [chosen, setChosen] = useState<string[]>([]);
   const save = useAssignmentMutation(
     (refs: string[]) => updateAssignment(assignment.id, { context_refs: refs }),
     setProblem,
   );
   const refs = assignment.context_refs;
+  // Nothing to show and nothing to do: no heading over an empty block.
+  if (refs.length === 0 && !canEdit) return null;
 
   return (
     <Section title="Context">
       {problem && !adding.open && <ErrorNotice message={problem} />}
-      {refs.length === 0 ? (
-        <EmptyNotice text="Deze opdracht verwijst nog niet naar nodes" />
-      ) : (
+      {refs.length === 0 ? null : (
         // The cards are the references; who may edit removes one from its card.
         <AssignmentContextView
           assignmentId={assignment.id}
@@ -256,7 +255,7 @@ function ContextRefs({ assignment }: { assignment: AssignmentDetail }) {
           <Button
             text="Voeg een node toe"
             onClick={() => {
-              setUri('');
+              setChosen([]);
               setProblem(null);
               setAdding((current) => ({
                 open: true,
@@ -268,34 +267,29 @@ function ContextRefs({ assignment }: { assignment: AssignmentDetail }) {
       )}
       <FormSheet
         open={adding.open}
-        title={`Node bij ${assignment.name}`}
+        title={`Context bij ${assignment.name}`}
         submitText="Bewaar"
+        size="wide"
         busy={save.isPending}
         error={adding.open ? problem : null}
         onClose={() => setAdding((current) => ({ ...current, open: false }))}
         onSubmit={() => {
-          const value = uri.trim();
-          if (!/^https?:\/\/\S+$/.test(value)) {
-            setProblem('Een verwijzing is een volledige URI die begint met https://.');
+          const added = chosen.filter((uri) => !refs.includes(uri));
+          if (added.length === 0) {
+            setProblem(
+              chosen.length === 0
+                ? 'Kies een node uit het corpus, of plak een URI en kies "Voeg URI toe".'
+                : 'Deze nodes staan al bij de opdracht.',
+            );
             return;
           }
-          if (refs.includes(value)) {
-            setProblem('Deze node staat al bij de opdracht.');
-            return;
-          }
-          save.mutate([...refs, value], {
+          save.mutate([...refs, ...added], {
             onSuccess: () => setAdding((current) => ({ ...current, open: false })),
           });
         }}
       >
-        <TextInput
-          label="URI van de node"
-          hint="Te vinden op de pagina van de node in het corpus."
-          keyboard="url"
-          value={uri}
-          onChange={setUri}
-          required
-        />
+        {/* Search the corpus, with a pasted URI as the way out. */}
+        <NodePicker key={adding.session} value={chosen} onChange={setChosen} />
       </FormSheet>
     </Section>
   );
@@ -409,40 +403,40 @@ export function OverviewTab() {
 function Overview({ assignment }: { assignment: AssignmentDetail }) {
   const [editing, setEditing] = useState({ open: false, session: 0 });
   const status = useStatusActions(assignment);
-  const actions: ActionBarAction[] = [
-    ...(assignment.permissions.edit_basic
-      ? [
-          {
-            text: 'Wijzig gegevens',
-            onClick: () => setEditing((current) => ({ open: true, session: current.session + 1 })),
-          },
-        ]
-      : []),
-  ];
+  const mayEdit = assignment.permissions.edit_basic;
   return (
     <nldd-simple-section>
       <Stack gap="section">
-        <Stack gap="group">
+        {/* The actions stand under the facts they change, as in every block here. */}
+        <Section title="Gegevens">
           {assignment.permissions.read_financial && (
             <AgreedDifference assignmentId={assignment.id} />
           )}
-          <ActionBar
-            label="Acties op de opdracht"
-            actions={actions}
-            more={{ name: assignment.name, actions: status.actions }}
-          />
           {status.problem && <ErrorNotice message={status.problem} />}
-          {!assignment.permissions.edit_basic && (
-            <ReadOnlyNote assignment={assignment} what="deze gegevens" />
-          )}
-          {assignment.permissions.edit_basic && !assignment.start_date && (
+          {!mayEdit && <ReadOnlyNote assignment={assignment} what="deze gegevens" />}
+          {mayEdit && !assignment.start_date && (
             <Quiet>
               De opdracht heeft nog geen looptijd. Begrotingsregels en inzet volgen de looptijd: vul
               haar in bij Wijzig gegevens.
             </Quiet>
           )}
           <Facts assignment={assignment} />
-        </Stack>
+          {(mayEdit || status.actions.length > 0) && (
+            <nldd-container layout="row" gap="8">
+              {mayEdit && (
+                <Button
+                  text="Wijzig gegevens"
+                  onClick={() =>
+                    setEditing((current) => ({ open: true, session: current.session + 1 }))
+                  }
+                />
+              )}
+              {status.actions.length > 0 && (
+                <RowMenu name={assignment.name} actions={status.actions} size="md" />
+              )}
+            </nldd-container>
+          )}
+        </Section>
         <Roles assignment={assignment} />
         <ContextRefs assignment={assignment} />
       </Stack>

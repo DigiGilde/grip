@@ -10,6 +10,8 @@ export interface CatalogueRole {
   needs_review: boolean;
   /** Budget lines that refer to the role. */
   usage_count: number;
+  /** Other names the role goes by in the standard texts; found when searched. */
+  also_known_as?: string[];
 }
 
 export interface CatalogueRoleList {
@@ -57,7 +59,10 @@ export function fetchRoles(includeInactive = false): Promise<CatalogueRoleList> 
 }
 
 /** Adds a role. A name that already exists answers with the role that is there. */
-export function createRole(body: { name: string; description?: string | null }): Promise<CatalogueRole> {
+export function createRole(body: {
+  name: string;
+  description?: string | null;
+}): Promise<CatalogueRole> {
   return apiPost<CatalogueRole>('/api/catalogue-roles', body);
 }
 

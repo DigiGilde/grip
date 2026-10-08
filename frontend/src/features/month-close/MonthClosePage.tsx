@@ -60,8 +60,8 @@ interface NowProps {
 }
 
 /**
- * The one thing to do now. It is the first and largest thing on the tab and
- * carries the only accent: its button. With nothing due it says so, and
+ * The work of the step the head of the assignment names. It is the first
+ * thing on the tab and carries the only accent: its button. With nothing due it says so, and
  * names when the next thing comes.
  */
 function Now({ overview, onAct }: NowProps) {
@@ -91,12 +91,15 @@ function Now({ overview, onAct }: NowProps) {
     );
   }
   return (
-    <nldd-card background="tinted" accessible-label={step.kind === 'none' ? 'Stand' : 'Nu te doen'}>
+    <nldd-card
+      background="tinted"
+      accessible-label={step.kind === 'none' ? 'Stand' : stepTitle(step)}
+    >
       <nldd-container padding="24" gap="16">
+        {/* The head of the assignment says what to do now; this is the work. */}
         <nldd-title
-          size={2}
+          size={3}
           heading-level={2}
-          overline={step.kind === 'none' ? 'Niets te doen' : 'Nu te doen'}
           text={stepTitle(step)}
           supporting-text={stepLine(step, overview)}
         />

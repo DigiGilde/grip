@@ -1,71 +1,13 @@
 /**
- * Where a quote stands, in words and in steps. Pure functions, so the card
- * shows a structure instead of sentences that explain it.
+ * Where a quote stands, in words. Pure functions, so the card shows a
+ * structure instead of sentences that explain it. The steps are those of
+ * the assignment and stand in its head, not on the card.
  */
 import { formatDate } from '@/lib/format';
 import type { QuoteDetail, QuoteOffer, QuoteSummary } from './api';
 import { OFFER_CHANNEL_LABELS } from './api';
-import { quotePosition } from '@/features/assignments/standing';
 import { awaitsApproval, type ApprovalState } from './approval';
 import { formatDateTime } from './format';
-
-export interface QuoteStep {
-  text: string;
-  status: 'past' | 'current' | 'future';
-}
-
-/** The quote as the shared standing function reads it. */
-function quoteFact(quote: QuoteSummary, approval?: ApprovalState | null) {
-  return {
-    status: quote.status,
-    // Only a quote that needs approval has an approval to wait for.
-    approval: approval?.approval_required ? approval.status : null,
-  };
-}
-
-/**
- * The steps of one quote: gemaakt, aangeboden, getekend of afgewezen. Where
- * the organisation approves a quote internally first, that is a step between
- * making and offering; elsewhere it does not show.
- *
- * Which step is the current one comes from `quotePosition`, the same
- * function the steps of the assignment read.
- */
-export function quoteSteps(
-  quote: QuoteSummary,
-  offers: readonly QuoteOffer[],
-  approval?: ApprovalState | null,
-): QuoteStep[] {
-  const position = quotePosition(quoteFact(quote, approval), offers);
-  const needsApproval = Boolean(approval?.approval_required);
-  const texts = [
-    'Gemaakt',
-    ...(needsApproval ? ['Interne goedkeuring'] : []),
-    'Aangeboden',
-    quote.status === 'accepted'
-      ? 'Getekend'
-      : quote.status === 'rejected'
-        ? 'Afgewezen'
-        : 'Getekend of afgewezen',
-  ];
-  const last = texts.length - 1;
-  // A quote that was sent back stays at the approval it did not get; one
-  // that was rejected or replaced has run its course.
-  const current =
-    position === 'approval' || (position === 'quote' && quote.status === 'issued')
-      ? 1
-      : position === 'offer'
-        ? last - 1
-        : position === 'agreement'
-          ? last
-          : position === 'quote' && quote.status === 'superseded' && offers.length === 0
-            ? last - 1
-            : last + 1;
-  return texts.map((text, index) => ({
-    text,
-    status: index < current ? 'past' : index === current ? 'current' : 'future',
-  }));
-}
 
 /** Whether the client can still answer through this offer. */
 export function awaitsResponse(offer: QuoteOffer): boolean {

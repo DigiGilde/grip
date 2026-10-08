@@ -6,7 +6,6 @@ import { ActionBar } from '@/ui/ActionBar';
 import { EmptyNotice, ErrorNotice, LoadError, Loading, Page, SectionHeading } from '@/ui/layout';
 import { useInstance } from '@/layout/useInstance';
 import { formatDate } from '@/lib/format';
-import { PATHS } from '@/paths';
 import {
   WIES_KEYS,
   confirmChanges,
@@ -16,6 +15,7 @@ import {
   type PersonProposal,
 } from './api';
 import { ACTION_LABELS, ACTION_ORDER, GROUP_HEADINGS, describe } from './labels';
+import { useAdminBack } from '@/layout/useAdminBack';
 
 function Result({ applied }: { applied: AppliedChange[] }) {
   const done = applied.filter((change) => change.applied).length;
@@ -104,6 +104,7 @@ function ProposalGroup({
  */
 export function WiesProposalsPage() {
   const instance = useInstance();
+  const adminBack = useAdminBack();
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const query = useQuery({
@@ -138,11 +139,7 @@ export function WiesProposalsPage() {
 
   const data = query.data;
   return (
-    <Page
-      title="Voorstellen uit Wies"
-      instanceName={instance?.name}
-      back={{ href: PATHS.admin, text: 'Terug naar Beheer' }}
-    >
+    <Page title="Voorstellen uit Wies" instanceName={instance?.name} back={adminBack}>
       {query.isPending && <Loading text="Wies wordt geraadpleegd" />}
       {query.isError && <LoadError error={query.error} retry={() => void query.refetch()} />}
       {data && !data.configured && (

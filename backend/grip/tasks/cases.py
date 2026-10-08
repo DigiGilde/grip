@@ -379,6 +379,10 @@ async def load_assignment_cases(
             "accounted": status == "accounted",
             "rejected": status == "rejected",
             "cancelled": status == "cancelled",
+            # A rejected quote is no end for who made it: the way on is a new
+            # quote, or cancelling. For the client the rejection is the end.
+            "quoting": case_phase is phase.Phase.POTENTIAL or status == "rejected",
+            "declined": status == "rejected" and is_client,
         }
 
         rejected = [quote for quote in own_quotes if quote.status == "rejected"]

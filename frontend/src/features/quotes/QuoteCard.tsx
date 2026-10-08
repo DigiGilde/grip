@@ -1,5 +1,4 @@
 import { DocumentLink as SharedDocumentLink, MoreButton } from '@/ui/Icon';
-import { StepBar } from '@/ui/StepBar';
 import { Button } from '@/features/assignments/ui';
 import { formatDate, formatEuro } from '@/lib/format';
 import { Quiet, Stack } from '@/ui/layout';
@@ -23,7 +22,6 @@ import {
   offerState,
   offerTitle,
   primaryAction,
-  quoteSteps,
 } from './offers';
 import { bundleUrl, statementPageUrl, type QuoteEvidenceRow } from './proof';
 import { QuoteDetails } from './QuoteDetails';
@@ -271,7 +269,6 @@ export function QuoteCard({
 }: QuoteCardProps) {
   const offers = detail?.offers ?? [];
   const listed = listedOffers(offers);
-  const steps = quoteSteps(quote, offers, approval);
   // Complete once the offers and the approval are in: until then no action,
   // so a button never changes under the pointer.
   const ready = detail !== undefined && approval !== undefined;
@@ -288,7 +285,6 @@ export function QuoteCard({
   const mayReview = open && required && Boolean(approval?.may_decide_approval);
   const mayWithdrawApproval = open && required && Boolean(approval?.may_withdraw);
   const name = detail?.content?.name ?? '';
-  const current = steps.findIndex((step) => step.status === 'current') + 1;
 
   // What else this quote can do. It sits next to the one button when there is
   // one, and otherwise with the quiet links at the top: never on a line alone.
@@ -319,7 +315,10 @@ export function QuoteCard({
   ) : null;
 
   return (
-    <nldd-card accessible-label={`Offerte ${quote.reference ?? ''}`.trim()}>
+    <nldd-card
+      accessible-label={`Offerte ${quote.reference ?? ''}`.trim()}
+      data-ready={ready ? 'true' : 'false'}
+    >
       <nldd-container padding="24" gap="24">
         <Stack gap="close">
           <nldd-title
@@ -334,7 +333,9 @@ export function QuoteCard({
               text={
                 open && offers.length > 0
                   ? 'Aangeboden'
-                  : (QUOTE_STATUS_LABELS[quote.status] ?? quote.status)
+                  : open && blocked
+                    ? 'Wacht op goedkeuring'
+                    : (QUOTE_STATUS_LABELS[quote.status] ?? quote.status)
               }
             />
           </nldd-title>
@@ -367,13 +368,6 @@ export function QuoteCard({
             </nldd-container>
           ) : null}
         </Stack>
-
-        <StepBar
-          steps={steps}
-          current={current > 0 ? current : steps.length + 1}
-          accessibleLabel="Stappen van deze offerte"
-          ready={ready}
-        />
 
         <Decision quote={quote} evidence={evidence} mayManage={mayManage} />
 

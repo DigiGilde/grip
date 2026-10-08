@@ -19,6 +19,8 @@ class CatalogueRoleOut(BaseModel):
     needs_review: bool
     # Budget lines that refer to this role.
     usage_count: int
+    # Other names the role goes by in the standard texts.
+    also_known_as: list[str] = []
 
 
 class CatalogueRoleList(BaseModel):

@@ -29,7 +29,7 @@ Elk verloop dient een hoofdgeval en de varianten die echt voorkomen. De rol is e
 | Intern teruggestuurd | Offerte is weer de huidige stap | wie de offerte maakte | begroting aanpassen, nieuwe offerte | getest, niet in de browser |
 | Mondeling akkoord | stap Akkoord, met de zin dat het getekende akkoord nog moet | eigenaar | getekend akkoord vastleggen | nagelopen, werkt; de eigenaar leest waar het vast te leggen is en heeft hier geen knop |
 | De opdrachtgever heeft geen grip | geen verschil in het verloop; aanbieden als document of met een tekenlink | eigenaar | getekende pdf vastleggen | het verloop nagelopen, het tekenen zelf niet |
-| De offerte wordt afgewezen | Offerte is weer de huidige stap, of de opdracht eindigt als Afgewezen | eigenaar | nieuwe offerte, of afsluiten | einde nagelopen; nieuwe ronde getest |
+| De offerte wordt afgewezen | Voor de opdrachtnemer is Offerte weer de huidige stap; de kop zegt wie afwees, wanneer en waarom. Voor de opdrachtgever eindigt de opdracht als Afgewezen | eigenaar | nieuwe offerte, of annuleren | nagelopen in de browser en getest |
 | De eigenaar is weg | het verloop blijft; de zin noemt de eigenaar | beheerder wijst een eigenaar aan | Overzicht, eigenaar en managers | niet nagelopen |
 | Werven begint voor de handtekening | de vacature heeft een eigen verloop; de opdracht hoeft niet akkoord te zijn | planner of eigenaar | n.v.t. | getest in het plan, niet in de browser |
 | Een lezer kijkt mee | dezelfde stappen, de zin zegt op wie wordt gewacht, geen knop | niemand hier | n.v.t. | nagelopen, werkt |

@@ -195,7 +195,9 @@ describe('RequestQuotePage', () => {
     await waitFor(() =>
       expect(texts(container, 'nldd-banner[variant="neutral"]')[0]).toContain('geen corpus'),
     );
-    expect(texts(container, 'nldd-inline-dialog')).toContain('Nog geen context gekozen');
+    // Nothing chosen and no explanation: the heading says the field is optional.
+    expect(texts(container, 'nldd-inline-dialog')).not.toContain('Nog geen context gekozen');
+    expect(container.textContent).not.toContain('Context is niet verplicht');
     expect(texts(container, 'nldd-button')).toContain('Verstuur aanvraag');
   });
 

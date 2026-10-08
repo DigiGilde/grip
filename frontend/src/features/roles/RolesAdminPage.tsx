@@ -4,7 +4,6 @@ import { errorMessage } from '@/api/client';
 import { useInstance } from '@/layout/useInstance';
 import { formatDate } from '@/lib/format';
 import { RouterLinks } from '@/layout/RouterLinks';
-import { PATHS } from '@/paths';
 import { ActionBar } from '@/ui/ActionBar';
 import { Page, Quiet } from '@/ui/layout';
 import { OpenCell, OpenRow } from '@/ui/RowActions';
@@ -25,6 +24,7 @@ import {
 import { RolePicker } from './RolePicker';
 import { roleSyncSummary, sourceText, usageText } from './text';
 import './nldd';
+import { useAdminBack } from '@/layout/useAdminBack';
 
 /** When the list last followed Wies, as one quiet line; a failure as a problem. */
 function SyncState({ status }: { status: RoleSyncStatus }) {
@@ -185,6 +185,7 @@ const SHOW_OPTIONS = [
  */
 export function RolesAdminPage() {
   const instance = useInstance();
+  const adminBack = useAdminBack();
   const queryClient = useQueryClient();
   const [showInactive, setShowInactive] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -232,11 +233,7 @@ export function RolesAdminPage() {
   return (
     <>
       <RouterLinks>
-        <Page
-          title="Rollen"
-          instanceName={instance?.name}
-          back={{ href: PATHS.admin, text: 'Terug naar Beheer' }}
-        >
+        <Page title="Rollen" instanceName={instance?.name} back={adminBack}>
           <ActionBar
             label="Rollen filteren en acties"
             filters={[

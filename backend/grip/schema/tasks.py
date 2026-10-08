@@ -126,6 +126,8 @@ class CourseNextOut(BaseModel):
     """What must happen now, as this reader must hear it."""
 
     mine: Annotated[bool, A] = False
+    # acts, waits or watches: how the reader stands to this step.
+    part: Annotated[str, A] = "watches"
     headline: Annotated[str, A] = ""
     sentence: Annotated[str, A] = ""
     who: Annotated[str | None, A] = None

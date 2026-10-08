@@ -43,6 +43,7 @@ import {
   type FormTemplate,
   type TemplateSource,
 } from './api';
+import { useAdminBack } from '@/layout/useAdminBack';
 
 const OWN_MAPPING = 'own';
 
@@ -364,6 +365,7 @@ function LanguageModelSection() {
 /** Beheer of what vacancies need: the blank request form and the language model. */
 export function VacancySetupPage() {
   const instance = useInstance();
+  const adminBack = useAdminBack();
   // Asking for the templates tells whether the viewer manages them.
   const access = useQuery({
     queryKey: SETUP_KEYS.templates,
@@ -378,7 +380,7 @@ export function VacancySetupPage() {
         title="Vacatureformulier en taalmodel"
         instanceName={instance?.name}
         spacing="sections"
-        back={{ href: PATHS.admin, text: 'Terug naar Beheer' }}
+        back={adminBack}
       >
         {denied ? (
           <NoAccess who="Beheer is voor beheerders. Wie dat zijn zie je onder Team." />

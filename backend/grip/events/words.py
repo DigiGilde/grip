@@ -307,10 +307,81 @@ def change_text(field: str, old: Any, new: Any) -> str | None:
     return None
 
 
+# The rights a person can hold in grip and the roles on an assignment, as they
+# read inside a sentence.
+_RIGHT_LABELS = {
+    "beheerder": "beheerder",
+    "planner": "planner",
+    "lezer": "lezer",
+    "aanvrager": "aanvrager",
+    "tekenbevoegde": "tekenbevoegde",
+    "offertegoedkeurder": "interne goedkeurder van offertes",
+}
+_ASSIGNMENT_ROLE_LABELS = {"owner": "eigenaar", "manager": "manager"}
+
+
+def _seen_value(changes: Sequence[Seen], *fields: str) -> Any:
+    """The value of the first of these fields the reader may see."""
+    for change in changes:
+        if change.visible and change.field in fields:
+            value = change.new if change.new is not None else change.old
+            if value is not None:
+                return value
+    return None
+
+
+def _right_title(
+    event_type: str, person_name: str | None, changes: Sequence[Seen]
+) -> str | None:
+    """ "Recht lezer van Lot Lid ingetrokken": which right, and what happened."""
+    right = _RIGHT_LABELS.get(_seen_value(changes, "function", "role_id"))
+    ended = _seen_value(changes, "ended", "end_date") is not None
+    if event_type.endswith(".created"):
+        verb = "toegekend"
+    elif ended or event_type.endswith(".deleted"):
+        verb = "ingetrokken"
+    else:
+        return None
+    link = "aan" if verb == "toegekend" else "van"
+    subject = f"Recht {right}" if right else "Recht in grip"
+    return (
+        f"{subject} {link} {person_name} {verb}" if person_name else f"{subject} {verb}"
+    )
+
+
+def _assignment_role_title(
+    event_type: str,
+    person_name: str | None,
+    changes: Sequence[Seen],
+    case_name: str | None,
+) -> str | None:
+    """ "Lot Lid is manager van Opdracht Alfa": who, what and on which one."""
+    role = _ASSIGNMENT_ROLE_LABELS.get(_seen_value(changes, "role"))
+    if role is None or person_name is None:
+        return None
+    where = f"van {case_name}" if case_name else "van de opdracht"
+    if event_type.endswith(".deleted"):
+        return f"{person_name} is geen {role} meer {where}"
+    return f"{person_name} is {role} {where}"
+
+
 def title(
-    event_type: str, subject_kind: str, person_name: str | None, payload: Any = None
+    event_type: str,
+    subject_kind: str,
+    person_name: str | None,
+    payload: Any = None,
+    *,
+    changes: Sequence[Seen] = (),
+    case_name: str | None = None,
 ) -> str:
     """What happened, in one line. Names the person when the reader may know."""
+    told = None
+    if subject_kind == "person_role":
+        told = _right_title(event_type, person_name, changes)
+    elif subject_kind == "assignment_role":
+        told = _assignment_role_title(event_type, person_name, changes, case_name)
+    if told is not None:
+        return told
     sentence = TYPE_SENTENCES.get(event_type)
     if sentence is not None:
         if event_type == "person_scale.changed" and person_name:

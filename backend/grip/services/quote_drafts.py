@@ -204,14 +204,28 @@ async def _placeholder_values(
 _PLACEHOLDER = re.compile(r"\{([a-z_]+)\}")
 
 
-def _follows(template: str, text: str) -> bool:
-    """Whether a text is still the standard text, whatever stood between its
-    braces when it was filled in."""
+def _matches(template: str, text: str) -> bool:
     parts = _PLACEHOLDER.split(template)
     pattern = "".join(
         ".*?" if index % 2 else re.escape(part) for index, part in enumerate(parts)
     )
     return re.fullmatch(pattern, text, re.DOTALL) is not None
+
+
+def _follows(template: str, text: str) -> bool:
+    """Whether a text is still the standard text, whatever stood between its
+    braces when it was filled in. A value that was empty then took its line
+    and its label out of the text, so the template without them counts too."""
+    if _matches(template, text):
+        return True
+    names = sorted(set(_PLACEHOLDER.findall(template)))
+    shortened = template
+    for name in names:
+        without = quote_sender.without_value_line(template, name)
+        if without != template and _matches(without, text):
+            return True
+        shortened = quote_sender.without_value_line(shortened, name)
+    return shortened != template and _matches(shortened, text)
 
 
 # What a standard text can ask of the sender, in the words of the Beheer page.

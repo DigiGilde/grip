@@ -698,6 +698,8 @@ async def test_a_quote_is_not_made_while_the_letter_would_print_an_empty_sender(
     assert draft["sender_problem"] == (
         "Onder Beheer, Afzender ontbreekt nog: de contactpersoon en de ondertekenaar."
     )
+    # No label without its value: the heading goes with the empty line.
+    assert "Contactpersoon" not in draft["closing"]
     assert draft["may_set_sender"] is False
     as_beheerder = (
         await act_as(world.beheerder).get(

@@ -18,9 +18,4 @@
  */
 export { OrganisationPicker, type OrganisationPickerProps } from './OrganisationPicker';
 export { organisationPlace, organisationText } from './text';
-export {
-  fetchOrganisation,
-  organisationKeys,
-  searchOrganisations,
-  type Organisation,
-} from './api';
+export { fetchOrganisation, organisationKeys, searchOrganisations, type Organisation } from './api';

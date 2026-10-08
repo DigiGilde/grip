@@ -12,7 +12,8 @@
  * A list says the same in one line with `courseLine`.
  */
 import { formatDate } from '@/lib/format';
-import { lowerFirst, type Course, type CourseNext } from './course';
+import { useNarrow } from '@/ui/layout/useNarrow';
+import { courseBrief, lowerFirst, type Course, type CourseNext } from './course';
 import './workflow.css';
 
 /** "Vóór 15 okt 2026", or that the date has passed. */
@@ -39,7 +40,11 @@ export function CourseNow({ course, tasksHref }: CourseNowProps) {
   const missing = next.missing ?? [];
   const more = course.more_to_do ?? 0;
   return (
-    <div className="course-now" data-mine={next.mine ? 'true' : 'false'}>
+    <div
+      className="course-now"
+      data-mine={next.mine ? 'true' : 'false'}
+      data-part={next.part ?? (next.mine ? 'acts' : 'waits')}
+    >
       <nldd-text size="lg">{next.blocked ?? next.sentence}</nldd-text>
       {missing.length > 0 && (
         <nldd-text size="sm" color="secondary">
@@ -76,7 +81,19 @@ interface CourseBarProps {
  * order shows as done. A note says what happened at a step.
  */
 export function CourseBar({ course, accessibleLabel }: CourseBarProps) {
+  const narrow = useNarrow();
   if (course.steps.length === 0) return null;
+  if (narrow) {
+    // No room for the bar: the step it is at and the one after, in words.
+    const brief = courseBrief(course);
+    if (!brief) return null;
+    return (
+      <nldd-text size="sm" color="secondary" role="group" aria-label={accessibleLabel}>
+        <strong>{brief.now}</strong>
+        {`, ${brief.then}`}
+      </nldd-text>
+    );
+  }
   // The sentence above the bar already says what holds for the current step.
   const notes = course.steps.filter((step) => step.note && step.state === 'done');
   return (

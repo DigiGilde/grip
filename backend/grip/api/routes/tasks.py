@@ -261,6 +261,7 @@ def _course_out(view: course.CourseView) -> CourseOut:
         position=view.position,
         next=CourseNextOut(
             mine=told.mine,
+            part=told.part,
             headline=told.headline,
             sentence=told.sentence,
             who=told.who,
@@ -317,11 +318,11 @@ async def read_case_course(
         )
     today = date.today()
     if case_kind == "assignment":
-        await engine.evaluate_assignments(
+        outcome = await engine.evaluate_assignments(
             db, {case_id}, today=today, instance_base_uri=settings.INSTANCE_BASE_URI
         )
     else:
-        await engine.evaluate_vacancies(db, {case_id})
+        outcome = await engine.evaluate_vacancies(db, {case_id})
     views = await course.of_case(
         db,
         access,
@@ -329,6 +330,7 @@ async def read_case_course(
         case_id,
         today=today,
         instance_base_uri=settings.INSTANCE_BASE_URI,
+        snapshots=outcome.snapshots,
     )
     return build_response(_case_course_out(case_kind, case_id, views), _CLASSES)
 
@@ -362,11 +364,11 @@ async def list_courses(
             readable.add(case_id)
     today = date.today()
     if case_kind == "assignment":
-        await engine.evaluate_assignments(
+        outcome = await engine.evaluate_assignments(
             db, readable, today=today, instance_base_uri=settings.INSTANCE_BASE_URI
         )
     else:
-        await engine.evaluate_vacancies(db, readable)
+        outcome = await engine.evaluate_vacancies(db, readable)
     found = await course.of_cases(
         db,
         access,
@@ -374,6 +376,7 @@ async def list_courses(
         readable,
         today=today,
         instance_base_uri=settings.INSTANCE_BASE_URI,
+        snapshots=outcome.snapshots,
     )
     return build_response(
         CaseCoursesOut(

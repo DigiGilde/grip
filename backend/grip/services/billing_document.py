@@ -33,6 +33,8 @@ from grip.services.quote_document import (
 RHYTHM_WORDS = {"month": "per maand", "quarter": "per kwartaal"}
 
 _EXTRA_STYLE = """
+  .replaces { margin: 0 0 6mm; }
+  .replaces p { margin: 0 0 1mm; }
   .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12mm;
     margin: 0 0 6mm; }
   .columns h2 { margin-top: 5mm; }
@@ -219,6 +221,15 @@ def render_html(content: dict[str, Any], letterhead: Letterhead | None = None) -
             " Een regel met Naverrekening is het verschil dat na een eerdere "
             "aanlevering is ontstaan."
         )
+    replaced = "".join(
+        f"<p>Dit verzoek vervangt {escape(str(item['month_label']))} uit "
+        f'factuurverzoek <span class="reference">'
+        f"{escape(str(item['reference']))}</span> "
+        f"({format_euro(item['amount_cents'])}). Het verschil is "
+        f"{format_euro(item['difference_cents'])}.</p>"
+        for item in content.get("replaces") or []
+    )
+    replaces_block = f'<div class="replaces">{replaced}</div>' if replaced else ""
     style = (
         (_STYLE + _EXTRA_STYLE)
         .replace("__FIRST_TOP__", "40mm" if ribbon else "24mm")
@@ -254,6 +265,7 @@ def render_html(content: dict[str, Any], letterhead: Letterhead | None = None) -
 <div>{amount_label} {escape(str(content["period_label"]))}</div>
 <div class="figure">{format_euro(content["total_cents"])}</div>
 </div>
+{replaces_block}
 
 <div class="columns">
 <div>

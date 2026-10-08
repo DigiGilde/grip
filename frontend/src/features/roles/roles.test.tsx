@@ -5,7 +5,14 @@ import { AUTHENTICATED, renderApp } from '@/test/utils';
 import type { CatalogueRole } from './api';
 import { RolePicker } from './RolePicker';
 import { RolesAdminPage } from './RolesAdminPage';
-import { foldName, hasExactRole, matchRoles, roleSyncSummary, usageText } from './text';
+import {
+  foldName,
+  hasExactRole,
+  matchedOtherName,
+  matchRoles,
+  roleSyncSummary,
+  usageText,
+} from './text';
 
 function role(name: string, extra: Partial<CatalogueRole> = {}): CatalogueRole {
   return {
@@ -70,6 +77,25 @@ describe('text helpers', () => {
     expect(roleSyncSummary({ created: 4, adopted: 2, unchanged: 0 })).toBe(
       '4 toegevoegd, 2 gekoppeld aan een bestaande rol',
     );
+  });
+});
+
+describe('other names of a role', () => {
+  const developer = role('Developer', { also_known_as: ['Software engineer', 'Ontwikkelaar'] });
+  const all = [role('Software architect'), developer];
+
+  it('finds a role by a name the standard texts know it by, after roles named so', () => {
+    expect(matchRoles(all, 'software').map((r) => r.name)).toEqual([
+      'Software architect',
+      'Developer',
+    ]);
+    expect(matchedOtherName(developer, 'software eng')).toBe('Software engineer');
+    expect(matchedOtherName(developer, 'dev')).toBeNull();
+  });
+
+  it('does not offer to add a name a role already goes by', () => {
+    expect(hasExactRole(all, 'software  Engineer')).toBe(true);
+    expect(hasExactRole(all, 'Software')).toBe(false);
   });
 });
 

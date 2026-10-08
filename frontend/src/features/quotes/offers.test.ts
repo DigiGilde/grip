@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import type { QuoteOffer, QuoteSummary } from './api';
-import { standing } from '@/features/assignments/standing';
 import {
   invitationMessage,
   linkWorks,
@@ -8,7 +7,6 @@ import {
   offerState,
   offerTitle,
   primaryAction,
-  quoteSteps,
 } from './offers';
 
 const QUOTE: QuoteSummary = {
@@ -45,27 +43,6 @@ const DOCUMENT: QuoteOffer = {
   channel: 'document',
   offered_at: '2026-02-03T10:00:00Z',
 };
-
-describe('quoteSteps', () => {
-  it('puts a fresh quote at offering', () => {
-    expect(quoteSteps(QUOTE, []).map((step) => step.status)).toEqual(['past', 'current', 'future']);
-  });
-
-  it('waits for the decision once offered', () => {
-    expect(quoteSteps(QUOTE, [DOCUMENT]).map((step) => step.status)).toEqual([
-      'past',
-      'past',
-      'current',
-    ]);
-  });
-
-  it('names the decision once there is one', () => {
-    const accepted = quoteSteps({ ...QUOTE, status: 'accepted' }, [DOCUMENT]);
-    expect(accepted.map((step) => step.text)).toEqual(['Gemaakt', 'Aangeboden', 'Getekend']);
-    expect(accepted.every((step) => step.status === 'past')).toBe(true);
-    expect(quoteSteps({ ...QUOTE, status: 'rejected' }, [])[2]?.text).toBe('Afgewezen');
-  });
-});
 
 describe('primaryAction', () => {
   it('is offering right after issuing', () => {
@@ -166,74 +143,5 @@ describe('invitationMessage', () => {
     expect(text).toContain('https://grip.example/tekenen/q-1');
     expect(text).toContain('tekenaar@opdrachtgever.example');
     expect(text).toContain('tot en met 4 mrt 2026');
-  });
-});
-
-describe('the card and the assignment read one position', () => {
-  const FACTS = {
-    phase: 'potential',
-    status: 'quoted',
-    mayAct: true,
-    owners: 'Eigenaar Voorbeeld',
-    budgetLines: 1,
-    today: '2026-02-10',
-  };
-  const approvalState = (status: string, mayOffer = false) => ({
-    quote_id: 'q-1',
-    approval_required: true,
-    status,
-    may_offer: mayOffer,
-    approver_available: true,
-  });
-  // Step of the assignment -> the step of the card that says the same.
-  const SAME: Record<string, string> = {
-    approval: 'Interne goedkeuring',
-    offer: 'Aangeboden',
-    agreement: 'Getekend of afgewezen',
-  };
-  const cases: [string, QuoteOffer[], ReturnType<typeof approvalState> | null][] = [
-    ['made, not offered', [], null],
-    ['offered by link', [link('invited')], null],
-    ['offered as a document', [DOCUMENT], null],
-    ['needs approval, not asked', [], approvalState('none')],
-    ['approval asked', [], approvalState('requested')],
-    ['approved, not offered', [], approvalState('approved', true)],
-    ['approved and offered', [link('opened')], approvalState('approved', true)],
-  ];
-
-  it.each(cases)('%s', (_name, offers, approval) => {
-    const assignment = standing({
-      ...FACTS,
-      quotes: [
-        {
-          status: QUOTE.status,
-          issued_at: QUOTE.issued_at,
-          ...(approval ? { approval: approval.status } : {}),
-        },
-      ],
-      offers: offers.map((offer) => ({
-        channel: offer.channel,
-        offered_at: offer.offered_at,
-        invitationState: offer.invitation?.state ?? null,
-      })),
-    });
-    const card = quoteSteps(QUOTE, offers, approval);
-    const currentOnCard = card.find((step) => step.status === 'current')?.text;
-    expect(currentOnCard).toBe(SAME[assignment?.current ?? '']);
-    // The approval step is on both bars or on neither.
-    expect(card.some((step) => step.text === 'Interne goedkeuring')).toBe(
-      assignment?.steps.some((step) => step.key === 'approval'),
-    );
-  });
-
-  it('agrees on a quote that was sent back: a new quote is the step', () => {
-    const approval = approvalState('sent_back');
-    const assignment = standing({
-      ...FACTS,
-      quotes: [{ status: 'issued', issued_at: QUOTE.issued_at, approval: 'sent_back' }],
-      offers: [],
-    });
-    expect(assignment?.current).toBe('quote');
-    expect(primaryAction(QUOTE, [], approval)).toBe('new-quote');
   });
 });

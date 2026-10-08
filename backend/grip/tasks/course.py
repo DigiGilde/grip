@@ -32,6 +32,10 @@ DONE = "done"
 CURRENT = "current"
 FUTURE = "future"
 
+ACTS = "acts"
+WAITS = "waits"
+WATCHES = "watches"
+
 _NOTHING_TO_DO = "Er is nu niets te doen."
 
 
@@ -71,6 +75,10 @@ class NextView:
     # Which kind of work this is (the key of its template in the plan), for
     # a screen that can do the step in place.
     task_key: str | None = None
+    # How the reader stands to this step: "acts" (their move), "waits"
+    # (someone else's move on a case the reader runs or works on) or
+    # "watches" (no part in it: told where it stands, never "je wacht").
+    part: str = "watches"
 
 
 @dataclass(frozen=True)
@@ -199,6 +207,7 @@ def _next(
         return (
             NextView(
                 mine=first.is_mine,
+                part=ACTS if first.is_mine else WAITS if first.can_change else WATCHES,
                 headline=task.title,
                 sentence=task.title,
                 who=None if first.is_mine else first.assignee_label,
@@ -213,19 +222,35 @@ def _next(
             more_waiting,
         )
     mine = told.needs_me
+    # Whoever may change the task runs the case or is the one it is for:
+    # that reader waits for the step. Anyone else only looks on.
+    part = ACTS if mine else WAITS if first.can_change or first.is_mine else WATCHES
+    who = None if mine else (told.waits_on or first.assignee_label)
+    sentence = told.instruction
+    if part == WATCHES:
+        # No "je wacht" and no deadline for someone who has no part in it.
+        awaited = told.headline[:1].lower() + told.headline[1:]
+        sentence = (
+            f"{who[:1].upper()}{who[1:]} is aan zet: {awaited}."
+            if who
+            else told.headline
+        )
     return (
         NextView(
             mine=mine,
+            part=part,
             headline=told.headline,
-            sentence=told.instruction,
-            who=None if mine else (told.waits_on or first.assignee_label),
+            sentence=sentence,
+            who=who,
             since=task.created_at.date() if task.created_at else None,
-            due_on=task.due_on,
-            overdue=first.overdue,
+            due_on=task.due_on if part != WATCHES else None,
+            overdue=first.overdue and part != WATCHES,
             action_text=told.action_text if mine else None,
             action_href=told.work_href if mine else None,
-            missing=tuple(item.text for item in told.checklist if not item.done),
-            blocked=told.blocked,
+            missing=tuple(item.text for item in told.checklist if not item.done)
+            if part != WATCHES
+            else (),
+            blocked=told.blocked if part != WATCHES else None,
             task_id=task.id,
             task_key=task.template_key,
         ),
@@ -342,14 +367,17 @@ async def of_cases(
     *,
     today: date,
     instance_base_uri: str,
+    snapshots: list[CaseSnapshot] | None = None,
 ) -> dict[UUID, list[CourseView]]:
     """The courses of several cases, for a list. The caller checked that the
-    reader may read each case and brought the tasks up to date."""
+    reader may read each case and brought the tasks up to date; it hands
+    over the facts that run read, when it has them."""
     if not case_ids:
         return {}
-    snapshots = await _snapshots(
-        db, case_kind, case_ids, today=today, instance_base_uri=instance_base_uri
-    )
+    if snapshots is None:
+        snapshots = await _snapshots(
+            db, case_kind, case_ids, today=today, instance_base_uri=instance_base_uri
+        )
     versions = dict(
         (
             await db.execute(
@@ -401,6 +429,7 @@ async def of_case(
     *,
     today: date,
     instance_base_uri: str,
+    snapshots: list[CaseSnapshot] | None = None,
 ) -> list[CourseView]:
     found = await of_cases(
         db,
@@ -409,5 +438,6 @@ async def of_case(
         {case_id},
         today=today,
         instance_base_uri=instance_base_uri,
+        snapshots=snapshots,
     )
     return found.get(case_id, [])

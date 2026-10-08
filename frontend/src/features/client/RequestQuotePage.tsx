@@ -126,7 +126,7 @@ export function RequestQuotePage() {
       {options.data?.may_request ? (
         <>
           <nldd-simple-section>
-            <SectionHeading text="Context" />
+            <SectionHeading text="Context (optioneel)" />
             <NodePicker value={context} onChange={setContext} />
           </nldd-simple-section>
           <nldd-simple-section>

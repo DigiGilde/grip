@@ -6,7 +6,6 @@ import { errorMessage } from '@/api/client';
 import { formatDate } from '@/lib/format';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { useInstance } from '@/layout/useInstance';
-import { PATHS } from '@/paths';
 import { ActionBar } from '@/ui/ActionBar';
 import { OpenCell, OpenRow, ROW_ACTIONS_COLUMN, RowActions, type RowAction } from '@/ui/RowActions';
 import {
@@ -38,6 +37,7 @@ import {
   type TextSettings,
 } from './textWorkApi';
 import { Button, TextInput } from './ui';
+import { useAdminBack } from '@/layout/useAdminBack';
 
 function useLibraryChange<Input>(change: (input: Input) => Promise<Library>, onDone?: () => void) {
   const queryClient = useQueryClient();
@@ -297,6 +297,7 @@ type Sheet =
 /** The standard vacancy texts of the organisation, per role. */
 export function StandardTextsPage() {
   const instance = useInstance();
+  const adminBack = useAdminBack();
   const library = useQuery({ queryKey: LIBRARY_KEY, queryFn: fetchLibrary, retry: false });
   const [sheet, setSheet] = useState<Sheet | null>(null);
   const [opened, setOpened] = useState(0);
@@ -322,7 +323,7 @@ export function StandardTextsPage() {
         title="Standaardteksten voor vacatures"
         instanceName={instance?.name}
         spacing="sections"
-        back={{ href: PATHS.admin, text: 'Terug naar Beheer' }}
+        back={adminBack}
       >
         {library.isPending && <Loading />}
         {library.isError && (

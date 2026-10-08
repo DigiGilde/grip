@@ -141,7 +141,7 @@
           "for": "rejected_quote",
           "when": [
             "contractor",
-            "potential"
+            "quoting"
           ],
           "done_when": "quote_superseded",
           "assignee": "owner",
@@ -320,7 +320,7 @@
           "for": "case",
           "when": [
             "contractor",
-            "potential"
+            "quoting"
           ],
           "steps": [
             {
@@ -531,7 +531,7 @@
       ],
       "ends": [
         {
-          "when": "rejected",
+          "when": "declined",
           "label": "Afgewezen"
         },
         {

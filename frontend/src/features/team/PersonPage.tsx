@@ -600,6 +600,18 @@ function KpiSection({
   const standing = kpiStanding(kpi);
   const total = kpi.realisation_cents ?? 0;
   const target = kpi.target_cents;
+  // No target, nothing realised and nothing planned: there is no figure to
+  // show. Who sets targets gets the way to set one; anyone else gets nothing.
+  if (target === null && !kpi.realised_cents && !kpi.forecast_cents) {
+    if (!mayManage) return null;
+    return (
+      <Section title={title}>
+        <div>
+          <Button text="Stel target in" onClick={onSet} />
+        </div>
+      </Section>
+    );
+  }
   return (
     <Section title={title}>
       <nldd-title

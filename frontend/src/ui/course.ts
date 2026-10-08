@@ -13,6 +13,11 @@ export interface CourseStep {
 export interface CourseNext {
   /** The reader must act; false when the reader waits or only looks on. */
   mine: boolean;
+  /**
+   * How the reader stands to the step: their move, waiting for it on a case
+   * they run or work on, or only looking on.
+   */
+  part?: 'acts' | 'waits' | 'watches';
   headline: string;
   sentence: string;
   who?: string | null;
@@ -73,7 +78,22 @@ export function courseLine(course: Course | null | undefined): {
   const who = next.mine
     ? `Jij: ${lowerFirst(next.headline)}`
     : next.who
-      ? `Wacht op ${next.who}`
+      ? // Who has no part in the step is not waiting for anyone.
+        next.part === 'watches'
+        ? `${next.who} is aan zet`
+        : `Wacht op ${next.who}`
       : '';
   return { step, who, mine: next.mine, overdue: Boolean(next.overdue) };
+}
+
+/**
+ * The course in a few words, for a screen too narrow for the bar: the step
+ * it is at and the one after. Null once every step is done.
+ */
+export function courseBrief(course: Course): { now: string; then: string } | null {
+  const at = course.steps.findIndex((step) => step.state === 'current');
+  if (at < 0) return null;
+  const now = course.steps[at]?.label ?? '';
+  const after = course.steps.slice(at + 1).find((step) => step.state !== 'done');
+  return { now, then: after ? `daarna ${lowerFirst(after.label)}` : 'de laatste stap' };
 }

@@ -48,7 +48,9 @@ const BANDS = {
 const CARDS = {
   may_manage: false,
   default_increase_pct: '0',
-  items: [{ status: 'active', valid_from: '2020-01-01', valid_to: null, name: 'Tarieven 2026', ...BANDS }],
+  items: [
+    { status: 'active', valid_from: '2020-01-01', valid_to: null, name: 'Tarieven 2026', ...BANDS },
+  ],
 };
 const VALID = {
   start_date: '2026-01-01',
@@ -71,7 +73,10 @@ const VALID = {
 
 const DERIVED = {
   intended_person_id: 'p2',
-  summary: ['Rol van Voorbeeld Twee: Productmanager (uit Wies).', 'Heeft 60% vrij in deze periode.'],
+  summary: [
+    'Rol van Voorbeeld Twee: Productmanager (uit Wies).',
+    'Heeft 60% vrij in deze periode.',
+  ],
   notes: [],
   role: 'Productmanager',
   role_source_text: 'uit Wies',
@@ -143,10 +148,9 @@ describe('budget line sheet', () => {
     expect(allText(container)).toContain('0,8 FTE');
     const more = container.querySelector('nldd-icon-button');
     expect(more?.getAttribute('accessible-label')).toBe('Meer acties voor Productmanager');
-    expect([...(more?.querySelectorAll('nldd-menu-item') ?? [])].map((i) => i.getAttribute('text'))).toEqual([
-      'Bekijk inzet',
-      'Verwijder',
-    ]);
+    expect(
+      [...(more?.querySelectorAll('nldd-menu-item') ?? [])].map((i) => i.getAttribute('text')),
+    ).toEqual(['Bekijk inzet', 'Verwijder']);
     expect(more?.querySelector('nldd-menu-item[text="Verwijder"]')).toHaveAttribute('destructive');
     // Removing asks first, and says what goes with it.
     more?.querySelector('nldd-menu-item[text="Verwijder"]')?.dispatchEvent(new Event('select'));
@@ -164,9 +168,9 @@ describe('budget line sheet', () => {
     const sheet = await openNewLine(container);
     sheet.querySelector('nldd-form')?.dispatchEvent(new Event('submit', { cancelable: true }));
     await waitFor(() =>
-      expect(sheet.querySelector('nldd-form-field[label="Rol"]')?.getAttribute('supporting-label')).toBe(
-        'Kies een rol.',
-      ),
+      expect(
+        sheet.querySelector('nldd-form-field[label="Rol"]')?.getAttribute('supporting-label'),
+      ).toBe('Kies een rol.'),
     );
     expect(sheet.querySelector('nldd-banner[variant="critical"]')).toBeNull();
   });
@@ -212,13 +216,13 @@ describe('budget line sheet', () => {
     expect(plain(order[at + 1])).toBe(
       'Schaal 10 valt in categorie B: € 13.125 per maand per FTE in 2026.',
     );
-    expect(sheet.querySelector('nldd-banner[variant="accent"]')?.getAttribute('supporting-text')).toBe(
-      'Heeft 60% vrij in deze periode.',
-    );
+    expect(
+      sheet.querySelector('nldd-banner[variant="accent"]')?.getAttribute('supporting-text'),
+    ).toBe('Heeft 60% vrij in deze periode.');
     // The role was empty, so it is proposed, with its source at the field itself.
-    expect(sheet.querySelector('nldd-form-field[label="Rol"]')?.getAttribute('supporting-label')).toBe(
-      'Voorstel: uit Wies',
-    );
+    expect(
+      sheet.querySelector('nldd-form-field[label="Rol"]')?.getAttribute('supporting-label'),
+    ).toBe('Voorstel: uit Wies');
     // The size is filled in as a proposal, with where it comes from.
     const size = field(sheet, 'Omvang in FTE');
     expect(size.querySelector('nldd-text-field')?.getAttribute('value')).toBe('0,6');
@@ -229,9 +233,13 @@ describe('budget line sheet', () => {
     expect(calls).toContain('/api/assignments/a1/budget-lines/derive');
 
     // Changing away from it says so at the field.
-    moved.querySelector('nldd-dropdown')?.dispatchEvent(new CustomEvent('change', { detail: { value: 'C' } }));
+    moved
+      .querySelector('nldd-dropdown')
+      ?.dispatchEvent(new CustomEvent('change', { detail: { value: 'C' } }));
     await waitFor(() =>
-      expect(sheet.querySelector('nldd-banner[text^="De beoogde persoon declareert in"]')).not.toBeNull(),
+      expect(
+        sheet.querySelector('nldd-banner[text^="De beoogde persoon declareert in"]'),
+      ).not.toBeNull(),
     );
   });
 
@@ -269,7 +277,9 @@ describe('budget line sheet', () => {
     const sheet = await openNewLine(container);
     expect(field(sheet, 'Beoogde persoon').querySelector('select')).toHaveValue('');
     expect(sheet.querySelector('nldd-banner')).toBeNull();
-    expect(field(sheet, 'Schaal en tarief').querySelector('nldd-dropdown')).toHaveAttribute('required');
+    expect(field(sheet, 'Schaal en tarief').querySelector('nldd-dropdown')).toHaveAttribute(
+      'required',
+    );
   });
 
   it('asks no dates: the period follows the assignment until it deviates', async () => {
@@ -281,21 +291,32 @@ describe('budget line sheet', () => {
       ),
     );
     expect(sheet.querySelector('nldd-form-field[label="Begindatum"]')).toBeNull();
-    sheet.querySelector('nldd-button[text="Afwijkende periode"]')?.dispatchEvent(new Event('click'));
+    sheet
+      .querySelector('nldd-button[text="Afwijkende periode"]')
+      ?.dispatchEvent(new Event('click'));
     await waitFor(() => expect(field(sheet, 'Begindatum')).not.toBeNull());
-    sheet.querySelector('nldd-button[text="Laat meelopen met de opdracht"]')?.dispatchEvent(new Event('click'));
+    sheet
+      .querySelector('nldd-button[text="Laat meelopen met de opdracht"]')
+      ?.dispatchEvent(new Event('click'));
     await waitFor(() =>
       expect(sheet.querySelector('nldd-form-field[label="Begindatum"]')).toBeNull(),
     );
   });
 
-  it('offers to set the period of the assignment right there when it has none', async () => {
+  it('asks the period of an assignment without one in the same form, with one button', async () => {
     const { container } = renderEditor(DERIVED, assignment({ start_date: null, end_date: null }));
     const sheet = await openNewLine(container);
-    await waitFor(() =>
-      expect(sheet.querySelector('nldd-button[text="Bewaar de looptijd van de opdracht"]')).not.toBeNull(),
+    await waitFor(() => expect(field(sheet, 'Begin van de opdracht')).not.toBeNull());
+    expect(field(sheet, 'Einde van de opdracht')).not.toBeNull();
+    // No form inside the form: nothing saves the period on its own.
+    expect(
+      sheet.querySelector('nldd-button[text="Bewaar de looptijd van de opdracht"]'),
+    ).toBeNull();
+    expect(allText(sheet)).toContain('vul haar hier in');
+    // No rate card is named while the period is unknown.
+    expect(field(sheet, 'Schaal en tarief').getAttribute('supporting-label')).toBe(
+      'Het tarief volgt zodra de periode bekend is.',
     );
-    expect(allText(sheet)).toContain('die heeft nog geen periode');
   });
 
   it('names the rate card that is valid over the period, and says when the period crosses cards', async () => {
@@ -303,7 +324,8 @@ describe('budget line sheet', () => {
       ...VALID,
       crosses_cards: true,
       rates_differ: true,
-      summary: 'Tot en met 30 juni volgens Tarieven 2026, daarna volgens Tarieven vanaf 1 juli 2026.',
+      summary:
+        'Tot en met 30 juni volgens Tarieven 2026, daarna volgens Tarieven vanaf 1 juli 2026.',
     });
     const sheet = await openNewLine(container);
     await waitFor(() =>
@@ -327,7 +349,9 @@ describe('budget line sheet', () => {
     const sheet = await openNewLine(container);
     await waitFor(() =>
       expect(
-        sheet.querySelector('nldd-banner[text="Voor een deel van deze periode is er geen tarievenkaart"]'),
+        sheet.querySelector(
+          'nldd-banner[text="Voor een deel van deze periode is er geen tarievenkaart"]',
+        ),
       ).not.toBeNull(),
     );
   });

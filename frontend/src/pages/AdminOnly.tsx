@@ -8,8 +8,8 @@
  */
 import type { ReactNode } from 'react';
 import { useAuth } from '@/auth/context';
+import { TO_START } from '@/layout/useAdminBack';
 import { useInstance } from '@/layout/useInstance';
-import { PATHS } from '@/paths';
 import { NoAccess, Page } from '@/ui/layout';
 
 export const FOR_BEHEERDERS = 'Beheer is voor beheerders. Wie dat zijn zie je onder Team.';
@@ -21,11 +21,7 @@ export function AdminOnly({ title, children }: { title: string; children: ReactN
     return <>{children}</>;
   }
   return (
-    <Page
-      title={title}
-      instanceName={instance?.name}
-      back={{ href: PATHS.statusOverview, text: 'Terug naar Start' }}
-    >
+    <Page title={title} instanceName={instance?.name} back={TO_START}>
       <NoAccess who={FOR_BEHEERDERS} />
     </Page>
   );

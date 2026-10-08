@@ -6,7 +6,6 @@ import { errorMessage } from '@/api/client';
 import { Button, TextInput } from '@/features/assignments/ui';
 import { CheckboxInput } from '@/features/quotes/ui';
 import { useInstance } from '@/layout/useInstance';
-import { PATHS } from '@/paths';
 import { OpenCell, OpenRow, ROW_ACTIONS_COLUMN, RowActions, type RowAction } from '@/ui/RowActions';
 import {
   type Fact,
@@ -39,6 +38,7 @@ import {
   signatoryLine,
   toLines,
 } from './text';
+import { useAdminBack } from '@/layout/useAdminBack';
 
 type Open =
   | { kind: 'organisation' }
@@ -75,6 +75,7 @@ function people(sender: Sender): Fact[] {
 
 export function SenderPage() {
   const instance = useInstance();
+  const adminBack = useAdminBack();
   const queryClient = useQueryClient();
   const query = useQuery({ queryKey: senderKeys.all, queryFn: fetchQuoteSender, retry: false });
   const data = query.data;
@@ -160,7 +161,7 @@ export function SenderPage() {
         title="Afzender en teksten van offertes"
         instanceName={instance?.name}
         spacing="sections"
-        back={{ href: PATHS.admin, text: 'Terug naar Beheer' }}
+        back={adminBack}
       >
         {query.isPending ? <Loading /> : null}
         {query.isError ? (

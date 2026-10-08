@@ -9,7 +9,8 @@
  *
  * On a narrow screen the toolbar moves what does not fit into its overflow
  * menu. Every filter and action therefore also exists as menu items, driven
- * by the same state, and the primary action is the last to move.
+ * by the same state. Secondary actions move first, then the filters, and the
+ * primary action last: what the page shows stays choosable beside the menu.
  *
  *     <ActionBar
  *       label="Inzet filteren"
@@ -88,7 +89,7 @@ function FilterItem({ filter }: { filter: ActionBarFilter }) {
   // The dropdown stops the native change event and sends its own.
   useNlddEvent(ref, 'change', (event) => filter.onChange(eventValue(event)));
   return (
-    <nldd-toolbar-item slot="start" priority={1}>
+    <nldd-toolbar-item slot="start" priority={2}>
       <nldd-dropdown
         ref={ref}
         size={SIZE}
@@ -130,7 +131,7 @@ function ActionItem({ action }: { action: ActionBarAction }) {
   const taken = usePrimaryTaken();
   const appearance = action.primary && !taken ? 'primary' : 'secondary';
   return (
-    <nldd-toolbar-item slot="end" priority={action.primary ? 3 : 2}>
+    <nldd-toolbar-item slot="end" priority={action.primary ? 3 : 1}>
       <nldd-button
         ref={buttonRef}
         size={SIZE}

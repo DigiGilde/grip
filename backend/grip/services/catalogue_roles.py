@@ -14,7 +14,7 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import and_, delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip.core.audit import CREATE, DELETE, UPDATE, record_audit
@@ -34,6 +34,7 @@ from grip.models.catalogue_role import (
     PersonCatalogueRole,
 )
 from grip.models.person import Person
+from grip.models.vacancy_text_flow import VacancyTextTemplate
 from grip.services.errors import DomainValidationError, NotFoundError
 
 _ACCENTED = "áàâäãåéèêëíìîïóòôöõúùûüçñ"
@@ -53,6 +54,8 @@ class RoleRow:
     role: CatalogueRole
     # Budget lines that refer to the role.
     usage_count: int
+    # Other names the standard texts know the role by: found when searched.
+    also_known_as: tuple[str, ...] = ()
 
 
 # --- reading ------------------------------------------------------------------
@@ -77,6 +80,38 @@ async def find_by_name(db: AsyncSession, name: str) -> CatalogueRole | None:
     ).scalar_one_or_none()
 
 
+async def other_names(db: AsyncSession) -> dict[uuid.UUID, tuple[str, ...]]:
+    """Per role the other names it goes by: the name and the aliases of the
+    standard vacancy text that belongs to it. One catalogue, several words."""
+    rows = await db.execute(
+        select(
+            VacancyTextTemplate.catalogue_role_id,
+            VacancyTextTemplate.role_name,
+            VacancyTextTemplate.aliases,
+            CatalogueRole.name,
+        ).join(CatalogueRole, CatalogueRole.id == VacancyTextTemplate.catalogue_role_id)
+    )
+    found: dict[uuid.UUID, dict[str, str]] = {}
+    for role_id, role_name, aliases, own in rows:
+        names = found.setdefault(role_id, {})
+        for name in (role_name, *(aliases or [])):
+            clean = canonical_role_name(name or "")
+            if clean and _fold(clean) != _fold(own):
+                names.setdefault(_fold(clean), clean)
+    return {role_id: tuple(names.values()) for role_id, names in found.items()}
+
+
+async def find_by_other_name(db: AsyncSession, name: str) -> CatalogueRole | None:
+    """The role a standard text knows by this name, when no role is called so."""
+    folded = _fold(canonical_role_name(name) or "")
+    if not folded:
+        return None
+    for role_id, names in (await other_names(db)).items():
+        if any(_fold(other) == folded for other in names):
+            return await db.get(CatalogueRole, role_id)
+    return None
+
+
 async def _usage(
     db: AsyncSession, role_ids: Iterable[uuid.UUID]
 ) -> dict[uuid.UUID, int]:
@@ -98,14 +133,23 @@ async def list_roles(
     include_inactive: bool = False,
     limit: int = 200,
 ) -> list[RoleRow]:
-    """Roles matching the query: a name that starts with it first, then the rest."""
+    """Roles matching the query: a name that starts with it first, then the
+    rest. A role is also found by the other names it goes by."""
     folded = _fold(" ".join(query.split()))
     name = func.translate(func.lower(CatalogueRole.name), _ACCENTED, _PLAIN)
+    others = await other_names(db)
     stmt = select(CatalogueRole)
     if not include_inactive:
         stmt = stmt.where(CatalogueRole.is_active.is_(True))
-    for word in folded.split():
-        stmt = stmt.where(name.like(f"%{_like(word)}%", escape="\\"))
+    words = folded.split()
+    by_other_name = [
+        role_id
+        for role_id, names in others.items()
+        if words and any(all(word in _fold(other) for word in words) for other in names)
+    ]
+    if words:
+        on_name = and_(*(name.like(f"%{_like(word)}%", escape="\\") for word in words))
+        stmt = stmt.where(or_(on_name, CatalogueRole.id.in_(by_other_name)))
     if folded:
         starts = name.like(f"{_like(folded)}%", escape="\\")
         stmt = stmt.order_by((name == folded).desc(), starts.desc(), name)
@@ -115,11 +159,22 @@ async def list_roles(
         (await db.execute(stmt.limit(max(1, min(500, limit))))).scalars().all()
     )
     usage = await _usage(db, [r.id for r in roles])
-    return [RoleRow(role=r, usage_count=usage.get(r.id, 0)) for r in roles]
+    return [
+        RoleRow(
+            role=r,
+            usage_count=usage.get(r.id, 0),
+            also_known_as=others.get(r.id, ()),
+        )
+        for r in roles
+    ]
 
 
 async def with_usage(db: AsyncSession, role: CatalogueRole) -> RoleRow:
-    return RoleRow(role=role, usage_count=(await _usage(db, [role.id])).get(role.id, 0))
+    return RoleRow(
+        role=role,
+        usage_count=(await _usage(db, [role.id])).get(role.id, 0),
+        also_known_as=(await other_names(db)).get(role.id, ()),
+    )
 
 
 # --- changing -----------------------------------------------------------------
@@ -142,7 +197,8 @@ async def create_role(
     clean = canonical_role_name(name)
     if not clean:
         raise DomainValidationError("Geef de rol een naam.")
-    existing = await find_by_name(db, clean)
+    # A name a standard text already uses for a role is that role.
+    existing = await find_by_name(db, clean) or await find_by_other_name(db, clean)
     if existing is not None:
         if not existing.is_active:
             raise DomainValidationError(
@@ -350,6 +406,16 @@ async def apply_wies_skills(
     roles = list((await db.execute(select(CatalogueRole))).scalars().all())
     by_wies = {r.wies_public_id: r for r in roles if r.wies_public_id}
     by_name = {r.name.lower(): r for r in roles}
+    # A role that is not tied to Wies yet and that a standard text knows by
+    # the name of a skill is that skill: adopted, not added beside it.
+    by_id = {r.id: r for r in roles}
+    by_other_name: dict[str, CatalogueRole] = {}
+    for role_id, names in (await other_names(db)).items():
+        known = by_id.get(role_id)
+        if known is None or known.wies_public_id:
+            continue
+        for other in names:
+            by_other_name.setdefault(_fold(other), known)
     seen_ids: set[uuid.UUID] = set()
 
     for skill in skills:
@@ -357,6 +423,10 @@ async def apply_wies_skills(
         role = by_wies.get(skill.public_id)
         if role is None:
             twin = by_name.get(name.lower())
+            if twin is None:
+                other = by_other_name.get(_fold(name))
+                if other is not None and not other.wies_public_id:
+                    twin = other
             if twin is not None and not twin.wies_public_id:
                 twin.wies_public_id = skill.public_id
                 twin.source = ROLE_SOURCE_WIES

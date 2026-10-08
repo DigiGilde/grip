@@ -35,11 +35,16 @@ import {
 import { PublishedLinks } from './TextWork';
 import { Button, Paragraphs } from './ui';
 
-function currentTab(id: string, pathname: string, tabs: VacancyTabKey[]): VacancyTabKey {
+/** The tab the address is on; none for an address that is no tab the reader has. */
+function currentTab(
+  id: string,
+  pathname: string,
+  tabs: VacancyTabKey[],
+): VacancyTabKey | undefined {
   const path = pathname.replace(/\/$/, '');
-  return (
-    tabs.find((tab) => tab !== 'request' && path.startsWith(vacancyTabPath(id, tab))) ?? 'request'
-  );
+  const deeper = tabs.find((tab) => tab !== 'request' && path.startsWith(vacancyTabPath(id, tab)));
+  if (deeper) return deeper;
+  return path === vacancyTabPath(id, 'request').replace(/\/$/, '') ? 'request' : undefined;
 }
 
 /** The one thing the request needs that is not a field of its form. */
@@ -136,7 +141,8 @@ const BACK = { href: PATHS.vacancies, text: 'Terug naar Vacatures' };
 
 interface WholeHeadProps {
   vacancy: Vacancy;
-  current: VacancyTabKey;
+  /** None for an address that is no tab the reader has. */
+  current: VacancyTabKey | undefined;
   instanceName?: string;
   course: Course | null | undefined;
   step: ReturnType<typeof nextStep>;
@@ -165,7 +171,7 @@ function WholeHead({ vacancy, current, instanceName, course, step, onSheet }: Wh
         : {})}
       tabs={{
         label: `Onderdelen van de vacature ${vacancy.function_title}`,
-        current,
+        current: current ?? '',
         items: visibleTabs(vacancy).map((tab) => ({
           key: tab,
           text: TAB_LABELS[tab],

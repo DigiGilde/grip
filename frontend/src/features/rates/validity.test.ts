@@ -18,4 +18,13 @@ describe('proposedStart', () => {
     );
     expect(proposedStart('2026-10-08', [])).toBe('2027-01-01');
   });
+
+  it('continues after a draft too, so two drafts never start on the same day', () => {
+    expect(
+      proposedStart('2026-10-08', [
+        { valid_from: '2029-01-01', valid_to: '2029-12-31' },
+        { valid_from: '2030-01-01', valid_to: null },
+      ]),
+    ).toBe('2031-01-01');
+  });
 });

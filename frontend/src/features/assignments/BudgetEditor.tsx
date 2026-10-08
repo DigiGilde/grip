@@ -26,6 +26,7 @@ import {
 import {
   effectivePeriod,
   hasOwnPeriod,
+  yearOutsidePeriod,
   checkLine,
   intendedText,
   lineForm,
@@ -87,10 +88,14 @@ function LineSheet({
   const [applyFor, setApplyFor] = useState('');
   // The scale that stood on the line before the intended person replaced it.
   const [replacedCategory, setReplacedCategory] = useState('');
+  // The period of an assignment that has none yet: asked in this form and
+  // saved with the line, by whoever may change the assignment.
+  const [assignmentPeriod, setAssignmentPeriod] = useState({ start: '', end: '' });
   const [seenSession, setSeenSession] = useState(session);
   if (seenSession !== session) {
     setSeenSession(session);
     setForm(lineForm(line, parent));
+    setAssignmentPeriod({ start: '', end: '' });
     setProblem(null);
     setFieldProblem(null);
     setApplyFor('');
@@ -104,10 +109,28 @@ function LineSheet({
   // this year until a start date is entered.
   // Scales and rates come from the card that is valid over the line's
   // period; over today until a period is known.
-  const period = effectivePeriod(form, parent);
+  const parentKnown = Boolean(parent.start && parent.end);
+  const asksAssignmentPeriod =
+    form.kind === 'personnel' &&
+    !form.ownPeriod &&
+    !parentKnown &&
+    Boolean(assignment?.permissions.edit_basic);
+  const period = effectivePeriod(
+    form,
+    asksAssignmentPeriod && assignmentPeriod.start && assignmentPeriod.end
+      ? assignmentPeriod
+      : parent,
+  );
   const valid = useValidRates(period.start, period.end, open);
-  const card = valid.data?.stretches.find((stretch) => stretch.card_id !== null) ?? null;
-  const cardNote = valid.data?.summary ?? '';
+  // A rate belongs to a period: until one is known no card is named and the
+  // scales are offered without an amount.
+  const periodKnown = form.kind !== 'personnel' || Boolean(period.start && period.end);
+  const card = periodKnown
+    ? (valid.data?.stretches.find((stretch) => stretch.card_id !== null) ?? null)
+    : null;
+  const cardNote = periodKnown
+    ? (valid.data?.summary ?? '')
+    : 'Het tarief volgt zodra de periode bekend is.';
 
   const people = useQuery({
     queryKey: assignmentKeys.personOptions,
@@ -178,8 +201,17 @@ function LineSheet({
   });
 
   const save = useMutation({
-    mutationFn: (input: BudgetLineInput) =>
-      line ? updateBudgetLine(line.id, input) : addBudgetLine(assignmentId, input),
+    mutationFn: async (input: BudgetLineInput) => {
+      // The assignment gets its period first; the line then follows it.
+      if (asksAssignmentPeriod) {
+        const saved = await updateAssignment(assignmentId, {
+          start_date: assignmentPeriod.start,
+          end_date: assignmentPeriod.end,
+        });
+        queryClient.setQueryData(assignmentKeys.detail(assignmentId), saved);
+      }
+      return line ? updateBudgetLine(line.id, input) : addBudgetLine(assignmentId, input);
+    },
     onSuccess: (budget: Budget) => {
       queryClient.setQueryData(assignmentKeys.budget(assignmentId), budget);
       void queryClient.invalidateQueries({ queryKey: ['overview'] });
@@ -194,6 +226,19 @@ function LineSheet({
     setFieldProblem(wrong);
     setProblem(null);
     if (wrong) return;
+    if (asksAssignmentPeriod) {
+      const { start, end } = assignmentPeriod;
+      if (!start || !end) {
+        setProblem(
+          'Vul het begin en het einde van de opdracht in, of kies een afwijkende periode.',
+        );
+        return;
+      }
+      if (end < start) {
+        setProblem('Het einde van de opdracht ligt voor het begin.');
+        return;
+      }
+    }
     const input = lineInput(form, !line, line);
     if (typeof input === 'string') {
       setProblem(input);
@@ -354,8 +399,21 @@ function LineSheet({
             onChange={set}
             {...(at('period') || proposed.period ? { hint: at('period') || proposed.period } : {})}
             whenMissing={
-              assignment?.permissions.edit_basic ? (
-                <AssignmentPeriodStep assignmentId={assignmentId} />
+              asksAssignmentPeriod ? (
+                <nldd-container layout="grid" column-count={2} gap="16">
+                  <DateInput
+                    label="Begin van de opdracht"
+                    value={assignmentPeriod.start}
+                    onChange={(start) => setAssignmentPeriod((current) => ({ ...current, start }))}
+                    required
+                  />
+                  <DateInput
+                    label="Einde van de opdracht"
+                    value={assignmentPeriod.end}
+                    onChange={(end) => setAssignmentPeriod((current) => ({ ...current, end }))}
+                    required
+                  />
+                </nldd-container>
               ) : undefined
             }
           />
@@ -432,41 +490,15 @@ function LineSheet({
 /** A personnel line is named by its role when it has no description of its own. */
 const lineName = (line: BudgetLine) => line.description || line.role || 'Begrotingsregel';
 
-/** Sets the assignment's period from inside the sheet, so the user need not leave it. */
-function AssignmentPeriodStep({ assignmentId }: { assignmentId: string }) {
-  const queryClient = useQueryClient();
-  const [start, setStart] = useState('');
-  const [end, setEnd] = useState('');
-  const save = useMutation({
-    mutationFn: () => updateAssignment(assignmentId, { start_date: start, end_date: end }),
-    onSuccess: (saved) => {
-      queryClient.setQueryData(assignmentKeys.detail(assignmentId), saved);
-      void queryClient.invalidateQueries({ queryKey: assignmentKeys.budget(assignmentId) });
-    },
-  });
-  return (
-    <nldd-container gap="8">
-      <nldd-container layout="grid" column-count={2} gap="16">
-        <DateInput label="Begin van de opdracht" value={start} onChange={setStart} />
-        <DateInput label="Einde van de opdracht" value={end} onChange={setEnd} />
-      </nldd-container>
-      {save.isError && <nldd-banner variant="critical" size="sm" text={errorMessage(save.error)} />}
-      <nldd-container layout="row">
-        <Button
-          text="Bewaar de looptijd van de opdracht"
-          disabled={!start || !end || end < start}
-          loading={save.isPending}
-          onClick={() => save.mutate()}
-        />
-      </nldd-container>
-    </nldd-container>
-  );
-}
-
 const lower = (text: string) => text.charAt(0).toLowerCase() + text.slice(1);
 
 function lineSummary(line: BudgetLine, name: CategoryNamer, parent?: ParentPeriod): string {
-  if (line.kind === 'fixed') return line.year ? `Vast bedrag, ${line.year}` : 'Vast bedrag';
+  if (line.kind === 'fixed') {
+    if (!line.year) return 'Vast bedrag';
+    return yearOutsidePeriod(line, parent)
+      ? `Vast bedrag, ${line.year}: buiten de looptijd`
+      : `Vast bedrag, ${line.year}`;
+  }
   const parts = [
     line.fte ? `${formatFte(line.fte)} FTE` : '',
     line.rate_category ? name(line.rate_category, line.start_date) : '',
@@ -523,6 +555,8 @@ export function BudgetEditor({ assignmentId, actions = [] }: BudgetEditorProps) 
   const showMoney = budget !== undefined && 'total_budgeted_cents' in budget;
   const canEdit = budget?.can_edit ?? false;
   const subtotals = Object.entries(budget?.subtotals_by_year ?? {});
+  // Fixed amounts from before a year had to lie within the assignment's period.
+  const outside = lines.filter((line) => yearOutsidePeriod(line, parent));
   const openSheet = (line?: BudgetLine) =>
     setSheet((current) => ({ open: true, line, key: current.key + 1 }));
 
@@ -533,6 +567,23 @@ export function BudgetEditor({ assignmentId, actions = [] }: BudgetEditorProps) 
       {problem && <ErrorNotice message={problem} />}
       {budget?.period_missing && budget.period_message && (
         <nldd-banner variant="neutral" size="sm" text={budget.period_message} />
+      )}
+      {outside.length > 0 && parent && (
+        <nldd-banner
+          variant="warning"
+          size="sm"
+          text={
+            outside.length === 1
+              ? `${lineName(outside[0]!)} staat op ${outside[0]!.year}, buiten de looptijd van de opdracht`
+              : `${outside.length} vaste bedragen staan op een jaar buiten de looptijd van de opdracht`
+          }
+          supporting-text={
+            `De opdracht loopt ${formatPeriod(parent.start, parent.end)}.` +
+            (canEdit
+              ? ' Open de regel en kies een jaar binnen de looptijd, of wijzig de looptijd op Overzicht.'
+              : '')
+          }
+        />
       )}
       {budget?.pricing_error && (
         <nldd-banner

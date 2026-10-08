@@ -34,12 +34,18 @@ import { ErrorNotice, Loading } from './ui';
 /** The whole period: the header never follows a year filter on a tab. */
 const WHOLE_PERIOD = 'all';
 
-function currentTab(id: string, pathname: string, tabs: AssignmentTabKey[]): AssignmentTabKey {
+/** The tab the address is on; none for an address that is no tab the reader has. */
+function currentTab(
+  id: string,
+  pathname: string,
+  tabs: AssignmentTabKey[],
+): AssignmentTabKey | undefined {
   const path = pathname.replace(/\/$/, '');
-  return (
-    tabs.find((tab) => tab !== 'overview' && path.startsWith(assignmentTabPath(id, tab))) ??
-    'overview'
+  const deeper = tabs.find(
+    (tab) => tab !== 'overview' && path.startsWith(assignmentTabPath(id, tab)),
   );
+  if (deeper) return deeper;
+  return path === assignmentTabPath(id, 'overview').replace(/\/$/, '') ? 'overview' : undefined;
 }
 
 /** Begroot, gerealiseerd, verwacht totaal and the variance, for who may see money. */
@@ -96,6 +102,8 @@ export function AssignmentLayout() {
   // One quiet line: for whom, when, and as who the reader looks.
   const facts = assignment
     ? [
+        // Said in words: a tag would pull the eye from the sentence and the one action.
+        assignment.phase === 'potential' ? 'Potentiële opdracht' : '',
         assignment.client_name,
         formatPeriod(assignment.start_date, assignment.end_date),
         // The page is the assignment; the line need not name it again.
@@ -154,7 +162,7 @@ export function AssignmentLayout() {
           ? {
               tabs: {
                 label: `Onderdelen van ${assignment.name}`,
-                current: currentTab(assignment.id, pathname, tabs),
+                current: currentTab(assignment.id, pathname, tabs) ?? '',
                 items: tabs.map((tab) => ({
                   key: tab,
                   text: TAB_LABELS[tab],
@@ -178,10 +186,6 @@ export function AssignmentLayout() {
               <CourseBar course={course} accessibleLabel={`Verloop van ${assignment.name}`} />
             )}
             <nldd-container layout="wrap" gap="8" vertical-alignment="center">
-              {/* Quiet: the sentence and the one action lead, not a coloured tag. */}
-              {assignment.phase === 'potential' && (
-                <nldd-badge color="neutral" text="Potentiële opdracht" />
-              )}
               {/* The course says where it stands; the status only once it has ended. */}
               {(!course || course.ended) && (
                 <nldd-badge

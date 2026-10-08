@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
 import { orUndef, useNlddEvent } from '@/components/nldd/events';
 import { createRole, fetchRoles, roleKeys, type CatalogueRole } from './api';
-import { hasExactRole, matchRoles } from './text';
+import { hasExactRole, matchedOtherName, matchRoles } from './text';
 import './nldd';
 
 /** The menu value of the one action that is not a role. */
@@ -156,14 +156,18 @@ export function RolePicker({
               query.isError ? 'De rollen konden niet worden geladen' : 'Geen rol met deze naam'
             }
           >
-            {matches.map((role) => (
-              <nldd-menu-item
-                key={role.id}
-                value={role.name}
-                text={role.name}
-                {...(role.description ? { details: role.description } : {})}
-              />
-            ))}
+            {matches.map((role) => {
+              const other = matchedOtherName(role, typed);
+              const details = other ? `Ook: ${other}` : role.description;
+              return (
+                <nldd-menu-item
+                  key={role.id}
+                  value={role.name}
+                  text={role.name}
+                  {...(details ? { details } : {})}
+                />
+              );
+            })}
             {offerAdd ? (
               <>
                 {matches.length > 0 ? <nldd-menu-divider /> : null}

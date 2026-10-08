@@ -197,6 +197,24 @@ describe('what each reader sees of a person', () => {
     expect(calls.filter((call) => call.url.endsWith('/login'))).toEqual([]);
   });
 
+  it('shows no declarability block of zeros for a person without target or inzet', async () => {
+    const empty = {
+      ...KPI,
+      target_pct: null,
+      target_cents: null,
+      realised_cents: 0,
+      forecast_cents: 0,
+      realisation_cents: 0,
+    };
+    const { container } = await renderPerson({
+      person: { ...ROSTER, ...STAFFING, ...RATE },
+      kpi: empty,
+    });
+    await waitFor(() => expect(sections(container)).toContain('Inzetschaal'));
+    expect(sections(container)).not.toContain('Declarabiliteit 2026');
+    expect(container.querySelector('nldd-progress-bar')).toBeNull();
+  });
+
   it('gives a line manager, and the person themselves, scale and KPI but no cost', async () => {
     const { container } = await renderPerson({
       person: { ...ROSTER, ...STAFFING, ...RATE },
