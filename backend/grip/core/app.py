@@ -22,10 +22,13 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    from grip.core.auth import close_http_client
+    from grip.core.auth import check_oidc_transport, close_http_client
     from grip.core.bootstrap import bootstrap_beheerders
 
     settings = get_settings()
+    # A provider whose endpoints are plain http would let people log in and
+    # then refuse every session; say so now instead.
+    await check_oidc_transport(settings)
     async with async_session() as db:
         await bootstrap_beheerders(db, settings)
         await db.commit()

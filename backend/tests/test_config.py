@@ -23,6 +23,8 @@ def _clean_env(monkeypatch):
         "FRONTEND_URL",
         "BACKEND_URL",
         "DATABASE_URL",
+        "OIDC_DISCOVERY_URL",
+        "OIDC_ALLOW_INSECURE_HTTP",
     ):
         monkeypatch.delenv(key, raising=False)
 
@@ -89,3 +91,49 @@ def test_bootstrap_emails_are_normalised():
         DEV_NO_AUTH=True, BOOTSTRAP_BEHEERDER_EMAILS=" A@Example.org, ,b@x.nl"
     )
     assert s.bootstrap_beheerder_emails == ["a@example.org", "b@x.nl"]
+
+
+# --- the identity provider must be reached over https -------------------------
+
+_SECRET = "s" * 40
+
+
+@pytest.mark.parametrize("name", ["OIDC_ISSUER", "OIDC_DISCOVERY_URL"])
+def test_http_identity_provider_is_refused_at_startup(name):
+    values = {
+        "OIDC_ISSUER": "https://idp.example/realms/x",
+        "SESSION_SECRET_KEY": _SECRET,
+        name: "http://idp.example/realms/x",
+    }
+    with pytest.raises(ValidationError) as excinfo:
+        _settings(**values)
+    message = str(excinfo.value)
+    assert name in message and "https" in message
+    assert "OIDC_ALLOW_INSECURE_HTTP" in message
+
+
+def test_http_identity_provider_is_allowed_with_the_local_opt_out():
+    settings = _settings(
+        OIDC_ISSUER="http://localhost:9080/realms/grip",
+        SESSION_SECRET_KEY=_SECRET,
+        OIDC_ALLOW_INSECURE_HTTP=True,
+    )
+    assert settings.OIDC_ISSUER.startswith("http://")
+
+
+def test_the_opt_out_is_refused_when_deployed():
+    with pytest.raises(ValidationError) as excinfo:
+        _settings(
+            OIDC_ISSUER="https://idp.example/realms/x",
+            SESSION_SECRET_KEY=_SECRET,
+            OIDC_ALLOW_INSECURE_HTTP=True,
+            PUBLIC_HOST="https://component-2.grip.example",
+        )
+    assert "OIDC_ALLOW_INSECURE_HTTP" in str(excinfo.value)
+
+
+def test_https_identity_provider_needs_no_opt_out():
+    settings = _settings(
+        OIDC_ISSUER="https://idp.example/realms/x", SESSION_SECRET_KEY=_SECRET
+    )
+    assert settings.OIDC_ALLOW_INSECURE_HTTP is False

@@ -19,51 +19,51 @@ from grip.federation.registry import (
     register_provider,
 )
 
-from .conftest import CONTRACTOR_PEER_ID, as_peer, example
+from .conftest import CONTRACTOR_PEER_ID, as_peer, code_example, example
 
 ASSIGNMENT_ID = "3f2a8c54-6d1b-4f0e-9a77-1c2b3d4e5f60"
 
 # Every pull operation with a path to call it and the example it returns.
-_A = f"/v1/assignments/{ASSIGNMENT_ID}"
-_MONTH = "month=2026-05"
+_A = f"/v1/opdrachten/{ASSIGNMENT_ID}"
+_MONTH = "maand=2026-05"
 PULLS = [
     (
         "listAssignmentsByNode",
-        "/v1/assignments?nodeUri=https://c.example/id/node/1",
+        "/v1/opdrachten?nodeUri=https://c.example/id/node/1",
         "assignment-page",
         PEER_ROLE_CORPUS,
     ),
     ("getAssignment", _A, "assignment", "counterpart"),
-    ("getProgress", f"{_A}/progress", "progress", "counterpart"),
-    ("getBudgetUsage", f"{_A}/budget-usage?year=2026", "budget-usage", "counterpart"),
-    ("getBillingData", f"{_A}/billing-data?{_MONTH}", "billing-data", "counterpart"),
+    ("getProgress", f"{_A}/voortgang", "progress", "counterpart"),
+    ("getBudgetUsage", f"{_A}/uitputting?jaar=2026", "budget-usage", "counterpart"),
+    ("getBillingData", f"{_A}/factuurgegevens?{_MONTH}", "billing-data", "counterpart"),
     (
         "getHandoverAssignments",
-        "/v1/handover/assignments",
+        "/v1/doorgifte/opdrachten",
         "handover-assignments",
         PEER_ROLE_PARENT,
     ),
     (
         "getHandoverBillingData",
-        f"/v1/handover/billing-data?{_MONTH}",
+        f"/v1/doorgifte/factuurgegevens?{_MONTH}",
         "handover-billing-data",
         PEER_ROLE_PARENT,
     ),
     (
         "getHandoverStaffing",
-        f"/v1/handover/staffing?{_MONTH}",
+        f"/v1/doorgifte/bemensing?{_MONTH}",
         "handover-staffing",
         PEER_ROLE_PARENT,
     ),
     (
         "getHandoverCapacity",
-        "/v1/handover/capacity",
+        "/v1/doorgifte/capaciteit",
         "handover-capacity",
         PEER_ROLE_PARENT,
     ),
     (
         "getHandoverCosts",
-        "/v1/handover/costs?year=2026",
+        "/v1/doorgifte/kosten?jaar=2026",
         "handover-costs",
         PEER_ROLE_PARENT,
     ),
@@ -74,7 +74,7 @@ def test_every_pull_operation_of_the_contract_is_covered():
     pulls = {
         name
         for name, op in operations().items()
-        if op.request_schema is None and name != "getJwks"
+        if op.request_schema is None and name not in ("getJwks", "getOpenapi")
     }
     assert pulls == {row[0] for row in PULLS}
 
@@ -103,7 +103,7 @@ async def test_provider_answer_is_returned(
 
     async def provider(db, caller, parameters):
         seen.update(peer=caller.id, parameters=parameters)
-        return example(schema)
+        return code_example(schema)
 
     register_provider(operation, provider)
     response = await fed_client.get(path, headers=as_peer(CONTRACTOR_PEER_ID))
@@ -119,11 +119,11 @@ async def test_provider_gets_parameters_by_their_contract_names(fed_client, make
 
     async def provider(db, caller, parameters):
         seen.update(parameters)
-        return example("assignment-page")
+        return code_example("assignment-page")
 
     register_provider("listAssignmentsByNode", provider)
     await fed_client.get(
-        "/v1/assignments",
+        "/v1/opdrachten",
         params={"nodeUri": "https://c.example/id/node/1", "pageSize": 5},
         headers=as_peer(CONTRACTOR_PEER_ID),
     )
@@ -136,11 +136,11 @@ async def test_provider_gets_the_path_parameter_as_uuid(fed_client, make_peer):
 
     async def provider(db, caller, parameters):
         seen.update(parameters)
-        return example("budget-usage")
+        return code_example("budget-usage")
 
     register_provider("getBudgetUsage", provider)
     await fed_client.get(
-        f"/v1/assignments/{ASSIGNMENT_ID}/budget-usage",
+        f"/v1/opdrachten/{ASSIGNMENT_ID}/uitputting",
         headers=as_peer(CONTRACTOR_PEER_ID),
     )
     assert seen == {"assignmentId": uuid.UUID(ASSIGNMENT_ID), "year": None}
@@ -154,7 +154,7 @@ async def test_none_from_the_provider_is_404(fed_client, make_peer):
 
     register_provider("getProgress", provider)
     response = await fed_client.get(
-        f"/v1/assignments/{ASSIGNMENT_ID}/progress", headers=as_peer(CONTRACTOR_PEER_ID)
+        f"/v1/opdrachten/{ASSIGNMENT_ID}/voortgang", headers=as_peer(CONTRACTOR_PEER_ID)
     )
     _problem(response, 404)
 
@@ -167,7 +167,7 @@ async def test_provider_can_refuse_inspection_on_request(fed_client, make_peer):
 
     register_provider("getBudgetUsage", provider)
     response = await fed_client.get(
-        f"/v1/assignments/{ASSIGNMENT_ID}/budget-usage",
+        f"/v1/opdrachten/{ASSIGNMENT_ID}/uitputting",
         headers=as_peer(CONTRACTOR_PEER_ID),
     )
     assert _problem(response, 403)["detail"] == "Inzage is niet toegestaan."
@@ -177,14 +177,14 @@ async def test_answer_that_breaks_the_contract_never_leaves(fed_client, make_pee
     await make_peer()
 
     async def provider(db, caller, parameters):
-        body = example("progress")
+        body = code_example("progress")
         body.pop("status", None)
         body["updated_at"] = "gisteren"
         return body
 
     register_provider("getProgress", provider)
     response = await fed_client.get(
-        f"/v1/assignments/{ASSIGNMENT_ID}/progress", headers=as_peer(CONTRACTOR_PEER_ID)
+        f"/v1/opdrachten/{ASSIGNMENT_ID}/voortgang", headers=as_peer(CONTRACTOR_PEER_ID)
     )
     _problem(response, 500)
     assert "gisteren" not in response.text
@@ -193,12 +193,12 @@ async def test_answer_that_breaks_the_contract_never_leaves(fed_client, make_pee
 @pytest.mark.parametrize(
     "path",
     [
-        "/v1/handover/billing-data",
-        "/v1/handover/billing-data?month=2026-13",
-        "/v1/handover/costs?year=1999",
-        "/v1/assignments",
-        "/v1/assignments?nodeUri=x&pageSize=101",
-        "/v1/assignments/geen-uuid/progress",
+        "/v1/doorgifte/factuurgegevens",
+        "/v1/doorgifte/factuurgegevens?maand=2026-13",
+        "/v1/doorgifte/kosten?jaar=1999",
+        "/v1/opdrachten",
+        "/v1/opdrachten?nodeUri=x&pageSize=101",
+        "/v1/opdrachten/geen-uuid/voortgang",
     ],
 )
 async def test_invalid_or_missing_parameter_is_a_400_problem(
@@ -227,7 +227,7 @@ async def test_peer_without_the_relation_gets_403_and_no_data(
 
     async def provider(db, caller, parameters):
         called.append(1)
-        return example(schema)
+        return code_example(schema)
 
     register_provider(operation, provider)
     response = await fed_client.get(path, headers=as_peer(CONTRACTOR_PEER_ID))
@@ -238,7 +238,7 @@ async def test_peer_without_the_relation_gets_403_and_no_data(
 async def test_counterpart_is_not_a_parent(fed_client, make_peer):
     await make_peer()
     response = await fed_client.get(
-        "/v1/handover/staffing?month=2026-05", headers=as_peer(CONTRACTOR_PEER_ID)
+        "/v1/doorgifte/bemensing?maand=2026-05", headers=as_peer(CONTRACTOR_PEER_ID)
     )
     _problem(response, 403)
 

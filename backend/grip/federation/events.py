@@ -178,11 +178,15 @@ async def _on_domain_event(
 def register_event_handlers() -> list[str]:
     """Subscribe to the domain events this module has a message for.
 
-    Returns the event types that were subscribed. An event type the domain
-    does not announce yet is skipped.
+    Also registers the bridge to the domain, which holds the message
+    builders. Returns the event types that were subscribed. An event type
+    the domain does not announce yet is skipped.
     """
+    from grip.federation.bridge import register_bridge
     from grip.services import events as domain_events
 
+    # Without builders an event leads to no message.
+    register_bridge()
     subscribed = []
     for event_type in EVENT_HANDLERS:
         if event_type not in domain_events.EVENT_TYPES:

@@ -1,0 +1,102 @@
+import { waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { renderApp } from '@/test/utils';
+import { VacancySetupPage } from './VacancySetupPage';
+
+function stubApi(routes: Record<string, { status?: number; body: unknown }>) {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input).split('?')[0] ?? '';
+      const route = routes[path] ?? { status: 404, body: { title: 'Niet gevonden', status: 404 } };
+      const status = route.status ?? 200;
+      return new Response(JSON.stringify(route.body), {
+        status,
+        headers: {
+          'Content-Type': status < 400 ? 'application/json' : 'application/problem+json',
+        },
+      });
+    }),
+  );
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+describe('VacancySetupPage', () => {
+  it('tells a viewer who is not the beheerder that this is not theirs', async () => {
+    stubApi({
+      '/api/form-templates': {
+        status: 403,
+        body: { title: 'Geen toegang', status: 403, detail: 'Je hebt hier geen toegang toe' },
+      },
+    });
+    const { container } = renderApp(<VacancySetupPage />);
+    await waitFor(() =>
+      expect(
+        container.querySelector('nldd-inline-dialog[text="Dit is voor de beheerder"]'),
+      ).not.toBeNull(),
+    );
+    expect(container.querySelector('nldd-button')).toBeNull();
+    expect(container.querySelector('nldd-title[text="Taalmodel"]')).toBeNull();
+  });
+
+  it('shows the templates, which one is in use, and the model status', async () => {
+    stubApi({
+      '/api/form-templates': {
+        body: [
+          {
+            id: 'f-1',
+            name: 'Aanvraagformulier vacature',
+            file_name: 'formulier.pdf',
+            is_active: true,
+            created_at: '2026-10-01T09:00:00Z',
+            uploaded_by_name: 'Fictieve Beheerder',
+            mapped_fields: 27,
+            unverified_fields: 0,
+          },
+          {
+            id: 'f-0',
+            name: 'Oud formulier',
+            file_name: 'oud.pdf',
+            is_active: false,
+            created_at: '2026-09-01T09:00:00Z',
+            mapped_fields: 20,
+            unverified_fields: 2,
+          },
+        ],
+      },
+      '/api/form-templates/bundled-mappings': { body: [] },
+      '/api/vacancies/language-model': {
+        body: {
+          configured: false,
+          missing_settings: ['VLAM_API_KEY', 'VLAM_MODEL_ID'],
+          organisation_description_set: false,
+        },
+      },
+    });
+    const { container } = renderApp(<VacancySetupPage />);
+    await waitFor(() =>
+      expect(container.querySelector('nldd-tag[text="In gebruik"]')).not.toBeNull(),
+    );
+    expect(
+      container.querySelector('nldd-button[accessible-label="Gebruik het formulier Oud formulier"]'),
+    ).not.toBeNull();
+    expect(
+      container
+        .querySelector('nldd-text-cell[text="Oud formulier"]')
+        ?.getAttribute('supporting-text'),
+    ).toContain('2 koppelingen niet gecontroleerd');
+    await waitFor(() =>
+      expect(container.querySelector('nldd-text-cell[text="Niet ingesteld"]')).not.toBeNull(),
+    );
+    expect(
+      container
+        .querySelector('nldd-text-cell[overline="Status"]')
+        ?.getAttribute('supporting-text'),
+    ).toBe('Ontbreekt: VLAM_API_KEY, VLAM_MODEL_ID');
+    // The upload sheet stays in the document while closed.
+    expect(document.body.querySelector('nldd-sheet')).not.toBeNull();
+  });
+});

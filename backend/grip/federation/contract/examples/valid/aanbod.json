@@ -1,0 +1,16 @@
+{
+  "id": "8c9d0e1f-0000-4000-8000-000000000007",
+  "vacature_id": "7b8c9d0e-0000-4000-8000-000000000006",
+  "organisatie": {
+    "tooi_uri": "https://identifier.overheid.nl/tooi/id/ministerie/mnre0000",
+    "naam": "Voorbeeldministerie",
+    "eenheid_kenmerk": "directie-voorbeeld",
+    "instantie_uri": "https://grip.opdrachtgever.example"
+  },
+  "kandidaat_referentie": "K-0042",
+  "profiel": "Vijf jaar ervaring als developer bij de overheid.",
+  "beschikbaar_vanaf": "2026-07-01",
+  "fte": "0.8",
+  "contact_email": "detachering@opdrachtgever.example",
+  "aangeboden_op": "2026-06-02T13:00:00+02:00"
+}

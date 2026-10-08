@@ -9,12 +9,12 @@
       "format": "uri",
       "description": "URI van de edge, indien het corpus die uitgeeft."
     },
-    "from": {
+    "van": {
       "type": "string",
       "format": "uri",
       "description": "URI van de node waar de relatie vertrekt."
     },
-    "to": {
+    "naar": {
       "type": "string",
       "format": "uri",
       "description": "URI van de node waar de relatie aankomt."
@@ -46,7 +46,7 @@
         }
       ]
     },
-    "description": {
+    "omschrijving": {
       "anyOf": [
         {
           "type": "string",
@@ -59,8 +59,8 @@
     }
   },
   "required": [
-    "from",
-    "to",
+    "van",
+    "naar",
     "type"
   ]
 }

@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Voortgang",
+  "description": "Status en voortgang van een opdracht. Geen bedragen en geen namen (gegevensklasse A).",
+  "type": "object",
+  "properties": {
+    "opdracht_uri": {
+      "type": "string",
+      "format": "uri",
+      "description": "URI van de opdracht."
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "concept",
+        "aangevraagd",
+        "offerte_uitgegeven",
+        "akkoord",
+        "in_uitvoering",
+        "afgerond",
+        "verantwoord",
+        "afgewezen",
+        "geannuleerd"
+      ],
+      "description": "Status van de opdracht."
+    },
+    "peilmoment": {
+      "type": "string",
+      "format": "date",
+      "description": "Datum waarop deze stand geldt."
+    },
+    "samenvatting": {
+      "type": "string",
+      "description": "Korte stand van zaken."
+    },
+    "mijlpalen": {
+      "type": "array",
+      "description": "Mijlpalen.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "omschrijving": {
+            "type": "string",
+            "description": "Omschrijving van de mijlpaal."
+          },
+          "streefdatum": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date",
+            "description": "Geplande datum."
+          },
+          "stand": {
+            "type": "string",
+            "enum": [
+              "gepland",
+              "gereed",
+              "vervallen"
+            ],
+            "description": "Stand van de mijlpaal."
+          }
+        },
+        "required": [
+          "omschrijving",
+          "stand"
+        ]
+      }
+    },
+    "geleverd": {
+      "type": "array",
+      "description": "Wat is geleverd.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "niet_geleverd": {
+      "type": "array",
+      "description": "Wat niet is geleverd.",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "opdracht_uri",
+    "status",
+    "peilmoment"
+  ]
+}

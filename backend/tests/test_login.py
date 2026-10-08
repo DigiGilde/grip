@@ -98,3 +98,78 @@ async def test_missing_subject_is_refused(db_session, create_person):
         )
         is None
     )
+
+
+async def test_another_subject_for_a_bound_person_is_refused_and_logged(
+    db_session, create_person, caplog
+):
+    """The provider was recreated, or the person got a new account there."""
+    import logging
+
+    person = await create_person("gebonden@example.org", name="Gebonden Persoon")
+    person.oidc_subject = "sub-oud"
+    await db_session.flush()
+
+    with caplog.at_level(logging.INFO, logger="grip.core.auth"):
+        result = await resolve_person_for_login(
+            db_session,
+            sub="sub-nieuw",
+            email="gebonden@example.org",
+            email_verified=True,
+        )
+
+    assert result is None
+    assert person.oidc_subject == "sub-oud"
+    records = [r for r in caplog.records if "bound to another subject" in r.message]
+    assert len(records) == 1
+    assert records[0].levelno == logging.WARNING
+    assert str(person.id) in records[0].getMessage()
+    # Who it is follows from the id; the address and the subjects stay out.
+    logged = " ".join(r.getMessage() for r in caplog.records)
+    assert "gebonden@example.org" not in logged
+    assert "sub-oud" not in logged and "sub-nieuw" not in logged
+
+
+async def test_unbinding_lets_the_next_login_bind_again(db_session, create_person):
+    from grip.services import team
+
+    beheerder = await create_person("beheer@example.org", functions=["beheerder"])
+    person = await create_person("gebonden@example.org", name="Gebonden Persoon")
+    person.oidc_subject = "sub-oud"
+    await db_session.flush()
+
+    await team.unbind_login(db_session, person.id, actor=beheerder)
+    assert person.oidc_subject is None
+
+    audit = (
+        (
+            await db_session.execute(
+                select(AuditLog).where(AuditLog.entity_id == str(person.id))
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert [(a.old_value, a.new_value) for a in audit] == [
+        ({"login_bound": True}, {"login_bound": False})
+    ]
+    assert "sub-oud" not in str([(a.old_value, a.new_value) for a in audit])
+
+    again = await resolve_person_for_login(
+        db_session, sub="sub-nieuw", email="gebonden@example.org", email_verified=True
+    )
+    assert again is not None and again.id == person.id
+    assert person.oidc_subject == "sub-nieuw"
+
+
+async def test_unbinding_someone_who_never_logged_in_is_refused(
+    db_session, create_person
+):
+    import pytest
+
+    from grip.services import team
+    from grip.services.errors import DomainValidationError
+
+    person = await create_person("nieuw@example.org")
+    with pytest.raises(DomainValidationError):
+        await team.unbind_login(db_session, person.id, actor=None)

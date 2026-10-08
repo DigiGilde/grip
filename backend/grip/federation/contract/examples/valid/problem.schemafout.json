@@ -1,0 +1,10 @@
+{
+  "type": "https://grip.example/problems/invalid-message",
+  "title": "Ongeldig bericht",
+  "status": 400,
+  "detail": "Het bericht voldoet niet aan het schema van het contract.",
+  "errors": [
+    "opdrachtgever: instantie_uri ontbreekt",
+    "context_uris/0: is geen URI"
+  ]
+}

@@ -71,12 +71,74 @@ async def close_http_client() -> None:
         _http_client = None
 
 
-def require_https(url: str, label: str) -> bool:
-    """Return True if the URL uses HTTPS; log and return False otherwise."""
+def require_https(url: str, label: str, settings: Settings | None = None) -> bool:
+    """Return True if credentials may be sent to this URL.
+
+    That is https, or anything when the instance explicitly accepts a local
+    identity provider over http (``OIDC_ALLOW_INSECURE_HTTP``, refused when
+    deployed). Otherwise logs and returns False.
+    """
     if url.startswith("https://"):
+        return True
+    if (settings or get_settings()).OIDC_ALLOW_INSECURE_HTTP:
         return True
     logger.warning("%s is not HTTPS, refusing to send credentials: %s", label, url)
     return False
+
+
+class InsecureOidcEndpointError(RuntimeError):
+    """The identity provider publishes endpoints over plain http."""
+
+
+# The endpoints of the discovery document the application sends tokens to.
+_OIDC_ENDPOINTS = (
+    "jwks_uri",
+    "userinfo_endpoint",
+    "token_endpoint",
+    "revocation_endpoint",
+    "end_session_endpoint",
+    "authorization_endpoint",
+)
+
+
+def insecure_oidc_endpoints(metadata: dict[str, Any]) -> list[str]:
+    """Names of the endpoints in a discovery document that are not https."""
+    return [
+        name
+        for name in _OIDC_ENDPOINTS
+        if isinstance(metadata.get(name), str)
+        and not metadata[name].lower().startswith("https://")
+    ]
+
+
+async def check_oidc_transport(settings: Settings) -> None:
+    """Refuse to start when the provider's own endpoints are plain http.
+
+    The issuer can be https while the discovery document points at http
+    endpoints (a provider behind a proxy that does not know its public
+    scheme). The login through the library would then work and every
+    session check afterwards would fail, with only a warning in the log.
+
+    A provider that cannot be reached at startup does not stop the
+    application: that is an outage, not a configuration error, and the
+    check runs again with every token validation.
+    """
+    if not settings.OIDC_ISSUER or settings.OIDC_ALLOW_INSECURE_HTTP:
+        return
+    metadata = await get_oidc_metadata(settings)
+    if metadata is None:
+        logger.warning("OIDC discovery document not reachable at startup")
+        return
+    insecure = insecure_oidc_endpoints(metadata)
+    if insecure:
+        raise InsecureOidcEndpointError(
+            "De identiteitsprovider publiceert adressen zonder https ("
+            + ", ".join(insecure)
+            + "). Inloggen lijkt dan te lukken, maar geen enkele sessie is "
+            "daarna geldig. Laat de provider zijn adressen met https "
+            "publiceren, of zet voor lokale ontwikkeling met een eigen "
+            "identiteitsprovider OIDC_ALLOW_INSECURE_HTTP=1."
+        )
 
 
 def _get_discovery_url(settings: Settings) -> str:
@@ -109,7 +171,7 @@ async def get_oidc_metadata(settings: Settings) -> dict[str, Any] | None:
             return cached
 
         url = _get_discovery_url(settings)
-        if not require_https(url, "OIDC discovery URL"):
+        if not require_https(url, "OIDC discovery URL", settings):
             return None
         try:
             resp = await get_http_client().get(url)
@@ -135,7 +197,7 @@ async def get_jwks(settings: Settings) -> Any | None:
 
         metadata = await get_oidc_metadata(settings)
         jwks_uri = (metadata or {}).get("jwks_uri")
-        if not jwks_uri or not require_https(jwks_uri, "JWKS URI"):
+        if not jwks_uri or not require_https(jwks_uri, "JWKS URI", settings):
             return None
 
         try:
@@ -243,7 +305,21 @@ async def resolve_person_for_login(
         return None
 
     person = await repo.get_by_email(email)
-    if person is None or not person.is_active or person.oidc_subject is not None:
+    if person is None or not person.is_active:
+        return None
+    if person.oidc_subject is not None:
+        # The person exists and the provider vouches for the email, but the
+        # login was bound to another subject earlier: the provider was
+        # recreated, or the person got a new account there. Nothing is
+        # rebound by itself (that would let a second account with the same
+        # address take over); the beheerder unbinds the login on the Team
+        # screen, after which the next login binds again. The email stays
+        # out of the log; the person id says who.
+        logger.warning(
+            "OIDC login refused: person %s is bound to another subject; "
+            "unbind the login of this person to let it bind again",
+            person.id,
+        )
         return None
 
     person.oidc_subject = sub
@@ -280,7 +356,7 @@ async def _try_refresh_token(session: dict[str, Any], settings: Settings) -> boo
 
     metadata = await get_oidc_metadata(settings)
     token_url = (metadata or {}).get("token_endpoint")
-    if not token_url or not require_https(token_url, "Token endpoint"):
+    if not token_url or not require_https(token_url, "Token endpoint", settings):
         return False
 
     try:
@@ -334,7 +410,9 @@ async def validate_session_token(session: dict[str, Any], settings: Settings) ->
     # Not valid locally: expired, or keys rotated. Ask the provider.
     metadata = await get_oidc_metadata(settings)
     userinfo_url = (metadata or {}).get("userinfo_endpoint")
-    if not userinfo_url or not require_https(userinfo_url, "Userinfo endpoint"):
+    if not userinfo_url or not require_https(
+        userinfo_url, "Userinfo endpoint", settings
+    ):
         return False
 
     try:
@@ -376,7 +454,7 @@ async def revoke_tokens(
         "revocation_endpoint",
         f"{settings.OIDC_ISSUER.rstrip('/')}/protocol/openid-connect/revoke",
     )
-    if not require_https(revocation_url, "Revocation endpoint"):
+    if not require_https(revocation_url, "Revocation endpoint", settings):
         return
 
     for token_value, token_type in (
@@ -446,6 +524,50 @@ async def resolve_person(
         session.clear()
         return None
     return person
+
+
+# Session key for an invited signer without a person record in this
+# instance: {"email": ..., "name": ..., "email_verified": True}. A session
+# holds either ``person_id`` or this, never both.
+GUEST_SESSION_KEY = "guest"
+
+# The only API prefix a guest session may reach.
+GUEST_API_PREFIX = "/api/signing/"
+
+
+def guest_identity(
+    *, email: str, email_verified: bool, name: str
+) -> dict[str, Any] | None:
+    """The guest identity to store at login, or ``None`` when it does not qualify.
+
+    The invitation is matched on the email address, so only an address the
+    identity provider vouches for counts.
+    """
+    address = email.strip().lower()
+    if not address or not email_verified:
+        return None
+    return {"email": address, "name": name.strip() or address, "email_verified": True}
+
+
+async def resolve_guest(request: Request, settings: Settings) -> dict[str, Any] | None:
+    """The guest identity behind this request, or ``None``.
+
+    Only with an identity provider, a validated token and no person: a guest
+    never exists in development mode, where nobody logs in.
+    """
+    if not settings.OIDC_ISSUER:
+        return None
+    session: dict[str, Any] = request.scope.get("session", {})
+    guest = session.get(GUEST_SESSION_KEY)
+    if not isinstance(guest, dict) or session.get("person_id"):
+        return None
+    if not session.get("access_token"):
+        return None
+    if guest.get("email_verified") is not True or not guest.get("email"):
+        return None
+    if not await validate_session_token(session, settings):
+        return None
+    return guest
 
 
 async def get_current_person(

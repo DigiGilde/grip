@@ -26,11 +26,12 @@ from cryptography.hazmat.primitives.asymmetric.utils import (
 )
 
 from grip.core.config import Settings
+from grip.federation import terms
 
 logger = logging.getLogger(__name__)
 
 # The fields of an acceptance that the JWS covers, as the contract lists them.
-SIGNED_FIELDS = (
+SIGNED_FIELDS_CODE = (
     "id",
     "quote_id",
     "quote_hash",
@@ -39,6 +40,8 @@ SIGNED_FIELDS = (
     "signed_at",
     "form",
 )
+# The JWS covers the message as it crosses the boundary, so in contract terms.
+SIGNED_FIELDS = tuple(terms.term(name) for name in SIGNED_FIELDS_CODE)
 
 _P256_SIZE = 32
 
@@ -79,6 +82,7 @@ def payload_hash(payload: Any) -> str:
 
 
 def signed_fields(acceptance: dict[str, Any]) -> dict[str, Any]:
+    """The signed part of an acceptance. ``acceptance`` is in contract terms."""
     return {field: acceptance[field] for field in SIGNED_FIELDS}
 
 
@@ -182,7 +186,10 @@ def own_jwks(settings: Settings) -> dict[str, Any]:
 
 
 def sign_acceptance(acceptance: dict[str, Any], settings: Settings) -> str:
-    """Compact JWS (ES256) over the signed fields of an acceptance."""
+    """Compact JWS (ES256) over the signed fields of an acceptance.
+
+    ``acceptance`` is the message in contract terms, as it will be sent.
+    """
     key = get_signing_key(settings)
     if key is None:
         raise SigningError(
@@ -257,7 +264,7 @@ def verify_acceptance(acceptance: dict[str, Any], jwks: dict[str, Any]) -> None:
     algorithm than the contract allows, refers to an unknown key, does not
     verify, or covers other content than the fields of the message.
     """
-    jws = acceptance.get("jws")
+    jws = acceptance.get(terms.term("jws"))
     if not isinstance(jws, str) or jws.count(".") != 2:
         raise SignatureInvalidError("The acceptance carries no compact JWS")
     header_part, payload_part, signature_part = jws.split(".")

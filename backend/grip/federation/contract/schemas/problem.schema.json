@@ -27,6 +27,13 @@
       "type": "string",
       "format": "uri-reference",
       "description": "URI van dit voorval."
+    },
+    "errors": {
+      "type": "array",
+      "description": "Bij een bericht dat niet aan het schema voldoet: per afwijking een regel met de plek en de reden. Bevat nooit de ingestuurde waarde.",
+      "items": {
+        "type": "string"
+      }
     }
   },
   "required": [

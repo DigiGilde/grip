@@ -14,6 +14,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Protocol
 
+from grip.access import vacancies
 from grip.access.relations import RelationSource
 from grip.access.types import (
     IMPLIED_BY,
@@ -95,6 +96,10 @@ class LocalDecider:
         self._relations = relations
 
     async def evaluate(self, request: AccessRequest) -> Decision:
+        # Vacancies, form templates and the language model have their own
+        # rules in a separate module.
+        if request.resource.kind in vacancies.KINDS:
+            return await vacancies.evaluate(self._relations, request)
         kind = request.subject.kind
         if kind is SubjectKind.PERSON:
             if request.subject.person_id is None:
@@ -400,6 +405,13 @@ class LocalDecider:
             if res.kind is ResourceKind.COST_ITEM:
                 if data_class is not DataClass.ASSIGNMENT_FINANCIAL:
                     return deny("not_applicable")
+                # Cost items are shared between assignments, so the beheerder
+                # may add and change them. Otherwise: whoever manages an
+                # assignment may add one, and an existing one is changed by
+                # the managers of an assignment whose budget covers it, or by
+                # its creator while nothing covers it yet.
+                if BEHEERDER in functions:
+                    return allow("function:beheerder")
                 if res.id is None:
                     managed = await self._relations.manages_any_assignment(person_id)
                 else:

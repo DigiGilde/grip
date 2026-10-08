@@ -5,7 +5,7 @@ import { PATHS } from '@/paths';
 import { AUTHENTICATED, renderApp } from '@/test/utils';
 import { toAuthState } from './authState';
 import type { AuthState } from './context';
-import { RequireAuth } from './RequireAuth';
+import { RequireAuth, RequireSigner } from './RequireAuth';
 
 function LoginProbe() {
   const location = useLocation();
@@ -86,5 +86,95 @@ describe('toAuthState', () => {
     expect(
       toAuthState({ authenticated: true, oidc_configured: true, person, functions: ['planner'] }),
     ).toEqual({ status: 'authenticated', person, functions: ['planner'] });
+  });
+});
+
+const GUEST: AuthState = {
+  status: 'guest',
+  guest: { name: 'Gast Tekenaar', email: 'gast@opdrachtgever.example' },
+};
+
+function renderWithSigning(auth: AuthState, path: string) {
+  return renderApp(
+    <Routes>
+      <Route path={PATHS.login} element={<LoginProbe />} />
+      <Route path={PATHS.noAccess} element={<p>no access</p>} />
+      <Route
+        path={PATHS.signing}
+        element={
+          <RequireSigner>
+            <p>signing page</p>
+          </RequireSigner>
+        }
+      />
+      <Route
+        path={PATHS.signingQuote}
+        element={
+          <RequireSigner>
+            <p>one quote</p>
+          </RequireSigner>
+        }
+      />
+      <Route
+        path="*"
+        element={
+          <RequireAuth>
+            <p>protected content</p>
+          </RequireAuth>
+        }
+      />
+    </Routes>,
+    { auth, path },
+  );
+}
+
+describe('an invited signer without a person record', () => {
+  it('is a state of its own, apart from logged out and from a person', () => {
+    expect(
+      toAuthState({
+        authenticated: false,
+        oidc_configured: true,
+        person: null,
+        functions: [],
+        guest: { name: 'Gast Tekenaar', email: 'gast@opdrachtgever.example' },
+      }),
+    ).toEqual(GUEST);
+    expect(
+      toAuthState({ authenticated: false, oidc_configured: true, person: null, functions: [], guest: null }),
+    ).toEqual({ status: 'unauthenticated', oidcConfigured: true });
+  });
+
+  it('reaches the signing pages', () => {
+    renderWithSigning(GUEST, '/tekenen');
+    expect(screen.getByText('signing page')).toBeInTheDocument();
+  });
+
+  it('reaches the quote a signing link points at', () => {
+    renderWithSigning(GUEST, '/tekenen/q-1');
+    expect(screen.getByText('one quote')).toBeInTheDocument();
+  });
+
+  it.each(['/', '/opdrachten', '/team', '/vacatures/beheer', '/bestaat-niet'])(
+    'lands on the signing page from %s, never in the application',
+    (path) => {
+      renderWithSigning(GUEST, path);
+      expect(screen.getByText('signing page')).toBeInTheDocument();
+      expect(screen.queryByText('protected content')).not.toBeInTheDocument();
+    },
+  );
+
+  it('lets a person of the instance sign too', () => {
+    renderWithSigning(AUTHENTICATED, '/tekenen');
+    expect(screen.getByText('signing page')).toBeInTheDocument();
+  });
+
+  it('sends a visitor who is not logged in to login, remembering the signing link', () => {
+    renderWithSigning({ status: 'unauthenticated', oidcConfigured: true }, '/tekenen/q-1');
+    expect(screen.getByText('login, from /tekenen/q-1')).toBeInTheDocument();
+  });
+
+  it('keeps someone without an invitation out of the signing pages', () => {
+    renderWithSigning({ status: 'no-access' }, '/tekenen');
+    expect(screen.getByText('no access')).toBeInTheDocument();
   });
 });

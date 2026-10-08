@@ -8,9 +8,9 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 
 from grip.core.config import get_settings
-from grip.federation import signing
+from grip.federation import signing, terms
 
-from .conftest import example
+from .conftest import example, t
 
 
 @pytest.fixture
@@ -25,7 +25,7 @@ def settings():
 
 def _unsigned() -> dict:
     acceptance = example("acceptance")
-    del acceptance["jws"]
+    del acceptance[t("jws")]
     return acceptance
 
 
@@ -35,7 +35,7 @@ def _b64(data: bytes) -> str:
 
 def test_round_trip(settings):
     acceptance = _unsigned()
-    acceptance["jws"] = signing.sign_acceptance(acceptance, settings)
+    acceptance[t("jws")] = signing.sign_acceptance(acceptance, settings)
     signing.verify_acceptance(acceptance, signing.own_jwks(settings))
 
 
@@ -60,8 +60,8 @@ def test_header_names_es256_and_the_published_key(settings):
 )
 def test_changed_field_is_detected(settings, field, value):
     acceptance = _unsigned()
-    acceptance["jws"] = signing.sign_acceptance(acceptance, settings)
-    acceptance[field] = value
+    acceptance[t("jws")] = signing.sign_acceptance(acceptance, settings)
+    acceptance[t(field)] = terms.to_contract({field: value})[t(field)]
     with pytest.raises(signing.SignatureInvalidError, match="other content"):
         signing.verify_acceptance(acceptance, signing.own_jwks(settings))
 
@@ -73,14 +73,14 @@ def test_changed_signature_is_detected(settings):
     )
     raw = bytearray(base64.urlsafe_b64decode(signature + "=="))
     raw[0] ^= 0x01
-    acceptance["jws"] = f"{header}.{payload}.{_b64(bytes(raw))}"
+    acceptance[t("jws")] = f"{header}.{payload}.{_b64(bytes(raw))}"
     with pytest.raises(signing.SignatureInvalidError, match="does not verify"):
         signing.verify_acceptance(acceptance, signing.own_jwks(settings))
 
 
 def test_another_key_does_not_verify(settings):
     acceptance = _unsigned()
-    acceptance["jws"] = signing.sign_acceptance(acceptance, settings)
+    acceptance[t("jws")] = signing.sign_acceptance(acceptance, settings)
     other = settings.model_copy(
         update={"FEDERATION_SIGNING_KEY": signing.generate_private_key_pem()}
     )
@@ -93,7 +93,7 @@ def test_another_key_does_not_verify(settings):
 
 def test_unknown_kid_is_refused(settings):
     acceptance = _unsigned()
-    acceptance["jws"] = signing.sign_acceptance(acceptance, settings)
+    acceptance[t("jws")] = signing.sign_acceptance(acceptance, settings)
     with pytest.raises(signing.SignatureInvalidError, match="does not publish"):
         signing.verify_acceptance(acceptance, example("jwks"))
 
@@ -104,7 +104,7 @@ def test_other_algorithms_are_refused(settings, algorithm):
     _, payload, signature = signing.sign_acceptance(acceptance, settings).split(".")
     kid = signing.own_jwks(settings)["keys"][0]["kid"]
     header = _b64(json.dumps({"alg": algorithm, "kid": kid}).encode())
-    acceptance["jws"] = f"{header}.{payload}.{signature}"
+    acceptance[t("jws")] = f"{header}.{payload}.{signature}"
     with pytest.raises(signing.SignatureInvalidError, match="ES256 or PS256"):
         signing.verify_acceptance(acceptance, signing.own_jwks(settings))
 
@@ -127,17 +127,17 @@ def test_ps256_from_a_peer_verifies():
         padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=32),
         hashes.SHA256(),
     )
-    acceptance["jws"] = f"{header}.{payload}.{_b64(signature)}"
+    acceptance[t("jws")] = f"{header}.{payload}.{_b64(signature)}"
     signing.verify_acceptance(acceptance, {"keys": [jwk]})
 
-    acceptance["quote_hash"] = "1" * 64
+    acceptance[t("quote_hash")] = "1" * 64
     with pytest.raises(signing.SignatureInvalidError):
         signing.verify_acceptance(acceptance, {"keys": [jwk]})
 
 
 def test_key_for_another_algorithm_is_refused(settings):
     acceptance = _unsigned()
-    acceptance["jws"] = signing.sign_acceptance(acceptance, settings)
+    acceptance[t("jws")] = signing.sign_acceptance(acceptance, settings)
     jwks = signing.own_jwks(settings)
     jwks["keys"][0]["alg"] = "PS256"
     with pytest.raises(signing.SignatureInvalidError, match="not meant"):
@@ -158,7 +158,7 @@ def test_local_run_gets_a_throwaway_key():
         update={"FEDERATION_SIGNING_KEY": "", "PUBLIC_HOST": ""}
     )
     acceptance = _unsigned()
-    acceptance["jws"] = signing.sign_acceptance(acceptance, settings)
+    acceptance[t("jws")] = signing.sign_acceptance(acceptance, settings)
     signing.verify_acceptance(acceptance, signing.own_jwks(settings))
 
 

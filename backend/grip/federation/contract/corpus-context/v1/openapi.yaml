@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: corpus-context
-  version: 1.0.0-alpha.1
+  version: 1.0.0
   summary: Wat elk corpus-systeem aanbiedt zodat een opdracht naar zijn context kan verwijzen.
   description: |
     Een corpus beheert nodes (politieke input, doelen, instrumenten en meer) en de edges daartussen.
@@ -14,6 +14,8 @@ info:
 
     **Peildatum.** Titels en statussen veranderen. Met `peildatum` vraagt een afnemer de stand op
     een datum op, voor verantwoording achteraf. Zonder `peildatum` geldt vandaag.
+    Ligt de peildatum voor de eerste vastlegging in de historie van een node, dan gelden de eerst
+    bekende titel en status. De keten is altijd de keten van nu: edges hebben geen historie.
 
     **Andere corpora.** Overal waar een node-URI staat, mag dat een URI uit een ander corpus zijn.
     De dienst levert alleen nodes uit het eigen corpus; URIs uit een ander corpus worden daar opgehaald.
@@ -52,12 +54,12 @@ paths:
             application/json:
               schema: { $ref: "../../schemas/corpus-info.schema.json" }
         "403": { $ref: "#/components/responses/Forbidden" }
-  /vocabulary:
+  /woordenlijst:
     get:
       operationId: getVocabulary
       tags: [Corpus]
       summary: Node-typen en edge-typen van dit corpus
-      description: De kernlijst plus de eigen typen van dit corpus. Eigen typen hebben `custom` op true en een URI in de naamruimte van het corpus.
+      description: De kernlijst plus de eigen typen van dit corpus. Eigen typen hebben `eigen` op true en een URI in de naamruimte van het corpus.
       responses:
         "200":
           description: De woordenlijst.
@@ -65,7 +67,7 @@ paths:
             API-Version: { $ref: "#/components/headers/API-Version" }
           content:
             application/json:
-              schema: { $ref: "../../schemas/vocabulary.schema.json" }
+              schema: { $ref: "../../schemas/woordenlijst.schema.json" }
         "403": { $ref: "#/components/responses/Forbidden" }
   /nodes:
     get:
@@ -100,7 +102,7 @@ paths:
             API-Version: { $ref: "#/components/headers/API-Version" }
           content:
             application/json:
-              schema: { $ref: "../../schemas/node-page.schema.json" }
+              schema: { $ref: "../../schemas/node-pagina.schema.json" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "403": { $ref: "#/components/responses/Forbidden" }
   /nodes/{nodeId}:
@@ -122,7 +124,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
-  /nodes/{nodeId}/chain:
+  /nodes/{nodeId}/keten:
     get:
       operationId: getNodeChain
       tags: [Nodes]
@@ -132,16 +134,18 @@ paths:
         `politieke_input`. Edges worden in beide richtingen gevolgd. Edges van het type
         `verwijst_naar` en `conflicteert_met` tellen niet mee. Is er geen politieke input
         bereikbaar, dan bevat de keten alleen de startnode.
+        De paden zijn kortste paden. Een politieke input is een eindpunt: voorbij die node wordt niet
+        gezocht, en de keten van een politieke input zelf is alleen die node.
 
         Loopt een pad naar een node in een ander corpus, dan staat de edge in `edges` en de URI
-        in `external_node_uris`; de keten gaat daar niet verder. De afnemer vraagt het vervolg op
+        in `externe_node_uris`; de keten gaat daar niet verder. De afnemer vraagt het vervolg op
         bij dat andere corpus.
       parameters:
         - { $ref: "#/components/parameters/nodeId" }
         - { $ref: "#/components/parameters/peildatum" }
-        - name: maxDepth
+        - name: maxDiepte
           in: query
-          description: Maximaal aantal edges vanaf de startnode. Bij afkappen is `complete` false.
+          description: Maximaal aantal edges vanaf de startnode. Bij afkappen is `volledig` false.
           schema: { type: integer, minimum: 1, maximum: 10, default: 6 }
       responses:
         "200":
@@ -150,7 +154,7 @@ paths:
             API-Version: { $ref: "#/components/headers/API-Version" }
           content:
             application/json:
-              schema: { $ref: "../../schemas/chain.schema.json" }
+              schema: { $ref: "../../schemas/keten.schema.json" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -170,7 +174,7 @@ components:
   headers:
     API-Version:
       description: Volledige versie van het contract dat deze implementatie volgt.
-      schema: { type: string, examples: ["1.0.0-alpha.1"] }
+      schema: { type: string, examples: ["1.0.0"] }
   responses:
     BadRequest:
       description: Het verzoek is ongeldig.

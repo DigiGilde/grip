@@ -28,6 +28,9 @@ export function NoAccessPage() {
   if (state.status === 'authenticated') {
     return <Navigate to={PATHS.statusOverview} replace />;
   }
+  if (state.status === 'guest') {
+    return <Navigate to={PATHS.signing} replace />;
+  }
   if (state.status === 'unauthenticated' && !refused) {
     return <Navigate to={PATHS.login} replace />;
   }

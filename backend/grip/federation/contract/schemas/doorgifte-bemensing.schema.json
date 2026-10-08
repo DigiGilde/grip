@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Doorgifte: bezetting",
+  "description": "Bemensing voor de moederinstantie (gegevensklasse C). Standaard aantallen per opdracht en rol; met namen alleen als de dochterinstantie dat heeft aangezet. Gaat nooit naar een opdrachtgever.",
+  "type": "object",
+  "properties": {
+    "periode": {
+      "$ref": "periode.schema.json"
+    },
+    "resultaten": {
+      "type": "array",
+      "description": "Inzet per persoon per opdracht, of per rol per opdracht als namen niet worden gedeeld.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "opdracht_uri": {
+            "type": "string",
+            "format": "uri",
+            "description": "URI van de opdracht."
+          },
+          "persoon": {
+            "type": "object",
+            "properties": {
+              "naam": {
+                "type": "string",
+                "description": "Naam."
+              },
+              "email": {
+                "type": "string",
+                "format": "email",
+                "description": "E-mailadres; sleutel voor koppelen."
+              }
+            },
+            "required": [
+              "naam"
+            ]
+          },
+          "rol": {
+            "type": "string",
+            "description": "Rol op de opdracht."
+          },
+          "fte_pct": {
+            "type": "string",
+            "pattern": "^\\d+(\\.\\d+)?$",
+            "description": "Inzet als percentage van een FTE. Exacte decimaal als tekst, geen floating point."
+          },
+          "periode": {
+            "$ref": "periode.schema.json"
+          },
+          "aantal": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Aantal personen in deze rol op deze opdracht, als de regel geen persoon noemt. `fte_pct` is dan de som van hun inzet."
+          }
+        },
+        "required": [
+          "opdracht_uri",
+          "fte_pct",
+          "periode"
+        ],
+        "description": "Een regel noemt ofwel een `persoon`, ofwel een `aantal`.",
+        "oneOf": [
+          {
+            "required": [
+              "persoon"
+            ]
+          },
+          {
+            "required": [
+              "aantal"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "required": [
+    "periode",
+    "resultaten"
+  ]
+}

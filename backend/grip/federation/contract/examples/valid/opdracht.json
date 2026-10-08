@@ -1,0 +1,28 @@
+{
+  "uri": "https://grip.opdrachtgever.example/id/opdracht/3f2a8c54-6d1b-4f0e-9a77-1c2b3d4e5f60",
+  "naam": "Opdracht Alfa",
+  "omschrijving": "Fictieve opdracht.",
+  "soort": "extern",
+  "opdrachtgever": {
+    "tooi_uri": "https://identifier.overheid.nl/tooi/id/ministerie/mnre0000",
+    "naam": "Voorbeeldministerie",
+    "eenheid_kenmerk": "directie-voorbeeld",
+    "instantie_uri": "https://grip.opdrachtgever.example"
+  },
+  "opdrachtnemer": {
+    "tooi_uri": "https://identifier.overheid.nl/tooi/id/oorg/oorg00000",
+    "naam": "Voorbeelddienst",
+    "eenheid_kenmerk": "voorbeeldgilde",
+    "instantie_uri": "https://grip.opdrachtnemer.example"
+  },
+  "status": "in_uitvoering",
+  "periode": {
+    "begindatum": "2026-07-01",
+    "einddatum": "2027-06-30"
+  },
+  "bovenliggende_opdracht_uri": null,
+  "context_uris": [
+    "https://corpus.voorbeeldministerie.example/id/node/0b6f1c1e-5a0e-4a53-9a43-0d3e1d6b2a03",
+    "https://corpus.anderministerie.example/id/node/7c1d2f3a-1111-4222-8333-444455556666"
+  ]
+}

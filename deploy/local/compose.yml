@@ -1,0 +1,168 @@
+# The local environment of grip: everything as it is deployed (built images
+# behind nginx), not the hot-reload setup of the root docker-compose.yml.
+#
+#   just local-up        one instance, without login
+#   just local-urls      where everything listens
+#   docs/lokaal.md       the whole story, including login and FSC
+#
+# Runs as its own compose project (grip-local) with host ports from 9000
+# upward, so it never touches the development database on 5434.
+
+name: grip-local
+
+# The images are built by ./build.sh (or `just local-build`), not by compose:
+# that script can also build from the last commit when the working tree is
+# halfway through a change.
+
+x-instance-a-env: &instance-a-env
+  DATABASE_URL: postgresql+asyncpg://grip:grip@db-a:5432/grip
+  INSTANCE_NAME: DigiGilde voorbeeld
+  INSTANCE_KEY: digigilde-voorbeeld
+  INSTANCE_BASE_URI: http://localhost:9001
+  FRONTEND_URL: http://localhost:9001
+  BACKEND_URL: http://localhost:9001
+  # nginx (frontend-a) is the only proxy in front of the backend. The compose
+  # network has a fixed range so this can be exact.
+  TRUSTED_PROXIES: 172.31.250.0/24
+  SESSION_SECRET_KEY: ${SESSION_SECRET_KEY:-lokale-omgeving-geen-geheim-9f3b1c}
+  BOOTSTRAP_BEHEERDER_EMAILS: ${BOOTSTRAP_BEHEERDER_EMAILS:-}
+  DEV_NO_AUTH: ${DEV_NO_AUTH:-1}
+  OIDC_ISSUER: ${OIDC_ISSUER:-}
+  OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-grip}
+  OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+  # Where the backend fetches the provider's configuration, when that is
+  # not the address the browser uses (the local Keycloak).
+  OIDC_DISCOVERY_URL: ${OIDC_DISCOVERY_URL:-}
+  # Public CAs plus the private CA of the local Keycloak (setup.sh).
+  SSL_CERT_FILE: /tls/ca-bundle.crt
+
+x-instance-b-env: &instance-b-env
+  DATABASE_URL: postgresql+asyncpg://grip:grip@db-b:5432/grip
+  INSTANCE_NAME: Voorbeeldministerie
+  INSTANCE_KEY: voorbeeldministerie
+  INSTANCE_BASE_URI: http://localhost:9002
+  FRONTEND_URL: http://localhost:9002
+  BACKEND_URL: http://localhost:9002
+  TRUSTED_PROXIES: 172.31.250.0/24
+  SESSION_SECRET_KEY: ${SESSION_SECRET_KEY_B:-lokale-omgeving-geen-geheim-b-41d7}
+  BOOTSTRAP_BEHEERDER_EMAILS: ${BOOTSTRAP_BEHEERDER_EMAILS:-}
+  DEV_NO_AUTH: ${DEV_NO_AUTH:-1}
+  OIDC_ISSUER: ${OIDC_ISSUER:-}
+  OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-grip}
+  OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+  OIDC_DISCOVERY_URL: ${OIDC_DISCOVERY_URL:-}
+  SSL_CERT_FILE: /tls/ca-bundle.crt
+
+services:
+  # --- Instance A: the contractor ------------------------------------------
+  db-a:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: grip
+      POSTGRES_PASSWORD: grip
+      POSTGRES_DB: grip
+    volumes:
+      - db-a:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U grip -d grip"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  backend-a:
+    image: grip-local/backend
+    environment:
+      <<: *instance-a-env
+      GRIP_PROCESS: web
+    volumes:
+      - ./state/tls:/tls:ro
+    depends_on:
+      db-a:
+        condition: service_healthy
+
+  frontend-a:
+    image: grip-local/frontend
+    environment:
+      BACKEND_URL: http://backend-a:8080
+    ports:
+      - "127.0.0.1:9001:8080"
+    # nginx resolves the backend's address once, at start. When the backend
+    # container is recreated it may get another address (and the old one may
+    # go to a different container), so nginx has to restart with it.
+    depends_on:
+      backend-a:
+        condition: service_started
+        restart: true
+
+  # --- Instance B: the client. Only with `--profile two` -------------------
+  db-b:
+    profiles: ["two"]
+    image: postgres:16
+    environment:
+      POSTGRES_USER: grip
+      POSTGRES_PASSWORD: grip
+      POSTGRES_DB: grip
+    volumes:
+      - db-b:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U grip -d grip"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  backend-b:
+    profiles: ["two"]
+    image: grip-local/backend
+    environment:
+      <<: *instance-b-env
+      GRIP_PROCESS: web
+    volumes:
+      - ./state/tls:/tls:ro
+    depends_on:
+      db-b:
+        condition: service_healthy
+
+  frontend-b:
+    profiles: ["two"]
+    image: grip-local/frontend
+    environment:
+      BACKEND_URL: http://backend-b:8080
+    ports:
+      - "127.0.0.1:9002:8080"
+    depends_on:
+      backend-b:
+        condition: service_started
+        restart: true
+
+  # A local identity provider, to run the real login code path without any
+  # outside account. Only with `--profile keycloak` (just local-up keycloak).
+  keycloak:
+    profiles: ["keycloak"]
+    image: keycloak/keycloak:26.0
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      # The address in tokens and redirects is the one the browser uses;
+      # the backend may call the token endpoint on the internal address.
+      KC_HOSTNAME: https://localhost:9443
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      # TLS with the private CA from setup.sh: grip does not send tokens to
+      # a provider over plain http, also not locally.
+      KC_HTTPS_CERTIFICATE_FILE: /tls/keycloak.crt
+      KC_HTTPS_CERTIFICATE_KEY_FILE: /tls/keycloak.key
+    volumes:
+      - ./state/keycloak:/opt/keycloak/data/import:ro
+      - ./state/tls:/tls:ro
+    ports:
+      - "127.0.0.1:9443:8443"
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.31.250.0/24
+
+volumes:
+  db-a:
+  db-b:

@@ -14,7 +14,7 @@ from httpx import ASGITransport, AsyncClient
 
 from grip.core.config import Settings, get_settings
 from grip.core.database import get_db
-from grip.federation import registry
+from grip.federation import registry, terms
 from grip.federation.app import create_federation_app
 from grip.federation.contract_loader import CONTRACT_DIR
 from grip.federation.models import PEER_ROLE_COUNTERPART, Peer
@@ -30,8 +30,28 @@ OUTWAY_URL = "http://outway.test"
 
 
 def example(name: str, kind: str = "valid") -> dict[str, Any]:
-    """A contract example by file name, without the ``.json`` suffix."""
-    return json.loads((CONTRACT_DIR / "examples" / kind / f"{name}.json").read_text())
+    """A contract example, as it crosses the boundary (in contract terms).
+
+    ``name`` is the code name of the schema, optionally with a variant, for
+    example ``quote`` or ``acceptance.pdf``. The file is named after the
+    contract's own schema name.
+    """
+    schema, _, variant = name.partition(".")
+    file_name = terms.schema(schema) + (f".{variant}" if variant else "")
+    return json.loads(
+        (CONTRACT_DIR / "examples" / kind / f"{file_name}.json").read_text()
+    )
+
+
+def code_example(name: str, kind: str = "valid") -> dict[str, Any]:
+    """A contract example translated to code names, as the domain side sees it."""
+    translated: dict[str, Any] = terms.from_contract(example(name, kind))
+    return translated
+
+
+def t(name: str) -> str:
+    """The contract term for a code name; short, because tests use it a lot."""
+    return terms.term(name)
 
 
 @pytest.fixture(autouse=True)

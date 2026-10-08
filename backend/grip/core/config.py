@@ -74,6 +74,9 @@ class Settings(BaseSettings):
     # /api/ route would be open, so the app refuses to start in that state
     # unless this is set. Local development only.
     DEV_NO_AUTH: bool = False
+    # Accept an identity provider over plain http. Local development only (a
+    # Keycloak in a container); refused in a deployed environment.
+    OIDC_ALLOW_INSECURE_HTTP: bool = False
 
     # Comma-separated email addresses that get the beheerder function at
     # startup. This is how the first beheerder of an instance comes to exist.
@@ -100,11 +103,24 @@ class Settings(BaseSettings):
     VLAM_BASE_URL: str = ""
     VLAM_API_KEY: str = ""
     VLAM_MODEL_ID: str = ""
+    # A few sentences about the organisation, given to the model as context
+    # when it drafts a vacancy text. Must not contain names of people.
+    VACANCY_ORGANISATION_DESCRIPTION: str = ""
 
     # Comma-separated IP addresses or CIDR ranges of the proxies in front of
     # the backend. Only from these are X-Forwarded-Proto, -Host and -For
     # believed. Empty: no forwarded header is trusted.
     TRUSTED_PROXIES: str = ""
+
+    # Link with Wies (docs/wies.md). Each direction is off while unset.
+    # WIES_BASE_URL + WIES_API_KEY: grip reads colleagues from Wies.
+    # GRIP_EXPORT_KEY: the key Wies presents to pull the export from grip.
+    # WIES_SUBORGANIZATIONS: comma-separated merken of Wies this instance
+    # takes its people from; empty means all.
+    WIES_BASE_URL: str = ""
+    WIES_API_KEY: str = ""
+    GRIP_EXPORT_KEY: str = ""
+    WIES_SUBORGANIZATIONS: str = ""
 
     CORS_ORIGINS: list[str] = Field(default_factory=list)
 
@@ -184,6 +200,35 @@ class Settings(BaseSettings):
                 "DEV_NO_AUTH=1 om bewust zonder authenticatie te draaien "
                 "(alleen voor lokale ontwikkeling)."
             )
+        return self
+
+    @model_validator(mode="after")
+    def _validate_oidc_transport(self) -> "Settings":
+        """Refuse an identity provider over plain http at startup.
+
+        Tokens and the session checks travel to the provider. Over http the
+        login itself would appear to succeed, after which no session is ever
+        valid: the token checks refuse to send credentials over http. Failing
+        here says so at once. The discovery document's own endpoints are
+        checked when the application starts (grip.core.auth.check_oidc_transport).
+        """
+        if self.OIDC_ALLOW_INSECURE_HTTP and self.PUBLIC_HOST:
+            raise ValueError(
+                "OIDC_ALLOW_INSECURE_HTTP mag niet aan staan in een gedeployde "
+                "omgeving (PUBLIC_HOST is gezet). De identiteitsprovider moet "
+                "via https bereikbaar zijn."
+            )
+        if self.OIDC_ALLOW_INSECURE_HTTP:
+            return self
+        for name in ("OIDC_ISSUER", "OIDC_DISCOVERY_URL"):
+            value = getattr(self, name)
+            if value and not value.lower().startswith("https://"):
+                raise ValueError(
+                    f"{name} gebruikt geen https ({value}). Inloggen lijkt dan "
+                    "te lukken, maar geen enkele sessie is daarna geldig. "
+                    "Gebruik een https-adres, of zet voor lokale ontwikkeling "
+                    "met een eigen identiteitsprovider OIDC_ALLOW_INSECURE_HTTP=1."
+                )
         return self
 
     @model_validator(mode="after")

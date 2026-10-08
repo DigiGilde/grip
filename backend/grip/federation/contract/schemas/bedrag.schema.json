@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Bedrag",
+  "description": "Geldbedrag in hele centen. Nooit floating point.",
+  "type": "object",
+  "properties": {
+    "bedrag_centen": {
+      "type": "integer",
+      "description": "Bedrag in hele centen. Mag negatief zijn (overschrijding)."
+    },
+    "valuta": {
+      "type": "string",
+      "enum": [
+        "EUR"
+      ],
+      "description": "Valuta (ISO 4217)."
+    }
+  },
+  "required": [
+    "bedrag_centen",
+    "valuta"
+  ]
+}

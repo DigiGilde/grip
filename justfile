@@ -53,6 +53,25 @@ migrate:
 migration NAME:
     cd backend && uv run alembic revision --autogenerate -m "{{ NAME }}"
 
+# Drop everything in the local database and run the migrations again
+reset-db:
+    docker compose exec -T db psql -U grip -d grip -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+    cd backend && uv run alembic upgrade head
+
+# To act as an example person, set the cookie `grip_dev_person` to an id the
+# seed prints: document.cookie = "grip_dev_person=<id>; path=/" in the browser.
+# Without the cookie you are the first active beheerder.
+# Load fictional example data into an empty local database (`just seed --reset` empties it first)
+seed *ARGS:
+    cd backend && uv run python -m grip.dev.seed {{ ARGS }}
+
+# Subcommands: inspect, check, propose, confirm, load, reconcile. Paths are
+# relative to where you call it, for example
+# `just import-grist inspect ../import/document.grist`.
+# Import from a Grist document download (see docs/import-grist.md)
+import-grist *ARGS:
+    cd "{{ invocation_directory() }}" && uv run --project "{{ justfile_directory() }}/backend" python -m grip.importers.grist {{ ARGS }}
+
 # ---------------------------------------------------------------------------
 # Checks
 # ---------------------------------------------------------------------------
@@ -92,3 +111,31 @@ install-frontend:
 # Refresh the vendored contract from a checkout of the contract repo
 sync-contract CHECKOUT:
     cd backend && uv run python -m grip.federation.sync_contract "{{ absolute_path(CHECKOUT) }}"
+
+# ---------------------------------------------------------------------------
+# Local environment (built images, own compose project; see docs/lokaal.md)
+# ---------------------------------------------------------------------------
+
+# Build the images for the local environment (SOURCE: tree or head)
+local-build SOURCE="tree":
+    deploy/local/local.sh build {{ SOURCE }}
+
+# Start the local environment (MODE: one, keycloak, sso, fsc, fsc-keycloak)
+local-up MODE="one":
+    deploy/local/local.sh up {{ MODE }}
+
+# Publish the services, make the FSC contracts and fill grip's peer registry
+local-fsc-init:
+    deploy/local/local.sh fsc-init
+
+# Show where the local environment listens and what is running
+local-urls:
+    deploy/local/local.sh urls
+
+# Stop the local environment (keeps data)
+local-down:
+    deploy/local/local.sh down
+
+# Stop the local environment and delete its data, certificates and secrets
+local-nuke:
+    deploy/local/local.sh nuke

@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from grip.core.config import Settings
+from grip.federation import terms
 from grip.federation.models import FederationInbox
 from grip.federation.problems import FederationProblem
 from grip.federation.registry import InboundMessage, get_inbound_handler
@@ -46,7 +47,7 @@ async def process_pending(db: AsyncSession, *, limit: int = 50) -> int:
         message = InboundMessage(
             message_id=row.message_id,
             operation=row.operation,
-            payload=row.payload,
+            payload=terms.from_contract(row.payload),
             path_parameters={},
             received_at=row.received_at,
         )

@@ -34,15 +34,15 @@
         }
       ]
     },
-    "title": {
+    "titel": {
       "type": "string",
-      "description": "Titel op de peildatum."
+      "description": "Titel op de peildatum. Ligt de peildatum voor de eerste vastlegging in de historie, dan is dit de eerst bekende titel."
     },
-    "description": {
+    "omschrijving": {
       "anyOf": [
         {
           "type": "string",
-          "description": "Omschrijving."
+          "description": "Omschrijving als platte tekst. Opmaak is verwijderd. Labels van vermeldingen, die namen van personen kunnen zijn, staan er niet in."
         },
         {
           "type": "null"
@@ -51,15 +51,16 @@
     },
     "status": {
       "type": "string",
-      "description": "Status op de peildatum, bijvoorbeeld actief."
+      "description": "Status op de peildatum, bijvoorbeeld actief. Ligt de peildatum voor de eerste vastlegging in de historie, dan is dit de eerst bekende status."
     },
-    "validity": {
-      "$ref": "period.schema.json"
+    "geldigheid": {
+      "$ref": "periode.schema.json"
     },
-    "managing_organisation": {
+    "beherende_organisatie": {
       "anyOf": [
         {
-          "$ref": "organisation-ref.schema.json"
+          "$ref": "organisatie-ref.schema.json",
+          "description": "De beherende organisatie. Heeft de beherende eenheid geen eigen TOOI-URI, dan staat hier de TOOI-URI van de dichtstbijzijnde geregistreerde bovenliggende organisatie met het eigen kenmerk van de eenheid in `eenheid_kenmerk`; is die er niet, dan de organisatie van het corpus."
         },
         {
           "type": "null"
@@ -84,7 +85,7 @@
   "required": [
     "uri",
     "type",
-    "title",
+    "titel",
     "status",
     "corpus",
     "peildatum"

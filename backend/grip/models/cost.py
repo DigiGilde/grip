@@ -37,6 +37,11 @@ class CostItem(Base):
     budgeted_cents: Mapped[int] = mapped_column(
         BigInteger, default=0, server_default="0"
     )
+    # Who added the item. Until a budget line covers it nobody manages it
+    # through an assignment, so the creator does (see grip.access.sql).
+    created_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("person.id", ondelete="SET NULL"), index=True
+    )
     created_at: Mapped[datetime] = created_at()
     updated_at: Mapped[datetime] = updated_at()
 

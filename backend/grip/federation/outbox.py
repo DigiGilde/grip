@@ -19,7 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from grip.core.config import Settings
-from grip.federation import signing
+from grip.federation import signing, terms
 from grip.federation.contract_loader import operation, validation_errors
 from grip.federation.models import (
     OUTBOX_DEAD,
@@ -67,12 +67,17 @@ async def enqueue(
 ) -> FederationOutbox:
     """Queue a contract message for a peer.
 
-    The payload is validated against the contract before it enters the
-    outbox. Queueing the same message twice returns the existing row.
+    ``payload`` and the path parameters are in code names; they are
+    translated to contract terms here. The payload is validated against the
+    contract before it enters the outbox. Queueing the same message twice
+    returns the existing row.
     """
     op = operation(operation_id)
     if op.request_schema is None:
         raise ValueError(f"{operation_id} is not a pushed operation")
+    # The message is built in code names and crosses the boundary in
+    # contract terms; what is stored is exactly what will be sent.
+    payload = terms.to_contract(payload)
     errors = validation_errors(op.request_schema, payload)
     if errors:
         raise OutboundMessageInvalidError(operation_id, errors)
@@ -100,7 +105,12 @@ async def enqueue(
         service=op.service,
         operation=operation_id,
         method=op.method,
-        path=op.url_path(**path_parameters),
+        path=op.url_path(
+            **{
+                terms.contract_parameter(name): value
+                for name, value in path_parameters.items()
+            }
+        ),
         payload=payload,
         status=OUTBOX_PENDING,
         attempts=0,

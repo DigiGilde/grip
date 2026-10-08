@@ -10,8 +10,12 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from grip.access.guest_deps import has_open_invitation
 from grip.core.auth import (
+    GUEST_SESSION_KEY,
     get_oauth,
+    guest_identity,
+    resolve_guest,
     resolve_person,
     resolve_person_for_login,
     revoke_tokens,
@@ -19,7 +23,7 @@ from grip.core.auth import (
 from grip.core.config import Settings, get_settings
 from grip.core.database import get_db
 from grip.repositories.person import PersonRepository
-from grip.schema.auth import AuthStatus, PersonSummary
+from grip.schema.auth import AuthStatus, GuestSummary, PersonSummary
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +32,9 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 # Query parameter the frontend reads to explain a failed login.
 LOGIN_ERROR_PARAM = "login_error"
 LOGIN_ERROR_NO_ACCESS = "geen_toegang"
+# Where an invited signer lands after login: the frontend page with the
+# quotes waiting for them.
+GUEST_LANDING_PATH = "/tekenen"
 LOGIN_ERROR_FAILED = "mislukt"
 
 
@@ -160,6 +167,31 @@ async def callback(
     session.clear()
 
     if person is None:
+        # No person record, but perhaps someone a manager invited to sign a
+        # quote. Only an address the identity provider vouches for, and only
+        # while an invitation that has not expired is waiting for it.
+        guest = guest_identity(
+            email=userinfo.get("email", ""),
+            email_verified=bool(userinfo.get("email_verified")),
+            name=userinfo.get("name") or userinfo.get("preferred_username", ""),
+        )
+        if guest is not None and await has_open_invitation(db, guest["email"]):
+            session["access_token"] = token.get("access_token")
+            session["refresh_token"] = token.get("refresh_token")
+            session["id_token"] = token.get("id_token")
+            session[GUEST_SESSION_KEY] = guest
+            session["_rotate"] = True
+            logger.info("OIDC login as invited signer")
+            # A signing link may point at one quote; anything else in the
+            # application is not for a guest.
+            landing = (
+                next_path
+                if next_path == GUEST_LANDING_PATH
+                or next_path.startswith(f"{GUEST_LANDING_PATH}/")
+                else GUEST_LANDING_PATH
+            )
+            return _frontend_redirect(settings, next_path=landing)
+
         logger.info("OIDC login refused: no active person for this identity")
         await revoke_tokens(
             settings,
@@ -221,7 +253,14 @@ async def auth_status(
     oidc_configured = bool(settings.OIDC_ISSUER)
     person = await resolve_person(request, db, settings)
     if person is None:
-        return AuthStatus(authenticated=False, oidc_configured=oidc_configured)
+        guest = await resolve_guest(request, settings)
+        return AuthStatus(
+            authenticated=False,
+            oidc_configured=oidc_configured,
+            guest=GuestSummary(name=guest["name"], email=guest["email"])
+            if guest
+            else None,
+        )
 
     functions = await PersonRepository(db).active_function_ids(person.id)
     return AuthStatus(

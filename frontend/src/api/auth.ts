@@ -14,6 +14,17 @@ export interface AuthStatus {
   person: AuthPerson | null;
   /** Functions held in this instance, such as beheerder or planner. */
   functions: string[];
+  /**
+   * Someone invited to sign a quote who has no person record here. Such a
+   * visitor is not authenticated for the application: only the signing
+   * pages are open to them.
+   */
+  guest?: AuthGuest | null;
+}
+
+export interface AuthGuest {
+  name: string;
+  email: string;
 }
 
 export const LOGIN_URL = '/api/auth/login';

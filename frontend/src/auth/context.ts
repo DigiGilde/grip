@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react';
-import type { AuthPerson } from '@/api/auth';
+import type { AuthGuest, AuthPerson } from '@/api/auth';
 
 export type AuthState =
   | { status: 'loading' }
@@ -7,6 +7,8 @@ export type AuthState =
   | { status: 'unauthenticated'; oidcConfigured: boolean }
   /** Known to the identity provider, but without a person record in this instance. */
   | { status: 'no-access' }
+  /** Invited to sign a quote, without a person record: the signing pages only. */
+  | { status: 'guest'; guest: AuthGuest }
   | { status: 'authenticated'; person: AuthPerson; functions: string[] };
 
 export interface AuthContextValue {

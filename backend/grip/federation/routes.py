@@ -1,5 +1,11 @@
 """The routes of grip-opdrachtverkeer, as other instances call them.
 
+Paths, parameters and message bodies are in the Dutch terms of the contract.
+A received body is validated, hashed and stored as it came in; the checks
+here and the domain handlers work with its translation to code names (see
+:mod:`grip.federation.terms`). An answer is built in code names and
+translated right before it is validated and sent.
+
 Mounted without a prefix here; the federation app serves them under ``/v1``.
 Every route depends on the peer check. Paths, methods and parameters are
 written out by hand and compared with the vendored contract in the tests;
@@ -23,7 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip.core.config import Settings, get_settings
 from grip.core.database import get_db
-from grip.federation import signing
+from grip.federation import signing, terms
 from grip.federation.contract_loader import (
     SERVICE_OPDRACHTVERKEER,
     Operation,
@@ -35,7 +41,6 @@ from grip.federation.contract_loader import (
 from grip.federation.models import FederationInbox, Peer
 from grip.federation.outway import OutwayClient
 from grip.federation.peers import (
-    CurrentPeer,
     PeerKeysUnavailableError,
     get_peer_jwks,
     normalize_uri,
@@ -118,11 +123,12 @@ async def _read_json(request: Request) -> Any:
 
 
 def _require_same(path_value: UUID, body_value: str, field: str) -> None:
+    """``field`` is the code name; the message names the contract term."""
     if str(path_value) != body_value.lower():
         raise FederationProblem(
             400,
             "Ongeldig bericht",
-            f"Het veld {field} in het bericht hoort niet bij het pad.",
+            f"Het veld {terms.term(field)} in het bericht hoort niet bij het pad.",
         )
 
 
@@ -133,16 +139,19 @@ def _require_sender(peer: Peer, organisation: dict[str, Any], field: str) -> Non
         raise FederationProblem(
             403,
             "Geen toegang",
-            f"Het veld {field} noemt een andere instantie dan de afzender.",
+            f"Het veld {terms.term(field)} noemt een andere instantie dan de afzender.",
         )
 
 
 def _receipt(row: FederationInbox, outcome: str) -> dict[str, Any]:
-    return {
-        "message_id": str(row.message_id),
-        "received_at": row.received_at.astimezone(UTC).isoformat(),
-        "outcome": outcome,
-    }
+    receipt: dict[str, Any] = terms.to_contract(
+        {
+            "message_id": str(row.message_id),
+            "received_at": row.received_at.astimezone(UTC).isoformat(),
+            "outcome": outcome,
+        }
+    )
+    return receipt
 
 
 async def _find_inbox(
@@ -178,6 +187,9 @@ async def receive(
 ) -> JSONResponse:
     """Store a validated message and hand it to the domain handler.
 
+    ``payload`` is the message in contract terms, as received. It is stored
+    like that; the handler gets it in code names.
+
     201 on first receipt, 200 with outcome duplicate when the same id with
     the same content was received before, 409 when the content differs.
     """
@@ -210,7 +222,7 @@ async def receive(
                     InboundMessage(
                         message_id=message_id,
                         operation=op.operation_id,
-                        payload=payload,
+                        payload=terms.from_contract(payload),
                         path_parameters=path_parameters or {},
                         received_at=row.received_at,
                     ),
@@ -240,7 +252,7 @@ async def _validated_body(request: Request, op: Operation) -> dict[str, Any]:
     return payload
 
 
-@router.post("/assignment-requests", **_docs("sendAssignmentRequest"))
+@router.post("/opdrachtaanvragen", **_docs("sendAssignmentRequest"))
 async def send_assignment_request(
     request: Request,
     db: AsyncSession = Depends(get_db),
@@ -248,11 +260,12 @@ async def send_assignment_request(
 ) -> JSONResponse:
     op = operation("sendAssignmentRequest")
     payload = await _validated_body(request, op)
-    _require_sender(peer, payload["client"], "client")
+    message = terms.from_contract(payload)
+    _require_sender(peer, message["client"], "client")
     return await receive(db, peer, op, payload)
 
 
-@router.post("/quotes", **_docs("sendQuote"))
+@router.post("/offertes", **_docs("sendQuote"))
 async def send_quote(
     request: Request,
     db: AsyncSession = Depends(get_db),
@@ -260,19 +273,23 @@ async def send_quote(
 ) -> JSONResponse:
     op = operation("sendQuote")
     payload = await _validated_body(request, op)
-    _require_sender(peer, payload["contractor"], "contractor")
-    if signing.snapshot_hash(payload["snapshot"]) != payload["snapshot_hash"]:
+    message = terms.from_contract(payload)
+    _require_sender(peer, message["contractor"], "contractor")
+    # The hash is over the snapshot as it crosses the boundary.
+    snapshot = payload[terms.term("snapshot")]
+    if signing.snapshot_hash(snapshot) != message["snapshot_hash"]:
         raise FederationProblem(
             400,
             "Hash komt niet overeen",
-            "De snapshot_hash is niet de SHA-256 over de canonieke JSON van snapshot.",
+            f"De {terms.term('snapshot_hash')} is niet de SHA-256 over de canonieke "
+            f"JSON van {terms.term('snapshot')}.",
         )
     return await receive(db, peer, op, payload)
 
 
-@router.post("/quotes/{quoteId}/acceptances", **_docs("sendAcceptance"))
+@router.post("/offertes/{offerteId}/akkoorden", **_docs("sendAcceptance"))
 async def send_acceptance(
-    quoteId: UUID,  # noqa: N803 - parameter name as in the contract
+    offerteId: UUID,  # noqa: N803 - parameter name as in the contract
     request: Request,
     db: AsyncSession = Depends(get_db),
     peer: Peer = Depends(require_caller("sendAcceptance")),
@@ -281,11 +298,12 @@ async def send_acceptance(
 ) -> JSONResponse:
     op = operation("sendAcceptance")
     payload = await _validated_body(request, op)
-    _require_same(quoteId, payload["quote_id"], "quote_id")
-    if payload["form"] == "own_instance":
+    message = terms.from_contract(payload)
+    _require_same(offerteId, message["quote_id"], "quote_id")
+    if message["form"] == "own_instance":
         try:
             jwks = await get_peer_jwks(
-                db, peer, outway, settings, kid=signing.jws_kid(payload["jws"])
+                db, peer, outway, settings, kid=signing.jws_kid(message["jws"])
             )
         except PeerKeysUnavailableError as exc:
             raise FederationProblem(
@@ -299,45 +317,44 @@ async def send_acceptance(
             raise FederationProblem(
                 400, "Handtekening ongeldig", "De JWS van het akkoord klopt niet."
             ) from exc
-    return await receive(db, peer, op, payload, {"quoteId": str(quoteId)})
+    return await receive(db, peer, op, payload, {"quoteId": str(offerteId)})
 
 
-@router.post("/quotes/{quoteId}/rejections", **_docs("sendRejection"))
+@router.post("/offertes/{offerteId}/afwijzingen", **_docs("sendRejection"))
 async def send_rejection(
-    quoteId: UUID,  # noqa: N803
+    offerteId: UUID,  # noqa: N803
     request: Request,
     db: AsyncSession = Depends(get_db),
     peer: Peer = Depends(require_caller("sendRejection")),
 ) -> JSONResponse:
     op = operation("sendRejection")
     payload = await _validated_body(request, op)
-    _require_same(quoteId, payload["quote_id"], "quote_id")
-    return await receive(db, peer, op, payload, {"quoteId": str(quoteId)})
+    message = terms.from_contract(payload)
+    _require_same(offerteId, message["quote_id"], "quote_id")
+    return await receive(db, peer, op, payload, {"quoteId": str(offerteId)})
 
 
-@router.put("/assignments/{assignmentId}/final-report", **_docs("sendFinalReport"))
+@router.put("/opdrachten/{opdrachtId}/eindrapport", **_docs("sendFinalReport"))
 async def send_final_report(
-    assignmentId: UUID,  # noqa: N803
+    opdrachtId: UUID,  # noqa: N803
     request: Request,
     db: AsyncSession = Depends(get_db),
     peer: Peer = Depends(require_caller("sendFinalReport")),
 ) -> JSONResponse:
     op = operation("sendFinalReport")
     payload = await _validated_body(request, op)
-    if (
-        not normalize_uri(payload["assignment_uri"])
-        .lower()
-        .endswith(f"/{assignmentId}")
-    ):
+    message = terms.from_contract(payload)
+    if not normalize_uri(message["assignment_uri"]).lower().endswith(f"/{opdrachtId}"):
         raise FederationProblem(
             400,
             "Ongeldig bericht",
-            "Het veld assignment_uri in het bericht hoort niet bij het pad.",
+            f"Het veld {terms.term('assignment_uri')} in het bericht hoort niet "
+            "bij het pad.",
         )
-    return await receive(db, peer, op, payload, {"assignmentId": str(assignmentId)})
+    return await receive(db, peer, op, payload, {"assignmentId": str(opdrachtId)})
 
 
-@router.post("/vacancies", **_docs("sendVacancy"))
+@router.post("/vacatures", **_docs("sendVacancy"))
 async def send_vacancy(
     request: Request,
     db: AsyncSession = Depends(get_db),
@@ -348,17 +365,18 @@ async def send_vacancy(
     return await receive(db, peer, op, payload)
 
 
-@router.post("/vacancies/{vacancyId}/offers", **_docs("sendVacancyOffer"))
+@router.post("/vacatures/{vacatureId}/aanbiedingen", **_docs("sendVacancyOffer"))
 async def send_vacancy_offer(
-    vacancyId: UUID,  # noqa: N803
+    vacatureId: UUID,  # noqa: N803
     request: Request,
     db: AsyncSession = Depends(get_db),
     peer: Peer = Depends(require_caller("sendVacancyOffer")),
 ) -> JSONResponse:
     op = operation("sendVacancyOffer")
     payload = await _validated_body(request, op)
-    _require_same(vacancyId, payload["vacancy_id"], "vacancy_id")
-    return await receive(db, peer, op, payload, {"vacancyId": str(vacancyId)})
+    message = terms.from_contract(payload)
+    _require_same(vacatureId, message["vacancy_id"], "vacancy_id")
+    return await receive(db, peer, op, payload, {"vacancyId": str(vacatureId)})
 
 
 # --- pull operations -------------------------------------------------------
@@ -381,6 +399,8 @@ async def provide(
         raise FederationProblem(
             404, "Niet gevonden", "Niet gevonden, of er is geen relatie mee."
         )
+    # The provider answers in code names.
+    body = terms.to_contract(body)
     errors = validation_errors(op.success_schema or "", body)
     if errors:
         # Never send something across the boundary that the contract does
@@ -394,7 +414,7 @@ async def provide(
     return _json(body)
 
 
-@router.get("/assignments", **_docs("listAssignmentsByNode"))
+@router.get("/opdrachten", **_docs("listAssignmentsByNode"))
 async def list_assignments_by_node(
     node_uri: Annotated[str, Query(alias="nodeUri", min_length=1)],
     page: Annotated[int, Query(ge=1)] = 1,
@@ -410,49 +430,49 @@ async def list_assignments_by_node(
     )
 
 
-@router.get("/assignments/{assignmentId}", **_docs("getAssignment"))
+@router.get("/opdrachten/{opdrachtId}", **_docs("getAssignment"))
 async def get_assignment(
-    assignmentId: UUID,  # noqa: N803
+    opdrachtId: UUID,  # noqa: N803
     db: AsyncSession = Depends(get_db),
     peer: Peer = Depends(require_caller("getAssignment")),
 ) -> JSONResponse:
-    return await provide(db, peer, "getAssignment", {"assignmentId": assignmentId})
+    return await provide(db, peer, "getAssignment", {"assignmentId": opdrachtId})
 
 
-@router.get("/assignments/{assignmentId}/progress", **_docs("getProgress"))
+@router.get("/opdrachten/{opdrachtId}/voortgang", **_docs("getProgress"))
 async def get_progress(
-    assignmentId: UUID,  # noqa: N803
+    opdrachtId: UUID,  # noqa: N803
     db: AsyncSession = Depends(get_db),
     peer: Peer = Depends(require_caller("getProgress")),
 ) -> JSONResponse:
-    return await provide(db, peer, "getProgress", {"assignmentId": assignmentId})
+    return await provide(db, peer, "getProgress", {"assignmentId": opdrachtId})
 
 
-@router.get("/assignments/{assignmentId}/budget-usage", **_docs("getBudgetUsage"))
+@router.get("/opdrachten/{opdrachtId}/uitputting", **_docs("getBudgetUsage"))
 async def get_budget_usage(
-    assignmentId: UUID,  # noqa: N803
-    year: Annotated[int | None, Query(ge=2000)] = None,
+    opdrachtId: UUID,  # noqa: N803
+    year: Annotated[int | None, Query(alias="jaar", ge=2000)] = None,
     db: AsyncSession = Depends(get_db),
     peer: Peer = Depends(require_caller("getBudgetUsage")),
 ) -> JSONResponse:
     return await provide(
-        db, peer, "getBudgetUsage", {"assignmentId": assignmentId, "year": year}
+        db, peer, "getBudgetUsage", {"assignmentId": opdrachtId, "year": year}
     )
 
 
-@router.get("/assignments/{assignmentId}/billing-data", **_docs("getBillingData"))
+@router.get("/opdrachten/{opdrachtId}/factuurgegevens", **_docs("getBillingData"))
 async def get_billing_data(
-    assignmentId: UUID,  # noqa: N803
-    month: Annotated[str, Query(pattern=_MONTH_PATTERN)],
+    opdrachtId: UUID,  # noqa: N803
+    month: Annotated[str, Query(alias="maand", pattern=_MONTH_PATTERN)],
     db: AsyncSession = Depends(get_db),
     peer: Peer = Depends(require_caller("getBillingData")),
 ) -> JSONResponse:
     return await provide(
-        db, peer, "getBillingData", {"assignmentId": assignmentId, "month": month}
+        db, peer, "getBillingData", {"assignmentId": opdrachtId, "month": month}
     )
 
 
-@router.get("/handover/assignments", **_docs("getHandoverAssignments"))
+@router.get("/doorgifte/opdrachten", **_docs("getHandoverAssignments"))
 async def get_handover_assignments(
     db: AsyncSession = Depends(get_db),
     peer: Peer = Depends(require_caller("getHandoverAssignments")),
@@ -460,25 +480,25 @@ async def get_handover_assignments(
     return await provide(db, peer, "getHandoverAssignments", {})
 
 
-@router.get("/handover/billing-data", **_docs("getHandoverBillingData"))
+@router.get("/doorgifte/factuurgegevens", **_docs("getHandoverBillingData"))
 async def get_handover_billing_data(
-    month: Annotated[str, Query(pattern=_MONTH_PATTERN)],
+    month: Annotated[str, Query(alias="maand", pattern=_MONTH_PATTERN)],
     db: AsyncSession = Depends(get_db),
     peer: Peer = Depends(require_caller("getHandoverBillingData")),
 ) -> JSONResponse:
     return await provide(db, peer, "getHandoverBillingData", {"month": month})
 
 
-@router.get("/handover/staffing", **_docs("getHandoverStaffing"))
+@router.get("/doorgifte/bemensing", **_docs("getHandoverStaffing"))
 async def get_handover_staffing(
-    month: Annotated[str, Query(pattern=_MONTH_PATTERN)],
+    month: Annotated[str, Query(alias="maand", pattern=_MONTH_PATTERN)],
     db: AsyncSession = Depends(get_db),
     peer: Peer = Depends(require_caller("getHandoverStaffing")),
 ) -> JSONResponse:
     return await provide(db, peer, "getHandoverStaffing", {"month": month})
 
 
-@router.get("/handover/capacity", **_docs("getHandoverCapacity"))
+@router.get("/doorgifte/capaciteit", **_docs("getHandoverCapacity"))
 async def get_handover_capacity(
     db: AsyncSession = Depends(get_db),
     peer: Peer = Depends(require_caller("getHandoverCapacity")),
@@ -486,9 +506,9 @@ async def get_handover_capacity(
     return await provide(db, peer, "getHandoverCapacity", {})
 
 
-@router.get("/handover/costs", **_docs("getHandoverCosts"))
+@router.get("/doorgifte/kosten", **_docs("getHandoverCosts"))
 async def get_handover_costs(
-    year: Annotated[int, Query(ge=2000)],
+    year: Annotated[int, Query(alias="jaar", ge=2000)],
     db: AsyncSession = Depends(get_db),
     peer: Peer = Depends(require_caller("getHandoverCosts")),
 ) -> JSONResponse:
@@ -506,7 +526,9 @@ async def get_jwks(
     return _json(signing.own_jwks(settings))
 
 
-@router.get("/openapi.json", include_in_schema=False)
-async def get_contract(_peer: CurrentPeer) -> JSONResponse:
+@router.get("/openapi.json", **_docs("getOpenapi"))
+async def get_contract(
+    _peer: Peer = Depends(require_caller("getOpenapi")),
+) -> JSONResponse:
     """The contract this instance follows, as one document."""
     return _json(load_openapi(SERVICE_OPDRACHTVERKEER))

@@ -15,7 +15,7 @@ async def test_stored_message_is_processed_once_a_handler_exists(
 ):
     peer = await make_peer()
     await fed_client.post(
-        "/v1/quotes", json=example("quote"), headers=as_peer(CONTRACTOR_PEER_ID)
+        "/v1/offertes", json=example("quote"), headers=as_peer(CONTRACTOR_PEER_ID)
     )
     assert await process_pending(db_session) == 0, "no handler yet"
 
@@ -38,7 +38,7 @@ async def test_refusal_afterwards_is_recorded_with_the_message(
 ):
     await make_peer()
     await fed_client.post(
-        "/v1/quotes", json=example("quote"), headers=as_peer(CONTRACTOR_PEER_ID)
+        "/v1/offertes", json=example("quote"), headers=as_peer(CONTRACTOR_PEER_ID)
     )
 
     async def handler(db, caller, message):

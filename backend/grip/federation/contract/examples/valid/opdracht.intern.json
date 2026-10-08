@@ -1,0 +1,14 @@
+{
+  "uri": "https://grip.opdrachtnemer.example/id/opdracht/aaaaaaaa-0000-4000-8000-000000000009",
+  "naam": "Interne opdracht Beta",
+  "soort": "intern",
+  "opdrachtgever": null,
+  "opdrachtnemer": {
+    "tooi_uri": "https://identifier.overheid.nl/tooi/id/oorg/oorg00000",
+    "naam": "Voorbeelddienst",
+    "eenheid_kenmerk": "voorbeeldgilde",
+    "instantie_uri": "https://grip.opdrachtnemer.example"
+  },
+  "status": "concept",
+  "context_uris": []
+}

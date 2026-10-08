@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Woordenlijst",
+  "description": "Node-typen en edge-typen met hun URI. De kernlijst staat in vocabulaire/; een corpus mag eigen typen toevoegen in een eigen naamruimte.",
+  "type": "object",
+  "properties": {
+    "naamruimte": {
+      "type": "string",
+      "format": "uri",
+      "description": "Naamruimte van de eigen typen van dit corpus. Kerntypen dragen altijd de naamruimte van de kernlijst, ook in deze lijst; alleen typen die het corpus zelf heeft toegevoegd vallen onder deze naamruimte."
+    },
+    "node_typen": {
+      "type": "array",
+      "description": "Node-typen.",
+      "items": {
+        "$ref": "#/$defs/typedefinitie"
+      }
+    },
+    "edge_typen": {
+      "type": "array",
+      "description": "Edge-typen.",
+      "items": {
+        "$ref": "#/$defs/typedefinitie"
+      }
+    }
+  },
+  "required": [
+    "naamruimte",
+    "node_typen",
+    "edge_typen"
+  ],
+  "$defs": {
+    "typedefinitie": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Korte naam van het type.",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "uri": {
+          "type": "string",
+          "format": "uri",
+          "description": "URI van het type."
+        },
+        "label_nl": {
+          "type": "string",
+          "description": "Nederlandse naam."
+        },
+        "omschrijving": {
+          "type": "string",
+          "description": "Betekenis."
+        },
+        "eigen": {
+          "type": "boolean",
+          "description": "True voor een eigen type buiten de kernlijst."
+        }
+      },
+      "required": [
+        "id",
+        "uri",
+        "label_nl",
+        "omschrijving"
+      ]
+    }
+  }
+}

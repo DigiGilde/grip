@@ -15,7 +15,7 @@ from grip.federation.corpus import (
 )
 from grip.federation.models import PEER_ROLE_CORPUS
 
-from .conftest import example
+from .conftest import code_example, example
 
 CORPUS = "https://corpus.voorbeeldministerie.example"
 NODE_URI = example("node")["uri"]
@@ -43,7 +43,7 @@ async def test_node_is_fetched_from_the_corpus_of_its_uri(
 ):
     _answers(fake_outway, example("node"))
     node = await corpus.get_node(db_session, NODE_URI)
-    assert node == example("node")
+    assert node == code_example("node")
     (request,) = fake_outway.requests
     assert str(request.url) == f"http://outway.test/v1/nodes/{NODE_ID}"
     assert (
@@ -64,10 +64,10 @@ async def test_chain_is_fetched_with_depth(
     chain = await corpus.get_chain(
         db_session, NODE_URI, peildatum=date(2026, 3, 1), max_depth=4
     )
-    assert chain == example("chain")
+    assert chain == code_example("chain")
     url = fake_outway.requests[0].url
-    assert url.path == f"/v1/nodes/{NODE_ID}/chain"
-    assert dict(url.params) == {"peildatum": "2026-03-01", "maxDepth": "4"}
+    assert url.path == f"/v1/nodes/{NODE_ID}/keten"
+    assert dict(url.params) == {"peildatum": "2026-03-01", "maxDiepte": "4"}
 
 
 async def test_answers_are_cached_per_uri_and_peildatum(
@@ -197,7 +197,7 @@ async def test_answer_outside_the_contract_is_refused_and_not_cached(
     with pytest.raises(CorpusContractError):
         await corpus.get_node(db_session, NODE_URI)
     _answers(fake_outway, example("node"))
-    assert await corpus.get_node(db_session, NODE_URI) == example("node")
+    assert await corpus.get_node(db_session, NODE_URI) == code_example("node")
 
 
 async def test_node_of_a_custom_type_and_another_corpus_edge_are_accepted(
@@ -214,7 +214,7 @@ async def test_search_goes_to_the_named_corpus(
     page = await corpus.search_nodes(
         db_session, CORPUS, q="digitale", types=["doel", "instrument"], page_size=5
     )
-    assert page == example("node-page")
+    assert page == code_example("node-page")
     url = fake_outway.requests[0].url
     assert url.path == "/v1/nodes"
     assert url.params.get_list("type") == ["doel", "instrument"]

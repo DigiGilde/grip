@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, undefer
 
+from grip.models.assignment import Assignment, BudgetLine
 from grip.models.person import Person
 from grip.models.vacancy import (
     FormTemplate,
@@ -46,6 +48,83 @@ class VacancyRepository:
             query = query.where(Vacancy.budget_line_id == budget_line_id)
         result = await self.db.execute(query)
         return list(result.scalars())
+
+    async def list_full(self, *, status: str | None = None) -> list[Vacancy]:
+        """Vacancies with steps, decisions, texts and requester loaded."""
+        query = (
+            select(Vacancy)
+            .order_by(Vacancy.created_at.desc(), Vacancy.id)
+            .options(
+                selectinload(Vacancy.steps),
+                selectinload(Vacancy.decisions),
+                selectinload(Vacancy.texts),
+                selectinload(Vacancy.requester),
+            )
+            .execution_options(populate_existing=True)
+        )
+        if status is not None:
+            query = query.where(Vacancy.status == status)
+        result = await self.db.execute(query)
+        return list(result.scalars())
+
+    async def assignments_of_budget_lines(
+        self, budget_line_ids: Iterable[UUID]
+    ) -> dict[UUID, tuple[UUID, str]]:
+        """Per budget line: the id and the name of its assignment."""
+        ids = list(budget_line_ids)
+        if not ids:
+            return {}
+        result = await self.db.execute(
+            select(BudgetLine.id, Assignment.id, Assignment.name)
+            .join(Assignment, Assignment.id == BudgetLine.assignment_id)
+            .where(BudgetLine.id.in_(ids))
+        )
+        return {line_id: (a_id, name) for line_id, a_id, name in result.all()}
+
+    async def personnel_lines(self) -> list[tuple[BudgetLine, Assignment]]:
+        """Every personnel budget line with its assignment and allocations."""
+        result = await self.db.execute(
+            select(BudgetLine, Assignment)
+            .join(Assignment, Assignment.id == BudgetLine.assignment_id)
+            .where(BudgetLine.kind == "personnel", BudgetLine.fte.is_not(None))
+            .options(selectinload(BudgetLine.allocations))
+            .order_by(Assignment.name, BudgetLine.position, BudgetLine.id)
+        )
+        return [(line, assignment) for line, assignment in result.all()]
+
+    async def budget_lines_with_vacancy(self, statuses: Iterable[str]) -> set[UUID]:
+        """Budget lines that already have a vacancy in one of the statuses."""
+        result = await self.db.execute(
+            select(Vacancy.budget_line_id).where(
+                Vacancy.budget_line_id.is_not(None),
+                Vacancy.status.in_(list(statuses)),
+            )
+        )
+        return {line_id for line_id in result.scalars() if line_id is not None}
+
+    async def person_names_by_id(self, person_ids: Iterable[UUID]) -> dict[UUID, str]:
+        ids = list({pid for pid in person_ids if pid is not None})
+        if not ids:
+            return {}
+        result = await self.db.execute(
+            select(Person.id, Person.name).where(Person.id.in_(ids))
+        )
+        return {pid: name for pid, name in result.all()}
+
+    async def active_person(self, person_id: UUID) -> Person | None:
+        result = await self.db.execute(
+            select(Person).where(Person.id == person_id, Person.is_active.is_(True))
+        )
+        return result.scalar_one_or_none()
+
+    async def person_by_email(self, email: str) -> Person | None:
+        result = await self.db.execute(
+            select(Person).where(
+                func.lower(Person.email) == email.strip().lower(),
+                Person.is_active.is_(True),
+            )
+        )
+        return result.scalar_one_or_none()
 
     async def steps(self, vacancy_id: UUID) -> list[VacancyStep]:
         result = await self.db.execute(

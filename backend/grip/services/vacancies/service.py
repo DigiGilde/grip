@@ -215,6 +215,167 @@ async def create_vacancy_from_budget_line(
     )
 
 
+_EDITABLE = (
+    "function_title",
+    "fgr_function_name",
+    "scale",
+    "fte",
+    "vacancy_type",
+    "contract_type",
+    "start_date",
+    "end_date",
+    "addressee_name",
+)
+
+
+async def update_vacancy(
+    db: AsyncSession,
+    vacancy_id: UUID,
+    *,
+    actor: Person | None,
+    changes: dict[str, Any],
+) -> Vacancy:
+    """Change the details of a vacancy.
+
+    ``changes`` holds only the fields to change. Once the approval is given
+    the request is fixed: the details that went on the form no longer change.
+    """
+    vacancy = await _get(db, vacancy_id)
+    unknown = set(changes) - set(_EDITABLE)
+    if unknown:
+        raise DomainValidationError(
+            "Deze gegevens van een vacature zijn niet te wijzigen: "
+            + ", ".join(sorted(unknown))
+            + "."
+        )
+    if vacancy.status not in (
+        VacancyStatus.draft.value,
+        VacancyStatus.requested.value,
+    ):
+        raise DomainValidationError(
+            "Na het akkoord liggen de gegevens van de aanvraag vast."
+        )
+    values = dict(changes)
+    if "function_title" in values:
+        title = (values["function_title"] or "").strip()
+        if not title:
+            raise DomainValidationError("Een vacature heeft een functie nodig.")
+        values["function_title"] = title
+    if "fte" in values:
+        if values["fte"] is None or values["fte"] <= 0:
+            raise DomainValidationError("Het aantal fte moet groter zijn dan nul.")
+    if "vacancy_type" in values:
+        values["vacancy_type"] = VacancyType(values["vacancy_type"]).value
+    if "contract_type" in values and values["contract_type"] is not None:
+        values["contract_type"] = ContractType(values["contract_type"]).value
+    start = values.get("start_date", vacancy.start_date)
+    end = values.get("end_date", vacancy.end_date)
+    if start and end and end < start:
+        raise DomainValidationError("De einddatum ligt voor de begindatum.")
+
+    old = {name: getattr(vacancy, name) for name in values}
+    for name, value in values.items():
+        setattr(vacancy, name, value)
+    await db.flush()
+    record_audit(
+        db,
+        actor=actor,
+        action=UPDATE,
+        entity="vacancy",
+        entity_id=vacancy.id,
+        old_value={name: _plain(value) for name, value in old.items()},
+        new_value={name: _plain(value) for name, value in values.items()},
+    )
+    return vacancy
+
+
+def _plain(value: Any) -> Any:
+    if isinstance(value, date | Decimal):
+        return str(value)
+    return value
+
+
+async def get_vacancy(db: AsyncSession, vacancy_id: UUID) -> Vacancy:
+    return await _get(db, vacancy_id)
+
+
+async def list_vacancies(
+    db: AsyncSession, *, status: VacancyStatus | str | None = None
+) -> list[Vacancy]:
+    """Every vacancy, newest first, with steps, decisions and texts."""
+    value = VacancyStatus(status).value if status else None
+    return await VacancyRepository(db).list_full(status=value)
+
+
+@dataclass(frozen=True)
+class UnfilledRole:
+    """A personnel budget line that is not fully staffed."""
+
+    budget_line_id: UUID
+    assignment_id: UUID
+    assignment_name: str
+    description: str
+    role: str | None
+    fte: Decimal
+    unfilled_fte: Decimal
+    start_date: date | None
+    end_date: date | None
+    declarable: bool
+
+
+_LIVE_STATUSES = (
+    VacancyStatus.draft.value,
+    VacancyStatus.requested.value,
+    VacancyStatus.approved.value,
+    VacancyStatus.open.value,
+)
+
+
+async def unfilled_roles(
+    db: AsyncSession, *, today: date | None = None
+) -> list[UnfilledRole]:
+    """Personnel budget lines with room left and no vacancy running yet.
+
+    The staffing of a line is the sum of the allocations that have not ended.
+    A line whose own period is over is left out.
+    """
+    day = today or date.today()
+    repo = VacancyRepository(db)
+    taken = await repo.budget_lines_with_vacancy(_LIVE_STATUSES)
+    roles: list[UnfilledRole] = []
+    for line, assignment in await repo.personnel_lines():
+        if line.id in taken or line.fte is None:
+            continue
+        if line.end_date is not None and line.end_date < day:
+            continue
+        staffed = sum(
+            (
+                Decimal(allocation.fte_pct) / Decimal(100)
+                for allocation in line.allocations
+                if allocation.end_date >= day
+            ),
+            Decimal(0),
+        )
+        unfilled = Decimal(line.fte) - staffed
+        if unfilled <= 0:
+            continue
+        roles.append(
+            UnfilledRole(
+                budget_line_id=line.id,
+                assignment_id=assignment.id,
+                assignment_name=assignment.name,
+                description=line.description,
+                role=line.role,
+                fte=Decimal(line.fte),
+                unfilled_fte=unfilled,
+                start_date=line.start_date,
+                end_date=line.end_date,
+                declarable=assignment.kind == "external",
+            )
+        )
+    return roles
+
+
 # --- the procedure ---------------------------------------------------------
 
 
@@ -634,6 +795,94 @@ async def publish_vacancy(
     return vacancy
 
 
+# Where a vacancy can still go. A filled or withdrawn vacancy is final.
+_WITHDRAWABLE = (
+    VacancyStatus.draft,
+    VacancyStatus.requested,
+    VacancyStatus.approved,
+    VacancyStatus.rejected,
+    VacancyStatus.open,
+)
+# A vacancy for a candidate who is already known is never opened, so it is
+# filled straight from the approval.
+_FILLABLE = (VacancyStatus.approved, VacancyStatus.open)
+
+
+async def _close(
+    db: AsyncSession,
+    vacancy_id: UUID,
+    *,
+    actor: Person | None,
+    target: VacancyStatus,
+    allowed_from: tuple[VacancyStatus, ...],
+    refusal: str,
+    note: str | None,
+) -> Vacancy:
+    vacancy = await _get(db, vacancy_id)
+    if vacancy.status not in {status.value for status in allowed_from}:
+        raise DomainValidationError(refusal)
+    old_status = vacancy.status
+    vacancy.status = target.value
+    await db.flush()
+    new_value: dict[str, Any] = {"status": vacancy.status}
+    if note:
+        new_value["note"] = note
+    record_audit(
+        db,
+        actor=actor,
+        action=UPDATE,
+        entity="vacancy",
+        entity_id=vacancy.id,
+        old_value={"status": old_status},
+        new_value=new_value,
+    )
+    return vacancy
+
+
+async def withdraw_vacancy(
+    db: AsyncSession,
+    vacancy_id: UUID,
+    *,
+    actor: Person | None,
+    note: str | None = None,
+) -> Vacancy:
+    """Stop the vacancy without filling it. It disappears from the open roles."""
+    return await _close(
+        db,
+        vacancy_id,
+        actor=actor,
+        target=VacancyStatus.withdrawn,
+        allowed_from=_WITHDRAWABLE,
+        refusal="Een vervulde of ingetrokken vacature kan niet worden ingetrokken.",
+        note=(note or "").strip() or None,
+    )
+
+
+async def fill_vacancy(
+    db: AsyncSession,
+    vacancy_id: UUID,
+    *,
+    actor: Person | None,
+    note: str | None = None,
+) -> Vacancy:
+    """Mark the vacancy as filled. It disappears from the open roles.
+
+    Who fills it is not recorded here: the person appears as an allocation on
+    the budget line, or as a hire.
+    """
+    return await _close(
+        db,
+        vacancy_id,
+        actor=actor,
+        target=VacancyStatus.filled,
+        allowed_from=_FILLABLE,
+        refusal=(
+            "Een vacature kan pas als vervuld worden gemeld als het akkoord is gegeven."
+        ),
+        note=(note or "").strip() or None,
+    )
+
+
 # --- the request form ------------------------------------------------------
 
 
@@ -685,6 +934,40 @@ async def upload_form_template(
         new_value={"name": name, "file_name": file_name, "is_active": activate},
     )
     return template
+
+
+async def list_form_templates(db: AsyncSession) -> list[FormTemplate]:
+    """The templates of the request form, newest first, without file contents."""
+    return await FormTemplateRepository(db).list(VACANCY_REQUEST_FORM)
+
+
+async def activate_form_template(
+    db: AsyncSession, template_id: UUID, *, actor: Person | None
+) -> FormTemplate:
+    """Make this template the one new forms are generated from."""
+    repo = FormTemplateRepository(db)
+    template = await repo.get(template_id)
+    if template is None:
+        raise NotFoundError("Formuliersjabloon", template_id)
+    if template.is_active:
+        return template
+    await repo.deactivate_all(template.kind)
+    await db.flush()
+    template.is_active = True
+    await db.flush()
+    record_audit(
+        db,
+        actor=actor,
+        action=UPDATE,
+        entity="form_template",
+        entity_id=template.id,
+        new_value={"is_active": True},
+    )
+    return template
+
+
+async def has_active_form_template(db: AsyncSession) -> bool:
+    return await FormTemplateRepository(db).active(VACANCY_REQUEST_FORM) is not None
 
 
 def _decision_values(

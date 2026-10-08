@@ -45,7 +45,11 @@ async def create_cost_item(
 ) -> CostItem:
     if budgeted_cents < 0:
         raise DomainValidationError("Een bedrag kan niet negatief zijn.")
-    item = CostItem(description=description, budgeted_cents=budgeted_cents)
+    item = CostItem(
+        description=description,
+        budgeted_cents=budgeted_cents,
+        created_by_id=actor.id if actor is not None else None,
+    )
     session.add(item)
     await session.flush()
     record_audit(

@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Doorgifte: capaciteit",
+  "description": "Capaciteit in totalen, voor de moederinstantie (gegevensklasse C, zonder namen).",
+  "type": "object",
+  "properties": {
+    "peilmoment": {
+      "type": "string",
+      "format": "date",
+      "description": "Datum waarop deze stand geldt."
+    },
+    "ingezette_fte": {
+      "type": "string",
+      "pattern": "^\\d+(\\.\\d+)?$",
+      "description": "Ingezette capaciteit in FTE. Exacte decimaal als tekst, geen floating point."
+    },
+    "beschikbare_fte": {
+      "type": "string",
+      "pattern": "^\\d+(\\.\\d+)?$",
+      "description": "Beschikbare capaciteit in FTE. Exacte decimaal als tekst, geen floating point."
+    },
+    "gezochte_fte": {
+      "type": "string",
+      "pattern": "^\\d+(\\.\\d+)?$",
+      "description": "Gezochte capaciteit in FTE (open rollen). Exacte decimaal als tekst, geen floating point."
+    },
+    "open_rollen": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Aantal open rollen."
+    }
+  },
+  "required": [
+    "peilmoment",
+    "ingezette_fte",
+    "beschikbare_fte",
+    "open_rollen"
+  ]
+}

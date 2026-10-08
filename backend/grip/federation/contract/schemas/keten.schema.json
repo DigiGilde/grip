@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Keten",
+  "description": "De nodes en edges op de kortste paden tussen een node en de politieke input waar die uit voortkomt. Een politieke input en een node uit een ander corpus zijn eindpunten: daar wordt niet voorbij gezocht. De keten van een politieke input zelf is alleen die node, zonder edges.",
+  "type": "object",
+  "properties": {
+    "start": {
+      "type": "string",
+      "format": "uri",
+      "description": "URI van de node waarvoor de keten is opgevraagd."
+    },
+    "peildatum": {
+      "type": "string",
+      "format": "date",
+      "description": "Datum waarop titels en statussen gelden."
+    },
+    "nodes": {
+      "type": "array",
+      "description": "Nodes in de keten uit dit corpus, inclusief de startnode.",
+      "items": {
+        "$ref": "node.schema.json"
+      }
+    },
+    "edges": {
+      "type": "array",
+      "description": "Edges tussen de nodes in de keten.",
+      "items": {
+        "$ref": "edge.schema.json"
+      }
+    },
+    "externe_node_uris": {
+      "type": "array",
+      "description": "URIs van nodes uit een ander corpus waar de keten naar verwijst. Die worden bij dat corpus opgehaald.",
+      "items": {
+        "type": "string",
+        "format": "uri"
+      }
+    },
+    "volledig": {
+      "type": "boolean",
+      "description": "False als de keten is afgekapt op de maximale diepte."
+    }
+  },
+  "required": [
+    "start",
+    "peildatum",
+    "nodes",
+    "edges",
+    "volledig"
+  ]
+}

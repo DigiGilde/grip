@@ -1,0 +1,156 @@
+# Koppeling van het Grist-document naar grip.
+#
+# Elke tabel hieronder is een logische bron die de import kent. `grist_table`
+# is het tabel-id in Grist; onder `columns` staat per logisch veld het
+# kolom-id in Grist. Laat een veld weg of zet het op "" als het document die
+# kolom niet heeft.
+#
+# De tabel- en kolom-id's zijn AFGELEID uit beschrijvingen van het document,
+# niet uit het document zelf. Daarom staat `verified = false`. Draai eerst
+#
+#     just import-grist inspect <bestand.grist>
+#     just import-grist check <bestand.grist>
+#
+# pas de id's hieronder aan tot `check` niets meer meldt, en zet dan
+# `verified = true` per tabel. De import weigert te laden zolang een
+# gebruikte tabel onbevestigd is.
+
+version = 1
+
+# Het jaar waarvoor de Tarievenleaflet geldt. `--year` op de opdrachtregel
+# gaat hier boven.
+rate_card_year = 2026
+
+[tables.rates]
+grist_table = "Tarievenleaflet"
+verified = false
+[tables.rates.columns]
+category = "Categorie"
+scale = "Inzetschaal"
+monthly_rate = "Maandtarief"
+
+[tables.team]
+grist_table = "Team"
+verified = false
+[tables.team.columns]
+name = "Naam"
+email = ""
+scale = "Schaal"
+note = "Notitie"
+manager = ""
+active = ""
+target_pct = "Target_KPI_declarabel"
+kpi_target_amount = ""
+kpi_realisation = ""
+
+# Alleen nodig als de KPI-cijfers in een eigen tabel staan. Staan ze op Team,
+# vul ze dan daar in en laat deze tabel leeg.
+[tables.kpi]
+grist_table = "KPI_per_persoon"
+verified = false
+[tables.kpi.columns]
+person = "Naam"
+target_pct = "Target_KPI_declarabel"
+target_amount = "Target"
+realisation = "Realisatie"
+
+[tables.assignments]
+grist_table = "Opdracht"
+verified = false
+[tables.assignments.columns]
+name = "Naam"
+status = "Status"
+quote_date = "Offertedatum"
+client_contact = "Contactpersoon"
+owner = ""
+amount = "Bedrag"
+notes = ""
+start_date = ""
+end_date = ""
+budgeted = "Begroot"
+used = "Uitputting"
+available = "Beschikbaar"
+
+[tables.budget_lines]
+grist_table = "Begroting"
+verified = false
+[tables.budget_lines.columns]
+assignment = "Opdracht"
+description = "Omschrijving"
+budgeted = "Begroot"
+used = "Uitputting"
+available = "Beschikbaar"
+is_person = ""
+fte = ""
+scale = ""
+start_date = ""
+end_date = ""
+
+[tables.allocations]
+grist_table = "Inzet"
+verified = false
+[tables.allocations.columns]
+person = "Naam"
+budget_line = "Begrotingsregel"
+start_date = "Startdatum"
+end_date = "Einddatum"
+fte_pct = "FTE"
+monthly_amount = "Maandbedrag"
+amount = "Inzetbedrag"
+
+[tables.cost_items]
+grist_table = "Kosten"
+verified = false
+[tables.cost_items.columns]
+description = "Omschrijving"
+budgeted = "Begroot"
+forecast = "Prognose_realisatie"
+covered = "Dekking"
+
+[tables.invoice_lines]
+grist_table = "Factuur"
+verified = false
+[tables.invoice_lines.columns]
+reference = "Factuur"
+description = "Omschrijving"
+kind = "Soort"
+amount = "Bedrag"
+cost_item = "Kosten"
+period = ""
+
+[tables.coverages]
+grist_table = "Kostendekking"
+verified = false
+[tables.coverages.columns]
+cost_item = "Kosten"
+budget_line = "Begrotingsregel"
+pct = "Percentage"
+amount = "Bedrag"
+
+# -- waarden -----------------------------------------------------------------
+
+# Status in Grist naar status in grip. De sleutels zijn hoofdletterongevoelig.
+# Statussen in grip: draft, requested, quoted, accepted, in_progress,
+# completed, accounted, rejected, cancelled.
+[values.status]
+"Concept" = "draft"
+"Interne afstemming" = "draft"
+"Offerte verstuurd" = "quoted"
+"Mondeling akkoord" = "quoted"
+"Akkoord" = "in_progress"
+"Interne opdracht" = "in_progress"
+"Afgerond" = "completed"
+"Afgewezen" = "rejected"
+
+# Statussen die een interne opdracht aanduiden (geen opdrachtgever).
+[values]
+internal_statuses = ["Interne opdracht"]
+# Status voor een opdracht waarvan de status leeg is of niet hierboven staat.
+default_status = "draft"
+
+# Soort factuurregel. Een booleaanse kolom mag ook: waar is "actual".
+[values.invoice_kind]
+"Realisatie" = "actual"
+"Gerealiseerd" = "actual"
+"Inschatting" = "estimate"
+"Ingeschat" = "estimate"

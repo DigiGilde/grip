@@ -132,14 +132,14 @@ def test_the_comparison_notices_a_difference(fed_app):
     """The guard itself must work."""
     contract = load_openapi(SERVICE_OPDRACHTVERKEER)
     generated = generated_openapi(fed_app)
-    del generated["paths"]["/v1/quotes"]
-    generated["paths"]["/v1/handover/costs"]["get"]["parameters"] = []
+    del generated["paths"]["/v1/offertes"]
+    generated["paths"]["/v1/doorgifte/kosten"]["get"]["parameters"] = []
     generated["paths"]["/v1/jwks"]["get"]["responses"]["200"]["content"] = {
         "application/json": {"schema": {"$ref": "#/components/schemas/receipt"}}
     }
     assert _differences(contract, generated) == [
-        "POST /quotes: missing",
-        "GET /handover/costs: query parameter year missing",
+        "POST /offertes: missing",
+        "GET /doorgifte/kosten: query parameter jaar missing",
         "GET /jwks: schema of response 200 differs",
     ]
 
@@ -212,5 +212,5 @@ def test_federation_routes_are_not_part_of_the_main_app(_test_app):
     assert not [
         path
         for path in document["paths"]
-        if "/quotes" in path or "/handover" in path or path.endswith("/jwks")
+        if "/offertes" in path or "/handover" in path or path.endswith("/jwks")
     ]

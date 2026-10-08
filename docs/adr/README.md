@@ -22,3 +22,4 @@ Een besluit dat anderen bindt staat hier als ADR: genummerd, met context, beslui
 | [0016](0016-symmetrische-instanties.md) | Een instantie is opdrachtgever en opdrachtnemer | aanvaard |
 | [0017](0017-rekenregels-in-een-pure-module.md) | Rekenregels in een pure module | aanvaard |
 | [0018](0018-vacatureformulier-en-vacaturetekst.md) | Vacatureformulier vullen en vacaturetekst opstellen met VLAM | aanvaard |
+| [0019](0019-koppelvlak-in-het-nederlands.md) | Het koppelvlak is Nederlands, de code Engels | aanvaard |

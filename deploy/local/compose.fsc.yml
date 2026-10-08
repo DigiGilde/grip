@@ -1,0 +1,764 @@
+# FSC between the two local grip instances, in a private group.
+#
+# Used together with compose.yml:
+#   docker compose -f compose.yml -f compose.fsc.yml ...   (just local-up fsc)
+#
+# Per peer: manager, controller, inway, outway and transaction log, each
+# with its own database; one directory for the group (a manager that signs
+# publications automatically, with its controller). Images: Open FSC
+# 2.8.0, the current name of what was FSC NLX. Certificates come from
+# ./fsc-pki.sh; nothing here is PKIoverheid.
+#
+# The audit log goes to the container log (auditlog-type stdout); the
+# separate audit log component is left out.
+
+x-fsc-common: &fsc-common
+  restart: on-failure
+  volumes:
+    - ./state/pki:/pki:ro
+
+# What federation adds to a grip instance: the web process must know that
+# outbound federation is on (domain events become outbox messages inside web
+# requests), a listener that only the inway reaches, and a worker that sends
+# the outbox through the outway.
+x-grip-federation-a: &grip-federation-a
+  FEDERATION_INBOUND_ENABLED: "1"
+  FEDERATION_OUTBOUND_ENABLED: "1"
+  OUTWAY_URL: http://outway-a:8080
+  FEDERATION_OUTBOX_INTERVAL_SECONDS: "3"
+  RUN_MIGRATIONS: "0"
+
+x-grip-federation-b: &grip-federation-b
+  FEDERATION_INBOUND_ENABLED: "1"
+  FEDERATION_OUTBOUND_ENABLED: "1"
+  OUTWAY_URL: http://outway-b:8080
+  FEDERATION_OUTBOX_INTERVAL_SECONDS: "3"
+  RUN_MIGRATIONS: "0"
+
+services:
+  backend-a:
+    environment:
+      FEDERATION_OUTBOUND_ENABLED: "1"
+      OUTWAY_URL: http://outway-a:8080
+
+  backend-b:
+    environment:
+      FEDERATION_OUTBOUND_ENABLED: "1"
+      OUTWAY_URL: http://outway-b:8080
+
+  # The listener has no published port: only the inway may reach it.
+  federation-a:
+    extends:
+      file: compose.yml
+      service: backend-a
+    environment:
+      <<: *grip-federation-a
+      GRIP_PROCESS: federation
+    depends_on:
+      backend-a:
+        condition: service_started
+
+  worker-a:
+    extends:
+      file: compose.yml
+      service: backend-a
+    environment:
+      <<: *grip-federation-a
+      GRIP_PROCESS: worker
+    depends_on:
+      backend-a:
+        condition: service_started
+
+  federation-b:
+    extends:
+      file: compose.yml
+      service: backend-b
+    environment:
+      <<: *grip-federation-b
+      GRIP_PROCESS: federation
+    depends_on:
+      backend-b:
+        condition: service_started
+
+  worker-b:
+    extends:
+      file: compose.yml
+      service: backend-b
+    environment:
+      <<: *grip-federation-b
+      GRIP_PROCESS: worker
+    depends_on:
+      backend-b:
+        condition: service_started
+
+  fsc-db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: fsc
+      POSTGRES_PASSWORD: fsc
+      POSTGRES_DB: fsc
+    volumes:
+      - fsc-db:/var/lib/postgresql/data
+      - ./fsc-databases.sql:/docker-entrypoint-initdb.d/10-databases.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fsc -d fsc_manager_b"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  # --- The directory of the group ---------------------------------------
+
+  fsc-migrate-manager-dir:
+    image: federatedserviceconnectivity/manager:v2.8.0
+    command:
+      - "/usr/local/bin/manager"
+      - "migrate"
+      - "up"
+      - "--postgres-dsn"
+      - "postgresql://fsc:fsc@fsc-db:5432/fsc_manager_dir?sslmode=disable&connect_timeout=5"
+    restart: on-failure
+    depends_on:
+      fsc-db:
+        condition: service_healthy
+
+  fsc-migrate-controller-dir:
+    image: federatedserviceconnectivity/controller:v2.8.0
+    command:
+      - "/usr/local/bin/controller"
+      - "migrate"
+      - "up"
+      - "--postgres-dsn"
+      - "postgresql://fsc:fsc@fsc-db:5432/fsc_controller_dir?sslmode=disable&connect_timeout=5"
+    restart: on-failure
+    depends_on:
+      fsc-db:
+        condition: service_healthy
+
+  manager-dir:
+    <<: *fsc-common
+    image: federatedserviceconnectivity/manager:v2.8.0
+    command:
+      - "/usr/local/bin/manager"
+      - "serve"
+      - "--listen-address-external"
+      - "0.0.0.0:8443"
+      - "--listen-address-internal"
+      - "0.0.0.0:8444"
+      - "--listen-address-internal-unauthenticated"
+      - "0.0.0.0:8445"
+      - "--monitoring-address"
+      - "0.0.0.0:8081"
+      - "--group-id"
+      - "grip-local"
+      - "--self-address"
+      - "https://manager-dir:8443"
+      - "--directory-manager-address"
+      - "https://manager-dir:8443"
+      - "--directory-peer-id"
+      - "01700000000000000099"
+      - "--controller-registration-api-address"
+      - "https://controller-dir:8443"
+      - "--storage-postgres-dsn"
+      - "postgresql://fsc:fsc@fsc-db:5432/fsc_manager_dir?sslmode=disable&connect_timeout=5"
+      - "--auto-sign-grants"
+      - "servicePublication,delegatedServicePublication"
+      - "--auditlog-type"
+      - "stdout"
+      - "--tls-group-root-cert"
+      - "/pki/group/ca.pem"
+      - "--tls-group-cert"
+      - "/pki/group/dir/manager/cert.pem"
+      - "--tls-group-key"
+      - "/pki/group/dir/manager/key.pem"
+      - "--tls-group-token-cert"
+      - "/pki/group/dir/manager/cert.pem"
+      - "--tls-group-token-key"
+      - "/pki/group/dir/manager/key.pem"
+      - "--tls-group-contract-cert"
+      - "/pki/group/dir/manager/cert.pem"
+      - "--tls-group-contract-key"
+      - "/pki/group/dir/manager/key.pem"
+      - "--tls-root-cert"
+      - "/pki/internal/dir/ca.pem"
+      - "--tls-cert"
+      - "/pki/internal/dir/manager/cert.pem"
+      - "--tls-key"
+      - "/pki/internal/dir/manager/key.pem"
+      - "--tls-internal-unauthenticated-root-cert"
+      - "/pki/internal/dir/ca.pem"
+      - "--tls-internal-unauthenticated-cert"
+      - "/pki/internal/dir/manager/cert.pem"
+      - "--tls-internal-unauthenticated-key"
+      - "/pki/internal/dir/manager/key.pem"
+      - "--log-type"
+      - "local"
+      - "--log-level"
+      - "info"
+    depends_on:
+      fsc-migrate-manager-dir:
+        condition: service_completed_successfully
+
+  controller-dir:
+    <<: *fsc-common
+    image: federatedserviceconnectivity/controller:v2.8.0
+    command:
+      - "/usr/local/bin/controller"
+      - "serve"
+      - "--listen-address-ui"
+      - "0.0.0.0:3000"
+      - "--listen-address-registration-api"
+      - "0.0.0.0:8443"
+      - "--listen-address-administration-api"
+      - "0.0.0.0:8444"
+      - "--monitoring-address"
+      - "0.0.0.0:8081"
+      - "--group-id"
+      - "grip-local"
+      - "--directory-peer-id"
+      - "01700000000000000099"
+      - "--manager-address-internal"
+      - "https://manager-dir:8444"
+      - "--storage-postgres-dsn"
+      - "postgresql://fsc:fsc@fsc-db:5432/fsc_controller_dir?sslmode=disable&connect_timeout=5"
+      - "--tls-root-cert"
+      - "/pki/internal/dir/ca.pem"
+      - "--tls-cert"
+      - "/pki/internal/dir/controller/cert.pem"
+      - "--tls-key"
+      - "/pki/internal/dir/controller/key.pem"
+      - "--auditlog-type"
+      - "stdout"
+      - "--log-type"
+      - "local"
+      - "--log-level"
+      - "info"
+    ports:
+      - "127.0.0.1:9100:3000"
+    depends_on:
+      fsc-migrate-controller-dir:
+        condition: service_completed_successfully
+
+  # --- Peer A: DigiGilde voorbeeld (opdrachtnemer) ------------------------
+
+  fsc-migrate-manager-a:
+    image: federatedserviceconnectivity/manager:v2.8.0
+    command:
+      - "/usr/local/bin/manager"
+      - "migrate"
+      - "up"
+      - "--postgres-dsn"
+      - "postgresql://fsc:fsc@fsc-db:5432/fsc_manager_a?sslmode=disable&connect_timeout=5"
+    restart: on-failure
+    depends_on:
+      fsc-db:
+        condition: service_healthy
+
+  fsc-migrate-controller-a:
+    image: federatedserviceconnectivity/controller:v2.8.0
+    command:
+      - "/usr/local/bin/controller"
+      - "migrate"
+      - "up"
+      - "--postgres-dsn"
+      - "postgresql://fsc:fsc@fsc-db:5432/fsc_controller_a?sslmode=disable&connect_timeout=5"
+    restart: on-failure
+    depends_on:
+      fsc-db:
+        condition: service_healthy
+
+  manager-a:
+    <<: *fsc-common
+    image: federatedserviceconnectivity/manager:v2.8.0
+    command:
+      - "/usr/local/bin/manager"
+      - "serve"
+      - "--listen-address-external"
+      - "0.0.0.0:8443"
+      - "--listen-address-internal"
+      - "0.0.0.0:8444"
+      - "--listen-address-internal-unauthenticated"
+      - "0.0.0.0:8445"
+      - "--monitoring-address"
+      - "0.0.0.0:8081"
+      - "--group-id"
+      - "grip-local"
+      - "--self-address"
+      - "https://manager-a:8443"
+      - "--tx-log-api-address"
+      - "https://txlog-a:8443"
+      - "--directory-manager-address"
+      - "https://manager-dir:8443"
+      - "--directory-peer-id"
+      - "01700000000000000099"
+      - "--controller-registration-api-address"
+      - "https://controller-a:8443"
+      - "--storage-postgres-dsn"
+      - "postgresql://fsc:fsc@fsc-db:5432/fsc_manager_a?sslmode=disable&connect_timeout=5"
+      - "--auditlog-type"
+      - "stdout"
+      - "--tls-group-root-cert"
+      - "/pki/group/ca.pem"
+      - "--tls-group-cert"
+      - "/pki/group/a/manager/cert.pem"
+      - "--tls-group-key"
+      - "/pki/group/a/manager/key.pem"
+      - "--tls-group-token-cert"
+      - "/pki/group/a/manager/cert.pem"
+      - "--tls-group-token-key"
+      - "/pki/group/a/manager/key.pem"
+      - "--tls-group-contract-cert"
+      - "/pki/group/a/manager/cert.pem"
+      - "--tls-group-contract-key"
+      - "/pki/group/a/manager/key.pem"
+      - "--tls-root-cert"
+      - "/pki/internal/a/ca.pem"
+      - "--tls-cert"
+      - "/pki/internal/a/manager/cert.pem"
+      - "--tls-key"
+      - "/pki/internal/a/manager/key.pem"
+      - "--tls-internal-unauthenticated-root-cert"
+      - "/pki/internal/a/ca.pem"
+      - "--tls-internal-unauthenticated-cert"
+      - "/pki/internal/a/manager/cert.pem"
+      - "--tls-internal-unauthenticated-key"
+      - "/pki/internal/a/manager/key.pem"
+      - "--log-type"
+      - "local"
+      - "--log-level"
+      - "info"
+    depends_on:
+      fsc-migrate-manager-a:
+        condition: service_completed_successfully
+
+  controller-a:
+    <<: *fsc-common
+    image: federatedserviceconnectivity/controller:v2.8.0
+    command:
+      - "/usr/local/bin/controller"
+      - "serve"
+      - "--listen-address-ui"
+      - "0.0.0.0:3000"
+      - "--listen-address-registration-api"
+      - "0.0.0.0:8443"
+      - "--listen-address-administration-api"
+      - "0.0.0.0:8444"
+      - "--monitoring-address"
+      - "0.0.0.0:8081"
+      - "--group-id"
+      - "grip-local"
+      - "--directory-peer-id"
+      - "01700000000000000099"
+      - "--manager-address-internal"
+      - "https://manager-a:8444"
+      - "--storage-postgres-dsn"
+      - "postgresql://fsc:fsc@fsc-db:5432/fsc_controller_a?sslmode=disable&connect_timeout=5"
+      - "--tls-root-cert"
+      - "/pki/internal/a/ca.pem"
+      - "--tls-cert"
+      - "/pki/internal/a/controller/cert.pem"
+      - "--tls-key"
+      - "/pki/internal/a/controller/key.pem"
+      - "--auditlog-type"
+      - "stdout"
+      - "--log-type"
+      - "local"
+      - "--log-level"
+      - "info"
+    ports:
+      - "127.0.0.1:9101:3000"
+    depends_on:
+      fsc-migrate-controller-a:
+        condition: service_completed_successfully
+
+  fsc-migrate-txlog-a:
+    image: federatedserviceconnectivity/txlog-api:v2.8.0
+    command:
+      - "/usr/local/bin/txlog-api"
+      - "migrate"
+      - "up"
+      - "--postgres-dsn"
+      - "postgresql://fsc:fsc@fsc-db:5432/fsc_txlog_a?sslmode=disable&connect_timeout=5"
+    restart: on-failure
+    depends_on:
+      fsc-db:
+        condition: service_healthy
+
+  txlog-a:
+    <<: *fsc-common
+    image: federatedserviceconnectivity/txlog-api:v2.8.0
+    command:
+      - "/usr/local/bin/txlog-api"
+      - "serve"
+      - "--listen-address"
+      - "0.0.0.0:8443"
+      - "--monitoring-address"
+      - "0.0.0.0:8081"
+      - "--storage-postgres-dsn"
+      - "postgresql://fsc:fsc@fsc-db:5432/fsc_txlog_a?sslmode=disable&connect_timeout=5"
+      - "--tls-root-cert"
+      - "/pki/internal/a/ca.pem"
+      - "--tls-cert"
+      - "/pki/internal/a/txlog/cert.pem"
+      - "--tls-key"
+      - "/pki/internal/a/txlog/key.pem"
+      - "--log-level"
+      - "info"
+    depends_on:
+      fsc-migrate-txlog-a:
+        condition: service_completed_successfully
+
+  inway-a:
+    <<: *fsc-common
+    image: federatedserviceconnectivity/inway:v2.8.0
+    command:
+      - "/usr/local/bin/inway"
+      - "serve"
+      - "--listen-address"
+      - "0.0.0.0:443"
+      - "--monitoring-address"
+      - "0.0.0.0:8081"
+      - "--self-address"
+      - "https://inway-a:443"
+      - "--manager-internal-unauthenticated-address"
+      - "https://manager-a:8445"
+      - "--name"
+      - "inway-a"
+      - "--group-id"
+      - "grip-local"
+      - "--controller-registration-api-address"
+      - "https://controller-a:8443"
+      - "--tx-log-api-address"
+      - "https://txlog-a:8443"
+      - "--tls-group-root-cert"
+      - "/pki/group/ca.pem"
+      - "--tls-group-cert"
+      - "/pki/group/a/inway/cert.pem"
+      - "--tls-group-key"
+      - "/pki/group/a/inway/key.pem"
+      - "--tls-root-cert"
+      - "/pki/internal/a/ca.pem"
+      - "--tls-cert"
+      - "/pki/internal/a/inway/cert.pem"
+      - "--tls-key"
+      - "/pki/internal/a/inway/key.pem"
+      - "--log-type"
+      - "local"
+      - "--log-level"
+      - "info"
+    depends_on:
+      manager-a:
+        condition: service_started
+      controller-a:
+        condition: service_started
+      txlog-a:
+        condition: service_started
+
+  outway-a:
+    <<: *fsc-common
+    image: federatedserviceconnectivity/outway:v2.8.0
+    command:
+      - "/usr/local/bin/outway"
+      - "serve"
+      - "--name"
+      - "outway-a"
+      - "--group-id"
+      - "grip-local"
+      - "--listen-address"
+      - "0.0.0.0:8080"
+      - "--monitoring-address"
+      - "0.0.0.0:8081"
+      - "--tx-log-api-address"
+      - "https://txlog-a:8443"
+      - "--controller-registration-api-address"
+      - "https://controller-a:8443"
+      - "--manager-internal-address"
+      - "https://manager-a:8444"
+      - "--tls-group-root-cert"
+      - "/pki/group/ca.pem"
+      - "--tls-group-cert"
+      - "/pki/group/a/outway/cert.pem"
+      - "--tls-group-key"
+      - "/pki/group/a/outway/key.pem"
+      - "--tls-root-cert"
+      - "/pki/internal/a/ca.pem"
+      - "--tls-cert"
+      - "/pki/internal/a/outway/cert.pem"
+      - "--tls-key"
+      - "/pki/internal/a/outway/key.pem"
+      - "--enable-grant-hash-suggestion"
+      - "true"
+      - "--log-type"
+      - "local"
+      - "--log-level"
+      - "info"
+    depends_on:
+      manager-a:
+        condition: service_started
+      controller-a:
+        condition: service_started
+      txlog-a:
+        condition: service_started
+
+  # --- Peer B: Voorbeeldministerie (opdrachtgever) ------------------------
+
+  fsc-migrate-manager-b:
+    image: federatedserviceconnectivity/manager:v2.8.0
+    command:
+      - "/usr/local/bin/manager"
+      - "migrate"
+      - "up"
+      - "--postgres-dsn"
+      - "postgresql://fsc:fsc@fsc-db:5432/fsc_manager_b?sslmode=disable&connect_timeout=5"
+    restart: on-failure
+    depends_on:
+      fsc-db:
+        condition: service_healthy
+
+  fsc-migrate-controller-b:
+    image: federatedserviceconnectivity/controller:v2.8.0
+    command:
+      - "/usr/local/bin/controller"
+      - "migrate"
+      - "up"
+      - "--postgres-dsn"
+      - "postgresql://fsc:fsc@fsc-db:5432/fsc_controller_b?sslmode=disable&connect_timeout=5"
+    restart: on-failure
+    depends_on:
+      fsc-db:
+        condition: service_healthy
+
+  manager-b:
+    <<: *fsc-common
+    image: federatedserviceconnectivity/manager:v2.8.0
+    command:
+      - "/usr/local/bin/manager"
+      - "serve"
+      - "--listen-address-external"
+      - "0.0.0.0:8443"
+      - "--listen-address-internal"
+      - "0.0.0.0:8444"
+      - "--listen-address-internal-unauthenticated"
+      - "0.0.0.0:8445"
+      - "--monitoring-address"
+      - "0.0.0.0:8081"
+      - "--group-id"
+      - "grip-local"
+      - "--self-address"
+      - "https://manager-b:8443"
+      - "--tx-log-api-address"
+      - "https://txlog-b:8443"
+      - "--directory-manager-address"
+      - "https://manager-dir:8443"
+      - "--directory-peer-id"
+      - "01700000000000000099"
+      - "--controller-registration-api-address"
+      - "https://controller-b:8443"
+      - "--storage-postgres-dsn"
+      - "postgresql://fsc:fsc@fsc-db:5432/fsc_manager_b?sslmode=disable&connect_timeout=5"
+      - "--auditlog-type"
+      - "stdout"
+      - "--tls-group-root-cert"
+      - "/pki/group/ca.pem"
+      - "--tls-group-cert"
+      - "/pki/group/b/manager/cert.pem"
+      - "--tls-group-key"
+      - "/pki/group/b/manager/key.pem"
+      - "--tls-group-token-cert"
+      - "/pki/group/b/manager/cert.pem"
+      - "--tls-group-token-key"
+      - "/pki/group/b/manager/key.pem"
+      - "--tls-group-contract-cert"
+      - "/pki/group/b/manager/cert.pem"
+      - "--tls-group-contract-key"
+      - "/pki/group/b/manager/key.pem"
+      - "--tls-root-cert"
+      - "/pki/internal/b/ca.pem"
+      - "--tls-cert"
+      - "/pki/internal/b/manager/cert.pem"
+      - "--tls-key"
+      - "/pki/internal/b/manager/key.pem"
+      - "--tls-internal-unauthenticated-root-cert"
+      - "/pki/internal/b/ca.pem"
+      - "--tls-internal-unauthenticated-cert"
+      - "/pki/internal/b/manager/cert.pem"
+      - "--tls-internal-unauthenticated-key"
+      - "/pki/internal/b/manager/key.pem"
+      - "--log-type"
+      - "local"
+      - "--log-level"
+      - "info"
+    depends_on:
+      fsc-migrate-manager-b:
+        condition: service_completed_successfully
+
+  controller-b:
+    <<: *fsc-common
+    image: federatedserviceconnectivity/controller:v2.8.0
+    command:
+      - "/usr/local/bin/controller"
+      - "serve"
+      - "--listen-address-ui"
+      - "0.0.0.0:3000"
+      - "--listen-address-registration-api"
+      - "0.0.0.0:8443"
+      - "--listen-address-administration-api"
+      - "0.0.0.0:8444"
+      - "--monitoring-address"
+      - "0.0.0.0:8081"
+      - "--group-id"
+      - "grip-local"
+      - "--directory-peer-id"
+      - "01700000000000000099"
+      - "--manager-address-internal"
+      - "https://manager-b:8444"
+      - "--storage-postgres-dsn"
+      - "postgresql://fsc:fsc@fsc-db:5432/fsc_controller_b?sslmode=disable&connect_timeout=5"
+      - "--tls-root-cert"
+      - "/pki/internal/b/ca.pem"
+      - "--tls-cert"
+      - "/pki/internal/b/controller/cert.pem"
+      - "--tls-key"
+      - "/pki/internal/b/controller/key.pem"
+      - "--auditlog-type"
+      - "stdout"
+      - "--log-type"
+      - "local"
+      - "--log-level"
+      - "info"
+    ports:
+      - "127.0.0.1:9102:3000"
+    depends_on:
+      fsc-migrate-controller-b:
+        condition: service_completed_successfully
+
+  fsc-migrate-txlog-b:
+    image: federatedserviceconnectivity/txlog-api:v2.8.0
+    command:
+      - "/usr/local/bin/txlog-api"
+      - "migrate"
+      - "up"
+      - "--postgres-dsn"
+      - "postgresql://fsc:fsc@fsc-db:5432/fsc_txlog_b?sslmode=disable&connect_timeout=5"
+    restart: on-failure
+    depends_on:
+      fsc-db:
+        condition: service_healthy
+
+  txlog-b:
+    <<: *fsc-common
+    image: federatedserviceconnectivity/txlog-api:v2.8.0
+    command:
+      - "/usr/local/bin/txlog-api"
+      - "serve"
+      - "--listen-address"
+      - "0.0.0.0:8443"
+      - "--monitoring-address"
+      - "0.0.0.0:8081"
+      - "--storage-postgres-dsn"
+      - "postgresql://fsc:fsc@fsc-db:5432/fsc_txlog_b?sslmode=disable&connect_timeout=5"
+      - "--tls-root-cert"
+      - "/pki/internal/b/ca.pem"
+      - "--tls-cert"
+      - "/pki/internal/b/txlog/cert.pem"
+      - "--tls-key"
+      - "/pki/internal/b/txlog/key.pem"
+      - "--log-level"
+      - "info"
+    depends_on:
+      fsc-migrate-txlog-b:
+        condition: service_completed_successfully
+
+  inway-b:
+    <<: *fsc-common
+    image: federatedserviceconnectivity/inway:v2.8.0
+    command:
+      - "/usr/local/bin/inway"
+      - "serve"
+      - "--listen-address"
+      - "0.0.0.0:443"
+      - "--monitoring-address"
+      - "0.0.0.0:8081"
+      - "--self-address"
+      - "https://inway-b:443"
+      - "--manager-internal-unauthenticated-address"
+      - "https://manager-b:8445"
+      - "--name"
+      - "inway-b"
+      - "--group-id"
+      - "grip-local"
+      - "--controller-registration-api-address"
+      - "https://controller-b:8443"
+      - "--tx-log-api-address"
+      - "https://txlog-b:8443"
+      - "--tls-group-root-cert"
+      - "/pki/group/ca.pem"
+      - "--tls-group-cert"
+      - "/pki/group/b/inway/cert.pem"
+      - "--tls-group-key"
+      - "/pki/group/b/inway/key.pem"
+      - "--tls-root-cert"
+      - "/pki/internal/b/ca.pem"
+      - "--tls-cert"
+      - "/pki/internal/b/inway/cert.pem"
+      - "--tls-key"
+      - "/pki/internal/b/inway/key.pem"
+      - "--log-type"
+      - "local"
+      - "--log-level"
+      - "info"
+    depends_on:
+      manager-b:
+        condition: service_started
+      controller-b:
+        condition: service_started
+      txlog-b:
+        condition: service_started
+
+  outway-b:
+    <<: *fsc-common
+    image: federatedserviceconnectivity/outway:v2.8.0
+    command:
+      - "/usr/local/bin/outway"
+      - "serve"
+      - "--name"
+      - "outway-b"
+      - "--group-id"
+      - "grip-local"
+      - "--listen-address"
+      - "0.0.0.0:8080"
+      - "--monitoring-address"
+      - "0.0.0.0:8081"
+      - "--tx-log-api-address"
+      - "https://txlog-b:8443"
+      - "--controller-registration-api-address"
+      - "https://controller-b:8443"
+      - "--manager-internal-address"
+      - "https://manager-b:8444"
+      - "--tls-group-root-cert"
+      - "/pki/group/ca.pem"
+      - "--tls-group-cert"
+      - "/pki/group/b/outway/cert.pem"
+      - "--tls-group-key"
+      - "/pki/group/b/outway/key.pem"
+      - "--tls-root-cert"
+      - "/pki/internal/b/ca.pem"
+      - "--tls-cert"
+      - "/pki/internal/b/outway/cert.pem"
+      - "--tls-key"
+      - "/pki/internal/b/outway/key.pem"
+      - "--enable-grant-hash-suggestion"
+      - "true"
+      - "--log-type"
+      - "local"
+      - "--log-level"
+      - "info"
+    depends_on:
+      manager-b:
+        condition: service_started
+      controller-b:
+        condition: service_started
+      txlog-b:
+        condition: service_started
+
+volumes:
+  fsc-db:

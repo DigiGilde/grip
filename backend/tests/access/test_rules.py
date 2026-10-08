@@ -274,12 +274,23 @@ async def test_cost_items(world) -> None:
     assert not await decide(
         world.decider, world.subject("owner"), edit, elsewhere, financial
     )
-    assert not await decide(
-        world.decider, world.subject("beheerder"), edit, covered, financial
-    )
+    # Cost items are shared between assignments: the beheerder may add and
+    # change them, also where nobody manages an assignment that covers them.
+    for resource in (covered, elsewhere, Resource.cost_item(None)):
+        assert await decide(
+            world.decider, world.subject("beheerder"), edit, resource, financial
+        )
     assert not await decide(
         world.decider, world.subject("lezer"), edit, covered, financial
     )
+    for name in ("lezer", "planner", "colleague", "outsider"):
+        assert not await decide(
+            world.decider,
+            world.subject(name),
+            edit,
+            Resource.cost_item(None),
+            financial,
+        ), name
 
 
 async def test_rate_cards(world) -> None:

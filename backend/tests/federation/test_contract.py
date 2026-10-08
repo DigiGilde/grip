@@ -18,7 +18,7 @@ from grip.federation.contract_loader import (
     validation_errors,
 )
 
-from .conftest import example
+from .conftest import example, t
 
 
 @pytest.mark.parametrize("path", example_files("valid"), ids=lambda p: p.name)
@@ -48,7 +48,7 @@ def test_version_record_names_commit_and_versions():
 @pytest.mark.parametrize("name", ["quote", "quote.eigen-initiatief"])
 def test_quote_example_hash_is_sha256_of_canonical_snapshot(name):
     quote = example(name)
-    assert signing.snapshot_hash(quote["snapshot"]) == quote["snapshot_hash"]
+    assert signing.snapshot_hash(quote[t("snapshot")]) == quote[t("snapshot_hash")]
 
 
 def test_acceptance_example_verifies_against_example_keys():
@@ -59,23 +59,30 @@ def test_format_checks_are_real():
     # jsonschema skips date-time and uri without optional packages; the
     # loader checks them itself.
     quote = example("quote")
-    assert validation_errors("quote", {**quote, "issued_at": "2026-06-01 10:00"})
-    assert validation_errors("quote", {**quote, "issued_at": "2026-06-01T10:00:00"})
-    assert validation_errors("quote", {**quote, "uri": "geen uri"})
-    assert validation_errors("quote", {**quote, "id": "geen-uuid"})
+    assert validation_errors("offerte", {**quote, t("issued_at"): "2026-06-01 10:00"})
+    assert validation_errors(
+        "offerte", {**quote, t("issued_at"): "2026-06-01T10:00:00"}
+    )
+    assert validation_errors("offerte", {**quote, "uri": "geen uri"})
+    assert validation_errors("offerte", {**quote, "id": "geen-uuid"})
 
 
 def test_operation_table():
     ops = operations()
-    assert len(ops) == 18
+    assert len(ops) == 19
     quote = operation("sendQuote")
-    assert (quote.method, quote.path, quote.caller) == ("POST", "/quotes", "contractor")
-    assert quote.request_schema == "quote"
-    assert quote.response_schemas["201"] == "receipt"
+    assert (quote.method, quote.path, quote.caller) == (
+        "POST",
+        "/offertes",
+        "contractor",
+    )
+    assert quote.request_schema == "offerte"
+    assert quote.response_schemas["201"] == "ontvangstbevestiging"
     assert operation("getBudgetUsage").on_request is True
-    assert operation("getBillingData").required_query_parameters == ("month",)
+    assert operation("getBillingData").required_query_parameters == ("maand",)
     assert (
-        operation("sendAcceptance").url_path(quoteId="x") == "/v1/quotes/x/acceptances"
+        operation("sendAcceptance").url_path(offerteId="x")
+        == "/v1/offertes/x/akkoorden"
     )
     assert set(operations(SERVICE_CORPUS_CONTEXT)) == {
         "getCorpus",

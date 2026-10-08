@@ -1,0 +1,75 @@
+{
+  "id": "9d3b6c0e-2f41-4c8a-b0d2-6a1f5e7c8b90",
+  "uri": "https://grip.opdrachtnemer.example/id/offerte/9d3b6c0e-2f41-4c8a-b0d2-6a1f5e7c8b90",
+  "opdracht_uri": "https://grip.opdrachtgever.example/id/opdracht/3f2a8c54-6d1b-4f0e-9a77-1c2b3d4e5f60",
+  "aanvraag_id": "1a2b3c4d-0000-4000-8000-000000000001",
+  "opdrachtnemer": {
+    "tooi_uri": "https://identifier.overheid.nl/tooi/id/oorg/oorg00000",
+    "naam": "Voorbeelddienst",
+    "eenheid_kenmerk": "voorbeeldgilde",
+    "instantie_uri": "https://grip.opdrachtnemer.example"
+  },
+  "opdrachtgever": {
+    "tooi_uri": "https://identifier.overheid.nl/tooi/id/ministerie/mnre0000",
+    "naam": "Voorbeeldministerie",
+    "eenheid_kenmerk": "directie-voorbeeld",
+    "instantie_uri": "https://grip.opdrachtgever.example"
+  },
+  "bovenliggende_opdracht_uri": null,
+  "momentopname": {
+    "naam": "Opdracht Alfa",
+    "context_uris": [
+      "https://corpus.voorbeeldministerie.example/id/node/0b6f1c1e-5a0e-4a53-9a43-0d3e1d6b2a03"
+    ],
+    "regels": [
+      {
+        "positie": 1,
+        "omschrijving": "Productmanager",
+        "soort": "personeel",
+        "rol": "Productmanager",
+        "fte": "0.8",
+        "tariefcategorie": "D",
+        "periode": {
+          "begindatum": "2026-07-01",
+          "einddatum": "2026-12-31"
+        },
+        "maandtarief": {
+          "bedrag_centen": 1800000,
+          "valuta": "EUR"
+        },
+        "bedrag": {
+          "bedrag_centen": 8640000,
+          "valuta": "EUR"
+        }
+      },
+      {
+        "positie": 2,
+        "omschrijving": "Hosting",
+        "soort": "vast",
+        "bedrag": {
+          "bedrag_centen": 1500000,
+          "valuta": "EUR"
+        }
+      }
+    ],
+    "subtotalen_per_jaar": [
+      {
+        "jaar": 2026,
+        "bedrag": {
+          "bedrag_centen": 10140000,
+          "valuta": "EUR"
+        }
+      }
+    ],
+    "totaal": {
+      "bedrag_centen": 10140000,
+      "valuta": "EUR"
+    },
+    "geldig_tot_en_met": "2026-06-30",
+    "voorwaarden": "Fictieve voorwaarden."
+  },
+  "momentopname_hash": "geen-hash",
+  "hash_algoritme": "sha-256",
+  "canonicalisatie": "RFC8785",
+  "uitgegeven_op": "2026-06-01T10:00:00+02:00"
+}

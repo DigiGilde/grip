@@ -22,7 +22,7 @@ from grip.federation.outbox import (
     send_due,
 )
 
-from .conftest import CLIENT_BASE, CLIENT_PEER_ID, example
+from .conftest import CLIENT_BASE, CLIENT_PEER_ID, example, t
 
 QUOTE_ID = "9d3b6c0e-2f41-4c8a-b0d2-6a1f5e7c8b90"
 RECEIPT = {
@@ -52,7 +52,7 @@ async def test_enqueue_stores_method_and_path_from_the_contract(
     row = await enqueue(db_session, client_peer, "sendQuote", example("quote"))
     assert (row.method, row.path, row.service) == (
         "POST",
-        "/v1/quotes",
+        "/v1/offertes",
         "grip-opdrachtverkeer",
     )
     assert (row.status, row.attempts) == (OUTBOX_PENDING, 0)
@@ -64,7 +64,7 @@ async def test_enqueue_stores_method_and_path_from_the_contract(
         example("acceptance"),
         quoteId=QUOTE_ID,
     )
-    assert acceptance.path == f"/v1/quotes/{QUOTE_ID}/acceptances"
+    assert acceptance.path == f"/v1/offertes/{QUOTE_ID}/akkoorden"
     report = await enqueue(
         db_session,
         client_peer,
@@ -93,7 +93,7 @@ async def test_queueing_twice_gives_the_same_row(db_session, client_peer):
     second = await enqueue(db_session, client_peer, "sendQuote", example("quote"))
     assert first.id == second.id
     changed = example("quote")
-    changed["issued_at"] = "2026-06-02T10:00:00+02:00"
+    changed[t("issued_at")] = "2026-06-02T10:00:00+02:00"
     with pytest.raises(OutboundMessageConflictError):
         await enqueue(db_session, client_peer, "sendQuote", changed)
 
@@ -112,7 +112,7 @@ async def test_message_goes_through_the_outway_with_the_grant_hash(
     assert (stats.sent, stats.total) == (1, 1)
     (request,) = fake_outway.requests
     assert request.method == "POST"
-    assert str(request.url) == "http://outway.test/v1/quotes"
+    assert str(request.url) == "http://outway.test/v1/offertes"
     assert (
         request.headers["Fsc-Grant-Hash"]
         == client_peer.grant_hashes["grip-opdrachtverkeer"]
@@ -252,7 +252,7 @@ async def test_one_failing_peer_does_not_hold_up_another(
     working = await enqueue(db_session, other, "sendVacancy", example("vacancy"))
 
     def handler(request):
-        if request.url.path == "/v1/quotes":
+        if request.url.path == "/v1/offertes":
             return httpx.Response(503)
         return httpx.Response(201, json=RECEIPT)
 

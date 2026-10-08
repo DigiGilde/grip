@@ -14,6 +14,10 @@ describe('route table', () => {
       'Kosten en facturen',
       'Tarieven',
       'Team',
+      'Vacatures',
+      'Rapportage',
+      'Aanvragen',
+      'Beheer',
     ]);
   });
 

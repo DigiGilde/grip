@@ -125,8 +125,16 @@ decide(subject, action, resource, data_class)
 - Een tekenbevoegdheid is nu ja of nee per eenheid. Een grens op het bedrag is niet uitgewerkt.
 - De matrix geeft de moeder klasse C. Of bezetting met namen of alleen als aantallen naar de moeder gaat, is niet beslist.
 
-## Twee nadere regels
+## Nadere regels
 
 **Kostprijs en marge (klasse E).** Deze gegevens hangen aan een persoon, niet aan een opdracht. Een eigenaar of manager ziet ze alleen van personen die in de getoonde periode een inzet hebben op de eigen opdracht.
 
 **Bemensing naar de moeder (klasse C).** De moederinstantie krijgt standaard aantallen: hoeveel mensen ingezet, beschikbaar en gezocht, per rol en per periode. Namen gaan alleen mee als de beheerder van de dochterinstantie dat aanzet.
+
+**Kostenposten (klasse B).** Een kostenpost hoort niet bij een opdracht. De beheerder mag kostenposten aanmaken en wijzigen. Daarnaast wijzigt een kostenpost wie een opdracht beheert waarvan de begroting hem dekt; zolang nog niets hem dekt, is dat wie hem heeft aangemaakt.
+
+**Offerte uitgeven en maand afsluiten.** Dat doet alleen de eigenaar of manager van de opdracht, ook de beheerder niet. Een afgesloten maand heropenen kan alleen de beheerder.
+
+**Gast-ondertekenaar zonder account.** Wie is uitgenodigd om een offerte te tekenen en geen persoon is in de instantie, krijgt na het inloggen een gastsessie. Dat gebeurt alleen als de identiteitsprovider het e-mailadres heeft bevestigd en er voor dat adres een uitnodiging openstaat die niet is verlopen. Een gastsessie bereikt alleen de tekenpagina's; elk ander deel van de API weigert haar.
+
+**Niets te tellen.** Een lijst waarvan de lezer de inhoud niet mag zien ontbreekt in het antwoord, ook als ze leeg is. Een regel waarvan geen enkel veld overblijft wordt weggelaten. Zo verraadt een antwoord niet hoeveel schaalperiodes, offerteregels of kostenposten er zijn.

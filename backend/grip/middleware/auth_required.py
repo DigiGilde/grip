@@ -5,6 +5,10 @@ When OIDC is configured, this middleware rejects unauthenticated requests to
 token is revalidated against the identity provider with caching, refresh and
 a grace period (see :func:`grip.core.auth.validate_session_token`).
 
+A session of an invited signer without a person record (a guest, see
+:mod:`grip.access.guest_deps`) reaches the signing routes only; every other
+API path answers 403.
+
 Whether the person behind the session may still use this instance (active,
 right function) is decided per route by the dependencies in
 :mod:`grip.core.auth`. ``tests/test_route_authorization_inventory.py`` fails
@@ -35,6 +39,8 @@ PUBLIC_PREFIXES = (
 PUBLIC_EXACT = (
     # Name and base URI of the instance: the login page shows the name.
     "/api/instance",
+    # No session: Wies presents a key, checked by require_wies_export_key.
+    "/api/integrations/wies/export",
 )
 
 
@@ -86,10 +92,24 @@ class AuthRequiredMiddleware:
             await self.app(scope, receive, send)
             return
 
+        from grip.core.auth import (
+            GUEST_API_PREFIX,
+            GUEST_SESSION_KEY,
+            validate_session_token,
+        )
+
         session: dict = scope.get("session", {})
         if session.get("access_token") and session.get("person_id"):
-            from grip.core.auth import validate_session_token
-
+            if await validate_session_token(session, self.settings):
+                await self.app(scope, receive, send)
+                return
+        elif session.get("access_token") and session.get(GUEST_SESSION_KEY):
+            # An invited signer without a person record: the signing routes
+            # and nothing else. The session is kept, so a stray request does
+            # not log the guest out.
+            if not path.startswith(GUEST_API_PREFIX):
+                await _deny(send, status_code=403, detail="Geen toegang")
+                return
             if await validate_session_token(session, self.settings):
                 await self.app(scope, receive, send)
                 return

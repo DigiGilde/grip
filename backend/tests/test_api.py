@@ -24,6 +24,7 @@ async def test_status_without_any_person(client):
         "oidc_configured": False,
         "person": None,
         "functions": [],
+        "guest": None,
     }
 
 

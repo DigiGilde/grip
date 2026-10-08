@@ -1,0 +1,19 @@
+{
+  "id": "1a2b3c4d-0000-4000-8000-000000000003",
+  "opdracht_uri": "https://grip.opdrachtgever.example/id/opdracht/bbbbbbbb-0000-4000-8000-000000000001",
+  "naam": "Verkenning Gamma",
+  "opdrachtgever": {
+    "tooi_uri": "https://identifier.overheid.nl/tooi/id/ministerie/mnre0000",
+    "naam": "Voorbeeldministerie",
+    "eenheid_kenmerk": "directie-voorbeeld",
+    "instantie_uri": "https://grip.opdrachtgever.example"
+  },
+  "opdrachtnemer": {
+    "tooi_uri": "https://identifier.overheid.nl/tooi/id/oorg/oorg00000",
+    "naam": "Voorbeelddienst",
+    "eenheid_kenmerk": "voorbeeldgilde",
+    "instantie_uri": "https://grip.opdrachtnemer.example"
+  },
+  "context_uris": [],
+  "verzonden_op": "2026-05-21T09:15:00+02:00"
+}

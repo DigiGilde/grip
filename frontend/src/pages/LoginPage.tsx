@@ -37,6 +37,9 @@ export function LoginPage() {
   if (state.status === 'no-access') {
     return <Navigate to={PATHS.noAccess} replace />;
   }
+  if (state.status === 'guest') {
+    return <Navigate to={PATHS.signing} replace />;
+  }
 
   const instanceName = instance?.name ?? 'Grip';
   const loginAvailable = state.status === 'unauthenticated' && state.oidcConfigured;

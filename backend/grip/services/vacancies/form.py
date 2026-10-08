@@ -179,6 +179,18 @@ def load_bundled_mapping(name: str) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def bundled_mapping_names() -> list[str]:
+    """The names of the mappings that ship with grip."""
+    if not _BUNDLED_MAPPINGS.is_dir():
+        return []
+    return sorted(path.stem for path in _BUNDLED_MAPPINGS.glob("*.json"))
+
+
+def has_values(pdf: bytes) -> bool:
+    """Whether any field of the form is filled in."""
+    return any(field.has_value for field in inspect_form(pdf))
+
+
 def _reader(pdf: bytes) -> PdfReader:
     try:
         return PdfReader(io.BytesIO(pdf))

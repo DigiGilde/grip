@@ -13,13 +13,15 @@ a hidden value from a field that does not exist for it.
 
 A field that only holds other schemas (a list of lines, a nested object) is
 marked ``nested()``: it has no class of its own and its content is filtered
-field by field.
+field by field. Entries that keep nothing are dropped and a nested field
+that keeps nothing is absent, so a reader cannot count what it may not see.
 """
 
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Any, get_args
 
 from pydantic import BaseModel
@@ -143,39 +145,122 @@ def build_response(value: BaseModel, permitted: Iterable[DataClass]) -> dict[str
 
     ``permitted`` is taken literally: pass what ``permitted_classes`` returned
     for the classes in ``schema_classes(type(value))``.
+
+    Nested content is filtered so that nothing can be counted by a reader who
+    may see none of it:
+
+    - a ``nested()`` field is absent when no class of the schemas it holds is
+      permitted, whether it holds something or not;
+    - a nested object, list entry or mapping entry that keeps no field of its
+      own (only empty containers, or nothing) is dropped;
+    - a list or mapping whose entries were all dropped is absent, while one
+      that was empty to begin with stays empty for a reader who may see its
+      content.
+
+    The top-level object is always returned, possibly empty. Decimals are
+    written in one notation, see ``canonical_decimal``.
     """
     allowed = frozenset(permitted)
-    return _filter_model(value, value.model_dump(mode="json"), allowed)
+    result, _ = _filter_model(value, value.model_dump(mode="json"), allowed)
+    return result
+
+
+_ABSENT: Any = object()
+
+_classes_cache: dict[type[BaseModel], frozenset[DataClass]] = {}
+
+
+def _classes_of(model: type[BaseModel]) -> frozenset[DataClass]:
+    if model not in _classes_cache:
+        _classes_cache[model] = schema_classes(model)
+    return _classes_cache[model]
 
 
 def _filter_model(
     value: BaseModel, dumped: Mapping[str, Any], allowed: frozenset[DataClass]
-) -> dict[str, Any]:
+) -> tuple[dict[str, Any], bool]:
+    """The filtered object, and whether it holds anything of substance.
+
+    Substance is a field with a permitted class, or a nested field that kept
+    content. An object with only empty containers has none, so its parent
+    drops it instead of showing that it exists.
+    """
     model = type(value)
     classes = field_classes(model)
     result: dict[str, Any] = {}
+    substance = False
     for name, data_class in classes.items():
         if name not in dumped:
             continue
         if data_class is None:
-            result[name] = _filter_value(getattr(value, name), dumped[name], allowed)
+            children = _nested_models(model.model_fields[name].annotation)
+            if not any(_classes_of(child) & allowed for child in children):
+                continue
+            filtered = _filter_value(getattr(value, name), dumped[name], allowed)
+            if filtered is _ABSENT:
+                continue
+            result[name] = filtered
+            if filtered:
+                substance = True
         elif data_class in allowed:
-            result[name] = dumped[name]
-    return result
+            result[name] = _canonical(getattr(value, name), dumped[name])
+            substance = True
+    return result, substance
+
+
+def canonical_decimal(value: Decimal) -> str:
+    """A decimal as the API writes it: plain notation, no trailing zeros.
+
+    The database returns a number with the scale of its column (``0.800``,
+    ``30.00``) and a request echoes what was typed (``0.8``). One notation
+    on the way out means the same number is always the same string.
+    """
+    if not value.is_finite():
+        return str(value)
+    text = format(value.normalize(), "f")
+    return "0" if text in ("-0", "") else text
+
+
+def _canonical(value: Any, dumped: Any) -> Any:
+    """``dumped`` with every decimal of ``value`` in canonical notation."""
+    if isinstance(value, Decimal):
+        return canonical_decimal(value)
+    if isinstance(value, list | tuple) and isinstance(dumped, list):
+        if len(value) == len(dumped):
+            return [_canonical(v, d) for v, d in zip(value, dumped, strict=True)]
+        return dumped
+    if isinstance(value, Mapping) and isinstance(dumped, Mapping):
+        if len(value) == len(dumped):
+            return {
+                key: _canonical(v, dumped[key])
+                for (_k, v), key in zip(value.items(), dumped, strict=True)
+            }
+        return dumped
+    return dumped
 
 
 def _filter_value(value: Any, dumped: Any, allowed: frozenset[DataClass]) -> Any:
     if isinstance(value, BaseModel):
-        return _filter_model(value, dumped, allowed)
+        filtered, substance = _filter_model(value, dumped, allowed)
+        return filtered if substance else _ABSENT
     if isinstance(value, list | tuple):
-        return [
-            _filter_value(v, d, allowed) for v, d in zip(value, dumped, strict=True)
+        if not value:
+            return []
+        items = [
+            item
+            for v, d in zip(value, dumped, strict=True)
+            if (item := _filter_value(v, d, allowed)) is not _ABSENT
         ]
+        return items if items else _ABSENT
     if isinstance(value, Mapping):
-        return {
-            dumped_key: _filter_value(v, dumped[dumped_key], allowed)
+        if not value:
+            return {}
+        entries = {
+            dumped_key: item
             for (_k, v), dumped_key in zip(value.items(), dumped, strict=True)
+            if (item := _filter_value(v, dumped[dumped_key], allowed)) is not _ABSENT
         }
+        return entries if entries else _ABSENT
     # ``None`` in an optional nested field, or a plain value where a schema
     # was expected: nothing to filter into, so nothing is passed on.
     return None

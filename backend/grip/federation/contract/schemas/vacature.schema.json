@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Vacature",
+  "description": "Open rol die een instantie uitzet bij een andere instantie.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Id van dit bericht. Bepaalt de idempotentie. Een wijziging van de vacature (bijvoorbeeld van open naar ingevuld) is een nieuw bericht met een nieuw `id` en dezelfde `uri`."
+    },
+    "uri": {
+      "type": "string",
+      "format": "uri",
+      "description": "URI van de vacature. Blijft gelijk over alle berichten over deze vacature; de uuid aan het eind is de `vacatureId` in het pad voor een aanbod."
+    },
+    "organisatie": {
+      "$ref": "organisatie-ref.schema.json"
+    },
+    "opdracht_uri": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "uri",
+          "description": "URI van de opdracht waar de rol bij hoort, als de uitzetter die wil delen."
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "rol": {
+      "type": "string",
+      "description": "Rol."
+    },
+    "omschrijving": {
+      "type": "string",
+      "description": "Profiel en werkzaamheden."
+    },
+    "tariefcategorie": {
+      "anyOf": [
+        {
+          "type": "string",
+          "enum": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+          ],
+          "description": "Tariefcategorie."
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "fte": {
+      "type": "string",
+      "pattern": "^\\d+(\\.\\d+)?$",
+      "description": "Omvang in FTE. Exacte decimaal als tekst, geen floating point."
+    },
+    "periode": {
+      "$ref": "periode.schema.json"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "ingevuld",
+        "ingetrokken"
+      ],
+      "description": "Stand van de vacature."
+    },
+    "contact_email": {
+      "type": "string",
+      "format": "email",
+      "description": "Functioneel e-mailadres voor reacties."
+    },
+    "reageren_voor": {
+      "type": "string",
+      "format": "date",
+      "description": "Uiterste reactiedatum."
+    },
+    "gepubliceerd_op": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Moment van uitzetten. Met tijdzone (RFC 3339)."
+    }
+  },
+  "required": [
+    "id",
+    "uri",
+    "organisatie",
+    "rol",
+    "fte",
+    "periode",
+    "status",
+    "gepubliceerd_op"
+  ]
+}

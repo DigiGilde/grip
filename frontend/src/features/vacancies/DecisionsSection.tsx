@@ -1,0 +1,242 @@
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { assignmentKeys, fetchPersonOptions } from '@/features/assignments/api';
+import { formatDate } from '@/lib/format';
+import { recordDecision, type Decision, type DecisionInput, type DecisionKind, type Vacancy } from './api';
+import { todayIso, useVacancyChange } from './hooks';
+import { Button, DateInput, FormSheet, Note, SectionHeading, SelectInput, TextInput } from './ui';
+
+const KINDS: { kind: DecisionKind; label: string; who: string }[] = [
+  { kind: 'hr_advice', label: 'Advies HR', who: 'HR-adviseur' },
+  { kind: 'control_advice', label: 'Advies concern control', who: 'Controller' },
+  { kind: 'approval', label: 'Akkoord', who: 'Wie akkoord geeft' },
+];
+
+/** Choice in the person picker for someone who has no account here. */
+const NO_ACCOUNT = 'none';
+
+const VERDICTS = [
+  { value: 'yes', label: 'Akkoord' },
+  { value: 'no', label: 'Niet akkoord' },
+];
+
+function canRecord(vacancy: Vacancy, kind: DecisionKind): boolean {
+  const permissions = vacancy.permissions;
+  if (kind === 'hr_advice') return permissions.can_record_hr_advice;
+  if (kind === 'control_advice') return permissions.can_record_control_advice;
+  return permissions.can_record_approval;
+}
+
+function outcome(decision: Decision | undefined): string {
+  if (!decision) return 'Nog niemand genoemd';
+  if (decision.agreed === true) return 'Akkoord';
+  if (decision.agreed === false) return 'Niet akkoord';
+  return 'Nog geen besluit';
+}
+
+function supporting(decision: Decision | undefined): string | undefined {
+  if (!decision) return undefined;
+  const parts = [
+    decision.person_name,
+    decision.decided_on ? formatDate(decision.decided_on) : null,
+    decision.note,
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(' · ') : undefined;
+}
+
+interface SheetState {
+  kind: DecisionKind;
+  /** Record the decision itself, or only who is named for it. */
+  deciding: boolean;
+}
+
+function DecisionSheet({
+  vacancy,
+  state,
+  open,
+  onClose,
+}: {
+  vacancy: Vacancy;
+  state: SheetState;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const meta = KINDS.find((entry) => entry.kind === state.kind) ?? KINDS[0]!;
+  const existing = vacancy.decisions.find((decision) => decision.kind === state.kind);
+  // The named person records their own decision and cannot rename themselves.
+  const namesFixed = state.deciding && !vacancy.permissions.can_edit && existing !== undefined;
+  const [name, setName] = useState(existing?.person_name ?? '');
+  // Someone already named without an account stays free text; a new name
+  // starts at the picker.
+  const [personId, setPersonId] = useState(
+    existing && !existing.has_account ? NO_ACCOUNT : '',
+  );
+  const people = useQuery({
+    queryKey: assignmentKeys.personOptions,
+    queryFn: fetchPersonOptions,
+    enabled: open && !namesFixed,
+  });
+  const accounts = people.data ?? [];
+  // Without the list (it is not for everyone, or it failed) a name can
+  // still be typed.
+  const freeText = personId === NO_ACCOUNT || (!people.isPending && accounts.length === 0);
+  const keepsAccount = personId === '' && existing?.has_account === true;
+  const [verdict, setVerdict] = useState(
+    existing?.agreed === true ? 'yes' : existing?.agreed === false ? 'no' : '',
+  );
+  const [note, setNote] = useState(existing?.note ?? '');
+  const [day, setDay] = useState(existing?.decided_on ?? todayIso());
+  const [problem, setProblem] = useState<string | null>(null);
+  const change = useVacancyChange(
+    vacancy.id,
+    (body: DecisionInput) => recordDecision(vacancy.id, state.kind, body),
+    onClose,
+  );
+
+  function submit() {
+    setProblem(null);
+    const picked = !namesFixed && !freeText && personId !== '';
+    if (!picked && !name.trim()) {
+      return setProblem(
+        freeText ? 'Vul in wie adviseert of akkoord geeft.' : 'Kies wie adviseert of akkoord geeft.',
+      );
+    }
+    if (state.deciding && !verdict) return setProblem('Kies akkoord of niet akkoord.');
+    change.run({
+      ...(picked ? { person_id: personId } : { person_name: name.trim() }),
+      ...(state.deciding
+        ? { agreed: verdict === 'yes', note: note.trim() || null, decided_on: day || null }
+        : {}),
+    });
+  }
+
+  return (
+    <FormSheet
+      open={open}
+      title={state.deciding ? `${meta.label} vastleggen` : `${meta.who} noemen`}
+      submitText={state.deciding ? 'Leg vast' : 'Bewaar'}
+      onSubmit={submit}
+      onClose={onClose}
+      busy={change.busy}
+      error={problem ?? change.error}
+    >
+      {namesFixed ? (
+        <Note>Je legt dit vast als {existing?.person_name}.</Note>
+      ) : (
+        <>
+          {accounts.length > 0 && (
+            <SelectInput
+              label={meta.who}
+              hint="Iemand met een account legt het besluit zelf vast."
+              value={personId}
+              onChange={setPersonId}
+              options={[
+                ...accounts.map((person) => ({ value: person.id, label: person.name })),
+                { value: NO_ACCOUNT, label: 'Iemand zonder account' },
+              ]}
+              placeholder={keepsAccount ? (existing?.person_name ?? 'Kies') : 'Kies'}
+              required={!keepsAccount}
+            />
+          )}
+          {freeText && (
+            <TextInput
+              label={accounts.length > 0 ? 'Naam' : meta.who}
+              hint="Deze persoon gebruikt grip niet; iemand anders legt het besluit vast."
+              value={name}
+              onChange={setName}
+              required
+            />
+          )}
+        </>
+      )}
+      {state.deciding && (
+        <>
+          <SelectInput
+            label="Besluit"
+            value={verdict}
+            onChange={setVerdict}
+            options={VERDICTS}
+            placeholder="Kies"
+            required
+          />
+          <DateInput label="Datum" value={day} onChange={setDay} required />
+          <TextInput label="Toelichting" value={note} onChange={setNote} multiline optional />
+        </>
+      )}
+    </FormSheet>
+  );
+}
+
+/** Advice from HR and concern control, and the approval. */
+export function DecisionsSection({ vacancy }: { vacancy: Vacancy }) {
+  const [state, setState] = useState<SheetState>({ kind: 'hr_advice', deciding: false });
+  const [open, setOpen] = useState(false);
+  const requested = vacancy.status !== 'draft';
+
+  function show(kind: DecisionKind, deciding: boolean) {
+    setState({ kind, deciding });
+    setOpen(true);
+  }
+
+  return (
+    <>
+      <SectionHeading text="Advies en akkoord" />
+      {!requested && (
+        <Note>Advies en akkoord kunnen worden vastgelegd zodra de vacature is aangevraagd.</Note>
+      )}
+      <nldd-list appearance="box-base" accessible-label="Advies en akkoord">
+        {KINDS.map(({ kind, label }) => {
+          const decision = vacancy.decisions.find((entry) => entry.kind === kind);
+          const detail = supporting(decision);
+          return (
+            <nldd-list-item key={kind}>
+              <nldd-text-cell
+                overline={label}
+                text={outcome(decision)}
+                {...(detail ? { 'supporting-text': detail } : {})}
+              />
+            </nldd-list-item>
+          );
+        })}
+      </nldd-list>
+      {requested && (
+        <>
+          <nldd-spacer size="8" />
+          <nldd-button-group>
+            {KINDS.map(({ kind, label, who }) => {
+              const decision = vacancy.decisions.find((entry) => entry.kind === kind);
+              const decided = decision?.agreed === true || decision?.agreed === false;
+              if (canRecord(vacancy, kind)) {
+                return (
+                  <Button
+                    key={kind}
+                    text={decided ? `Wijzig ${label.toLowerCase()}` : `Leg ${label.toLowerCase()} vast`}
+                    onClick={() => show(kind, true)}
+                  />
+                );
+              }
+              if (vacancy.permissions.can_edit && !decided) {
+                return (
+                  <Button
+                    key={kind}
+                    text={`${decision ? 'Wijzig' : 'Noem'} ${who.toLowerCase()}`}
+                    onClick={() => show(kind, false)}
+                  />
+                );
+              }
+              return null;
+            })}
+          </nldd-button-group>
+        </>
+      )}
+      <DecisionSheet
+        // A fresh form for each decision and each saved state of it.
+        key={`${state.kind}-${state.deciding}-${JSON.stringify(vacancy.decisions.find((d) => d.kind === state.kind) ?? null)}`}
+        vacancy={vacancy}
+        state={state}
+        open={open}
+        onClose={() => setOpen(false)}
+      />
+    </>
+  );
+}

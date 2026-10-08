@@ -1,0 +1,12 @@
+# Generated per machine: certificates, keys, secrets and state. Never commit.
+/pki/
+/state/
+/.env
+/.env.sso
+*.pem
+*.key
+*.crt
+*.csr
+
+# The example is documentation, not a secret.
+!.env.sso.example

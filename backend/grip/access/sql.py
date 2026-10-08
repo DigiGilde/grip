@@ -20,7 +20,7 @@ from grip.access.types import AssignmentRole, PeerRole
 from grip.federation.models import Peer
 from grip.models.assignment import Allocation, Assignment, BudgetLine
 from grip.models.assignment import AssignmentRole as AssignmentRoleRow
-from grip.models.cost import CostCoverage
+from grip.models.cost import CostCoverage, CostItem
 from grip.models.organisation import Organisation
 from grip.models.person import Person
 from grip.models.quote import QuoteInvitation
@@ -106,7 +106,12 @@ class SqlRelationSource:
         )
 
     async def manages_cost_item(self, person_id: UUID, cost_item_id: UUID) -> bool:
-        query = (
+        """Through an assignment whose budget covers it, or as its creator.
+
+        The creator manages the item only while nothing covers it: once a
+        budget line carries part of it, the managers of that assignment do.
+        """
+        covered_by_own_assignment = (
             select(CostCoverage.id)
             .join(BudgetLine, BudgetLine.id == CostCoverage.budget_line_id)
             .join(
@@ -118,7 +123,17 @@ class SqlRelationSource:
                 AssignmentRoleRow.person_id == person_id,
             )
         )
-        return await self._exists(exists(query))
+        if await self._exists(exists(covered_by_own_assignment)):
+            return True
+        any_coverage = select(CostCoverage.id).where(
+            CostCoverage.cost_item_id == cost_item_id
+        )
+        created_uncovered = select(CostItem.id).where(
+            CostItem.id == cost_item_id,
+            CostItem.created_by_id == person_id,
+            ~exists(any_coverage),
+        )
+        return await self._exists(exists(created_uncovered))
 
     async def is_invited_signer(
         self,

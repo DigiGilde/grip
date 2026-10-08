@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Opdracht",
+  "description": "Kerngegevens van een opdracht (gegevensklasse A).",
+  "type": "object",
+  "properties": {
+    "uri": {
+      "type": "string",
+      "format": "uri",
+      "description": "URI van de opdracht, uitgegeven door de instantie die hem aanmaakte: {basis}/id/opdracht/{uuid}."
+    },
+    "naam": {
+      "type": "string",
+      "description": "Naam van de opdracht."
+    },
+    "omschrijving": {
+      "anyOf": [
+        {
+          "type": "string",
+          "description": "Omschrijving."
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "soort": {
+      "type": "string",
+      "enum": [
+        "extern",
+        "intern"
+      ],
+      "description": "external: met een opdrachtgever; internal: uit eigen middelen."
+    },
+    "opdrachtgever": {
+      "anyOf": [
+        {
+          "$ref": "organisatie-ref.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "opdrachtnemer": {
+      "$ref": "organisatie-ref.schema.json"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "concept",
+        "aangevraagd",
+        "offerte_uitgegeven",
+        "akkoord",
+        "in_uitvoering",
+        "afgerond",
+        "verantwoord",
+        "afgewezen",
+        "geannuleerd"
+      ],
+      "description": "draft (concept), requested (aangevraagd), quoted (offerte uitgegeven), accepted (akkoord), in_progress (in uitvoering), completed (afgerond), accounted (verantwoord), rejected (afgewezen), cancelled (geannuleerd)."
+    },
+    "periode": {
+      "$ref": "periode.schema.json"
+    },
+    "bovenliggende_opdracht_uri": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "uri",
+          "description": "URI van de bovenliggende opdracht als deze opdracht is doorgezet in een keten."
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "context_uris": {
+      "type": "array",
+      "description": "URIs van de nodes waar de opdracht uit voortkomt. Mag leeg zijn. Mag nodes uit meerdere corpora bevatten.",
+      "items": {
+        "type": "string",
+        "format": "uri"
+      },
+      "uniqueItems": true
+    },
+    "besteding": {
+      "type": "object",
+      "description": "Besteding in totalen. Alleen aanwezig in het antwoord aan een corpus-systeem waar de opdracht naar verwijst, zodat bij een node de fase en de besteding zichtbaar zijn. Geen regels en geen namen.",
+      "properties": {
+        "begroot": {
+          "$ref": "bedrag.schema.json"
+        },
+        "uitputting": {
+          "$ref": "bedrag.schema.json"
+        },
+        "peilmoment": {
+          "type": "string",
+          "format": "date",
+          "description": "Datum waarop de totalen zijn berekend."
+        }
+      },
+      "required": [
+        "begroot",
+        "uitputting",
+        "peilmoment"
+      ]
+    }
+  },
+  "required": [
+    "uri",
+    "naam",
+    "opdrachtnemer",
+    "status",
+    "context_uris"
+  ]
+}

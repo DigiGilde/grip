@@ -50,6 +50,12 @@ class DataClass(StrEnum):
     # Not personal and not tied to an assignment: rate cards.
     MASTER_DATA = "master_data"
 
+    # Derived from C: a published open role with an established text
+    # (function, scale, FTE, period and the text), without any name. What
+    # every person of the instance sees of a vacancy. The rules for it live
+    # in ``grip.access.vacancies``.
+    OPEN_ROLE = "open_role"
+
 
 CORE_DATA_CLASSES: tuple[DataClass, ...] = (
     DataClass.ASSIGNMENT_BASIC,
@@ -85,6 +91,8 @@ class Action(StrEnum):
     MANAGE_RATES = "manage_rates"
     # Persons, their scale history and targets, and who holds which function.
     MANAGE_USERS = "manage_users"
+    # Record an advice or the approval on a vacancy request.
+    RECORD_DECISION = "record_decision"
 
 
 class SubjectKind(StrEnum):
@@ -104,6 +112,12 @@ class ResourceKind(StrEnum):
     COST_ITEM = "cost_item"
     RATE_CARD = "rate_card"
     INSTANCE = "instance"
+    # The three kinds below are decided in ``grip.access.vacancies``.
+    VACANCY = "vacancy"
+    # The blank request form of the instance and its field mapping.
+    FORM_TEMPLATE = "form_template"
+    # The configuration of the language model that drafts texts.
+    LANGUAGE_MODEL = "language_model"
 
 
 class PeerRole(StrEnum):
@@ -169,6 +183,16 @@ class Resource:
     id: UUID | None = None
     assignment_id: UUID | None = None
     person_id: UUID | None = None
+    # Facts about the resource that the caller looked up and that a rule
+    # needs, as (name, value) pairs. They travel as resource properties in
+    # an AuthZEN request. Empty for every kind that does not need them.
+    properties: tuple[tuple[str, str], ...] = ()
+
+    def property(self, name: str) -> str | None:
+        for key, value in self.properties:
+            if key == name:
+                return value
+        return None
 
     @classmethod
     def assignment(cls, assignment_id: UUID | None = None) -> Resource:
@@ -253,6 +277,8 @@ class AccessRequest:
             resource_props["assignment_id"] = str(r.assignment_id)
         if r.person_id is not None:
             resource_props["person_id"] = str(r.person_id)
+        for name, value in r.properties:
+            resource_props.setdefault(name, value)
         period = c.period
         return {
             "subject": {

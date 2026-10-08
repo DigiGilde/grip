@@ -15,6 +15,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip.core.config import Settings
+from grip.federation import terms
 from grip.federation.contract_loader import (
     SERVICE_CORPUS_CONTEXT,
     operation,
@@ -75,7 +76,7 @@ class CorpusClient:
     ) -> dict[str, Any]:
         """The node behind a URI, with title and status as of ``peildatum``."""
         params = {"peildatum": peildatum.isoformat()} if peildatum else {}
-        return await self._get(db, uri, "getNode", "node", params)
+        return await self._get(db, uri, "getNode", terms.schema("node"), params)
 
     async def get_chain(
         self,
@@ -94,8 +95,8 @@ class CorpusClient:
         if peildatum:
             params["peildatum"] = peildatum.isoformat()
         if max_depth is not None:
-            params["maxDepth"] = max_depth
-        return await self._get(db, uri, "getNodeChain", "chain", params)
+            params[terms.contract_parameter("maxDepth")] = max_depth
+        return await self._get(db, uri, "getNodeChain", terms.schema("chain"), params)
 
     async def search_nodes(
         self,
@@ -118,7 +119,9 @@ class CorpusClient:
         if peildatum:
             params["peildatum"] = peildatum.isoformat()
         op = operation("searchNodes", SERVICE_CORPUS_CONTEXT)
-        return await self._fetch(peer, op.url_path(), params, "node-page", corpus_uri)
+        return await self._fetch(
+            peer, op.url_path(), params, terms.schema("node-page"), corpus_uri
+        )
 
     async def _peer(self, db: AsyncSession, uri: str) -> Peer:
         peer = await find_corpus_peer(db, uri)
@@ -169,4 +172,5 @@ class CorpusClient:
         errors = validation_errors(schema, body)
         if errors:
             raise CorpusContractError("; ".join(errors[:5]))
-        return body
+        translated: dict[str, Any] = terms.from_contract(body)
+        return translated

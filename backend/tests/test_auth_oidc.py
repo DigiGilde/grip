@@ -142,3 +142,96 @@ async def test_dev_cookie_is_ignored_with_oidc(db_session, create_person):
         }
     )
     assert await resolve_person(request, db_session, _oidc_settings()) is None
+
+
+# --- the provider's own endpoints must be https --------------------------------
+
+
+def _metadata(**overrides) -> dict:
+    base = "https://idp.example/realms/x/protocol/openid-connect"
+    return {
+        "issuer": "https://idp.example/realms/x",
+        "authorization_endpoint": f"{base}/auth",
+        "token_endpoint": f"{base}/token",
+        "userinfo_endpoint": f"{base}/userinfo",
+        "jwks_uri": f"{base}/certs",
+        "end_session_endpoint": f"{base}/logout",
+        **overrides,
+    }
+
+
+async def test_startup_refuses_a_provider_that_publishes_http_endpoints(monkeypatch):
+    import pytest
+
+    from grip.core import auth
+
+    async def _published(_settings):
+        return _metadata(
+            jwks_uri="http://idp.internal:8080/realms/x/certs",
+            userinfo_endpoint="http://idp.internal:8080/realms/x/userinfo",
+        )
+
+    monkeypatch.setattr(auth, "get_oidc_metadata", _published)
+    with pytest.raises(auth.InsecureOidcEndpointError) as excinfo:
+        await auth.check_oidc_transport(_oidc_settings())
+    message = str(excinfo.value)
+    assert "jwks_uri" in message and "userinfo_endpoint" in message
+    assert "token_endpoint" not in message
+    assert "OIDC_ALLOW_INSECURE_HTTP" in message
+
+
+async def test_startup_accepts_https_endpoints(monkeypatch):
+    from grip.core import auth
+
+    async def _published(_settings):
+        return _metadata()
+
+    monkeypatch.setattr(auth, "get_oidc_metadata", _published)
+    await auth.check_oidc_transport(_oidc_settings())
+
+
+async def test_startup_does_not_fail_on_an_unreachable_provider(monkeypatch):
+    """An outage is not a configuration error; the app must still start."""
+    from grip.core import auth
+
+    async def _unreachable(_settings):
+        return None
+
+    monkeypatch.setattr(auth, "get_oidc_metadata", _unreachable)
+    await auth.check_oidc_transport(_oidc_settings())
+
+
+async def test_startup_check_is_skipped_without_a_provider_or_with_the_opt_out(
+    monkeypatch,
+):
+    from grip.core import auth
+
+    async def _must_not_be_called(_settings):
+        raise AssertionError("no discovery document should be fetched")
+
+    monkeypatch.setattr(auth, "get_oidc_metadata", _must_not_be_called)
+    await auth.check_oidc_transport(Settings(_env_file=None, DEV_NO_AUTH=True))
+    local = Settings(
+        _env_file=None,
+        DEV_NO_AUTH=False,
+        OIDC_ISSUER="http://localhost:9080/realms/grip",
+        OIDC_ALLOW_INSECURE_HTTP=True,
+        SESSION_SECRET_KEY="s" * 40,
+    )
+    await auth.check_oidc_transport(local)
+
+
+def test_credentials_go_over_http_only_with_the_opt_out():
+    from grip.core.auth import require_https
+
+    strict = _oidc_settings()
+    local = Settings(
+        _env_file=None,
+        DEV_NO_AUTH=False,
+        OIDC_ISSUER="http://localhost:9080/realms/grip",
+        OIDC_ALLOW_INSECURE_HTTP=True,
+        SESSION_SECRET_KEY="s" * 40,
+    )
+    assert require_https("https://idp.example/token", "Token endpoint", strict)
+    assert not require_https("http://idp.example/token", "Token endpoint", strict)
+    assert require_https("http://localhost:9080/token", "Token endpoint", local)

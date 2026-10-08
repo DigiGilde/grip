@@ -1,0 +1,85 @@
+{
+  "id": "5e0c7a11-3b2d-4c6f-8a90-b1c2d3e4f506",
+  "uri": "https://grip.opdrachtnemer.example/id/offerte/5e0c7a11-3b2d-4c6f-8a90-b1c2d3e4f506",
+  "opdracht_uri": "https://grip.opdrachtgever.example/id/opdracht/3f2a8c54-6d1b-4f0e-9a77-1c2b3d4e5f60",
+  "aanvraag_id": "1a2b3c4d-0000-4000-8000-000000000001",
+  "opdrachtnemer": {
+    "tooi_uri": "https://identifier.overheid.nl/tooi/id/oorg/oorg00000",
+    "naam": "Voorbeelddienst",
+    "eenheid_kenmerk": "voorbeeldgilde",
+    "instantie_uri": "https://grip.opdrachtnemer.example"
+  },
+  "opdrachtgever": {
+    "tooi_uri": "https://identifier.overheid.nl/tooi/id/ministerie/mnre0000",
+    "naam": "Voorbeeldministerie",
+    "eenheid_kenmerk": "directie-voorbeeld",
+    "instantie_uri": "https://grip.opdrachtgever.example"
+  },
+  "bovenliggende_opdracht_uri": null,
+  "momentopname": {
+    "naam": "Opdracht Alfa",
+    "context_uris": [
+      "https://corpus.voorbeeldministerie.example/id/node/0b6f1c1e-5a0e-4a53-9a43-0d3e1d6b2a03"
+    ],
+    "regels": [
+      {
+        "positie": 1,
+        "omschrijving": "Productmanager",
+        "soort": "personeel",
+        "rol": "Productmanager",
+        "fte": "0.8",
+        "tariefcategorie": "D",
+        "periode": {
+          "begindatum": "2026-07-01",
+          "einddatum": "2027-06-30"
+        },
+        "maandtarieven_per_jaar": [
+          {
+            "jaar": 2026,
+            "maandtarief": {
+              "bedrag_centen": 1800000,
+              "valuta": "EUR"
+            }
+          },
+          {
+            "jaar": 2027,
+            "maandtarief": {
+              "bedrag_centen": 1890000,
+              "valuta": "EUR"
+            }
+          }
+        ],
+        "bedrag": {
+          "bedrag_centen": 17712000,
+          "valuta": "EUR"
+        }
+      }
+    ],
+    "subtotalen_per_jaar": [
+      {
+        "jaar": 2026,
+        "bedrag": {
+          "bedrag_centen": 8640000,
+          "valuta": "EUR"
+        }
+      },
+      {
+        "jaar": 2027,
+        "bedrag": {
+          "bedrag_centen": 9072000,
+          "valuta": "EUR"
+        }
+      }
+    ],
+    "totaal": {
+      "bedrag_centen": 17712000,
+      "valuta": "EUR"
+    },
+    "geldig_tot_en_met": "2026-06-30",
+    "voorwaarden": "Fictieve voorwaarden."
+  },
+  "momentopname_hash": "1ac8abde24ba7ccd0bc3ac05f7da6c85f914b16d45d05c725ac32f90e12d6792",
+  "hash_algoritme": "sha-256",
+  "canonicalisatie": "RFC8785",
+  "uitgegeven_op": "2026-06-01T10:00:00+02:00"
+}

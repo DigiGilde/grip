@@ -20,6 +20,10 @@ export const APP_ROUTES: readonly AppRoute[] = [
   { path: PATHS.costs, title: 'Kosten en facturen', icon: 'euro-sign' },
   { path: PATHS.rates, title: 'Tarieven', icon: 'coins' },
   { path: PATHS.team, title: 'Team', icon: 'team' },
+  { path: PATHS.vacancies, title: 'Vacatures', icon: 'person-badge-plus' },
+  { path: PATHS.reports, title: 'Rapportage', icon: 'chart-line' },
+  { path: PATHS.client, title: 'Aanvragen', icon: 'paper-plane' },
+  { path: PATHS.admin, title: 'Beheer', icon: 'gear' },
 ];
 
 /** Exact match for the start page, prefix match for the rest. */

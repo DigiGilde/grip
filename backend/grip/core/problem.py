@@ -126,7 +126,55 @@ async def _unhandled_exception_handler(
     return problem_response(500, "Er ging iets mis. Probeer het later opnieuw.")
 
 
+def domain_error_status(exc: Exception) -> int:
+    """The HTTP status for an error the service layer raised on purpose.
+
+    Not found is 404. A request that is well formed but clashes with the
+    state of the data (an illegal transition, a closed month or year, a quote
+    that is already decided) is 409. Everything else the service layer
+    refuses is invalid input: 422.
+    """
+    from grip.services import errors
+
+    if isinstance(exc, errors.NotFoundError):
+        return 404
+    if isinstance(
+        exc,
+        errors.IllegalTransitionError
+        | errors.ClosedYearError
+        | errors.MonthClosedError
+        | errors.QuoteAlreadyDecidedError,
+    ):
+        return 409
+    return 422
+
+
+_DOMAIN_TITLES: dict[str, str] = {
+    "NotFoundError": "Niet gevonden",
+    "IllegalTransitionError": "Statusovergang niet toegestaan",
+    "ClosedYearError": "Jaar is gesloten",
+    "MonthClosedError": "Maand is afgesloten",
+    "QuoteAlreadyDecidedError": "Offerte is al afgehandeld",
+    "QuoteHashMismatchError": "Hash komt niet overeen",
+}
+
+
+async def _domain_exception_handler(_request: Request, exc: Exception) -> JSONResponse:
+    # The message of a DomainError is written for the user (Dutch), so it
+    # is safe as detail. ``code`` lets a client tell the kinds apart without
+    # parsing the sentence.
+    status_code = domain_error_status(exc)
+    name = type(exc).__name__
+    body = problem_body(status_code, str(exc), code=name)
+    if name in _DOMAIN_TITLES:
+        body["title"] = _DOMAIN_TITLES[name]
+    return JSONResponse(body, status_code=status_code, media_type=PROBLEM_MEDIA_TYPE)
+
+
 def install_exception_handlers(app: FastAPI) -> None:
+    from grip.services.errors import DomainError
+
+    app.add_exception_handler(DomainError, _domain_exception_handler)
     app.add_exception_handler(StarletteHTTPException, _http_exception_handler)  # type: ignore[arg-type]
     app.add_exception_handler(RequestValidationError, _validation_exception_handler)  # type: ignore[arg-type]
     app.add_exception_handler(Exception, _unhandled_exception_handler)

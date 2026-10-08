@@ -30,12 +30,16 @@ _PUBLIC_ROUTES: dict[str, str] = {
     "/api/auth/logout": "ends the session",
     "/api/auth/status": "tells the frontend whether anyone is logged in",
     "/api/instance": "name and base URI only; the login page shows the name",
+    "/api/integrations/wies/export": "no session: a machine with a key (Wies)",
 }
 
 # Dependency callables that count as authorization.
 _AUTHZ_DEP_NAMES = {
     "get_current_person",  # any active, logged-in person
     "_check",  # inner closure of require_function
+    # A person of this instance, or an invited signer with a guest session;
+    # the access model then matches the invitation per quote.
+    "get_signer",
 }
 
 

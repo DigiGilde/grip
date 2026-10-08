@@ -69,3 +69,14 @@ from grip.federation.models import (  # noqa: E402
 )
 
 __all__ += ["FederationInbox", "FederationOutbox", "Peer"]
+
+# Stored documents (migration 0005_stored_document): files kept with a
+# record, such as a signed quote.
+from grip.models.stored_document import StoredDocument  # noqa: E402
+
+__all__ += ["StoredDocument"]
+
+# Grist import (migration 0008_grist_import_ref): where a Grist row ended up.
+from grip.importers.grist.refs import GristImportRef  # noqa: E402
+
+__all__ += ["GristImportRef"]

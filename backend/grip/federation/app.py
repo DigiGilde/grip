@@ -9,11 +9,26 @@ makes that a network rule instead of a path rule::
 
 Paths are exactly those of the contract, under ``/v1``. There are no
 sessions, no cookies and no CSRF here: the caller is a machine behind FSC.
+
+A running instance with federation has three processes:
+
+- the main application (people), on its own port;
+- this listener (other instances, through the inway), on port 8090, with
+  ``FEDERATION_INBOUND_ENABLED=1``;
+- the worker, ``python -m grip.worker``, which sends the outbox through the
+  outway (``FEDERATION_OUTBOUND_ENABLED=1`` and ``OUTWAY_URL``) and catches
+  up on stored messages.
+
+On start-up the listener registers the bridge to the domain
+(:func:`grip.federation.bridge.register_bridge`), so received messages are
+processed and pull operations are answered.
 """
 
 from __future__ import annotations
 
 import logging
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI, Request
@@ -75,9 +90,22 @@ def install_problem_handlers(app: FastAPI) -> None:
         )
 
 
+@asynccontextmanager
+async def _lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
+    from grip.federation.bridge import register_bridge
+    from grip.federation.events import register_event_handlers
+
+    # A received message can cause a domain change that has to go out again
+    # (not back to its sender), so the event handlers belong here as well.
+    register_bridge()
+    register_event_handlers()
+    yield
+
+
 def create_federation_app() -> FastAPI:
     app = FastAPI(
         title=SERVICE_OPDRACHTVERKEER,
+        lifespan=_lifespan,
         version=api_version(),
         # The contract is served by the router itself, behind the peer check.
         openapi_url=None,
