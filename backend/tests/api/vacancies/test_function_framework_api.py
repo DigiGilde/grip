@@ -11,6 +11,7 @@ from pypdf import PdfReader
 from sqlalchemy import select
 
 from grip.access import unclassified_fields
+from grip.core import clock
 from grip.models.function_framework import FunctionGroup
 from grip.schema import function_framework as schemas
 from grip.services import function_framework as framework
@@ -170,7 +171,7 @@ async def test_beheerder_corrects_adds_and_ends(client, act_as, beheerder) -> No
         assert response.status_code == 422
 
     # An ended group is no longer offered, but stays for beheer.
-    yesterday = (date.today() - timedelta(days=1)).isoformat()
+    yesterday = (clock.today() - timedelta(days=1)).isoformat()
     response = await client.patch(
         f"{BASE}/groups/{group['id']}", json={"valid_to": yesterday}
     )
@@ -321,7 +322,7 @@ async def test_group_prints_its_name_and_guards_the_scale(
     assert free["fgr_function_name"] == "Eigen naam" and free["scale"] == 16
 
     # An ended group cannot be chosen.
-    yesterday = (date.today() - timedelta(days=1)).isoformat()
+    yesterday = (clock.today() - timedelta(days=1)).isoformat()
     await client.patch(f"{BASE}/groups/{single['id']}", json={"valid_to": yesterday})
     response = await client.patch(url, json={"function_group_id": single["id"]})
     assert response.status_code == 422

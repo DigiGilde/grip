@@ -37,6 +37,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from grip.core import clock
 from grip.core.audit import CREATE, UPDATE, record_audit
 from grip.models.assignment import Assignment
 from grip.models.organisation import Organisation
@@ -54,6 +55,7 @@ from grip.services.quote_drafting import (
     SectionInputError,
     build_prompt,
     ensure_no_person_names,
+    is_runaway_rewrite,
 )
 
 ORIGINS = ("empty", "standard", "written", "generated")
@@ -178,7 +180,7 @@ async def rate_years(
     if not years and assignment.start_date and assignment.end_date:
         years.update(range(assignment.start_date.year, assignment.end_date.year + 1))
     if not years:
-        years.add((today or datetime.now(UTC).date()).year)
+        years.add((today or clock.today()).year)
     return sorted(years)
 
 
@@ -304,7 +306,7 @@ async def start_content(
 ) -> dict[str, Any]:
     """The draft a new quote starts from: the outline and standard texts of
     the organisation, with what is known of the assignment filled in."""
-    today = today or datetime.now(UTC).date()
+    today = today or clock.today()
     sender = await quote_sender.current_sender(session)
     letter = await quote_sender.current_letter(session)
     blocks = await quote_sender.current_blocks(session)
@@ -767,6 +769,12 @@ async def rewrite_passage(
         instruction=_line(instruction, "De aanwijzing", 300) or None,
     )
     text, _model = await _complete(session, built, client)
+    if is_runaway_rewrite(passage, text):
+        raise DomainValidationError(
+            "Het taalmodel gaf een nieuwe tekst terug in plaats van de passage "
+            "te herschrijven. Selecteer een hele zin of alinea en probeer het "
+            "opnieuw."
+        )
     return text
 
 

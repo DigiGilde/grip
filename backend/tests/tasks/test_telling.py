@@ -247,11 +247,11 @@ async def test_a_request_that_misses_something_lists_what(as_person, world, buil
     assert task["action_text"] == "Bereid aanvraag voor"
     assert task["work_href"] == f"/vacatures/{draft.id}"
     assert [item["text"] for item in task["checklist"]] == [
-        "Functienaam uit het functiegebouw",
+        "FGR-functienaam",
         "Schaal",
-        "Soort contract",
-        "Aan wie de aanvraag is gericht",
-        "Vastgestelde aanleiding en motivatie",
+        "Type contract",
+        "Aan wie de aanvraag gericht is",
+        "Een vastgestelde aanleiding en motivatie",
     ]
     assert not any(item.get("done") for item in task["checklist"])
 

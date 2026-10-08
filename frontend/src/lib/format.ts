@@ -2,6 +2,7 @@
  * Shared formatters. Amounts travel as integer cents and percentages and
  * FTE as decimal strings; nothing here does arithmetic beyond presentation.
  */
+import { todayIso } from './today';
 
 const euro = new Intl.NumberFormat('nl-NL', {
   style: 'currency',
@@ -57,8 +58,22 @@ export function formatFte(value: number | string | null | undefined): string {
 /** An ISO date (yyyy-mm-dd). */
 export function formatDate(iso: string | null | undefined): string {
   if (!iso) return '';
-  const date = new Date(`${iso.slice(0, 10)}T00:00:00`);
+  const date = new Date(`${dayOf(iso)}T00:00:00`);
   return Number.isNaN(date.getTime()) ? '' : dateFormat.format(date);
+}
+
+/**
+ * The calendar day of an ISO date or moment, as yyyy-mm-dd.
+ *
+ * A date stays as it is. A moment (with a time) is a point in UTC; its day is
+ * the day on the instance's calendar, not the first ten characters: half past
+ * midnight in the Netherlands is still yesterday in UTC.
+ */
+export function dayOf(iso: string): string {
+  if (iso.length <= 10 || !iso.includes('T')) return iso.slice(0, 10);
+  const zoned = /(Z|[+-]\d{2}:?\d{2})$/.test(iso) ? iso : `${iso}Z`;
+  const moment = new Date(zoned);
+  return Number.isNaN(moment.getTime()) ? iso.slice(0, 10) : todayIso(moment);
 }
 
 /** An ISO month (yyyy-mm) or date. */

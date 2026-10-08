@@ -9,7 +9,7 @@ instance, for the beheerder.
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -22,6 +22,7 @@ from grip import calc
 from grip.access import Action, DataClass, Resource
 from grip.access.deps import AccessDecider, CurrentSubject, decide, require
 from grip.api.routes import node_picker
+from grip.core import clock
 from grip.core.auth import CurrentPerson
 from grip.core.config import Settings, get_settings
 from grip.core.database import get_db
@@ -438,7 +439,7 @@ async def preview_quote_document(
     context = QuoteDocumentContext(
         quote_uri="",
         snapshot_hash=_NO_HASH,
-        issued_at=datetime.combine(date.today(), datetime.min.time(), tzinfo=UTC),
+        issued_at=datetime.combine(clock.today(), datetime.min.time(), tzinfo=UTC),
         contractor_name=await quotes.sender_name(db, assignment),
         client_name=client.name if client is not None else None,
         client_contact=assignment.client_contact,

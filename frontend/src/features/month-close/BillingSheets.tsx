@@ -17,6 +17,7 @@ import {
   type Rhythm,
 } from './billingApi';
 import { DETAIL_LABELS, periodName } from './periodText';
+import { todayIso } from '@/lib/today';
 
 const ADDRESS_KEYS: DetailKey[] = [
   'organisation',
@@ -291,11 +292,7 @@ interface InvoiceSheetProps {
   onClose: () => void;
 }
 
-function today(): string {
-  const now = new Date();
-  const pad = (value: number) => String(value).padStart(2, '0');
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-}
+const today = todayIso;
 
 /** Record the invoice that was sent for a delivered period. */
 export function PeriodInvoiceSheet({ overview, period, onClose }: InvoiceSheetProps) {

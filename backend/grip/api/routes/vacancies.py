@@ -36,6 +36,7 @@ from grip.access.vacancies import (
     language_model_resource,
     vacancy_resource,
 )
+from grip.core import clock
 from grip.core.auth import CurrentPerson
 from grip.core.config import Settings, get_settings
 from grip.core.database import get_db
@@ -282,7 +283,7 @@ def _standing(vacancy: Vacancy) -> tuple[str | None, str | None, date | None]:
     same words. No name is part of the detail.
     """
     status = vacancy.status
-    created = vacancy.created_at.date() if vacancy.created_at else None
+    created = clock.local_date(vacancy.created_at) if vacancy.created_at else None
     decisions = {decision.kind: decision for decision in vacancy.decisions}
     opens = StepKind.internal_opening in applicable_steps(vacancy.vacancy_type)
 
@@ -317,12 +318,14 @@ def _standing(vacancy: Vacancy) -> tuple[str | None, str | None, date | None]:
             if decision is None or decision.agreed is None:
                 return "decide", waits_on, since
             if decision.decided_at is not None:
-                since = decision.decided_at.date()
+                since = clock.local_date(decision.decided_at)
         return "decide", "Wacht op akkoord", since
 
     approval = decisions.get(DecisionKind.approval.value)
     approved_on = (
-        approval.decided_at.date() if approval and approval.decided_at else None
+        clock.local_date(approval.decided_at)
+        if approval and approval.decided_at
+        else None
     )
     if status == VacancyStatus.approved.value:
         if opens:
@@ -337,11 +340,15 @@ def _standing(vacancy: Vacancy) -> tuple[str | None, str | None, date | None]:
             if running in MINIMUM_DURATION or running in _OPENING_STEPS
             else "Staat open"
         )
-        opened = vacancy.published_at.date() if vacancy.published_at else approved_on
+        opened = (
+            clock.local_date(vacancy.published_at)
+            if vacancy.published_at
+            else approved_on
+        )
         return "fill", detail, opened
 
     # Ended: nothing is next. The date is when it got there, as far as known.
-    ended = vacancy.updated_at.date() if vacancy.updated_at else None
+    ended = clock.local_date(vacancy.updated_at) if vacancy.updated_at else None
     return None, None, ended
 
 
@@ -352,7 +359,9 @@ def _decisions(vacancy: Vacancy) -> list[DecisionOut]:
             kind=DecisionKind(decision.kind),
             label=DECISION_LABELS[DecisionKind(decision.kind)],
             agreed=decision.agreed,
-            decided_on=decision.decided_at.date() if decision.decided_at else None,
+            decided_on=clock.local_date(decision.decided_at)
+            if decision.decided_at
+            else None,
             person_name=decision.person_name,
             has_account=decision.person_id is not None,
             note=decision.note,
@@ -491,7 +500,7 @@ async def _vacancy_response(
             candidate.id
             for family in await framework.list_families(db)
             for candidate in family.groups
-            if candidate.is_valid_on(date.today())
+            if candidate.is_valid_on(clock.today())
             and set(candidate.scales) & set(line_scales)
         ]
     candidate = await service.candidate_of(db, vacancy)

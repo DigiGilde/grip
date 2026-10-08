@@ -17,6 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from grip.access import Action, DataClass, Resource, build_response
 from grip.api.assignment_support import DbSession, RequestAccess
+from grip.core import clock
 from grip.core.config import Settings, get_settings
 from grip.federation.corpus import (
     CorpusClient,
@@ -248,7 +249,7 @@ async def resolve(
 def _peildatum(value: str | None, accepted_on: date | None) -> date:
     """Today, the day the quote was accepted, or a given date."""
     if value in (None, "", "today"):
-        return date.today()
+        return clock.today()
     if value == "acceptance":
         if accepted_on is None:
             raise HTTPException(

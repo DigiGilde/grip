@@ -273,8 +273,9 @@ check-spacing *ARGS:
 
 # Open every page as every kind of reader: does it settle, say no access where the
 # server refuses, and offer no action or amount the reader may not have (see docs/toegang.md)
+[positional-arguments]
 check-access *ARGS:
-    cd frontend && node scripts/check-access.mjs {{ARGS}}
+    cd frontend && node scripts/check-access.mjs "$@"
 
 # First login through the real SSO Rijk: starts grip against deploy/local/.env.sso
 # and shows, masked, what the provider sent and what grip did with it

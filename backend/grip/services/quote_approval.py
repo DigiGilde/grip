@@ -26,12 +26,13 @@ events leads to a message to another instance.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from grip.core import clock
 from grip.core.audit import CREATE, UPDATE, record_audit
 from grip.models.person import Person
 from grip.models.quote import (
@@ -182,7 +183,7 @@ async def approver_available(db: AsyncSession) -> bool:
     # The same day a grant starts on (``team.grant_function``): the local
     # date. A UTC date lags behind it after midnight, and a right granted
     # then would not count until the UTC day turned.
-    today = date.today()
+    today = clock.today()
     count = await db.scalar(
         select(func.count())
         .select_from(PersonRole)

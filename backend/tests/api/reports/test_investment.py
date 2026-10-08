@@ -4,6 +4,7 @@ from datetime import date
 from decimal import Decimal
 
 from grip.calc import Month
+from grip.core import clock
 from grip.services import assignments, rates
 from grip.services.reports import investment, steering
 
@@ -209,7 +210,7 @@ async def test_the_beheerder_gets_both_readings_with_the_valuation(as_person, wo
     assert set(body) == {"year", "money", "time"}
     assert "value_cents" in body["time"]
     assert "value_cents" in body["time"]["months"][0]
-    today = date.today()
+    today = clock.today()
     assert body["time"]["months"][0]["month"] == f"{today.year:04d}-{today.month:02d}"
 
 

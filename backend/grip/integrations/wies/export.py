@@ -35,6 +35,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from grip.core import clock
 from grip.core.config import Settings
 from grip.models.assignment import (
     ROLE_OWNER,
@@ -166,7 +167,7 @@ def roles_for_line(
 async def build_export(
     db: AsyncSession, settings: Settings, *, today: date | None = None
 ) -> WiesExport:
-    today = today or date.today()
+    today = today or clock.today()
 
     assignments = (
         (

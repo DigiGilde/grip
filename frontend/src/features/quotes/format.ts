@@ -1,4 +1,5 @@
 import { formatDate } from '@/lib/format';
+import { ZONE } from '@/lib/today';
 /** Presentation helpers of the quote, signing and monthly close screens. */
 
 /** First characters of a hash, enough to compare two by eye. */
@@ -13,6 +14,8 @@ const dateTime = new Intl.DateTimeFormat('nl-NL', {
   year: 'numeric',
   hour: '2-digit',
   minute: '2-digit',
+  // The time on the instance's clock, whatever the device is set to.
+  timeZone: ZONE,
 });
 
 export function formatDateTime(iso: string | null | undefined): string {

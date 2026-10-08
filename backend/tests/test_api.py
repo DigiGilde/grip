@@ -1,5 +1,6 @@
 """Health, auth status, instance and CSRF through the HTTP layer."""
 
+from grip.core import clock
 from grip.core.auth import DEV_PERSON_COOKIE
 from grip.middleware.csrf import CSRF_COOKIE_NAME
 
@@ -86,7 +87,7 @@ async def test_inactive_person_is_not_used(client, create_person):
 
 
 async def test_ended_function_does_not_count(client, create_person, db_session):
-    from datetime import date, timedelta
+    from datetime import timedelta
 
     from grip.models.role import PersonRole
 
@@ -95,8 +96,8 @@ async def test_ended_function_does_not_count(client, create_person, db_session):
         PersonRole(
             person_id=person.id,
             role_id="beheerder",
-            start_date=date.today() - timedelta(days=30),
-            end_date=date.today() - timedelta(days=1),
+            start_date=clock.today() - timedelta(days=30),
+            end_date=clock.today() - timedelta(days=1),
         )
     )
     await db_session.flush()

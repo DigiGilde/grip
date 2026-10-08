@@ -429,6 +429,56 @@ async def test_internal_approval_is_a_step_only_where_it_is_required(
     assert found["next"]["headline"] == "Bied de offerte aan"
 
 
+async def test_a_quote_sent_back_internally_puts_the_course_back_at_the_quote(
+    as_person, build, people, db_session
+):
+    assignment = await build.assignment(status="quoted", owner=people.owner)
+    await build.line(assignment)
+    quote = await build.quote(assignment)
+    await instance_settings.set_values(
+        db_session, {quote_approval.MODE.key: quote_approval.MODE_ALWAYS}, actor=None
+    )
+    asked = await build.approval(quote, by=people.owner)
+    asked.status = "sent_back"
+    asked.decided_at = NOW
+    await db_session.flush()
+
+    found = (await _course(as_person(people.owner), "assignment", assignment.id))[
+        "course"
+    ]
+    # Not "vraag goedkeuring" again on a quote that was sent back.
+    assert found["current_label"] == "Offerte"
+    assert found["next"]["task_key"] == "offerte.na_terugsturen_opnieuw_maken"
+    assert "teruggestuurd" in found["next"]["sentence"]
+    headlines = await _task_headlines(
+        as_person(people.owner), "assignment", assignment.id
+    )
+    assert "Vraag interne goedkeuring" not in headlines
+
+
+async def test_when_nobody_can_approve_the_head_says_who_grants_the_right(
+    as_person, build, create_person, db_session
+):
+    """No approver among the people: asking is not the step, getting the
+    right granted is. The right is named as the interface names it."""
+    owner_person = await create_person("eigenaar2@example.org", name="Eva Eigenaar")
+    assignment = await build.assignment(status="quoted", owner=owner_person)
+    await build.line(assignment)
+    await build.quote(assignment)
+    await instance_settings.set_values(
+        db_session, {quote_approval.MODE.key: quote_approval.MODE_ALWAYS}, actor=None
+    )
+    found = (await _course(as_person(owner_person), "assignment", assignment.id))[
+        "course"
+    ]
+    sentence = found["next"]["sentence"]
+    assert found["current_label"] == "Interne goedkeuring"
+    assert "Interne goedkeurder van offertes" in sentence
+    assert "Een beheerder geeft dat recht bij Team" in sentence
+    assert "offertegoedkeurder" not in sentence
+    assert found["next"]["action_text"] != "Vraag goedkeuring"
+
+
 async def test_a_quote_that_expired_puts_the_course_back_at_the_quote(
     as_person, build, people, db_session
 ):
@@ -564,7 +614,7 @@ async def test_a_vacancy_walks_from_request_to_filled(
     # Something is missing: the reader hears what, and the step is to fill it.
     assert found["next"]["mine"] is True
     assert found["next"]["action_text"] == "Bereid aanvraag voor"
-    assert "Schaal" in found["next"]["missing"]
+    assert "schaal" in found["next"]["missing"]
 
     vacancy.fgr_function_name = "Senior Medewerker ICT (fictief)"
     vacancy.scale = 11
@@ -574,7 +624,7 @@ async def test_a_vacancy_walks_from_request_to_filled(
     found = (await _course(client, "vacancy", vacancy.id))["course"]
     # The form is filled in; the motivation printed on it is not settled yet.
     assert found["next"]["action_text"] == "Bereid aanvraag voor"
-    assert found["next"]["missing"] == ["Vastgestelde aanleiding en motivatie"]
+    assert found["next"]["missing"] == ["een vastgestelde aanleiding en motivatie"]
 
     db_session.add(
         VacancyText(

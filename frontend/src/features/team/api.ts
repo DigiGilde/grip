@@ -1,6 +1,7 @@
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from '@/api/client';
 import { formatDate } from '@/lib/format';
 import type { PriceImpact } from '@/features/rates/api';
+import { todayIso } from '@/lib/today';
 
 /**
  * A person as the asker may see them. Every group of fields below is present
@@ -234,12 +235,9 @@ export function setKpiTarget(personId: string, year: number, targetPct: string):
   return apiPut<Kpi>(`/api/kpi/${personId}/${year}`, { target_pct: targetPct });
 }
 
-/** Today as an ISO date in local time. */
+/** Today as an ISO date on the instance's calendar. */
 export function today(): string {
-  const now = new Date();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${now.getFullYear()}-${month}-${day}`;
+  return todayIso();
 }
 
 /** What to show under a name: the address, or when someone starts. */

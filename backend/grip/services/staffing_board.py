@@ -20,6 +20,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip.calc import Month
+from grip.core import clock
 from grip.models.person import Person
 from grip.repositories.domain import MonthCloseRepository
 from grip.services import assignment_views as views
@@ -148,7 +149,7 @@ async def board(
     """The board for ``months`` consecutive months from ``start``."""
     span = window(start, max(1, min(months, MAX_MONTHS)))
     first_day, last_day = span[0].first_day, span[-1].last_day
-    current = _first(Month.of(today or date.today()))
+    current = _first(Month.of(today or clock.today()))
 
     occupancy = {row.person_id: row for row in await steering.occupancy(session, span)}
     allocations = [
@@ -427,7 +428,7 @@ async def assignment_staffing(
     allocation_views = await views.allocation_views(
         session, assignment_ids=[assignment_id]
     )
-    current = _first(Month.of(today or date.today()))
+    current = _first(Month.of(today or clock.today()))
 
     starts = [d for d in [assignment.start_date] if d] or [
         d for d in [line.start_date for line in lines] if d

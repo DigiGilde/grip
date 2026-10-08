@@ -29,6 +29,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from grip.core import clock
 from grip.core.audit import CREATE, UPDATE, record_audit
 from grip.models.assignment import Assignment, BudgetLine
 from grip.models.catalogue_role import CatalogueRole
@@ -459,7 +460,8 @@ def resolve(
 def template_label(template: VacancyTextTemplate) -> str:
     moment = template.changed_at or template.updated_at or datetime.now(UTC)
     version = template.shipped_version if template.changed_at is None else None
-    return f"{template.role_name}, versie {version or moment.date().isoformat()}"
+    stamp = version or clock.local_date(moment).isoformat()
+    return f"{template.role_name}, versie {stamp}"
 
 
 async def resolve_for_vacancy(

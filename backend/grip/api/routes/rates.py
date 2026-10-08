@@ -47,6 +47,7 @@ from grip.schema.rates import (
     RateCardOut,
     RateCardStatusUpdate,
     RateCardUpdate,
+    RateGapOut,
     Rounding,
     ScaleBandOut,
     ScaleBandUpdate,
@@ -383,8 +384,10 @@ async def preview_activation(
     """
     await require(decider, subject, Action.MANAGE_RATES, _CARDS)
     found, shortened, impact = await rates.activation_preview(db, _key(card))
+    gaps = await rates.gaps_after_activation(db, found)
     value = ActivationPreviewOut(
         card=_card_out(found),
+        gaps=[RateGapOut(**gap) for gap in gaps],
         shortened=ShortenedCardOut(**shortened) if shortened else None,
         impact=_impact_out(impact),
     )

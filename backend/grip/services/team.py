@@ -16,6 +16,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip import calc
+from grip.core import clock
 from grip.core.audit import CREATE, UPDATE, record_audit
 from grip.models.assignment import Allocation, BudgetLine
 from grip.models.person import Person
@@ -247,7 +248,7 @@ async def functions_by_person(
     """The functions every person holds on a day (today by default)."""
     rows = await session.execute(
         select(PersonRole.person_id, PersonRole.role_id)
-        .where(*_held_on(on or date.today()))
+        .where(*_held_on(on or clock.today()))
         .distinct()
     )
     held: dict[UUID, set[str]] = defaultdict(set)
@@ -258,7 +259,7 @@ async def functions_by_person(
 
 async def _ensure_not_last_beheerder(session: AsyncSession, person_id: UUID) -> None:
     """An instance without a beheerder cannot be managed any more."""
-    today = date.today()
+    today = clock.today()
     others = await session.execute(
         select(PersonRole.id)
         .join(Person, Person.id == PersonRole.person_id)
@@ -295,7 +296,7 @@ async def grant_function(
     if function not in FUNCTIONS:
         raise DomainValidationError(f"Onbekend recht in grip: {function}")
     await get_person(session, person_id)
-    today = date.today()
+    today = clock.today()
     held = await session.execute(
         select(PersonRole.id)
         .where(
@@ -339,7 +340,7 @@ async def revoke_function(
     await get_person(session, person_id)
     if function == BEHEERDER:
         await _ensure_not_last_beheerder(session, person_id)
-    today = date.today()
+    today = clock.today()
     rows = (
         await session.execute(
             select(PersonRole).where(
@@ -393,7 +394,7 @@ async def function_grants_by_person(
             granter.c.name,
         )
         .outerjoin(granter, granter.c.id == PersonRole.granted_by_id)
-        .where(*_held_on(on or date.today()))
+        .where(*_held_on(on or clock.today()))
         .order_by(PersonRole.role_id, PersonRole.start_date)
     )
     result: dict[UUID, dict[str, FunctionGrant]] = defaultdict(dict)
@@ -410,7 +411,7 @@ async def sole_beheerder_id(session: AsyncSession) -> UUID | None:
         .where(
             PersonRole.role_id == BEHEERDER,
             Person.is_active.is_(True),
-            *_held_on(date.today()),
+            *_held_on(clock.today()),
         )
         .distinct()
         .limit(2)

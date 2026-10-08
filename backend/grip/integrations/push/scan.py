@@ -33,6 +33,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from grip.access.decider import LocalDecider
 from grip.access.sql import SqlRelationSource
 from grip.access.types import Subject
+from grip.core import clock
 from grip.core.config import Settings
 from grip.integrations.push import outbox
 from grip.integrations.push.config import push_config
@@ -168,7 +169,7 @@ async def seed(db: AsyncSession, person_id: UUID, settings: Settings) -> int:
     Called when a person registers their first device: what already waited
     is on their screen at that moment and needs no notification.
     """
-    views = await _mine_to_do(db, person_id, settings, date.today())
+    views = await _mine_to_do(db, person_id, settings, clock.today())
     known = await _noticed(db, person_id)
     added = 0
     for view in views:

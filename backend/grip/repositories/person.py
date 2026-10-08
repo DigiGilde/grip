@@ -6,6 +6,7 @@ from uuid import UUID
 from sqlalchemy import exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from grip.core import clock
 from grip.models.assignment import Allocation, AssignmentRole
 from grip.models.person import Person
 from grip.models.role import PersonRole
@@ -36,7 +37,7 @@ class PersonRepository:
         self, person_id: UUID, on: date | None = None
     ) -> list[str]:
         """Functions the person holds on the given day (today by default)."""
-        day = on or date.today()
+        day = on or clock.today()
         result = await self.db.execute(
             select(PersonRole.role_id)
             .where(
@@ -71,7 +72,7 @@ class PersonRepository:
         return [name for name in checks if getattr(row, name)]
 
     async def first_active_with_function(self, role_id: str) -> Person | None:
-        day = date.today()
+        day = clock.today()
         result = await self.db.execute(
             select(Person)
             .join(PersonRole, PersonRole.person_id == Person.id)

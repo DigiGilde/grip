@@ -28,6 +28,7 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from grip.core import clock
 from grip.core.database import Base
 from grip.integrations.organisations.source import RegistryOrganisation
 from grip.models.organisation import SOURCE_MANUAL, SOURCE_REGISTRY, Organisation
@@ -228,7 +229,7 @@ async def apply_registry(
     Changes are flushed, not committed: the caller owns the transaction, and
     an exception here leaves it to the caller to roll everything back.
     """
-    today = today or date.today()
+    today = today or clock.today()
     existing = list((await db.execute(select(Organisation))).scalars().all())
     active_before = sum(
         1

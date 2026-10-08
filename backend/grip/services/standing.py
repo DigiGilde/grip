@@ -27,6 +27,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from grip.core import clock
 from grip.core.audit import CREATE, DELETE, UPDATE, record_audit
 from grip.core.config import get_settings
 from grip.models.assignment import Allocation
@@ -328,7 +329,7 @@ async def withdraw_hire(
     for allocation_id in allocation_ids:
         await assignment_service.delete_allocation(session, allocation_id, actor=actor)
 
-    day = today or date.today()
+    day = today or clock.today()
     row.stage = Stage.left.value
     row.end_date = None
     row.remove_after = day + timedelta(days=get_settings().PROSPECTIVE_RETENTION_DAYS)
@@ -364,7 +365,7 @@ async def purge_withdrawn(session: AsyncSession, *, today: date | None = None) -
     audit trail keeps only the id, but another table may hold a reference),
     the name is replaced and every identifying field is cleared.
     """
-    day = today or date.today()
+    day = today or clock.today()
     due = list(
         (
             await session.execute(

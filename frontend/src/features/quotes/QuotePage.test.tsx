@@ -473,9 +473,11 @@ describe('QuotePage', () => {
     expect(primaries(container)).toEqual(['Vraag goedkeuring']);
     expect(texts(container, 'nldd-button')).not.toContain('Bied aan');
     expect(texts(container, 'nldd-card nldd-menu-item')).not.toContain('Bied opnieuw aan');
-    // Why offering is not on offer yet.
-    expect(container.textContent).toContain('interne goedkeuring nodig (vanaf € 100.000)');
-    expect(container.textContent).toContain('pas worden aangeboden na interne goedkeuring');
+    // The rule, as a fact of the quote; what to do is said in the head of the assignment.
+    expect(container.textContent).toContain('Interne goedkeuring nodig: vanaf € 100.000.');
+    expect(container.textContent).not.toContain('pas worden aangeboden na interne goedkeuring');
+    // Nothing is asked yet: the tag does not say it waits.
+    expect(texts(container, 'nldd-card nldd-badge')).toEqual(['Offerte gemaakt']);
     clickButton(container, 'Vraag goedkeuring');
     const openSheet = () =>
       [...document.body.querySelectorAll('nldd-sheet')].find((el) => el.hasAttribute('open'));
@@ -573,11 +575,9 @@ describe('QuotePage', () => {
       quotes: [QUOTE],
       approval: { ...APPROVAL, approver_available: false },
     });
-    const banner = container.querySelector('nldd-card nldd-banner');
-    expect(banner?.getAttribute('text')).toBe(
-      'Deze offerte heeft interne goedkeuring nodig (vanaf € 100.000), en er is nog niemand die dat kan geven',
-    );
-    expect(banner?.getAttribute('supporting-text')).toMatch(/beheerder|Rechten in grip/);
+    // The head of the assignment says that nobody can approve and who grants
+    // the right; the card does not say it again.
+    expect(container.querySelector('nldd-card nldd-banner')).toBeNull();
     expect(primaries(container)).toEqual([]);
   });
 

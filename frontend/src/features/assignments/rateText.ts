@@ -8,6 +8,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { apiGet } from '@/api/client';
 import { RATE_CARDS_KEY, fetchRateCards } from '@/features/rates/api';
 import { formatEuro } from '@/lib/format';
+import { todayIso } from '@/lib/today';
 
 /** What a category text is made from: the bands of one card. */
 export interface RateSource {
@@ -67,7 +68,7 @@ export interface ValidRates {
 
 /** The rates valid over a period; over today when the period is not known yet. */
 export function useValidRates(start: string, end: string, enabled = true) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIso();
   const from = start || today;
   const to = end && end >= from ? end : from;
   return useQuery({
@@ -129,7 +130,7 @@ export function useRateCards(enabled = true) {
   });
   // Read structurally: only the bands, the status and the validity are used.
   const cards = (query.data?.items ?? []) as readonly DatedCard[];
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIso();
   const name: CategoryNamer = (category, on) => categoryText(cardOn(cards, on || today), category);
   return { cards, name, loaded: query.isSuccess, failed: query.isError };
 }

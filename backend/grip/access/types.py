@@ -13,6 +13,8 @@ from enum import StrEnum
 from typing import Any
 from uuid import UUID
 
+from grip.core import clock
+
 
 class DataClass(StrEnum):
     """The class a piece of data belongs to. Every response field has one.
@@ -259,7 +261,7 @@ class Context:
     today: date | None = None
 
     def effective_today(self) -> date:
-        return self.today or date.today()
+        return self.today or clock.today()
 
     def effective_period(self) -> tuple[date, date]:
         if self.period is not None:

@@ -62,7 +62,15 @@
       "action": "Vraag goedkeuring",
       "why": "De offerte voor {opdracht} is gemaakt en mag pas na interne goedkeuring worden aangeboden.",
       "then": "Na goedkeuring bied je de offerte aan.",
-      "destination": "assignment.quote"
+      "destination": "assignment.quote",
+      "situations": {
+        "no_approver": {
+          "title": "Laat het recht geven om offertes goed te keuren",
+          "do": "De offerte voor {opdrachtgever} heeft interne goedkeuring nodig, en nog niemand heeft het recht Interne goedkeurder van offertes. Een beheerder geeft dat recht bij Team, op de pagina van een persoon. Daarna vraag je goedkeuring.",
+          "wait": "De offerte voor {opdrachtgever} heeft interne goedkeuring nodig, en nog niemand heeft het recht Interne goedkeurder van offertes. Een beheerder geeft dat recht bij Team.",
+          "action": "Bekijk de offerte"
+        }
+      }
     },
     "offerte.intern_beoordelen": {
       "title": "Beoordeel offerte {kenmerk}",

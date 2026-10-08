@@ -13,6 +13,7 @@ from grip.access import (
     schema_classes,
 )
 from grip.api.assignment_support import DbSession, RequestAccess
+from grip.core import clock
 from grip.core.auth import CurrentPerson
 from grip.schema.assignments import (
     AssignmentCreate,
@@ -62,8 +63,10 @@ def _summary_fields(
         "kind": a.kind,
         "status": a.status,
         "phase": row.phase.value,
-        "status_since": row.status_since.date() if row.status_since else None,
-        "shared_with_client_at": shared_at.date() if shared_at else None,
+        "status_since": clock.local_date(row.status_since)
+        if row.status_since
+        else None,
+        "shared_with_client_at": clock.local_date(shared_at) if shared_at else None,
         "client_organisation_id": a.client_organisation_id,
         "client_name": row.client_name,
         "start_date": a.start_date,
@@ -96,7 +99,7 @@ async def _detail(row: views.AssignmentRow, access: RequestAccess) -> dict[str, 
         quote_date=a.quote_date,
         notes=a.notes,
         verbal_agreement_note=a.verbal_agreement_note,
-        verbal_agreement_at=a.verbal_agreement_at.date()
+        verbal_agreement_at=clock.local_date(a.verbal_agreement_at)
         if a.verbal_agreement_at
         else None,
         roles=[

@@ -17,6 +17,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from grip.core import clock
 from grip.models.audit_log import AuditLog
 from grip.models.quote import Quote, QuoteAcceptance
 from grip.services import assignment_views as views
@@ -325,7 +326,9 @@ def progress_summary(report: AssignmentReport) -> dict[str, Any]:
     last = report.status_history[-1] if report.status_history else None
     return {
         "status": report.view.row.assignment.status,
-        "status_since": last.occurred_at.date().isoformat() if last else None,
+        "status_since": clock.local_date(last.occurred_at).isoformat()
+        if last
+        else None,
         "months_total": len(report.months),
         "months_closed": report.closed_month_count,
         "final_report_issued": report.final_report is not None,

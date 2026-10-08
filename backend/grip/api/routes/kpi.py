@@ -6,7 +6,6 @@ person their own. The amounts come from the pricing service (R12 and R13).
 
 from __future__ import annotations
 
-from datetime import date
 from typing import Annotated, Any
 from uuid import UUID
 
@@ -26,6 +25,7 @@ from grip.access import (
 )
 from grip.access.deps import AccessDecider, CurrentSubject, require
 from grip.api.reference_support import may
+from grip.core import clock
 from grip.core.auth import CurrentPerson
 from grip.core.database import get_db
 from grip.models.person import Person
@@ -91,7 +91,7 @@ async def list_kpi(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     """The KPI of every person whose KPI the asker may see."""
-    year = year or date.today().year
+    year = year or clock.today().year
     items: list[dict[str, Any]] = []
     for person in await team.list_persons(db):
         item = await _visible(db, decider, subject, person, year)
@@ -116,7 +116,7 @@ async def get_kpi(
 ) -> dict[str, Any]:
     person = await db.get(Person, person_id)
     item = (
-        await _visible(db, decider, subject, person, year or date.today().year)
+        await _visible(db, decider, subject, person, year or clock.today().year)
         if person is not None
         else None
     )

@@ -5,6 +5,7 @@ from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from grip.core import clock
 from grip.core.database import Base
 
 # The functions a person can hold in an instance. They are assigned; the
@@ -64,7 +65,7 @@ class PersonRole(Base):
         String(50), ForeignKey("role.id", ondelete="RESTRICT"), index=True
     )
     start_date: Mapped[date] = mapped_column(
-        Date, default=date.today, server_default=func.current_date()
+        Date, default=clock.today, server_default=func.current_date()
     )
     end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     # NULL means granted by the system (bootstrap).

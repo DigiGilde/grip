@@ -374,6 +374,18 @@ describe('the sentences about what changes', () => {
     });
     expect(sentences).toContain('De begindatum ligt in het verleden.');
   });
+
+  it('names the period that is left without a settled card', () => {
+    const sentences = activationSentences({
+      card: { ...DRAFT, valid_from: '2029-01-01' } as never,
+      shortened: null,
+      gaps: [{ start_date: '2028-01-01', end_date: '2028-12-31', drafts: ['Tarieven 2028'] }],
+      impact: NO_IMPACT,
+    });
+    expect(sentences).toContain(
+      "Van 1 jan 2028 t/m 31 dec 2028 geldt dan geen vastgestelde tarievenkaart: inzet in die periode krijgt geen bedrag. Het concept 'Tarieven 2028' is nog niet vastgesteld.",
+    );
+  });
 });
 
 describe('validity', () => {

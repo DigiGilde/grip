@@ -1,6 +1,7 @@
 /** The three views of the list of assignments. */
 import type { AssignmentSummary } from './api';
 import type { Phase } from './labels';
+import { todayIso } from '@/lib/today';
 
 export const VIEW_PARAM = 'weergave';
 
@@ -31,10 +32,11 @@ export function countByPhase(items: readonly AssignmentSummary[]): Record<Phase,
 /** Whole days between an ISO date and today; null without a date. */
 export function daysSince(iso: string | null | undefined, now: Date = new Date()): number | null {
   if (!iso) return null;
-  const then = new Date(`${iso.slice(0, 10)}T00:00:00`);
-  if (Number.isNaN(then.getTime())) return null;
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  return Math.max(0, Math.round((today.getTime() - then.getTime()) / 86_400_000));
+  // Both as calendar days of the instance, so the count turns at its midnight.
+  const then = Date.parse(`${iso.slice(0, 10)}T00:00:00Z`);
+  if (Number.isNaN(then)) return null;
+  const today = Date.parse(`${todayIso(now)}T00:00:00Z`);
+  return Math.max(0, Math.round((today - then) / 86_400_000));
 }
 
 /** "vandaag", "1 dag", "12 dagen", "5 weken", "4 maanden". */

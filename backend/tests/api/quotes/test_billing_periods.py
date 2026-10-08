@@ -313,12 +313,12 @@ async def test_a_change_after_the_invoice_is_a_naverrekening_not_a_ready_period(
     quarter = _period(body, "2026-Q1")
     assert quarter["state"] == "ready" and quarter["correction"] is True
     assert quarter["invoice_numbers"] == ["F-2026-014"]
+    # The work of the periods themselves comes first, as in the head of the
+    # assignment: April is past and not closed. The naverrekening stays on
+    # its period, to deliver from there.
     step = body["next_step"]
-    assert step["kind"] == "deliver" and step["correction"] is True
-    assert step["amount_cents"] == -240_000
-    assert step["invoice_numbers"] == ["F-2026-014"]
-    assert step["invoiced_on"] == "2026-04-08"
-    assert step["delivered_on"] is not None
+    assert step["kind"] == "close_month"
+    assert step["month"] == "2026-04"
 
 
 async def test_names_are_on_the_specification_only_when_the_agreement_says(
@@ -456,3 +456,203 @@ async def test_the_letter_of_a_quote_states_the_rhythm_of_the_assignment(
     content = await quote_drafts.start_content(db_session, world.assignment)
     [section] = [s for s in content["sections"] if s["key"] == "voorwaarden"]
     assert section["body"] == "De facturatie vindt per maand plaats."
+
+
+async def _reopen_and_close_cheaper(act_as, world, db_session, month: str) -> None:
+    """Reopen a delivered month, make it cost less, and close it again."""
+    response = await act_as(world.beheerder).post(
+        f"{_base(world)}/months/{month}/reopen", json={"reason": "Schaal was fout."}
+    )
+    assert response.status_code == 200, response.text
+    client = act_as(world.manager)
+    first = date.fromisoformat(f"{month}-01")
+    await rates.set_person_scale(
+        db_session, world.member.id, first, 12, actor=world.beheerder
+    )
+    await db_session.flush()
+    await _close(client, world, month)
+
+
+async def test_a_month_delivered_again_counts_once_on_the_screen(
+    act_as, world, db_session
+):
+    """Screen, document and totals agree about a replaced request."""
+    client = act_as(world.manager)
+    await _terms(client, world, details=DETAILS, rhythm="month")
+    await _close(client, world, "2026-01", "2026-02")
+    try:
+        assert (await _deliver(client, world, "2026-01")).status_code == 201
+        assert (await _deliver(client, world, "2026-02")).status_code == 201
+    except DocumentEngineError:
+        pytest.skip("the PDF engine's system libraries are not installed here")
+    before = await _overview(client, world)
+    [first] = _period(before, "2026-02")["deliveries"]
+    assert first["in_force_cents"] == first["total_cents"] == MONTH_CENTS
+    assert first["replaced"] == []
+
+    await _reopen_and_close_cheaper(act_as, world, db_session, "2026-02")
+    body = await _overview(client, world)
+    february = _period(body, "2026-02")
+    assert february["state"] == "ready"
+    # Delivered again in full, not as a difference.
+    cheaper = MONTH_CENTS - 240_000
+    assert february["to_deliver_cents"] == cheaper
+    assert (await _deliver(client, world, "2026-02")).status_code == 201
+
+    body = await _overview(client, world)
+    february = _period(body, "2026-02")
+    old, new = february["deliveries"]
+    assert old["id"] == first["id"]
+    # The first request no longer counts, and says which one took its place.
+    assert old["total_cents"] == MONTH_CENTS
+    assert old["in_force_cents"] == 0
+    assert old["replaced"] == [
+        {
+            "month": "2026-02",
+            "month_label": "februari 2026",
+            "delivery_id": new["id"],
+            "reference": new["reference"],
+            "amount_cents": MONTH_CENTS,
+        }
+    ]
+    assert new["in_force_cents"] == new["total_cents"] == cheaper
+    assert new["replaced"] == []
+    # "Aangeleverd" counts the month once: the period, and the whole.
+    assert february["delivered_cents"] == cheaper
+    assert body["delivered_cents"] == MONTH_CENTS + cheaper
+    assert (
+        sum(d["in_force_cents"] for p in body["periods"] for d in p["deliveries"])
+        == body["delivered_cents"]
+    )
+
+    # The pages of both requests say the same as the document.
+    page_old = (await client.get(f"/api/billing/deliveries/{old['id']}")).json()
+    page_new = (await client.get(f"/api/billing/deliveries/{new['id']}")).json()
+    assert page_old["in_force_cents"] == 0
+    assert page_old["replaced_by"] == [
+        {
+            "month_label": "februari 2026",
+            "delivery_id": new["id"],
+            "reference": new["reference"],
+            "amount_cents": MONTH_CENTS,
+        }
+    ]
+    assert page_old["replaces"] == []
+    assert page_new["in_force_cents"] == cheaper
+    assert page_new["replaces"] == [
+        {
+            "month_label": "februari 2026",
+            "reference": old["reference"],
+            "amount_cents": MONTH_CENTS,
+            "difference_cents": -240_000,
+        }
+    ]
+    document = await client.get(f"/api/billing/deliveries/{new['id']}/document")
+    text = " ".join(
+        " ".join(page.extract_text().split())
+        for page in PdfReader(io.BytesIO(document.content)).pages
+    )
+    assert f"vervangt februari 2026 uit factuurverzoek {old['reference']}" in text
+
+
+async def test_a_quarter_keeps_the_months_that_were_not_delivered_again(
+    act_as, world, db_session
+):
+    client = act_as(world.manager)
+    await _terms(client, world, details=DETAILS)
+    await _close(client, world, "2026-01", "2026-02", "2026-03")
+    try:
+        assert (await _deliver(client, world, "2026-Q1")).status_code == 201
+    except DocumentEngineError:
+        pytest.skip("the PDF engine's system libraries are not installed here")
+    await _reopen_and_close_cheaper(act_as, world, db_session, "2026-03")
+    assert (await _deliver(client, world, "2026-Q1")).status_code == 201
+    body = await _overview(client, world)
+    quarter = _period(body, "2026-Q1")
+    old, new = quarter["deliveries"]
+    assert old["total_cents"] == 3 * MONTH_CENTS
+    assert old["in_force_cents"] == 2 * MONTH_CENTS
+    assert [r["month"] for r in old["replaced"]] == ["2026-03"]
+    assert new["in_force_cents"] == MONTH_CENTS - 240_000
+    assert quarter["delivered_cents"] == 3 * MONTH_CENTS - 240_000
+
+
+async def test_the_invoice_signal_when_a_month_was_delivered_again(
+    act_as, world, db_session
+):
+    """Invoiced on the first request, then delivered again for less."""
+    client = act_as(world.manager)
+    await _terms(client, world, details=DETAILS, rhythm="month")
+    await _close(client, world, "2026-01")
+    try:
+        assert (await _deliver(client, world, "2026-01")).status_code == 201
+    except DocumentEngineError:
+        pytest.skip("the PDF engine's system libraries are not installed here")
+    invoiced = await client.post(
+        f"{_base(world)}/billing/periods/2026-01/invoice",
+        json={
+            "invoice_number": "F-2026-020",
+            "invoice_date": "2026-02-05",
+            "amount_cents": MONTH_CENTS,
+        },
+    )
+    assert invoiced.status_code == 201, invoiced.text
+    await _reopen_and_close_cheaper(act_as, world, db_session, "2026-01")
+    assert (await _deliver(client, world, "2026-01")).status_code == 201
+    cheaper = MONTH_CENTS - 240_000
+    body = await _overview(client, world)
+    january = _period(body, "2026-01")
+    # The new request waits for its invoice; the one that was sent stays named
+    # and what it billed still counts.
+    assert january["state"] == "delivered" and january["awaits_invoice"] is True
+    assert january["delivered_cents"] == cheaper
+    assert january["invoiced_cents"] == MONTH_CENTS
+    assert january["invoice_numbers"] == ["F-2026-020"]
+    # What is still to invoice is the difference: a credit of 2,400 euro.
+    assert january["delivered_cents"] - january["invoiced_cents"] == -240_000
+
+    credit = await client.post(
+        f"{_base(world)}/billing/periods/2026-01/invoice",
+        json={
+            "invoice_number": "C-2026-003",
+            "invoice_date": "2026-03-02",
+            "amount_cents": -240_000,
+        },
+    )
+    assert credit.status_code == 201, credit.text
+    january = _period(credit.json(), "2026-01")
+    assert january["state"] == "invoiced"
+    assert january["invoiced_cents"] == january["delivered_cents"] == cheaper
+    assert january["invoice_difference_cents"] == 0
+    assert january["invoice_numbers"] == ["F-2026-020", "C-2026-003"]
+
+
+async def test_invoicing_a_replaced_month_in_full_again_is_signalled(
+    act_as, world, db_session
+):
+    """Without a credit the month is billed twice, and the period says so."""
+    client = act_as(world.manager)
+    await _terms(client, world, details=DETAILS, rhythm="month")
+    await _close(client, world, "2026-01")
+    try:
+        assert (await _deliver(client, world, "2026-01")).status_code == 201
+    except DocumentEngineError:
+        pytest.skip("the PDF engine's system libraries are not installed here")
+    for number, amount in (("F-2026-020", MONTH_CENTS), ("F-2026-031", None)):
+        if amount is None:
+            await _reopen_and_close_cheaper(act_as, world, db_session, "2026-01")
+            assert (await _deliver(client, world, "2026-01")).status_code == 201
+            amount = MONTH_CENTS - 240_000
+        response = await client.post(
+            f"{_base(world)}/billing/periods/2026-01/invoice",
+            json={
+                "invoice_number": number,
+                "invoice_date": "2026-03-02",
+                "amount_cents": amount,
+            },
+        )
+        assert response.status_code == 201, response.text
+    january = _period(response.json(), "2026-01")
+    assert january["state"] == "invoiced"
+    assert january["delivered_cents"] == MONTH_CENTS - 240_000
+    assert january["invoice_difference_cents"] == MONTH_CENTS

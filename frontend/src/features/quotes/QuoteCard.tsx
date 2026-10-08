@@ -278,7 +278,10 @@ export function QuoteCard({
   const blocked = awaitsApproval(approval);
   // Approval is a matter between making and offering; once the quote is out
   // or decided it is history and stays in the details.
-  const approvalText = open && offers.length === 0 ? approvalLine(approval) : null;
+  // The card says what happened with the approval (asked, given, sent back);
+  // that it is needed and what to do is said once, in the head of the assignment.
+  const decided = ['requested', 'approved', 'sent_back'].includes(approval?.status ?? '');
+  const approvalText = open && offers.length === 0 && decided ? approvalLine(approval) : null;
   // Nothing about approval shows for a quote that does not need it.
   const required = approval?.approval_required === true;
   const noApprover = blocked && approval?.approver_available === false;
@@ -333,9 +336,11 @@ export function QuoteCard({
               text={
                 open && offers.length > 0
                   ? 'Aangeboden'
-                  : open && blocked
+                  : open && approval?.approval_required && approval.status === 'requested'
                     ? 'Wacht op goedkeuring'
-                    : (QUOTE_STATUS_LABELS[quote.status] ?? quote.status)
+                    : open && approval?.approval_required && approval.status === 'sent_back'
+                      ? 'Teruggestuurd'
+                      : (QUOTE_STATUS_LABELS[quote.status] ?? quote.status)
               }
             />
           </nldd-title>
@@ -396,30 +401,19 @@ export function QuoteCard({
           </div>
         ) : null}
 
-        {approvalText && noApprover ? (
-          <Stack gap="close">
-            <nldd-banner
-              variant="warning"
+        {/* The rule that asks for approval is a fact of this quote; what to do
+            about it is said once, in the head of the assignment. */}
+        {open && offers.length === 0 && blocked && !decided && approval?.approval_reason ? (
+          <Quiet>Interne goedkeuring nodig: {approval.approval_reason}.</Quiet>
+        ) : null}
+        {noApprover && isAdmin && open && offers.length === 0 ? (
+          <nldd-button-group>
+            <Button
+              text={`Geef het recht "${APPROVER_RIGHT}"`}
               size="sm"
-              text={`Deze offerte heeft interne goedkeuring nodig${
-                approval?.approval_reason ? ` (${approval.approval_reason})` : ''
-              }, en er is nog niemand die dat kan geven`}
-              supporting-text={
-                isAdmin
-                  ? `Geef een collega het recht "${APPROVER_RIGHT}": open de persoon onder Team, bij Rechten in grip.`
-                  : 'Vraag de beheerder om iemand het recht te geven.'
-              }
+              onClick={() => onAction({ kind: 'grant-right' })}
             />
-            {isAdmin ? (
-              <nldd-button-group>
-                <Button
-                  text="Ga naar Team"
-                  size="sm"
-                  onClick={() => onAction({ kind: 'grant-right' })}
-                />
-              </nldd-button-group>
-            ) : null}
-          </Stack>
+          </nldd-button-group>
         ) : null}
         {approvalText && !noApprover ? (
           <Stack gap="close">
@@ -474,14 +468,6 @@ export function QuoteCard({
             ) : null}
             {withButton ? menu : null}
           </nldd-container>
-        ) : null}
-        {mayManage &&
-        open &&
-        blocked &&
-        approval?.blocked_message &&
-        approval.approver_available &&
-        next !== 'new-quote' ? (
-          <Quiet>{approval.blocked_message}</Quiet>
         ) : null}
       </nldd-container>
     </nldd-card>

@@ -21,6 +21,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from grip.core import clock
 from grip.federation import signing, terms
 from grip.federation.bridge.organisations import (
     organisation_by_id,
@@ -257,7 +258,7 @@ async def vacancy_published(db: AsyncSession, payload: dict[str, Any]) -> Built:
             assignment = await AssignmentRepository(db).get(lines[0].assignment_id)
             assignment_uri = assignment.uri if assignment is not None else None
     uri = mint_uri("vacature", vacancy.id)
-    start = vacancy.start_date or published_at.date()
+    start = vacancy.start_date or clock.local_date(published_at)
     message = {
         # A change of status is a new message about the same vacancy.
         "id": str(uuid.uuid5(uuid.NAMESPACE_URL, f"{uri}#{vacancy.status}")),

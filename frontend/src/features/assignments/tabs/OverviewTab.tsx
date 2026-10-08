@@ -288,8 +288,12 @@ function ContextRefs({ assignment }: { assignment: AssignmentDetail }) {
           });
         }}
       >
-        {/* Search the corpus, with a pasted URI as the way out. */}
-        <NodePicker key={adding.session} value={chosen} onChange={setChosen} />
+        {/* Search the corpus, with a pasted URI as the way out. Only while the
+            sheet is open: a reader who may not change the context never opens
+            it, and the picker asks the server which corpora there are. */}
+        {adding.open ? (
+          <NodePicker key={adding.session} value={chosen} onChange={setChosen} />
+        ) : null}
       </FormSheet>
     </Section>
   );

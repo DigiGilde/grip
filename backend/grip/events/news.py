@@ -35,6 +35,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip.access.relations import RelationSource
 from grip.access.types import Subject
+from grip.core import clock
 from grip.events.reading import EventAccess
 from grip.models.assignment import Assignment
 from grip.models.person import Person
@@ -617,7 +618,7 @@ class _Raw:
 
     @property
     def day(self) -> Any:
-        return self.event.occurred_at.astimezone(_ZONE).date()
+        return clock.local_date(self.event.occurred_at)
 
 
 @dataclass(frozen=True)
@@ -676,7 +677,7 @@ class _Relevance:
             self._assignments[assignment_id] = (
                 await self._relations.assignment_role(me, assignment_id)
             ) is not None or await self._relations.is_member(
-                me, assignment_id, datetime.now(UTC).date()
+                me, assignment_id, clock.today()
             )
         return self._assignments[assignment_id]
 
@@ -833,7 +834,7 @@ def _month(value: Any) -> str | None:
 
 def when_text(moment: datetime, now: datetime) -> str:
     """ "vanochtend", "gisteren", and after that the date."""
-    local, today = moment.astimezone(_ZONE), now.astimezone(_ZONE).date()
+    local, today = moment.astimezone(_ZONE), clock.local_date(now)
     if local.date() == today:
         if local.hour < 12:
             return "vanochtend"
@@ -844,7 +845,7 @@ def when_text(moment: datetime, now: datetime) -> str:
 
 
 def day_label(moment: datetime, now: datetime) -> str:
-    local, today = moment.astimezone(_ZONE).date(), now.astimezone(_ZONE).date()
+    local, today = clock.local_date(moment), clock.local_date(now)
     if local == today:
         return "Vandaag"
     if local == today - timedelta(days=1):

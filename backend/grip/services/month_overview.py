@@ -46,6 +46,7 @@ from sqlalchemy.orm import selectinload
 
 from grip import calc
 from grip.calc import Month
+from grip.core import clock
 from grip.models.assignment import Allocation, Assignment, BudgetLine
 from grip.models.month_close import BillingExport, MonthClose
 from grip.models.organisation import Organisation
@@ -200,7 +201,7 @@ async def timeline(
     session: AsyncSession, assignment_id: UUID, *, today: date | None = None
 ) -> list[MonthState]:
     """Every month of the assignment with its state, in order."""
-    today = today or datetime.now(UTC).date()
+    today = today or clock.today()
     assignment = await get_assignment(session, assignment_id)
     closes = await _closes(session, assignment_id)
     period = await _period(session, assignment)
@@ -244,7 +245,7 @@ async def month_detail(
     today: date | None = None,
 ) -> MonthDetail:
     """One month: the planned inzet and, once closed, the established inzet."""
-    today = today or datetime.now(UTC).date()
+    today = today or clock.today()
     await get_assignment(session, assignment_id)
     all_closes = [
         close
@@ -348,7 +349,7 @@ async def month_detail(
 
 async def ensure_closable(month: Month, *, today: date | None = None) -> None:
     """A month can be closed once it has ended."""
-    today = today or datetime.now(UTC).date()
+    today = today or clock.today()
     if not _closable(month, today):
         raise DomainValidationError(
             f"De maand {month} is nog niet voorbij en kan nog niet worden afgesloten."

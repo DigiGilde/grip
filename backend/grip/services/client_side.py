@@ -22,6 +22,7 @@ from uuid import UUID
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from grip.core import clock
 from grip.core.config import Settings, get_settings
 from grip.federation import terms
 from grip.federation.bridge.organisations import reference
@@ -521,4 +522,4 @@ async def acceptance_date(db: AsyncSession, assignment_id: UUID) -> date | None:
             .limit(1)
         )
     ).scalar_one_or_none()
-    return signed_at.date() if signed_at is not None else None
+    return clock.local_date(signed_at) if signed_at is not None else None

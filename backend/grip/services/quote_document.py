@@ -39,6 +39,7 @@ from html import escape
 from pathlib import Path
 from typing import Any
 
+from grip.core import clock
 from grip.core.config import Settings, get_settings
 from grip.services.errors import DomainError
 
@@ -530,7 +531,7 @@ def render_quote_html(snapshot: dict[str, Any], context: QuoteDocumentContext) -
         if context.client_contact:
             to += f"<br>{escape(context.client_contact)}"
         facts.append(("Aan", to))
-    facts.append(("Datum", escape(format_date(context.issued_at.date()))))
+    facts.append(("Datum", escape(format_date(clock.local_date(context.issued_at)))))
     if reference:
         facts.append(("Kenmerk", f'<span class="reference">{escape(reference)}</span>'))
     if snapshot.get("client_reference"):
@@ -703,7 +704,7 @@ def render_letter_html(snapshot: dict[str, Any], context: QuoteDocumentContext) 
     reference = str(snapshot.get("reference") or context.reference or "")
 
     facts: list[tuple[str, str]] = [
-        ("Datum", escape(format_date(context.issued_at.date())))
+        ("Datum", escape(format_date(clock.local_date(context.issued_at))))
     ]
     if reference:
         facts.append(("Kenmerk", f'<span class="reference">{escape(reference)}</span>'))

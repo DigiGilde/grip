@@ -8,7 +8,6 @@ question again and again.
 from __future__ import annotations
 
 from collections.abc import Iterable
-from datetime import date
 from typing import Annotated
 from uuid import UUID
 
@@ -26,6 +25,7 @@ from grip.access import (
 )
 from grip.access.deps import AccessDecider, CurrentSubject, require
 from grip.access.sql import SqlRelationSource
+from grip.core import clock
 from grip.core.config import Settings, get_settings
 from grip.core.database import get_db
 
@@ -103,7 +103,7 @@ class Access:
             self._db, instance_base_uri=self._settings.INSTANCE_BASE_URI
         )
         return await source.assignment_ids_for_person(
-            self.subject.person_id, date.today()
+            self.subject.person_id, clock.today()
         )
 
     async def require_closed_year_override(self, requested: bool) -> bool:
@@ -128,7 +128,7 @@ RequestAccess = Annotated[Access, Depends(get_access)]
 def parse_year(value: str | None) -> int | None:
     """The year filter: a year, ``all`` for the whole period, or the current year."""
     if value is None or value == "":
-        return date.today().year
+        return clock.today().year
     if value == "all":
         return None
     try:

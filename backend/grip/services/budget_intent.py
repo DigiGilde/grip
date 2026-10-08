@@ -54,6 +54,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from grip import calc
 from grip.calc import Month
 from grip.calc.periods import months_between, overlap
+from grip.core import clock
 from grip.core.audit import UPDATE, record_audit
 from grip.models.assignment import Allocation, Assignment, BudgetLine
 from grip.models.catalogue_role import CatalogueRole, PersonCatalogueRole
@@ -291,7 +292,7 @@ async def derive_category(
     """
     assignment = await assignments.get_assignment(session, assignment_id)
     await _selectable_person(session, person_id)
-    today = today or date.today()
+    today = today or clock.today()
     notes: list[str] = []
     person_start = (await standing.get_standing(session, person_id)).start_date
 
@@ -1046,7 +1047,7 @@ async def derive(
     """
     assignment = await assignments.get_assignment(session, assignment_id)
     person = await _selectable_person(session, person_id)
-    today = today or date.today()
+    today = today or clock.today()
     person_start = (await standing.get_standing(session, person_id)).start_date
     notes: list[str] = []
 

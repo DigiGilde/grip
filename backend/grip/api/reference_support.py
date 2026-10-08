@@ -20,6 +20,7 @@ from grip.access import (
     permitted_classes,
     schema_classes,
 )
+from grip.core import clock
 
 
 async def filtered(
@@ -51,7 +52,7 @@ def period_or_today(
     period_start: date | None, period_end: date | None
 ) -> tuple[date, date]:
     """The period on screen; one day (today) when none is given."""
-    today = date.today()
+    today = clock.today()
     start = period_start or period_end or today
     end = period_end or period_start or today
     if end < start:

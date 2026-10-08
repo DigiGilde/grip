@@ -16,6 +16,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from grip.core import clock
 from grip.core.audit import CREATE, UPDATE, record_audit
 from grip.models.assignment import Assignment, BudgetLine
 from grip.models.person import Person
@@ -257,7 +258,7 @@ async def _apply_request_details(
         group_id = values.pop("function_group_id")
         if group_id is not None:
             chosen = await framework.get_group(db, group_id)
-            if not chosen.is_valid_on(date.today()):
+            if not chosen.is_valid_on(clock.today()):
                 raise DomainValidationError(
                     f"De functiegroep {chosen.name} is niet meer geldig."
                 )
@@ -486,7 +487,7 @@ async def unfilled_roles(
     The staffing of a line is the sum of the allocations that have not ended.
     A line whose own period is over is left out.
     """
-    day = today or date.today()
+    day = today or clock.today()
     repo = VacancyRepository(db)
     taken = await repo.budget_lines_with_vacancy(_LIVE_STATUSES)
     roles: list[UnfilledRole] = []
@@ -533,7 +534,7 @@ async def filled_roles(
     The counterpart of ``unfilled_roles``, by the same count. Lines whose own
     period is over and lines of an assignment that has ended are left out.
     """
-    day = today or date.today()
+    day = today or clock.today()
     repo = VacancyRepository(db)
     taken = await repo.budget_lines_with_vacancy(_LIVE_STATUSES)
     found: list[tuple[BudgetLine, Assignment, list[Any]]] = []
@@ -716,7 +717,7 @@ async def submit_request(
         raise DomainValidationError(
             "De vacature kan nog niet worden aangevraagd. " + missing_sentence(missing)
         )
-    day = requested_on or date.today()
+    day = requested_on or clock.today()
     vacancy.requested_on = day
     vacancy.status = VacancyStatus.requested.value
     if vacancy.requester_id is None and actor is not None:
@@ -762,7 +763,7 @@ async def record_decision(
 
     decided_at = None
     if agreed is not None:
-        day = decided_on or date.today()
+        day = decided_on or clock.today()
         decided_at = datetime(day.year, day.month, day.day, tzinfo=UTC)
         await set_step(
             db, vacancy.id, _DECISION_STEP[kind], started_on=day, ended_on=day
@@ -1048,7 +1049,7 @@ async def publish_vacancy(
         )
     text = await text_for_release(db, vacancy.id, TextKind.vacancy_text)
 
-    day = opened_on or date.today()
+    day = opened_on or clock.today()
     if not any(s.kind == StepKind.internal_opening.value for s in vacancy.steps):
         await set_step(db, vacancy.id, StepKind.internal_opening, started_on=day)
     old_status = vacancy.status

@@ -42,12 +42,7 @@ export function useVacancyChange<Input>(
 }
 
 /** Today as an ISO date, in local time. */
-export function todayIso(): string {
-  const now = new Date();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${now.getFullYear()}-${month}-${day}`;
-}
+export { todayIso } from '@/lib/today';
 
 /** "0,8" or "0.8" as the decimal string the API takes; null when it is not a number. */
 export function parseFte(input: string): string | null {

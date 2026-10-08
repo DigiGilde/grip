@@ -167,8 +167,19 @@ class PriceImpactOut(BaseModel):
     assignments: Annotated[list[AssignmentImpactOut], nested()]
 
 
+class RateGapOut(BaseModel):
+    """A period no settled card prices."""
+
+    start_date: Annotated[date, _MASTER]
+    end_date: Annotated[date, _MASTER]
+    # Names of the drafts that lie in the gap: what to settle next.
+    drafts: Annotated[list[str], _MASTER]
+
+
 class ActivationPreviewOut(BaseModel):
     card: Annotated[RateCardOut, nested()]
+    # The periods without a settled card once this one is settled.
+    gaps: Annotated[list[RateGapOut], nested()] = []
     # The card that activating this one ends on the day before it starts.
     shortened: Annotated[ShortenedCardOut | None, nested()]
     impact: Annotated[PriceImpactOut, nested()]

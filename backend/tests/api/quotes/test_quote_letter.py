@@ -467,7 +467,47 @@ def test_the_prompt_for_a_rewrite_carries_only_the_passage():
         SectionInput(heading="Inleiding", passage="Een zin.", instruction="Korter.")
     )
     assert "Een zin." in user and "Korter." in user
-    assert "geen namen van personen" in system
+    assert "herschrijft een passage" in system
+
+
+async def test_a_rewrite_gets_the_passage_and_nothing_to_write_from(
+    configured, db_session
+):
+    """With the facts of the assignment beside it, a short passage came back
+    as a whole new section."""
+    world = configured
+    model = FakeModel()
+    await quote_drafts.rewrite_passage(
+        db_session,
+        world.assignment,
+        "inleiding",
+        "Daarvoor is er dus eigenlijk een ontwerper nodig.",
+        instruction="Korter.",
+        client=model,
+    )
+    [(system, user)] = model.requests
+    assert "Daarvoor is er dus eigenlijk een ontwerper nodig." in user
+    for material in (
+        "Gegevens:",
+        "Gevraagde rollen:",
+        "Looptijd",
+        world.assignment.name,
+    ):
+        assert material not in user
+    assert "schrijft geen nieuw onderdeel" in system
+
+
+async def test_a_new_text_instead_of_a_rewrite_is_refused(configured, db_session):
+    world = configured
+
+    class Runaway(FakeModel):
+        async def complete(self, *, system: str, user: str, max_tokens: int = 1500):
+            return "Wij bieden u in deze offerte aan om de opdracht uit te voeren. " * 8
+
+    with pytest.raises(DomainValidationError, match="in plaats van de passage"):
+        await quote_drafts.rewrite_passage(
+            db_session, world.assignment, "inleiding", "en zo.", client=Runaway()
+        )
 
 
 # --- two writers, and what a writer may do with a section ---------------------------

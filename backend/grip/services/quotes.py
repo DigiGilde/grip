@@ -21,6 +21,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip import calc
+from grip.core import clock
 from grip.core.audit import CREATE, UPDATE, record_audit
 from grip.core.config import get_settings
 from grip.models.assignment import Assignment
@@ -277,7 +278,7 @@ async def issue_quote(
     )
     # The reference is given out inside this transaction and becomes part of
     # the frozen content, so it is covered by the hash.
-    reference = await next_reference(session, issued_at.year)
+    reference = await next_reference(session, clock.local_date(issued_at).year)
     snapshot = await build_snapshot(
         session,
         assignment,
@@ -308,7 +309,7 @@ async def issue_quote(
         prose_provenance=frozen.provenance if frozen is not None else None,
     )
     session.add(quote)
-    assignment.quote_date = issued_at.date()
+    assignment.quote_date = clock.local_date(issued_at)
     await session.flush()
     # The quote is also a file. It is laid out here, once, and kept: what a
     # client later reads and signs are these bytes, whatever the letterhead
@@ -411,7 +412,7 @@ async def receive_quote(
         issued_by_id=None,
     )
     session.add(quote)
-    assignment.quote_date = issued_at.date()
+    assignment.quote_date = clock.local_date(issued_at)
     await session.flush()
     if assignment.status != "quoted":
         await transition(session, assignment_id, "quoted", actor=None, origin="remote")

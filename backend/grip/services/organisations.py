@@ -29,6 +29,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from grip.core import clock
 from grip.core.audit import CREATE, UPDATE, record_audit
 from grip.integrations.organisations.source import (
     REGISTRY_URL,
@@ -212,7 +213,7 @@ async def search_organisations(
     the name that starts with it, then the rest. Within a rank, organisations
     already used on an assignment come first.
     """
-    today = today or date.today()
+    today = today or clock.today()
     page = max(1, page)
     page_size = max(1, min(MAX_PAGE_SIZE, page_size))
     folded_query = " ".join(fold(query).split())
@@ -320,7 +321,7 @@ async def type_counts(
     db: AsyncSession, *, today: date | None = None
 ) -> list[tuple[str, int]]:
     """Organisation types with the number of current organisations of each."""
-    today = today or date.today()
+    today = today or clock.today()
     element = func.jsonb_array_elements_text(
         Organisation.organisation_types
     ).table_valued("value")
@@ -372,7 +373,7 @@ async def create_manual_organisation(
     and an own key. Asking for a name that already exists in the same place
     returns the existing organisation instead of making a second one.
     """
-    today = today or date.today()
+    today = today or clock.today()
     name = " ".join(name.split())
     if not name:
         raise DomainValidationError("Geef de organisatie een naam.")

@@ -49,7 +49,7 @@ function currentTab(
 }
 
 /** The one thing the request needs that is not a field of its form. */
-const MOTIVATION_MISSING = 'Vastgestelde aanleiding en motivatie';
+const MOTIVATION_MISSING = 'een vastgestelde aanleiding en motivatie';
 
 /**
  * The steps that are done in a sheet of this shell, by the kind of work the

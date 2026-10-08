@@ -441,6 +441,51 @@ async def shortening_for(
     return None
 
 
+async def gaps_after_activation(
+    session: AsyncSession, card: RateCard
+) -> list[dict[str, Any]]:
+    """The periods no settled card prices once this draft is settled.
+
+    Settling a card for a later period while an earlier one is still a draft
+    leaves the days in between without a card in force. Each gap comes with
+    the drafts that lie in it, so the reader knows what to settle next.
+    Changes nothing.
+    """
+    cards = await RateRepository(session).all_cards()
+    shortened = await shortening_for(session, card)
+    covering: list[tuple[date, date]] = []
+    for other in cards:
+        if other.id == card.id or other.status == "draft":
+            continue
+        end = other.valid_to or date.max
+        if shortened and other.id == shortened["id"]:
+            end = shortened["new_valid_to"]
+        covering.append((other.valid_from, end))
+    covering.append((card.valid_from, card.valid_to or date.max))
+    covering.sort()
+    drafts = [c for c in cards if c.status == "draft" and c.id != card.id]
+    gaps: list[dict[str, Any]] = []
+    covered_until = covering[0][1]
+    for start, end in covering[1:]:
+        if covered_until != date.max and start > covered_until + timedelta(days=1):
+            gap_start = covered_until + timedelta(days=1)
+            gap_end = start - timedelta(days=1)
+            gaps.append(
+                {
+                    "start_date": gap_start,
+                    "end_date": gap_end,
+                    "drafts": [
+                        draft.name
+                        for draft in drafts
+                        if draft.valid_from <= gap_end
+                        and (draft.valid_to or date.max) >= gap_start
+                    ],
+                }
+            )
+        covered_until = max(covered_until, end)
+    return gaps
+
+
 async def activation_preview(
     session: AsyncSession, key: CardKey, *, allow_closed_year: bool = False
 ) -> tuple[RateCard, dict[str, Any] | None, Any]:

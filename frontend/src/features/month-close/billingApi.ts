@@ -55,6 +55,26 @@ export interface BillingDelivery {
   mail_state: 'queued' | 'sent' | 'failed' | null;
   invoice_id: string | null;
   invoice_number: string | null;
+  /** What of the request still counts: without the months delivered again later. */
+  in_force_cents?: number;
+  /** The months a later request delivers again in full. */
+  replaced?: ReplacedMonth[];
+}
+
+export interface ReplacedMonth {
+  month?: string;
+  month_label: string;
+  delivery_id: string;
+  reference: string;
+  amount_cents: number;
+}
+
+/** A month this request delivers again, with the request it replaces. */
+export interface ReplacesMonth {
+  month_label: string;
+  reference: string;
+  amount_cents: number;
+  difference_cents: number;
 }
 
 export interface BillingPeriod {
@@ -205,6 +225,10 @@ export interface DeliveryDetail {
   client_name: string | null;
   period_label: string;
   total_cents: number;
+  /** What still counts once a later request delivered a month again. */
+  in_force_cents?: number;
+  replaces?: ReplacesMonth[];
+  replaced_by?: ReplacedMonth[];
   delivered_at: string;
   delivered_by_name: string | null;
   has_document: boolean;

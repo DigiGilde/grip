@@ -86,5 +86,17 @@ export function activationSentences(preview: ActivationPreview): string[] {
   if (impact.reaches_into_the_past) {
     sentences.push('De begindatum ligt in het verleden.');
   }
+  for (const gap of preview.gaps ?? []) {
+    const period = `${formatDate(gap.start_date)} t/m ${formatDate(gap.end_date)}`;
+    const drafts =
+      gap.drafts.length === 0
+        ? 'Er is voor die periode geen tarievenkaart.'
+        : gap.drafts.length === 1
+          ? `Het concept '${gap.drafts[0]}' is nog niet vastgesteld.`
+          : `De concepten ${gap.drafts.map((name) => `'${name}'`).join(' en ')} zijn nog niet vastgesteld.`;
+    sentences.push(
+      `Van ${period} geldt dan geen vastgestelde tarievenkaart: inzet in die periode krijgt geen bedrag. ${drafts}`,
+    );
+  }
   return [...sentences, ...impactSentences(impact, card.valid_from)];
 }

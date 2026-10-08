@@ -37,6 +37,7 @@ from grip.models.quote import Quote, QuoteApproval, QuoteRejection
 from grip.models.role import PersonRole
 from grip.models.task import Task
 from grip.models.vacancy import Vacancy, VacancyText
+from grip.services.vacancies import service as vacancy_service
 from grip.tasks import catalogue
 from grip.tasks.cases import period_words
 from grip.tasks.plan import Template, known_plans, plan_for
@@ -115,7 +116,7 @@ _ROLE_WORDS = {
     "beheerder": "een beheerder",
     "tekenbevoegde": "een tekenbevoegde",
     "aanvrager": "een aanvrager",
-    "offertegoedkeurder": "een offertegoedkeurder",
+    "offertegoedkeurder": "een interne goedkeurder van offertes",
 }
 
 
@@ -158,13 +159,6 @@ _MONTHS = (
     "december",
 )
 _TEXT_WORDS = {"vacancy_text": "vacaturetekst", "motivation": "motivatie"}
-# What the request form of a vacancy asks for before it can be submitted.
-_REQUEST_FIELDS = (
-    ("fgr_function_name", "Functienaam uit het functiegebouw"),
-    ("scale", "Schaal"),
-    ("contract_type", "Soort contract"),
-    ("addressee_name", "Aan wie de aanvraag is gericht"),
-)
 
 
 class GuidanceError(ValueError):
@@ -527,14 +521,18 @@ def _named(vacancy: Vacancy, kind: str) -> tuple[str | None, bool]:
 
 
 def _missing_request_fields(vacancy: Vacancy, motivated: bool) -> list[ChecklistItem]:
-    """What the request needs before it can be made: the fields of the form
-    and a settled motivation, which is printed on it."""
+    """What the request needs before it can be made, from the one list the
+    vacancies service keeps: the fields of the form and a settled motivation."""
     return [
         *(
-            ChecklistItem(text=text, done=getattr(vacancy, name) not in (None, ""))
-            for name, text in _REQUEST_FIELDS
+            ChecklistItem(
+                text=_capital(text), done=getattr(vacancy, name) not in (None, "")
+            )
+            for name, text in vacancy_service.REQUEST_FIELDS
         ),
-        ChecklistItem(text="Vastgestelde aanleiding en motivatie", done=motivated),
+        ChecklistItem(
+            text=_capital(vacancy_service.MOTIVATION_MISSING), done=motivated
+        ),
     ]
 
 

@@ -8,6 +8,8 @@ import {
 import { DETAIL_LABELS } from '@/features/month-close/periodText';
 import { useInstance } from '@/layout/useInstance';
 import { formatDate, formatEuro, formatPercent } from '@/lib/format';
+import { PATHS } from '@/paths';
+import { replacedText, replacesText } from './replaced';
 import { ActionBar } from '@/ui/ActionBar';
 import { Facts, LoadError, Loading, Page, Section } from '@/ui/layout';
 
@@ -54,6 +56,8 @@ export function DeliveryPage() {
     queryFn: () => fetchDelivery(deliveryId),
   });
   const data = delivery.data;
+  const replaced = data?.replaced_by ?? [];
+  const inForce = data?.in_force_cents ?? data?.total_cents ?? 0;
   return (
     <Page
       title={data ? `Factuurverzoek ${data.reference}` : 'Factuurverzoek'}
@@ -72,11 +76,31 @@ export function DeliveryPage() {
                 size={2}
                 heading-level={2}
                 overline={`Te factureren over ${data.period_label}`}
-                text={formatEuro(data.total_cents)}
+                text={formatEuro(inForce)}
                 supporting-text={`${data.assignment_name}${data.client_name ? ` voor ${data.client_name}` : ''} · aangeleverd op ${formatDate(data.delivered_at)}${data.delivered_by_name ? ` door ${data.delivered_by_name}` : ''}`}
               />
             </nldd-container>
           </nldd-card>
+          {replaced.length > 0 ? (
+            <nldd-banner
+              variant="warning"
+              size="sm"
+              text={replacedText(replaced, inForce)}
+              supporting-text={`Het document van dit verzoek noemt nog ${formatEuro(data.total_cents)}.`}
+            >
+              <nldd-button
+                slot="actions"
+                size="sm"
+                text={`Open factuurverzoek ${replaced[0]?.reference ?? ''}`}
+                href={PATHS.billingDelivery.replace(':deliveryId', replaced[0]?.delivery_id ?? '')}
+              />
+            </nldd-banner>
+          ) : null}
+          {(data.replaces ?? []).map((item) => (
+            <nldd-text key={`${item.month_label}-${item.reference}`}>
+              {replacesText(item)}
+            </nldd-text>
+          ))}
           {data.has_document ? (
             <ActionBar
               label="Het factuurverzoek"

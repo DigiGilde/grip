@@ -27,6 +27,7 @@ from grip.access import Action, DataClass, Resource, build_response, schema_clas
 from grip.api.assignment_support import DbSession, RequestAccess
 from grip.api.routes.assignment_finance import figures_out
 from grip.calc import Month
+from grip.core import clock
 from grip.core.config import Settings, get_settings
 from grip.schema.kpi import KpiOut
 from grip.schema.overview import TotalsOut
@@ -104,7 +105,7 @@ Year = Annotated[
 
 
 def _year(value: int | None) -> int:
-    return value or date.today().year
+    return value or clock.today().year
 
 
 def _totals(totals: views.Totals | None) -> TotalsOut | None:
@@ -177,7 +178,7 @@ async def _assignment_report(
             end_date=assignment.end_date,
             context_refs=list(assignment.context_refs or []),
             audience=audience,
-            generated_on=date.today(),
+            generated_on=clock.today(),
             months_total=len(report.months),
             months_closed=report.closed_month_count,
             agreed=AgreedOut(
@@ -462,7 +463,7 @@ async def _occupancy_block(
         return None
     # Every figure below is over the visible persons only, so it says
     # nothing about anyone else.
-    window = steering.next_months(Month.of(date.today()), 4)
+    window = steering.next_months(Month.of(clock.today()), 4)
     in_block = {row.person_id for row in visible}
     window_rows = [
         row for row in await steering.occupancy(db, window) if row.person_id in in_block
@@ -789,7 +790,7 @@ async def get_investment(
             )
 
     if await access.may(Action.READ, Resource.person(), C):
-        window = steering.next_months(Month.of(date.today()), 4)
+        window = steering.next_months(Month.of(clock.today()), 4)
         time = await investment.time_reading(db, window)
         classes = {COUNTS}
         if await access.may(Action.READ, Resource.person(), D):

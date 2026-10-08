@@ -49,7 +49,8 @@
             "external",
             "potential",
             "budget_has_line",
-            "not quote_rejected_before"
+            "not quote_rejected_before",
+            "not quote_sent_back"
           ],
           "done_when": "quote_fresh",
           "assignee": "owner",

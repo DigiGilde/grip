@@ -7,7 +7,6 @@ reference file is for the beheerder.
 
 from __future__ import annotations
 
-from datetime import date
 from typing import Any
 from uuid import UUID
 
@@ -17,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from grip.access import Action, DataClass, build_response, decide, schema_classes
 from grip.access.deps import AccessDecider, CurrentSubject, require
 from grip.access.vacancies import function_framework_resource
+from grip.core import clock
 from grip.core.auth import CurrentPerson
 from grip.core.database import get_db
 from grip.models.function_framework import FunctionFamily, FunctionGroup
@@ -91,7 +91,7 @@ async def get_function_framework(
     await require(decider, subject, Action.READ, resource, DataClass.MASTER_DATA)
     info = framework.reference_info()
     families = await framework.list_families(db, include_ended=include_ended)
-    today = date.today()
+    today = clock.today()
     out = FunctionFrameworkOut(
         source=FunctionFrameworkSourceOut(
             name=info.name,

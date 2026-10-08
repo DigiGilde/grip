@@ -16,6 +16,7 @@ from datetime import datetime
 from html import escape
 from typing import Any
 
+from grip.core import clock
 from grip.services.quote_document import (
     _STYLE,
     RIBBON_BLUE,
@@ -239,6 +240,8 @@ def render_html(content: dict[str, Any], letterhead: Letterhead | None = None) -
     )
     reference = escape(str(content["reference"]))
     stamp = delivered.strftime("%Y-%m-%dT%H:%M:%S+00:00")
+    # The day on the organisation's calendar, not the day in UTC.
+    delivered_day = escape(format_date(clock.local_date(delivered)))
     return f"""<!doctype html>
 <html lang="nl">
 <head>
@@ -258,7 +261,7 @@ def render_html(content: dict[str, Any], letterhead: Letterhead | None = None) -
 <h1>{title}</h1>
 <dl class="letter">
 <dt>Aan</dt><dd>Financiële administratie</dd>
-<dt>Datum</dt><dd>{escape(format_date(delivered.date()))}</dd>
+<dt>Datum</dt><dd>{delivered_day}</dd>
 <dt>Kenmerk</dt><dd><span class="reference">{reference}</span></dd>
 </dl>
 
@@ -289,7 +292,7 @@ def render_html(content: dict[str, Any], letterhead: Letterhead | None = None) -
 <p class="quiet note">{basis}</p>
 
 <div class="colophon quiet">
-<p>Aangeleverd op {escape(format_date(delivered.date()))}{by}. Dit is geen factuur.
+<p>Aangeleverd op {delivered_day}{by}. Dit is geen factuur.
 Adres van de opdracht voor systemen: {escape(str(content["assignment_uri"]))}</p>
 </div>
 </main>

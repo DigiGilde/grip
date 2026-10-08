@@ -60,6 +60,31 @@ _REWRITE = (
     "toe. Geef alleen de herschreven passage terug."
 )
 
+# A rewrite is not a draft: the model gets the passage and nothing to write
+# from. With the facts of the assignment beside it, a short passage came back
+# as a whole new section.
+_REWRITE_SYSTEM = (
+    "Je herschrijft een passage uit een offerte van een organisatie van de "
+    "Rijksoverheid aan een andere overheidsorganisatie. Je schrijft helder en "
+    "zakelijk Nederlands op taalniveau B1, in de wij-vorm en met u voor de "
+    "lezer. Je geeft alleen de herschreven passage terug: dezelfde inhoud, "
+    "ongeveer even lang of korter, zonder kop, zonder toelichting en zonder "
+    "aanhalingstekens. Je voegt niets toe wat niet in de passage staat: geen "
+    "feiten, bedragen, namen, data of toezeggingen. Een passage die een deel "
+    "van een zin is, blijft een deel van een zin dat op dezelfde plek past. Je "
+    "schrijft geen nieuw onderdeel en geen inleiding."
+)
+
+# A proposal this much longer than the passage is not a rewrite of it.
+REWRITE_MAX_FACTOR = 3
+REWRITE_MAX_EXTRA_CHARS = 200
+
+
+def is_runaway_rewrite(passage: str, proposal: str) -> bool:
+    """Whether a proposal is far longer than the passage it should rewrite."""
+    limit = len(passage.strip()) * REWRITE_MAX_FACTOR + REWRITE_MAX_EXTRA_CHARS
+    return len(proposal.strip()) > limit
+
 
 class SectionInputError(ValueError):
     """The input for a draft may not be sent to the model."""
@@ -163,6 +188,7 @@ def build_prompt(section_input: SectionInput) -> tuple[str, str]:
             lines.append(f"Aanwijzing: {section_input.instruction.strip()}")
         lines += ["", "Passage:", section_input.passage.strip()[:MAX_TEXT_CHARS], ""]
         lines.append(f"De passage staat in het onderdeel '{section_input.heading}'.")
+        return _REWRITE_SYSTEM, "\n".join(lines)
     else:
         lines.append(
             f"Schrijf een concept voor het onderdeel '{section_input.heading.strip()}' "

@@ -28,6 +28,7 @@ from grip.access import (
 from grip.access.deps import AccessDecider, CurrentSubject, require
 from grip.api.assignment_support import DbSession, RequestAccess
 from grip.api.routes.quotes import filtered
+from grip.core import clock
 from grip.core.auth import CurrentPerson
 from grip.core.database import get_db
 from grip.models.organisation import Organisation
@@ -42,6 +43,7 @@ from grip.schema.billing import (
     NextStepOut,
     PeriodInvoiceIn,
     PeriodMonthOut,
+    ReplacedMonthOut,
 )
 from grip.services import (
     assignment_views,
@@ -91,6 +93,17 @@ def _delivery_out(view: billing_deliveries.DeliveryView) -> BillingDeliveryOut:
         mail_state=view.mail_state,
         invoice_id=view.invoice_id,
         invoice_number=view.invoice_number,
+        in_force_cents=view.in_force_cents,
+        replaced=[
+            ReplacedMonthOut(
+                month=str(month),
+                month_label=billing_periods.month_name(month),
+                delivery_id=delivery_id,
+                reference=reference,
+                amount_cents=amount,
+            )
+            for month, reference, delivery_id, amount in view.replaced
+        ],
     )
 
 
@@ -155,7 +168,7 @@ def _next_out(
         correction=step.correction,
         invoice_numbers=list(view.invoice_numbers) if view and step.correction else [],
         invoiced_on=view.invoiced_on if view and step.correction else None,
-        delivered_on=last_delivery.delivered_at.date()
+        delivered_on=clock.local_date(last_delivery.delivered_at)
         if last_delivery is not None and step.correction
         else None,
     )
@@ -357,6 +370,11 @@ async def get_delivery(
         "client_name": content["client_name"],
         "period_label": content["period_label"],
         "total_cents": delivery.total_cents,
+        # What still counts once a later request delivered a month again.
+        "in_force_cents": delivery.total_cents
+        - sum(item["amount_cents"] for item in content["replaced_by"]),
+        "replaces": content["replaces"],
+        "replaced_by": content["replaced_by"],
         "delivered_at": delivery.delivered_at.isoformat(),
         "delivered_by_name": content["delivered_by_name"],
         "has_document": delivery.document_ref is not None,

@@ -46,3 +46,4 @@ Een besluit dat anderen bindt staat hier als ADR: genummerd, met context, beslui
 | [0043](0043-wat-is-er-gebeurd-een-selectie-uit-de-stroom.md) | Wat is er gebeurd: een selectie uit de stroom | aanvaard |
 | [0044](0044-een-verloop-per-zaak-uit-dezelfde-feiten-als-de-taken.md) | Een verloop per zaak, uit dezelfde feiten als de taken | aanvaard |
 | [0045](0045-een-afgewezen-offerte-sluit-de-opdracht-niet.md) | Een afgewezen offerte sluit de opdracht niet | aanvaard |
+| [0046](0046-een-klok-de-dag-van-de-instantie.md) | Eén klok: een datum is de dag van de instantie | aanvaard |

@@ -32,6 +32,7 @@ from sqlalchemy.orm import selectinload
 
 from grip import calc
 from grip.calc import Month
+from grip.core import clock
 from grip.core.audit import CREATE, UPDATE, record_audit
 from grip.models.assignment import Assignment
 from grip.models.month_close import BillingExport, MonthClose
@@ -528,7 +529,7 @@ def _clean_number(invoice_number: str) -> str:
 
 
 def _check_date(invoice_date: date, today: date | None) -> None:
-    if invoice_date > (today or datetime.now(UTC).date()):
+    if invoice_date > (today or clock.today()):
         raise DomainValidationError(
             "De factuurdatum ligt in de toekomst. Leg een factuur vast nadat die "
             "is verstuurd."

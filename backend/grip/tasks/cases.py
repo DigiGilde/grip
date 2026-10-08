@@ -407,6 +407,7 @@ async def load_assignment_cases(
         approval_needed = False
         approval_given = False
         approval_asked = False
+        no_approver = False
         # The rows above carry only what every case needs; the quote in
         # force is read whole, for its amount, its validity and its hash.
         in_force = (
@@ -419,9 +420,11 @@ async def load_assignment_cases(
             approval_needed = approval.requirement.required
             approval_given = approval.approved
             approval_asked = approval.status in ("requested", "approved")
+            no_approver = approval_needed and not approval.approver_available
         facts["approval_needed"] = approval_needed
         facts["approval_given"] = approval_given
         facts["approval_asked"] = approval_asked
+        facts["no_approver"] = no_approver
         received = [q for q in own_quotes if q.status != "superseded"]
         facts["quote_received"] = is_client and bool(received)
         facts["quote_answered"] = (
@@ -444,13 +447,14 @@ async def load_assignment_cases(
         ):
             moved, _ = await quote_budget.budget_moved(db, assignment)
             outdated = bool(moved)
-        fresh = current is not None and not expired and not outdated
         sent_back = any(
             a.status == "sent_back"
             and a.decided_at is not None
             and not any(later.issued_at > a.decided_at for later in own_quotes)
             for a in own_approvals
         )
+        # A quote that was sent back internally is no longer the one to go on with.
+        fresh = current is not None and not expired and not outdated and not sent_back
         subjects: dict[str, list[Subject]] = {
             "case": [Subject(kind="case")],
             "quote_round": [

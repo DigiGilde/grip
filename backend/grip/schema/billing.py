@@ -191,6 +191,16 @@ class PeriodMonthOut(BaseModel):
     correction_cents: Annotated[int, B] = 0
 
 
+class ReplacedMonthOut(BaseModel):
+    """A month of a request that a later request delivers again in full."""
+
+    month: Annotated[str, B]
+    month_label: Annotated[str, B]
+    delivery_id: Annotated[UUID, B]
+    reference: Annotated[str, B]
+    amount_cents: Annotated[int, B]
+
+
 class BillingDeliveryOut(BaseModel):
     """What went to the financial administration, to whom and how."""
 
@@ -208,6 +218,10 @@ class BillingDeliveryOut(BaseModel):
     mail_state: Annotated[str | None, B] = None
     invoice_id: Annotated[UUID | None, B] = None
     invoice_number: Annotated[str | None, B] = None
+    # What of this request still counts: the total without the months a
+    # later request delivers again. Equal to the total when nothing was.
+    in_force_cents: Annotated[int, B] = 0
+    replaced: Annotated[list[ReplacedMonthOut], nested()] = []
 
 
 class BillingPeriodOut(BaseModel):

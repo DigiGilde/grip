@@ -13,6 +13,7 @@ from decimal import Decimal, InvalidOperation
 from html import escape
 from typing import Any
 
+from grip.core import clock
 from grip.services.quote_document import format_date, format_euro
 from grip.services.reports.labels import (
     ACCEPTANCE_FORM_LABELS,
@@ -63,7 +64,7 @@ _STYLE = """
 
 def _date(value: Any) -> str:
     if isinstance(value, datetime):
-        return format_date(value.date())
+        return format_date(clock.local_date(value))
     if isinstance(value, date):
         return format_date(value)
     if isinstance(value, str) and value:

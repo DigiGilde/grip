@@ -38,6 +38,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip import calc
 from grip.calc import AmountSource, InvoiceLineKind, Month
+from grip.core import clock
 from grip.models.assignment import Allocation, BudgetLine
 from grip.models.cost import CostItem
 from grip.models.person import Person
@@ -624,7 +625,9 @@ async def assignment_finance(
         budgeted_outside_months_cents=(totals.budgeted_cents - in_months)
         if totals is not None
         else 0,
-        signals=_signals(lines, _overdue_months(inputs, closed, today or date.today())),
+        signals=_signals(
+            lines, _overdue_months(inputs, closed, today or clock.today())
+        ),
         pricing_error=first_error,
     )
 

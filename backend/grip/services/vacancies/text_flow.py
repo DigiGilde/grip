@@ -28,6 +28,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from grip.core import clock
 from grip.core.audit import CREATE, DELETE, UPDATE, record_audit
 from grip.models.assignment import Assignment, BudgetLine
 from grip.models.organisation import Organisation
@@ -889,7 +890,7 @@ async def set_publication(
             VacancyPublication.place == place,
         )
     )
-    day = published_on or _now().date()
+    day = published_on or clock.today()
     if row is None:
         row = VacancyPublication(
             vacancy_id=vacancy.id,

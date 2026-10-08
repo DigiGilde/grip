@@ -104,6 +104,8 @@ export interface ActivationPreview {
   card: RateCard;
   /** The card that activating this one ends on the day before it starts. */
   shortened: { id: string; name: string; old_valid_to: string | null; new_valid_to: string } | null;
+  /** The periods no settled card prices once this one is settled, with the drafts in them. */
+  gaps?: { start_date: string; end_date: string; drafts: string[] }[];
   impact: PriceImpact;
 }
 

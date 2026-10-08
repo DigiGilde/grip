@@ -21,6 +21,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from grip.core import clock
 from grip.core.audit import CREATE, UPDATE, record_audit
 from grip.models.assignment import BudgetLine
 from grip.models.function_framework import (
@@ -145,7 +146,7 @@ async def list_families(
     families = list(result.scalars())
     if include_ended:
         return families
-    day = today or date.today()
+    day = today or clock.today()
     return [
         family
         for family in families
@@ -452,7 +453,7 @@ async def budget_line_scales(
     line = await db.get(BudgetLine, budget_line_id)
     if line is None or not line.rate_category:
         return None
-    day = line.start_date or date.today()
+    day = line.start_date or clock.today()
     result = await db.execute(
         select(RateCard.valid_from, ScaleBand.scale)
         .join(RateCard, RateCard.id == ScaleBand.rate_card_id)

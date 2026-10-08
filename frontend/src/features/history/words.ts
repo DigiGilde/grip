@@ -6,6 +6,7 @@
  */
 import { formatDate, formatEuro } from '@/lib/format';
 import type { EventChange, HistoryEvent } from './api';
+import { ZONE } from '@/lib/today';
 
 /** A kind of subject: the noun, and whether it takes "de" (true) or "het". */
 export const KIND_LABELS: Record<string, string> = {
@@ -300,6 +301,8 @@ const momentFormat = new Intl.DateTimeFormat('nl-NL', {
   year: 'numeric',
   hour: '2-digit',
   minute: '2-digit',
+  // The time on the instance's clock, whatever the device is set to.
+  timeZone: ZONE,
 });
 
 export function formatMoment(iso: string): string {

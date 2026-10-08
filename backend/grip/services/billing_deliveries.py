@@ -21,6 +21,7 @@ from sqlalchemy.orm import selectinload
 
 from grip import calc
 from grip.calc import Month
+from grip.core import clock
 from grip.core.audit import CREATE, UPDATE, record_audit
 from grip.core.config import get_settings
 from grip.integrations.mail import outbox
@@ -268,6 +269,11 @@ class DeliveryView:
     mail_state: str | None
     invoice_id: UUID | None
     invoice_number: str | None
+    # What of this request still counts: the total without the months a
+    # later request delivers again.
+    in_force_cents: int = 0
+    # Those months: (month, reference of the later request, its id, amount).
+    replaced: tuple[tuple[Month, str, UUID, int], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -376,7 +382,7 @@ async def overview(
     session: AsyncSession, assignment_id: UUID, *, today: date | None = None
 ) -> Overview:
     """Where every billing period of the assignment stands, and what is next."""
-    today = today or datetime.now(UTC).date()
+    today = today or clock.today()
     assignment = await get_assignment(session, assignment_id)
     terms = await terms_of(session, assignment_id)
     billable = allows_billing(assignment.status)
@@ -413,6 +419,11 @@ async def overview(
     mail_rows = await outbox.latest_for(
         session, "billing_delivery", {d.id for d in deliveries}
     )
+
+    replaced_of: dict[UUID, list[Replacement]] = {}
+    for replacement in replacements(exports, closes):
+        replaced_of.setdefault(replacement.old_delivery_id, []).append(replacement)
+    reference_of = {d.id: d.reference for d in deliveries}
 
     unclosed = [state.month for state in timeline if not state.closed]
     planned = await _planned_cents(
@@ -471,11 +482,19 @@ async def overview(
         open_exports = tuple(
             e.id for e in period_exports if e.id not in invoiced_exports
         )
+        # Also the invoice on a request that was replaced since: it was
+        # sent, and what it billed still counts in "gefactureerd".
+        first_days = {month.first_day for month in period.months}
+        period_invoices = {
+            invoice_of_export[e.id].id: invoice_of_export[e.id]
+            for e in exports
+            if e.month in first_days and e.id in invoice_of_export
+        }
         numbers = tuple(
-            dict.fromkeys(
-                invoice_of_export[e.id].invoice_number
-                for e in period_exports
-                if e.id in invoice_of_export
+            invoice.invoice_number
+            for invoice in sorted(
+                period_invoices.values(),
+                key=lambda invoice: (invoice.invoice_date, invoice.invoice_number),
             )
         )
         invoiced_cents = sum(
@@ -530,6 +549,17 @@ async def overview(
                     invoice_number=invoice.invoice_number
                     if invoice is not None
                     else None,
+                    in_force_cents=delivery.total_cents
+                    - sum(r.old_cents for r in replaced_of.get(delivery.id, [])),
+                    replaced=tuple(
+                        (
+                            Month.of(r.month),
+                            reference_of.get(r.new_delivery_id, ""),
+                            r.new_delivery_id,
+                            r.old_cents,
+                        )
+                        for r in replaced_of.get(delivery.id, [])
+                    ),
                 )
             )
         steps = [m.closed_at for m in closed if m.closed_at is not None]
@@ -584,19 +614,23 @@ def _mail_state(status: str) -> str:
 
 
 def _next_step(views: list[PeriodView], *, billable: bool, today: date) -> NextStep:
-    """The one thing to do now: the oldest open step first."""
+    """The one thing to do now: the oldest open step first.
+
+    A naverrekening on a period that was delivered before comes after the
+    work of the periods themselves: the head of the assignment follows the
+    tasks, which do not know a correction yet, and the two must name the
+    same step."""
     for view in views:
         for month in view.months:
             if month.state == "to_close":
                 return NextStep(
                     "close_month", month=month.month, amount_cents=month.amount_cents
                 )
-        if billable and view.state == READY:
+        if billable and view.state == READY and not view.correction:
             return NextStep(
                 "deliver",
                 period_key=view.period.key,
                 amount_cents=view.to_deliver_cents,
-                correction=view.correction,
             )
     if billable:
         for view in views:
@@ -605,6 +639,14 @@ def _next_step(views: list[PeriodView], *, billable: bool, today: date) -> NextS
                     "record_invoice",
                     period_key=view.period.key,
                     amount_cents=view.delivered_cents - view.invoiced_cents,
+                )
+        for view in views:
+            if view.state == READY and view.correction:
+                return NextStep(
+                    "deliver",
+                    period_key=view.period.key,
+                    amount_cents=view.to_deliver_cents,
+                    correction=True,
                 )
     for view in views:
         for month in view.months:
@@ -721,46 +763,142 @@ def specification(
     return ordered
 
 
-async def _replaced(
-    session: AsyncSession, delivery: BillingDelivery, exports: list[BillingExport]
-) -> list[dict[str, Any]]:
-    """The months this delivery delivers again, with the request it replaces.
+@dataclass(frozen=True)
+class Replacement:
+    """What one request stated for a month that a later request delivers again."""
+
+    month: date
+    # The request that no longer counts for this month, and what it stated
+    # for it: the month in full, or a naverrekening on top of it.
+    old_delivery_id: UUID
+    old_cents: int
+    # The request that delivers the month again, and what it states.
+    new_delivery_id: UUID
+    new_cents: int
+    # The new amount minus everything stated for the month before.
+    difference_cents: int
+
+
+def replacements(
+    exports: Iterable[BillingExport], closes: dict[date, UUID] | None = None
+) -> list[Replacement]:
+    """Which request replaces which, per month. Pure.
 
     A month that is reopened after it was delivered and closed again is
     delivered anew, in full. The earlier request still lists the month, so
-    this one says which part of which request no longer counts: without it
-    the financial administration would bill the month twice.
+    without this the financial administration would bill the month twice.
+    Every close of a month has its own delivery in full, with the
+    corrections (naverrekening) made on top of it; the next close that is
+    delivered replaces all of that, in whichever requests it went out.
+
+    ``closes`` names the close in force per month. It only settles the order
+    when two deliveries carry the same moment.
     """
-    again = {e.month: e for e in exports if e.kind != "correction"}
-    if not again:
-        return []
-    earlier = (
-        await session.execute(
-            select(BillingExport, BillingDelivery.reference)
-            .join(BillingDelivery, BillingDelivery.id == BillingExport.delivery_id)
-            .where(
-                BillingExport.assignment_id == delivery.assignment_id,
-                BillingExport.month.in_(again),
-                BillingExport.kind != "correction",
-                BillingExport.delivery_id != delivery.id,
+    in_force = closes or {}
+    by_month: dict[date, dict[UUID, list[BillingExport]]] = {}
+    for export in exports:
+        if export.delivery_id is not None:
+            by_month.setdefault(export.month, {}).setdefault(
+                export.month_close_id, []
+            ).append(export)
+    found: list[Replacement] = []
+    for month, by_close in sorted(by_month.items()):
+        delivered = [
+            (close_id, rows)
+            for close_id, rows in by_close.items()
+            if any(e.kind != "correction" for e in rows)
+        ]
+        delivered.sort(
+            key=lambda item: (
+                min(e.created_at for e in item[1] if e.kind != "correction"),
+                item[0] == in_force.get(month),
             )
-            .order_by(BillingExport.month, BillingExport.created_at)
         )
-    ).all()
-    # The last earlier request per month is the one this replaces.
-    last: dict[date, tuple[BillingExport, str]] = {}
-    for export, reference in earlier:
-        if export.created_at <= again[export.month].created_at:
-            last[export.month] = (export, reference)
+        for (_, older), (_, newer) in zip(delivered, delivered[1:], strict=False):
+            full = next(e for e in newer if e.kind != "correction")
+            before = sum(e.total_cents for e in older)
+            per_delivery: dict[UUID, int] = {}
+            for export in older:
+                per_delivery[export.delivery_id] = (
+                    per_delivery.get(export.delivery_id, 0) + export.total_cents
+                )
+            found.extend(
+                Replacement(
+                    month=month,
+                    old_delivery_id=delivery_id,
+                    old_cents=cents,
+                    new_delivery_id=full.delivery_id,
+                    new_cents=full.total_cents,
+                    difference_cents=full.total_cents - before,
+                )
+                for delivery_id, cents in per_delivery.items()
+            )
+    return found
+
+
+async def _all_replacements(
+    session: AsyncSession, assignment_id: UUID
+) -> list[Replacement]:
+    exports = await outgoing_invoices._exports(session, assignment_id)
+    closes = await outgoing_invoices._closes_in_force(session, assignment_id)
+    return replacements(exports, closes)
+
+
+async def _replaced(
+    session: AsyncSession, delivery: BillingDelivery
+) -> list[dict[str, Any]]:
+    """The months this delivery delivers again, with the request it replaces.
+
+    One entry per month; a month that went out in two requests (in full and
+    as a naverrekening) names both.
+    """
+    found = await _all_replacements(session, delivery.assignment_id)
+    mine = [r for r in found if r.new_delivery_id == delivery.id]
+    references = await _references(session, [r.old_delivery_id for r in mine])
+    by_month: dict[date, list[Replacement]] = {}
+    for replacement in mine:
+        by_month.setdefault(replacement.month, []).append(replacement)
     return [
         {
             "month_label": billing_periods.month_name(Month.of(month)),
-            "reference": reference,
-            "amount_cents": export.total_cents,
-            "difference_cents": again[month].total_cents - export.total_cents,
+            "reference": " en ".join(
+                sorted(references[r.old_delivery_id] for r in rows)
+            ),
+            "amount_cents": sum(r.old_cents for r in rows),
+            "difference_cents": rows[0].difference_cents,
         }
-        for month, (export, reference) in sorted(last.items())
+        for month, rows in sorted(by_month.items())
     ]
+
+
+async def _replaced_by(
+    session: AsyncSession, delivery: BillingDelivery
+) -> list[dict[str, Any]]:
+    """The months of this delivery that a later request delivers again."""
+    found = await _all_replacements(session, delivery.assignment_id)
+    mine = [r for r in found if r.old_delivery_id == delivery.id]
+    references = await _references(session, [r.new_delivery_id for r in mine])
+    return [
+        {
+            "month_label": billing_periods.month_name(Month.of(r.month)),
+            "delivery_id": str(r.new_delivery_id),
+            "reference": references[r.new_delivery_id],
+            "amount_cents": r.old_cents,
+        }
+        for r in mine
+    ]
+
+
+async def _references(session: AsyncSession, ids: Iterable[UUID]) -> dict[UUID, str]:
+    wanted = set(ids)
+    if not wanted:
+        return {}
+    rows = await session.execute(
+        select(BillingDelivery.id, BillingDelivery.reference).where(
+            BillingDelivery.id.in_(wanted)
+        )
+    )
+    return {row[0]: row[1] for row in rows}
 
 
 async def document_content(
@@ -804,7 +942,8 @@ async def document_content(
     )
     return {
         "reference": delivery.reference,
-        "replaces": await _replaced(session, delivery, exports),
+        "replaces": await _replaced(session, delivery),
+        "replaced_by": await _replaced_by(session, delivery),
         "sender": await quotes.sender_name(session, assignment),
         "assignment_name": assignment.name,
         "assignment_uri": assignment.uri,

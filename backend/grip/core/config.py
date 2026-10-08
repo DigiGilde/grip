@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     # Instance identity. Every organisation (or part of one) runs its own
     # instance; these values say which one this is.
     INSTANCE_NAME: str = "Grip (lokaal)"
+    # The time zone whose calendar the dates of the instance are on: a right
+    # holds from a day, a month ends, a link expires. Instants are in UTC.
+    INSTANCE_TIMEZONE: str = "Europe/Amsterdam"
     # Base of every URI this instance mints: {base}/id/opdracht/{uuid}.
     INSTANCE_BASE_URI: str = "http://localhost:8010"
     # TOOI URI of the nearest registered organisation.

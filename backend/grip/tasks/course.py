@@ -189,13 +189,14 @@ def _next(
     current = next((step for step, state in states if state == CURRENT), None)
     in_current = set(current.tasks) if current else set()
 
-    def rank(view: service.TaskView) -> tuple[int, int, int, str]:
+    def rank(view: service.TaskView) -> tuple[int, int, str, int]:
         task = view.task
         return (
             0 if view.needs_me else 1,
             0 if task.template_key in in_current else 1,
-            order.get(task.template_key or "", len(order)),
+            # Within a step the oldest first, as the screens of the work do.
             task.due_on.isoformat() if task.due_on else "9999",
+            order.get(task.template_key or "", len(order)),
         )
 
     ranked = sorted(views, key=rank)
@@ -254,7 +255,9 @@ def _next(
             overdue=first.overdue and part != WATCHES,
             action_text=told.action_text if mine else None,
             action_href=told.work_href if mine else None,
-            missing=tuple(item.text for item in told.checklist if not item.done)
+            missing=tuple(
+                _inline(item.text) for item in told.checklist if not item.done
+            )
             if part != WATCHES
             else (),
             blocked=told.blocked if part != WATCHES else None,
@@ -268,6 +271,11 @@ def _next(
         more_to_do,
         more_waiting,
     )
+
+
+def _inline(text: str) -> str:
+    """A list item as it reads inside a sentence; an abbreviation keeps its capital."""
+    return text[:1].lower() + text[1:] if text[1:2].islower() else text
 
 
 def _subject_label(subject: Subject) -> str | None:

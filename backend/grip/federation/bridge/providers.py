@@ -30,6 +30,7 @@ from grip import calc
 from grip.access import DataClass, Resource
 from grip.access.peer_deps import PeerAccess
 from grip.calc import CalcError, Month
+from grip.core import clock
 from grip.federation.bridge.access import peer_access, pull_context
 from grip.federation.bridge.organisations import organisation_by_id, reference
 from grip.federation.models import Peer
@@ -63,7 +64,7 @@ def _decimal_text(value: Decimal) -> str:
 
 
 def _today() -> str:
-    return date.today().isoformat()
+    return clock.today().isoformat()
 
 
 def _month(text: str) -> Month:
@@ -480,7 +481,7 @@ async def get_handover_capacity(
         db, peer, Resource.instance(), DataClass.STAFFING_COUNTS
     ):
         raise _no_handover()
-    today = date.today()
+    today = clock.today()
     percentages = (
         (
             await db.execute(

@@ -64,6 +64,7 @@ CASE_FACTS: dict[str, frozenset[str]] = {
             "cancelled",
             "declined",
             "not_proceeded",
+            "no_approver",
         }
     ),
     "vacancy": frozenset(
@@ -193,7 +194,7 @@ ROLE_LABELS: dict[str, str] = {
     "beheerder": "Beheerder",
     "tekenbevoegde": "Tekenbevoegde",
     "aanvrager": "Aanvrager",
-    "offertegoedkeurder": "Offertegoedkeurder",
+    "offertegoedkeurder": "Interne goedkeurder van offertes",
 }
 
 STATUS_LABELS: dict[str, str] = {
@@ -206,6 +207,7 @@ STATUS_LABELS: dict[str, str] = {
 
 FACT_LABELS: dict[str, str] = {
     "not_proceeded": "afgesloten zonder dat er een opdracht van kwam",
+    "no_approver": "niemand heeft het recht om offertes intern goed te keuren",
     "declined": "de opdrachtgever heeft de offerte afgewezen",
     "budget_has_line": "de begroting heeft een regel",
     "quote_issued": "de offerte is uitgegeven",

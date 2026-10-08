@@ -29,6 +29,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from grip.core import clock
 from grip.core.audit import CREATE, record_audit
 from grip.core.config import Settings
 from grip.models.decision_proof import DecisionEvidence, SigningIntent
@@ -214,7 +215,7 @@ async def _right(
     # A grant starts on the local date (``team.grant_function``) and ``day``
     # is the UTC date of the decision: after local midnight the first runs
     # ahead of the second, and a right granted then has to count already.
-    day = max(day, date.today())
+    day = max(day, clock.today())
     result = await db.execute(
         select(PersonRole)
         .where(
@@ -256,7 +257,9 @@ async def _authority(
         )
         return Authority(
             basis="uitnodiging",
-            since=invitation.created_at.date().isoformat() if invitation else None,
+            since=clock.local_date(invitation.created_at).isoformat()
+            if invitation
+            else None,
             granted_by=inviter.name if inviter is not None else None,
             declared_by_signer=bool(intent.params.get("confirm_mandate")) or None,
         )
@@ -423,7 +426,7 @@ async def complete_intent(
         raise ProofRefusedError(
             "offerte_gewijzigd", "Het document van de offerte is intussen gewijzigd."
         )
-    authority = await _authority(db, intent, person, moment.date())
+    authority = await _authority(db, intent, person, clock.local_date(moment))
     if authority.basis == "recht" and authority.since is None:
         intent.failure = "geen_recht"
         raise ProofRefusedError(

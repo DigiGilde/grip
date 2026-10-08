@@ -1,6 +1,5 @@
 """Inzet: a person on a budget line, for a period, at a percentage."""
 
-from datetime import date
 from typing import Any
 from uuid import UUID
 
@@ -16,6 +15,7 @@ from grip.access import (
 )
 from grip.api.assignment_support import DbSession, RequestAccess, YearFilter, parse_year
 from grip.calc import Month
+from grip.core import clock
 from grip.core.auth import CurrentPerson
 from grip.schema.allocations import (
     AllocationCreate,
@@ -275,7 +275,7 @@ async def get_board(
 
 def _board_start(value: str | None) -> Month:
     if not value:
-        today = date.today()
+        today = clock.today()
         month = Month(today.year, today.month)
         # Three months of what has been, nine of what is coming.
         year, number = month.year, month.month - 3

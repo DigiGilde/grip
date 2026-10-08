@@ -154,3 +154,64 @@ async def test_scale_with_a_past_date_shows_what_it_touches(client, world, as_pe
             json={"valid_from": "2026-03-15", "billing_scale": 16},
         )
         assert refused.status_code in (403, 404)
+
+
+async def test_the_preview_names_the_period_left_without_a_settled_card(
+    client, world, as_person
+):
+    """Settling a later card while an earlier one is a draft leaves a gap."""
+    as_person(world.beheerder)
+    current = (await client.get("/api/rates/cards/2026")).json()
+    ended = await client.patch(
+        f"/api/rates/cards/{current['id']}", json={"valid_to": "2026-12-31"}
+    )
+    assert ended.status_code == 200, ended.text
+
+    async def draft(start: str, end: str | None) -> dict:
+        made = await client.post(
+            "/api/rates/cards",
+            json={"valid_from": start, "valid_to": end, "copy_from_id": current["id"]},
+        )
+        assert made.status_code == 201, made.text
+        return made.json()
+
+    middle = await draft("2027-01-01", "2027-12-31")
+    later = await draft("2028-01-01", None)
+
+    preview = await client.get(f"/api/rates/cards/{later['id']}/activation-preview")
+    assert preview.status_code == 200, preview.text
+    assert preview.json()["gaps"] == [
+        {
+            "start_date": "2027-01-01",
+            "end_date": "2027-12-31",
+            "drafts": [middle["name"]],
+        }
+    ]
+    # The card that follows on directly leaves none.
+    adjoining = await client.get(f"/api/rates/cards/{middle['id']}/activation-preview")
+    assert adjoining.json()["gaps"] == []
+
+    # With the middle one settled the later one leaves no gap either.
+    settled = await client.post(f"/api/rates/cards/{middle['id']}/activate")
+    assert settled.status_code == 200, settled.text
+    again = await client.get(f"/api/rates/cards/{later['id']}/activation-preview")
+    assert again.json()["gaps"] == []
+
+
+async def test_a_gap_without_a_draft_is_named_too(client, world, as_person):
+    as_person(world.beheerder)
+    current = (await client.get("/api/rates/cards/2026")).json()
+    await client.patch(
+        f"/api/rates/cards/{current['id']}", json={"valid_to": "2026-12-31"}
+    )
+    made = await client.post(
+        "/api/rates/cards",
+        json={"valid_from": "2027-03-01", "copy_from_id": current["id"]},
+    )
+    assert made.status_code == 201, made.text
+    preview = await client.get(
+        f"/api/rates/cards/{made.json()['id']}/activation-preview"
+    )
+    assert preview.json()["gaps"] == [
+        {"start_date": "2027-01-01", "end_date": "2027-02-28", "drafts": []}
+    ]

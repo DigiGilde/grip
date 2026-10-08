@@ -1,5 +1,7 @@
 """The steering overview: each block follows what the reader may see."""
 
+from grip.core import clock
+
 from .conftest import (
     ALFA_BUDGET_2026,
     ALFA_COVERAGE_2026,
@@ -122,7 +124,6 @@ async def test_occupancy_per_person_and_month(as_person, world):
 
 
 async def test_the_figures_on_top_cover_the_rows_of_the_block(as_person, world):
-    from datetime import date
 
     occupancy = (await _steering(as_person(world.planner))).json()["occupancy"]
     summary = occupancy["summary"]
@@ -131,7 +132,7 @@ async def test_the_figures_on_top_cover_the_rows_of_the_block(as_person, world):
     assert summary["average_pct"] == "57.8"
     assert summary["over_count"] == 0
     assert summary["over_months"] == []
-    today = date.today()
+    today = clock.today()
     assert summary["current_month"] == f"{today.year:04d}-{today.month:02d}"
     assert len(summary["window"]) == 4
     assert summary["window"][0]["month"] == summary["current_month"]
@@ -170,7 +171,6 @@ async def test_each_figure_counts_people_the_block_can_show(
     as_person, world, db_session
 ):
     """A figure that names a number leads to exactly those rows."""
-    from datetime import date
 
     from grip.calc import Month
     from grip.services.reports import steering
@@ -185,7 +185,7 @@ async def test_each_figure_counts_people_the_block_can_show(
     # The last day of inzet, for "vrij, laatste inzet tot ...".
     assert by_name[world.member.name]["last_inzet_end"] == "2027-06-30"
     assert by_name[world.other_person.name]["last_inzet_end"] == "2026-12-31"
-    today = date.today()
+    today = clock.today()
     for person in persons:
         cell = _cells(person).get(f"{today.year:04d}-{today.month:02d}")
         if cell is not None and today.year == 2026:
