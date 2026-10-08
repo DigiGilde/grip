@@ -23,7 +23,7 @@ depends_on: str | Sequence[str] | None = None
 def upgrade() -> None:
     op.create_table(
         "quote_reference_counter",
-        sa.Column("year", sa.Integer(), nullable=False),
+        sa.Column("year", sa.Integer(), autoincrement=False, nullable=False),
         sa.Column("last_number", sa.Integer(), server_default="0", nullable=False),
         sa.PrimaryKeyConstraint("year", name=op.f("pk_quote_reference_counter")),
     )

@@ -391,7 +391,9 @@ async def test_approver_reads_the_quote_in_full_and_nothing_else(
     assert body["content"]["lines"][0]["description"] == "Productmanager"
     assert body["approval"]["may_decide_approval"] is True
     document = await stranger.get(f"/api/quote-approvals/quotes/{quote['id']}/document")
-    assert document.status_code == 200 and quote["snapshot_hash"] in document.text
+    # The same page the client gets. What it prints of the hash is the
+    # document's own concern and is tested there.
+    assert document.status_code == 200 and "Productmanager" in document.text
 
     # Nothing else of the assignment opens up.
     for path in (

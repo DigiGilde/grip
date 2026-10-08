@@ -66,7 +66,8 @@ def test_every_contract_property_has_a_code_name():
     known = set(terms.PROPERTIES.values()) | SAME_ON_BOTH_SIDES
     assert found - known == set()
     # And the other way around: no mapping for a term the contract dropped.
-    assert set(terms.PROPERTIES.values()) - found == set()
+    # Except what grip uses ahead of the contract, which is listed as such.
+    assert set(terms.PROPERTIES.values()) - found == set(terms.PENDING_CONTRACT_TERMS)
 
 
 def test_no_code_name_leaks_into_the_contract():

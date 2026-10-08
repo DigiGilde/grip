@@ -19,12 +19,14 @@ so two things here are explicit:
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
+from grip.calc import MonthAmount
 from grip.models.assignment import BudgetLine
 
 # Columns of budget_line that may feed a quote line.
@@ -65,6 +67,7 @@ _MONEY_KEYS = frozenset({"amount_cents", "currency"})
 _PERIOD_KEYS = frozenset({"start_date", "end_date"})
 _SUBTOTAL_KEYS = frozenset({"year", "amount"})
 _RATE_PER_YEAR_KEYS = frozenset({"year", "monthly_rate"})
+_RATE_PERIOD_KEYS = frozenset({"start_date", "end_date", "monthly_rate"})
 
 # Keys a quote content may have, in code names.
 ALLOWED_CONTENT_KEYS = frozenset(
@@ -95,6 +98,12 @@ ALLOWED_LINE_KEYS = frozenset(
         "rate_category",
         "period",
         "monthly_rate",
+        # The rates per period of validity the line touches, when the rate
+        # changes inside the line's period. A period can begin and end on
+        # any day.
+        "monthly_rate_periods",
+        # The same, when the rate changes only on 1 January: a rate per
+        # calendar year.
         "monthly_rates_per_year",
         "year",
         "amount",
@@ -172,8 +181,70 @@ def check_content(snapshot: dict[str, Any]) -> dict[str, Any]:
             _check_keys(f"{where}.period", line["period"], _PERIOD_KEYS)
         if "monthly_rate" in line:
             _check_keys(f"{where}.monthly_rate", line["monthly_rate"], _MONEY_KEYS)
+        for i, rate in enumerate(line.get("monthly_rate_periods") or []):
+            inner = f"{where}.monthly_rate_periods[{i}]"
+            _check_keys(inner, rate, _RATE_PERIOD_KEYS)
+            _check_keys(f"{inner}.monthly_rate", rate.get("monthly_rate"), _MONEY_KEYS)
         for i, rate in enumerate(line.get("monthly_rates_per_year") or []):
             inner = f"{where}.monthly_rates_per_year[{i}]"
             _check_keys(inner, rate, _RATE_PER_YEAR_KEYS)
             _check_keys(f"{inner}.monthly_rate", rate.get("monthly_rate"), _MONEY_KEYS)
     return snapshot
+
+
+def rate_periods(months: Iterable[MonthAmount]) -> list[tuple[date, date, int]]:
+    """The stretches of a priced line in which the monthly rate is constant.
+
+    From the stretches the calculation module priced, so the periods are
+    exactly what the amount was built from. Adjacent stretches at the same
+    rate are one period; a period can begin and end on any day.
+    """
+    periods: list[tuple[date, date, int]] = []
+    for month in months:
+        for stretch in month.stretches:
+            if periods and periods[-1][2] == stretch.monthly_rate_cents:
+                periods[-1] = (periods[-1][0], stretch.end, stretch.monthly_rate_cents)
+            else:
+                periods.append((stretch.start, stretch.end, stretch.monthly_rate_cents))
+    return periods
+
+
+def line_rates(
+    months: Iterable[MonthAmount], *, currency: str = "EUR"
+) -> dict[str, Any]:
+    """What a quote line carries about its rate.
+
+    - ``monthly_rate`` when one rate holds over the whole period of the line.
+    - ``monthly_rates_per_year`` when the rate changes only on 1 January: a
+      rate per calendar year, the form the contract already knows.
+    - ``monthly_rate_periods`` when the rate changes inside a year: per
+      period of validity the line touches its first day, its last day and
+      the monthly rate. A period can begin and end on any day; the amount of
+      the line is priced by day over those periods.
+    """
+    periods = rate_periods(months)
+
+    def money(cents: int) -> dict[str, Any]:
+        return {"amount_cents": cents, "currency": currency}
+
+    if len(periods) == 1:
+        return {"monthly_rate": money(periods[0][2])}
+    if all((start.month, start.day) == (1, 1) for start, _, _ in periods[1:]) and len(
+        {start.year for start, _, _ in periods}
+    ) == len(periods):
+        return {
+            "monthly_rates_per_year": [
+                {"year": start.year, "monthly_rate": money(cents)}
+                for start, _, cents in periods
+            ]
+        }
+    return {
+        "monthly_rate_periods": [
+            {
+                "start_date": start.isoformat(),
+                "end_date": end.isoformat(),
+                "monthly_rate": money(cents),
+            }
+            for start, end, cents in periods
+        ]
+    }

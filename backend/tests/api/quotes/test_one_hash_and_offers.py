@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import uuid
 from datetime import UTC, datetime
 
@@ -53,6 +54,11 @@ def _nothing_registered():
     yield
     registry.clear_registries()
     domain_events.clear_handlers()
+
+
+def _unspaced(text: str) -> str:
+    """A document may print the hash in groups; the value is what counts."""
+    return re.sub(r"[\s]|<br ?/?>|&nbsp;", "", text)
 
 
 async def _issue(act_as, world) -> dict:
@@ -107,7 +113,7 @@ async def test_the_hash_is_one_value_on_document_and_every_acceptance(
 
     manager = act_as(world.manager)
     document = await manager.get(f"/api/quotes/{quote['id']}/document")
-    assert the_hash in document.text
+    assert the_hash in _unspaced(document.text)
 
     # Signing link: the signer is shown the same hash and cites it.
     invited = await manager.post(
@@ -117,10 +123,8 @@ async def test_the_hash_is_one_value_on_document_and_every_acceptance(
     signer = act_as(world.signer)
     shown = (await signer.get(f"/api/signing/quotes/{quote['id']}")).json()
     assert shown["snapshot_hash"] == the_hash
-    assert (
-        the_hash
-        in (await signer.get(f"/api/signing/quotes/{quote['id']}/document")).text
-    )
+    signing_document = await signer.get(f"/api/signing/quotes/{quote['id']}/document")
+    assert the_hash in _unspaced(signing_document.text)
 
     # Each form of acceptance in turn on this same quote; the decision is
     # undone in between, because a quote is decided once.

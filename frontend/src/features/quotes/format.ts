@@ -81,3 +81,13 @@ export function partMonthNote(lines: readonly PeriodLine[]): string | null {
   }
   return null;
 }
+
+/** A code in blocks of eight, four to a line, so it reads and never overflows. */
+export function codeLines(code: string): string[] {
+  const blocks = code.match(/.{1,8}/g) ?? [];
+  const lines: string[] = [];
+  for (let index = 0; index < blocks.length; index += 4) {
+    lines.push(blocks.slice(index, index + 4).join(' '));
+  }
+  return lines;
+}

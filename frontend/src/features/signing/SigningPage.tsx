@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { ApiError, errorMessage } from '@/api/client';
 import { Button, TextInput } from '@/features/assignments/ui';
-import { Fingerprint } from '@/features/quotes/QuoteCard';
+import { QuoteDetails } from '@/features/quotes/QuoteDetails';
 import { QuoteContentTable } from '@/features/quotes/QuoteContentTable';
 import { formatDateTime } from '@/features/quotes/format';
 import { CheckboxInput, DocumentLink } from '@/features/quotes/ui';
@@ -139,7 +139,10 @@ export function SigningPage() {
             <nldd-container layout="row" gap="16" vertical-alignment="center">
               <DocumentLink href={signingDocumentUrl(quote.id)} text="Bekijk als document" newTab />
               <DocumentLink href={signingDocumentUrl(quote.id, true)} text="Download pdf" />
-              <Fingerprint hash={quote.snapshot_hash} />
+              <QuoteDetails
+                hash={quote.snapshot_hash}
+                facts={[{ label: 'Kenmerk', value: quote.reference ?? '' }]}
+              />
             </nldd-container>
 
             {quote.status === 'issued' ? (

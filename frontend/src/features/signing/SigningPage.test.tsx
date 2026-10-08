@@ -68,11 +68,12 @@ describe('SigningPage', () => {
     // One primary, one secondary, and what signing means in one sentence.
     expect(texts(container, 'nldd-button[appearance="primary"]')).toEqual(['Geef akkoord']);
     expect(
-      texts(container, 'nldd-button').filter((text) => !text.toLowerCase().includes('vingerafdruk')),
+      texts(container, 'nldd-button').filter((text) => text !== 'Details'),
     ).toEqual(['Geef akkoord', 'Wijs af']);
     expect(container.textContent).toContain('Met je akkoord gaat Voorbeeldministerie deze opdracht aan');
-    // The fingerprint is there, behind a quiet control.
-    expect(container.querySelector('nldd-popover [data-fingerprint]')?.textContent).toBe(HASH);
+    // The echtheidskenmerk is there, behind "Details".
+    expect(texts(container, 'nldd-button')).toContain('Details');
+    expect(document.body.querySelectorAll('nldd-sheet [data-code-line]').length).toBe(2);
     // No form is open by default.
     expect(openSheet()).toBeUndefined();
   });

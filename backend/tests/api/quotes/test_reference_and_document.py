@@ -99,7 +99,7 @@ def test_pdf_of_one_line_holds_reference_total_and_fingerprint():
     found = _text(reader)
     assert "VG-2026-0007" in found
     assert "€ 172.800,00" in found
-    assert HASH in found.replace("\n", "")
+    assert HASH in found.replace("\n", "").replace(" ", "")
     assert "pagina 1 van 1" in found
     assert "14 en 15 (categorie D)" in found
     # The reference line never shows an address.
@@ -367,7 +367,7 @@ async def test_download_is_a_pdf_named_after_the_reference(act_as, world):
     found = _text(PdfReader(io.BytesIO(response.content)))
     assert quote["reference"] in found
     assert "€ 172.800,00" in found
-    assert quote["snapshot_hash"] in found.replace("\n", "")
+    assert quote["snapshot_hash"] in found.replace("\n", "").replace(" ", "")
 
 
 async def test_no_name_of_staff_is_on_the_document(act_as, world, db_session):

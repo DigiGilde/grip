@@ -119,7 +119,7 @@ class QuoteReferenceCounter(Base):
 
     __tablename__ = "quote_reference_counter"
 
-    year: Mapped[int] = mapped_column(Integer, primary_key=True)
+    year: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
     last_number: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
 

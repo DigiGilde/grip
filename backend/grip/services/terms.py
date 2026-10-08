@@ -86,6 +86,8 @@ PROPERTIES: dict[str, str] = {
     "month": "maand",
     "monthly_rate": "maandtarief",
     "monthly_rates_per_year": "maandtarieven_per_jaar",
+    # Pending in the contract; see PENDING_CONTRACT_TERMS.
+    "monthly_rate_periods": "maandtarieven_per_periode",
     "name": "naam",
     "namespace": "naamruimte",
     "node_types": "node_typen",
@@ -258,6 +260,17 @@ assert len(_PROPERTIES_BACK) == len(_ALL_PROPERTIES), (
 assert not set(_PROPERTIES_BACK) & set(_ALL_PROPERTIES), (
     "a term is both code and contract"
 )
+
+
+# Terms grip already uses that the contract (grip-opdrachtverkeer) does not
+# describe yet. The contract lets a receiver ignore what it does not know,
+# so a message that carries one of them is still valid. An entry leaves this
+# set when the contract has the term.
+#
+# - maandtarieven_per_periode: on an offerteregel, when the monthly rate
+#   changes inside a calendar year (a rate card can start on any day): a
+#   list of {begindatum, einddatum, maandtarief}.
+PENDING_CONTRACT_TERMS = frozenset({"maandtarieven_per_periode"})
 
 
 @dataclass(frozen=True)

@@ -204,13 +204,12 @@ async def _history(db: AsyncSession, quote_id: UUID) -> list[QuoteApproval]:
 
 
 async def _offered(db: AsyncSession, quote_id: UUID) -> bool:
-    return (
-        await db.scalar(
-            select(func.count())
-            .select_from(QuoteOffer)
-            .where(QuoteOffer.quote_id == quote_id)
-        )
-    ) > 0
+    count = await db.scalar(
+        select(func.count())
+        .select_from(QuoteOffer)
+        .where(QuoteOffer.quote_id == quote_id)
+    )
+    return bool(count)
 
 
 async def state_of(db: AsyncSession, quote: Quote) -> ApprovalState:
@@ -449,10 +448,9 @@ async def has_request(db: AsyncSession, quote_id: UUID) -> bool:
     The fact the access rule needs: an approver reads a quote in full only
     when that quote was put before an approver.
     """
-    return (
-        await db.scalar(
-            select(func.count())
-            .select_from(QuoteApproval)
-            .where(QuoteApproval.quote_id == quote_id)
-        )
-    ) > 0
+    count = await db.scalar(
+        select(func.count())
+        .select_from(QuoteApproval)
+        .where(QuoteApproval.quote_id == quote_id)
+    )
+    return bool(count)

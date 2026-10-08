@@ -179,11 +179,20 @@ describe('QuotePage', () => {
     // The quote to wait for is the subject; no second quote is proposed.
     expect(texts(container, 'nldd-button')).not.toContain('Maak offerte');
     expect(container.querySelector('nldd-table')).toBeNull();
-    // The fingerprint is behind a control, not in the reading line.
-    expect(container.querySelector('nldd-card nldd-text-cell')?.textContent ?? '').not.toContain(
-      HASH,
+    // The echtheidskenmerk is behind "Details", in a sheet, never in the reading line.
+    expect(container.textContent).not.toContain(HASH);
+    expect(texts(container, 'nldd-card nldd-button')).toContain('Details');
+    const sheet = [...document.body.querySelectorAll('nldd-sheet')].find(
+      (el) => el.querySelector('nldd-title')?.getAttribute('text') === 'Details van de offerte',
     );
-    expect(container.querySelector('nldd-popover [data-fingerprint]')?.textContent).toBe(HASH);
+    const lines = [...(sheet as Element).querySelectorAll('[data-code-line]')].map(
+      (el) => el.textContent,
+    );
+    // Blocks of eight, four to a line: it cannot run out of its box.
+    expect(lines).toEqual(['aaaaaaaa aaaaaaaa aaaaaaaa aaaaaaaa', 'aaaaaaaa aaaaaaaa aaaaaaaa aaaaaaaa']);
+    expect(texts(sheet as Element, 'nldd-button')).toContain('Kopieer echtheidskenmerk');
+    expect(sheet?.textContent).toContain('Verandert er ook maar één teken');
+    expect(sheet?.textContent?.replace(/Technisch:.*/, '')).not.toMatch(/hash|SHA/i);
   });
 
   it('keeps the signing link in reach after inviting someone', async () => {
@@ -247,7 +256,7 @@ describe('QuotePage', () => {
     });
     await waitFor(() => expect(container.querySelector('nldd-list-item')).not.toBeNull());
     expect(
-      texts(container, 'nldd-button').filter((text) => !text.toLowerCase().includes('vingerafdruk')),
+      texts(container, 'nldd-button').filter((text) => text !== 'Details'),
     ).toEqual([]);
     expect(container.querySelector('nldd-icon-button')).toBeNull();
     expect(texts(container, 'nldd-link')).toEqual(['Bekijk', 'Download pdf']);

@@ -4,7 +4,7 @@ One template, two outputs. ``render_quote_html`` gives the page a browser
 shows for "Bekijk"; ``render_quote_pdf`` gives the file that is downloaded,
 sent and signed. Both are built from the frozen content of an issued quote
 (its canonical form) and from nothing live, so the document shows exactly
-what the fingerprint covers. No name of a member of staff is added here:
+what the echtheidskenmerk covers. No name of a member of staff is added here:
 the content is on an allow-list (``grip.services.quote_content``) and this
 template only adds the sender organisation and the client.
 
@@ -12,7 +12,7 @@ The PDF is made by an HTML-to-PDF engine (WeasyPrint), so the page is laid
 out once, in CSS, and the file is a tagged PDF: it has a title, a language,
 real text in reading order and table header cells. The same quote gives the
 same bytes every time: the creation date is the moment of issue and the
-identifier of the file is derived from the fingerprint.
+identifier of the file is derived from the echtheidskenmerk.
 
 Head of the page. An organisation that may carry the Rijkslogo configures
 the ribbon (``LETTERHEAD_LOGO_PATH``); the page then opens with the Rijkslint
@@ -32,6 +32,7 @@ import calendar
 import ctypes.util
 import os
 import sys
+import threading
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from html import escape
@@ -255,6 +256,12 @@ def _line_row(line: dict[str, Any]) -> str:
     )
 
 
+def code_lines(code: str) -> list[str]:
+    """A code in blocks of eight, four to a line, so it reads and wraps."""
+    blocks = [code[i : i + 8] for i in range(0, len(code), 8)]
+    return [" ".join(blocks[i : i + 4]) for i in range(0, len(blocks), 4)]
+
+
 def _font_faces(letterhead: Letterhead) -> str:
     if letterhead.font_dir is None:
         return ""
@@ -348,10 +355,10 @@ _STYLE = """
     margin-top: 3mm; }
   .sign-grid div { border-bottom: 0.5pt solid #111; height: 13mm; padding-top: 1mm;
     color: #444; font-size: 8pt; }
-  .colophon { margin-top: 10mm; padding-top: 2mm; border-top: 0.4pt solid #999;
+  .colophon { margin-top: 8mm; padding-top: 2mm; border-top: 0.4pt solid #999;
     break-inside: avoid; }
   .colophon code { font-family: "DejaVu Sans Mono", Menlo, Consolas, monospace;
-    font-size: 7pt; word-break: break-all; }
+    font-size: 7pt; }
 
   @media screen {
     body { background: #eee; padding: 8mm 4mm; }
@@ -450,6 +457,7 @@ def render_quote_html(snapshot: dict[str, Any], context: QuoteDocumentContext) -
         .strip()
     )
     title = escape(document_title(snapshot, context))
+    code = escape(" ".join(code_lines(context.snapshot_hash)))
     return f"""<!doctype html>
 <html lang="nl">
 <head>
@@ -486,7 +494,8 @@ def render_quote_html(snapshot: dict[str, Any], context: QuoteDocumentContext) -
 <tbody>
 {rows}
 {subtotal_rows}
-<tr class="total"><th scope="row" colspan="5">Totaal</th><td class="num">{total}</td></tr>
+<tr class="total"><th scope="row" colspan="5">Totaal</th>
+<td class="num">{total}</td></tr>
 </tbody>
 </table>
 <p class="quiet note">{escape(note)}</p>
@@ -503,9 +512,10 @@ def render_quote_html(snapshot: dict[str, Any], context: QuoteDocumentContext) -
 </div>
 
 <div class="colophon quiet">
-<p>Vingerafdruk van deze offerte: <code>{escape(context.snapshot_hash)}</code><br>
-Een akkoord noemt deze vingerafdruk, zodat vaststaat dat het over precies deze
-inhoud gaat. Adres van deze offerte voor systemen: {escape(context.quote_uri)}</p>
+<p>Echtheidskenmerk: <code>{code}</code><br>
+Een code die uit de inhoud van deze offerte is berekend. Dezelfde code staat in het
+akkoord, zodat vaststaat dat er voor precies deze offerte is getekend.
+Adres voor systemen: {escape(context.quote_uri)}</p>
 </div>
 </main>
 </body>
@@ -516,6 +526,7 @@ inhoud gaat. Adres van deze offerte voor systemen: {escape(context.quote_uri)}</
 # -- PDF ----------------------------------------------------------------------
 
 _library_lookup_patched = False
+_render_lock = threading.Lock()
 
 
 def _find_homebrew_libraries() -> None:
@@ -555,7 +566,7 @@ def render_quote_pdf(snapshot: dict[str, Any], context: QuoteDocumentContext) ->
     """The quote as a tagged PDF (PDF/UA), from the same template as the page.
 
     The same quote gives the same bytes: the dates in the file are the
-    moment of issue and its identifier comes from the fingerprint.
+    moment of issue and its identifier comes from the echtheidskenmerk.
     """
     _find_homebrew_libraries()
     try:
@@ -563,8 +574,20 @@ def render_quote_pdf(snapshot: dict[str, Any], context: QuoteDocumentContext) ->
     except (OSError, ImportError) as exc:
         raise DocumentEngineError() from exc
     html = render_quote_html(snapshot, context)
-    pdf: bytes = HTML(string=html, base_url=None).write_pdf(
-        pdf_variant="pdf/ua-1",
-        pdf_identifier=context.snapshot_hash.encode("ascii")[:32],
-    )
+    # An embedded typeface is written with "now" as its modification time
+    # unless this variable says otherwise; with it the file is the same on
+    # every run. The variable belongs to the process, hence the lock.
+    with _render_lock:
+        previous = os.environ.get("SOURCE_DATE_EPOCH")
+        os.environ["SOURCE_DATE_EPOCH"] = str(int(context.issued_at.timestamp()))
+        try:
+            pdf: bytes = HTML(string=html, base_url=None).write_pdf(
+                pdf_variant="pdf/ua-1",
+                pdf_identifier=context.snapshot_hash.encode("ascii")[:32],
+            )
+        finally:
+            if previous is None:
+                os.environ.pop("SOURCE_DATE_EPOCH", None)
+            else:
+                os.environ["SOURCE_DATE_EPOCH"] = previous
     return pdf

@@ -64,7 +64,12 @@ from grip.services.pricing import (
     load_rate_book,
     to_calc_line,
 )
-from grip.services.quote_content import QuoteLineSource, check_content, line_source
+from grip.services.quote_content import (
+    QuoteLineSource,
+    check_content,
+    line_rates,
+    line_source,
+)
 from grip.services.quote_reference import next_reference
 
 CURRENCY = "EUR"
@@ -96,7 +101,7 @@ def _snapshot_line(
             entry["role"] = line.role
         entry["fte"] = _decimal_text(line.fte)
         entry["rate_category"] = line.rate_category
-        scales = _scales_of(rates, line.start_date.year, line.rate_category)
+        scales = _scales_of(rates, line.start_date, line.rate_category)
         if scales:
             entry["scales"] = scales
         entry["period"] = {
@@ -106,28 +111,19 @@ def _snapshot_line(
         months = calc.budget_line_months(
             calc_line, rates, partial_months=options.partial_months
         )
-        per_year: dict[int, int] = {}
-        for month in months:
-            per_year[month.month.year] = month.monthly_rate_cents
-        if len(set(per_year.values())) == 1:
-            entry["monthly_rate"] = _money(next(iter(per_year.values())))
-        else:
-            # The rate differs per year; the contract's single monthly_rate
-            # cannot say that, so the rates are listed per year.
-            entry["monthly_rates_per_year"] = [
-                {"year": year, "monthly_rate": _money(cents)}
-                for year, cents in sorted(per_year.items())
-            ]
+        # One rate, or the rates per period of validity the line touches: a
+        # rate card can change on any day (grip.services.quote_content).
+        entry.update(line_rates(months))
     else:
         entry["year"] = line.year
     entry["amount"] = _money(amount)
     return entry
 
 
-def _scales_of(rates: calc.RateBook, year: int, category: str | None) -> list[int]:
-    """The scales that bill in this category in this year, in order."""
+def _scales_of(rates: calc.RateBook, day: date, category: str | None) -> list[int]:
+    """The scales that bill in this category on the card valid that day."""
     try:
-        card = rates.card(year)
+        card = rates.card(day)
     except calc.CalcError:
         return []
     return sorted(band.scale for band in card.scale_bands if band.category == category)

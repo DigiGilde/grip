@@ -49,16 +49,19 @@ UI-termen zijn Nederlands; code en schema gebruiken de Engelse naam.
 | Target KPI % declarabel | `billability_target` | Deel van iemands jaar dat declarabel moet zijn |
 | Offerte | `quote` | Document dat uit de begroting van een opdracht wordt gemaakt. Na het maken wijzigt het niet meer |
 | Offerte maken | `issue_quote` | De begroting vastleggen als offerte. In de code heet dat uitgeven (`issued`); voor de gebruiker is het maken |
-| Kenmerk | `reference` | Het nummer waarmee mensen een offerte aanduiden, zoals "DG-2026-0007": voorvoegsel van de organisatie, jaar en een volgnummer per jaar dat nooit opnieuw wordt gebruikt. Het staat in de vastgelegde inhoud en valt dus onder de vingerafdruk. De URI blijft het kenmerk voor systemen |
+| Kenmerk | `reference` | Het nummer waarmee mensen een offerte aanduiden, zoals "DG-2026-0007": voorvoegsel van de organisatie, jaar en een volgnummer per jaar dat nooit opnieuw wordt gebruikt. Het staat in de vastgelegde inhoud en valt dus onder het echtheidskenmerk. De URI blijft het kenmerk voor systemen |
 | Uw kenmerk | `client_reference` | Het eigen kenmerk van de opdrachtgever, zoals een zaak- of ordernummer. Optioneel, bij het maken van de offerte |
-| Vingerafdruk | `snapshot_hash` | De hash van de vastgelegde inhoud van een offerte. Een akkoord noemt hem, zodat vaststaat over welke inhoud het gaat |
+| Echtheidskenmerk | `snapshot_hash` | Een code die uit de inhoud van een offerte is berekend (de hash). Dezelfde code staat in het akkoord, zodat vaststaat dat er voor precies deze offerte is getekend. Op scherm en document heet het echtheidskenmerk, nooit hash |
 | Tekenlink | `quote_invitation` | De link waarmee één uitgenodigde persoon een offerte opent en tekent. Werkt 30 dagen, is in te trekken en te verlengen |
 | Akkoord | `quote_acceptance` | De vastlegging dat de opdrachtgever een offerte heeft aanvaard |
+| Interne goedkeuring | `quote_approval` | De goedkeuring van een gemaakte offerte binnen de eigen organisatie, voordat ze wordt aangeboden. Per instantie in te stellen: nooit, altijd of vanaf een bedrag. Gaat over precies de bytes van die offerte en blijft intern |
+| Terugsturen | `sent_back` | De goedkeurder keurt een offerte niet goed en zegt waarom. De offerte verandert niet; de maker maakt een nieuwe |
+| Instelling van de instantie | `instance_setting` | Een regel van de organisatie die de beheerder wijzigt, zoals wanneer interne goedkeuring nodig is |
 | Maandafsluiting | `month_close` | De vastgestelde werkelijke inzet van een maand |
 | Factuurgegevens, aanlevering | `billing_export` | Wat per afgesloten maand naar de financiële administratie gaat. Een export is een aanlevering |
 | Factuur | `outgoing_invoice` | De vastlegging dat een factuur aan de opdrachtgever is verstuurd, voor een of meer aanleveringen: nummer, datum, bedrag, wie het vastlegde en de bron (met de hand of het financiële systeem) |
 | Inhuur | `hire` | Kostprijs en marge van een ingehuurde persoon |
-| Recht in grip | `function` | Wat iemand in grip mag bovenop de eigen relaties: beheerder, planner, lezer, aanvrager, tekenbevoegde. De code zegt functie, het scherm zegt recht |
+| Recht in grip | `function` | Wat iemand in grip mag bovenop de eigen relaties: beheerder, planner, lezer, aanvrager, tekenbevoegde, interne goedkeurder van offertes. De code zegt functie, het scherm zegt recht |
 | Functie | `function_title` | De functie van iemand in de organisatie of op een vacature: de functietitel. Niet het recht in grip |
 | Functiegroep | `function_group` | De groep uit het Functiegebouw Rijk waar een functie onder valt |
 | Bijlage | `stored_document` | Een bestand dat bij precies een object hoort, zoals de ontvangen factuur bij een factuurregel of de getekende offerte bij een akkoord |

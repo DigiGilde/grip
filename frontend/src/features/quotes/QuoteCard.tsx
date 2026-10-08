@@ -21,6 +21,7 @@ import {
   primaryAction,
   quoteSteps,
 } from './offers';
+import { QuoteDetails } from './QuoteDetails';
 import { CopyButton, DocumentLink, MenuAction } from './ui';
 import './register';
 
@@ -31,13 +32,18 @@ export type CardAction =
   | { kind: 'withdraw-link'; invitationId: string }
   | { kind: 'renew-link'; invitationId: string };
 
+function madeText(quote: QuoteSummary): string {
+  return `Gemaakt op ${formatDate(quote.issued_at)}${quote.issued_by_name ? ` door ${quote.issued_by_name}` : ''}`;
+}
+
 /** What the quote says about itself in one quiet line. */
 function byline(quote: QuoteSummary): string {
-  const parts = [
+  return [
     quote.valid_until ? `Geldig t/m ${formatDate(quote.valid_until)}` : null,
-    `Gemaakt op ${formatDate(quote.issued_at)}${quote.issued_by_name ? ` door ${quote.issued_by_name}` : ''}`,
-  ];
-  return parts.filter(Boolean).join(' · ');
+    madeText(quote),
+  ]
+    .filter(Boolean)
+    .join(' · ');
 }
 
 function Decision({ quote }: { quote: QuoteSummary }) {
@@ -66,26 +72,6 @@ function Decision({ quote }: { quote: QuoteSummary }) {
     );
   }
   return null;
-}
-
-/** The fingerprint behind a quiet button: what it is for, the value, and a copy action. */
-export function Fingerprint({ hash }: { hash: string }) {
-  return (
-    <nldd-button appearance="neutral-transparent" size="sm" text="Vingerafdruk" expandable>
-      <nldd-popover slot="popup" accessible-label="Vingerafdruk van deze offerte" width="360px">
-        <nldd-container padding="16" gap="8">
-          <nldd-text size="sm">
-            De vingerafdruk van deze offerte staat ook in het akkoord. Zo staat vast dat het
-            akkoord over precies deze inhoud gaat.
-          </nldd-text>
-          <nldd-text size="xs" data-fingerprint>
-            {hash}
-          </nldd-text>
-          <CopyButton text="Kopieer vingerafdruk" value={hash} size="sm" />
-        </nldd-container>
-      </nldd-popover>
-    </nldd-button>
-  );
 }
 
 function OfferRow({
@@ -211,7 +197,14 @@ export function QuoteCard({ quote, detail, mayManage, busy, onAction }: QuoteCar
               {quote.acceptance?.has_document ? (
                 <DocumentLink href={signedDocumentUrl(quote.id)} text="Getekend exemplaar" />
               ) : null}
-              <Fingerprint hash={quote.snapshot_hash} />
+              <QuoteDetails
+                hash={quote.snapshot_hash}
+                facts={[
+                  { label: 'Kenmerk', value: quote.reference ?? '' },
+                  { label: 'Gemaakt', value: madeText(quote) },
+                  { label: 'Adres voor systemen', value: quote.uri },
+                ]}
+              />
             </nldd-container>
           ) : null}
         </Stack>

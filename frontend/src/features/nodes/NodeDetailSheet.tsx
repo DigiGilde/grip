@@ -162,7 +162,7 @@ export function NodeDetailSheet({ uri, known, fetchNode, scope, onClose }: NodeD
 
   const title = item?.node?.title ?? (current ? 'Node' : '');
   return createPortal(
-    <nldd-sheet ref={sheetRef} open={orUndef(uri !== null)} placement="right" width="640px">
+    <nldd-sheet ref={sheetRef} open={orUndef(uri !== null)} placement="right" width="720px">
       <nldd-page>
         <nldd-top-title-bar
           ref={barRef}

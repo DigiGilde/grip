@@ -28,3 +28,4 @@ Een besluit dat anderen bindt staat hier als ADR: genummerd, met context, beslui
 | [0022](0022-een-nieuwe-collega-is-eerst-in-grip-bekend.md) | Een nieuwe collega is eerst in grip bekend | aanvaard |
 | [0023](0023-aangeleverd-is-niet-gefactureerd.md) | Aangeleverd is niet gefactureerd | aanvaard |
 | [0024](0024-taken-feiten-en-het-plan.md) | Taken, feiten en het plan | aanvaard |
+| [0025](0025-interne-goedkeuring-van-een-offerte.md) | Een offerte kan eerst intern worden goedgekeurd | aanvaard |

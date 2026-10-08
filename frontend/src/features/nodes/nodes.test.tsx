@@ -280,7 +280,7 @@ describe('NodePathView', () => {
     expect(list.querySelector('.grip-path__step--current button')).toBeNull();
     expect(all[4]?.classes).toContain('grip-path__step--end');
     expect(all[4]?.classes).toContain('grip-path__step--last');
-    expect(all[4]?.text).toBe('Politieke inputMotie over hergebruikHerkomst');
+    expect(all[4]?.text).toBe('Politieke inputMotie over hergebruik');
     // No arrows and no parentheses.
     expect(list.textContent).not.toMatch(/[↓→(]/);
     // A step that can be opened is one control: the whole row.
@@ -323,7 +323,7 @@ describe('NodePathView', () => {
     expect(lists[0]?.querySelector('.grip-path__step--last')).toBeNull();
     expect(rows(lists[1] as Element).map((row) => row.text)).toEqual([
       'vloeit voort uit',
-      'Politieke inputMotie over hergebruikHerkomst',
+      'Politieke inputMotie over hergebruik',
     ]);
     expect(rows(lists[2] as Element)[0]?.text).toBe('draagt bij aan');
     const branches = container.querySelector('.grip-path-branches');
@@ -344,8 +344,8 @@ describe('NodePathView', () => {
     expect(link.getAttribute('target')).toBe('_blank');
     expect(link.textContent).toBe('Ander corpuscorpus.anderministerie.example');
     expect(link.querySelector('nldd-icon')?.getAttribute('icon')).toBe('external-link');
-    // The end in another corpus is not called the origin: the way goes on there.
-    expect(list.textContent).not.toContain('Herkomst');
+    // The end in another corpus is not drawn as an origin: the way goes on there.
+    expect(list.querySelector('.grip-path__step--end a')).not.toBeNull();
   });
 
   it('opens a step in another corpus in the sheet when this instance can ask that corpus', () => {

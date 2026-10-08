@@ -59,11 +59,6 @@ function StepRow({ step, first, last, end, current, previousOrganisation, onStep
             Deze node
           </nldd-text>
         ) : null}
-        {end && !elsewhere ? (
-          <nldd-text size="sm" color="secondary">
-            Herkomst
-          </nldd-text>
-        ) : null}
         {opens ? <nldd-icon icon="chevron-right" size="16" /> : null}
         {leaves ? <nldd-icon icon="external-link" size="16" /> : null}
       </span>

@@ -1,0 +1,26 @@
+/* The afwijking of one assignment as a small bar: how much of the budget the
+   expected total takes. The words next to it carry the meaning. */
+.grip-variance {
+  display: block;
+  inline-size: 100%;
+  max-inline-size: 160px;
+  block-size: 6px;
+  border-radius: 3px;
+  background: var(--primitives-color-neutral-150);
+  overflow: hidden;
+}
+
+.grip-variance__fill {
+  display: block;
+  block-size: 100%;
+  background: var(--primitives-color-accent-600);
+}
+
+.grip-variance--over .grip-variance__fill {
+  background: var(--primitives-color-critical-600);
+}
+
+/* A tile that is a figure, not a link. */
+.grip-tile--plain:hover {
+  border-color: var(--primitives-color-neutral-150);
+}

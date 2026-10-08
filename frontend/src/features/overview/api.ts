@@ -20,6 +20,17 @@ export interface OverviewRow {
   pricing_error?: string | null;
   /** First day of the last closed month; null when none is closed. */
   reference_month?: string | null;
+  /** False when the assignment has nothing in the chosen year. */
+  in_year?: boolean;
+  /** What needs attention, as sentences the server built, each with its tab. */
+  attention?: AttentionPoint[];
+}
+
+export interface AttentionPoint {
+  kind: string;
+  text: string;
+  /** The tab of the assignment where the point is solved. */
+  tab: string;
 }
 
 export interface Overview {
@@ -29,6 +40,9 @@ export interface Overview {
   figures_potential?: Figures;
   figures_active?: Figures;
   figures_closed?: Figures;
+  /** Running work, whole period; only for a reader of the finances. */
+  to_deliver_cents?: number | null;
+  to_invoice_cents?: number | null;
 }
 
 export interface TeamMember {

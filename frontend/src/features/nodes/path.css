@@ -84,7 +84,7 @@
   background: var(--path-current);
 }
 
-/* Where the path ends: a closed marker. */
+/* Where the path ends, at its origin: a closed marker. */
 .grip-path__step--end > .grip-path__rail--marker::after {
   border-color: var(--path-end);
   background: var(--path-end);
@@ -151,7 +151,7 @@ a.grip-path__body:focus-visible {
 /* The ways that part from the shared steps, next to each other where they fit. */
 .grip-path-branches {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 24px;
   align-items: start;
 }
