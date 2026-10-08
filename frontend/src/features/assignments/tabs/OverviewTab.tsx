@@ -1,3 +1,4 @@
+import { ROW_ACTIONS_COLUMN, RowActions } from '@/ui/RowActions';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -111,30 +112,38 @@ function Roles({ assignment }: { assignment: AssignmentDetail }) {
       ) : (
         <nldd-table
           accessible-label="Eigenaar en managers"
-          columns={`minmax(200px,2fr) 160px${canEdit ? ' 160px' : ''}`}
+          columns={`minmax(200px,2fr) 160px${canEdit ? ` ${ROW_ACTIONS_COLUMN}` : ''}`}
         >
           <nldd-table-row slot="header">
             <nldd-text-cell text="Naam" />
             <nldd-text-cell text="Rol" />
-            {canEdit && <nldd-text-cell text="Acties" />}
+            {canEdit && <nldd-text-cell />}
           </nldd-table-row>
           {assignment.roles.map((holder) => (
             <nldd-table-row key={holder.person_id}>
               <nldd-text-cell text={holder.name} />
               <nldd-text-cell text={ROLE_LABELS[holder.role] ?? holder.role} />
               {canEdit && (
-                <nldd-cell>
-                  {holder.role !== 'owner' && (
-                    <Button
-                      text="Verwijder"
-                      size="sm"
-                      appearance="neutral-transparent"
-                      accessibleLabel={`Verwijder ${holder.name} als manager`}
-                      loading={remove.isPending && remove.variables === holder.person_id}
-                      onClick={() => remove.mutate(holder.person_id)}
-                    />
-                  )}
-                </nldd-cell>
+                <RowActions
+                  name={holder.name}
+                  actions={
+                    holder.role === 'owner'
+                      ? []
+                      : [
+                          {
+                            text: 'Verwijder als manager',
+                            destructive: true,
+                            confirm: {
+                              text: `${holder.name} verwijderen als manager?`,
+                              supportingText:
+                                'De rechten op deze opdracht die bij de rol horen vervallen.',
+                              confirmText: 'Verwijder',
+                            },
+                            onSelect: () => remove.mutate(holder.person_id),
+                          },
+                        ]
+                  }
+                />
               )}
             </nldd-table-row>
           ))}
@@ -227,11 +236,11 @@ function ContextRefs({ assignment }: { assignment: AssignmentDetail }) {
       ) : (
         <nldd-table
           accessible-label="Verwijzingen naar nodes"
-          columns={`minmax(260px,1fr)${canEdit ? ' 160px' : ''}`}
+          columns={`minmax(260px,1fr)${canEdit ? ` ${ROW_ACTIONS_COLUMN}` : ''}`}
         >
           <nldd-table-row slot="header">
             <nldd-text-cell text="Node" />
-            {canEdit && <nldd-text-cell text="Acties" />}
+            {canEdit && <nldd-text-cell />}
           </nldd-table-row>
           {refs.map((ref) => (
             <nldd-table-row key={ref}>
@@ -239,15 +248,21 @@ function ContextRefs({ assignment }: { assignment: AssignmentDetail }) {
                 <nldd-link href={ref} text={ref} target="_blank" rel="noreferrer" />
               </nldd-cell>
               {canEdit && (
-                <nldd-cell>
-                  <Button
-                    text="Verwijder"
-                    size="sm"
-                    appearance="neutral-transparent"
-                    accessibleLabel={`Verwijder de verwijzing naar ${ref}`}
-                    onClick={() => save.mutate(refs.filter((other) => other !== ref))}
-                  />
-                </nldd-cell>
+                <RowActions
+                  name={ref}
+                  actions={[
+                    {
+                      text: 'Verwijder de verwijzing',
+                      destructive: true,
+                      confirm: {
+                        text: 'Deze verwijzing verwijderen?',
+                        supportingText: ref,
+                        confirmText: 'Verwijder',
+                      },
+                      onSelect: () => save.mutate(refs.filter((other) => other !== ref)),
+                    },
+                  ]}
+                />
               )}
             </nldd-table-row>
           ))}

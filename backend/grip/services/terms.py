@@ -134,6 +134,28 @@ PROPERTIES: dict[str, str] = {
     "year": "jaar",
 }
 
+# Terms grip already writes that the contract does not describe yet. They
+# are translated like the others, so the canonical form of a quote is Dutch
+# throughout. The contract's schemas allow properties they do not name, so
+# such a quote validates. Move a term to PROPERTIES once the contract repo
+# has it; the test that compares PROPERTIES with the vendored schemas then
+# covers it.
+#
+# Waiting for the contract (offerte.schema.json, in ``momentopname``):
+#   kenmerk      string, the reference of the quote, e.g. "DG-2026-0007"
+#   uw_kenmerk   string, optional, the client's own reference
+#   afzender     string, the organisation that sends the quote
+#   schalen      array of integers on a personnel line: the scales that the
+#                tariefcategorie of the line covers in the year it starts
+PENDING_PROPERTIES: dict[str, str] = {
+    "reference": "kenmerk",
+    "client_reference": "uw_kenmerk",
+    "sender": "afzender",
+    "scales": "schalen",
+}
+
+_ALL_PROPERTIES: dict[str, str] = {**PROPERTIES, **PENDING_PROPERTIES}
+
 # Per code name of a property: code value to contract value of its code list.
 VALUES: dict[str, dict[str, str]] = {
     "form": {
@@ -223,15 +245,19 @@ SCHEMAS: dict[str, str] = {
 # Keys whose value is passed on untouched.
 OPAQUE: frozenset[str] = frozenset({"type_details", "keys"})
 
-_PROPERTIES_BACK = {term: name for name, term in PROPERTIES.items()}
+_PROPERTIES_BACK = {term: name for name, term in _ALL_PROPERTIES.items()}
 _VALUES_BACK = {
     name: {term: value for value, term in values.items()}
     for name, values in VALUES.items()
 }
 _PARAMETERS_BACK = {term: name for name, term in PARAMETERS.items()}
 
-assert len(_PROPERTIES_BACK) == len(PROPERTIES), "a contract term has two code names"
-assert not set(_PROPERTIES_BACK) & set(PROPERTIES), "a term is both code and contract"
+assert len(_PROPERTIES_BACK) == len(_ALL_PROPERTIES), (
+    "a contract term has two code names"
+)
+assert not set(_PROPERTIES_BACK) & set(_ALL_PROPERTIES), (
+    "a term is both code and contract"
+)
 
 
 @dataclass(frozen=True)
@@ -246,7 +272,7 @@ def _forward(value: Any, key: str | None) -> Any:
         return value.value
     if isinstance(value, dict):
         return {
-            PROPERTIES.get(name, name): (
+            _ALL_PROPERTIES.get(name, name): (
                 item if name in OPAQUE else _forward(item, name)
             )
             for name, item in value.items()

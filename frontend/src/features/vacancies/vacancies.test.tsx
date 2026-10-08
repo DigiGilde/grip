@@ -227,7 +227,7 @@ describe('OpenRolesPage', () => {
     await waitFor(() => expect(container.textContent).toContain('Wij zoeken een productmanager.'));
     expect(container.querySelector('nldd-title[text="Productmanager"]')).not.toBeNull();
     expect(container.textContent).toContain('Schaal 13, 1 fte');
-    expect(container.textContent).toContain('Vastgesteld door een mens');
+    expect(container.textContent).toContain('Geplaatst op');
   });
 
   it('has an empty state', async () => {

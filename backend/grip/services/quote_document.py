@@ -1,17 +1,45 @@
-"""The quote as a document: a print-ready page rendered from the snapshot.
+"""The quote as a document: the thing that leaves the building.
 
-The document is always built from the frozen snapshot of an issued quote,
-never from live data, so it shows exactly what the hash covers. It is plain
-HTML with a print stylesheet: opened in a browser it prints or saves as pdf
-on A4. A generated pdf file is a later step.
+One template, two outputs. ``render_quote_html`` gives the page a browser
+shows for "Bekijk"; ``render_quote_pdf`` gives the file that is downloaded,
+sent and signed. Both are built from the frozen content of an issued quote
+(its canonical form) and from nothing live, so the document shows exactly
+what the fingerprint covers. No name of a member of staff is added here:
+the content is on an allow-list (``grip.services.quote_content``) and this
+template only adds the sender organisation and the client.
+
+The PDF is made by an HTML-to-PDF engine (WeasyPrint), so the page is laid
+out once, in CSS, and the file is a tagged PDF: it has a title, a language,
+real text in reading order and table header cells. The same quote gives the
+same bytes every time: the creation date is the moment of issue and the
+identifier of the file is derived from the fingerprint.
+
+Head of the page. An organisation that may carry the Rijkslogo configures
+the ribbon (``LETTERHEAD_LOGO_PATH``); the page then opens with the Rijkslint
+centred at the top and the name of the organisation beside it. Without that
+setting the page has a plain head with the name of the organisation. Whether
+an organisation may use the logo is not for grip to decide.
+
+Typeface. With ``DOCUMENT_FONT_DIR`` the Rijkshuisstijl typeface is embedded.
+Without it the document is set in Verdana, the fallback the huisstijl names,
+or the nearest sans-serif the system has.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import base64
+import calendar
+import ctypes.util
+import os
+import sys
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from html import escape
+from pathlib import Path
 from typing import Any
+
+from grip.core.config import Settings, get_settings
+from grip.services.errors import DomainError
 
 _MONTHS = (
     "januari",
@@ -28,17 +56,67 @@ _MONTHS = (
     "december",
 )
 
+RIBBON_BLUE = "#154273"
+
+
+class DocumentEngineError(DomainError):
+    """The PDF engine is not available on this server."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "De pdf kan op deze server niet worden gemaakt: de opmaakbibliotheek "
+            "ontbreekt. Bekijk de offerte in de browser, of vraag de beheerder."
+        )
+
+
+@dataclass(frozen=True)
+class Letterhead:
+    """How the head of a document looks for this instance."""
+
+    # Further lines under the name of the sender: what it is part of.
+    lines: tuple[str, ...] = ()
+    # The Rijkslint with the coat of arms as an SVG data URI; None for the
+    # plain head.
+    ribbon_data_uri: str | None = None
+    # Directory with the huisstijl typeface, or None.
+    font_dir: Path | None = None
+
+
+def letterhead_from_settings(settings: Settings | None = None) -> Letterhead:
+    settings = settings or get_settings()
+    lines = tuple(
+        part.strip() for part in settings.LETTERHEAD_LINES.split("|") if part.strip()
+    )
+    ribbon = None
+    logo_path = settings.LETTERHEAD_LOGO_PATH.strip()
+    if logo_path:
+        path = Path(logo_path)
+        if path.is_file() and path.suffix.lower() == ".svg":
+            encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+            ribbon = f"data:image/svg+xml;base64,{encoded}"
+    font_dir = None
+    if settings.DOCUMENT_FONT_DIR.strip():
+        candidate = Path(settings.DOCUMENT_FONT_DIR.strip())
+        if (candidate / "RijksSansWeb-Regular.woff2").is_file():
+            font_dir = candidate
+    return Letterhead(lines=lines, ribbon_data_uri=ribbon, font_dir=font_dir)
+
 
 @dataclass(frozen=True)
 class QuoteDocumentContext:
-    """What the document shows besides the snapshot itself."""
+    """What the document shows besides the frozen content itself."""
 
     quote_uri: str
     snapshot_hash: str
     issued_at: datetime
+    # The sender when the content does not name one (a quote from before the
+    # sender was part of the content).
     contractor_name: str
     client_name: str | None = None
     client_contact: str | None = None
+    # The reference when the content does not carry one (an older quote).
+    reference: str | None = None
+    letterhead: Letterhead = field(default_factory=Letterhead)
 
 
 def format_euro(cents: int) -> str:
@@ -53,17 +131,24 @@ def format_date(value: date) -> str:
     return f"{value.day} {_MONTHS[value.month - 1]} {value.year}"
 
 
-def _iso_date(text: str | None) -> str:
-    if not text:
-        return ""
+def _parse_date(text: Any) -> date | None:
+    if not isinstance(text, str) or not text:
+        return None
     try:
-        return format_date(date.fromisoformat(text))
+        return date.fromisoformat(text)
     except ValueError:
-        return text
+        return None
 
 
-def _decimal_nl(text: str | None) -> str:
-    return (text or "").replace(".", ",")
+def _iso_date(text: Any) -> str:
+    parsed = _parse_date(text)
+    if parsed is not None:
+        return format_date(parsed)
+    return text if isinstance(text, str) else ""
+
+
+def _decimal_nl(text: Any) -> str:
+    return text.replace(".", ",") if isinstance(text, str) else ""
 
 
 def _cents(money: Any) -> int:
@@ -74,14 +159,65 @@ def _cents(money: Any) -> int:
     return 0
 
 
+def _join_nl(parts: list[str]) -> str:
+    if len(parts) <= 1:
+        return "".join(parts)
+    return f"{', '.join(parts[:-1])} en {parts[-1]}"
+
+
+def scale_text(line: dict[str, Any]) -> str:
+    """What a client reads on the rate leaflet: the scales, then the category."""
+    category = line.get("rate_category")
+    scales = [str(s) for s in line.get("scales") or [] if isinstance(s, int)]
+    if scales and category:
+        return f"{_join_nl(scales)} (categorie {category})"
+    if scales:
+        return _join_nl(scales)
+    return f"Categorie {category}" if category else ""
+
+
+def part_month_note(lines: list[dict[str, Any]]) -> str:
+    """One clause on a part month, with the first one as the example.
+
+    A line that starts after the first or ends before the last day of a
+    month counts that month in proportion to its days. Empty when no line
+    has a part month.
+    """
+    for line in lines:
+        period = line.get("period")
+        if line.get("kind") != "personnel" or not isinstance(period, dict):
+            continue
+        start = _parse_date(period.get("start_date"))
+        end = _parse_date(period.get("end_date"))
+        if start is None or end is None:
+            continue
+        days_in_start = calendar.monthrange(start.year, start.month)[1]
+        days_in_end = calendar.monthrange(end.year, end.month)[1]
+        same_month = (start.year, start.month) == (end.year, end.month)
+        if same_month and (start.day > 1 or end.day < days_in_end):
+            counted, of, month = end.day - start.day + 1, days_in_end, end
+        elif start.day > 1:
+            counted, of, month = days_in_start - start.day + 1, days_in_start, start
+        elif end.day < days_in_end:
+            counted, of, month = end.day, days_in_end, end
+        else:
+            continue
+        name = f"{_MONTHS[month.month - 1]} {month.year}"
+        return (
+            " Een maand die maar deels in de periode valt, telt naar rato van het "
+            f"aantal dagen: {name} telt voor {counted} van de {of} dagen."
+        )
+    return ""
+
+
 def _rate_cell(line: dict[str, Any]) -> str:
     if "monthly_rate" in line:
         return escape(format_euro(_cents(line["monthly_rate"])))
-    per_year = line.get("monthly_rates_per_year") or []
     parts = [
         f"{escape(str(entry.get('year')))}: "
         f"{escape(format_euro(_cents(entry.get('monthly_rate'))))}"
-        for entry in per_year
+        for entry in line.get("monthly_rates_per_year") or []
+        if isinstance(entry, dict)
     ]
     return "<br>".join(parts)
 
@@ -101,144 +237,248 @@ def _line_row(line: dict[str, Any]) -> str:
     description = escape(str(line.get("description") or ""))
     role = line.get("role")
     if role and role != line.get("description"):
-        description += f'<br><span class="sub">{escape(str(role))}</span>'
+        description += f'<br><span class="quiet">{escape(str(role))}</span>'
     personnel = line.get("kind") == "personnel"
     fte = escape(_decimal_nl(line.get("fte"))) if personnel else ""
-    category = escape(str(line.get("rate_category") or "")) if personnel else ""
+    scale = escape(scale_text(line)) if personnel else ""
     rate = _rate_cell(line) if personnel else ""
     amount = escape(format_euro(_cents(line.get("amount"))))
     return (
         "<tr>"
-        f"<td>{description}</td>"
+        f'<th scope="row">{description}</th>'
         f'<td class="num">{fte}</td>'
-        f"<td>{_period_cell(line)}</td>"
-        f'<td class="center">{category}</td>'
+        f'<td class="keep">{_period_cell(line)}</td>'
+        f'<td class="keep">{scale}</td>'
         f'<td class="num">{rate}</td>'
         f'<td class="num">{amount}</td>'
         "</tr>"
     )
 
 
+def _font_faces(letterhead: Letterhead) -> str:
+    if letterhead.font_dir is None:
+        return ""
+    regular = (letterhead.font_dir / "RijksSansWeb-Regular.woff2").as_uri()
+    rules = [
+        '@font-face { font-family: "RijksSans"; font-style: normal; '
+        f'src: url("{regular}") format("woff2"); }}'
+    ]
+    italic = letterhead.font_dir / "RijksSansWeb-Italic.woff2"
+    if italic.is_file():
+        rules.append(
+            '@font-face { font-family: "RijksSans"; font-style: italic; '
+            f'src: url("{italic.as_uri()}") format("woff2"); }}'
+        )
+    return "\n".join(rules)
+
+
+# Measurements. A4 with the margins and the logo height of the Rijkshuisstijl
+# as other government sites apply them to their PDFs: the ribbon centred at
+# the top, 23 mm high from the edge of the page; side margins 18 mm.
 _STYLE = """
-  :root { color-scheme: light; }
-  * { box-sizing: border-box; }
-  body {
-    font-family: "Rijksoverheid Sans Text", "RO Sans", Verdana, Arial, sans-serif;
-    font-size: 11pt; line-height: 1.45; color: #111; background: #fff;
-    margin: 0; padding: 2rem 1rem;
+  @page {
+    size: A4;
+    margin: 24mm 18mm 24mm 18mm;
+    @bottom-left {
+      content: string(reference);
+      font-family: "RijksSans", Verdana, "DejaVu Sans", Arial, sans-serif;
+      font-size: 8pt; color: #444;
+    }
+    @bottom-right {
+      content: "pagina " counter(page) " van " counter(pages);
+      font-family: "RijksSans", Verdana, "DejaVu Sans", Arial, sans-serif;
+      font-size: 8pt; color: #444;
+    }
   }
-  main { max-width: 48rem; margin: 0 auto; }
-  h1 { font-size: 20pt; margin: 0 0 1.5rem; }
-  h2 { font-size: 13pt; margin: 2rem 0 0.5rem; }
-  dl.meta { display: grid; grid-template-columns: 10rem 1fr; gap: 0.2rem 1rem;
-    margin: 0 0 1.5rem; }
-  dl.meta dt { color: #444; }
-  dl.meta dd { margin: 0; }
-  table { border-collapse: collapse; width: 100%; font-size: 10pt; }
-  th, td { text-align: left; vertical-align: top; padding: 0.35rem 0.5rem;
-    border-bottom: 1px solid #999; }
-  th { border-bottom: 2px solid #111; }
-  td.num, th.num { text-align: right; white-space: nowrap;
-    font-variant-numeric: tabular-nums; }
-  td.center, th.center { text-align: center; }
-  tr.total td { font-weight: bold; border-top: 2px solid #111; border-bottom: 0; }
-  .sub { color: #444; font-size: 9pt; }
+  @page :first { margin-top: __FIRST_TOP__; }
+  * { box-sizing: border-box; }
+  html { color-scheme: light; }
+  body {
+    font-family: "RijksSans", Verdana, "DejaVu Sans", Arial, sans-serif;
+    font-size: 9.5pt; line-height: 1.45; color: #111; background: #fff; margin: 0;
+  }
+  h1 { font-size: 18pt; font-weight: normal; margin: 0 0 6mm; }
+  h2 { font-size: 11pt; margin: 8mm 0 2mm; break-after: avoid; }
+  p { margin: 0 0 2mm; }
+  .quiet { color: #444; font-size: 8pt; }
+  .reference { string-set: reference content(); }
+
+  /* Head with the Rijkslint: the ribbon hangs from the top edge of the first
+     page, centred; the name of the sender stands beside its lower half. */
+  .ribbon-head { position: absolute; top: -40mm; left: 0; right: 0; height: 34mm; }
+  .ribbon {
+    position: absolute; top: 0; left: 50%; width: 11.5mm; margin-left: -5.75mm;
+    height: 23mm; background: __BLUE__; overflow: hidden;
+  }
+  /* The mark is a square with the ribbon as its middle half; show that half,
+     with the coat of arms at the foot of the ribbon. */
+  .ribbon img { position: absolute; left: -5.75mm; bottom: -5.75mm; width: 23mm;
+    height: 23mm; }
+  .wordmark { position: absolute; left: 50%; margin-left: 9.25mm; top: 12.5mm;
+    font-size: 9.5pt; line-height: 1.2; }
+  .wordmark .sub { font-style: italic; }
+  /* Plain head: the name of the organisation, nothing else. */
+  .plain-head { border-bottom: 0.5pt solid #111; padding-bottom: 3mm;
+    margin-bottom: 9mm; font-size: 10.5pt; line-height: 1.25; }
+  .plain-head .name { font-weight: bold; }
+
+  dl.letter { display: grid; grid-template-columns: 34mm 1fr; gap: 1mm 4mm;
+    margin: 0 0 8mm; }
+  dl.letter dt { color: #444; }
+  dl.letter dd { margin: 0; }
+
+  table { border-collapse: collapse; width: 100%; font-size: 8.5pt; }
+  thead { display: table-header-group; }
+  th, td { text-align: left; vertical-align: top; padding: 1.4mm 1.5mm;
+    border-bottom: 0.4pt solid #999; font-weight: normal; }
+  thead th { border-bottom: 0.9pt solid #111; font-weight: bold; }
+  th:first-child, td:first-child { padding-left: 0; }
+  th:last-child, td:last-child { padding-right: 0; }
+  .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .keep { white-space: nowrap; }
+  tr { break-inside: avoid; }
+  tr.subtotal th, tr.subtotal td { border-bottom: 0; }
+  tr.total th, tr.total td { font-weight: bold; border-top: 0.9pt solid #111;
+    border-bottom: 0; }
+  .note { margin-top: 2mm; }
   .conditions { white-space: pre-wrap; }
-  .sign { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1rem; }
-  .sign dl { display: grid; grid-template-columns: 7rem 1fr; gap: 1.6rem 0.5rem;
-    margin: 0; }
-  .sign dd { margin: 0; border-bottom: 1px solid #111; min-height: 1.4rem; }
-  footer { margin-top: 2.5rem; padding-top: 0.75rem; border-top: 1px solid #999;
-    font-size: 8.5pt; color: #333; }
-  footer code { font-family: ui-monospace, Menlo, Consolas, monospace;
-    word-break: break-all; }
-  @page { size: A4; margin: 20mm 18mm; }
-  @media print {
-    body { padding: 0; }
-    main { max-width: none; }
-    h2, thead { break-after: avoid; }
-    tr, .sign { break-inside: avoid; }
-    thead { display: table-header-group; }
+
+  .sign { break-inside: avoid; }
+  .sign-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12mm;
+    margin-top: 3mm; }
+  .sign-grid div { border-bottom: 0.5pt solid #111; height: 13mm; padding-top: 1mm;
+    color: #444; font-size: 8pt; }
+  .colophon { margin-top: 10mm; padding-top: 2mm; border-top: 0.4pt solid #999;
+    break-inside: avoid; }
+  .colophon code { font-family: "DejaVu Sans Mono", Menlo, Consolas, monospace;
+    font-size: 7pt; word-break: break-all; }
+
+  @media screen {
+    body { background: #eee; padding: 8mm 4mm; }
+    main { background: #fff; max-width: 210mm; margin: 0 auto;
+      padding: 44mm 18mm 20mm; position: relative; }
+    main.plain { padding-top: 20mm; }
+    .ribbon-head { top: 0; }
   }
 """
+
+
+def _head(sender: str, letterhead: Letterhead) -> str:
+    lines = "".join(
+        f'<div class="sub">{escape(line)}</div>' for line in letterhead.lines
+    )
+    if letterhead.ribbon_data_uri:
+        return (
+            '<div class="ribbon-head">'
+            f'<div class="ribbon"><img src="{letterhead.ribbon_data_uri}" '
+            'alt="Logo Rijksoverheid"></div>'
+            f'<div class="wordmark"><div>{escape(sender)}</div>{lines}</div>'
+            "</div>"
+        )
+    return (
+        f'<div class="plain-head"><div class="name">{escape(sender)}</div>{lines}</div>'
+    )
+
+
+def document_title(snapshot: dict[str, Any], context: QuoteDocumentContext) -> str:
+    reference = snapshot.get("reference") or context.reference
+    name = str(snapshot.get("name") or "")
+    return f"Offerte {reference} {name}".strip() if reference else f"Offerte {name}"
 
 
 def render_quote_html(snapshot: dict[str, Any], context: QuoteDocumentContext) -> str:
     """The quote as one self-contained HTML page.
 
-    Every value from the snapshot is escaped. Nothing is loaded from outside
-    the page: no scripts, no fonts, no images.
+    Every value from the content is escaped. Nothing is loaded from outside
+    the page except the configured typeface: no scripts, no remote images.
     """
+    letterhead = context.letterhead
+    ribbon = letterhead.ribbon_data_uri is not None
+    sender = str(snapshot.get("sender") or context.contractor_name)
+    reference = str(snapshot.get("reference") or context.reference or "")
     name = escape(str(snapshot.get("name") or ""))
     lines = [line for line in snapshot.get("lines") or [] if isinstance(line, dict)]
     rows = "\n".join(_line_row(line) for line in lines)
 
-    subtotals = snapshot.get("subtotals_per_year") or []
+    subtotals = [
+        entry
+        for entry in snapshot.get("subtotals_per_year") or []
+        if isinstance(entry, dict)
+    ]
     subtotal_rows = ""
     if len(subtotals) > 1:
         subtotal_rows = "\n".join(
-            "<tr>"
-            f'<td colspan="5">Subtotaal {escape(str(entry.get("year")))}</td>'
-            f'<td class="num">{escape(format_euro(_cents(entry.get("amount"))))}</td>'
-            "</tr>"
+            '<tr class="subtotal">'
+            f'<th scope="row" colspan="5">Subtotaal {escape(str(entry.get("year")))}'
+            f'</th><td class="num">'
+            f"{escape(format_euro(_cents(entry.get('amount'))))}</td></tr>"
             for entry in subtotals
-            if isinstance(entry, dict)
         )
     total = escape(format_euro(_cents(snapshot.get("total"))))
 
-    meta = [
-        ("Van", escape(context.contractor_name)),
-    ]
+    facts: list[tuple[str, str]] = []
     if context.client_name:
-        meta.append(("Aan", escape(context.client_name)))
-    if context.client_contact:
-        meta.append(("Ter attentie van", escape(context.client_contact)))
-    meta.append(("Datum", escape(format_date(context.issued_at.date()))))
-    meta.append(("Kenmerk", escape(context.quote_uri)))
-    meta.append(("Betreft", name))
+        to = escape(context.client_name)
+        if context.client_contact:
+            to += f"<br>{escape(context.client_contact)}"
+        facts.append(("Aan", to))
+    facts.append(("Datum", escape(format_date(context.issued_at.date()))))
+    if reference:
+        facts.append(("Kenmerk", f'<span class="reference">{escape(reference)}</span>'))
+    if snapshot.get("client_reference"):
+        facts.append(("Uw kenmerk", escape(str(snapshot["client_reference"]))))
+    facts.append(("Betreft", name))
     if snapshot.get("valid_until"):
-        meta.append(("Geldig tot en met", escape(_iso_date(snapshot["valid_until"]))))
-    meta_html = "\n".join(f"<dt>{label}</dt><dd>{value}</dd>" for label, value in meta)
+        facts.append(("Geldig tot en met", escape(_iso_date(snapshot["valid_until"]))))
+    letter = "\n".join(f"<dt>{label}</dt><dd>{value}</dd>" for label, value in facts)
 
-    context_refs = [
-        ref for ref in snapshot.get("context_refs") or [] if isinstance(ref, str)
-    ]
-    context_html = ""
-    if context_refs:
-        items = "\n".join(f"<li>{escape(ref)}</li>" for ref in context_refs)
-        context_html = f"<h2>Context</h2>\n<ul>\n{items}\n</ul>"
-
-    conditions_html = ""
+    conditions = ""
     if snapshot.get("conditions"):
-        conditions_html = (
+        conditions = (
             "<h2>Voorwaarden</h2>\n"
             f'<p class="conditions">{escape(str(snapshot["conditions"]))}</p>'
         )
-
-    client = escape(context.client_name or "opdrachtgever")
+    note = (
+        "Bedragen zijn berekend per kalendermaand, tegen het tarief van het jaar "
+        "waarin de maand valt." + part_month_note(lines)
+    )
+    client = escape(context.client_name or "de opdrachtgever")
+    issued = context.issued_at.strftime("%Y-%m-%dT%H:%M:%S+00:00")
+    style = (
+        _STYLE.replace("__FIRST_TOP__", "40mm" if ribbon else "24mm")
+        .replace("__BLUE__", RIBBON_BLUE)
+        .strip()
+    )
+    title = escape(document_title(snapshot, context))
     return f"""<!doctype html>
 <html lang="nl">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Offerte {name}</title>
-<style>{_STYLE}</style>
+<title>{title}</title>
+<meta name="author" content="{escape(sender)}">
+<meta name="dcterms.created" content="{issued}">
+<meta name="dcterms.modified" content="{issued}">
+<style>
+{_font_faces(letterhead)}
+{style}
+</style>
 </head>
 <body>
-<main>
+<main class="{"ribboned" if ribbon else "plain"}">
+{_head(sender, letterhead)}
 <h1>Offerte</h1>
-<dl class="meta">
-{meta_html}
+<dl class="letter">
+{letter}
 </dl>
 
-<h2>Begroting</h2>
 <table>
 <thead>
 <tr>
 <th scope="col">Omschrijving</th>
 <th scope="col" class="num">FTE</th>
 <th scope="col">Periode</th>
-<th scope="col" class="center">Categorie</th>
+<th scope="col">Schaal</th>
 <th scope="col" class="num">Maandtarief</th>
 <th scope="col" class="num">Bedrag</th>
 </tr>
@@ -246,34 +486,85 @@ def render_quote_html(snapshot: dict[str, Any], context: QuoteDocumentContext) -
 <tbody>
 {rows}
 {subtotal_rows}
-<tr class="total"><td colspan="5">Totaal</td><td class="num">{total}</td></tr>
+<tr class="total"><th scope="row" colspan="5">Totaal</th><td class="num">{total}</td></tr>
 </tbody>
 </table>
-<p class="sub">Bedragen zijn berekend per kalendermaand, tegen het tarief van het
-jaar waarin de maand valt.</p>
+<p class="quiet note">{escape(note)}</p>
 
-{context_html}
-{conditions_html}
+{conditions}
 
+<div class="sign">
 <h2>Akkoord</h2>
 <p>Voor akkoord namens {client}:</p>
-<div class="sign">
-<dl>
-<dt>Naam</dt><dd></dd>
-<dt>Functie</dt><dd></dd>
-</dl>
-<dl>
-<dt>Datum</dt><dd></dd>
-<dt>Handtekening</dt><dd></dd>
-</dl>
+<div class="sign-grid">
+<div>Naam</div><div>Datum</div>
+<div>Functie</div><div>Handtekening</div>
+</div>
 </div>
 
-<footer>
-<p>Deze offerte is uitgegeven op {escape(format_date(context.issued_at.date()))}
-en daarna niet meer gewijzigd. Controlegetal (SHA-256) van de inhoud:<br>
-<code>{escape(context.snapshot_hash)}</code></p>
-</footer>
+<div class="colophon quiet">
+<p>Vingerafdruk van deze offerte: <code>{escape(context.snapshot_hash)}</code><br>
+Een akkoord noemt deze vingerafdruk, zodat vaststaat dat het over precies deze
+inhoud gaat. Adres van deze offerte voor systemen: {escape(context.quote_uri)}</p>
+</div>
 </main>
 </body>
 </html>
 """
+
+
+# -- PDF ----------------------------------------------------------------------
+
+_library_lookup_patched = False
+
+
+def _find_homebrew_libraries() -> None:
+    """Let the PDF engine find its libraries on a Mac with Homebrew.
+
+    The engine loads pango and friends by name. On macOS a process only
+    looks in Homebrew's directory when an environment variable was set
+    before it started, which a development server usually was not. This
+    adds that directory to the lookup the loader falls back on. It does
+    nothing on Linux, where the libraries are on the normal path.
+    """
+    global _library_lookup_patched
+    if _library_lookup_patched or sys.platform != "darwin":
+        return
+    _library_lookup_patched = True
+    original = ctypes.util.find_library
+
+    def find_library(name: str) -> str | None:
+        found = original(name)
+        if found:
+            return found
+        stem = name[3:] if name.startswith("lib") else name
+        for directory in ("/opt/homebrew/lib", "/usr/local/lib"):
+            for candidate in (
+                f"lib{stem}.dylib",
+                f"lib{stem.rsplit('-', 1)[0]}.dylib",
+            ):
+                path = os.path.join(directory, candidate)
+                if os.path.exists(path):
+                    return path
+        return None
+
+    ctypes.util.find_library = find_library
+
+
+def render_quote_pdf(snapshot: dict[str, Any], context: QuoteDocumentContext) -> bytes:
+    """The quote as a tagged PDF (PDF/UA), from the same template as the page.
+
+    The same quote gives the same bytes: the dates in the file are the
+    moment of issue and its identifier comes from the fingerprint.
+    """
+    _find_homebrew_libraries()
+    try:
+        from weasyprint import HTML
+    except (OSError, ImportError) as exc:
+        raise DocumentEngineError() from exc
+    html = render_quote_html(snapshot, context)
+    pdf: bytes = HTML(string=html, base_url=None).write_pdf(
+        pdf_variant="pdf/ua-1",
+        pdf_identifier=context.snapshot_hash.encode("ascii")[:32],
+    )
+    return pdf

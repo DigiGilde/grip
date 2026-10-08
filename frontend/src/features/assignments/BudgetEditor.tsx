@@ -1,3 +1,7 @@
+import { useNavigate } from 'react-router-dom';
+import { PATHS } from '@/paths';
+import { ActionBar } from '@/ui/ActionBar';
+import { OpenCell, OpenRow, ROW_ACTIONS_COLUMN, RowActions } from '@/ui/RowActions';
 import { useState } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
@@ -22,10 +26,12 @@ import {
 import {
   effectivePeriod,
   hasOwnPeriod,
+  checkLine,
   intendedText,
   lineForm,
   lineInput,
   previewInput,
+  type LineField,
   type LineForm,
   type ParentPeriod,
 } from './budgetForm';
@@ -74,6 +80,9 @@ function LineSheet({
   const parent = { start: assignment?.start_date, end: assignment?.end_date };
   const [form, setForm] = useState<LineForm>(() => lineForm(line, parent));
   const [problem, setProblem] = useState<string | null>(null);
+  // What is wrong, said at the field it is about; only after a submit.
+  const [fieldProblem, setFieldProblem] = useState<ReturnType<typeof checkLine>>(null);
+  const at = (field: LineField) => (fieldProblem?.field === field ? fieldProblem.message : '');
   // The person whose implications still have to be filled in; empty for none.
   const [applyFor, setApplyFor] = useState('');
   const [seenSession, setSeenSession] = useState(session);
@@ -81,9 +90,13 @@ function LineSheet({
     setSeenSession(session);
     setForm(lineForm(line, parent));
     setProblem(null);
+    setFieldProblem(null);
     setApplyFor('');
   }
-  const set = (patch: Partial<LineForm>) => setForm((current) => ({ ...current, ...patch }));
+  const set = (patch: Partial<LineForm>) => {
+    setFieldProblem(null);
+    setForm((current) => ({ ...current, ...patch }));
+  };
 
   // Scales and rates are per year: those of the year the line starts in, and
   // this year until a start date is entered.
@@ -166,6 +179,10 @@ function LineSheet({
   });
 
   const submit = () => {
+    const wrong = checkLine(form);
+    setFieldProblem(wrong);
+    setProblem(null);
+    if (wrong) return;
     const input = lineInput(form, !line, line);
     if (typeof input === 'string') {
       setProblem(input);
@@ -178,7 +195,9 @@ function LineSheet({
   const impliedText = impliedCategory ? categoryOptionText(card, impliedCategory) : '';
   // The server's own sentence when it sends one; never a raw condition.
   const resultTitle = derivation?.rate_summary ?? impliedText;
-  const resultLines = derivation?.summary ?? [];
+  // The first sentence is about the role; with a role chosen it has nothing to add.
+  const resultLines = (derivation?.summary ?? []).slice(form.role ? 1 : 0);
+  const roleChoices = form.role ? [] : (derivation?.role_alternatives ?? []).slice(0, 5);
   // A proposal stays marked as one for as long as the user leaves it.
   const proposal = (applies: boolean, source: string | null | undefined) =>
     applies ? `Voorstel${source ? `: ${source}` : ' op basis van de beoogde persoon'}` : '';
@@ -204,9 +223,10 @@ function LineSheet({
           <SelectInput
         label="Schaal en tarief"
         hint={
-          followsPerson
+          at('category') ||
+          (followsPerson
             ? `Volgt uit de beoogde persoon. Tarievenkaart van ${rateYear}.`
-            : `Volgens de tarievenkaart van ${rateYear}.`
+            : `Volgens de tarievenkaart van ${rateYear}.`)
         }
         value={form.category}
         onChange={(category) => set({ category })}
@@ -249,7 +269,8 @@ function LineSheet({
             label="Rol"
             value={form.role || null}
             onChange={(role) => set({ role: role?.name ?? '' })}
-            {...(proposed.role ? { supportingLabel: proposed.role } : {})}
+            {...(at('role') || proposed.role ? { supportingLabel: at('role') || proposed.role } : {})}
+            invalid={at('role') !== ''}
           />
           <SelectInput
             label="Beoogde persoon"
@@ -280,9 +301,23 @@ function LineSheet({
               {...(resultLines.length > 0 ? { 'supporting-text': resultLines.join(' ') } : {})}
             />
           )}
+          {form.personId && roleChoices.length > 0 && (
+            <nldd-button-group>
+              {roleChoices.map((choice) => (
+                <Button
+                  key={choice.role}
+                  text={choice.role}
+                  size="sm"
+                  accessibleLabel={`Kies de rol ${choice.role}`}
+                  onClick={() => set({ role: choice.role })}
+                />
+              ))}
+            </nldd-button-group>
+          )}
           <TextInput
             label="Omvang in FTE"
-            hint={proposed.fte || 'Bijvoorbeeld 0,8'}
+            hint={at('fte') || proposed.fte || 'Bijvoorbeeld 0,8'}
+            invalid={at('fte') !== ''}
             keyboard="decimal"
             value={form.fte}
             onChange={(fte) => set({ fte })}
@@ -297,7 +332,7 @@ function LineSheet({
             startDate={form.startDate}
             endDate={form.endDate}
             onChange={set}
-            {...(proposed.period ? { hint: proposed.period } : {})}
+            {...(at('period') || proposed.period ? { hint: at('period') || proposed.period } : {})}
             whenMissing={
               assignment?.permissions.edit_basic ? (
                 <AssignmentPeriodStep assignmentId={assignmentId} />
@@ -336,13 +371,15 @@ function LineSheet({
         <>
           <TextInput
             label="Omschrijving"
+            {...(at('description') ? { hint: at('description'), invalid: true } : {})}
             value={form.description}
             onChange={(description) => set({ description })}
             required
           />
           <TextInput
             label="Bedrag"
-            hint="In euro's"
+            hint={at('amount') || "In euro's"}
+            invalid={at('amount') !== ''}
             keyboard="decimal"
             value={form.amount}
             onChange={(amount) => set({ amount })}
@@ -350,6 +387,7 @@ function LineSheet({
           />
           <TextInput
             label="Jaar"
+            {...(at('year') ? { hint: at('year'), invalid: true } : {})}
             keyboard="numeric"
             value={form.year}
             onChange={(year) => set({ year })}
@@ -409,7 +447,6 @@ const lower = (text: string) => text.charAt(0).toLowerCase() + text.slice(1);
 function lineSummary(line: BudgetLine, name: CategoryNamer, parent?: ParentPeriod): string {
   if (line.kind === 'fixed') return line.year ? `Vast bedrag, ${line.year}` : 'Vast bedrag';
   const parts = [
-    line.role,
     line.fte ? `${formatFte(line.fte)} FTE` : '',
     line.rate_category
       ? name(line.rate_category, line.start_date ? Number(line.start_date.slice(0, 4)) : undefined)
@@ -425,6 +462,7 @@ function lineSummary(line: BudgetLine, name: CategoryNamer, parent?: ParentPerio
 /** The budget lines of an assignment, with the computed amounts and a subtotal per year. */
 export function BudgetEditor({ assignmentId }: { assignmentId: string }) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [sheet, setSheet] = useState<{ open: boolean; line?: BudgetLine; key: number }>({
     open: false,
     key: 0,
@@ -481,9 +519,10 @@ export function BudgetEditor({ assignmentId }: { assignmentId: string }) {
         />
       )}
       {canEdit && (
-        <div>
-          <Button text="Nieuwe begrotingsregel" onClick={() => openSheet()} />
-        </div>
+        <ActionBar
+          label="Begroting"
+          actions={[{ text: 'Nieuwe begrotingsregel', primary: true, onClick: () => openSheet() }]}
+        />
       )}
       {budget && lines.length === 0 && (
         <EmptyNotice text="Deze opdracht heeft nog geen begrotingsregels" />
@@ -491,22 +530,24 @@ export function BudgetEditor({ assignmentId }: { assignmentId: string }) {
       {lines.length > 0 && (
         <nldd-table
           accessible-label="Begrotingsregels"
-          columns={`minmax(240px,2fr)${showMoney ? ' 150px' : ''}${canEdit ? ' 220px' : ''}`}
+          columns={`minmax(240px,2fr)${showMoney ? ' 150px' : ''}${canEdit ? ` ${ROW_ACTIONS_COLUMN}` : ''}`}
         >
           <nldd-table-row slot="header">
             <nldd-text-cell text="Regel" />
             {showMoney && <nldd-text-cell text="Begroot" horizontal-alignment="right" />}
-            {canEdit && <nldd-text-cell text="Acties" />}
+            {canEdit && <nldd-text-cell />}
           </nldd-table-row>
           {lines.map((line) => (
-            <nldd-table-row key={line.id}>
-              <nldd-text-cell
+            <OpenRow key={line.id} {...(canEdit ? { onOpen: () => openSheet(line) } : {})}>
+              <OpenCell
                 text={lineName(line)}
-                supporting-text={
-                  line.pricing_error ??
-                  [lineSummary(line, rates.name, parent), intendedText(line)].filter(Boolean).join('. ')
-                }
-              />
+                supportingText={line.pricing_error ?? lineSummary(line, rates.name, parent)}
+                {...(canEdit
+                  ? { onOpen: () => openSheet(line), accessibleLabel: `Bewerk ${lineName(line)}` }
+                  : {})}
+              >
+                {intendedText(line) && <nldd-tag size="sm" text={intendedText(line)} />}
+              </OpenCell>
               {showMoney && (
                 <nldd-text-cell
                   text={line.budgeted_cents == null ? 'Niet berekend' : formatEuro(line.budgeted_cents)}
@@ -514,26 +555,33 @@ export function BudgetEditor({ assignmentId }: { assignmentId: string }) {
                 />
               )}
               {canEdit && (
-                <nldd-cell>
-                  <nldd-button-group>
-                    <Button
-                      text="Bewerk"
-                      size="sm"
-                      accessibleLabel={`Bewerk ${lineName(line)}`}
-                      onClick={() => openSheet(line)}
-                    />
-                    <Button
-                      text="Verwijder"
-                      size="sm"
-                      appearance="neutral-transparent"
-                      accessibleLabel={`Verwijder ${lineName(line)}`}
-                      loading={remove.isPending && remove.variables === line.id}
-                      onClick={() => remove.mutate(line.id)}
-                    />
-                  </nldd-button-group>
-                </nldd-cell>
+                <RowActions
+                  name={lineName(line)}
+                  actions={[
+                    ...(line.kind === 'personnel'
+                      ? [
+                          {
+                            text: 'Bekijk inzet',
+                            onSelect: () => navigate(`${PATHS.allocations}?opdracht=${assignmentId}`),
+                          },
+                        ]
+                      : []),
+                    {
+                      text: 'Verwijder',
+                      destructive: true,
+                      confirm: {
+                        text: `${lineName(line)} verwijderen?`,
+                        supportingText: line.intended_person_name
+                          ? `De reservering van ${line.intended_person_name} vervalt ook. Een regel met inzet kan niet weg; haal dan eerst de inzet weg.`
+                          : 'Een regel met inzet kan niet weg; haal dan eerst de inzet weg.',
+                        confirmText: 'Verwijder',
+                      },
+                      onSelect: () => remove.mutate(line.id),
+                    },
+                  ]}
+                />
               )}
-            </nldd-table-row>
+            </OpenRow>
           ))}
           {showMoney &&
             subtotals.map(([year, cents]) => (

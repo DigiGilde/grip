@@ -55,26 +55,50 @@ export function lineForm(line?: BudgetLine, parent?: ParentPeriod): LineForm {
   };
 }
 
+export type LineField = 'role' | 'description' | 'fte' | 'category' | 'period' | 'amount' | 'year';
+
+/** The first thing wrong with the form: which field, and a sentence for under it. */
+export function checkLine(form: LineForm): { field: LineField; message: string } | null {
+  if (form.kind === 'personnel') {
+    if (!form.role.trim()) return { field: 'role', message: 'Kies een rol.' };
+    if (parseDecimal(form.fte) === null) {
+      return { field: 'fte', message: 'De omvang in FTE is een getal, bijvoorbeeld 0,8.' };
+    }
+    if (form.ownPeriod && (!form.startDate || !form.endDate)) {
+      return { field: 'period', message: 'Vul de begin- en einddatum in.' };
+    }
+    if (form.ownPeriod && form.endDate < form.startDate) {
+      return { field: 'period', message: 'De einddatum ligt voor de begindatum.' };
+    }
+    // With an intended person the server takes the category from them.
+    if (!form.category && !form.personId) return { field: 'category', message: 'Kies een schaal.' };
+    return null;
+  }
+  // A personnel line is named by its role; a fixed amount needs a description.
+  if (!form.description.trim()) {
+    return { field: 'description', message: 'Geef de regel een omschrijving.' };
+  }
+  if (parseEuroToCents(form.amount) === null) {
+    return { field: 'amount', message: 'Het bedrag is geen geldig bedrag.' };
+  }
+  if (!/^\d{4}$/.test(form.year)) {
+    return { field: 'year', message: 'Het jaar is een jaartal van vier cijfers.' };
+  }
+  return null;
+}
+
 /** The request body, or a sentence saying what is wrong with the form. */
 export function lineInput(
   form: LineForm,
   isNew: boolean,
   original?: BudgetLine,
 ): BudgetLineInput | string {
-  const personnel = form.kind === 'personnel';
-  if (personnel && !form.role.trim()) return 'Kies een rol.';
-  // A personnel line is named by its role; the description only tells two apart.
-  if (!personnel && !form.description.trim()) return 'Geef de regel een omschrijving.';
+  const problem = checkLine(form);
+  if (problem) return problem.message;
   const input: BudgetLineInput = { description: form.description.trim() };
   if (isNew) input.kind = form.kind;
   if (form.kind === 'personnel') {
     const fte = parseDecimal(form.fte);
-    if (fte === null) return 'De omvang in FTE is een getal, bijvoorbeeld 0,8.';
-    // With an intended person the server takes the category from them.
-    if (!form.category && !form.personId) return 'Kies een schaal.';
-    if (form.ownPeriod && (!form.startDate || !form.endDate)) {
-      return 'Vul de begin- en einddatum in.';
-    }
     const personChanged = form.personId !== (original?.intended_person_id ?? '');
     return {
       ...input,
@@ -90,7 +114,6 @@ export function lineInput(
   }
   const cents = parseEuroToCents(form.amount);
   if (cents === null) return 'Het bedrag is geen geldig bedrag.';
-  if (!/^\d{4}$/.test(form.year)) return 'Het jaar is een jaartal van vier cijfers.';
   return { ...input, amount_cents: cents, year: Number(form.year) };
 }
 
@@ -131,5 +154,5 @@ export function intendedText(line: BudgetLine): string {
   if (line.intended_category_differs) {
     parts.push('declareert in een andere schaal dan de regel aanneemt');
   }
-  return [parts.join(', '), ...(line.intended_notes ?? [])].join('. ');
+  return parts.join(', ');
 }

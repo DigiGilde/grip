@@ -97,6 +97,12 @@ export interface PersonOccupancy {
   person_name: string;
   average_pct: string | null;
   over_months: string[];
+  /** Allocated this month, whatever year is on screen; null when not deployable now. */
+  now_pct: string | null;
+  /** Counted by the figure "zonder inzet de komende 3 maanden". */
+  idle_ahead: boolean;
+  /** The last day of inzet on any assignment; null without any. */
+  last_inzet_end: string | null;
   cells: OccupancyCell[];
 }
 

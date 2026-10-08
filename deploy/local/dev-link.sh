@@ -25,9 +25,10 @@ BOUWMEESTER_FEDERATION=http://localhost:9211
 STANDIN=http://localhost:8040
 CORPUS_BASE_URI="https://corpus.voorbeeldministerie.localhost"
 
-# Fictional peer ids, the same as in the FSC environment.
-GRIP_PEER_ID=01700000000000000001
-BOUWMEESTER_PEER_ID=01700000000000000003
+# Fictional peer ids. Not the ones of the FSC environment (…01, …02, …03),
+# so the same Bouwmeester can know this grip and the grip of that environment.
+GRIP_PEER_ID=01700000000000000011
+BOUWMEESTER_PEER_ID=01700000000000000013
 # Without FSC a grant hash is just a name both sides agree on.
 GRANT_GRIP_TO_CORPUS=dev-grant-grip-naar-bouwmeester
 GRANT_CORPUS_TO_GRIP=dev-grant-bouwmeester-naar-grip
@@ -70,9 +71,17 @@ ROUTES
             uv run uvicorn grip.dev.dev_outway:create_app --factory --port "$OUTWAY_PORT"
         # The routes other organisations call. With FSC only the inway
         # reaches this port; here the dev outway does.
-        start grip-federation "$repo/backend" env DATABASE_URL="$(grip_db)" DEV_NO_AUTH=1 \
+        # DEV_LINK_SOURCE=head runs the listener from the last commit instead
+        # of the working tree, for when the tree is halfway through a change.
+        listener_dir="$repo/backend"
+        if [ "${DEV_LINK_SOURCE:-tree}" = "head" ]; then
+            rm -rf "$state/src" && mkdir -p "$state/src"
+            git -C "$repo" archive HEAD backend | tar -x -C "$state/src"
+            listener_dir="$state/src/backend"
+        fi
+        start grip-federation "$listener_dir" env DATABASE_URL="$(grip_db)" DEV_NO_AUTH=1 \
             FEDERATION_INBOUND_ENABLED=1 \
-            uv run uvicorn grip.federation.app:app --port "$GRIP_FEDERATION_PORT"
+            "$repo/backend/.venv/bin/python" -m uvicorn grip.federation.app:app --port "$GRIP_FEDERATION_PORT"
         "$0" status
         ;;
     peers)

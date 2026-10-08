@@ -512,20 +512,37 @@ def occupancy_months(
     return result
 
 
+def idle_person_ids(
+    window_rows: Sequence[PersonOccupancy], window: Sequence[Month]
+) -> set[UUID]:
+    """Who is available in the months after this one and has no inzet in them.
+
+    These are the people the figure "zonder inzet de komende drie maanden"
+    counts; the screen shows exactly them when the figure is opened.
+    """
+    ahead = set(window[1:])
+    idle: set[UUID] = set()
+    for row in window_rows:
+        coming = [c for c in row.cells if c.month in ahead and c.available]
+        if coming and all(cell.exact == 0 for cell in coming):
+            idle.add(row.person_id)
+    return idle
+
+
 def occupancy_summary(
     year_rows: Sequence[PersonOccupancy],
     window_rows: Sequence[PersonOccupancy],
     window: Sequence[Month],
 ) -> OccupancySummary:
-    """The figures on top. ``window`` is this month and the three after it."""
+    """The figures on top. ``window`` is this month and the three after it.
+
+    The figures about now count the persons of ``year_rows`` only, so every
+    figure counts rows that are in the block and can be shown.
+    """
+    in_block = {row.person_id for row in year_rows}
+    window_rows = [row for row in window_rows if row.person_id in in_block]
     available = [cell for row in year_rows for cell in row.available_cells]
     over_months = sorted({month for row in year_rows for month in row.over_months})
-    ahead = set(window[1:])
-    idle = 0
-    for row in window_rows:
-        coming = [c for c in row.cells if c.month in ahead and c.available]
-        if coming and all(cell.exact == 0 for cell in coming):
-            idle += 1
     return OccupancySummary(
         person_count=len(year_rows),
         average_pct=_round_pct(
@@ -537,8 +554,26 @@ def occupancy_summary(
         over_months=tuple(over_months),
         current_month=window[0],
         window=tuple(occupancy_months(window, window_rows)),
-        idle_count=idle,
+        idle_count=len(idle_person_ids(window_rows, window)),
     )
+
+
+async def last_inzet_end(
+    session: AsyncSession, person_ids: Iterable[UUID]
+) -> dict[UUID, date]:
+    """Per person the last day of inzet, on any assignment that still counts.
+
+    For the line "vrij, laatste inzet tot ..." of a person without inzet.
+    Inzet on a rejected or cancelled assignment is left out.
+    """
+    latest: dict[UUID, date] = {}
+    for allocation in await staffing.staffed_allocations(
+        session, person_ids=person_ids
+    ):
+        current = latest.get(allocation.person_id)
+        if current is None or allocation.end_date > current:
+            latest[allocation.person_id] = allocation.end_date
+    return latest
 
 
 # -- pipeline of quotes -------------------------------------------------------

@@ -517,11 +517,11 @@ def rate_facts(
     if scale is None:
         return RateFacts(None, None, None)
     try:
-        category = rates.category_for_scale(day.year, scale)
+        category = rates.category_for_scale(day, scale)
     except calc.CalcError:
         return RateFacts(scale, None, None)
     try:
-        rate = rates.monthly_rate_cents(day.year, category)
+        rate = rates.monthly_rate_cents(day, category)
     except calc.CalcError:
         return RateFacts(scale, category, None)
     return RateFacts(scale, category, rate)

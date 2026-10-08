@@ -376,6 +376,10 @@ async def _occupancy_person(
     access: RequestAccess,
     row: steering.PersonOccupancy,
     classes: frozenset[DataClass],
+    *,
+    now: steering.OccupancyCell | None,
+    idle_ahead: bool,
+    last_inzet_end: date | None,
 ) -> dict[str, Any]:
     """One row of the occupancy, with the parts of each cell.
 
@@ -388,6 +392,9 @@ async def _occupancy_person(
             person_name=row.person_name,
             average_pct=row.average_pct,
             over_months=[str(month) for month in row.over_months],
+            now_pct=now.pct if now is not None and now.available else None,
+            idle_ahead=idle_ahead,
+            last_inzet_end=last_inzet_end,
             cells=[],
         ),
         classes,
@@ -452,8 +459,14 @@ async def _occupancy_block(
     # Every figure below is over the visible persons only, so it says
     # nothing about anyone else.
     window = steering.next_months(Month.of(date.today()), 4)
-    window_rows = await visible_of(await steering.occupancy(db, window))
+    in_block = {row.person_id for row in visible}
+    window_rows = [
+        row for row in await steering.occupancy(db, window) if row.person_id in in_block
+    ]
     summary = steering.occupancy_summary(visible, window_rows, window)
+    idle = steering.idle_person_ids(window_rows, window)
+    now_cells = {row.person_id: row.cells[0] for row in window_rows}
+    last_end = await steering.last_inzet_end(db, in_block)
 
     block = build_response(
         OccupancyOut(
@@ -477,7 +490,15 @@ async def _occupancy_block(
         {COUNTS},
     )
     block["persons"] = [
-        await _occupancy_person(access, row, person_classes) for row in visible
+        await _occupancy_person(
+            access,
+            row,
+            person_classes,
+            now=now_cells.get(row.person_id),
+            idle_ahead=row.person_id in idle,
+            last_inzet_end=last_end.get(row.person_id),
+        )
+        for row in visible
     ]
     left_out = []
     for person_id, person_name in await steering.not_deployable(

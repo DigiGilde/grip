@@ -32,7 +32,7 @@ from grip.models.function_framework import (
     FunctionGroup,
 )
 from grip.models.person import Person
-from grip.models.rates import ScaleBand
+from grip.models.rates import RateCard, ScaleBand
 from grip.services.errors import DomainError, DomainValidationError, NotFoundError
 
 REFERENCE_FILE = (
@@ -443,26 +443,27 @@ async def budget_line_scales(
 ) -> list[int] | None:
     """The scales the rate category of a budget line stands for.
 
-    Read from the scale mapping of the rate card of the year the line
-    starts in, or of the most recent year before it. ``None`` when the line
-    has no category or no rate card says which scales it covers.
+    Read from the scale mapping of the rate card valid when the line starts,
+    or of the most recent card before it. ``None`` when the line has no
+    category or no rate card says which scales it covers.
     """
     if budget_line_id is None:
         return None
     line = await db.get(BudgetLine, budget_line_id)
     if line is None or not line.rate_category:
         return None
-    year = (line.start_date or date.today()).year
+    day = line.start_date or date.today()
     result = await db.execute(
-        select(ScaleBand.year, ScaleBand.scale)
+        select(RateCard.valid_from, ScaleBand.scale)
+        .join(RateCard, RateCard.id == ScaleBand.rate_card_id)
         .where(ScaleBand.category == line.rate_category)
-        .order_by(ScaleBand.year)
+        .order_by(RateCard.valid_from)
     )
-    by_year: dict[int, list[int]] = {}
-    for band_year, scale in result.all():
-        by_year.setdefault(band_year, []).append(scale)
-    if not by_year:
+    by_start: dict[date, list[int]] = {}
+    for valid_from, scale in result.all():
+        by_start.setdefault(valid_from, []).append(scale)
+    if not by_start:
         return None
-    earlier = [candidate for candidate in by_year if candidate <= year]
-    chosen = max(earlier) if earlier else min(by_year)
-    return sorted(by_year[chosen])
+    earlier = [candidate for candidate in by_start if candidate <= day]
+    chosen = max(earlier) if earlier else min(by_start)
+    return sorted(by_start[chosen])

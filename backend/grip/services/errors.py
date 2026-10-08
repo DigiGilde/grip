@@ -28,12 +28,23 @@ class IllegalTransitionError(DomainError):
 
 
 class ClosedYearError(DomainError):
-    def __init__(self, year: int) -> None:
+    """A change touches a period priced by a closed rate card.
+
+    The name dates from when a card was a calendar year. ``year`` is the
+    year the closed card starts in.
+    """
+
+    def __init__(self, year: int, card_name: str | None = None) -> None:
+        what = f"De tarievenkaart '{card_name}'" if card_name else f"Het jaar {year}"
         super().__init__(
-            f"Het jaar {year} is gesloten. Wijzigen kan alleen door een beheerder "
+            f"{what} is gesloten. Wijzigen kan alleen door een beheerder "
             "en laat een auditregel achter."
         )
         self.year = year
+        self.card_name = card_name
+
+
+ClosedCardError = ClosedYearError
 
 
 class MonthClosedError(DomainError):

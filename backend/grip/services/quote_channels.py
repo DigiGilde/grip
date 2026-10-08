@@ -31,16 +31,12 @@ from grip.models.quote import (
     OFFER_SIGNING_LINK,
 )
 
-NOT_CONNECTED = (
-    "De opdrachtgever is niet gekoppeld: er is geen verbinding met een "
-    "grip-instantie van deze organisatie."
-)
-NO_INSTANCE = (
-    "De opdrachtgever is niet gekoppeld: bij deze organisatie is geen "
-    "grip-instantie bekend."
-)
+# Reasons in the words of someone who offers a quote. They say what is the
+# case for the client, not how grip is deployed.
+NOT_CONNECTED = "Het grip van de opdrachtgever is niet gekoppeld aan dit grip."
+NO_INSTANCE = "De opdrachtgever gebruikt grip nog niet."
 NO_CLIENT = "Deze opdracht heeft geen opdrachtgever."
-EXCHANGE_OFF = "Verkeer met andere instanties staat uit in deze instantie."
+EXCHANGE_OFF = "Uitwisselen met andere organisaties staat uit."
 
 # Returns None when quotes can be sent to the instance with this base URI,
 # otherwise the reason in words a user can act on.

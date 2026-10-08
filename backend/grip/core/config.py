@@ -25,6 +25,30 @@ class Settings(BaseSettings):
     INSTANCE_KEY: str = "lokaal"
     PARENT_INSTANCE_URI: str = ""
 
+    # The organisation as it signs its documents. A quote is sent by the
+    # organisation, not by the software instance: this name stands on the
+    # quote as the sender. Empty falls back to INSTANCE_NAME.
+    ORGANISATION_NAME: str = ""
+    # What the organisation is part of, as further lines of the letterhead
+    # under its name, separated by "|". For example
+    # "Rijksorganisatie X|Ministerie van Y".
+    LETTERHEAD_LINES: str = ""
+    # Path of an SVG with the Rijkslint and the coat of arms. Only an
+    # organisation that may carry the Rijkslogo sets this; without it a
+    # document gets a plain, sober head. The design system package ships the
+    # mark as favicon.svg; point to that file, do not copy it.
+    LETTERHEAD_LOGO_PATH: str = ""
+    # Directory with the Rijkshuisstijl typeface (RijksSansWeb-Regular.woff2
+    # and -Italic.woff2), for an organisation that may use it. Without it a
+    # document is set in the fallback the huisstijl names, Verdana, or the
+    # nearest sans-serif the system has.
+    DOCUMENT_FONT_DIR: str = ""
+    # Prefix of the reference a quote gets when issued, as in "DG-2026-0007".
+    # Empty derives it from INSTANCE_KEY.
+    QUOTE_REFERENCE_PREFIX: str = ""
+    # Conditions proposed when a quote is issued; the issuer can change them.
+    QUOTE_DEFAULT_CONDITIONS: str = ""
+
     # Percentage the monthly rates go up by when a new rate card is started
     # as a copy of an earlier year. Only the default the beheerder is shown;
     # the percentage used is chosen per card and kept in its audit row.
@@ -132,6 +156,11 @@ class Settings(BaseSettings):
     # Days a person record is kept after a hire fell through. Four weeks is a
     # common term; have the privacy officer confirm it for the organisation.
     PROSPECTIVE_RETENTION_DAYS: int = 28
+
+    # Tasks: how often the worker brings the tasks of every open case in
+    # line with the facts (a month that ended, a deadline that passed).
+    # Zero switches the loop off; reading tasks still evaluates them.
+    TASKS_EVALUATE_INTERVAL_SECONDS: int = 300
 
     CORS_ORIGINS: list[str] = Field(default_factory=list)
 

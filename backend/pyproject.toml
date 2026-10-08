@@ -19,6 +19,7 @@ dependencies = [
     "openai>=3.26.1",
     "jsonschema>=4.26.0",
     "rfc8785>=0.1.4",
+    "weasyprint>=70.0",
 ]
 
 [dependency-groups]

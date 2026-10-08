@@ -130,3 +130,18 @@ from grip.models.outgoing_invoice import (  # noqa: E402
 __all__ += ["OutgoingInvoice", "OutgoingInvoiceDelivery"]
 
 __all__ += ["PersonCatalogueRole"]
+
+# Quote references (migration 0021_quote_reference_and_invitation_state).
+from grip.models.quote import QuoteReferenceCounter  # noqa: E402
+
+__all__ += ["QuoteReferenceCounter"]
+
+# Tasks (migration 0023_tasks).
+from grip.models.task import (  # noqa: E402
+    Task,
+    TaskCase,
+    TaskEngineRun,
+    TaskNote,
+)
+
+__all__ += ["Task", "TaskCase", "TaskEngineRun", "TaskNote"]

@@ -145,14 +145,18 @@ class KpiOverview:
 
 def to_calc_rate_card(card: RateCard) -> calc.RateCard:
     return calc.RateCard(
-        year=card.year,
+        id=str(card.id),
+        name=card.name,
+        valid_from=card.valid_from,
+        valid_to=card.valid_to,
         status=calc.RateCardStatus(card.status),
         rate_bands=tuple(
             calc.RateBand(category=b.category, monthly_rate_cents=b.monthly_rate_cents)
             for b in card.rate_bands
         ),
         scale_bands=tuple(
-            calc.ScaleBand(scale=b.scale, category=b.category) for b in card.scale_bands
+            calc.ScaleBand(scale=b.scale, category=b.category)
+            for b in card.scale_bands
         ),
     )
 

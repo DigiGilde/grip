@@ -71,9 +71,9 @@ export function originOf(version: TextVersion): string {
   }
   if (version.model_assisted) {
     const drafted = version.origin_drafted_at ? ` van ${formatDate(version.origin_drafted_at)}` : '';
-    return `Geschreven door een mens op ${formatDate(version.created_at)}, op basis van een concept van een taalmodel (${version.origin_model_id ?? 'onbekend model'})${drafted}`;
+    return `Geschreven op ${formatDate(version.created_at)}, op basis van een concept van een taalmodel (${version.origin_model_id ?? 'onbekend model'})${drafted}`;
   }
-  return `Geschreven door een mens op ${formatDate(version.created_at)}`;
+  return `Geschreven op ${formatDate(version.created_at)}`;
 }
 
 /** The same, for the text everyone sees of a published vacancy. */
@@ -83,10 +83,12 @@ export function publishedOrigin(text: {
   drafted_at?: string | null;
   established_at: string;
 }): string {
-  const established = `Vastgesteld door een mens op ${formatDate(text.established_at)}.`;
-  if (!text.model_assisted) return established;
+  // A person writing a text is the normal case and needs no remark. Only
+  // the involvement of a language model is worth telling a reader.
+  const placed = `Geplaatst op ${formatDate(text.established_at)}.`;
+  if (!text.model_assisted) return placed;
   const drafted = text.drafted_at ? ` op ${formatDate(text.drafted_at)}` : '';
-  return `${established} Een taalmodel (${text.model_id ?? 'onbekend model'}) schreef${drafted} het eerste concept.`;
+  return `${placed} Een taalmodel (${text.model_id ?? 'onbekend model'}) schreef${drafted} het eerste concept; een medewerker heeft de tekst nagekeken en vastgesteld.`;
 }
 
 /** What the request form asks for that a vacancy does not have yet. */

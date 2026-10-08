@@ -76,6 +76,11 @@ ALLOWED_CONTENT_KEYS = frozenset(
         "total",
         "valid_until",
         "conditions",
+        # The reference people quote, the client's own reference, and the
+        # organisation that sends the quote. None of them names a person.
+        "reference",
+        "client_reference",
+        "sender",
     }
 )
 
@@ -93,6 +98,9 @@ ALLOWED_LINE_KEYS = frozenset(
         "monthly_rates_per_year",
         "year",
         "amount",
+        # The scales the rate category of the line covers: what a client
+        # reads on the rate leaflet.
+        "scales",
     }
 )
 

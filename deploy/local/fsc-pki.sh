@@ -69,5 +69,7 @@ peer() { # key, peer id, organisation name, components with a group certificate
 peer dir 01700000000000000099 "Lokale directory" manager
 peer a 01700000000000000001 "DigiGilde voorbeeld" manager inway outway
 peer b 01700000000000000002 "Voorbeeldministerie" manager inway outway
+# Peer C is a corpus system: the local Bouwmeester (compose.fsc-corpus.yml).
+peer c 01700000000000000003 "Corpus Voorbeeldministerie" manager inway outway
 
 echo "FSC certificates in $pki"

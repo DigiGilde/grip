@@ -8,6 +8,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    Integer,
     LargeBinary,
     String,
     Text,
@@ -56,6 +57,12 @@ class Quote(Base):
 
     id: Mapped[uuid.UUID] = uuid_pk()
     uri: Mapped[str] = mapped_column(String(500), unique=True)
+    # The reference people quote on the phone and in a mail, as in
+    # "DG-2026-0007": prefix of the instance, year of issue, and a number per
+    # year that is never reused. Assigned when the quote is issued here; for
+    # a quote received from another instance it is that instance's reference.
+    # The URI stays the identifier for machines.
+    reference: Mapped[str | None] = mapped_column(String(40), nullable=True, index=True)
     assignment_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("assignment.id", ondelete="RESTRICT"),
@@ -101,6 +108,20 @@ class Quote(Base):
         return contract_form(self.canonical)
 
 
+class QuoteReferenceCounter(Base):
+    """The last sequence number given out for quote references in a year.
+
+    One row per year. A number is taken with a single statement that adds
+    one and returns the result, so two quotes issued at the same moment can
+    never get the same number, and a number is never given out twice.
+    """
+
+    __tablename__ = "quote_reference_counter"
+
+    year: Mapped[int] = mapped_column(Integer, primary_key=True)
+    last_number: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+
+
 class QuoteInvitation(Base):
     """An invitation to sign one quote through a signing link."""
 
@@ -136,6 +157,20 @@ class QuoteInvitation(Base):
     )
     used_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+    # The first time the invited person opened the quote behind the link.
+    opened_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    # Set when whoever manages the assignment took the invitation back. A
+    # withdrawn invitation grants nothing; inviting again revives it.
+    withdrawn_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    withdrawn_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("person.id", ondelete="SET NULL"),
+        nullable=True,
     )
     created_at: Mapped[datetime] = created_at()
 

@@ -111,7 +111,48 @@ describe('budget line sheet', () => {
   it('shows who a line is meant for in the table, in the staffing sense', async () => {
     const { container } = renderEditor();
     await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
-    expect(allText(container)).toContain('Beoogd: Voorbeeld Een, onder voorbehoud');
+    expect(container.querySelector('nldd-tag')?.getAttribute('text')).toBe(
+      'Beoogd: Voorbeeld Een, onder voorbehoud',
+    );
+  });
+
+  it('edits through the row and keeps the rest behind one quiet menu', async () => {
+    const { container } = renderEditor();
+    await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
+    expect(container.querySelector('nldd-button[text="Bewerk"]')).toBeNull();
+    expect(allText(container)).not.toContain('Acties');
+    // The role is said once: the name, then the facts.
+    const name = container.querySelector('nldd-table nldd-link');
+    expect(name?.getAttribute('text')).toBe('Productmanager');
+    expect(allText(container)).toContain('0,8 FTE');
+    const more = container.querySelector('nldd-icon-button');
+    expect(more?.getAttribute('accessible-label')).toBe('Meer acties voor Productmanager');
+    expect([...(more?.querySelectorAll('nldd-menu-item') ?? [])].map((i) => i.getAttribute('text'))).toEqual([
+      'Bekijk inzet',
+      'Verwijder',
+    ]);
+    expect(more?.querySelector('nldd-menu-item[text="Verwijder"]')).toHaveAttribute('destructive');
+    // Removing asks first, and says what goes with it.
+    more?.querySelector('nldd-menu-item[text="Verwijder"]')?.dispatchEvent(new Event('select'));
+    await waitFor(() => expect(document.querySelector('nldd-modal-dialog[open]')).not.toBeNull());
+    expect(document.querySelector('nldd-modal-dialog')?.getAttribute('supporting-text')).toContain(
+      'De reservering van Voorbeeld Een vervalt ook.',
+    );
+    // The name opens the edit sheet.
+    name?.dispatchEvent(new Event('click', { cancelable: true }));
+    await waitFor(() => expect(document.querySelector('nldd-sheet[open]')).not.toBeNull());
+  });
+
+  it('says what is wrong at the field, not in a banner at the top', async () => {
+    const { container } = renderEditor();
+    const sheet = await openNewLine(container);
+    sheet.querySelector('nldd-form')?.dispatchEvent(new Event('submit', { cancelable: true }));
+    await waitFor(() =>
+      expect(sheet.querySelector('nldd-form-field[label="Rol"]')?.getAttribute('supporting-label')).toBe(
+        'Kies een rol.',
+      ),
+    );
+    expect(sheet.querySelector('nldd-banner[variant="critical"]')).toBeNull();
   });
 
   it('offers an optional intended person, with the start date of a new colleague', async () => {
@@ -156,7 +197,11 @@ describe('budget line sheet', () => {
       'Schaal 10 valt in categorie B: € 13.125 per maand per FTE in 2026.',
     );
     expect(sheet.querySelector('nldd-banner[variant="accent"]')?.getAttribute('supporting-text')).toBe(
-      'Rol van Voorbeeld Twee: Productmanager (uit Wies). Heeft 60% vrij in deze periode.',
+      'Heeft 60% vrij in deze periode.',
+    );
+    // The role was empty, so it is proposed, with its source at the field itself.
+    expect(sheet.querySelector('nldd-form-field[label="Rol"]')?.getAttribute('supporting-label')).toBe(
+      'Voorstel: uit Wies',
     );
     // The size is filled in as a proposal, with where it comes from.
     const size = field(sheet, 'Omvang in FTE');

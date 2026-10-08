@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from datetime import date
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
@@ -19,41 +20,90 @@ from grip.models.rates import RateCard
 
 
 class RateRepository:
+    """Rate cards. A card is found by its id; a bare year still finds the
+    card that starts on 1 January of it, for callers from before a card had
+    a validity."""
+
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
-    async def get_card(self, year: int) -> RateCard | None:
-        result = await self.db.execute(
+    def _loaded(self) -> Any:
+        return (
             select(RateCard)
-            .where(RateCard.year == year)
             .options(
                 selectinload(RateCard.rate_bands), selectinload(RateCard.scale_bands)
             )
             .execution_options(populate_existing=True)
         )
+
+    async def get_card(self, key: int | UUID | str) -> RateCard | None:
+        if isinstance(key, int):
+            result = await self.db.execute(
+                self._loaded()
+                .where(RateCard.valid_from == date(key, 1, 1))
+                # A card that prices before a draft for the same start.
+                .order_by(RateCard.status == "draft", RateCard.created_at)
+            )
+            return result.scalars().first()
+        result = await self.db.execute(self._loaded().where(RateCard.id == key))
         return result.scalar_one_or_none()
 
     async def all_cards(self) -> list[RateCard]:
         result = await self.db.execute(
-            select(RateCard)
-            .options(
-                selectinload(RateCard.rate_bands), selectinload(RateCard.scale_bands)
-            )
-            .order_by(RateCard.year)
-            .execution_options(populate_existing=True)
+            self._loaded().order_by(RateCard.valid_from, RateCard.created_at)
         )
         return list(result.scalars())
 
-    async def closed_years(self, years: Iterable[int]) -> list[int]:
-        years = sorted(set(years))
-        if not years:
+    async def pricing_cards(self) -> list[RateCard]:
+        """Active and closed cards, in order of validity. They never overlap."""
+        return [card for card in await self.all_cards() if card.status != "draft"]
+
+    async def card_on(self, day: date) -> RateCard | None:
+        """The card that prices the given day, if there is one."""
+        for card in await self.pricing_cards():
+            if card.valid_from <= day and (
+                card.valid_to is None or card.valid_to >= day
+            ):
+                return card
+        return None
+
+    async def closed_touching(
+        self, spans: Iterable[tuple[date | None, date | None]]
+    ) -> list[RateCard]:
+        """Closed cards valid in any part of the given periods."""
+        spans = [(s or e, e or s) for s, e in spans if s is not None or e is not None]
+        if not spans:
             return []
         result = await self.db.execute(
-            select(RateCard.year)
-            .where(RateCard.year.in_(years), RateCard.status == "closed")
-            .order_by(RateCard.year)
+            select(RateCard)
+            .where(RateCard.status == "closed")
+            .order_by(RateCard.valid_from)
         )
-        return list(result.scalars())
+        return [
+            card
+            for card in result.scalars()
+            if any(
+                card.valid_from <= end
+                and (card.valid_to is None or card.valid_to >= start)
+                for start, end in spans
+            )
+        ]
+
+    async def closed_years(self, years: Iterable[int]) -> list[int]:
+        """Years in which a closed card is valid. Kept for older callers."""
+        years = sorted(set(years))
+        touched = await self.closed_touching(
+            (date(y, 1, 1), date(y, 12, 31)) for y in years
+        )
+        return [
+            y
+            for y in years
+            if any(
+                c.valid_from <= date(y, 12, 31)
+                and (c.valid_to is None or c.valid_to >= date(y, 1, 1))
+                for c in touched
+            )
+        ]
 
 
 class PersonDetailRepository:

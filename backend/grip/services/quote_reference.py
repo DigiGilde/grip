@@ -1,0 +1,62 @@
+"""The reference of a quote: what a person says on the phone and writes in a mail.
+
+A reference looks like "DG-2026-0007": a prefix that says which organisation
+issued it, the year of issue, and a number that counts up per year. A number
+is given out once and never again, also when the quote it went to is later
+replaced: a new version of a quote is a new quote with its own reference.
+
+The URI of a quote stays its identifier for machines. A reference is for
+people, and it is part of the frozen content of the quote, so it is covered
+by the hash and stands on the signed document.
+"""
+
+from __future__ import annotations
+
+import re
+
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from grip.core.config import Settings, get_settings
+
+_NOT_ALLOWED = re.compile(r"[^A-Z0-9]+")
+MAX_PREFIX = 10
+
+
+def reference_prefix(settings: Settings | None = None) -> str:
+    """The prefix of this instance: the setting, or else from the instance key."""
+    settings = settings or get_settings()
+    raw = settings.QUOTE_REFERENCE_PREFIX.strip() or settings.INSTANCE_KEY
+    prefix = _NOT_ALLOWED.sub("", raw.upper())[:MAX_PREFIX]
+    return prefix or "OFF"
+
+
+def format_reference(prefix: str, year: int, number: int) -> str:
+    return f"{prefix}-{year}-{number:04d}"
+
+
+async def next_reference(session: AsyncSession, year: int) -> str:
+    """Take the next reference of a year, inside the current transaction.
+
+    One statement adds one to the counter of the year and returns it. Two
+    transactions that issue at the same moment wait for each other on that
+    row, so they cannot get the same number. When the transaction rolls
+    back, the number goes back with it; nothing was issued under it.
+    """
+    result = await session.execute(
+        text(
+            "INSERT INTO quote_reference_counter (year, last_number) "
+            "VALUES (:year, 1) "
+            "ON CONFLICT (year) DO UPDATE "
+            "SET last_number = quote_reference_counter.last_number + 1 "
+            "RETURNING last_number"
+        ),
+        {"year": year},
+    )
+    return format_reference(reference_prefix(), year, int(result.scalar_one()))
+
+
+def file_stem(reference: str | None, fallback: str) -> str:
+    """A reference as part of a file name; the fallback when there is none."""
+    cleaned = re.sub(r"[^A-Za-z0-9-]+", "-", reference or "").strip("-")
+    return cleaned or fallback

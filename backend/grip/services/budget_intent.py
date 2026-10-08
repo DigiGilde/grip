@@ -195,7 +195,7 @@ def _runs_and_gaps(
             no_scale.append(month)
             continue
         try:
-            category = rates.category_for_scale(month.year, scale)
+            category = rates.category_for_scale(month, scale)
         except (calc.MissingRateCardError, calc.MissingScaleBandError):
             if month.year not in unpriced_years:
                 unpriced_years.append(month.year)
@@ -1175,18 +1175,19 @@ async def derive(
     scale = category.category_runs[0].billing_scale if category.category_runs else None
     rate_summary = None
     if category.rate_category is not None and scale is not None:
-        year = category.category_runs[0].first_month.year
+        first_month = category.category_runs[0].first_month
         rates = await load_rate_book(session, include_draft=options.include_draft)
         try:
-            cents = rates.monthly_rate_cents(year, category.rate_category)
+            card = rates.card(first_month)
+            cents = rates.monthly_rate_cents(first_month, category.rate_category)
             rate_summary = (
                 f"Schaal {scale} valt in categorie {category.rate_category}: "
-                f"{_euro(cents)} per maand per FTE in {year}."
+                f"{_euro(cents)} per maand per FTE volgens '{card.label}'."
             )
         except calc.CalcError:
             rate_summary = (
                 f"Schaal {scale} valt in categorie {category.rate_category}; voor "
-                f"{year} is er geen tarief."
+                f"{_month_text(first_month)} is er geen tarief."
             )
 
     summary: list[str] = []

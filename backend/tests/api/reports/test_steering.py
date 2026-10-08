@@ -166,6 +166,55 @@ async def test_the_window_says_what_is_free_and_who_is_idle(db_session, world):
     assert idle.idle_count == 1
 
 
+async def test_each_figure_counts_people_the_block_can_show(
+    as_person, world, db_session
+):
+    """A figure that names a number leads to exactly those rows."""
+    from datetime import date
+
+    from grip.calc import Month
+    from grip.services.reports import steering
+
+    occupancy = (await _steering(as_person(world.planner))).json()["occupancy"]
+    persons = occupancy["persons"]
+    summary = occupancy["summary"]
+    # The idle figure and the flagged rows are the same people.
+    assert summary["idle_count"] == sum(1 for p in persons if p["idle_ahead"])
+    assert summary["over_count"] == sum(1 for p in persons if p["over_months"])
+    by_name = {p["person_name"]: p for p in persons}
+    # The last day of inzet, for "vrij, laatste inzet tot ...".
+    assert by_name[world.member.name]["last_inzet_end"] == "2027-06-30"
+    assert by_name[world.other_person.name]["last_inzet_end"] == "2026-12-31"
+    today = date.today()
+    for person in persons:
+        cell = _cells(person).get(f"{today.year:04d}-{today.month:02d}")
+        if cell is not None and today.year == 2026:
+            assert person["now_pct"] == cell["pct"]
+
+    # Fixed dates: from December the tentative inzet has ended, so one
+    # person is idle in the three months after it, and it is that person.
+    window = steering.next_months(Month(2026, 12), 4)
+    rows = await steering.occupancy(db_session, window)
+    assert steering.idle_person_ids(rows, window) == {world.other_person.id}
+
+
+async def test_a_figure_about_now_counts_only_people_of_the_year_on_screen(
+    db_session, world
+):
+    from grip.calc import Month
+    from grip.services.reports import steering
+
+    # In 2025 nobody was deployable, so nothing about now may be counted
+    # for that year either: there would be no row to show.
+    year_rows = await steering.occupancy(db_session, steering.months_of(2025))
+    assert year_rows == []
+    window = steering.next_months(Month(2026, 10), 4)
+    window_rows = await steering.occupancy(db_session, window)
+    summary = steering.occupancy_summary(year_rows, window_rows, window)
+    assert summary.idle_count == 0
+    assert [str(month.available_fte) for month in summary.window] == ["0"] * 4
+
+
 async def test_above_100_percent_is_counted_and_named(as_person, world, db_session):
     from datetime import date
     from decimal import Decimal

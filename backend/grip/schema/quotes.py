@@ -36,6 +36,8 @@ class QuoteLineOut(BaseModel):
     role: Annotated[str | None, B] = None
     fte: Annotated[str | None, B] = None
     rate_category: Annotated[str | None, B] = None
+    # The scales that bill in this category, as on the rate leaflet.
+    scales: Annotated[list[int], B] = Field(default_factory=list)
     start_date: Annotated[date | None, B] = None
     end_date: Annotated[date | None, B] = None
     # For a fixed line: the year it belongs to.
@@ -57,6 +59,10 @@ class QuoteContentOut(BaseModel):
     total_cents: Annotated[int, B]
     valid_until: Annotated[date | None, B] = None
     conditions: Annotated[str | None, B] = None
+    # The organisation that sends the quote.
+    sender: Annotated[str | None, B] = None
+    # The client's own reference ("uw kenmerk"), when one was given.
+    client_reference: Annotated[str | None, B] = None
 
 
 class QuotePreviewOut(BaseModel):
@@ -74,6 +80,8 @@ class QuotePreviewOut(BaseModel):
     quoted_amount_cents: Annotated[int | None, B] = None
     # Agreed amount minus the budget total; None without an agreed amount.
     difference_cents: Annotated[int | None, B] = None
+    # Conditions the instance proposes for a new quote.
+    default_conditions: Annotated[str | None, A] = None
 
 
 class AcceptanceOut(BaseModel):
@@ -93,6 +101,8 @@ class RejectionOut(BaseModel):
 class QuoteSummaryOut(BaseModel):
     id: Annotated[UUID, A]
     uri: Annotated[str, A]
+    # The reference people quote, e.g. "DG-2026-0007".
+    reference: Annotated[str | None, A] = None
     assignment_id: Annotated[UUID, A]
     status: Annotated[str, A]
     issued_at: Annotated[datetime, A]
@@ -102,6 +112,25 @@ class QuoteSummaryOut(BaseModel):
     valid_until: Annotated[date | None, B] = None
     acceptance: Annotated[AcceptanceOut | None, nested()] = None
     rejection: Annotated[RejectionOut | None, nested()] = None
+
+
+class OfferInvitationOut(BaseModel):
+    """The signing link behind an offer, for whoever manages the assignment.
+
+    The link opens only for the invited person, after logging in with the
+    invited email address, and only this one quote.
+    """
+
+    id: Annotated[UUID, B]
+    # Path of the page the invited person opens; the frontend puts its own
+    # origin in front.
+    signing_path: Annotated[str, B]
+    expires_at: Annotated[datetime | None, B] = None
+    opened_at: Annotated[datetime | None, B] = None
+    used_at: Annotated[datetime | None, B] = None
+    withdrawn_at: Annotated[datetime | None, B] = None
+    # invited | opened | signed | expired | withdrawn
+    state: Annotated[str, B]
 
 
 class OfferOut(BaseModel):
@@ -116,6 +145,8 @@ class OfferOut(BaseModel):
     offered_by_name: Annotated[str | None, B] = None
     # For the channel client_instance: pending, sent or refused.
     delivery: Annotated[str | None, B] = None
+    # For the channel signing_link, and only for who manages the assignment.
+    invitation: Annotated[OfferInvitationOut | None, nested()] = None
 
 
 class ChannelOut(BaseModel):
@@ -167,6 +198,8 @@ class InvitationListOut(BaseModel):
 class IssueQuoteIn(BaseModel):
     valid_until: date | None = None
     conditions: str | None = Field(default=None, max_length=5000)
+    # The client's own reference, such as an order or case number.
+    client_reference: str | None = Field(default=None, max_length=100)
 
 
 class InviteSignerIn(BaseModel):
@@ -213,6 +246,7 @@ def content_from_snapshot(snapshot: dict[str, Any]) -> QuoteContentOut:
                 role=line.get("role"),
                 fte=line.get("fte"),
                 rate_category=line.get("rate_category"),
+                scales=[v for v in line.get("scales") or [] if isinstance(v, int)],
                 start_date=period.get("start_date"),
                 end_date=period.get("end_date"),
                 year=line.get("year"),
@@ -231,4 +265,6 @@ def content_from_snapshot(snapshot: dict[str, Any]) -> QuoteContentOut:
         total_cents=cents(snapshot.get("total")),
         valid_until=snapshot.get("valid_until"),
         conditions=snapshot.get("conditions"),
+        sender=snapshot.get("sender"),
+        client_reference=snapshot.get("client_reference"),
     )

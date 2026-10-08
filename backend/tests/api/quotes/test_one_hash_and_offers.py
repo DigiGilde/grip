@@ -415,7 +415,7 @@ async def test_offered_through_the_clients_grip_then_as_document_then_signed_pdf
     "setup,expected",
     [
         ("no_identity", "TOOI-URI is niet ingesteld"),
-        ("no_instance", "geen grip-instantie bekend"),
+        ("no_instance", "gebruikt grip nog niet"),
         ("no_peer", "niet gekoppeld"),
         ("no_grant", "geen contract"),
         ("exchange_off", "staat uit"),

@@ -36,11 +36,11 @@ SCALES = {
 
 
 def make_card(year, rates, status=RateCardStatus.ACTIVE, scales=SCALES):
-    return RateCard(
-        year=year,
-        status=status,
-        rate_bands=tuple(RateBand(c, r * EUR) for c, r in rates.items()),
-        scale_bands=tuple(ScaleBand(s, c) for s, c in scales.items()),
+    return RateCard.for_year(
+        year,
+        status,
+        tuple(RateBand(c, r * EUR) for c, r in rates.items()),
+        tuple(ScaleBand(s, c) for s, c in scales.items()),
     )
 
 

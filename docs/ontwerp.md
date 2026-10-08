@@ -15,6 +15,7 @@ Een scherm is af als het aan deze eisen voldoet. Meet ze in een browser; een tes
 - Er is één schaal voor afstanden. Twee afstanden naast elkaar verschillen alleen als dat iets betekent.
 - Bedieningselementen in één rij hebben dezelfde hoogte.
 - Wat gelijk is, ziet er gelijk uit: kaarten in een rij zijn even hoog, knoppen van dezelfde rang even groot.
+- Een rij in een tabel is één regel hoog met hooguit één gedempte regel eronder. Er staan geen tekstknoppen in een rij.
 
 **Mooi**
 
@@ -51,6 +52,7 @@ Ze staan in `frontend/src/ui/layout/` en `frontend/src/ui/`.
 | `FormSheet` | Een formulier in een zijpaneel. Het ene patroon voor toevoegen en wijzigen. |
 | `FormFields` | De velden van een formulier op één afstand, ook op een pagina. |
 | `FilterSelect` | Eén keuzelijst op de gewone maat. |
+| `OpenRow`, `OpenCell`, `RowActions` (`@/ui/RowActions`) | Een rij die opent, en één stille knop met een menu voor de overige acties. |
 | `ActionBar` (`@/ui/ActionBar`) | Filters links, de hoofdactie rechts, alles op één maat. |
 | `Loading`, `ErrorNotice`, `EmptyNotice` | Laden, een fout, en niets om te tonen, steeds in dezelfde vorm. |
 
@@ -93,6 +95,8 @@ Een rij in een lijst of tabel is nooit een kop.
 **Toon niet wat er niet is.** Een onderdeel dat iemand niet mag zien of dat niet van toepassing is, staat er niet. Geen lege of vergrendelde vakken.
 
 **Kolommen staan één keer vast.** Gebruik `nldd-table` met `columns`, zodat elke cel op dezelfde plek begint. Een rij die doorklikt eindigt met een pijl.
+
+**Acties van een rij.** De rij zelf is de weg naar openen of wijzigen: een klik op de rij of Enter op de naam opent het detail of het `FormSheet`. Er staat geen knop "Bewerk" in een rij. Wat een rij verder kan, staat achter één stille knop aan het eind ("Meer acties voor ...") met een menu. Een actie die iets weghaalt is in het menu als zodanig gemarkeerd en vraagt om bevestiging, met wat er mee verdwijnt. De kolom met die knop heeft een vaste smalle breedte en geen kop, zodat de kolom ervoor in elke rij en in de totaalrij op dezelfde plek eindigt. Gebruik `OpenRow`, `OpenCell`, `RowActions` en `ROW_ACTIONS_COLUMN` uit `@/ui/RowActions`.
 
 **Een status is een label.** Gebruik `nldd-tag` of `nldd-badge` met de kleur uit de bestaande toewijzing. De kleur draagt nooit als enige de betekenis.
 

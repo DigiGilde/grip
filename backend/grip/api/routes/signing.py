@@ -11,8 +11,7 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, status
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip.access import Action, DataClass, Decider, Resource
@@ -28,7 +27,7 @@ from grip.schema.signing import (
     SigningQuoteOut,
     SignRejectIn,
 )
-from grip.services import quote_views
+from grip.services import quote_views, quotes
 from grip.services.errors import DomainValidationError, NotFoundError
 
 router = APIRouter(prefix="/signing", tags=["signing"])
@@ -65,9 +64,10 @@ async def signing_view(
     value = SigningQuoteOut(
         id=quote.id,
         uri=quote.uri,
+        reference=quote.reference,
         status=quote.status,
         issued_at=quote.issued_at,
-        contractor_name=context.contractor_name,
+        contractor_name=str(quote.snapshot.get("sender") or context.contractor_name),
         client_name=context.client_name,
         snapshot_hash=quote.snapshot_hash,
         content=content_from_snapshot(quote.snapshot),
@@ -89,6 +89,7 @@ async def my_invitations(
         resource = Resource.quote(quote.id, quote.assignment_id)
         item = SigningInvitationOut(
             quote_id=quote.id,
+            reference=quote.reference,
             assignment_name=quote.snapshot.get("name") or assignment.name,
             status=quote.status,
             issued_at=quote.issued_at,
@@ -115,18 +116,20 @@ async def get_signing_quote(
 ) -> dict[str, Any]:
     """The one quote behind a signing link."""
     quote, resource = await invited_quote(db, decider, signer, quote_id)
+    # Whoever offered the quote sees that the invited person opened it.
+    await quotes.mark_invitation_opened(db, quote.id, signer.email)
     return await signing_view(db, decider, signer, quote, resource)
 
 
-@router.get("/quotes/{quote_id}/document", response_class=HTMLResponse)
+@router.get("/quotes/{quote_id}/document")
 async def signing_document(
     quote_id: UUID,
     signer: CurrentSigner,
     decider: AccessDecider,
     download: bool = Query(default=False),
     db: AsyncSession = Depends(get_db),
-) -> HTMLResponse:
-    """The quote as a print-ready page, for the invited signer."""
+) -> Response:
+    """The quote as a document, for the invited signer: page or PDF."""
     quote, resource = await invited_quote(db, decider, signer, quote_id)
     await require(
         decider,

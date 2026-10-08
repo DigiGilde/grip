@@ -18,6 +18,7 @@ from grip.core.database import async_session, close_db
 from grip.federation.events import register_event_handlers
 from grip.federation.inbox import run_inbox_loop
 from grip.federation.outbox import run_outbox_loop
+from grip.tasks.loop import run_task_loop
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,8 @@ def _loops(settings: Settings) -> list:
         logger.info("FEDERATION_OUTBOUND_ENABLED is off: outbox is not sent")
     if settings.FEDERATION_INBOUND_ENABLED:
         loops.append(run_inbox_loop(async_session, settings))
+    if settings.TASKS_EVALUATE_INTERVAL_SECONDS > 0:
+        loops.append(run_task_loop(async_session, settings))
     return loops
 
 

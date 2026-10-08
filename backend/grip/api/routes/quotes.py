@@ -7,11 +7,12 @@ instance are here (uploaded pdf) and in ``signing`` (signing link).
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, Query, Response, UploadFile, status
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,8 +32,9 @@ from grip.access import (
 )
 from grip.access.deps import AccessDecider, CurrentSubject, require
 from grip.core.auth import CurrentPerson
+from grip.core.config import get_settings
 from grip.core.database import get_db
-from grip.models.quote import Quote
+from grip.models.quote import Quote, QuoteInvitation
 from grip.schema.quotes import (
     AcceptanceOut,
     ChannelOut,
@@ -40,6 +42,7 @@ from grip.schema.quotes import (
     InvitationOut,
     InviteSignerIn,
     IssueQuoteIn,
+    OfferInvitationOut,
     OfferOut,
     OfferQuoteIn,
     QuoteDetailOut,
@@ -53,7 +56,8 @@ from grip.schema.quotes import (
 from grip.services import quote_channels, quote_views, quotes, stored_documents
 from grip.services.assignments import get_assignment
 from grip.services.errors import DomainValidationError, NotFoundError
-from grip.services.quote_document import render_quote_html
+from grip.services.quote_document import render_quote_html, render_quote_pdf
+from grip.services.quote_reference import file_stem
 
 router = APIRouter(tags=["quotes"])
 
@@ -101,6 +105,7 @@ def summary_fields(bundle: quote_views.QuoteBundle) -> dict[str, Any]:
     return {
         "id": quote.id,
         "uri": quote.uri,
+        "reference": quote.reference,
         "assignment_id": quote.assignment_id,
         "status": quote.status,
         "issued_at": quote.issued_at,
@@ -113,8 +118,24 @@ def summary_fields(bundle: quote_views.QuoteBundle) -> dict[str, Any]:
     }
 
 
-async def offer_fields(db: AsyncSession, quote: Quote) -> dict[str, Any]:
-    """The offers of a quote and the channels it can still be offered through."""
+def _invitation_state(invitation: QuoteInvitation, now: datetime) -> str:
+    if invitation.used_at is not None:
+        return "signed"
+    if invitation.withdrawn_at is not None:
+        return "withdrawn"
+    if invitation.expires_at is not None and invitation.expires_at <= now:
+        return "expired"
+    return "opened" if invitation.opened_at is not None else "invited"
+
+
+async def offer_fields(
+    db: AsyncSession, quote: Quote, *, manage: bool = False
+) -> dict[str, Any]:
+    """The offers of a quote and the channels it can still be offered through.
+
+    With ``manage`` the signing link behind an offer comes along, and whom
+    it was for: only whoever manages the assignment gets those.
+    """
     offers = await quotes.offers_of(db, quote.id)
     names = await quote_views.person_names(
         db, {offer.offered_by_id for offer in offers if offer.offered_by_id}
@@ -122,12 +143,41 @@ async def offer_fields(db: AsyncSession, quote: Quote) -> dict[str, Any]:
     delivery = None
     if any(offer.channel == quote_channels.OFFER_CLIENT_INSTANCE for offer in offers):
         delivery = await quote_channels.delivery_state(db, quote.id)
+    invitations = (
+        await quotes.invitations_by_id(
+            db, {offer.invitation_id for offer in offers if offer.invitation_id}
+        )
+        if manage
+        else {}
+    )
+    now = datetime.now(UTC)
+
+    def invitation_of(offer: Any) -> OfferInvitationOut | None:
+        invitation = invitations.get(offer.invitation_id)
+        if invitation is None:
+            return None
+        return OfferInvitationOut(
+            id=invitation.id,
+            signing_path=f"/tekenen/{quote.id}",
+            expires_at=invitation.expires_at,
+            opened_at=invitation.opened_at,
+            used_at=invitation.used_at,
+            withdrawn_at=invitation.withdrawn_at,
+            state=_invitation_state(invitation, now),
+        )
+
+    def recipient_of(offer: Any) -> str | None:
+        # An invited email address is for whoever manages the assignment.
+        if offer.channel == quote_channels.OFFER_SIGNING_LINK and not manage:
+            return None
+        return offer.recipient
+
     return {
         "offers": [
             OfferOut(
                 id=offer.id,
                 channel=offer.channel,
-                recipient=offer.recipient,
+                recipient=recipient_of(offer),
                 offered_at=offer.offered_at,
                 offered_by_name=names.get(offer.offered_by_id)
                 if offer.offered_by_id
@@ -135,6 +185,7 @@ async def offer_fields(db: AsyncSession, quote: Quote) -> dict[str, Any]:
                 delivery=delivery
                 if offer.channel == quote_channels.OFFER_CLIENT_INSTANCE
                 else None,
+                invitation=invitation_of(offer),
             )
             for offer in offers
         ],
@@ -150,13 +201,19 @@ async def offer_fields(db: AsyncSession, quote: Quote) -> dict[str, Any]:
     }
 
 
-async def detail(db: AsyncSession, quote: Quote) -> QuoteDetailOut:
+async def detail(
+    db: AsyncSession, quote: Quote, *, manage: bool = False
+) -> QuoteDetailOut:
     bundle = await quote_views.quote_bundle(db, quote.id)
     return QuoteDetailOut(
         **summary_fields(bundle),
         content=content_from_snapshot(quote.snapshot),
-        **await offer_fields(db, quote),
+        **await offer_fields(db, quote, manage=manage),
     )
+
+
+async def manages(decider: Decider, subject: Subject, resource: Resource) -> bool:
+    return bool(await decide(decider, subject, Action.ISSUE_QUOTE, resource))
 
 
 async def visible_quote(
@@ -219,6 +276,7 @@ async def preview_quote(
         difference_cents=quoted - content.total_cents
         if quoted is not None and content is not None
         else None,
+        default_conditions=get_settings().QUOTE_DEFAULT_CONDITIONS.strip() or None,
     )
     return await filtered(decider, subject, resource, preview)
 
@@ -272,10 +330,11 @@ async def issue_quote(
             actor=person,
             valid_until=body.valid_until,
             conditions=(body.conditions or "").strip() or None,
+            client_reference=body.client_reference,
         )
     except calc.CalcError as exc:
         raise DomainValidationError(quote_views.describe_calc_error(exc)) from exc
-    value = await detail(db, quote)
+    value = await detail(db, quote, manage=True)
     return await filtered(
         decider, subject, Resource.quote(quote.id, assignment_id), value
     )
@@ -290,7 +349,8 @@ async def get_quote(
 ) -> dict[str, Any]:
     """One issued quote with its frozen content and its decision."""
     quote, resource = await visible_quote(db, decider, subject, quote_id)
-    return await filtered(decider, subject, resource, await detail(db, quote))
+    value = await detail(db, quote, manage=await manages(decider, subject, resource))
+    return await filtered(decider, subject, resource, value)
 
 
 @router.post(
@@ -322,18 +382,90 @@ async def offer_quote(
         email=body.email,
         expires_at=body.expires_at,
     )
-    return await filtered(decider, subject, resource, await detail(db, quote))
+    return await filtered(
+        decider, subject, resource, await detail(db, quote, manage=True)
+    )
 
 
-@router.get("/quotes/{quote_id}/document", response_class=HTMLResponse)
+@router.post(
+    "/quotes/{quote_id}/invitations/{invitation_id}/withdraw", response_model=None
+)
+async def withdraw_invitation(
+    quote_id: UUID,
+    invitation_id: UUID,
+    person: CurrentPerson,
+    subject: CurrentSubject,
+    decider: AccessDecider,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Take a signing link back: from now on it opens nothing."""
+    quote, resource = await visible_quote(db, decider, subject, quote_id)
+    await require(decider, subject, Action.ISSUE_QUOTE, resource)
+    await quotes.withdraw_invitation(db, quote.id, invitation_id, actor=person)
+    return await filtered(
+        decider, subject, resource, await detail(db, quote, manage=True)
+    )
+
+
+@router.post(
+    "/quotes/{quote_id}/invitations/{invitation_id}/renew", response_model=None
+)
+async def renew_invitation(
+    quote_id: UUID,
+    invitation_id: UUID,
+    person: CurrentPerson,
+    subject: CurrentSubject,
+    decider: AccessDecider,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Make a signing link work again, for the standard period from now."""
+    quote, resource = await visible_quote(db, decider, subject, quote_id)
+    await require(decider, subject, Action.ISSUE_QUOTE, resource)
+    await quotes.renew_invitation(db, quote.id, invitation_id, actor=person)
+    return await filtered(
+        decider, subject, resource, await detail(db, quote, manage=True)
+    )
+
+
+@router.get("/quote-references", response_model=None)
+async def find_by_reference(
+    subject: CurrentSubject,
+    decider: AccessDecider,
+    q: str = Query(min_length=3, max_length=40),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Find quotes by the reference someone reads out, or a part of it.
+
+    Only quotes the person asking may know of come back.
+    """
+    found = []
+    for quote in await quote_views.quotes_with_reference(db, q):
+        resource = Resource.quote(quote.id, quote.assignment_id)
+        if not await decide(
+            decider, subject, Action.READ, resource, DataClass.ASSIGNMENT_BASIC
+        ):
+            continue
+        bundle = await quote_views.quote_bundle(db, quote.id)
+        found.append(
+            await filtered(
+                decider, subject, resource, QuoteSummaryOut(**summary_fields(bundle))
+            )
+        )
+    return {"quotes": found}
+
+
+@router.get("/quotes/{quote_id}/document")
 async def quote_document(
     quote_id: UUID,
     subject: CurrentSubject,
     decider: AccessDecider,
     download: bool = Query(default=False),
     db: AsyncSession = Depends(get_db),
-) -> HTMLResponse:
-    """The quote as a print-ready page, rendered from the frozen snapshot."""
+) -> Response:
+    """The quote as a document, from its frozen content.
+
+    Without ``download`` the page a browser shows; with it the PDF file.
+    """
     quote, resource = await visible_quote(db, decider, subject, quote_id)
     await require(
         decider, subject, Action.READ, resource, DataClass.ASSIGNMENT_FINANCIAL
@@ -343,14 +475,23 @@ async def quote_document(
 
 async def document_response(
     db: AsyncSession, quote: Quote, *, download: bool
-) -> HTMLResponse:
+) -> Response:
     context = await quote_views.document_context(db, quote)
-    headers = dict(DOCUMENT_HEADERS)
-    if download:
-        headers["Content-Disposition"] = (
-            f'attachment; filename="offerte-{quote.issued_at:%Y%m%d}-{quote.id}.html"'
+    if not download:
+        return HTMLResponse(
+            render_quote_html(quote.snapshot, context), headers=dict(DOCUMENT_HEADERS)
         )
-    return HTMLResponse(render_quote_html(quote.snapshot, context), headers=headers)
+    # Laying out a page takes a moment; keep the event loop free meanwhile.
+    pdf = await run_in_threadpool(render_quote_pdf, quote.snapshot, context)
+    stem = file_stem(quote.reference, f"{quote.issued_at:%Y%m%d}-{quote.id}")
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="offerte-{stem}.pdf"',
+            "Cache-Control": "private, no-store",
+        },
+    )
 
 
 @router.get("/quotes/{quote_id}/invitations", response_model=None)

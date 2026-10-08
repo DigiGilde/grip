@@ -12,7 +12,7 @@ hash, which the database ties to the stored bytes.
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 from uuid import UUID
@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip import calc
 from grip.core.audit import CREATE, UPDATE, record_audit
+from grip.core.config import get_settings
 from grip.models.assignment import Assignment
 from grip.models.organisation import Organisation
 from grip.models.person import Person
@@ -64,6 +65,7 @@ from grip.services.pricing import (
     to_calc_line,
 )
 from grip.services.quote_content import QuoteLineSource, check_content, line_source
+from grip.services.quote_reference import next_reference
 
 CURRENCY = "EUR"
 
@@ -94,6 +96,9 @@ def _snapshot_line(
             entry["role"] = line.role
         entry["fte"] = _decimal_text(line.fte)
         entry["rate_category"] = line.rate_category
+        scales = _scales_of(rates, line.start_date.year, line.rate_category)
+        if scales:
+            entry["scales"] = scales
         entry["period"] = {
             "start_date": line.start_date.isoformat(),
             "end_date": line.end_date.isoformat(),
@@ -119,12 +124,37 @@ def _snapshot_line(
     return entry
 
 
+def _scales_of(rates: calc.RateBook, year: int, category: str | None) -> list[int]:
+    """The scales that bill in this category in this year, in order."""
+    try:
+        card = rates.card(year)
+    except calc.CalcError:
+        return []
+    return sorted(band.scale for band in card.scale_bands if band.category == category)
+
+
+async def sender_name(session: AsyncSession, assignment: Assignment) -> str:
+    """The organisation a quote is sent by: never the name of the software."""
+    settings = get_settings()
+    if settings.ORGANISATION_NAME.strip():
+        return settings.ORGANISATION_NAME.strip()
+    if assignment.contractor_organisation_id is not None:
+        contractor = await session.get(
+            Organisation, assignment.contractor_organisation_id
+        )
+        if contractor is not None:
+            return contractor.name
+    return settings.INSTANCE_NAME
+
+
 async def build_snapshot(
     session: AsyncSession,
     assignment: Assignment,
     *,
     valid_until: date | None = None,
     conditions: str | None = None,
+    reference: str | None = None,
+    client_reference: str | None = None,
     options: PricingOptions = DEFAULT_OPTIONS,
 ) -> dict[str, Any]:
     """The content of a quote as it would be issued now.
@@ -161,6 +191,12 @@ async def build_snapshot(
         snapshot["valid_until"] = valid_until.isoformat()
     if conditions:
         snapshot["conditions"] = conditions
+    snapshot["sender"] = await sender_name(session, assignment)
+    # A preview has no reference yet: it is given out when the quote is issued.
+    if reference:
+        snapshot["reference"] = reference
+    if client_reference and client_reference.strip():
+        snapshot["client_reference"] = client_reference.strip()
     return check_content(snapshot)
 
 
@@ -195,6 +231,7 @@ async def issue_quote(
     conditions: str | None = None,
     request_id: UUID | None = None,
     issued_at: datetime | None = None,
+    client_reference: str | None = None,
     options: PricingOptions = DEFAULT_OPTIONS,
 ) -> Quote:
     """Issue a quote for an assignment: freeze the budget as it is now.
@@ -211,22 +248,38 @@ async def issue_quote(
             f"Voor een opdracht met status '{assignment.status}' kan geen offerte "
             "meer worden uitgegeven."
         )
+    issued_at = issued_at or datetime.now(UTC)
+    # Build once without a reference first: a quote that cannot be built
+    # (no lines, no rate card) must not use up a number.
+    await build_snapshot(
+        session,
+        assignment,
+        valid_until=valid_until,
+        conditions=conditions,
+        client_reference=client_reference,
+        options=options,
+    )
+    # The reference is given out inside this transaction and becomes part of
+    # the frozen content, so it is covered by the hash.
+    reference = await next_reference(session, issued_at.year)
     snapshot = await build_snapshot(
         session,
         assignment,
         valid_until=valid_until,
         conditions=conditions,
+        reference=reference,
+        client_reference=client_reference,
         options=options,
     )
     await _supersede_open_quotes(session, assignment_id)
     quote_id = uuid.uuid4()
-    issued_at = issued_at or datetime.now(UTC)
     # The one moment the canonical form is made. From here on the bytes are
     # the quote; the working data they were built from may change freely.
     canonical = canonical_form(snapshot)
     quote = Quote(
         id=quote_id,
         uri=mint_uri("offerte", quote_id),
+        reference=reference,
         assignment_id=assignment_id,
         request_id=request_id,
         status="issued",
@@ -251,6 +304,7 @@ async def issue_quote(
             "assignment_id": str(assignment_id),
             "snapshot_hash": quote.snapshot_hash,
             "total_cents": quote.total_cents,
+            "reference": reference,
         },
     )
     await events.emit(
@@ -259,6 +313,7 @@ async def issue_quote(
         {
             "quote_id": str(quote.id),
             "quote_uri": quote.uri,
+            "quote_reference": reference,
             "assignment_id": str(assignment.id),
             "assignment_uri": assignment.uri,
             "request_id": str(request_id) if request_id else None,
@@ -312,9 +367,12 @@ async def receive_quote(
         ) from exc
     assignment = await get_assignment(session, assignment_id)
     await _supersede_open_quotes(session, assignment_id)
+    # The issuing instance's reference, when its quote carries one.
+    received_reference = read(canonical).get("reference")
     quote = Quote(
         id=quote_id,
         uri=uri,
+        reference=received_reference if isinstance(received_reference, str) else None,
         assignment_id=assignment_id,
         request_id=request_id,
         status="issued",
@@ -330,6 +388,102 @@ async def receive_quote(
     if assignment.status != "quoted":
         await transition(session, assignment_id, "quoted", actor=None, origin="remote")
     return quote
+
+
+# How long a signing link works when nobody says otherwise.
+INVITATION_DAYS = 30
+
+
+def default_invitation_expiry(now: datetime | None = None) -> datetime:
+    return (now or datetime.now(UTC)) + timedelta(days=INVITATION_DAYS)
+
+
+async def get_invitation(
+    session: AsyncSession, quote_id: UUID, invitation_id: UUID
+) -> QuoteInvitation:
+    invitation = await session.get(QuoteInvitation, invitation_id)
+    if invitation is None or invitation.quote_id != quote_id:
+        raise NotFoundError("Uitnodiging", invitation_id)
+    return invitation
+
+
+async def withdraw_invitation(
+    session: AsyncSession, quote_id: UUID, invitation_id: UUID, *, actor: Person | None
+) -> QuoteInvitation:
+    """Take a signing link back: from now on it opens nothing."""
+    invitation = await get_invitation(session, quote_id, invitation_id)
+    if invitation.used_at is not None:
+        raise DomainValidationError(
+            "Met deze tekenlink is al getekend; intrekken kan niet meer."
+        )
+    if invitation.withdrawn_at is None:
+        invitation.withdrawn_at = datetime.now(UTC)
+        invitation.withdrawn_by_id = actor.id if actor is not None else None
+        await session.flush()
+        record_audit(
+            session,
+            actor=actor,
+            action=UPDATE,
+            entity="quote_invitation",
+            entity_id=invitation.id,
+            old_value={"withdrawn": False},
+            new_value={"withdrawn": True},
+        )
+    return invitation
+
+
+async def renew_invitation(
+    session: AsyncSession, quote_id: UUID, invitation_id: UUID, *, actor: Person | None
+) -> QuoteInvitation:
+    """Make a signing link work again for the standard period from now."""
+    invitation = await get_invitation(session, quote_id, invitation_id)
+    quote = await get_quote(session, quote_id)
+    if quote.status != "issued":
+        raise QuoteAlreadyDecidedError(quote.status)
+    old = invitation.expires_at
+    invitation.expires_at = default_invitation_expiry()
+    invitation.withdrawn_at = None
+    invitation.withdrawn_by_id = None
+    await session.flush()
+    record_audit(
+        session,
+        actor=actor,
+        action=UPDATE,
+        entity="quote_invitation",
+        entity_id=invitation.id,
+        old_value={"expires_at": old.isoformat() if old else None},
+        new_value={"expires_at": invitation.expires_at.isoformat()},
+    )
+    return invitation
+
+
+async def mark_invitation_opened(
+    session: AsyncSession, quote_id: UUID, email: str
+) -> None:
+    """Remember the first time the invited person opened the quote."""
+    result = await session.execute(
+        select(QuoteInvitation).where(
+            QuoteInvitation.quote_id == quote_id,
+            func.lower(QuoteInvitation.email) == email.strip().lower(),
+            QuoteInvitation.opened_at.is_(None),
+            QuoteInvitation.withdrawn_at.is_(None),
+        )
+    )
+    invitation = result.scalar_one_or_none()
+    if invitation is not None:
+        invitation.opened_at = datetime.now(UTC)
+        await session.flush()
+
+
+async def invitations_by_id(
+    session: AsyncSession, invitation_ids: set[UUID]
+) -> dict[UUID, QuoteInvitation]:
+    if not invitation_ids:
+        return {}
+    result = await session.execute(
+        select(QuoteInvitation).where(QuoteInvitation.id.in_(invitation_ids))
+    )
+    return {invitation.id: invitation for invitation in result.scalars()}
 
 
 async def invite_signer(
@@ -355,8 +509,13 @@ async def invite_signer(
         )
     )
     invitation = result.scalar_one_or_none()
+    expires_at = expires_at or default_invitation_expiry()
     if invitation is not None:
+        # Inviting the same person again renews the invitation, also after
+        # it was withdrawn.
         invitation.expires_at = expires_at
+        invitation.withdrawn_at = None
+        invitation.withdrawn_by_id = None
         await session.flush()
         return invitation
     invitation = QuoteInvitation(
@@ -586,6 +745,8 @@ async def _open_invitation(
         raise DomainValidationError(
             "Voor dit e-mailadres is geen uitnodiging om deze offerte te tekenen."
         )
+    if invitation.withdrawn_at is not None:
+        raise DomainValidationError("De uitnodiging om te tekenen is ingetrokken.")
     if invitation.expires_at is not None and invitation.expires_at < at:
         raise DomainValidationError("De uitnodiging om te tekenen is verlopen.")
     return invitation

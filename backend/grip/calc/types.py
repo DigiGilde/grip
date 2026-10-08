@@ -39,22 +39,30 @@ class MissingPeriodError(InvalidInputError):
 
 
 class MissingRateCardError(CalcError):
-    def __init__(self, year: int) -> None:
-        super().__init__(f"no usable rate card for {year}")
-        self.year = year
+    """No rate card that prices is valid in a month.
+
+    A gap between cards is allowed to exist; pricing a month in it is an
+    error, never zero.
+    """
+
+    def __init__(self, month: Month | int) -> None:
+        super().__init__(f"no usable rate card for {month}")
+        # ``month`` is None only for callers that still ask per year.
+        self.month = month if isinstance(month, Month) else None
+        self.year = month.year if isinstance(month, Month) else month
 
 
 class MissingRateError(CalcError):
-    def __init__(self, year: int, category: str) -> None:
-        super().__init__(f"rate card {year} has no rate for category {category}")
-        self.year = year
+    def __init__(self, card: str, category: str) -> None:
+        super().__init__(f"rate card {card} has no rate for category {category}")
+        self.card = card
         self.category = category
 
 
 class MissingScaleBandError(CalcError):
-    def __init__(self, year: int, scale: int) -> None:
-        super().__init__(f"rate card {year} maps scale {scale} to no category")
-        self.year = year
+    def __init__(self, card: str, scale: int) -> None:
+        super().__init__(f"rate card {card} maps scale {scale} to no category")
+        self.card = card
         self.scale = scale
 
 
@@ -120,40 +128,104 @@ class ScaleBand:
 
 @dataclass(frozen=True)
 class RateCard:
-    year: int
+    """The rates and the scale mapping valid for a period.
+
+    A card starts on the first day of a month and ends on the last day of a
+    month (or has no end), so every calendar month is priced by one card.
+    """
+
+    valid_from: date
+    valid_to: date | None
     status: RateCardStatus
     rate_bands: tuple[RateBand, ...]
     scale_bands: tuple[ScaleBand, ...]
+    name: str = ""
+    id: str = ""
+
+    def __post_init__(self) -> None:
+        if self.valid_from.day != 1:
+            raise InvalidInputError("a rate card starts on the first day of a month")
+        if self.valid_to is not None:
+            if self.valid_to < self.valid_from:
+                raise InvalidInputError("a rate card ends after it starts")
+            if self.valid_to != Month.of(self.valid_to).last_day:
+                raise InvalidInputError("a rate card ends on the last day of a month")
+
+    @classmethod
+    def for_year(
+        cls,
+        year: int,
+        status: RateCardStatus,
+        rate_bands: tuple[RateBand, ...],
+        scale_bands: tuple[ScaleBand, ...],
+    ) -> RateCard:
+        """A card that happens to span one calendar year."""
+        return cls(
+            valid_from=date(year, 1, 1),
+            valid_to=date(year, 12, 31),
+            status=status,
+            rate_bands=rate_bands,
+            scale_bands=scale_bands,
+            name=str(year),
+        )
+
+    @property
+    def label(self) -> str:
+        return self.name or f"from {self.valid_from.isoformat()}"
+
+    def covers(self, month: Month) -> bool:
+        return self.valid_from <= month.first_day and (
+            self.valid_to is None or self.valid_to >= month.last_day
+        )
+
+
+def _as_month(when: Month | date | int) -> Month:
+    if isinstance(when, Month):
+        return when
+    if isinstance(when, date):
+        return Month.of(when)
+    # A bare year, from callers of before cards had a validity: January.
+    return Month(when, 1)
 
 
 @dataclass(frozen=True)
 class RateBook:
-    """All rate cards. Active and closed cards price; a draft does not,
-    unless include_draft is set (for budgeting a year that is not open yet)."""
+    """All rate cards. A month is priced by the card valid in it.
+
+    Active and closed cards price. A draft does not, unless include_draft is
+    set (for budgeting a period whose card is not active yet), and then only
+    in a month no other card covers.
+    """
 
     cards: tuple[RateCard, ...]
     include_draft: bool = False
 
-    def card(self, year: int) -> RateCard:
+    def card(self, when: Month | date | int) -> RateCard:
+        month = _as_month(when)
+        draft: RateCard | None = None
         for card in self.cards:
-            if card.year != year:
+            if not card.covers(month):
                 continue
-            if card.status is RateCardStatus.DRAFT and not self.include_draft:
-                continue
-            return card
-        raise MissingRateCardError(year)
+            if card.status is not RateCardStatus.DRAFT:
+                return card
+            draft = draft or card
+        if draft is not None and self.include_draft:
+            return draft
+        raise MissingRateCardError(month if not isinstance(when, int) else when)
 
-    def monthly_rate_cents(self, year: int, category: str) -> int:
-        for band in self.card(year).rate_bands:
+    def monthly_rate_cents(self, when: Month | date | int, category: str) -> int:
+        card = self.card(when)
+        for band in card.rate_bands:
             if band.category == category:
                 return band.monthly_rate_cents
-        raise MissingRateError(year, category)
+        raise MissingRateError(card.label, category)
 
-    def category_for_scale(self, year: int, scale: int) -> str:
-        for band in self.card(year).scale_bands:
+    def category_for_scale(self, when: Month | date | int, scale: int) -> str:
+        card = self.card(when)
+        for band in card.scale_bands:
             if band.scale == scale:
                 return band.category
-        raise MissingScaleBandError(year, scale)
+        raise MissingScaleBandError(card.label, scale)
 
 
 @dataclass(frozen=True)

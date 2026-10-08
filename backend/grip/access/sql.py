@@ -155,6 +155,7 @@ class SqlRelationSource:
         now = datetime.now(UTC)
         query = select(QuoteInvitation.id).where(
             QuoteInvitation.quote_id == quote_id,
+            QuoteInvitation.withdrawn_at.is_(None),
             or_(*identity),
             or_(QuoteInvitation.expires_at.is_(None), QuoteInvitation.expires_at > now),
         )

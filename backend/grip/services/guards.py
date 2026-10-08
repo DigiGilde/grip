@@ -14,29 +14,43 @@ from grip.calc import Month
 from grip.repositories.domain import MonthCloseRepository, RateRepository
 from grip.services.errors import ClosedYearError, MonthClosedError
 
+Span = tuple[date, date]
 
-def years_between(start: date | None, end: date | None) -> set[int]:
+
+def years_between(start: date | None, end: date | None) -> set[Any]:
+    """The period between two dates, as what ``ensure_years_open`` checks.
+
+    The name dates from when a rate card was a calendar year and a period
+    was checked per year. It now returns the period itself.
+    """
     if start is None and end is None:
         return set()
     first = start or end
     last = end or start
     assert first is not None and last is not None
-    return set(range(first.year, last.year + 1))
+    return {(first, last)}
 
 
 async def ensure_years_open(
-    session: AsyncSession, years: Iterable[int], *, allow_closed_year: bool
-) -> list[int]:
-    """Refuse a change that touches a closed year, unless the caller allows it.
+    session: AsyncSession, years: Iterable[Any], *, allow_closed_year: bool
+) -> list[str]:
+    """Refuse a change in a period priced by a closed rate card, unless the
+    caller allows it.
 
-    Returns the closed years the change touches, so the caller can put them
-    in the audit row. Only a caller that has checked the function beheerder
-    may pass ``allow_closed_year=True``.
+    ``years`` holds periods (from ``years_between``) and, for a fixed budget
+    line or an older caller, bare years. Returns the names of the closed
+    cards the change touches, so the caller can put them in the audit row.
+    Only a caller that has checked the function beheerder may pass
+    ``allow_closed_year=True``.
     """
-    closed = await RateRepository(session).closed_years(years)
+    spans = [
+        (date(item, 1, 1), date(item, 12, 31)) if isinstance(item, int) else item
+        for item in years
+    ]
+    closed = await RateRepository(session).closed_touching(spans)
     if closed and not allow_closed_year:
-        raise ClosedYearError(closed[0])
-    return closed
+        raise ClosedYearError(closed[0].valid_from.year, closed[0].name)
+    return [card.name for card in closed]
 
 
 def _covers(period: tuple[date, date] | None, month: date) -> bool:

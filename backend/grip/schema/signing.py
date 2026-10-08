@@ -22,6 +22,7 @@ B = in_class(DataClass.ASSIGNMENT_FINANCIAL)
 class SigningQuoteOut(BaseModel):
     id: Annotated[UUID, A]
     uri: Annotated[str, A]
+    reference: Annotated[str | None, A] = None
     status: Annotated[str, A]
     issued_at: Annotated[datetime, A]
     contractor_name: Annotated[str, A]
@@ -34,6 +35,7 @@ class SigningQuoteOut(BaseModel):
 
 class SigningInvitationOut(BaseModel):
     quote_id: Annotated[UUID, A]
+    reference: Annotated[str | None, A] = None
     assignment_name: Annotated[str, A]
     status: Annotated[str, A]
     issued_at: Annotated[datetime, A]

@@ -165,6 +165,8 @@ export interface Derivation {
   summary?: string[];
   role?: string | null;
   role_source_text?: string | null;
+  /** More than one role is known for the person: the user picks. */
+  role_alternatives?: { role: string }[];
   start_date: string | null;
   end_date: string | null;
   /** The period is a proposal and was not sent by the form. */

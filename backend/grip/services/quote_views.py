@@ -17,14 +17,16 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip import calc
-from grip.core.config import get_settings
 from grip.models.assignment import Assignment
 from grip.models.organisation import Organisation
 from grip.models.person import Person
 from grip.models.quote import Quote, QuoteAcceptance, QuoteInvitation, QuoteRejection
 from grip.services import quotes, stored_documents
 from grip.services.errors import DomainValidationError, NotFoundError
-from grip.services.quote_document import QuoteDocumentContext
+from grip.services.quote_document import (
+    QuoteDocumentContext,
+    letterhead_from_settings,
+)
 
 ISSUABLE_STATUSES = ("draft", "requested", "quoted", "rejected")
 
@@ -141,6 +143,7 @@ async def invited_quotes(
         .join(Assignment, Assignment.id == Quote.assignment_id)
         .where(
             func.lower(QuoteInvitation.email) == email.strip().lower(),
+            QuoteInvitation.withdrawn_at.is_(None),
             or_(
                 QuoteInvitation.expires_at.is_(None),
                 QuoteInvitation.expires_at > now,
@@ -194,18 +197,37 @@ async def document_context(session: AsyncSession, quote: Quote) -> QuoteDocument
     assignment = await session.get(Assignment, quote.assignment_id)
     if assignment is None:
         raise NotFoundError("Opdracht", quote.assignment_id)
-    contractor = await _organisation(session, assignment.contractor_organisation_id)
     client = await _organisation(session, assignment.client_organisation_id)
     return QuoteDocumentContext(
         quote_uri=quote.uri,
         snapshot_hash=quote.snapshot_hash,
         issued_at=quote.issued_at,
-        contractor_name=contractor.name
-        if contractor is not None
-        else get_settings().INSTANCE_NAME,
+        # Only for a quote from before the sender was part of its content.
+        contractor_name=await quotes.sender_name(session, assignment),
         client_name=client.name if client is not None else None,
         client_contact=assignment.client_contact,
+        reference=quote.reference,
+        letterhead=letterhead_from_settings(),
     )
+
+
+async def quotes_with_reference(session: AsyncSession, reference: str) -> list[Quote]:
+    """Quotes whose reference contains this text, newest first.
+
+    For finding a quote by the number someone reads out. Matches without
+    regard to case, and also on a part such as "0007".
+    """
+    wanted = reference.strip()
+    if len(wanted) < 3:
+        return []
+    escaped = wanted.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    result = await session.execute(
+        select(Quote)
+        .where(Quote.reference.ilike(f"%{escaped}%", escape="\\"))
+        .order_by(Quote.issued_at.desc())
+        .limit(50)
+    )
+    return list(result.scalars())
 
 
 async def accept_with_uploaded_pdf(

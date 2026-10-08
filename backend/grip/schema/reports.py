@@ -239,6 +239,13 @@ class PersonOccupancyOut(BaseModel):
     # Mean over the months the person was available.
     average_pct: Annotated[Decimal | None, C]
     over_months: Annotated[list[str], C]
+    # Allocated this month, whatever year is on screen. Null when the
+    # person cannot be deployed this month.
+    now_pct: Annotated[Decimal | None, C]
+    # Counted by the figure "zonder inzet de komende drie maanden".
+    idle_ahead: Annotated[bool, C]
+    # The last day of inzet on any assignment; null without any.
+    last_inzet_end: Annotated[date | None, C]
     cells: Annotated[list[OccupancyCellOut], nested()]
 
 

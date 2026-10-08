@@ -31,6 +31,7 @@ from grip.api.routes.reports import router as reports_router
 from grip.api.routes.signing import router as signing_router
 from grip.api.routes.vacancies import router as vacancies_router
 from grip.api.routes.vacancy_hire import router as vacancy_hire_router
+from grip.api.routes.tasks import router as tasks_router
 
 api_router = APIRouter()
 api_router.include_router(health_router)
@@ -64,3 +65,4 @@ api_router.include_router(reports_router)
 api_router.include_router(function_framework_router)
 api_router.include_router(catalogue_roles_router)
 api_router.include_router(person_roles_router)
+api_router.include_router(tasks_router)

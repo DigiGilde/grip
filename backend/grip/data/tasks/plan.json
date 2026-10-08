@@ -1,0 +1,235 @@
+{
+  "version": "2026.1",
+  "description": "Het meegeleverde plan. Een taak ontstaat als alles onder 'when' waar is en sluit zodra het feit onder 'done_when' waar is. Namen van onderwerpen ('for'), feiten en rollen komen uit de catalogus in grip/tasks/catalogue.py; het plan kan er geen bedenken.",
+  "case_kinds": {
+    "assignment": {
+      "tracks": [
+        {"key": "offerte", "label": "Offerte"},
+        {"key": "bemensing", "label": "Bemensing"},
+        {"key": "uitvoering", "label": "Uitvoering"},
+        {"key": "financien", "label": "Financiën"}
+      ],
+      "templates": [
+        {
+          "key": "offerte.aanvraag_uitwerken",
+          "track": "offerte",
+          "title": "Werk de aanvraag uit: maak de begroting",
+          "for": "case",
+          "when": ["contractor", "external", "potential"],
+          "done_when": "budget_has_line",
+          "assignee": "owner",
+          "link": "/opdrachten/{assignment_id}/begroting"
+        },
+        {
+          "key": "offerte.opstellen",
+          "track": "offerte",
+          "title": "Stel de offerte op",
+          "for": "quote_round",
+          "when": ["contractor", "external", "potential", "budget_has_line"],
+          "done_when": "quote_issued",
+          "assignee": "owner",
+          "link": "/opdrachten/{assignment_id}/offerte"
+        },
+        {
+          "key": "offerte.aanbieden",
+          "track": "offerte",
+          "title": "Bied de offerte aan",
+          "for": "quote_round",
+          "when": ["contractor", "external", "potential", "quote_issued"],
+          "done_when": "quote_offered",
+          "assignee": "owner",
+          "link": "/opdrachten/{assignment_id}/offerte"
+        },
+        {
+          "key": "offerte.wacht_op_akkoord",
+          "track": "offerte",
+          "title": "Wacht op akkoord van de opdrachtgever",
+          "for": "quote_round",
+          "when": ["contractor", "external", "potential", "quote_offered"],
+          "done_when": "quote_accepted",
+          "assignee": "owner",
+          "waiting_on": "de opdrachtgever",
+          "link": "/opdrachten/{assignment_id}/offerte"
+        },
+        {
+          "key": "offerte.reactie_verwerken",
+          "track": "offerte",
+          "title": "Verwerk de reactie van de opdrachtgever in een nieuwe offerte",
+          "for": "rejected_quote",
+          "when": ["contractor", "potential"],
+          "done_when": "quote_superseded",
+          "assignee": "owner",
+          "link": "/opdrachten/{assignment_id}/offerte"
+        },
+        {
+          "key": "offerte.beoordelen_en_tekenen",
+          "track": "offerte",
+          "title": "Beoordeel en teken de ontvangen offerte",
+          "for": "received_quote",
+          "when": ["client"],
+          "done_when": "quote_decided",
+          "assignee": "tekenbevoegde",
+          "link": "/aanvragen/offerte/{subject_id}"
+        },
+        {
+          "key": "bemensing.rol_invullen",
+          "track": "bemensing",
+          "title": "Vul de rol {rol} in",
+          "for": "open_role",
+          "when": ["contractor", "not closed"],
+          "done_when": "role_staffed",
+          "assignee": "planner",
+          "link": "/opdrachten/{assignment_id}/bemensing"
+        },
+        {
+          "key": "uitvoering.starten",
+          "track": "uitvoering",
+          "title": "Zet de opdracht in uitvoering",
+          "for": "case",
+          "when": ["contractor", "agreed"],
+          "done_when": "started",
+          "assignee": "owner",
+          "link": "/opdrachten/{assignment_id}"
+        },
+        {
+          "key": "uitvoering.maand_afsluiten",
+          "track": "uitvoering",
+          "title": "Sluit {maand} af",
+          "for": "month_to_close",
+          "only_first": true,
+          "when": ["contractor", "may_close_months"],
+          "done_when": "month_closed",
+          "assignee": "manager",
+          "due": {"working_days": 5, "after": "month_end"},
+          "link": "/opdrachten/{assignment_id}/maandafsluiting?maand={repeat_key}"
+        },
+        {
+          "key": "uitvoering.eindrapport",
+          "track": "uitvoering",
+          "title": "Lever het eindrapport op",
+          "for": "case",
+          "when": ["contractor", "external", "completed"],
+          "done_when": "final_report_issued",
+          "assignee": "owner",
+          "link": "/rapportage/opdrachten/{assignment_id}"
+        },
+        {
+          "key": "financien.factuurgegevens_aanleveren",
+          "track": "financien",
+          "title": "Lever de factuurgegevens van {maand} aan",
+          "for": "closed_month",
+          "only_first": true,
+          "when": ["contractor", "external", "may_bill"],
+          "done_when": "billing_delivered",
+          "assignee": "manager",
+          "due": {"working_days": 5, "after": "closed_on"},
+          "link": "/opdrachten/{assignment_id}/maandafsluiting?maand={repeat_key}"
+        },
+        {
+          "key": "financien.factuur_vastleggen",
+          "track": "financien",
+          "title": "Leg vast dat de factuur over {maand} is verstuurd",
+          "for": "closed_month",
+          "only_first": true,
+          "when": ["contractor", "external", "may_bill", "billing_delivered"],
+          "done_when": "invoice_recorded",
+          "assignee": "manager",
+          "due": {"working_days": 10, "after": "delivered_on"},
+          "link": "/opdrachten/{assignment_id}/maandafsluiting?maand={repeat_key}"
+        }
+      ]
+    },
+    "vacancy": {
+      "tracks": [{"key": "werving", "label": "Werving"}],
+      "templates": [
+        {
+          "key": "werving.aanvraag_voorbereiden",
+          "track": "werving",
+          "title": "Bereid de aanvraag voor en dien haar in",
+          "for": "case",
+          "when": ["draft"],
+          "done_when": "requested",
+          "assignee": "requester",
+          "link": "/vacatures/{vacancy_id}"
+        },
+        {
+          "key": "werving.advies_hr",
+          "track": "werving",
+          "title": "Geef advies van HR op de vacature",
+          "for": "case",
+          "when": ["in_procedure"],
+          "done_when": "hr_advice_given",
+          "assignee": "decision:hr_advice",
+          "waiting_on": "de HR-adviseur",
+          "due": {"working_days": 5, "after": "requested_on"},
+          "link": "/vacatures/{vacancy_id}/advies"
+        },
+        {
+          "key": "werving.advies_control",
+          "track": "werving",
+          "title": "Geef advies van concern control op de vacature",
+          "for": "case",
+          "when": ["in_procedure"],
+          "done_when": "control_advice_given",
+          "assignee": "decision:control_advice",
+          "waiting_on": "de controller",
+          "due": {"working_days": 5, "after": "requested_on"},
+          "link": "/vacatures/{vacancy_id}/advies"
+        },
+        {
+          "key": "werving.akkoord",
+          "track": "werving",
+          "title": "Geef akkoord op de vacature",
+          "for": "case",
+          "when": ["in_procedure", "advices_given"],
+          "done_when": "approval_given",
+          "assignee": "decision:approval",
+          "waiting_on": "wie akkoord moet geven",
+          "link": "/vacatures/{vacancy_id}/advies"
+        },
+        {
+          "key": "werving.openstellen",
+          "track": "werving",
+          "title": "Stel de vacature open",
+          "for": "case",
+          "when": ["approved", "needs_opening"],
+          "done_when": "opened",
+          "assignee": "requester",
+          "link": "/vacatures/{vacancy_id}/procedure"
+        },
+        {
+          "key": "werving.vervullen",
+          "track": "werving",
+          "title": "Vervul de vacature: leg vast wie is aangenomen",
+          "for": "case",
+          "when": ["ready_to_fill"],
+          "done_when": "hire_recorded",
+          "assignee": "requester",
+          "link": "/vacatures/{vacancy_id}/vervulling"
+        },
+        {
+          "key": "werving.collega_voorstellen",
+          "track": "werving",
+          "title": "Stel de nieuwe collega voor aan Wies",
+          "for": "case",
+          "when": ["hire_recorded"],
+          "done_when": "colleague_known_in_wies",
+          "manual": true,
+          "assignee": "requester",
+          "link": "/vacatures/{vacancy_id}/vervulling"
+        },
+        {
+          "key": "werving.account_aanvragen",
+          "track": "werving",
+          "title": "Vraag een account en e-mailadres aan voor de nieuwe collega",
+          "for": "case",
+          "when": ["hire_recorded"],
+          "done_when": "colleague_has_email",
+          "manual": true,
+          "assignee": "requester",
+          "link": "/vacatures/{vacancy_id}/vervulling"
+        }
+      ]
+    }
+  }
+}

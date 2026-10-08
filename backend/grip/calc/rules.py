@@ -117,7 +117,7 @@ def rate_category(
     scale = billing_scale(scales, person_id, first, last)
     if scale is None:
         raise MissingPersonScaleError(person_id, first)
-    return rates.category_for_scale(month.year, scale)
+    return rates.category_for_scale(month, scale)
 
 
 def person_monthly_rate(
@@ -125,7 +125,7 @@ def person_monthly_rate(
 ) -> int:
     """R1: monthly rate in cents of a person in a month."""
     category = rate_category(rates, scales, person_id, month)
-    return rates.monthly_rate_cents(month.year, category)
+    return rates.monthly_rate_cents(month, category)
 
 
 # R2, R3
@@ -179,7 +179,7 @@ def allocation_months(
         category = rate_category(
             rates, scales, allocation.person_id, month, start=first, end=last
         )
-        rate_cents = rates.monthly_rate_cents(month.year, category)
+        rate_cents = rates.monthly_rate_cents(month, category)
         if actual is not None:
             amounts.append(
                 _month_amount(
@@ -262,7 +262,7 @@ def budget_line_months(
             fte_pct,
             fraction,
             category,
-            rates.monthly_rate_cents(month.year, category),
+            rates.monthly_rate_cents(month, category),
             AmountSource.PLANNED,
         )
         for month, fraction in month_fractions(start, end, partial_months)
@@ -538,8 +538,8 @@ def kpi_target(
         scale = billing_scale(scales, target.person_id, month.first_day, month.last_day)
         if scale is None:
             continue
-        category = rates.category_for_scale(month.year, scale)
-        year_rate += rates.monthly_rate_cents(month.year, category)
+        category = rates.category_for_scale(month, scale)
+        year_rate += rates.monthly_rate_cents(month, category)
     return round_cents(_exact(target.target_pct) / _HUNDRED * year_rate)
 
 
@@ -576,8 +576,8 @@ def category_mismatches(
                 run = None
             if category == line_category:
                 continue
-            person_rate = rates.monthly_rate_cents(month.year, category)
-            line_rate = rates.monthly_rate_cents(month.year, line_category)
+            person_rate = rates.monthly_rate_cents(month, category)
+            line_rate = rates.monthly_rate_cents(month, line_category)
             if person_rate > line_rate:
                 direction = MismatchDirection.OVERRUN
             elif person_rate < line_rate:
@@ -637,7 +637,7 @@ def closed_month_amount(
         allocation.fte_pct,
         Fraction(0),
         category,
-        rates.monthly_rate_cents(month.year, category),
+        rates.monthly_rate_cents(month, category),
         AmountSource.PLANNED,
     )
 
