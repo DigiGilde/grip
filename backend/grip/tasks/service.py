@@ -24,9 +24,15 @@ from grip.models.person import Person
 from grip.models.task import OPEN_STATUSES, Task, TaskCase, TaskNote
 from grip.models.vacancy import Vacancy
 from grip.services.errors import DomainValidationError, NotFoundError
+from grip.tasks import access as task_access
 from grip.tasks import catalogue, telling
 from grip.tasks.access import TaskAccess
 from grip.tasks.plan import Plan, current_plan, plan_for
+
+SEPARATED = (
+    "Deze stap is van wie erover beslist. Hij kan niet worden overgenomen of "
+    "aan een ander gegeven."
+)
 
 # What a person may set a status to. "obsolete" is for a manual task only.
 _HUMAN_STATUSES = ("todo", "doing", "waiting", "done", "obsolete")
@@ -48,6 +54,9 @@ class TaskView:
     completed_by_name: str | None
     is_mine: bool
     can_change: bool
+    # The reader holds what the step asks for and may do it for the one at
+    # move; never a step where someone else must decide.
+    can_take_over: bool
     can_complete: bool
     closes_by_fact: bool
     closing_fact_label: str | None
@@ -196,6 +205,7 @@ async def _views(
                 else None,
                 is_mine=mine,
                 can_change=can_change,
+                can_take_over=not mine and await access.may_take_over(task),
                 can_complete=can_change and not fact_only,
                 closes_by_fact=fact_only,
                 closing_fact_label=catalogue.FACT_LABELS.get(task.closing_fact or "")
@@ -600,6 +610,8 @@ async def assign(
     db: AsyncSession, task: Task, person_id: UUID | None, *, actor: Person
 ) -> Task:
     """Hand a task to a person, or back to the role the plan gave it."""
+    if person_id is not None and task_access.separated(task):
+        raise DomainValidationError(SEPARATED)
     if person_id is not None and await db.get(Person, person_id) is None:
         raise NotFoundError("Persoon", person_id)
     if person_id is None and task.origin == "manual":
@@ -632,6 +644,8 @@ async def take_over(db: AsyncSession, task: Task, *, actor: Person) -> Task:
         raise DomainValidationError("Deze taak is al afgerond.")
     if task.assignee_person_id == actor.id:
         return task
+    if task_access.separated(task):
+        raise DomainValidationError(SEPARATED)
     previous = (
         await db.get(Person, task.assignee_person_id)
         if task.assignee_person_id

@@ -33,7 +33,7 @@ Elk verloop dient een hoofdgeval en de varianten die echt voorkomen. De rol is e
 | De eigenaar is weg | het verloop blijft; de zin noemt de eigenaar | beheerder wijst een eigenaar aan | Overzicht, eigenaar en managers | niet nagelopen |
 | Werven begint voor de handtekening | de vacature heeft een eigen verloop; de opdracht hoeft niet akkoord te zijn | planner of eigenaar | n.v.t. | getest in het plan, niet in de browser |
 | Een lezer kijkt mee | dezelfde stappen; de zin zegt wie aan zet is, zonder "je wacht", zonder termijn en zonder knop | niemand hier | n.v.t. | nagelopen, werkt |
-| Een manager doet de stap van de eigenaar | wie de zaak beheert en niet aan zet is, ziet "Neem deze stap over"; daarna is de stap van haar en zegt een notitie op de taak van wie hij kwam | manager of beheerder | de eigenaar kan hem terugnemen | nagelopen, werkt |
+| Een manager doet de stap van de eigenaar | wie het recht van de stap zelf al heeft en niet aan zet is, ziet "Neem deze stap over"; daarna is de stap van haar en zegt een notitie op de taak van wie hij kwam. Overnemen geeft nooit een recht, en een stap waar een ander moet beslissen (interne goedkeuring, advies en akkoord, een oordeel over een tekst, het besluit van de opdrachtgever) kan niemand overnemen of doorgeven: in het plan staat bij die taken `separation` | manager of beheerder met het recht | de eigenaar kan hem terugnemen | nagelopen voor de eigenaarsstap; de weigeringen getest op de server |
 
 ### Een opdracht uitvoeren en factureren
 
@@ -44,7 +44,7 @@ Elk verloop dient een hoofdgeval en de varianten die echt voorkomen. De rol is e
 | Hoofdgeval | Uitvoeren, met de eerstvolgende taak als zin; per periode Maanden afsluiten, Aanleveren, Factuur | eigenaar of manager, planner | nagelopen: de kop, het werk van de stap op de tab en per periode wie aan zet is |
 | Een maand is te laat | de termijn staat rood onder de zin | eigenaar of manager | nagelopen, werkt |
 | Per kwartaal factureren, per maand afsluiten | aanleveren wordt pas gevraagd als de periode klaar is | eigenaar of manager | getest, niet in de browser |
-| Promotie midden in een maand, of een correctie na aanleveren | geen eigen stap; de taak "Lever de naverrekening aan" bestaat in het plan en wacht op een gebeurtenis die nog niet wordt vastgelegd | n.v.t. | **gat**; woorden staan klaar, de taak ontstaat nog niet |
+| Promotie of tarief met terugwerkende kracht, na aanleveren | de periode krijgt een vierde stap Naverrekening; de taak "Lever de naverrekening over <periode> aan" noemt het verschil en de oorzaak; aanleveren sluit haar. Wordt de wijziging teruggedraaid, dan verdwijnt alles. Twee wijzigingen voor aanleveren zijn een naverrekening met beide oorzaken | eigenaar of manager | nagelopen in de browser (rij, kop, taak, pdf) en getest |
 | Iemand is dubbel geboekt | geen stap; een signaal op Bemensing | planner | buiten het verloop, bewust |
 | De opdracht wordt verlengd of de begroting groeit na akkoord | geen stap | eigenaar | **gat**; ontwerp hieronder, niet gebouwd |
 | Interne opdracht | een eigen kort verloop: Begroting, Starten, Uitvoeren; starten is een knop in de kop, zonder offerte of akkoord | eigenaar | nagelopen in de browser, werkt |
@@ -205,7 +205,7 @@ Gaten die bij het opstellen van deze tabel zijn gevonden en gedicht:
 
 ## Wat nog niet wordt ondersteund
 
-- **Naverrekening als stap.** De taak "Lever de naverrekening over {periode} aan" staat in het plan met haar woorden ("Na de aanlevering van {periode} is er iets gewijzigd; het verschil is {bedrag}."), maar ontstaat nog niet: grip legt niet vast dat een correctie is ontstaan, en dat per evaluatie uitrekenen is te duur. Het kleinste ontwerp: een rij per ontstane correctie (opdracht, periode, verschil in centen, ontstaan op), geschreven op het moment dat een aangeleverde maand anders geprijsd wordt. Het feit, het bedrag in de zin en een vierde stap "Naverrekenen" in het verloop van de periode volgen daaruit.
+- **Een maand die na aanlevering wordt heropend** is geen naverrekening: zij wordt na het opnieuw afsluiten in haar geheel opnieuw aangeleverd en het nieuwe verzoek vervangt het oude, ook als het oude al gefactureerd was. Een naverrekening (een verschil bovenop wat is aangeleverd) ontstaat alleen als de prijs van een aangeleverde maand verandert: een inzetschaal of een tarievenkaart met terugwerkende kracht.
 - **Het ontvangen verloop bij de opdrachtgever** staat in de kop van de aanvraag, maar is alleen bekeken met een nagemaakte aanvraag in een kopie, niet met twee gekoppelde instanties.
 
 ## Ontwerp: verlengen of groeien na akkoord
@@ -231,4 +231,4 @@ Het raakt rekenregels, de offerte als bevroren stuk en het contract met de opdra
 
 ## Voor wie het plan aanpast
 
-Het verloop staat per soort zaak in `backend/grip/data/tasks/plan.json` onder `courses`: de stappen, hun naam, de feiten die een stap afronden (`done_when`), de feiten waaronder een stap bestaat (`when`), de taken die bij de stap horen en wat er bij een stap gezegd wordt (`notes`, `idle`). Onder `ends` staat hoe een zaak kan eindigen. Een feit met een punt erin gaat over een onderdeel van de zaak (`quote_round.quote_offered`). Een plan kan geen feit noemen dat grip niet berekent; dat faalt bij het laden. Een variant voor een andere organisatie is een wijziging van dit bestand.
+Het verloop staat per soort zaak in `backend/grip/data/tasks/plan.json` onder `courses`: de stappen, hun naam, de feiten die een stap afronden (`done_when`), de feiten waaronder een stap bestaat (`when`), de taken die bij de stap horen en wat er bij een stap gezegd wordt (`notes`, `idle`). Onder `ends` staat hoe een zaak kan eindigen. Een feit met een punt erin gaat over een onderdeel van de zaak (`quote_round.quote_offered`). Een plan kan geen feit noemen dat grip niet berekent; dat faalt bij het laden. Een variant voor een andere organisatie is een wijziging van dit bestand. Een taak met `"separation": true` is een stap waar een ander moet beslissen dan wie het stuk maakte: niemand neemt haar over en zij wordt niet aan een ander gegeven.

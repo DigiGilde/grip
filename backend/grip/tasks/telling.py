@@ -30,13 +30,16 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from grip.core import clock
 from grip.models.assignment import Assignment, AssignmentRole, BudgetLine
+from grip.models.billing_correction import BillingCorrection
 from grip.models.organisation import Organisation
 from grip.models.person import Person
 from grip.models.quote import Quote, QuoteApproval, QuoteRejection
 from grip.models.role import PersonRole
 from grip.models.task import Task
 from grip.models.vacancy import Vacancy, VacancyText
+from grip.services import billing_corrections
 from grip.services.vacancies import service as vacancy_service
 from grip.tasks import catalogue
 from grip.tasks.cases import period_words
@@ -67,8 +70,9 @@ VARIABLES = frozenset(
         # A rejected quote: " op 8 okt 2026" and " De reden: ...", or nothing.
         "afgewezen_op",
         "reden_afwijzing",
-        # The difference of a correction after delivery, once grip keeps it.
+        # A correction after delivery: the difference and why it arose.
         "bedrag",
+        "oorzaak",
     }
 )
 # What stands in for a name the reader may not see or grip does not have.
@@ -85,6 +89,8 @@ _STAND_INS = {
     "periode": "de periode",
     "kenmerk": "",
     "gevraagd_door": "de maker van de offerte",
+    "bedrag": "nog niet berekend",
+    "oorzaak": "de prijs van een aangeleverde maand is veranderd",
 }
 # What a destination may name between braces: ids the task itself carries.
 DESTINATION_VARIABLES = frozenset(
@@ -304,6 +310,14 @@ def day(value: date) -> str:
     return f"{value.day} {_MONTHS_SHORT[value.month - 1]} {value.year}"
 
 
+def _euros(cents: int) -> str:
+    """An amount in a sentence: "€ 2.400" or "-€ 2.400"."""
+    sign = "-" if cents < 0 else ""
+    whole = f"{abs(cents) // 100:,}".replace(",", ".")
+    rest = abs(cents) % 100
+    return f"{sign}€ {whole}" + (f",{rest:02d}" if rest else "")
+
+
 def _capital(text: str) -> str:
     return text[:1].upper() + text[1:] if text else text
 
@@ -332,6 +346,7 @@ class _Context:
     people: dict[UUID, str] = field(default_factory=dict)
     quotes: dict[str, Quote] = field(default_factory=dict)
     approvals: dict[str, QuoteApproval] = field(default_factory=dict)
+    corrections: dict[str, BillingCorrection] = field(default_factory=dict)
     rejections: dict[str, QuoteRejection] = field(default_factory=dict)
     lines: dict[str, BudgetLine] = field(default_factory=dict)
     # Vacancies whose motivation for the request is settled.
@@ -441,6 +456,18 @@ async def _load_context(
             )
         ).all()
         context.rejections = {str(r.quote_id): r for r in rejections}
+    correction_ids = {
+        _as_uuid(t.subject_id) for t in tasks if t.subject_kind == "period_correction"
+    } - {None}
+    if correction_ids:
+        corrections = (
+            await db.scalars(
+                select(BillingCorrection).where(
+                    BillingCorrection.id.in_(correction_ids)
+                )
+            )
+        ).all()
+        context.corrections = {str(c.id): c for c in corrections}
     approval_ids = {
         _as_uuid(t.repeat_key)
         for t in tasks
@@ -757,11 +784,18 @@ def _values(
             values["maand"] = words
             # A month is also a billing period, for a task of an older plan.
             values["periode"] = words
-    elif kind == "billing_period":
+    elif kind in ("billing_period", "period_correction"):
         try:
             values["periode"] = period_words(task.repeat_key or "")
         except (ValueError, IndexError):
             pass
+        correction = context.corrections.get(task.subject_id or "")
+        if correction is not None:
+            # Whole euros: the exact amount is on the page it leads to.
+            values["bedrag"] = _euros(correction.amount_cents)
+            cause = billing_corrections.causes_text(correction)
+            if cause:
+                values["oorzaak"] = cause
     elif kind == "open_role":
         line = context.lines.get(task.subject_id or "")
         if line is not None:
@@ -775,14 +809,14 @@ def _values(
         values["kenmerk"] = quote.reference
     rejection = context.rejections.get(task.subject_id or "")
     if rejection is not None:
-        values["afgewezen_op"] = f" op {day(rejection.rejected_at.date())}"
+        values["afgewezen_op"] = f" op {day(clock.local_date(rejection.rejected_at))}"
         # The reason is about the quote: only for who runs the case.
         if rejection.reason and may_name:
             reason = " ".join(rejection.reason.split()).rstrip(".")
             values["reden_afwijzing"] = f' De reden: "{reason}".'
     approval = context.approvals.get(task.repeat_key or "")
     if approval is not None:
-        values["gevraagd_op"] = day(approval.requested_at.date())
+        values["gevraagd_op"] = day(clock.local_date(approval.requested_at))
         asker = (
             context.people.get(approval.requested_by_id)
             if approval.requested_by_id

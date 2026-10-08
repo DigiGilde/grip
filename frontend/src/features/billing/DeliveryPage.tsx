@@ -91,6 +91,7 @@ export function DeliveryPage() {
               <nldd-button
                 slot="actions"
                 size="sm"
+                appearance="primary"
                 text={`Open factuurverzoek ${replaced[0]?.reference ?? ''}`}
                 href={PATHS.billingDelivery.replace(':deliveryId', replaced[0]?.delivery_id ?? '')}
               />
@@ -109,7 +110,9 @@ export function DeliveryPage() {
                   text: 'Bekijk factuurverzoek (pdf)',
                   href: deliveryDocumentUrl(data.id),
                   kind: 'elsewhere',
-                  primary: true,
+                  // A replaced request is not what to act on: the way to
+                  // the new one is the main action then.
+                  primary: replaced.length === 0,
                 },
               ]}
             />

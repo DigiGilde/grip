@@ -23,6 +23,8 @@ SUBJECTS: dict[str, frozenset[str]] = {
             "quote_approval",
             "sent_back_quote",
             "correction_month",
+            # A difference to deliver on a billing period delivered before.
+            "period_correction",
             "open_role",
             "month_to_close",
             "closed_month",
@@ -121,12 +123,19 @@ SUBJECT_FACTS: dict[str, frozenset[str]] = {
     "quote_approval": frozenset({"approval_decided"}),
     "sent_back_quote": frozenset({"quote_superseded"}),
     "correction_month": frozenset({"correction_delivered"}),
+    "period_correction": frozenset({"correction_delivered"}),
     "open_role": frozenset({"role_staffed"}),
     "month_to_close": frozenset({"month_closed"}),
     "closed_month": frozenset({"billing_delivered", "invoice_recorded"}),
     # A month or a calendar quarter, as the assignment is billed.
     "billing_period": frozenset(
-        {"period_ready", "period_delivered", "period_invoiced"}
+        {
+            "period_ready",
+            "period_delivered",
+            "period_invoiced",
+            # Something changed after the delivery: a difference to deliver.
+            "period_correction_open",
+        }
     ),
     "text": frozenset(
         {
@@ -152,6 +161,7 @@ ANCHORS: dict[str, frozenset[str]] = {
     "quote_approval": frozenset({"approval_requested_on"}),
     "sent_back_quote": frozenset(),
     "correction_month": frozenset({"correction_arose_on"}),
+    "period_correction": frozenset({"correction_arose_on"}),
     "open_role": frozenset({"needed_from"}),
     "month_to_close": frozenset({"month_end"}),
     "closed_month": frozenset({"closed_on", "delivered_on"}),
@@ -221,6 +231,7 @@ FACT_LABELS: dict[str, str] = {
     "approval_passed": "het akkoord is gegeven",
     "filled": "de vacature is vervuld",
     "correction_delivered": "de naverrekening is aangeleverd",
+    "period_correction_open": "er is een naverrekening aan te leveren",
     "role_staffed": "de rol is ingevuld",
     "started": "de opdracht is in uitvoering",
     "month_closed": "de maand is afgesloten",

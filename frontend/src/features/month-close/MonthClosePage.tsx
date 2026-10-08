@@ -184,8 +184,18 @@ function PeriodRows({
   if (period.awaits_invoice && overview.may_record_invoice) {
     actions.push({ text: 'Leg factuur vast', onSelect: onInvoice });
   }
+  // Every request of the period is within reach, not only the last: an
+  // earlier one stays a record of what went out, also when a later request
+  // replaced a month of it or added a naverrekening.
+  const requests = (period.deliveries ?? []).filter((item) => item.has_document);
+  for (const item of requests) {
+    const which = requests.length > 1 ? ` ${item.reference}` : '';
+    actions.push({
+      text: `Bekijk factuurverzoek${which} (pdf)`,
+      href: deliveryDocumentUrl(item.id),
+    });
+  }
   if (delivery?.has_document) {
-    actions.push({ text: 'Bekijk factuurverzoek (pdf)', href: deliveryDocumentUrl(delivery.id) });
     actions.push({ text: 'Download als bestand (csv)', href: deliveryCsvUrl(delivery.id) });
   }
   const amount = periodAmount(period);

@@ -34,6 +34,7 @@ from grip.models.outgoing_invoice import OutgoingInvoiceDelivery
 from grip.models.person import Person
 from grip.models.quote import Quote
 from grip.services import (
+    billing_corrections,
     billing_periods,
     instance_settings,
     month_close,
@@ -297,6 +298,8 @@ class PeriodView:
     # period was delivered before, and a later change (a promotion recorded
     # afterwards, a corrected month) left a difference.
     correction: bool = False
+    # Why there is a difference, in words; empty without one.
+    correction_cause: str = ""
     # The day of the latest invoice recorded for the period, when there is one.
     invoiced_on: date | None = None
     # Invoiced minus delivered once every delivery has its invoice; None
@@ -433,6 +436,11 @@ async def overview(
     periods = billing_periods.periods_of(
         [state.month for state in timeline], terms.rhythm
     )
+    stored = (await billing_corrections.open_corrections(session, [assignment_id])).get(
+        assignment_id, []
+    )
+    stored_cents = billing_corrections.month_cents(stored)
+    causes_of = {row.period_key: billing_corrections.causes_text(row) for row in stored}
     by_month = {state.month: state for state in timeline}
     views: list[PeriodView] = []
     for period in periods:
@@ -450,14 +458,13 @@ async def overview(
             else:
                 kind, amount = "upcoming", None
             delivered = bill.delivered_cents if bill and state.closed else None
-            correction = 0
-            if (
-                state.closed
-                and bill is not None
-                and delivered is not None
-                and bill.deliverable_cents is not None
-            ):
-                correction = bill.deliverable_cents - delivered
+            # The stored correction, written when the price changed: not
+            # worked out again here.
+            correction = (
+                stored_cents.get(month, 0)
+                if state.closed and delivered is not None
+                else 0
+            )
             months.append(
                 MonthView(
                     month=month,
@@ -583,6 +590,7 @@ async def overview(
                 invoice_numbers=numbers,
                 last_step_at=max(steps) if steps else None,
                 correction=state_name == READY and not undelivered and pending != 0,
+                correction_cause=causes_of.get(period.key, ""),
                 invoiced_on=max(invoice_days) if invoice_days else None,
                 invoice_difference_cents=(invoiced_cents - delivered_cents)
                 if state_name == INVOICED and period_exports
@@ -1039,11 +1047,13 @@ async def deliver(
                 )
             )
     # What changed on months already delivered travels with this delivery.
+    corrected: list[Month] = []
     for earlier in state.periods:
         if earlier.period.last > view.period.last:
             continue
         for month in earlier.months:
             if month.delivered_cents is not None and month.correction_cents != 0:
+                corrected.append(month.month)
                 created.append(
                     await month_close.create_correction_export(
                         session, assignment_id, month.month, actor=actor
@@ -1073,6 +1083,9 @@ async def deliver(
     for export in created:
         export.delivery_id = delivery.id
     await session.flush()
+    await billing_corrections.mark_delivered(
+        session, assignment_id, corrected, delivery, actor=actor
+    )
 
     await _fix_document(session, delivery)
     record_audit(

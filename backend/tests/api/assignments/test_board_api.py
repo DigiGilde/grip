@@ -2,6 +2,8 @@
 
 from decimal import Decimal
 
+from grip.core import clock
+
 URL = "/api/allocations/board?start=2026-01&months=12"
 
 
@@ -119,7 +121,10 @@ async def test_open_role_and_overbooking(world, as_person, db_session):
     assert role["description"] == "Developer"
     assert Decimal(role["fte"]) == 1
     assert role["can_fill"] is True
-    assert role["start_date"] == "2026-04-01"
+    # Open from the first month that is still to come: the past cannot be
+    # filled, and the months someone was on the role were not open.
+    still_open_from = max(date(2026, 4, 1), clock.today().replace(day=1))
+    assert role["start_date"] == still_open_from.isoformat()
 
 
 async def test_bad_start_month(world, as_person):

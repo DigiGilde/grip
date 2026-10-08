@@ -209,6 +209,11 @@ from grip.models.billing_delivery import (  # noqa: E402
 
 __all__ += ["BillingDelivery", "BillingTerms"]
 
+# A correction on a delivered billing period (migration 0036_billing_correction).
+from grip.models.billing_correction import BillingCorrection  # noqa: E402
+
+__all__ += ["BillingCorrection"]
+
 # Notifications on a person's device (migration 0033_push).
 from grip.models.push import (  # noqa: E402
     NotificationPreference,

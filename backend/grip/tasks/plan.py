@@ -51,6 +51,9 @@ class Template:
     waiting_on: str | None = None
     due: DueRule | None = None
     link: str | None = None
+    # The point of the step is that someone else decides than who made the
+    # thing it is about: nobody takes it over and it is not handed on.
+    separation: bool = False
 
     @property
     def closes_by_hand(self) -> bool:
@@ -188,6 +191,7 @@ def _template(case_kind: str, tracks: set[str], raw: dict[str, Any]) -> Template
         "due",
         "link",
         "requires_event",
+        "separation",
     }
     if unknown:
         raise fail(f"onbekende instelling {sorted(unknown)}")
@@ -205,6 +209,7 @@ def _template(case_kind: str, tracks: set[str], raw: dict[str, Any]) -> Template
         waiting_on=raw.get("waiting_on"),
         due=due,
         link=raw.get("link"),
+        separation=bool(raw.get("separation", False)),
     )
 
 

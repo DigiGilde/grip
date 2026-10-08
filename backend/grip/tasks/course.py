@@ -17,6 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from grip.core import clock
 from grip.models.task import Task, TaskCase
 from grip.tasks import service
 from grip.tasks.access import TaskAccess
@@ -219,7 +220,7 @@ def _next(
                 headline=task.title,
                 sentence=task.title,
                 who=None if first.is_mine else first.assignee_label,
-                since=task.created_at.date() if task.created_at else None,
+                since=clock.local_date(task.created_at) if task.created_at else None,
                 due_on=task.due_on,
                 overdue=first.overdue,
                 action_href=task.link if first.is_mine else None,
@@ -250,7 +251,7 @@ def _next(
             headline=told.headline,
             sentence=sentence,
             who=who,
-            since=task.created_at.date() if task.created_at else None,
+            since=clock.local_date(task.created_at) if task.created_at else None,
             due_on=task.due_on if part != WATCHES else None,
             overdue=first.overdue and part != WATCHES,
             action_text=told.action_text if mine else None,
@@ -263,10 +264,7 @@ def _next(
             blocked=told.blocked if part != WATCHES else None,
             task_id=task.id,
             task_key=task.template_key,
-            may_take_over=not mine
-            and first.can_change
-            and task.status != "waiting"
-            and not task.waiting_on,
+            may_take_over=not mine and first.can_take_over,
         ),
         more_to_do,
         more_waiting,

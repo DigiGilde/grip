@@ -22,6 +22,7 @@ from grip.federation.bridge.organisations import own_reference
 from grip.models.person import Person
 from grip.models.quote import QuoteAcceptance, QuoteRejection
 from grip.services import quotes
+from grip.services.errors import DomainValidationError
 
 
 def signer_of(person: Person, function: str | None = None) -> dict[str, Any]:
@@ -51,6 +52,13 @@ async def accept_received_quote(
     """
     settings = get_settings()
     quote = await quotes.get_quote(db, quote_id)
+    # The client's yes is someone else's than the maker's: where both sides
+    # live in one instance, who made the quote does not accept it.
+    if quote.issued_by_id is not None and quote.issued_by_id == actor.id:
+        raise DomainValidationError(
+            "Je kunt een offerte die je zelf maakte niet namens de opdrachtgever "
+            "aanvaarden. Iemand anders met tekenbevoegdheid beslist."
+        )
     acceptance_id = uuid.uuid4()
     # With a statement of the decision (grip.proof), the time is the one in
     # the statement, so the signed message and the statement agree.

@@ -7,7 +7,6 @@ through the access model: a task is data class A of its case.
 
 from __future__ import annotations
 
-from datetime import date
 from typing import Any
 from uuid import UUID
 
@@ -16,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip.access import DataClass, build_response
 from grip.access.deps import AccessDecider, CurrentSubject
+from grip.core import clock
 from grip.core.auth import CurrentPerson
 from grip.core.config import Settings, get_settings
 from grip.core.database import get_db
@@ -117,7 +117,7 @@ def _out(view: TaskView) -> TaskOut:
 async def _look(db: AsyncSession, settings: Settings, *, max_age: int = 0) -> None:
     await engine.ensure_fresh(
         db,
-        today=date.today(),
+        today=clock.today(),
         instance_base_uri=settings.INSTANCE_BASE_URI,
         max_age_seconds=max_age,
     )
@@ -137,7 +137,7 @@ async def list_my_tasks(
     """The open tasks that are mine to do, soonest first."""
     await _look(db, settings)
     access = _access(db, decider, subject)
-    today = date.today()
+    today = clock.today()
     views = await service.my_tasks(db, access, today=today)
     awaited = await service.awaited_tasks(db, access, today=today)
     return build_response(
@@ -160,7 +160,7 @@ async def count_my_tasks(
     """How many tasks wait for me: the badge in the navigation."""
     await _look(db, settings, max_age=_COUNT_MAX_AGE_SECONDS)
     access = _access(db, decider, subject)
-    counts = await service.my_counts(db, access, today=date.today())
+    counts = await service.my_counts(db, access, today=clock.today())
     return build_response(TaskCountsOut(**counts), _CLASSES)
 
 
@@ -183,7 +183,7 @@ async def list_tasks(
     views = await service.all_tasks(
         db,
         access,
-        today=date.today(),
+        today=clock.today(),
         assignment_id=assignment_id,
         vacancy_id=vacancy_id,
         person_id=person_id,
@@ -214,7 +214,7 @@ async def list_case_tasks(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Niet gevonden"
         )
-    today = date.today()
+    today = clock.today()
     if case_kind == "assignment":
         await engine.evaluate_assignments(
             db, {case_id}, today=today, instance_base_uri=settings.INSTANCE_BASE_URI
@@ -317,7 +317,7 @@ async def read_case_course(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Niet gevonden"
         )
-    today = date.today()
+    today = clock.today()
     if case_kind == "assignment":
         outcome = await engine.evaluate_assignments(
             db, {case_id}, today=today, instance_base_uri=settings.INSTANCE_BASE_URI
@@ -363,7 +363,7 @@ async def list_courses(
         )
         if rights.read:
             readable.add(case_id)
-    today = date.today()
+    today = clock.today()
     if case_kind == "assignment":
         outcome = await engine.evaluate_assignments(
             db, readable, today=today, instance_base_uri=settings.INSTANCE_BASE_URI
@@ -410,7 +410,7 @@ async def _load(
 
 async def _one(db: AsyncSession, access: TaskAccess, task: Task) -> dict[str, Any]:
     fresh = await service.get_task(db, task.id)
-    view = await service.view_task(db, access, fresh, today=date.today())
+    view = await service.view_task(db, access, fresh, today=clock.today())
     if view is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Niet gevonden"
@@ -435,7 +435,7 @@ async def get_task(
         await engine.evaluate_assignments(
             db,
             {task.assignment_id},
-            today=date.today(),
+            today=clock.today(),
             instance_base_uri=settings.INSTANCE_BASE_URI,
         )
     return await _one(db, access, task)
@@ -526,11 +526,16 @@ async def take_over_task(
 ) -> dict[str, Any]:
     """Do a step for the one whose move it is; only who runs the case."""
     access = _access(db, decider, subject)
-    task, may_edit, _ = await _load(db, access, task_id)
-    if not may_edit:
+    task, _, _ = await _load(db, access, task_id)
+    # Taking over never grants a right: the same question the step itself
+    # asks, and never a step where someone else must decide.
+    if not await access.may_take_over(task):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Alleen wie de zaak beheert neemt een stap over",
+            detail=(
+                "Deze stap kun je niet overnemen: je hebt het recht niet dat hij "
+                "vraagt, of hij is van wie erover beslist."
+            ),
         )
     await service.take_over(db, task, actor=person)
     return await _one(db, access, task)

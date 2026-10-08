@@ -361,13 +361,22 @@ async def decide(
             "De goedkeuring gaat over een andere versie van de offerte dan er "
             "nu ligt. Open de offerte opnieuw."
         )
-    own = approval.requested_by_id is not None and approval.requested_by_id == actor.id
+    # Internal approval is a second person: not who asked for it, and not
+    # who made the quote, whatever rights they hold.
+    asked = (
+        approval.requested_by_id is not None and approval.requested_by_id == actor.id
+    )
+    made = quote.issued_by_id is not None and quote.issued_by_id == actor.id
+    own = asked or made
     self_approved = False
     if own and approve:
         if not await instance_settings.get(db, ALLOW_SELF.key):
             raise DomainValidationError(
                 "Je kunt een offerte waarvoor je zelf goedkeuring vroeg niet zelf "
                 "goedkeuren. Iemand anders met dit recht beslist."
+                if asked
+                else "Je kunt een offerte die je zelf maakte niet zelf goedkeuren. "
+                "Iemand anders met dit recht beslist."
             )
         self_approved = True
     note = (note or "").strip() or None

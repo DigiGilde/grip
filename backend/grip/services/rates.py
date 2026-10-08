@@ -338,7 +338,10 @@ async def set_rate_card_status(
         from grip.services import price_changes
 
         await price_changes.emit_new_corrections(
-            session, pending, cause=f"tarievenkaart '{card.name}' is ingegaan"
+            session,
+            pending,
+            cause=f"tarievenkaart '{card.name}' is ingegaan",
+            actor=actor,
         )
     return card
 
@@ -659,6 +662,7 @@ async def _announce_scale(
     previous: int | None,
     pending: dict[Any, int],
     price_changes: Any,
+    actor: Person | None = None,
 ) -> None:
     """Tell the rest that a scale changed, and which corrections arose."""
     if price_changes.is_preview():
@@ -678,6 +682,7 @@ async def _announce_scale(
         session,
         pending,
         cause=f"inzetschaal gewijzigd met ingang van {date_text(scale.valid_from)}",
+        actor=actor,
     )
 
 
@@ -750,7 +755,13 @@ async def set_person_scale(
             },
         )
         await _announce_scale(
-            session, person_id, same_start, previous, pending, price_changes
+            session,
+            person_id,
+            same_start,
+            previous,
+            pending,
+            price_changes,
+            actor=actor,
         )
         return same_start
     # The scale that held on that day ends the day before.
@@ -810,7 +821,9 @@ async def set_person_scale(
             **({"closed_year_override": closed} if closed else {}),
         },
     )
-    await _announce_scale(session, person_id, scale, previous, pending, price_changes)
+    await _announce_scale(
+        session, person_id, scale, previous, pending, price_changes, actor=actor
+    )
     return scale
 
 

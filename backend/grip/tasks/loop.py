@@ -9,10 +9,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import date
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from grip.core import clock
 from grip.core.config import Settings
 from grip.tasks import engine
 
@@ -24,7 +24,7 @@ async def run_once(
 ) -> engine.Outcome:
     async with session_factory() as db:
         outcome = await engine.evaluate_all(
-            db, today=date.today(), instance_base_uri=settings.INSTANCE_BASE_URI
+            db, today=clock.today(), instance_base_uri=settings.INSTANCE_BASE_URI
         )
         await db.commit()
     return outcome

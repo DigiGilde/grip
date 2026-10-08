@@ -38,7 +38,8 @@ from grip import calc
 from grip.calc import Month
 from grip.models.assignment import Allocation, Assignment, BudgetLine
 from grip.models.month_close import BillingExport
-from grip.services import events, outgoing_invoices
+from grip.models.person import Person
+from grip.services import outgoing_invoices
 from grip.services.pricing import (
     DEFAULT_OPTIONS,
     PricingOptions,
@@ -335,33 +336,36 @@ async def emit_new_corrections(
     before: dict[tuple[UUID, date], int],
     *,
     cause: str,
+    actor: Person | None = None,
     options: PricingOptions = DEFAULT_OPTIONS,
 ) -> list[tuple[UUID, date, int]]:
-    """Announce the corrections that arose since ``before`` was taken.
+    """Record the corrections that arose since ``before`` was taken.
 
-    Emits ``billing_correction.arose`` once per delivered month whose
-    difference changed, so the task layer can ask someone to deliver it.
+    The difference on a delivered month becomes a stored correction on its
+    billing period (``grip.services.billing_corrections``), in this same
+    transaction; a difference that is gone takes its correction away. Each
+    correction that arose or changed is announced once as
+    ``billing_correction.arose``, so the task layer asks someone to deliver
+    it.
     """
     if is_preview():
         return []
-    arisen = []
-    for key, difference in (
-        await pending_corrections(session, options=options)
-    ).items():
-        if before.get(key) == difference:
-            continue
-        assignment = await session.get(Assignment, key[0])
-        arisen.append((key[0], key[1], difference))
-        await events.emit(
-            session,
-            events.BILLING_CORRECTION_AROSE,
-            {
-                "assignment_id": str(key[0]),
-                "assignment_uri": assignment.uri if assignment else None,
-                "assignment_name": assignment.name if assignment else None,
-                "month": str(Month.of(key[1])),
-                "difference_cents": difference,
-                "cause": cause,
-            },
-        )
-    return arisen
+    # Imported here: that module reads the months through this one's pricing.
+    from grip.services import billing_corrections
+
+    now_pending = await pending_corrections(session, options=options)
+    changed = {
+        key[0]
+        for key in set(before) | set(now_pending)
+        if before.get(key) != now_pending.get(key)
+    }
+    if not changed:
+        return []
+    await billing_corrections.sync(
+        session, cause=cause, actor=actor, assignment_ids=changed
+    )
+    return [
+        (key[0], key[1], difference)
+        for key, difference in now_pending.items()
+        if before.get(key) != difference
+    ]

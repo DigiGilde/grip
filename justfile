@@ -267,6 +267,10 @@ brand:
 vacancy-forms-retention:
     cd backend && uv run python -m grip.services.vacancies.request_forms
 
+# Store the naverrekeningen that stand open (once, after migration 0036_billing_correction)
+billing-corrections-sync:
+    cd backend && uv run python -m grip.services.billing_corrections
+
 # Measure spacing of every page in a headless browser (servers must be running; see docs/ontwerp.md)
 check-spacing *ARGS:
     cd frontend && node scripts/check-spacing.mjs {{ARGS}}

@@ -249,6 +249,8 @@ class BillingPeriodOut(BaseModel):
     # What is to be delivered is only a naverrekening on a period that was
     # delivered before.
     correction: Annotated[bool, B] = False
+    # Why there is a difference to deliver, in words.
+    correction_cause: Annotated[str, B] = ""
     # The day of the latest invoice for the period.
     invoiced_on: Annotated[date | None, B] = None
     # Invoiced minus delivered, once every delivery has an invoice.

@@ -87,7 +87,8 @@
             "after": "approval_requested_on"
           },
           "link": "/opdrachten/{assignment_id}/offerte",
-          "requires_event": "quote_approval.requested"
+          "requires_event": "quote_approval.requested",
+          "separation": true
         },
         {
           "key": "offerte.na_terugsturen_opnieuw_maken",
@@ -159,7 +160,8 @@
           ],
           "done_when": "quote_decided",
           "assignee": "tekenbevoegde",
-          "link": "/aanvragen/offerte/{subject_id}"
+          "link": "/aanvragen/offerte/{subject_id}",
+          "separation": true
         },
         {
           "key": "bemensing.rol_invullen",
@@ -295,7 +297,7 @@
           "key": "financien.naverrekening_aanleveren",
           "track": "financien",
           "title": "Lever de naverrekening over {periode} aan",
-          "for": "correction_month",
+          "for": "period_correction",
           "when": [
             "contractor",
             "external",
@@ -307,8 +309,7 @@
             "working_days": 5,
             "after": "correction_arose_on"
           },
-          "link": "/opdrachten/{assignment_id}/maandafsluiting?maand={repeat_key}",
-          "requires_event": "billing_correction.arose"
+          "link": "/opdrachten/{assignment_id}/maandafsluiting?periode={repeat_key}"
         }
       ],
       "courses": [
@@ -579,6 +580,19 @@
               "tasks": [
                 "financien.factuur_vastleggen"
               ]
+            },
+            {
+              "key": "naverrekenen",
+              "label": "Naverrekening",
+              "when": [
+                "period_correction_open"
+              ],
+              "done_when": [
+                "not period_correction_open"
+              ],
+              "tasks": [
+                "financien.naverrekening_aanleveren"
+              ]
             }
           ]
         }
@@ -641,7 +655,8 @@
             "working_days": 5,
             "after": "requested_on"
           },
-          "link": "/vacatures/{vacancy_id}/advies"
+          "link": "/vacatures/{vacancy_id}/advies",
+          "separation": true
         },
         {
           "key": "werving.advies_control",
@@ -658,7 +673,8 @@
             "working_days": 5,
             "after": "requested_on"
           },
-          "link": "/vacatures/{vacancy_id}/advies"
+          "link": "/vacatures/{vacancy_id}/advies",
+          "separation": true
         },
         {
           "key": "werving.akkoord",
@@ -672,7 +688,8 @@
           "done_when": "approval_given",
           "assignee": "decision:approval",
           "waiting_on": "wie akkoord moet geven",
-          "link": "/vacatures/{vacancy_id}/advies"
+          "link": "/vacatures/{vacancy_id}/advies",
+          "separation": true
         },
         {
           "key": "werving.openstellen",
@@ -751,7 +768,8 @@
             "working_days": 3,
             "after": "offered_on"
           },
-          "link": "/vacatures/{vacancy_id}/tekst"
+          "link": "/vacatures/{vacancy_id}/tekst",
+          "separation": true
         },
         {
           "key": "teksten.opmerkingen_verwerken",

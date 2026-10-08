@@ -30,6 +30,7 @@ from grip.models.assignment import AssignmentRole, BudgetLine
 from grip.models.task import Task
 from grip.models.vacancy import Vacancy
 from grip.tasks import catalogue
+from grip.tasks.plan import Template, current_plan, plan_for
 
 
 @dataclass(frozen=True)
@@ -39,6 +40,29 @@ class CaseRights:
 
 
 _NONE = CaseRights(read=False, edit=False)
+
+
+def _template_of(task: Task) -> Template | None:
+    if not task.template_key:
+        return None
+    return plan_for(task.plan_version).template(task.template_key) or (
+        current_plan().template(task.template_key)
+    )
+
+
+def _template_now(task: Task, name: str) -> bool:
+    """A property of the template in the plan of today: a task from an older
+    plan is held to what the plan says now about who may decide."""
+    template = current_plan().template(task.template_key or "")
+    return bool(template is not None and getattr(template, name))
+
+
+def separated(task: Task) -> bool:
+    """Whether the step is one where someone else must decide."""
+    template = _template_of(task)
+    return bool(template is not None and template.separation) or _template_now(
+        task, "separation"
+    )
 
 
 def _asks_for_approval(task: Task) -> bool:
@@ -169,6 +193,44 @@ class TaskAccess:
                 )
                 self._roles = {row[0]: row[1] for row in rows}
         return self._roles
+
+    async def may_take_over(self, task: Task) -> bool:
+        """Whether the reader may do this step for the one whose move it is.
+
+        Taking over never grants a right: the reader must already hold what
+        the step itself asks for. And never a step whose point is that
+        someone else decides (``separation`` in the plan): an approval, an
+        advice, a review, the client's decision.
+        """
+        if self.subject.person_id is None or not task.is_open:
+            return False
+        if task.assignee_person_id == self.subject.person_id:
+            return False
+        if task.status == "waiting" or task.waiting_on:
+            return False
+        template = _template_of(task)
+        if template is None:
+            # A task someone made by hand: whoever runs the case.
+            return (await self.of_task(task)).edit
+        if template.separation or _template_now(task, "separation"):
+            return False
+        role = template.assignee
+        if role in catalogue.FUNCTION_ROLES:
+            return role in self.subject.functions
+        if task.case_kind == "vacancy":
+            # The work of the requester or a writer: who may edit the vacancy.
+            return task.vacancy_id is not None and (
+                (await self.vacancy(task.vacancy_id)).edit
+            )
+        if task.assignment_id is None:
+            return False
+        # The work of the owner, a manager or the maker of a quote: the same
+        # right those actions ask for, editing the assignment itself. Being
+        # allowed to staff it is not enough.
+        resource = Resource.assignment(task.assignment_id)
+        return await self._may(
+            Action.READ, resource, DataClass.ASSIGNMENT_BASIC
+        ) and await self._may(Action.EDIT, resource, DataClass.ASSIGNMENT_BASIC)
 
     async def is_for_reader(self, task: Task) -> bool:
         """Whether this task is the reader's to do."""

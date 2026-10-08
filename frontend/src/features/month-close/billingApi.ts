@@ -93,6 +93,8 @@ export interface BillingPeriod {
   last_step_at: string | null;
   /** What is to be delivered is only a naverrekening on a period delivered before. */
   correction?: boolean;
+  /** Why there is a difference, in words: kept when the change was made. */
+  correction_cause?: string;
   /** The day of the latest invoice for the period. */
   invoiced_on?: string | null;
   /** Invoiced minus delivered, once every delivery has an invoice. */

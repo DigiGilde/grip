@@ -198,11 +198,12 @@
     "financien.naverrekening_aanleveren": {
       "title": "Lever de naverrekening over {periode} aan",
       "awaited": "De naverrekening over {periode}",
-      "do": "Na de aanlevering van {periode} is er iets gewijzigd. Lever de naverrekening van {opdracht} aan.",
-      "wait": "Je wacht op {wie}, die de naverrekening over {periode} aanlevert. Jij hoeft nu niets te doen.",
+      "do": "Na de aanlevering van {periode} is er iets gewijzigd: {oorzaak}. Het verschil is {bedrag}. Lever de naverrekening van {opdracht} aan.",
+      "wait": "Na de aanlevering van {periode} is er iets gewijzigd; het verschil is {bedrag}. Je wacht op {wie}, die de naverrekening aanlevert. Jij hoeft nu niets te doen.",
       "action": "Lever de naverrekening aan",
       "why": "Na de aanlevering van {periode} is er iets gewijzigd; het verschil is {bedrag}.",
-      "destination": "assignment.month"
+      "destination": "assignment.period",
+      "then": "Daarna leg je de factuur of creditnota vast."
     },
     "werving.aanvraag_voorbereiden": {
       "title": "Vraag de vacature aan",

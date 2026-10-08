@@ -16,6 +16,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from grip.calc import Month
 from grip.core import clock
 from grip.core.audit import CREATE, UPDATE, record_audit
 from grip.models.assignment import Assignment, BudgetLine
@@ -443,6 +444,55 @@ class UnfilledRole:
     tentative: bool = False
     # The colleague the line is meant for, when one is named.
     intended_person_id: UUID | None = None
+    # The stretch of the line's period in which something is unfilled: the
+    # whole period, or what is left after someone who stops earlier.
+    open_from: date | None = None
+    open_until: date | None = None
+
+
+# A line without an end is looked at this many months ahead at most.
+_MONTHS_AHEAD = 120
+
+
+def _open_stretch(line: Any, day: date) -> tuple[Decimal, date | None, date | None]:
+    """What of a personnel line is unfilled from a day on, and in which stretch.
+
+    Counted per month of the line's own period, as the staffing of an
+    assignment does: a month that is partly covered counts as covered. The
+    amount is the most that is open in any month. Inzet that stops before
+    the line ends leaves the rest of the period open; counting everyone who
+    has not left yet as filling the whole line hid that.
+    """
+    asked = Decimal(line.fte)
+    live = [a for a in line.allocations if a.end_date >= day]
+    if line.end_date is None:
+        staffed = sum((Decimal(a.fte_pct) / Decimal(100) for a in live), Decimal(0))
+        return asked - staffed, line.start_date, None
+    month = Month.of(max(line.start_date or day, day))
+    last = Month.of(line.end_date)
+    most = Decimal(0)
+    first_open: Month | None = None
+    last_open: Month | None = None
+    for _ in range(_MONTHS_AHEAD):
+        if month > last:
+            break
+        filled = sum(
+            (
+                Decimal(a.fte_pct) / Decimal(100)
+                for a in live
+                if a.start_date <= month.last_day and a.end_date >= month.first_day
+            ),
+            Decimal(0),
+        )
+        if asked - filled > 0:
+            most = max(most, asked - filled)
+            first_open = first_open or month
+            last_open = month
+        month = month.next()
+    if first_open is None or last_open is None:
+        return Decimal(0), None, None
+    start = max(first_open.first_day, line.start_date or first_open.first_day)
+    return most, start, min(last_open.last_day, line.end_date)
 
 
 @dataclass(frozen=True)
@@ -496,15 +546,7 @@ async def unfilled_roles(
             continue
         if line.end_date is not None and line.end_date < day:
             continue
-        staffed = sum(
-            (
-                Decimal(allocation.fte_pct) / Decimal(100)
-                for allocation in line.allocations
-                if allocation.end_date >= day
-            ),
-            Decimal(0),
-        )
-        unfilled = Decimal(line.fte) - staffed
+        unfilled, open_from, open_until = _open_stretch(line, day)
         if unfilled <= 0:
             continue
         roles.append(
@@ -518,6 +560,8 @@ async def unfilled_roles(
                 unfilled_fte=unfilled,
                 start_date=line.start_date,
                 end_date=line.end_date,
+                open_from=open_from,
+                open_until=open_until,
                 declarable=assignment.kind == "external",
                 tentative=is_tentative(assignment.status),
                 intended_person_id=line.intended_person_id,
@@ -546,8 +590,7 @@ async def filled_roles(
         if phase_of(assignment.status) is Phase.CLOSED:
             continue
         current = [a for a in line.allocations if a.end_date >= day]
-        staffed = sum((Decimal(a.fte_pct) / Decimal(100) for a in current), Decimal(0))
-        if not current or Decimal(line.fte) - staffed > 0:
+        if not current or _open_stretch(line, day)[0] > 0:
             continue
         found.append((line, assignment, current))
     person_ids = {a.person_id for _, _, current in found for a in current}
@@ -759,6 +802,17 @@ async def record_decision(
     if vacancy.status == VacancyStatus.draft.value:
         raise DomainValidationError(
             "Advies en akkoord kunnen pas na de aanvraag worden vastgelegd."
+        )
+
+    # Advice and approval are someone else's than the requester's.
+    if (
+        agreed is not None
+        and person_id is not None
+        and person_id == vacancy.requester_id
+    ):
+        raise DomainValidationError(
+            "De aanvrager kan niet zelf adviseren of akkoord geven op de eigen "
+            "aanvraag. Leg vast wie dat deed."
         )
 
     decided_at = None

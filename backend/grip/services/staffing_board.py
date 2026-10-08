@@ -261,12 +261,20 @@ async def board(
             role=role.role,
             fte=role.fte,
             unfilled_fte=role.unfilled_fte,
-            start_date=role.start_date,
-            end_date=role.end_date,
+            # The stretch that is open, not the whole period of the role:
+            # someone who stops earlier leaves only the months after.
+            start_date=role.open_from or role.start_date,
+            end_date=role.open_until or role.end_date,
         )
         for role in await vacancies.unfilled_roles(session, today=today)
-        if (role.start_date is None or role.start_date <= last_day)
-        and (role.end_date is None or role.end_date >= first_day)
+        if (
+            (role.open_from or role.start_date) is None
+            or (role.open_from or role.start_date) <= last_day
+        )
+        and (
+            (role.open_until or role.end_date) is None
+            or (role.open_until or role.end_date) >= first_day
+        )
     )
     return Board(
         months=tuple(_first(month) for month in span),

@@ -19,6 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from grip.core import clock
 from grip.models.assignment import Allocation, Assignment, BudgetLine
 from grip.models.audit_log import AuditLog
 from grip.models.billing_delivery import BillingDelivery, BillingTerms
@@ -30,7 +31,13 @@ from grip.models.quote import Quote, QuoteApproval, QuoteOffer
 from grip.models.task import OPEN_STATUSES, Task
 from grip.models.vacancy import Vacancy
 from grip.models.vacancy_hire import VacancyHire
-from grip.services import billing_periods, phase, quote_approval, quote_budget
+from grip.services import (
+    billing_corrections,
+    billing_periods,
+    phase,
+    quote_approval,
+    quote_budget,
+)
 
 MONTHS_NL = (
     "januari",
@@ -317,6 +324,8 @@ async def load_assignment_cases(
         )
     ).all()
     deliveries_by_assignment = _grouped(deliveries, "assignment_id")
+    # Stored when the price of a delivered month changed: read, not priced.
+    corrections_by_assignment = await billing_corrections.all_corrections(db, ids)
     export_ids = [export.id for export in exports]
     invoiced: set[UUID] = set()
     if export_ids:
@@ -507,7 +516,9 @@ async def load_assignment_cases(
                     repeat_key=str(approval.id),
                     subject_id=str(approval.quote_id),
                     facts={"approval_decided": approval.status != "requested"},
-                    anchors={"approval_requested_on": approval.requested_at.date()},
+                    anchors={
+                        "approval_requested_on": clock.local_date(approval.requested_at)
+                    },
                     variables={"kenmerk": approval.reference or ""},
                 )
                 for approval in own_approvals
@@ -529,14 +540,12 @@ async def load_assignment_cases(
                 for approval in own_approvals
                 if approval.status == "sent_back" and approval.decided_at is not None
             ],
-            # TODO(naverrekening): one subject per delivered month whose price
-            # changed afterwards, with the fact "correction_delivered" and the
-            # anchor "correction_arose_on". The source is
-            # services.price_changes.pending_corrections, which prices every
-            # month and is too slow to call on each evaluation; it needs a
-            # stored row per correction that arose (see the event
-            # billing_correction.arose) before this list can be filled.
+            # Per month, as an older plan asked; corrections are kept per
+            # billing period now.
             "correction_month": [],
+            "period_correction": _period_corrections(
+                corrections_by_assignment.get(assignment.id, [])
+            ),
             "open_role": _open_roles(own_lines, allocations_by_line, today),
         }
 
@@ -568,9 +577,10 @@ async def load_assignment_cases(
                         "invoice_recorded": any(e.id in invoiced for e in delivered),
                     },
                     anchors={
-                        "closed_on": close.closed_at.date(),
+                        "closed_on": clock.local_date(close.closed_at),
                         "delivered_on": min(
-                            (e.created_at.date() for e in delivered), default=None
+                            (clock.local_date(e.created_at) for e in delivered),
+                            default=None,
                         ),
                     },
                     variables={"maand": month_label(month)},
@@ -584,8 +594,13 @@ async def load_assignment_cases(
             exports_by_close=exports_by_close,
             invoiced=invoiced,
             delivered_keys={
-                d.period_key: d.delivered_at.date()
+                d.period_key: clock.local_date(d.delivered_at)
                 for d in deliveries_by_assignment.get(assignment.id, [])
+            },
+            corrections_open={
+                row.period_key
+                for row in corrections_by_assignment.get(assignment.id, [])
+                if row.delivered_at is None
             },
             today=today,
         )
@@ -601,6 +616,30 @@ async def load_assignment_cases(
             )
         )
     return snapshots
+
+
+def _period_corrections(rows: list[Any]) -> list[Subject]:
+    """One subject per billing period that has, or had, a difference to
+    deliver. Done while no difference is open; a period whose only
+    correction was undone has no subject, and its task lapses."""
+    by_period: dict[str, list[Any]] = {}
+    for row in rows:
+        by_period.setdefault(row.period_key, []).append(row)
+    subjects = []
+    for key, own in sorted(by_period.items()):
+        still_open = next((row for row in own if row.delivered_at is None), None)
+        latest = still_open or own[-1]
+        subjects.append(
+            Subject(
+                kind="period_correction",
+                repeat_key=key,
+                subject_id=str(latest.id),
+                facts={"correction_delivered": still_open is None},
+                anchors={"correction_arose_on": clock.local_date(latest.arose_at)},
+                variables={"periode": period_words(key)},
+            )
+        )
+    return subjects
 
 
 def period_words(key: str) -> str:
@@ -620,6 +659,7 @@ def _billing_periods(
     exports_by_close: dict[Any, list[Any]],
     invoiced: set[UUID],
     delivered_keys: dict[str, date],
+    corrections_open: set[str],
     today: date,
 ) -> list[Subject]:
     """The billing periods of an assignment that have work in them.
@@ -656,7 +696,7 @@ def _billing_periods(
         )
         exports = [e for close in closed for e in exports_by_close.get(close.id, [])]
         delivered_on = delivered_keys.get(period.key) or (
-            max(e.created_at.date() for e in exports)
+            max(clock.local_date(e.created_at) for e in exports)
             if exports
             and all(exports_by_close.get(close.id) for close in closed)
             and ready
@@ -673,9 +713,12 @@ def _billing_periods(
                     "period_delivered": delivered_on is not None,
                     "period_invoiced": bool(exports)
                     and all(e.id in invoiced for e in exports),
+                    "period_correction_open": period.key in corrections_open,
                 },
                 anchors={
-                    "ready_on": max(close.closed_at.date() for close in closed),
+                    "ready_on": max(
+                        clock.local_date(close.closed_at) for close in closed
+                    ),
                     "delivered_on": delivered_on,
                 },
                 variables={"periode": period_words(period.key)},
@@ -760,7 +803,7 @@ async def _vacancy_text_subjects(
                         repeat_key=f"{kind}:{review.round}:{verdict.reviewer_id}",
                         subject_id=str(review.id),
                         facts={"verdict_given": verdict.verdict is not None},
-                        anchors={"offered_on": review.offered_at.date()},
+                        anchors={"offered_on": clock.local_date(review.offered_at)},
                         variables={"tekst": word},
                         person_id=verdict.reviewer_id,
                     )

@@ -274,6 +274,17 @@ async def reopen_month(
             **({"closed_year_override": closed_years} if closed_years else {}),
         },
     )
+    # A difference that stood on this month is gone with its delivery: the
+    # month is delivered again in full once it is closed again.
+    from grip.services import billing_corrections
+
+    if await billing_corrections.open_corrections(session, [assignment_id]):
+        await billing_corrections.sync(
+            session,
+            cause=f"{billing_periods.month_name(month)} is heropend",
+            actor=actor,
+            assignment_ids=[assignment_id],
+        )
     return close
 
 

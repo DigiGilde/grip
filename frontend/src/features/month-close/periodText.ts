@@ -102,7 +102,12 @@ export function stepLine(step: NextStep, overview: BillingOverview): string {
       : 'Stel vast wat er is gewerkt en sluit de maand af.';
   }
   if (step.kind === 'deliver' && step.correction) {
-    return `${earlierText(step)} Na die tijd is er iets gewijzigd; lever het verschil aan.`;
+    const cause = overview.periods.find(
+      (period) => period.key === step.period_key,
+    )?.correction_cause;
+    return cause
+      ? `${earlierText(step)} Na die tijd is er iets gewijzigd (${cause}); lever het verschil aan.`
+      : `${earlierText(step)} Na die tijd is er iets gewijzigd; lever het verschil aan.`;
   }
   if (step.kind === 'deliver') {
     return overview.can_mail
@@ -163,9 +168,10 @@ export function periodLine(period: BillingPeriod): string {
   if (period.state === 'ready') {
     if (period.correction) {
       const numbers = (period.invoice_numbers ?? []).join(', ');
+      const why = period.correction_cause ? `: ${period.correction_cause}` : '';
       return numbers
-        ? `Gefactureerd, factuur ${numbers}; daarna gewijzigd`
-        : 'Aangeleverd; daarna gewijzigd';
+        ? `Gefactureerd, factuur ${numbers}; daarna gewijzigd${why}`
+        : `Aangeleverd; daarna gewijzigd${why}`;
     }
     const correction = period.months.some((month) => (month.correction_cents ?? 0) !== 0);
     if (delivery && correction) return 'Gewijzigd na de aanlevering: naverrekening';

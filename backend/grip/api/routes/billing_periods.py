@@ -135,6 +135,7 @@ def _period_out(view: billing_deliveries.PeriodView) -> BillingPeriodOut:
         awaits_invoice=bool(view.open_export_ids),
         last_step_at=view.last_step_at,
         correction=view.correction,
+        correction_cause=view.correction_cause,
         invoiced_on=view.invoiced_on,
         invoice_difference_cents=view.invoice_difference_cents,
     )

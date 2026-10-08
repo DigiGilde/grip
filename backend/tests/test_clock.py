@@ -113,16 +113,12 @@ async def test_a_right_revoked_today_is_gone_today_on_a_month_boundary(
 
 
 def test_no_code_asks_another_clock_for_the_day() -> None:
-    """Every "today" comes from the one clock.
-
-    The task layer is converted separately; until then its files are named
-    here so that the list can only shrink.
-    """
+    """Every "today" comes from the one clock, the task layer included."""
     import re
     from pathlib import Path
 
     root = Path(__file__).resolve().parents[1] / "grip"
-    pending = {"api/routes/tasks.py", "tasks/backfill.py", "tasks/loop.py"}
+    pending: set[str] = set()
     other_clock = re.compile(
         r"\bdate\.today\(\)|datetime\.now\((UTC|timezone\.utc)?\)\.date\(\)"
         r"|\butcnow\(\)|default=date\.today\b"
