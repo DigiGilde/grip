@@ -170,6 +170,32 @@ def _draft_out(
     }
 
 
+async def _answer(
+    db: AsyncSession,
+    decider: Any,
+    subject: Any,
+    assignment: Assignment,
+    *,
+    may_edit: bool,
+) -> dict[str, Any]:
+    """The draft as it reads now, with what the sender still lacks for it.
+
+    The standard texts follow the budget, the billing terms and the sender,
+    so the answer is read again after a change rather than taken from it.
+    """
+    content, saved = await quote_drafts.read_draft(db, assignment)
+    missing = await quote_drafts.sender_gaps(db, assignment)
+    return {
+        **_draft_out(content, saved=saved, may_edit=may_edit),
+        # What a beheerder must fill in under Beheer, Afzender before a quote
+        # can be made; null when nothing is missing.
+        "sender_problem": quote_drafts.sender_problem(missing),
+        "may_set_sender": bool(
+            await decide(decider, subject, Action.MANAGE_USERS, Resource.instance())
+        ),
+    }
+
+
 def _conflict(
     exc: quote_drafts.DraftConflictError, content: dict[str, Any]
 ) -> JSONResponse:
@@ -200,9 +226,8 @@ async def read_quote_draft(
     """The text of the next quote: the saved draft, or the organisation's
     starting texts when nothing was saved yet."""
     assignment, resource = await _readable(db, decider, subject, assignment_id)
-    content, saved = await quote_drafts.read_draft(db, assignment)
     may_edit = bool(await decide(decider, subject, Action.ISSUE_QUOTE, resource))
-    return _draft_out(content, saved=saved, may_edit=may_edit)
+    return await _answer(db, decider, subject, assignment, may_edit=may_edit)
 
 
 @router.patch("/assignments/{assignment_id}/quote-draft", response_model=None)
@@ -220,13 +245,13 @@ async def update_quote_draft(
     fields = body.model_dump(exclude_unset=True)
     fields.pop("head_version", None)
     try:
-        content = await quote_drafts.update_letter(
+        await quote_drafts.update_letter(
             db, assignment, fields, actor=person, expected_version=body.head_version
         )
     except quote_drafts.DraftConflictError as exc:
         current, _ = await quote_drafts.read_draft(db, assignment)
         return _conflict(exc, current)
-    return _draft_out(content, saved=True, may_edit=True)
+    return await _answer(db, decider, subject, assignment, may_edit=True)
 
 
 @router.put(
@@ -244,7 +269,7 @@ async def save_quote_section(
     """Save a section. Saving is what settles a text the model drafted."""
     assignment = await _editable(db, decider, subject, assignment_id)
     try:
-        content = await quote_drafts.save_section(
+        await quote_drafts.save_section(
             db,
             assignment,
             key,
@@ -257,7 +282,7 @@ async def save_quote_section(
     except quote_drafts.DraftConflictError as exc:
         current, _ = await quote_drafts.read_draft(db, assignment)
         return _conflict(exc, current)
-    return _draft_out(content, saved=True, may_edit=True)
+    return await _answer(db, decider, subject, assignment, may_edit=True)
 
 
 @router.put("/assignments/{assignment_id}/quote-draft/outline", response_model=None)
@@ -272,7 +297,7 @@ async def set_quote_outline(
     """Reorder the sections, drop one, or add a section of your own."""
     assignment = await _editable(db, decider, subject, assignment_id)
     try:
-        content = await quote_drafts.set_outline(
+        await quote_drafts.set_outline(
             db,
             assignment,
             body.keys,
@@ -283,7 +308,7 @@ async def set_quote_outline(
     except quote_drafts.DraftConflictError as exc:
         current, _ = await quote_drafts.read_draft(db, assignment)
         return _conflict(exc, current)
-    return _draft_out(content, saved=True, may_edit=True)
+    return await _answer(db, decider, subject, assignment, may_edit=True)
 
 
 @router.post("/assignments/{assignment_id}/quote-draft/restart", response_model=None)
@@ -296,8 +321,8 @@ async def restart_quote_draft(
 ) -> dict[str, Any]:
     """Start again from the texts of the organisation."""
     assignment = await _editable(db, decider, subject, assignment_id)
-    content = await quote_drafts.restart(db, assignment, actor=person)
-    return _draft_out(content, saved=True, may_edit=True)
+    await quote_drafts.restart(db, assignment, actor=person)
+    return await _answer(db, decider, subject, assignment, may_edit=True)
 
 
 async def assignment_context(
@@ -348,7 +373,7 @@ async def draft_quote_section(
     assignment = await _editable(db, decider, subject, assignment_id)
     context = await assignment_context(db, corpus, settings, assignment)
     try:
-        content = await quote_drafts.draft_section(
+        await quote_drafts.draft_section(
             db,
             assignment,
             key,
@@ -358,7 +383,7 @@ async def draft_quote_section(
         )
     except (LlmNotConfiguredError, LlmResponseError) as exc:
         raise _llm_problem(exc) from exc
-    return _draft_out(content, saved=True, may_edit=True)
+    return await _answer(db, decider, subject, assignment, may_edit=True)
 
 
 @router.post(

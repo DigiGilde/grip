@@ -198,13 +198,41 @@ function renderVacancy(vacancy: Vacancy, tab = '', extra: Record<string, unknown
   );
 }
 
+const STEPS = ['Aanvraag', 'Advies en akkoord', 'Openstellen', 'Vervullen'];
+
+/**
+ * The course of the vacancy as the server would give it: which step it is
+ * at and what is next for this reader. The shell only draws it.
+ */
+function courseAt(current: number, next: Record<string, unknown> | null) {
+  return {
+    '/api/tasks/cases/vacancy/v-1/course': {
+      case_kind: 'vacancy',
+      case_id: 'v-1',
+      course: {
+        key: 'werving',
+        label: 'Werving',
+        steps: STEPS.map((label, index) => ({
+          key: label,
+          label,
+          state: index + 1 < current ? 'done' : index + 1 === current ? 'current' : 'future',
+        })),
+        current_label: STEPS[current - 1],
+        position: `${current} van ${STEPS.length}`,
+        next,
+      },
+      parts: [],
+    },
+  };
+}
+
 const primaryOnPage = (container: HTMLElement) =>
   [...container.querySelectorAll('nldd-button[appearance="primary"]')].map((button) =>
     button.getAttribute('text'),
   );
 
 const tabsOf = (container: HTMLElement) =>
-  [...container.querySelectorAll('nldd-tab-bar-item')].map((tab) => [
+  [...container.querySelectorAll('nldd-menu-bar-item')].map((tab) => [
     tab.getAttribute('text'),
     tab.hasAttribute('current'),
   ]);
@@ -221,17 +249,29 @@ function currentStep(container: HTMLElement): number {
 
 describe('the header of a vacancy', () => {
   it('says what it is, where it belongs and where it stands, with one primary action', async () => {
-    const { container } = renderVacancy(REQUESTED);
+    const { container } = renderVacancy(
+      REQUESTED,
+      '',
+      courseAt(2, {
+        mine: false,
+        headline: 'Het advies van HR',
+        sentence: 'Je wacht op het advies van HR. Jij hoeft nu niets te doen.',
+        who: 'HR',
+      }),
+    );
     await waitFor(() =>
       expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Backend-ontwikkelaar'),
     );
-    expect(container.querySelector('nldd-badge')?.getAttribute('text')).toBe('Aangevraagd');
+    await waitFor(() => expect(currentStep(container)).toBe(2));
+    // The course says where it stands, so no tag repeats it; the sentence
+    // says whose move it is.
+    expect(container.querySelector('nldd-badge[text="Aangevraagd"]')).toBeNull();
+    expect(container.textContent).toContain('Je wacht op het advies van HR.');
     // The assignment links to its Bemensing tab.
     expect(container.querySelector('nldd-link[text="Opdracht Alfa"]')?.getAttribute('href')).toBe(
       '/opdrachten/a-1/bemensing',
     );
     expect(container.textContent).toContain('Regulier · Schaal 11, 0,8 fte');
-    expect(currentStep(container)).toBe(3);
     expect(tabsOf(container)).toEqual([
       ['Aanvraag', true],
       ['Taken', false],
@@ -241,8 +281,8 @@ describe('the header of a vacancy', () => {
       ['Vervulling', false],
       ['Geschiedenis', false],
     ]);
-    // The step is done on another tab: the one primary action leads there.
-    expect(primaryOnPage(container)).toEqual(['Naar advies en akkoord']);
+    // Someone else has the move: nothing on the page takes the accent.
+    expect(primaryOnPage(container)).toEqual([]);
     expect(container.querySelectorAll('h1')).toHaveLength(1);
   });
 
@@ -264,7 +304,7 @@ describe('the header of a vacancy', () => {
     const { container } = renderVacancy(PUBLIC);
     await waitFor(() => expect(container.textContent).toContain('Wij zoeken een productmanager.'));
     expect(container.textContent).toContain('Een taalmodel (testmodel-1)');
-    expect(container.querySelector('nldd-tab-bar')).toBeNull();
+    expect(container.querySelector('nldd-menu-bar')).toBeNull();
     expect(container.querySelector('nldd-step-bar')).toBeNull();
     expect(container.querySelector('nldd-button')).toBeNull();
     expect(document.body.querySelector('nldd-sheet')).toBeNull();
@@ -287,14 +327,25 @@ describe('the header of a vacancy', () => {
 
   it('carries the one primary action when the vacancy is approved', async () => {
     const approved: Vacancy = { ...REQUESTED, status: 'approved' };
-    const { container } = renderVacancy(approved, 'procedure');
+    const { container } = renderVacancy(
+      approved,
+      'procedure',
+      courseAt(3, {
+        mine: true,
+        headline: 'Stel de vacature open',
+        sentence: 'Het akkoord is gegeven. Stel de vacature open.',
+        action_text: 'Stel open',
+        action_href: '/vacatures/v-1/procedure',
+        task_key: 'werving.openstellen',
+      }),
+    );
     await waitFor(() =>
       expect(
         container.querySelector('nldd-table[accessible-label="Stappen van de procedure"]'),
       ).not.toBeNull(),
     );
     // "Stel open" once, in the header; the procedure tab has no primary of its own.
-    expect(primaryOnPage(container)).toEqual(['Stel open']);
+    await waitFor(() => expect(primaryOnPage(container)).toEqual(['Stel open']));
     expect(container.querySelectorAll('nldd-button[text="Stel open"]')).toHaveLength(1);
   });
 });
@@ -308,7 +359,19 @@ describe('the Aanvraag tab', () => {
       scale_fits_budget_line: false,
       budget_line_scales: [12, 13],
     };
-    const { container } = renderVacancy(draft);
+    const { container } = renderVacancy(
+      draft,
+      '',
+      courseAt(1, {
+        mine: true,
+        headline: 'Vraag de vacature aan',
+        sentence: 'De aanvraag mist nog gegevens. Vul ze in; daarna vraag je de vacature aan.',
+        action_text: 'Bereid aanvraag voor',
+        action_href: '/vacatures/v-1',
+        missing: ['Functienaam uit het functiegebouw', 'Soort contract'],
+        task_key: 'werving.aanvraag_voorbereiden',
+      }),
+    );
     await waitFor(() =>
       expect(
         container.querySelector(
@@ -336,9 +399,13 @@ describe('the Aanvraag tab', () => {
       ['Aan', 'Fictief Directielid', 'check-circle-filled', true],
       ['Aanleiding en motivatie', 'Nog niet ingevuld', 'circle', true],
     ]);
-    // A fresh vacancy: the step bar is at 1 and carries the primary action.
-    expect(currentStep(container)).toBe(1);
+    // A fresh vacancy: the course is at its first step, the head carries the
+    // one primary action and says what still stands in its way.
+    await waitFor(() => expect(currentStep(container)).toBe(1));
     expect(primaryOnPage(container)).toEqual(['Bereid aanvraag voor']);
+    expect(container.textContent).toContain(
+      'Ontbreekt nog: Functienaam uit het functiegebouw, Soort contract.',
+    );
     expect(
       container.querySelector('nldd-banner[variant="warning"]')?.getAttribute('text'),
     ).toContain('Schaal 11 valt buiten de tariefcategorie van de begrotingsregel');
@@ -538,24 +605,52 @@ describe('the Tekst tab', () => {
       [...container.querySelectorAll('nldd-rich-text li')].map((el) => el.textContent),
     ).toEqual(['ontwerpen', 'testen']);
     expect(container.textContent).not.toContain('## ');
-    // The header holds the primary action of the vacancy. On the tab the next
-    // step of each text is its one filled button; the rest is quiet.
+    // The header only points to another tab here, so the accent is on this
+    // tab: the next step of the text that leads. Everything else is a plain
+    // button, never bare text.
     const within = (text: string) =>
       container.querySelector(`nldd-button[text="${text}"]`)?.getAttribute('appearance');
-    expect(within('Verwerk de opmerkingen')).toBe('secondary');
+    expect(within('Verwerk de opmerkingen')).toBe('primary');
     expect(within('Neem terug om verder te schrijven')).toBe('secondary');
-    expect(container.querySelectorAll('nldd-button[appearance="primary"]').length).toBeLessThan(2);
+    expect(container.querySelectorAll('nldd-button[appearance="primary"]')).toHaveLength(1);
+    expect(
+      container.querySelectorAll('nldd-button[appearance="neutral-transparent"]'),
+    ).toHaveLength(
+      [...container.querySelectorAll('nldd-button')].filter((el) =>
+        ['Antwoord', 'Markeer als afgehandeld', 'Zet weer open'].includes(
+          el.getAttribute('text') ?? '',
+        ),
+      ).length,
+    );
     // The round, the remark and what still has to be filled in.
     expect(container.textContent).toContain('terug met opmerkingen (Fictieve Adviseur)');
     expect(container.textContent).toContain('Dit ga je doen: Te algemeen.');
     expect(container.textContent).toContain('Fictieve Adviseur: Maak de eisen concreter.');
-    expect(container.textContent).toContain('Nog in te vullen voor je kunt vaststellen');
+    // What is still open is a count; the passages themselves are in the editor.
+    expect(container.textContent).toContain('Nog 1 plek in te vullen');
+    expect(container.textContent).not.toContain('[vul aan:');
     expect(container.querySelector('nldd-button[text="Toon eerdere versies (1)"]')).not.toBeNull();
     expect(container.textContent).not.toContain('Eerste opzet.');
     // No model is set up: a tailored draft is not offered, and nothing says so.
     expect(container.querySelector('nldd-button[text="Stel een tekst op maat op"]')).toBeNull();
     expect(container.textContent).not.toContain('taalmodel');
     expect(container.querySelector('nldd-button[text="Schrijf zelf"]')).toBeNull();
+  });
+
+  it('says so when a tailored draft was written without the context from the corpus, and only then', async () => {
+    const LINE = 'Opgesteld zonder de context uit het corpus: dat was niet bereikbaar.';
+    for (const [context, shown] of [
+      ['unreachable', true],
+      ['used', false],
+      [undefined, false],
+    ] as const) {
+      const { container, unmount } = renderVacancy(REQUESTED, 'tekst', {
+        [WORK_PATH]: { ...TEXT_WORK, ...(context ? { context } : {}) },
+      });
+      await waitFor(() => expect(container.textContent).toContain('Je bouwt.'));
+      expect(container.textContent?.includes(LINE)).toBe(shown);
+      unmount();
+    }
   });
 
   it('starts an empty vacancy text from the standard text, with a tailored draft next to it', async () => {
@@ -587,8 +682,13 @@ describe('the Tekst tab', () => {
       container
         .querySelector('nldd-button[text="Begin met de standaardtekst"]')
         ?.getAttribute('appearance'),
+      // The header only points to another tab, so this next step is the accent.
+    ).toBe('primary');
+    expect(
+      container
+        .querySelector('nldd-button[text="Stel een tekst op maat op"]')
+        ?.getAttribute('appearance'),
     ).toBe('secondary');
-    expect(container.querySelector('nldd-button[text="Stel een tekst op maat op"]')).not.toBeNull();
     expect(container.querySelector('nldd-button[text="Schrijf zelf"]')).not.toBeNull();
     expect(container.textContent).toContain('Er is een standaardtekst voor Software engineer.');
   });
@@ -683,11 +783,19 @@ describe('the Vervulling tab', () => {
         recruitment_ref: null,
         hire: null,
       },
+      ...courseAt(4, {
+        mine: true,
+        headline: 'Leg vast wie is aangenomen',
+        sentence: 'De vacature kan worden vervuld. Leg vast wie is aangenomen.',
+        action_text: 'Vervul',
+        action_href: '/vacatures/v-1/vervulling',
+        task_key: 'werving.vervullen',
+      }),
     });
     await waitFor(() =>
       expect(container.querySelector('nldd-button[text="Leg verwijzing vast"]')).not.toBeNull(),
     );
-    expect(primaryOnPage(container)).toEqual(['Vervul']);
+    await waitFor(() => expect(primaryOnPage(container)).toEqual(['Vervul']));
     expect(container.querySelectorAll('nldd-button[text="Vervul"]')).toHaveLength(1);
     expect(container.textContent).toContain('Nog niemand aangenomen voor 0,8 fte');
     expect(container.querySelector('nldd-button[text="Trek vacature in"]')).not.toBeNull();

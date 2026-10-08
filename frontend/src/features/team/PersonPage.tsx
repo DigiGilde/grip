@@ -3,7 +3,7 @@ import { iconOf } from '@/ui/icons';
 import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ApiError, errorMessage } from '@/api/client';
+import { ApiError } from '@/api/client';
 import { useAuth } from '@/auth/context';
 import { orUndef, useNlddEvent } from '@/components/nldd/events';
 import { boardKeys, fetchBoard, type BoardPerson } from '@/features/allocations/board/api';
@@ -15,7 +15,16 @@ import { useInstance } from '@/layout/useInstance';
 import { useRouterLinks } from '@/layout/useRouterLinks';
 import { PAGE_HEADING_ID } from '@/pages/PageHeading';
 import { PATHS } from '@/paths';
-import { EmptyNotice, ErrorNotice, Loading, Quiet, Section, Stack } from '@/ui/layout';
+import {
+  EmptyNotice,
+  ErrorNotice,
+  LoadError,
+  Loading,
+  Quiet,
+  Section,
+  Stack,
+  NotFound,
+} from '@/ui/layout';
 import { ROW_ACTIONS_COLUMN, RowActions } from '@/ui/RowActions';
 import { Timeline } from '@/ui/timeline/Timeline';
 import { barsInColumn } from '@/ui/timeline/layout';
@@ -103,12 +112,9 @@ export function PersonPage() {
     <nldd-simple-section>
       <Heading name="Persoon" />
       {notFound ? (
-        <EmptyNotice
-          text="Deze persoon is niet gevonden"
-          supportingText="De persoon bestaat niet, of je mag de gegevens niet inzien."
-        />
+        <NotFound what="Deze persoon" />
       ) : query.isError ? (
-        <ErrorNotice message={errorMessage(query.error)} />
+        <LoadError error={query.error} retry={() => void query.refetch()} />
       ) : (
         <Loading />
       )}

@@ -78,6 +78,38 @@ async def test_close_at_an_adjusted_percentage(act_as, world):
     assert again.status_code == 422
 
 
+async def test_the_amount_follows_the_percentage_before_the_month_is_closed(
+    act_as, world
+):
+    """The same figure the close then settles, and nothing is changed by asking."""
+    client = act_as(world.manager)
+    url = f"{_base(world)}/months/2026-03/preview"
+    plan = (await client.post(url, json={})).json()
+    assert plan["total_cents"] == PLANNED_CENTS
+    preview = await client.post(
+        url,
+        json={
+            "established": [
+                {"allocation_id": str(world.allocation.id), "fte_pct": "60"}
+            ]
+        },
+    )
+    assert preview.status_code == 200, preview.text
+    body = preview.json()
+    assert body["lines"] == [
+        {"allocation_id": str(world.allocation.id), "amount_cents": 1_080_000}
+    ]
+    assert body["total_cents"] == 1_080_000
+    still = (await client.get(f"{_base(world)}/months/2026-03")).json()
+    assert still["closed"] is False
+    assert still["lines"][0]["planned_amount_cents"] == PLANNED_CENTS
+
+    # Only who closes the month may ask.
+    for person in (world.planner, world.member, world.lezer, world.outsider):
+        refused = await act_as(person).post(url, json={})
+        assert refused.status_code in (403, 404)
+
+
 async def test_close_without_changes_takes_the_plan(act_as, world):
     client = act_as(world.manager)
     body = (await client.post(f"{_base(world)}/months/2026-02/close", json={})).json()

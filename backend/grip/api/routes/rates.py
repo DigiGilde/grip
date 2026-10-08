@@ -1,7 +1,10 @@
 """Rate cards: rates per category and the scale-to-category mapping, each
 card valid from a date to a date.
 
-Everyone who is logged in may read them; only the beheerder changes them.
+Everyone who is logged in may read which cards there are and which scales
+a category covers; the amounts are for who may read the price list (the
+beheerder, the lezer and who owns or manages an assignment). Only the
+beheerder changes them, and only the beheerder sees a draft.
 A closed card is locked: a change needs ``confirm_closed_year`` in the body,
 and the service then writes an audit row that names the override.
 
@@ -159,12 +162,18 @@ async def list_rate_cards(
     """All rate cards, the one that starts last first."""
     await require(decider, subject, Action.READ, _CARDS, DataClass.MASTER_DATA)
     cards = await RateRepository(db).all_cards()
+    may_manage = await may(decider, subject, Action.MANAGE_RATES, _CARDS)
     value = RateCardListOut(
         items=[
             _card_out(c)
             for c in sorted(cards, key=lambda c: c.valid_from, reverse=True)
+            # A draft is the beheerder's work in progress.
+            if may_manage or c.status != "draft"
         ],
-        may_manage=await may(decider, subject, Action.MANAGE_RATES, _CARDS),
+        may_manage=may_manage,
+        may_read_amounts=await may(
+            decider, subject, Action.READ, _CARDS, DataClass.RATE_TABLE
+        ),
         default_increase_pct=settings.RATE_INDEXATION_DEFAULT_PCT,
     )
     return await filtered(decider, subject, _CARDS, value)
@@ -207,7 +216,12 @@ async def get_valid_rates(
         crosses_cards=len([s for s in stretches if s.card is not None]) > 1,
         rates_differ=rates.rates_differ(stretches),
         has_gap=any(s.card is None for s in stretches),
-        summary=rates.valid_rates_summary(stretches),
+        summary=rates.valid_rates_summary(
+            stretches,
+            tell_difference=await may(
+                decider, subject, Action.READ, _CARDS, DataClass.RATE_TABLE
+            ),
+        ),
     )
     return await filtered(decider, subject, _CARDS, value)
 
@@ -273,6 +287,12 @@ async def get_rate_card(
 ) -> dict[str, Any]:
     await require(decider, subject, Action.READ, _CARDS, DataClass.MASTER_DATA)
     found = await rates.get_card(db, _key(card))
+    if found.status == "draft" and not await may(
+        decider, subject, Action.MANAGE_RATES, _CARDS
+    ):
+        # A draft is the beheerder's work in progress; for anyone else it
+        # does not exist yet.
+        raise NotFoundError("Tarievenkaart", card)
     return await filtered(decider, subject, _CARDS, _card_out(found))
 
 

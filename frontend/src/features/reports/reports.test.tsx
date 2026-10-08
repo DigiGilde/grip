@@ -28,7 +28,10 @@ function respond(routes: Record<string, unknown>, status = 200) {
   return fetchMock;
 }
 
-const MONTHS = Array.from({ length: 12 }, (_, index) => `2026-${String(index + 1).padStart(2, '0')}`);
+const MONTHS = Array.from(
+  { length: 12 },
+  (_, index) => `2026-${String(index + 1).padStart(2, '0')}`,
+);
 
 const TURNOVER = {
   scope: 'all',
@@ -239,8 +242,11 @@ describe('a topic of Rapportage', () => {
   it('shows the problem the API reports', async () => {
     respond({ '/api/reports/steering': { title: 'Geen toegang', detail: 'Dat mag niet.' } }, 403);
     const { container } = renderTopic('omzet');
+    // A refusal reads the same on every screen: no access, and nothing else.
     await waitFor(() =>
-      expect(container.querySelector('nldd-banner')).toHaveAttribute('text', 'Dat mag niet.'),
+      expect(container.querySelector('[data-state="no-access"]')?.textContent).toContain(
+        'Je hebt hier geen toegang',
+      ),
     );
   });
 
@@ -412,7 +418,9 @@ describe('YearAccountView', () => {
     });
     const { container } = renderApp(<YearAccountView year="2026" />);
     const block = await screen.findByTestId('year-account');
-    expect(container.querySelector('nldd-text-cell[supporting-text="Geen akkoord"]')).not.toBeNull();
+    expect(
+      container.querySelector('nldd-text-cell[supporting-text="Geen akkoord"]'),
+    ).not.toBeNull();
     expect(block).toHaveTextContent('De opdrachten waar je bij betrokken bent');
   });
 
@@ -455,7 +463,12 @@ const REPORT = {
   months_closed: 1,
   status_history: [
     { occurred_at: '2026-06-01T10:00:00Z', old_status: null, new_status: 'draft', reason: null },
-    { occurred_at: '2026-06-20T10:00:00Z', old_status: 'draft', new_status: 'quoted', reason: null },
+    {
+      occurred_at: '2026-06-20T10:00:00Z',
+      old_status: 'draft',
+      new_status: 'quoted',
+      reason: null,
+    },
   ],
   final_report: null,
   months: [],
@@ -573,8 +586,7 @@ describe('AssignmentReportPage', () => {
     respond({});
     const { container } = renderReport();
     await waitFor(() =>
-      expect(container.querySelector('nldd-inline-dialog')).toHaveAttribute(
-        'text',
+      expect(container.querySelector('[data-state="not-found"]')?.textContent).toContain(
         'Deze opdracht is niet gevonden',
       ),
     );
@@ -899,7 +911,9 @@ describe('Investeerruimte', () => {
     renderInvestment({ year: 2026, money_withheld: { reason: 'few_targets', min_persons: 5 } });
     const notice = await screen.findByTestId('investment-withheld');
     expect(notice).toHaveAttribute('text', 'De investeerruimte in geld is niet te tonen');
-    expect(notice.getAttribute('supporting-text')).toContain('Minder dan 5 mensen hebben een target');
+    expect(notice.getAttribute('supporting-text')).toContain(
+      'Minder dan 5 mensen hebben een target',
+    );
     expect(screen.queryByTestId('investment-money')).toBeNull();
   });
 
@@ -930,8 +944,10 @@ describe('the investeerruimte on the landing view', () => {
     expect(plain(short?.value)).toBe('€ 55.500');
     expect(short?.attention).toBe('Minder omzet verwacht dan nodig');
     expect(
-      landingTiles({ year: 2026, turnover: TURNOVER } as never, { year: 2026, money: MONEY } as never)
-        .map((item) => item.topic),
+      landingTiles(
+        { year: 2026, turnover: TURNOVER } as never,
+        { year: 2026, money: MONEY } as never,
+      ).map((item) => item.topic),
     ).toEqual(['investeerruimte', 'omzet']);
   });
 

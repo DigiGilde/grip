@@ -30,7 +30,7 @@ from grip.models.quote import Quote, QuoteApproval, QuoteOffer
 from grip.models.task import OPEN_STATUSES, Task
 from grip.models.vacancy import Vacancy
 from grip.models.vacancy_hire import VacancyHire
-from grip.services import billing_periods, phase
+from grip.services import billing_periods, phase, quote_approval, quote_budget
 
 MONTHS_NL = (
     "januari",
@@ -375,6 +375,10 @@ async def load_assignment_cases(
             "may_close_months": phase.allows_month_close(status),
             "may_bill": phase.allows_billing(status),
             "final_report_issued": str(assignment.id) in reported,
+            "verbally_agreed": status == phase.VERBALLY_AGREED,
+            "accounted": status == "accounted",
+            "rejected": status == "rejected",
+            "cancelled": status == "cancelled",
         }
 
         rejected = [quote for quote in own_quotes if quote.status == "rejected"]
@@ -392,6 +396,55 @@ async def load_assignment_cases(
         )
         current = live[-1] if live else None
         round_number = len(rejected) + 1
+        # Internal approval is a step of the course only for a quote that
+        # needs it; asked per quote, since the rule can depend on its amount.
+        approval_needed = False
+        approval_given = False
+        approval_asked = False
+        # The rows above carry only what every case needs; the quote in
+        # force is read whole, for its amount, its validity and its hash.
+        in_force = (
+            await db.get(Quote, current.id)
+            if current is not None and current.status == "issued"
+            else None
+        )
+        if in_force is not None and not is_client:
+            approval = await quote_approval.state_of(db, in_force)
+            approval_needed = approval.requirement.required
+            approval_given = approval.approved
+            approval_asked = approval.status in ("requested", "approved")
+        facts["approval_needed"] = approval_needed
+        facts["approval_given"] = approval_given
+        facts["approval_asked"] = approval_asked
+        received = [q for q in own_quotes if q.status != "superseded"]
+        facts["quote_received"] = is_client and bool(received)
+        facts["quote_answered"] = (
+            is_client and bool(received) and all(q.status != "issued" for q in received)
+        )
+        valid_until = (in_force.snapshot or {}).get("valid_until") if in_force else None
+        expired = (
+            in_force is not None
+            and isinstance(valid_until, str)
+            and valid_until < today.isoformat()
+        )
+        # A quote that no longer matches the budget leads nowhere: the step
+        # is to make a new one. Asked only while it can still matter.
+        outdated = False
+        if (
+            current is not None
+            and current.status == "issued"
+            and not is_client
+            and case_phase is phase.Phase.POTENTIAL
+        ):
+            moved, _ = await quote_budget.budget_moved(db, assignment)
+            outdated = bool(moved)
+        fresh = current is not None and not expired and not outdated
+        sent_back = any(
+            a.status == "sent_back"
+            and a.decided_at is not None
+            and not any(later.issued_at > a.decided_at for later in own_quotes)
+            for a in own_approvals
+        )
         subjects: dict[str, list[Subject]] = {
             "case": [Subject(kind="case")],
             "quote_round": [
@@ -405,6 +458,13 @@ async def load_assignment_cases(
                         and (current.id in offered or current.status == "accepted"),
                         "quote_accepted": current is not None
                         and current.status == "accepted",
+                        "quote_rejected_before": bool(rejected) and current is None,
+                        "quote_sent_back": sent_back,
+                        "quote_expired": expired,
+                        "quote_outdated": outdated,
+                        "quote_fresh": fresh,
+                        "quote_may_offer": fresh
+                        and (not approval_needed or approval_given),
                     },
                 )
             ],
@@ -667,6 +727,14 @@ async def _vacancy_text_subjects(
                         "text_settled": state == text_flow.STATE_SETTLED,
                         "text_moved_on": returned_before
                         and state != text_flow.STATE_RETURNED,
+                        "text_written": state
+                        in (
+                            text_flow.STATE_IN_REVIEW,
+                            text_flow.STATE_AGREED,
+                            text_flow.STATE_SETTLED,
+                        ),
+                        "text_judged": state
+                        in (text_flow.STATE_AGREED, text_flow.STATE_SETTLED),
                     },
                     variables={"tekst": word},
                     person_id=work.writer_id,
@@ -724,6 +792,16 @@ async def _request_form_facts(db: AsyncSession, vacancy: Vacancy) -> dict[str, b
         "request_form_current": bool(standing.versions) and not standing.changed,
         "request_form_signed": bool(standing.signed),
     }
+
+
+def _request_prepared(vacancy: Vacancy) -> bool:
+    """Everything the request itself asks for is filled in."""
+    return bool(
+        vacancy.fgr_function_name
+        and vacancy.scale is not None
+        and vacancy.contract_type
+        and vacancy.addressee_name
+    )
 
 
 async def load_vacancy_cases(
@@ -796,6 +874,11 @@ async def load_vacancy_cases(
             "colleague_known_in_wies": hired is not None and bool(hired.wies_public_id),
             "colleague_has_email": hired is not None and bool(hired.email),
             "publication_recorded": vacancy.id in published,
+            "request_prepared": status != "draft" or _request_prepared(vacancy),
+            "approval_passed": status in ("approved", "open", "filled"),
+            "filled": status == "filled",
+            "rejected": status == "rejected",
+            "withdrawn": status == "withdrawn",
             **await _request_form_facts(db, vacancy),
         }
         people: dict[str, UUID | None] = {"requester": vacancy.requester_id}

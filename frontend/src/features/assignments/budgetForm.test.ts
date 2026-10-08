@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { intendedText, lineForm, lineInput, previewInput } from './budgetForm';
+import { intendedText, lineForm, lineInput, previewInput, proposedYear } from './budgetForm';
 
 const personnel = {
   ...lineForm(),
@@ -28,7 +28,13 @@ describe('lineInput', () => {
   });
 
   it('builds a fixed line in cents', () => {
-    const form = { ...lineForm(), kind: 'fixed', description: 'Hosting', amount: '15.000', year: '2026' };
+    const form = {
+      ...lineForm(),
+      kind: 'fixed',
+      description: 'Hosting',
+      amount: '15.000',
+      year: '2026',
+    };
     expect(lineInput(form, true)).toEqual({
       description: 'Hosting',
       kind: 'fixed',
@@ -75,17 +81,35 @@ describe('lineInput', () => {
 
   it('sends no person for a line without one, and null to remove one', () => {
     expect(lineInput(personnel, true)).not.toHaveProperty('intended_person_id');
-    const line = { id: '1', assignment_id: 'a', description: 'x', kind: 'personnel', position: 1, intended_person_id: 'p1' };
-    expect(lineInput({ ...personnel, personId: 'p1' }, false, line)).not.toHaveProperty('intended_person_id');
-    expect(lineInput({ ...personnel, personId: '' }, false, line)).toMatchObject({ intended_person_id: null });
+    const line = {
+      id: '1',
+      assignment_id: 'a',
+      description: 'x',
+      kind: 'personnel',
+      position: 1,
+      intended_person_id: 'p1',
+    };
+    expect(lineInput({ ...personnel, personId: 'p1' }, false, line)).not.toHaveProperty(
+      'intended_person_id',
+    );
+    expect(lineInput({ ...personnel, personId: '' }, false, line)).toMatchObject({
+      intended_person_id: null,
+    });
   });
 
   it('says who a line is meant for, tentative and out of step in words', () => {
     const base = { id: '1', assignment_id: 'a', description: 'x', kind: 'personnel', position: 1 };
     expect(intendedText(base)).toBe('');
     expect(
-      intendedText({ ...base, intended_person_name: 'Voorbeeld Een', intended_tentative: true, intended_in_step: false }),
-    ).toBe('Beoogd: Voorbeeld Een, onder voorbehoud, de reservering loopt niet meer gelijk met de regel');
+      intendedText({
+        ...base,
+        intended_person_name: 'Voorbeeld Een',
+        intended_tentative: true,
+        intended_in_step: false,
+      }),
+    ).toBe(
+      'Beoogd: Voorbeeld Een, onder voorbehoud, de reservering loopt niet meer gelijk met de regel',
+    );
   });
 
   it('prices only what is filled in', () => {
@@ -104,12 +128,39 @@ describe('lineInput', () => {
     const sent = lineInput(following, true);
     expect(sent).toMatchObject({ period_source: 'assignment' });
     expect(sent).not.toHaveProperty('start_date');
-    expect(lineInput(personnel, true)).toMatchObject({ period_source: 'own', start_date: '2026-01-01' });
+    expect(lineInput(personnel, true)).toMatchObject({
+      period_source: 'own',
+      start_date: '2026-01-01',
+    });
     expect(previewInput(following)).not.toHaveProperty('start_date');
     const base = { id: '1', assignment_id: 'a', description: 'x', kind: 'personnel', position: 1 };
-    expect(lineForm({ ...base, start_date: '2026-03-01', end_date: '2026-09-30' }, parent).ownPeriod).toBe(false);
-    expect(lineForm({ ...base, start_date: '2026-04-01', end_date: '2026-09-30' }, parent).ownPeriod).toBe(true);
+    expect(
+      lineForm({ ...base, start_date: '2026-03-01', end_date: '2026-09-30' }, parent).ownPeriod,
+    ).toBe(false);
+    expect(
+      lineForm({ ...base, start_date: '2026-04-01', end_date: '2026-09-30' }, parent).ownPeriod,
+    ).toBe(true);
     expect(lineForm(undefined, parent).ownPeriod).toBe(false);
-    expect(lineForm({ ...base, period_source: 'own', start_date: '2026-03-01', end_date: '2026-09-30' }, parent).ownPeriod).toBe(true);
+    expect(
+      lineForm(
+        { ...base, period_source: 'own', start_date: '2026-03-01', end_date: '2026-09-30' },
+        parent,
+      ).ownPeriod,
+    ).toBe(true);
+  });
+});
+
+describe('the year of a new fixed amount', () => {
+  const today = new Date('2026-10-08T12:00:00');
+
+  it('is the first year of an assignment that runs in another year', () => {
+    expect(proposedYear({ start: '2027-01-01', end: '2027-12-31' }, today)).toBe('2027');
+    expect(proposedYear({ start: '2024-03-01', end: '2025-02-28' }, today)).toBe('2024');
+  });
+
+  it('is this year when the assignment runs in it, or has no period yet', () => {
+    expect(proposedYear({ start: '2026-07-01', end: '2027-06-30' }, today)).toBe('2026');
+    expect(proposedYear({ start: '', end: '' }, today)).toBe('2026');
+    expect(proposedYear(undefined, today)).toBe('2026');
   });
 });

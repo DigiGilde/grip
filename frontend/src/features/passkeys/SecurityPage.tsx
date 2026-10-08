@@ -12,6 +12,7 @@ import {
   ErrorNotice,
   FormFields,
   FormSheet,
+  LoadError,
   Loading,
   Page,
   Quiet,
@@ -92,7 +93,9 @@ export function SecurityPage() {
         {...(list?.available ? { lead: purpose(list) } : {})}
       >
         {query.isPending ? <Loading /> : null}
-        {query.isError ? <ErrorNotice message={errorMessage(query.error)} /> : null}
+        {query.isError ? (
+          <LoadError error={query.error} retry={() => void query.refetch()} />
+        ) : null}
         {list ? (
           <>
             {list.available ? (

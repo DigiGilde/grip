@@ -1,6 +1,8 @@
+import { VACANCY_SECTION_MARKS } from '@/ui/text/marks';
+import { TextEditor } from '@/ui/TextEditor';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ApiError, errorMessage } from '@/api/client';
+import { errorMessage } from '@/api/client';
 import { formatDate } from '@/lib/format';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { useInstance } from '@/layout/useInstance';
@@ -8,10 +10,10 @@ import { PATHS } from '@/paths';
 import { ActionBar } from '@/ui/ActionBar';
 import { OpenCell, OpenRow, ROW_ACTIONS_COLUMN, RowActions, type RowAction } from '@/ui/RowActions';
 import {
-  EmptyNotice,
   ErrorNotice,
   Facts,
   FormSheet,
+  LoadError,
   Loading,
   Page,
   Quiet,
@@ -154,7 +156,7 @@ function TemplateSheet({
           );
         }
         return (
-          <TextInput
+          <TextEditor
             key={section.key ?? index}
             label={section.heading || 'Inleiding'}
             value={section.body ?? ''}
@@ -163,7 +165,9 @@ function TemplateSheet({
                 current.map((item, at) => (at === index ? { ...item, body } : item)),
               )
             }
-            multiline
+            marks={VACANCY_SECTION_MARKS}
+            rows={6}
+            showOpenPlaces
           />
         );
       })}
@@ -194,7 +198,14 @@ function SharedSheet({ section, onClose }: { section: SharedSection; onClose: ()
       error={change.error}
     >
       <TextInput label="Kop" value={heading} onChange={setHeading} required />
-      <TextInput label="Tekst" value={body} onChange={setBody} multiline required />
+      <TextEditor
+        label="Tekst"
+        value={body}
+        onChange={setBody}
+        marks={VACANCY_SECTION_MARKS}
+        rows={10}
+        required
+      />
       <Quiet>
         Staat in de standaardtekst van {section.used_by.length}{' '}
         {section.used_by.length === 1 ? 'rol' : 'rollen'}: {section.used_by.join(', ')}.
@@ -298,7 +309,6 @@ export function StandardTextsPage() {
     setSheet(next);
   };
   const close = () => setSheet(null);
-  const denied = library.error instanceof ApiError && library.error.status === 403;
   const data = library.data;
   const manage = data?.may_manage ?? false;
 
@@ -315,8 +325,13 @@ export function StandardTextsPage() {
         back={{ href: PATHS.admin, text: 'Terug naar Beheer' }}
       >
         {library.isPending && <Loading />}
-        {denied && <EmptyNotice text="Dit is voor wie vacatures maakt" />}
-        {library.isError && !denied && <ErrorNotice message={errorMessage(library.error)} />}
+        {library.isError && (
+          <LoadError
+            error={library.error}
+            retry={() => void library.refetch()}
+            who="De standaardteksten zijn voor wie vacatures maakt en voor beheerders."
+          />
+        )}
         {data && (
           <>
             <Stack gap="related">

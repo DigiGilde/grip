@@ -318,7 +318,6 @@ export function InvoiceSheet({ item, target, onClose }: InvoiceSheetProps) {
                 <nldd-cell>
                   <Button
                     size="sm"
-                    appearance="neutral-transparent"
                     text="Verwijder"
                     accessibleLabel={`Verwijder bijlage ${attachment.filename}`}
                     disabled={sheet.busy}

@@ -4,7 +4,7 @@ import { useParams } from 'react-router-dom';
 import { errorMessage } from '@/api/client';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { ActionBar } from '@/ui/ActionBar';
-import { EmptyNotice, ErrorNotice, Facts, FormSheet, Loading, Section, Stack } from '@/ui/layout';
+import { EmptyNotice, Facts, FormSheet, LoadError, Loading, Section, Stack } from '@/ui/layout';
 import { DateInput, SelectInput, TextInput } from '@/features/vacancies/ui';
 import {
   TASK_KEYS,
@@ -113,7 +113,7 @@ export function CaseTasks({ kind, caseId }: { kind: CaseKind; caseId: string }) 
               />
             )}
             {query.isPending && <Loading />}
-            {query.isError && <ErrorNotice message={errorMessage(query.error)} />}
+            {query.isError && <LoadError error={query.error} retry={() => void query.refetch()} />}
             {data && withTasks.length === 0 && <EmptyNotice text="Geen taken" />}
           </Stack>
           {withTasks.map((track) => (

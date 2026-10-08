@@ -15,6 +15,8 @@ from pydantic import BaseModel, Field
 from grip.access import DataClass, in_class, nested
 
 _MASTER = in_class(DataClass.MASTER_DATA)
+# The amounts: only for who may read the price list.
+_AMOUNT = in_class(DataClass.RATE_TABLE)
 
 Category = Literal["A", "B", "C", "D", "E"]
 CardStatus = Literal["draft", "active", "closed"]
@@ -24,7 +26,7 @@ Rounding = Literal["euro", "ten", "fifty"]
 
 class RateBandOut(BaseModel):
     category: Annotated[str, _MASTER]
-    monthly_rate_cents: Annotated[int, _MASTER]
+    monthly_rate_cents: Annotated[int, _AMOUNT]
 
 
 class ScaleBandOut(BaseModel):
@@ -54,6 +56,9 @@ class RateCardListOut(BaseModel):
     # Whether the asker may change rate cards; the screen shows or hides the
     # edit actions on it.
     may_manage: Annotated[bool, _MASTER]
+    # Whether the asker gets the amounts; without it the bands carry the
+    # category only.
+    may_read_amounts: Annotated[bool, _MASTER]
     # Instance setting: the increase proposed for a new card.
     default_increase_pct: Annotated[Decimal, _MASTER]
 
@@ -189,7 +194,7 @@ class ValidRatesOut(BaseModel):
     # More than one card prices the period.
     crosses_cards: Annotated[bool, _MASTER]
     # And they do not all have the same rates.
-    rates_differ: Annotated[bool, _MASTER]
+    rates_differ: Annotated[bool, _AMOUNT]
     has_gap: Annotated[bool, _MASTER]
     # One sentence for under a field: "Volgens Tarieven 2026, geldig t/m ...".
     summary: Annotated[str, _MASTER]

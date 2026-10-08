@@ -260,7 +260,8 @@ async def test_beheerder_adds_and_changes_cost_items(client, world, as_person):
 async def test_an_uncovered_cost_item_is_managed_by_its_creator(
     client, world, as_person
 ):
-    """Nothing covers it yet, so no assignment gives anyone rights on it."""
+    """Nothing covers it yet: its creator and the beheerder change it, and who
+    manages an assignment may read it to let a budget line cover it."""
     as_person(world.owner)
     resp = await client.post("/api/costs", json={"description": "Hosting"})
     assert resp.status_code == 201, resp.text
@@ -278,14 +279,30 @@ async def test_an_uncovered_cost_item_is_managed_by_its_creator(
         await client.patch(f"/api/costs/{own}", json={"budgeted_cents": 5})
     ).status_code == 200
 
-    # The owner manages an assignment, but did not create this one.
+    # The owner manages an assignment, but did not create this one: it is
+    # looking for a budget to carry it, so the owner may read it and let a
+    # line of the own assignment cover it, and may change nothing else.
     as_person(world.owner)
-    assert (await client.get(f"/api/costs/{other}")).status_code == 404
+    assert (await client.get(f"/api/costs/{other}")).status_code == 200
     assert (
         await client.patch(f"/api/costs/{other}", json={"description": "x"})
-    ).status_code == 404
+    ).status_code == 403
     listed = [i["id"] for i in (await client.get("/api/costs")).json()["items"]]
-    assert own in listed and other not in listed
+    assert own in listed and other in listed
+    covered = await client.put(
+        f"/api/costs/{other}/coverage/{world.alfa_line.id}", json={"pct": "60"}
+    )
+    assert covered.status_code == 200, covered.text
+    # From then on the item is the owner's to manage, through that budget.
+    assert (
+        await client.patch(f"/api/costs/{other}", json={"description": "Gedekt"})
+    ).status_code == 200
+
+    # Someone who manages no assignment sees no uncovered item at all.
+    as_person(world.outsider)
+    assert (await client.get(f"/api/costs/{own}")).status_code == 404
+    as_person(world.planner)
+    assert (await client.get(f"/api/costs/{own}")).status_code == 404
 
     # A reader sees both and changes neither.
     as_person(world.lezer)

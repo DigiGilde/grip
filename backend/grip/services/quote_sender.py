@@ -301,7 +301,7 @@ async def current_letter(session: AsyncSession) -> dict[str, Any]:
 
 
 def placeholders(
-    sender: dict[str, Any], *, year: int, billing: str = "per kwartaal"
+    sender: dict[str, Any], *, year: int | str, billing: str = "per kwartaal"
 ) -> dict[str, str]:
     """What a standard text may refer to between braces.
 

@@ -39,8 +39,8 @@ export interface RequestItem {
   value: string | null;
   /** Filled in the request sheet, or (the motivation) under the texts. */
   where: 'sheet' | 'texts';
-  /** Asked by the form, but the request can be made without it. */
-  optional?: boolean;
+  /** What to say instead of "not filled in" when something is there but does not count yet. */
+  missingText?: string;
 }
 
 /** What the request form asks for beyond the role, filled in or not. */
@@ -75,17 +75,22 @@ export function requestItems(vacancy: Vacancy): RequestItem[] {
     {
       key: 'motivation',
       label: 'Aanleiding en motivatie',
+      // Printed on the form, so the request waits for a settled one.
       value: motivation ? 'Vastgesteld' : null,
       where: 'texts',
-      optional: true,
-      ...(draft && !motivation ? { label: 'Aanleiding en motivatie (concept, nog vaststellen)' } : {}),
+      ...(draft && !motivation ? { missingText: 'Concept, nog vaststellen' } : {}),
     },
   ];
 }
 
-/** True when everything the request itself needs is there (the motivation aside). */
+/**
+ * True when everything the request needs is there. The server keeps the list
+ * (`request_missing`) and refuses the request by it; without that list (an
+ * older answer) the items on screen decide.
+ */
 export function requestPrepared(vacancy: Vacancy): boolean {
-  return requestItems(vacancy).every((item) => item.optional || item.value !== null);
+  if (vacancy.request_missing) return vacancy.request_missing.length === 0;
+  return requestItems(vacancy).every((item) => item.value !== null);
 }
 
 /** The steps for this type of vacancy and where it stands; null once it has ended. */
@@ -108,8 +113,9 @@ export function vacancySteps(vacancy: Vacancy): VacancySteps | null {
         return {
           items,
           current: 1,
-          advice:
-            'Vul in wat het aanvraagformulier vraagt: de functienaam uit het Functiegebouw Rijk, de schaal, het type contract en aan wie de aanvraag gericht is.',
+          advice: vacancy.request_missing?.length
+            ? `Ontbreekt nog: ${vacancy.request_missing.join(', ')}.`
+            : 'Vul in wat het aanvraagformulier vraagt: de functienaam uit het Functiegebouw Rijk, de schaal, het type contract, aan wie de aanvraag gericht is en de aanleiding en motivatie.',
           action: can.can_edit ? 'prepare' : null,
         };
       }

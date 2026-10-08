@@ -6,8 +6,7 @@ import { RouterLinks } from '@/layout/RouterLinks';
 import { formatDate, formatFte, formatPercent } from '@/lib/format';
 import { PATHS } from '@/paths';
 import { ExternalLink, IconCell } from '@/ui/Icon';
-import { ErrorNotice, Facts, Loading, Quiet, Section, Stack, type Fact } from '@/ui/layout';
-import { errorMessage } from '@/api/client';
+import { type Fact, Facts, LoadError, Loading, Quiet, Section, Stack } from '@/ui/layout';
 import { DEFAULT_RECRUITMENT_SYSTEM, fetchVacancyHire, hireKey } from '../api';
 import { DecisionsSection } from '../DecisionsSection';
 import {
@@ -82,7 +81,7 @@ export function RequestTab() {
                   <nldd-spacer-cell size="8" />
                   <nldd-text-cell width="220px" color="secondary" text={item.label} />
                   <nldd-text-cell
-                    text={item.value ?? NOT_FILLED}
+                    text={item.value ?? item.missingText ?? NOT_FILLED}
                     color={item.value ? 'content' : 'secondary'}
                   />
                   <IconCell concept="open" />
@@ -102,11 +101,7 @@ export function RequestTab() {
         {editable && (
           <nldd-button-group>
             {editable && (
-              <Button
-                text="Wijzig functie, fte of periode"
-                appearance="neutral-transparent"
-                onClick={() => openSheet('edit')}
-              />
+              <Button text="Wijzig functie, fte of periode" onClick={() => openSheet('edit')} />
             )}
           </nldd-button-group>
         )}
@@ -218,7 +213,7 @@ export function FulfilmentTab() {
   return (
     <nldd-simple-section>
       {query.isPending && <Loading />}
-      {query.isError && <ErrorNotice message={errorMessage(query.error)} />}
+      {query.isError && <LoadError error={query.error} retry={() => void query.refetch()} />}
       {query.data && (
         <Stack gap="section">
           <Section title="Werving">
@@ -252,18 +247,10 @@ export function FulfilmentTab() {
               <nldd-button-group>
                 {fillHere && <Button text="Vervul" onClick={() => openSheet('hire')} />}
                 {hire && (
-                  <Button
-                    text="Aanname gaat niet door"
-                    appearance="neutral-transparent"
-                    onClick={() => setSheet('withdrawHire')}
-                  />
+                  <Button text="Aanname gaat niet door" onClick={() => setSheet('withdrawHire')} />
                 )}
                 {vacancy.permissions.can_withdraw && (
-                  <Button
-                    text="Trek vacature in"
-                    appearance="neutral-transparent"
-                    onClick={() => setSheet('withdrawVacancy')}
-                  />
+                  <Button text="Trek vacature in" onClick={() => setSheet('withdrawVacancy')} />
                 )}
               </nldd-button-group>
             )}

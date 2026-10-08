@@ -70,7 +70,7 @@ export function QuoteDetails({
 
   return (
     <>
-      <nldd-button ref={buttonRef} appearance="neutral-transparent" size="sm" text="Details" />
+      <nldd-button ref={buttonRef} size="sm" text="Details" />
       {createPortal(
         <nldd-sheet ref={sheetRef} open={orUndef(open)} placement="right" width="480px">
           <nldd-page>

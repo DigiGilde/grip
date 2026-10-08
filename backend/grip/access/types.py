@@ -49,6 +49,11 @@ class DataClass(StrEnum):
 
     # Not personal and not tied to an assignment: rate cards.
     MASTER_DATA = "master_data"
+    # The price list of the organisation: the monthly rate per category on a
+    # rate card. Not personal, but it is money: with a colleague's scale it
+    # tells what that colleague is billed at. For whoever works with amounts
+    # anyway: the beheerder, the lezer and who owns or manages an assignment.
+    RATE_TABLE = "rate_table"
 
     # Derived from C: a published open role with an established text
     # (function, scale, FTE, period and the text), without any name. What

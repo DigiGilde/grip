@@ -1,11 +1,22 @@
-import { useQuery } from '@tanstack/react-query';
-import { Outlet, useLocation, useParams } from 'react-router-dom';
+import { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ApiError, errorMessage } from '@/api/client';
+import { useCaseCourse } from '@/features/tasks/course';
 import { useInstance } from '@/layout/useInstance';
 import { formatEuro, formatPeriod } from '@/lib/format';
+import { Button } from '@/ui/Button';
 import { KeyFigures, ThingHead, type KeyFigure } from '@/ui/layout';
+import { PrimaryTakenContext } from '@/ui/primary';
+import { courseAction } from '@/ui/course';
+import { CourseBar, CourseNow } from '@/ui/Workflow';
 import { PATHS } from '@/paths';
-import { assignmentKeys, fetchAssignment, type AssignmentDetail } from './api';
+import {
+  assignmentKeys,
+  fetchAssignment,
+  transitionAssignment,
+  type AssignmentDetail,
+} from './api';
 import { fetchAssignmentFinance, financeKeys } from './financeApi';
 import {
   FIGURE_LABELS,
@@ -58,12 +69,21 @@ function Figures({ assignment }: { assignment: AssignmentDetail }) {
 }
 
 /**
+ * Steps that are one decision and nothing more: the head does them in place,
+ * by the kind of work the server names, to the status they lead to.
+ */
+const IN_PLACE: Record<string, string> = {
+  'uitvoering.starten': 'in_progress',
+};
+
+/**
  * The frame around every page of one assignment: a compact header and the
  * tabs. Each tab is one concern, so money and people never share a table.
  */
 export function AssignmentLayout() {
   const { assignmentId = '' } = useParams();
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const instance = useInstance();
   const query = useQuery({
     queryKey: assignmentKeys.detail(assignmentId),
@@ -89,12 +109,47 @@ export function AssignmentLayout() {
     : '';
 
   const tabs = assignment ? visibleTabs(assignment.permissions) : [];
+  // Where the assignment stands and what is next, from the same facts as
+  // its tasks. The step is the page's one primary action, unless the reader
+  // already is where it is done: there the page's own button does it.
+  const course = useCaseCourse('assignment', assignmentId, assignment !== undefined).data?.course;
+  const next = courseAction(course);
+  const here = pathname.replace(/\/$/, '');
+  const target = course?.next?.mine ? IN_PLACE[course.next.task_key ?? ''] : undefined;
+  const allowed = target !== undefined && (assignment?.allowed_transitions ?? []).includes(target);
+  const elsewhere =
+    next && (allowed || next.href.split('?')[0]?.replace(/\/$/, '') !== here) ? next : null;
+  const queryClient = useQueryClient();
+  const [problem, setProblem] = useState<string | null>(null);
+  const step = useMutation({
+    mutationFn: (status: string) => transitionAssignment(assignmentId, status),
+    onSuccess: () => {
+      setProblem(null);
+      void queryClient.invalidateQueries({ queryKey: assignmentKeys.all });
+      void queryClient.invalidateQueries({ queryKey: ['overview'] });
+    },
+    onError: (error) => setProblem(errorMessage(error)),
+  });
   return (
     <>
       <ThingHead
         title={assignment?.name ?? 'Opdracht'}
         instanceName={instance?.name}
         back={{ href: PATHS.assignments, text: 'Terug naar Opdrachten' }}
+        {...(elsewhere
+          ? {
+              action: (
+                <Button
+                  appearance="primary"
+                  text={elsewhere.text}
+                  loading={step.isPending}
+                  onClick={() =>
+                    allowed && target ? step.mutate(target) : navigate(elsewhere.href)
+                  }
+                />
+              ),
+            }
+          : {})}
         {...(assignment
           ? {
               tabs: {
@@ -119,16 +174,27 @@ export function AssignmentLayout() {
             }
           />
         )}
+        {problem && <ErrorNotice message={problem} />}
         {assignment && (
           <>
+            {course && (
+              <CourseNow course={course} tasksHref={assignmentTabPath(assignment.id, 'tasks')} />
+            )}
+            {course && !course.ended && (
+              <CourseBar course={course} accessibleLabel={`Verloop van ${assignment.name}`} />
+            )}
             <nldd-container layout="wrap" gap="8" vertical-alignment="center">
+              {/* Quiet: the sentence and the one action lead, not a coloured tag. */}
               {assignment.phase === 'potential' && (
-                <nldd-badge color="warning" text="Potentiële opdracht" />
+                <nldd-badge color="neutral" text="Potentiële opdracht" />
               )}
-              <nldd-badge
-                color={STATUS_COLORS[assignment.status] ?? 'neutral'}
-                text={statusLabel(assignment.status)}
-              />
+              {/* The course says where it stands; the status only once it has ended. */}
+              {(!course || course.ended) && (
+                <nldd-badge
+                  color={STATUS_COLORS[assignment.status] ?? 'neutral'}
+                  text={statusLabel(assignment.status)}
+                />
+              )}
               {facts && <nldd-text color="secondary">{facts}</nldd-text>}
             </nldd-container>
             {assignment.permissions.read_financial && <Figures assignment={assignment} />}
@@ -137,7 +203,9 @@ export function AssignmentLayout() {
       </ThingHead>
       {assignment && (
         <AssignmentShellContext.Provider value={assignment}>
-          <Outlet />
+          <PrimaryTakenContext.Provider value={elsewhere !== null}>
+            <Outlet />
+          </PrimaryTakenContext.Provider>
         </AssignmentShellContext.Provider>
       )}
     </>

@@ -52,6 +52,16 @@ CASE_FACTS: dict[str, frozenset[str]] = {
             "may_close_months",
             "may_bill",
             "final_report_issued",
+            # For the course of a case: where it stands and how it ended.
+            "approval_needed",
+            "approval_given",
+            "approval_asked",
+            "verbally_agreed",
+            "quote_received",
+            "quote_answered",
+            "accounted",
+            "rejected",
+            "cancelled",
         }
     ),
     "vacancy": frozenset(
@@ -74,6 +84,12 @@ CASE_FACTS: dict[str, frozenset[str]] = {
             "request_form_in_use",
             "request_form_current",
             "request_form_signed",
+            # For the course of a case: where it stands and how it ended.
+            "request_prepared",
+            "approval_passed",
+            "filled",
+            "rejected",
+            "withdrawn",
         }
     ),
 }
@@ -81,7 +97,22 @@ CASE_FACTS: dict[str, frozenset[str]] = {
 # Facts about one subject, per subject kind.
 SUBJECT_FACTS: dict[str, frozenset[str]] = {
     "case": frozenset(),
-    "quote_round": frozenset({"quote_issued", "quote_offered", "quote_accepted"}),
+    "quote_round": frozenset(
+        {
+            "quote_issued",
+            "quote_offered",
+            "quote_accepted",
+            # What happened to the quote before this round, for the course.
+            "quote_rejected_before",
+            "quote_sent_back",
+            "quote_expired",
+            # The quote still matches the budget and has not expired.
+            "quote_fresh",
+            "quote_outdated",
+            # Nothing stands between the quote and the client any more.
+            "quote_may_offer",
+        }
+    ),
     "rejected_quote": frozenset({"quote_superseded"}),
     "received_quote": frozenset({"quote_decided"}),
     "quote_approval": frozenset({"approval_decided"}),
@@ -101,6 +132,9 @@ SUBJECT_FACTS: dict[str, frozenset[str]] = {
             "text_returned",
             "text_settled",
             "text_moved_on",
+            # For the course of a text.
+            "text_written",
+            "text_judged",
         }
     ),
     "text_review": frozenset({"verdict_given"}),
@@ -176,6 +210,10 @@ FACT_LABELS: dict[str, str] = {
     "quote_superseded": "er is een nieuwe offerte uitgegeven",
     "quote_decided": "er is akkoord gegeven of afgewezen",
     "approval_decided": "de offerte is goedgekeurd of teruggestuurd",
+    "quote_fresh": "er is een offerte die geldt en bij de begroting past",
+    "approval_asked": "interne goedkeuring is gevraagd",
+    "approval_passed": "het akkoord is gegeven",
+    "filled": "de vacature is vervuld",
     "correction_delivered": "de naverrekening is aangeleverd",
     "role_staffed": "de rol is ingevuld",
     "started": "de opdracht is in uitvoering",

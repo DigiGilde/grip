@@ -25,6 +25,8 @@ from grip.schema.month_close import (
     CloseRecordOut,
     MonthDetailOut,
     MonthLineOut,
+    MonthPreviewLineOut,
+    MonthPreviewOut,
     MonthStateOut,
     MonthTimelineOut,
     ReopenMonthIn,
@@ -173,6 +175,39 @@ async def close(
     except calc.CalcError as exc:
         raise DomainValidationError(quote_views.describe_calc_error(exc)) from exc
     return await _detail(db, decider, subject, resource, assignment_id, parsed)
+
+
+@router.post("/{month}/preview", response_model=None)
+async def preview_close(
+    assignment_id: UUID,
+    month: str,
+    body: CloseMonthIn,
+    subject: CurrentSubject,
+    decider: AccessDecider,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """What the month comes to at these percentages. Changes nothing."""
+    resource = await _visible(decider, subject, assignment_id)
+    await require(decider, subject, Action.CLOSE_MONTH, resource)
+    parsed = month_overview.parse_month(month)
+    established = {entry.allocation_id: entry.fte_pct for entry in body.established}
+    try:
+        lines = await month_close.preview(
+            db, assignment_id, parsed, established=established
+        )
+    except calc.CalcError as exc:
+        raise DomainValidationError(quote_views.describe_calc_error(exc)) from exc
+    value = MonthPreviewOut(
+        month=str(parsed),
+        lines=[
+            MonthPreviewLineOut(
+                allocation_id=UUID(line.allocation_id), amount_cents=line.amount_cents
+            )
+            for line in lines
+        ],
+        total_cents=sum(line.amount_cents for line in lines),
+    )
+    return await filtered(decider, subject, resource, value)
 
 
 @router.post("/{month}/reopen", response_model=None)

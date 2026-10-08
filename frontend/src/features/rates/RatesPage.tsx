@@ -8,7 +8,16 @@ import { centsToEuroInput, eurosToCents, percentInput } from '@/features/team/ui
 import { ConfirmDialog } from '@/features/team/ui/overlays';
 import { Section } from '@/features/team/ui/section';
 import { ActionBar } from '@/ui/ActionBar';
-import { EmptyNotice, ErrorNotice, FormSheet, Loading, Page, Quiet, Stack } from '@/ui/layout';
+import {
+  EmptyNotice,
+  ErrorNotice,
+  FormSheet,
+  LoadError,
+  Loading,
+  Page,
+  Quiet,
+  Stack,
+} from '@/ui/layout';
 import { OpenCell, OpenRow, ROW_ACTIONS_COLUMN, RowActions, type RowAction } from '@/ui/RowActions';
 import {
   CATEGORIES,
@@ -90,6 +99,8 @@ export function RatesPage() {
   const query = useQuery({ queryKey: RATE_CARDS_KEY, queryFn: fetchRateCards });
   const cards = query.data?.items ?? [];
   const mayManage = query.data?.may_manage ?? false;
+  // Without the amounts the page lists the cards and the scales per category.
+  const withAmounts = query.data?.may_read_amounts ?? true;
 
   // The span the cards cover, to ask the server where no card prices.
   const pricing = cards.filter((c) => c.status !== 'draft');
@@ -162,7 +173,7 @@ export function RatesPage() {
   if (query.isError) {
     return (
       <Page title="Tarieven" instanceName={instance?.name}>
-        <ErrorNotice message={errorMessage(query.error)} />
+        <LoadError error={query.error} retry={() => void query.refetch()} />
       </Page>
     );
   }
@@ -262,7 +273,11 @@ export function RatesPage() {
       {card ? (
         <Section
           title={card.name}
-          supportingText={`Maandtarief per FTE, ${validityText(card.valid_from, card.valid_to)}`}
+          supportingText={
+            withAmounts
+              ? `Maandtarief per FTE, ${validityText(card.valid_from, card.valid_to)}`
+              : validityText(card.valid_from, card.valid_to)
+          }
           action={cardAction}
         >
           {closed && unlocked ? (
@@ -274,13 +289,23 @@ export function RatesPage() {
           ) : null}
           <nldd-table
             accessible-label={`Maandtarieven van ${card.name}`}
-            columns="minmax(100px,1fr) minmax(120px,1fr) minmax(140px,1fr)"
-            sm-columns="minmax(90px,1fr) minmax(60px,auto) minmax(90px,auto)"
+            columns={
+              withAmounts
+                ? 'minmax(100px,1fr) minmax(120px,1fr) minmax(140px,1fr)'
+                : 'minmax(100px,1fr) minmax(120px,2fr)'
+            }
+            sm-columns={
+              withAmounts
+                ? 'minmax(90px,1fr) minmax(60px,auto) minmax(90px,auto)'
+                : 'minmax(90px,1fr) minmax(60px,1fr)'
+            }
           >
             <nldd-table-row slot="header">
               <nldd-text-cell text="Categorie" />
               <nldd-text-cell text="Schalen" />
-              <nldd-text-cell text="Maandtarief" horizontal-alignment="right" />
+              {withAmounts ? (
+                <nldd-text-cell text="Maandtarief" horizontal-alignment="right" />
+              ) : null}
             </nldd-table-row>
             {CATEGORIES.map((category) => {
               const band = card.rate_bands.find((b) => b.category === category);
@@ -295,10 +320,16 @@ export function RatesPage() {
                     accessibleLabel={`Wijzig het maandtarief van categorie ${category}`}
                   />
                   <nldd-text-cell text={scalesOf(card, category)} />
-                  <nldd-text-cell
-                    text={band ? formatEuro(band.monthly_rate_cents) : 'Niet ingevuld'}
-                    horizontal-alignment="right"
-                  />
+                  {withAmounts ? (
+                    <nldd-text-cell
+                      text={
+                        band?.monthly_rate_cents !== undefined
+                          ? formatEuro(band.monthly_rate_cents)
+                          : 'Niet ingevuld'
+                      }
+                      horizontal-alignment="right"
+                    />
+                  ) : null}
                 </OpenRow>
               );
             })}

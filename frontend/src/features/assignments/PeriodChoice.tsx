@@ -47,12 +47,7 @@ export function PeriodChoice({
         </nldd-text>
         {!known && whenMissing}
         <nldd-container layout="row">
-          <Button
-            text="Afwijkende periode"
-            size="sm"
-            appearance="neutral-transparent"
-            onClick={() => onOwn(true)}
-          />
+          <Button text="Afwijkende periode" size="sm" onClick={() => onOwn(true)} />
         </nldd-container>
       </nldd-container>
     );
@@ -75,12 +70,7 @@ export function PeriodChoice({
         />
       </nldd-container>
       <nldd-container layout="row">
-        <Button
-          text={`Laat meelopen met ${parent}`}
-          size="sm"
-          appearance="neutral-transparent"
-          onClick={() => onOwn(false)}
-        />
+        <Button text={`Laat meelopen met ${parent}`} size="sm" onClick={() => onOwn(false)} />
       </nldd-container>
     </nldd-container>
   );

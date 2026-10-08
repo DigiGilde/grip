@@ -2,10 +2,9 @@ import { ExternalLink } from '@/ui/Icon';
 import { useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
-import { errorMessage } from '@/api/client';
 import { orUndef, useNlddEvent } from '@/components/nldd/events';
 import { Button } from '@/features/assignments/ui';
-import { ErrorNotice, Facts, Loading, Quiet, SectionHeading, Stack, type Fact } from '@/ui/layout';
+import { type Fact, Facts, LoadError, Loading, Quiet, SectionHeading, Stack } from '@/ui/layout';
 import { formatDate, formatPeriod } from '@/lib/format';
 import type { NodeLookup } from './api';
 import { nodeTypeLabel } from './labels';
@@ -167,7 +166,9 @@ export function NodeDetailSheet({ uri, known, fetchNode, scope, onClose }: NodeD
         <nldd-simple-section>
           <nldd-title id={titleId} slot="header" size={2} text={title} heading-level={1} />
           {current && !item && query.isPending ? <Loading text="Bezig met ophalen" /> : null}
-          {query.isError && !item ? <ErrorNotice message={errorMessage(query.error)} /> : null}
+          {query.isError && !item ? (
+            <LoadError error={query.error} retry={() => void query.refetch()} />
+          ) : null}
           {item ? (
             <Detail item={item} onStep={(next) => setTrail((steps) => [...steps, next])} />
           ) : null}

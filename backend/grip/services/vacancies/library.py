@@ -57,8 +57,11 @@ PLACEHOLDERS: dict[str, str] = {
     "website": "de website, uit de instellingen",
     "contact": "bij wie een sollicitant terecht kan, uit de instellingen",
     "sluitingsdatum": "de datum tot wanneer reageren kan",
-    "opdracht": "de naam van de opdracht waar de rol bij hoort",
+    "opdracht": "het team of product waar de rol bij hoort, in gewone woorden",
 }
+
+# The key under which `values_for` carries the assignment's own name.
+ASSIGNMENT_NAME = "opdracht_naam"
 
 CONTRACT_SENTENCES: dict[str, str] = {
     ContractType.temporary_project.value: (
@@ -368,7 +371,17 @@ async def values_for(db: AsyncSession, vacancy: Vacancy) -> dict[str, str]:
         "eenheid": settings["unit_name"] or organisation,
         "website": settings["website"],
         "contact": settings["contact"],
-        "opdracht": assignment_name,
+        # The name of the assignment is an internal name; a vacancy text goes
+        # outside. So the writer names the team or product in plain words,
+        # with the internal name as a reminder of which one it is.
+        "opdracht": (
+            f"[vul aan: het team of product in gewone woorden; intern heet de "
+            f"opdracht {assignment_name}]"
+            if assignment_name
+            else None
+        ),
+        # The name itself, as a fact about the vacancy; never printed in a text.
+        ASSIGNMENT_NAME: assignment_name,
     }
     return {name: value for name, value in values.items() if value}
 

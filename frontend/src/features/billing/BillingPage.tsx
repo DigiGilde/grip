@@ -10,11 +10,20 @@ import {
   type BillingPeriod,
 } from '@/features/month-close/billingApi';
 import { deliverPeriodPath, monthClosePath } from '@/features/month-close/paths';
-import { PERIOD_STATE_TEXT, periodAmount, periodLine } from '@/features/month-close/periodText';
+import { periodAmount, periodLine, periodStateText } from '@/features/month-close/periodText';
 import { useInstance } from '@/layout/useInstance';
 import { useRouterLinks } from '@/layout/useRouterLinks';
 import { formatEuro } from '@/lib/format';
-import { EmptyNotice, ErrorNotice, FormSheet, Loading, Page, Quiet, Stack } from '@/ui/layout';
+import {
+  EmptyNotice,
+  FormSheet,
+  LoadError,
+  Loading,
+  NoAccess,
+  Page,
+  Quiet,
+  Stack,
+} from '@/ui/layout';
 
 interface Row {
   overview: BillingOverview;
@@ -127,16 +136,28 @@ export function BillingPage() {
   const held = rows.filter(
     (row) => row.period.state === 'ready' && row.overview.may_deliver && !complete(row.overview),
   ).length;
+  // A naverrekening is a difference on a period delivered before, not a
+  // period that is ready: it is named as what it is.
+  const corrections = batch.filter((row) => row.period.correction).length;
   const title =
     count === 0
       ? 'Er staat niets klaar om aan te leveren'
-      : `${count} ${count === 1 ? 'periode is' : 'perioden zijn'} klaar: ${formatEuro(total)}`;
+      : corrections === count
+        ? `${count} ${count === 1 ? 'naverrekening' : 'naverrekeningen'} aan te leveren: ${formatEuro(total)}`
+        : corrections > 0
+          ? `${count} perioden aan te leveren, waarvan ${corrections} als naverrekening: ${formatEuro(total)}`
+          : `${count} ${count === 1 ? 'periode is' : 'perioden zijn'} klaar: ${formatEuro(total)}`;
   return (
     <div ref={containerRef}>
       <Page title="Factureren" instanceName={instance?.name} spacing="sections">
         {across.isPending ? <Loading /> : null}
-        {across.isError ? <ErrorNotice message={errorMessage(across.error)} /> : null}
-        {across.data ? (
+        {across.isError ? (
+          <LoadError error={across.error} retry={() => void across.refetch()} />
+        ) : null}
+        {across.data && across.data.reads_money === false ? (
+          <NoAccess who="Factureren is voor wie de bedragen van een opdracht mag zien: de eigenaar, een manager, de beheerder of een lezer." />
+        ) : null}
+        {across.data && across.data.reads_money !== false ? (
           <>
             {count > 0 ? (
               <nldd-card background="tinted" accessible-label="Nu te doen">
@@ -206,7 +227,7 @@ export function BillingPage() {
                             {row.period.state === 'to_close' ? null : (
                               <nldd-badge
                                 color={ready ? 'accent' : 'neutral'}
-                                text={PERIOD_STATE_TEXT[row.period.state]}
+                                text={periodStateText(row.period)}
                               />
                             )}
                           </nldd-cell>
@@ -221,7 +242,7 @@ export function BillingPage() {
                           horizontal-alignment="right"
                           text={amount ? `**${formatEuro(amount)}**` : ''}
                           hide-above="sm"
-                          supporting-text={`${capital(row.period.label)} · ${PERIOD_STATE_TEXT[row.period.state].toLowerCase()}`}
+                          supporting-text={`${capital(row.period.label)} · ${periodStateText(row.period).toLowerCase()}`}
                         />
                         <nldd-text-cell
                           hide-below="md"

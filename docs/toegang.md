@@ -90,6 +90,8 @@ Een lid van een opdracht ziet geen geld. Begrotingsregels noemen een tariefcateg
 
 Een eigenaar of manager ziet wel het inzetbedrag en de categorie van mensen op de eigen opdracht, want zonder die bedragen valt een begroting niet te bewaken. De KPI van die mensen ziet hij niet.
 
+De tarievenkaart heeft twee lagen. Welke kaarten er zijn, wanneer ze gelden en welke schalen onder een categorie vallen, leest iedereen die is ingelogd: dat is geen geld. De bedragen per categorie zijn de prijslijst van de organisatie. Wie de schaal van een collega kent, weet met die lijst tegen welk tarief die collega wordt ingezet. De bedragen leest daarom alleen wie toch al met geld werkt: de beheerder, de lezer en wie eigenaar of manager van een opdracht is. Een conceptkaart ziet alleen de beheerder. Het eigen tarief en dat van eigen medewerkers komt niet uit de kaart maar uit klasse D.
+
 De relatie "zelf" zit vanaf het begin in het model, ook al krijgen medewerkers in de eerste mijlpaal alleen een eenvoudig scherm. Het past bij het inzagerecht uit de AVG.
 
 Personen, gasten met een tekenlink en andere instanties gaan door dezelfde beslisfunctie. Een verzoek bestaat uit wie, welke actie, welk object en welke context. Dat is de vorm van een AuthZEN-verzoek, zodat Federatieve Toegangsverlening later kan aanhaken zonder de applicatie te verbouwen.
@@ -122,6 +124,26 @@ decide(subject, action, resource, data_class)
 - Een eigenaar van een opdracht kan de KPI van een ander niet opvragen, niet via de UI en niet via de API.
 - Een inventaristest loopt alle routes langs en laat de build falen als een route geen autorisatie-afhankelijkheid heeft.
 
+## Wat het scherm zegt als iets niet mag
+
+De server beslist over toegang. Het scherm moet daar de waarheid over zeggen. Daarvoor gelden vier regels, en een meting die ze naloopt.
+
+- Een pagina of een deel van een pagina staat in precies een stand: laden, de inhoud, niets te tonen, geen toegang, niet gevonden, of niet bereikbaar. De laatste vier komen uit een plek (`StateNotice`, `NoAccess`, `NotFound` en `LoadError` in `frontend/src/ui/layout/states.tsx`); geen scherm schrijft een eigen versie.
+- Geen toegang zegt voor wie het wel is ("De bedragen van deze opdracht zijn voor de eigenaar, een manager, de beheerder en een lezer") en nooit wat er staat. Niet gevonden zegt "het bestaat niet, of je hebt er geen toegang toe", zoals de server geen onderscheid maakt.
+- Een antwoord van de server over de lezer (geen toegang, niet gevonden, geweigerd) wordt niet opnieuw gevraagd. Alleen een uitblijvend antwoord wordt een keer herhaald. Anders blijft "Bezig met laden" seconden staan nadat de server nee heeft gezegd.
+- Een tab die de lezer niet heeft, toont geen toegang als iemand het adres toch opent (`AssignmentTab`, `VacancyTab`). Een pagina onder Beheer die alleen een beheerder heeft, doet hetzelfde (`AdminOnly`). Acties volgen de rechten die de server meegeeft, nooit de stand van het scherm alleen.
+
+`just check-access` loopt dit na in een echte browser. Het opent elk adres uit de routetabel met echte id's, als elke soort lezer die de voorbeeldgegevens kennen (beheerder, eigenaar, planner die ook manager is, alleen planner, lezer, teamlid, aanvrager, zonder rechten), en meldt per pagina:
+
+| Soort | Betekenis |
+|---|---|
+| settled | er staat nog "Bezig met laden" als de verzoeken klaar zijn |
+| refused | de server weigerde een verzoek (403, 404) en de pagina legt dat niet uit |
+| action | een knop die iets wijzigt, bij een lezer die de server zou weigeren |
+| leak | een bedrag of tariefcategorie bij een lezer die geen geld mag zien |
+
+De servers moeten draaien. Geef een eigen hostnaam mee (`--base http://toegang.localhost:5183`): de lezer wordt gekozen met het ontwikkelcookie, en dat mag niet op de localhost landen waarin je zelf werkt. `--shots <map>` bewaart een afbeelding van elke pagina met een bevinding. Een soort lezer die in de gegevens niet voorkomt, wordt overgeslagen en genoemd; de voorbeeldgegevens kennen geen persoon die alleen planner is en geen persoon zonder rechten, dus maak die eerst aan in een eigen kopie. Uitgelogd is in de ontwikkelmodus zonder login niet na te lopen.
+
 ## Open
 
 - Een tekenbevoegdheid is nu ja of nee per eenheid. Een grens op het bedrag is niet uitgewerkt.
@@ -133,7 +155,7 @@ decide(subject, action, resource, data_class)
 
 **Bemensing naar de moeder (klasse C).** De moederinstantie krijgt standaard aantallen: hoeveel mensen ingezet, beschikbaar en gezocht, per rol en per periode. Namen gaan alleen mee als de beheerder van de dochterinstantie dat aanzet.
 
-**Kostenposten (klasse B).** Een kostenpost hoort niet bij een opdracht. De beheerder mag kostenposten aanmaken en wijzigen. Daarnaast wijzigt een kostenpost wie een opdracht beheert waarvan de begroting hem dekt; zolang nog niets hem dekt, is dat wie hem heeft aangemaakt.
+**Kostenposten (klasse B).** Een kostenpost hoort niet bij een opdracht. De beheerder mag kostenposten aanmaken en wijzigen. Daarnaast wijzigt een kostenpost wie een opdracht beheert waarvan de begroting hem dekt; zolang nog niets hem dekt, is dat wie hem heeft aangemaakt. Een kostenpost die nog door niets wordt gedekt, zoekt een begroting: wie een opdracht beheert mag hem lezen en een eigen begrotingsregel laten dekken, en wijzigt verder niets. Zonder die regel kon een kostenpost van de beheerder door niemand worden gedekt: de beheerder wijzigt geen begroting, en geen manager wist dat de post bestond.
 
 **Eigenaar en managers van een opdracht.** Wie eigenaar of manager is, wijzigt de eigenaar of een manager van die opdracht, en de beheerder op elke opdracht, want een eigenaar kan vertrokken zijn. Het is een eigen handeling: ze geeft de beheerder geen recht om de opdracht zelf te wijzigen. Een beheerder die zichzelf manager maakt, heeft daarna de rechten van een manager, en het auditlog vermeldt dat hij zichzelf heeft aangewezen. Een opdracht houdt altijd een eigenaar.
 

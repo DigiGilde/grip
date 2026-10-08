@@ -42,7 +42,11 @@ export function AssignmentFormSheet({ open, session, assignment, onClose, onSave
     setForm(initialState(assignment));
     setProblem(null);
   }
-  const set = (patch: Partial<FormState>) => setForm((current) => ({ ...current, ...patch }));
+  // A message about a field goes once the reader changes something.
+  const set = (patch: Partial<FormState>) => {
+    setProblem(null);
+    setForm((current) => ({ ...current, ...patch }));
+  };
   const creating = !assignment;
   const external = form.kind === 'external';
 
@@ -92,6 +96,19 @@ export function AssignmentFormSheet({ open, session, assignment, onClose, onSave
           onChange={(organisation) => set({ clientId: organisation?.id ?? '' })}
         />
       )}
+      <DateInput
+        label="Begindatum"
+        optional
+        value={form.startDate}
+        onChange={(startDate) => set({ startDate })}
+      />
+      <DateInput
+        label="Einddatum"
+        optional
+        hint="Begrotingsregels en inzet volgen de looptijd van de opdracht."
+        value={form.endDate}
+        onChange={(endDate) => set({ endDate })}
+      />
       {!creating && (
         <>
           {external && (
@@ -102,18 +119,6 @@ export function AssignmentFormSheet({ open, session, assignment, onClose, onSave
               onChange={(clientContact) => set({ clientContact })}
             />
           )}
-          <DateInput
-            label="Begindatum"
-            optional
-            value={form.startDate}
-            onChange={(startDate) => set({ startDate })}
-          />
-          <DateInput
-            label="Einddatum"
-            optional
-            value={form.endDate}
-            onChange={(endDate) => set({ endDate })}
-          />
           <TextInput
             label="Notities"
             optional

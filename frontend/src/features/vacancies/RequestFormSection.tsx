@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
 import { formatDate } from '@/lib/format';
-import { ErrorNotice, FormSheet, Quiet, Stack } from '@/ui/layout';
+import { ErrorNotice, FormSheet, LoadError, Quiet, Stack } from '@/ui/layout';
 import {
   changedText,
   fetchRequestForms,
@@ -66,11 +66,13 @@ export function RequestFormSection({ vacancyId }: { vacancyId: string }) {
     onError: (failure) => setError(errorMessage(failure)),
   });
 
-  if (forms.isError) return <ErrorNotice message={errorMessage(forms.error)} />;
+  if (forms.isError) return <LoadError error={forms.error} retry={() => void forms.refetch()} />;
   const data = forms.data;
   if (!data || !data.available) return null;
   const { current, earlier, signed, changed } = data;
   const outOfDate = current !== null && changed.length > 0;
+  // The form prints these; without them it would go out with empty boxes.
+  const missing = data.missing ?? [];
 
   return (
     <Stack gap="group">
@@ -106,9 +108,15 @@ export function RequestFormSection({ vacancyId }: { vacancyId: string }) {
           ))}
         </nldd-list>
       ) : null}
-      {data.may_make ? (
+      {data.may_make && missing.length > 0 ? (
+        <Quiet>
+          Het aanvraagformulier kun je maken zodra de aanvraag compleet is. Ontbreekt nog:{' '}
+          {missing.join(', ')}.
+        </Quiet>
+      ) : null}
+      {data.may_make && (missing.length === 0 || current) ? (
         <nldd-button-group>
-          {current === null || outOfDate ? (
+          {missing.length === 0 && (current === null || outOfDate) ? (
             <Button
               text={current === null ? 'Maak aanvraagformulier' : 'Maak opnieuw'}
               appearance="secondary"
@@ -127,8 +135,9 @@ export function RequestFormSection({ vacancyId }: { vacancyId: string }) {
           ) : null}
         </nldd-button-group>
       ) : null}
-      {current && !outOfDate ? (
-        <Quiet>Het formulier blijft invulbaar: een adviseur kan het buiten grip aanvullen.</Quiet>
+      {/* Only right after making it, when it says what to do next. */}
+      {make.isSuccess && current && !outOfDate ? (
+        <Quiet>Stuur het formulier naar de adviseur; die vult het buiten grip aan.</Quiet>
       ) : null}
       <FormSheet
         open={recording}

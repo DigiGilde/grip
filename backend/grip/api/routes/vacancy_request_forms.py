@@ -70,6 +70,8 @@ async def _out(
                 decider, subject, Action.EDIT, _resource(vacancy, assignment_id)
             )
         ),
+        # What the vacancy lacks before a form can be made; empty when it can.
+        "missing": await service.request_missing(db, vacancy),
         # The newest kept form, or null when none was made yet.
         "current": versions[0] if versions else None,
         "earlier": versions[1:],

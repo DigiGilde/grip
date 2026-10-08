@@ -9,7 +9,16 @@ import { useAssignmentShell } from '@/features/assignments/shell';
 import { useInstance } from '@/layout/useInstance';
 import { formatEuro } from '@/lib/format';
 import { PageHeading } from '@/pages/PageHeading';
-import { EmptyNotice, ErrorNotice, FormSheet, Loading, Quiet, Section, Stack } from '@/ui/layout';
+import {
+  EmptyNotice,
+  ErrorNotice,
+  FormSheet,
+  LoadError,
+  Loading,
+  Quiet,
+  Section,
+  Stack,
+} from '@/ui/layout';
 import {
   fetchQuoteDetail,
   fetchQuotePreview,
@@ -191,7 +200,7 @@ export function QuotePage() {
         {shell ? null : <PageHeading text={title} instanceName={instance?.name} />}
         <Stack gap="group">
           {list.isPending || preview.isPending ? <Loading /> : null}
-          {list.isError ? <ErrorNotice message={errorMessage(list.error)} /> : null}
+          {list.isError ? <LoadError error={list.error} retry={() => void list.refetch()} /> : null}
           {preview.isError ? <ErrorNotice message={errorMessage(preview.error)} /> : null}
           {pageError ? <ErrorNotice message={pageError} /> : null}
 
@@ -235,24 +244,19 @@ export function QuotePage() {
                 approval={approvals.isPending ? undefined : approval}
                 mayManage={mayManage}
                 isAdmin={isAdmin}
+                outdated={budgetMoved && canIssue}
                 {...(evidence.data ? { evidence: evidence.data.items } : {})}
                 ownerName={shell?.owner_name ?? null}
                 busy={run.isPending}
                 onAction={onCard}
               />
               {budgetMoved && canIssue && data?.content ? (
-                <nldd-container layout="row" gap="16" vertical-alignment="center">
-                  <Quiet>
-                    {data.content.total_cents === current.total_cents
-                      ? 'De begroting is gewijzigd sinds deze offerte; het totaal is gelijk gebleven.'
-                      : `De begroting is gewijzigd sinds deze offerte en staat nu op ${formatEuro(data.content.total_cents)}.`}
-                  </Quiet>
-                  <Button
-                    text="Maak nieuwe offerte"
-                    size="sm"
-                    onClick={() => navigate(quoteDraftPath(assignmentId))}
-                  />
-                </nldd-container>
+                // The card's own next step is the new quote; this says why.
+                <Quiet>
+                  {data.content.total_cents === current.total_cents
+                    ? 'De begroting is gewijzigd sinds deze offerte; het totaal is gelijk gebleven.'
+                    : `De begroting is gewijzigd sinds deze offerte en staat nu op ${formatEuro(data.content.total_cents)}.`}
+                </Quiet>
               ) : null}
             </Stack>
           ) : null}

@@ -114,8 +114,10 @@ function renderShell(
   overrides = {},
   staffing: unknown = STAFFING,
   money: unknown = finance(),
+  extra: Record<string, unknown> = {},
 ) {
   mockApi({
+    ...extra,
     '/api/assignments/a1/financial': money,
     '/api/assignments/a1/staffing': staffing,
     '/api/allocations/options': { people: [], lines: [] },
@@ -134,8 +136,8 @@ function renderShell(
 }
 
 async function tabs(container: HTMLElement) {
-  await waitFor(() => expect(container.querySelector('nldd-tab-bar')).not.toBeNull());
-  return [...container.querySelectorAll('nldd-tab-bar-item')].map((item) =>
+  await waitFor(() => expect(container.querySelector('nldd-menu-bar')).not.toBeNull());
+  return [...container.querySelectorAll('nldd-menu-bar-item')].map((item) =>
     item.getAttribute('text'),
   );
 }
@@ -153,7 +155,7 @@ describe('AssignmentLayout', () => {
       'Afsluiten en factureren',
       'Geschiedenis',
     ]);
-    const hrefs = [...container.querySelectorAll('nldd-tab-bar-item')].map((item) =>
+    const hrefs = [...container.querySelectorAll('nldd-menu-bar-item')].map((item) =>
       item.getAttribute('href'),
     );
     expect(hrefs).toEqual([
@@ -166,7 +168,10 @@ describe('AssignmentLayout', () => {
       '/opdrachten/a1/maandafsluiting',
       '/opdrachten/a1/geschiedenis',
     ]);
-    expect(container.querySelector('nldd-tab-bar')).toHaveAttribute('navigation');
+    // A navigation landmark with a name; the menu bar is one by itself.
+    expect(container.querySelector('nldd-menu-bar')).toHaveAttribute('accessible-label');
+    // Never the segmented control: a filled current tab reads as a button.
+    expect(container.querySelector('nldd-tab-bar')).toBeNull();
   });
 
   it('shows a planner no money tab', async () => {
@@ -201,7 +206,7 @@ describe('AssignmentLayout', () => {
   it('marks the tab of the current address', async () => {
     const { container } = renderShell(PERMISSIONS.owner, '/opdrachten/a1/bemensing');
     await tabs(container);
-    const current = container.querySelectorAll('nldd-tab-bar-item[current]');
+    const current = container.querySelectorAll('nldd-menu-bar-item[current]');
     expect(current).toHaveLength(1);
     expect(current[0]).toHaveAttribute('text', 'Bemensing');
   });
@@ -397,6 +402,131 @@ describe('Bemensing tab', () => {
 });
 
 // Keeps the fixture honest: the figures used above are the ones in the header.
+/** The course of the assignment as the server would give it. */
+function courseWith(next: Record<string, unknown> | null, ended: string | null = null) {
+  const labels = ['Begroting', 'Offerte', 'Aanbieden', 'Akkoord'];
+  return {
+    '/api/tasks/cases/assignment/a1/course': {
+      case_kind: 'assignment',
+      case_id: 'a1',
+      course: {
+        key: 'akkoord',
+        label: 'Naar een akkoord',
+        steps: labels.map((label, index) => ({
+          key: label,
+          label,
+          state: index === 0 ? 'done' : index === 1 ? 'current' : 'future',
+        })),
+        current_label: 'Offerte',
+        position: '2 van 4',
+        next,
+        ended,
+      },
+      parts: [],
+    },
+  };
+}
+
+describe('where an assignment stands, in its head', () => {
+  const potential = { phase: 'potential', status: 'draft' };
+  const primaries = (container: HTMLElement) =>
+    [...container.querySelectorAll('nldd-button[appearance="primary"]')].map((button) =>
+      button.getAttribute('text'),
+    );
+
+  it('says what is next to who has the move, with that one step as the only accent', async () => {
+    const { container } = renderShell(
+      PERMISSIONS.owner,
+      '/opdrachten/a1/bemensing',
+      potential,
+      STAFFING,
+      finance(),
+      courseWith({
+        mine: true,
+        headline: 'Maak de offerte',
+        sentence: 'Maak de offerte voor Voorbeeldministerie uit de begroting.',
+        action_text: 'Maak offerte',
+        action_href: '/opdrachten/a1/offerte',
+        due_on: '2026-10-15',
+      }),
+    );
+    await waitFor(() =>
+      expect(container.textContent).toContain('Maak de offerte voor Voorbeeldministerie'),
+    );
+    // The steps say their own state, so work done out of order shows as done.
+    expect(
+      [...container.querySelectorAll('nldd-step-bar-item')].map((item) => [
+        item.getAttribute('text'),
+        item.getAttribute('status'),
+      ]),
+    ).toEqual([
+      ['Begroting', 'past'],
+      ['Offerte', 'current'],
+      ['Aanbieden', 'future'],
+      ['Akkoord', 'future'],
+    ]);
+    expect(container.textContent).toContain('Vóór 15 okt 2026');
+    // One filled accent on the page: the next step, in the head. The tab's
+    // own main action steps back.
+    await waitFor(() => expect(primaries(container)).toEqual(['Maak offerte']));
+    // The course says where it stands; no status tag says it again.
+    expect(container.querySelector('nldd-badge[text="Concept"]')).toBeNull();
+    expect(container.querySelector('nldd-badge[text="Potentiële opdracht"]')).not.toBeNull();
+  });
+
+  it('gives someone who waits the sentence and no button', async () => {
+    const { container } = renderShell(
+      PERMISSIONS.lezer,
+      '/opdrachten/a1',
+      potential,
+      STAFFING,
+      finance(),
+      courseWith({
+        mine: false,
+        headline: 'De offerte',
+        sentence:
+          'Je wacht op Voorbeeld Eigenaar, die de offerte maakt. Jij hoeft nu niets te doen.',
+        who: 'Voorbeeld Eigenaar',
+      }),
+    );
+    await waitFor(() => expect(container.textContent).toContain('Je wacht op Voorbeeld Eigenaar'));
+    expect(primaries(container)).toEqual([]);
+  });
+
+  it('leaves the button to the page when the reader already is where the step is done', async () => {
+    const { container } = renderShell(
+      PERMISSIONS.owner,
+      '/opdrachten/a1/bemensing',
+      potential,
+      STAFFING,
+      finance(),
+      courseWith({
+        mine: true,
+        headline: 'Vul de rol in',
+        sentence: 'Zet iemand in op de rol Productmanager.',
+        action_text: 'Zet iemand in',
+        action_href: '/opdrachten/a1/bemensing',
+      }),
+    );
+    await waitFor(() => expect(container.textContent).toContain('Zet iemand in op de rol'));
+    expect(container.querySelector('nldd-button[text="Zet iemand in"]')).toBeNull();
+  });
+
+  it('shows how it ended and asks nothing once it has ended', async () => {
+    const { container } = renderShell(
+      PERMISSIONS.owner,
+      '/opdrachten/a1',
+      { phase: 'closed', status: 'rejected' },
+      STAFFING,
+      finance(),
+      courseWith(null, 'Afgewezen'),
+    );
+    await waitFor(() => expect(container.querySelector('nldd-badge')).not.toBeNull());
+    expect(container.querySelector('nldd-step-bar')).toBeNull();
+    expect(primaries(container)).toEqual([]);
+  });
+});
+
 it('uses the same figures in header and tab fixtures', () => {
   expect(finance().totals).toBe(FIGURES);
 });

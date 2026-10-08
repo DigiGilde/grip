@@ -1,3 +1,5 @@
+import { QUOTE_SECTION_MARKS } from '@/ui/text/marks';
+import { TextEditor } from '@/ui/TextEditor';
 import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -10,15 +12,16 @@ import { useRouterLinks } from '@/layout/useRouterLinks';
 import { MoreButton } from '@/ui/Icon';
 import { PATHS } from '@/paths';
 import {
-  EmptyNotice,
   ErrorNotice,
   Facts,
   FormSheet,
+  LoadError,
   Loading,
   Page,
   Quiet,
   Section,
   Stack,
+  StateNotice,
 } from '@/ui/layout';
 import { fetchQuotePreview, issueQuote, quoteKeys } from './api';
 import {
@@ -44,39 +47,6 @@ import { SectionEditor } from './SectionEditor';
 import { DocumentLink, MenuAction } from './ui';
 import './register';
 
-/** The marks a text may use, said once for the whole page. */
-function MarksHelp() {
-  const [open, setOpen] = useState(false);
-  return (
-    <Stack gap="close">
-      <nldd-button-group>
-        <Button
-          text={open ? 'Verberg opmaak' : 'Opmaak in de tekst'}
-          size="sm"
-          appearance="neutral-transparent"
-          onClick={() => setOpen(!open)}
-        />
-      </nldd-button-group>
-      {open ? (
-        <nldd-list accessible-label="Tekens voor opmaak" data-marks-help>
-          {[
-            ['Een lege regel', 'begint een nieuwe alinea'],
-            ['- aan het begin van een regel', 'maakt een opsomming'],
-            ['1. aan het begin van een regel', 'maakt een genummerde lijst'],
-            ['### aan het begin van een regel', 'maakt een tussenkop'],
-            ['**woord** en *woord*', 'geven vet en cursief'],
-          ].map(([mark, effect]) => (
-            <nldd-list-item key={mark}>
-              <nldd-text-cell width="280px" text={mark} />
-              <nldd-text-cell color="secondary" text={effect} />
-            </nldd-list-item>
-          ))}
-        </nldd-list>
-      ) : null}
-    </Stack>
-  );
-}
-
 interface SectionBlockProps {
   assignmentId: string;
   section: DraftSection;
@@ -93,6 +63,7 @@ interface SectionBlockProps {
   problem: string | null;
   onToggle: () => void;
   onChanged: (draft: QuoteDraft) => void;
+  onSaved: (draft: QuoteDraft) => void;
   onMove: (by: -1 | 1) => void;
   onRemove: () => void;
   onInclude: (included: boolean) => void;
@@ -109,18 +80,16 @@ function SectionBlock({
   mayDraft,
   isAdmin,
   costs,
-  next,
   problem,
   onToggle,
   onChanged,
+  onSaved,
   onMove,
   onRemove,
   onInclude,
 }: SectionBlockProps) {
   const written = isWritten(section);
   const verb = open ? 'Sluit' : written && mayEdit ? 'Schrijf' : 'Bekijk';
-  // One row asks for attention: the next section to write. The others stay quiet.
-  const quiet = !(next && mayEdit && !open);
   return (
     <div data-section={section.key} id={`onderdeel-${section.key}`}>
       <Stack gap="related">
@@ -141,7 +110,6 @@ function SectionBlock({
                 text={verb}
                 accessibleLabel={`${verb} ${section.heading}`}
                 size="sm"
-                {...(quiet ? { appearance: 'neutral-transparent' as const } : {})}
                 onClick={onToggle}
               />
             </nldd-cell>
@@ -206,8 +174,8 @@ function SectionBlock({
                 section={section}
                 mayDraft={mayDraft && section.draftable}
                 onChanged={onChanged}
+                onSaved={onSaved}
               />
-              <MarksHelp />
             </Stack>
           )
         ) : null}
@@ -217,6 +185,14 @@ function SectionBlock({
 }
 
 type Sheet = 'letter' | 'add' | 'make' | null;
+
+/** The date a number of days from today, as yyyy-mm-dd in local time. */
+function daysFromToday(days: number, today: Date = new Date()): string {
+  const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() + days);
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
 
 /**
  * Preparing a quote as the letter it is. The sections stand in the order of
@@ -261,6 +237,8 @@ export function QuoteDraftPage() {
   const [sheet, setSheet] = useState<Sheet>(null);
   const [error, setError] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
+  // The section that was just saved, said once under the standing sentence.
+  const [savedHeading, setSavedHeading] = useState<string | null>(null);
   const change = useMutation({
     mutationFn: (action: () => Promise<QuoteDraft>) => action(),
     onSuccess: (next) => {
@@ -316,7 +294,9 @@ export function QuoteDraftPage() {
   const [newHeading, setNewHeading] = useState('');
 
   // --- making the quote ---
-  const [validUntil, setValidUntil] = useState('');
+  // A quote is valid for a while: thirty days is proposed, the person can
+  // change the date or clear it.
+  const [validUntil, setValidUntil] = useState(() => daysFromToday(30));
   const [clientReference, setClientReference] = useState('');
   const make = useMutation({
     mutationFn: () =>
@@ -335,6 +315,13 @@ export function QuoteDraftPage() {
 
   const sections = draft?.sections ?? [];
   const keys = sections.map((section) => section.key);
+  // What is in the quote first, in the order of the letter; what was left
+  // out comes after it.
+  const inOrder = [
+    ...sections.filter((section) => section.included),
+    ...sections.filter((section) => !section.included),
+  ];
+  const senderProblem = draft?.sender_problem ?? null;
   const problems = [
     ...(preview.data?.problem ? [{ key: null, problem: preview.data.problem }] : []),
     ...(draft?.problems ?? []).map((item) => ({
@@ -350,14 +337,17 @@ export function QuoteDraftPage() {
   const first = waiting[0];
   const nextKey = first?.key ?? null;
   const standing =
-    problems.length === 0
-      ? 'De offerte is klaar om te maken. Daarna wijzigt ze niet meer.'
-      : !first
-        ? 'De offerte kan nog niet worden gemaakt.'
-        : waiting.length === 1
-          ? `Nog één onderdeel te schrijven: ${first.heading}.`
-          : `Nog ${waiting.length} onderdelen te schrijven. Begin met ${first.heading}.`;
-  const canMake = mayEdit && problems.length === 0 && preview.data?.can_issue === true;
+    problems.length === 0 && senderProblem
+      ? 'De tekst is klaar. De afzender van de brief is nog niet compleet.'
+      : problems.length === 0
+        ? 'De offerte is klaar om te maken. Daarna wijzigt ze niet meer.'
+        : !first
+          ? 'De offerte kan nog niet worden gemaakt.'
+          : waiting.length === 1
+            ? `Nog één onderdeel te schrijven: ${first.heading}.`
+            : `Nog ${waiting.length} onderdelen te schrijven. Begin met ${first.heading}.`;
+  const canMake =
+    mayEdit && problems.length === 0 && !senderProblem && preview.data?.can_issue === true;
   const hidden =
     query.error instanceof ApiError && (query.error.status === 404 || query.error.status === 403);
   const title = preview.data ? `Offerte voor ${preview.data.assignment_name}` : 'Offerte schrijven';
@@ -378,25 +368,50 @@ export function QuoteDraftPage() {
       >
         {query.isPending ? <Loading /> : null}
         {query.isError && hidden ? (
-          <EmptyNotice
+          <StateNotice
+            state="not-found"
             text="Deze offerte staat niet voor je klaar"
-            supportingText="De opdracht bestaat niet, of je ziet de bedragen ervan niet."
+            detail="De opdracht bestaat niet, of je ziet de bedragen ervan niet."
           />
         ) : null}
-        {query.isError && !hidden ? <ErrorNotice message={errorMessage(query.error)} /> : null}
+        {query.isError && !hidden ? (
+          <LoadError error={query.error} retry={() => void query.refetch()} />
+        ) : null}
         {pageError ? <ErrorNotice message={pageError} /> : null}
 
         {draft ? (
           <>
             <Stack gap="related">
               <nldd-text>{standing}</nldd-text>
-              {loose.length > 0 ? (
+              {savedHeading ? (
+                <nldd-text size="sm" color="secondary" role="status" data-saved>
+                  {savedHeading} is bewaard.
+                </nldd-text>
+              ) : null}
+              {loose.length > 0 || senderProblem ? (
                 <nldd-list accessible-label="Wat nog nodig is voor de offerte" data-problems>
                   {loose.map((item) => (
                     <nldd-list-item key={item.problem}>
                       <nldd-text-cell text="Begroting" supporting-text={item.problem} />
                     </nldd-list-item>
                   ))}
+                  {senderProblem ? (
+                    <nldd-list-item data-sender-problem>
+                      <nldd-text-cell
+                        text="Afzender"
+                        supporting-text={
+                          draft.may_set_sender
+                            ? senderProblem
+                            : `${senderProblem} Vraag een beheerder om dit in te vullen.`
+                        }
+                      />
+                      {draft.may_set_sender ? (
+                        <nldd-cell width="fit-content">
+                          <nldd-link href={PATHS.quoteSender} text="Vul de afzender in" size="md" />
+                        </nldd-cell>
+                      ) : null}
+                    </nldd-list-item>
+                  ) : null}
                 </nldd-list>
               ) : null}
               <nldd-container layout="wrap" gap="16" vertical-alignment="center">
@@ -421,12 +436,12 @@ export function QuoteDraftPage() {
 
             <Section title="Onderdelen" level={2}>
               <Stack gap="related">
-                {sections.map((section, index) => (
+                {inOrder.map((section) => (
                   <SectionBlock
                     key={section.key}
                     assignmentId={assignmentId}
                     section={section}
-                    position={index}
+                    position={keys.indexOf(section.key)}
                     count={sections.length}
                     open={openKey === section.key}
                     mayEdit={mayEdit}
@@ -437,6 +452,15 @@ export function QuoteDraftPage() {
                     problem={problemOf(section.key)}
                     onToggle={() => openSection(openKey === section.key ? null : section.key)}
                     onChanged={setDraft}
+                    onSaved={(next) => {
+                      // Saved: on to the next section that still needs writing,
+                      // or close this one when nothing is left.
+                      const following = next.sections.find(
+                        (item) => item.key !== section.key && needsAttention(item),
+                      );
+                      openSection(following?.key ?? null);
+                      setSavedHeading(section.heading);
+                    }}
                     onMove={(by) =>
                       onPage(() =>
                         saveOutline(
@@ -547,7 +571,14 @@ export function QuoteDraftPage() {
         />
         <TextInput label="Aanhef" value={salutation} onChange={setSalutation} />
         <TextInput label="Openingszin" value={opening} onChange={setOpening} multiline optional />
-        <TextInput label="Afsluiting" value={closing} onChange={setClosing} multiline optional />
+        <TextEditor
+          label="Afsluiting"
+          value={closing}
+          onChange={setClosing}
+          marks={QUOTE_SECTION_MARKS}
+          rows={6}
+          optional
+        />
         <TextInput
           label="Wie tekent namens de opdrachtgever"
           value={signName}

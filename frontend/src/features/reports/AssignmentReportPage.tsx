@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
-import { ApiError, errorMessage } from '@/api/client';
+import { ApiError } from '@/api/client';
 import { STATUS_COLORS, statusLabel } from '@/features/assignments/labels';
 import { assignmentPath } from '@/features/assignments/paths';
 import { DocumentLink } from '@/ui/Icon';
-import { EmptyNotice, ErrorNotice, Loading, Page, Quiet } from '@/ui/layout';
+import { EmptyNotice, LoadError, Loading, Page, Quiet, NotFound } from '@/ui/layout';
 import { Segments } from '@/features/team/ui/controls';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { useInstance } from '@/layout/useInstance';
@@ -368,12 +368,9 @@ export function AssignmentReportPage() {
       {query.isPending && <Loading />}
       {query.isError &&
         (notFound ? (
-          <EmptyNotice
-            text="Deze opdracht is niet gevonden"
-            supportingText="De opdracht bestaat niet, of je bent er niet bij betrokken."
-          />
+          <NotFound what="Deze opdracht" />
         ) : (
-          <ErrorNotice message={errorMessage(query.error)} />
+          <LoadError error={query.error} retry={() => void query.refetch()} />
         ))}
       {report && (
         <>

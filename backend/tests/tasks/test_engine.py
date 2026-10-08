@@ -69,7 +69,7 @@ async def test_the_quote_track_follows_the_facts(db_session, build, evaluate):
     await evaluate()
     drafted = await one(db_session, "offerte.opstellen")
     assert drafted.status == "done"
-    assert drafted.completed_by_fact == "quote_issued"
+    assert drafted.completed_by_fact == "quote_fresh"
     assert (await one(db_session, "offerte.aanbieden")).status == "todo"
 
     await build.offer(quote)

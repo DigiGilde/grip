@@ -44,3 +44,4 @@ Een besluit dat anderen bindt staat hier als ADR: genummerd, met context, beslui
 | [0041](0041-aanmelden-weigeren-met-een-reden-en-nooit-op-een-onbevestigd-adres.md) | Aanmelden: weigeren met een reden, en nooit op een onbevestigd adres | aanvaard |
 | [0042](0042-zeven-plekken-en-een-tweede-balk.md) | Zeven plekken in de hoofdbalk, en een tweede balk voor pagina's die bij elkaar horen | aanvaard |
 | [0043](0043-wat-is-er-gebeurd-een-selectie-uit-de-stroom.md) | Wat is er gebeurd: een selectie uit de stroom | aanvaard |
+| [0044](0044-een-verloop-per-zaak-uit-dezelfde-feiten-als-de-taken.md) | Een verloop per zaak, uit dezelfde feiten als de taken | aanvaard |

@@ -11,7 +11,8 @@ import { formatEuro } from '@/lib/format';
 
 /** What a category text is made from: the bands of one card. */
 export interface RateSource {
-  rate_bands: readonly { category: string; monthly_rate_cents: number }[];
+  /** The amount is absent for a reader who may not read the price list. */
+  rate_bands: readonly { category: string; monthly_rate_cents?: number }[];
   scale_bands: readonly { scale: number; category: string }[];
 }
 
@@ -101,7 +102,9 @@ export function categoryText(card: RateCard | null, category: string): string {
 export function categoryOptionText(card: RateCard | null, category: string): string {
   const rate = card?.rate_bands.find((band) => band.category === category);
   const text = categoryText(card, category);
-  return rate ? `${text}, ${formatEuro(rate.monthly_rate_cents)} per maand` : text;
+  return rate?.monthly_rate_cents !== undefined
+    ? `${text}, ${formatEuro(rate.monthly_rate_cents)} per maand`
+    : text;
 }
 
 /** Whether two cards give a category other scales or another rate. */
@@ -118,7 +121,12 @@ export type CategoryNamer = (category: string, on?: string | null) => string;
  * cards are there it falls back to the letter.
  */
 export function useRateCards(enabled = true) {
-  const query = useQuery({ queryKey: RATE_CARDS_KEY, queryFn: fetchRateCards, enabled, retry: false });
+  const query = useQuery({
+    queryKey: RATE_CARDS_KEY,
+    queryFn: fetchRateCards,
+    enabled,
+    retry: false,
+  });
   // Read structurally: only the bands, the status and the validity are used.
   const cards = (query.data?.items ?? []) as readonly DatedCard[];
   const today = new Date().toISOString().slice(0, 10);

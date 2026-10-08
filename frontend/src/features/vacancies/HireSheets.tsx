@@ -184,7 +184,6 @@ export function RemoveRecruitmentRef({ vacancy }: { vacancy: Vacancy }) {
   return (
     <Button
       text="Verwijder de verwijzing"
-      appearance="neutral-transparent"
       loading={change.busy}
       onClick={() => change.run(undefined)}
     />

@@ -58,7 +58,7 @@ export function periodName(label: string, sentenceStart = false): string {
 /** What the one primary button does. */
 export function stepAction(step: NextStep): string {
   if (step.kind === 'close_month') return `Sluit ${step.month_label ?? ''} af`;
-  if (step.kind === 'deliver') return 'Lever aan';
+  if (step.kind === 'deliver') return step.correction ? 'Lever de naverrekening aan' : 'Lever aan';
   if (step.kind === 'record_invoice') return 'Leg de factuur vast';
   return '';
 }
@@ -77,6 +77,11 @@ function capital(text: string): string {
 export function stepTitle(step: NextStep): string {
   const amount = amountOf(step);
   if (step.kind === 'close_month') return `${capital(step.month_label ?? '')} is voorbij`;
+  if (step.kind === 'deliver' && step.correction) {
+    // Not a period that is ready: a difference on one that was delivered.
+    const name = periodName(step.period_label ?? '');
+    return amount ? `Naverrekening over ${name}: ${amount}` : `Naverrekening over ${name}`;
+  }
   if (step.kind === 'deliver') {
     const name = periodName(step.period_label ?? '', true);
     return amount ? `${name} is klaar: ${amount}` : `${name} is klaar`;
@@ -96,6 +101,9 @@ export function stepLine(step: NextStep, overview: BillingOverview): string {
       ? `Gepland was ${amount}. Stel vast wat er is gewerkt en sluit de maand af.`
       : 'Stel vast wat er is gewerkt en sluit de maand af.';
   }
+  if (step.kind === 'deliver' && step.correction) {
+    return `${earlierText(step)} Na die tijd is er iets gewijzigd; lever het verschil aan.`;
+  }
   if (step.kind === 'deliver') {
     return overview.can_mail
       ? 'Alle maanden zijn afgesloten. Lever aan bij de financiële administratie.'
@@ -110,12 +118,40 @@ export function stepLine(step: NextStep, overview: BillingOverview): string {
   return 'Alle maanden zijn afgesloten en gefactureerd.';
 }
 
+/** What happened to the period itself before a naverrekening came up. */
+function earlierText(step: NextStep): string {
+  const numbers = (step.invoice_numbers ?? []).join(', ');
+  if (numbers) {
+    const when = step.invoiced_on ? ` op ${formatDate(step.invoiced_on)}` : '';
+    return `De periode zelf is gefactureerd${when} (factuur ${numbers}).`;
+  }
+  return step.delivered_on
+    ? `De periode zelf is aangeleverd op ${formatDate(step.delivered_on)}.`
+    : 'De periode zelf is al aangeleverd.';
+}
+
+/** The word for where a period stands; a naverrekening is not "ready". */
+export function periodStateText(period: BillingPeriod): string {
+  return period.correction ? 'Naverrekening' : PERIOD_STATE_TEXT[period.state];
+}
+
+/** A difference between what was delivered and what was invoiced, or null. */
+export function invoiceDifferenceText(period: BillingPeriod): string | null {
+  const difference = period.invoice_difference_cents ?? 0;
+  if (difference === 0) return null;
+  return difference < 0
+    ? `${formatEuro(-difference)} minder gefactureerd dan aangeleverd`
+    : `${formatEuro(difference)} meer gefactureerd dan aangeleverd`;
+}
+
 /** The last thing that happened to a period, as one quiet line. */
 export function periodLine(period: BillingPeriod): string {
   const delivery = (period.deliveries ?? []).at(-1);
   if (period.state === 'invoiced') {
     const numbers = (period.invoice_numbers ?? []).join(', ');
-    return numbers ? `Factuur ${numbers}` : 'Gefactureerd';
+    const invoice = numbers ? `Factuur ${numbers}` : 'Gefactureerd';
+    const difference = invoiceDifferenceText(period);
+    return difference ? `${invoice}; ${difference}` : invoice;
   }
   if (period.state === 'delivered') {
     return delivery
@@ -125,6 +161,12 @@ export function periodLine(period: BillingPeriod): string {
   const closed = period.months.filter((month) => month.state === 'closed').length;
   const total = period.months.length;
   if (period.state === 'ready') {
+    if (period.correction) {
+      const numbers = (period.invoice_numbers ?? []).join(', ');
+      return numbers
+        ? `Gefactureerd, factuur ${numbers}; daarna gewijzigd`
+        : 'Aangeleverd; daarna gewijzigd';
+    }
     const correction = period.months.some((month) => (month.correction_cents ?? 0) !== 0);
     if (delivery && correction) return 'Gewijzigd na de aanlevering: naverrekening';
     return total > 1 ? `Alle ${total} maanden afgesloten` : 'Afgesloten';

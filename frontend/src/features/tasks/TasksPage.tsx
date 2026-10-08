@@ -1,7 +1,6 @@
 import { useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation, useSearchParams } from 'react-router-dom';
-import { errorMessage } from '@/api/client';
 import { useInstance } from '@/layout/useInstance';
 import { useRouterLinks } from '@/layout/useRouterLinks';
 import { useViewer } from '@/layout/useViewer';
@@ -11,7 +10,7 @@ import { ActionBar, type ActionBarFilter } from '@/ui/ActionBar';
 import {
   CardGrid,
   EmptyNotice,
-  ErrorNotice,
+  LoadError,
   Loading,
   Page,
   Quiet,
@@ -43,7 +42,7 @@ const VIEWS = [
 function MyTasks({ onOpen }: { onOpen: (id: string) => void }) {
   const query = useQuery({ queryKey: TASK_KEYS.mine, queryFn: fetchMyTasks });
   if (query.isPending) return <Loading />;
-  if (query.isError) return <ErrorNotice message={errorMessage(query.error)} />;
+  if (query.isError) return <LoadError error={query.error} retry={() => void query.refetch()} />;
   const { toDo, waiting } = myWork(query.data.items, query.data.awaited);
   if (toDo.length === 0 && waiting.length === 0) return <EmptyNotice text="Niets te doen" />;
   return (
@@ -152,7 +151,7 @@ function Board({
         actions={[]}
       />
       {query.isPending && <Loading />}
-      {query.isError && <ErrorNotice message={errorMessage(query.error)} />}
+      {query.isError && <LoadError error={query.error} retry={() => void query.refetch()} />}
       {query.data && (
         <CardGrid itemWidth="260px">
           {BOARD_COLUMNS.map((column) => {

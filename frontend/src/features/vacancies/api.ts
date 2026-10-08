@@ -123,6 +123,8 @@ export interface Vacancy {
   requested_on?: string | null;
   created_at?: string;
   has_openings?: boolean;
+  /** What the vacancy lacks before it can be requested and its form made; from the server. */
+  request_missing?: string[];
   procedure: ProcedureStep[];
   decisions: Decision[];
   texts: TextVersion[];

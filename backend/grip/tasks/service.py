@@ -212,6 +212,13 @@ async def _views(
     return views
 
 
+async def views_for(
+    db: AsyncSession, access: TaskAccess, tasks: list[Task], *, today: date
+) -> list[TaskView]:
+    """Tasks as the reader sees them, each with what the reader must hear."""
+    return await _views(db, access, sorted(tasks, key=_sort_key), today=today)
+
+
 def _sort_key(task: Task) -> tuple[Any, ...]:
     return (
         task.due_on is None,

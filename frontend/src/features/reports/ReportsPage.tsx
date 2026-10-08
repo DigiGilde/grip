@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { errorMessage } from '@/api/client';
-import { EmptyNotice, ErrorNotice, Loading } from '@/ui/layout';
+import { EmptyNotice, LoadError, Loading } from '@/ui/layout';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { useInstance } from '@/layout/useInstance';
 import { PageHeading } from '@/pages/PageHeading';
@@ -44,7 +43,10 @@ function TileLink({ tile, year }: { tile: Tile; year: string }) {
 export function ReportsPage() {
   const instance = useInstance();
   const [year, setYear] = useReportYear();
-  const query = useQuery({ queryKey: reportKeys.steering(year), queryFn: () => fetchSteering(year) });
+  const query = useQuery({
+    queryKey: reportKeys.steering(year),
+    queryFn: () => fetchSteering(year),
+  });
   // Its own request, so a problem with it never hides the other figures.
   const investment = useQuery({
     queryKey: reportKeys.investment(year),
@@ -68,13 +70,11 @@ export function ReportsPage() {
                 width: '140px',
               },
             ]}
-            actions={[
-              { text: 'Jaarverantwoording', href: topicPath('jaarverantwoording', year) },
-            ]}
+            actions={[{ text: 'Jaarverantwoording', href: topicPath('jaarverantwoording', year) }]}
           />
         </RouterLinks>
         {query.isPending && <Loading />}
-        {query.isError && <ErrorNotice message={errorMessage(query.error)} />}
+        {query.isError && <LoadError error={query.error} retry={() => void query.refetch()} />}
         {query.isSuccess && tiles.length === 0 && (
           <EmptyNotice
             text="Er is voor jou geen sturingsinformatie"

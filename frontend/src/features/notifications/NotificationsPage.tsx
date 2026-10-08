@@ -12,6 +12,7 @@ import {
   Facts,
   FormFields,
   FormSheet,
+  LoadError,
   Loading,
   Page,
   Quiet,
@@ -125,7 +126,9 @@ export function NotificationsPage() {
           : {})}
       >
         {query.isPending ? <Loading /> : null}
-        {query.isError ? <ErrorNotice message={errorMessage(query.error)} /> : null}
+        {query.isError ? (
+          <LoadError error={query.error} retry={() => void query.refetch()} />
+        ) : null}
         {saveError ? <ErrorNotice message={saveError} /> : null}
         {data && preference ? (
           <>
@@ -159,7 +162,6 @@ export function NotificationsPage() {
                       />
                       <Button
                         text="Zet uit op dit apparaat"
-                        appearance="neutral-transparent"
                         onClick={() => void off()}
                         loading={busy}
                       />

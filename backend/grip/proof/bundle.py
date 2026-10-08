@@ -199,7 +199,7 @@ def render_page(statement: dict[str, Any], findings: list[tuple[str, str]]) -> s
         ),
         _row("Besluit", decision),
         _row("Offerte", f"{quote.get('kenmerk') or quote.get('uri')}"),
-        _row("Vingerafdruk van de inhoud", quote.get("vingerafdruk") or ""),
+        _row("Echtheidskenmerk van de inhoud", quote.get("vingerafdruk") or ""),
         _row(
             "Hash van het document (pdf)",
             (quote.get("bestand_sha256") or "niet vastgelegd")

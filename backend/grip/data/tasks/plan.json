@@ -3,7 +3,7 @@
   "replaces": [
     "2026.2"
   ],
-  "description": "Het meegeleverde plan. Een taak ontstaat als alles onder 'when' waar is en sluit zodra het feit onder 'done_when' waar is. Namen van onderwerpen ('for'), feiten en rollen komen uit de catalogus in grip/tasks/catalogue.py; het plan kan er geen bedenken.",
+  "description": "Het meegeleverde plan. Een taak ontstaat als alles onder 'when' waar is en sluit zodra het feit onder 'done_when' waar is. Namen van onderwerpen ('for'), feiten en rollen komen uit de catalogus in grip/tasks/catalogue.py; het plan kan er geen bedenken. Onder 'courses' staat per soort zaak het verloop: de stappen, het feit dat een stap afrondt en de taken die bij de stap horen.",
   "case_kinds": {
     "assignment": {
       "tracks": [
@@ -50,7 +50,23 @@
             "potential",
             "budget_has_line"
           ],
-          "done_when": "quote_issued",
+          "done_when": "quote_fresh",
+          "assignee": "owner",
+          "link": "/opdrachten/{assignment_id}/offerte"
+        },
+        {
+          "key": "offerte.goedkeuring_vragen",
+          "track": "offerte",
+          "title": "Vraag interne goedkeuring voor de offerte",
+          "for": "quote_round",
+          "when": [
+            "contractor",
+            "external",
+            "potential",
+            "quote_fresh",
+            "approval_needed"
+          ],
+          "done_when": "approval_asked",
           "assignee": "owner",
           "link": "/opdrachten/{assignment_id}/offerte"
         },
@@ -94,7 +110,8 @@
             "contractor",
             "external",
             "potential",
-            "quote_issued"
+            "quote_fresh",
+            "quote_may_offer"
           ],
           "done_when": "quote_offered",
           "assignee": "owner",
@@ -109,6 +126,7 @@
             "contractor",
             "external",
             "potential",
+            "quote_fresh",
             "quote_offered"
           ],
           "done_when": "quote_accepted",
@@ -258,6 +276,271 @@
           },
           "link": "/opdrachten/{assignment_id}/maandafsluiting?maand={repeat_key}",
           "requires_event": "billing_correction.arose"
+        }
+      ],
+      "courses": [
+        {
+          "key": "ontvangen",
+          "label": "Offerte van de opdrachtnemer",
+          "for": "case",
+          "when": [
+            "client"
+          ],
+          "steps": [
+            {
+              "key": "aanvraag",
+              "label": "Aanvraag",
+              "done_when": [
+                "client"
+              ]
+            },
+            {
+              "key": "offerte",
+              "label": "Offerte ontvangen",
+              "done_when": [
+                "quote_received"
+              ],
+              "idle": "Je wacht op de offerte van de opdrachtnemer."
+            },
+            {
+              "key": "besluit",
+              "label": "Besluit",
+              "done_when": [
+                "quote_answered"
+              ],
+              "tasks": [
+                "offerte.beoordelen_en_tekenen"
+              ]
+            }
+          ]
+        },
+        {
+          "key": "akkoord",
+          "label": "Naar een akkoord",
+          "for": "case",
+          "when": [
+            "contractor",
+            "potential"
+          ],
+          "steps": [
+            {
+              "key": "begroting",
+              "label": "Begroting",
+              "done_when": [
+                "budget_has_line"
+              ],
+              "tasks": [
+                "offerte.aanvraag_uitwerken"
+              ]
+            },
+            {
+              "key": "offerte",
+              "label": "Offerte",
+              "done_when": [
+                "quote_round.quote_fresh"
+              ],
+              "tasks": [
+                "offerte.opstellen",
+                "offerte.na_terugsturen_opnieuw_maken",
+                "offerte.reactie_verwerken"
+              ],
+              "notes": [
+                {
+                  "when": "quote_round.quote_sent_back",
+                  "text": "Intern teruggestuurd"
+                },
+                {
+                  "when": "quote_round.quote_rejected_before",
+                  "text": "Vorige offerte afgewezen"
+                },
+                {
+                  "when": "quote_round.quote_expired",
+                  "text": "Offerte verlopen"
+                },
+                {
+                  "when": "quote_round.quote_outdated",
+                  "text": "Begroting gewijzigd na de offerte"
+                }
+              ]
+            },
+            {
+              "key": "goedkeuring",
+              "label": "Interne goedkeuring",
+              "when": [
+                "approval_needed"
+              ],
+              "done_when": [
+                "approval_given"
+              ],
+              "tasks": [
+                "offerte.goedkeuring_vragen",
+                "offerte.intern_beoordelen"
+              ]
+            },
+            {
+              "key": "aanbieden",
+              "label": "Aanbieden",
+              "done_when": [
+                "quote_round.quote_offered"
+              ],
+              "tasks": [
+                "offerte.aanbieden"
+              ]
+            },
+            {
+              "key": "akkoord",
+              "label": "Akkoord",
+              "done_when": [
+                "quote_round.quote_accepted"
+              ],
+              "tasks": [
+                "offerte.wacht_op_akkoord"
+              ],
+              "notes": [
+                {
+                  "when": "verbally_agreed",
+                  "text": "Mondeling akkoord"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "uitvoering",
+          "label": "Uitvoering",
+          "for": "case",
+          "when": [
+            "contractor",
+            "agreed"
+          ],
+          "steps": [
+            {
+              "key": "akkoord",
+              "label": "Akkoord",
+              "done_when": [
+                "agreed"
+              ]
+            },
+            {
+              "key": "starten",
+              "label": "Starten",
+              "done_when": [
+                "started"
+              ],
+              "tasks": [
+                "uitvoering.starten"
+              ]
+            },
+            {
+              "key": "uitvoeren",
+              "label": "Uitvoeren",
+              "done_when": [
+                "completed"
+              ],
+              "tasks": [
+                "bemensing.rol_invullen",
+                "uitvoering.maand_afsluiten",
+                "financien.factuurgegevens_aanleveren",
+                "financien.factuur_vastleggen",
+                "financien.naverrekening_aanleveren"
+              ],
+              "idle": "De opdracht loopt. Er is nu niets te doen."
+            },
+            {
+              "key": "verantwoorden",
+              "label": "Verantwoorden",
+              "when": [
+                "external"
+              ],
+              "done_when": [
+                "final_report_issued"
+              ],
+              "tasks": [
+                "uitvoering.eindrapport"
+              ]
+            }
+          ]
+        },
+        {
+          "key": "intern",
+          "label": "Interne opdracht",
+          "for": "case",
+          "when": [
+            "contractor",
+            "not external",
+            "not agreed"
+          ],
+          "steps": [
+            {
+              "key": "begroting",
+              "label": "Begroting",
+              "done_when": [
+                "budget_has_line"
+              ]
+            },
+            {
+              "key": "starten",
+              "label": "Starten",
+              "done_when": [
+                "started"
+              ]
+            }
+          ]
+        },
+        {
+          "key": "periode",
+          "label": "Factuurperiode",
+          "for": "billing_period",
+          "when": [
+            "contractor",
+            "external"
+          ],
+          "steps": [
+            {
+              "key": "afsluiten",
+              "label": "Maanden afsluiten",
+              "done_when": [
+                "period_ready"
+              ],
+              "tasks": [
+                "uitvoering.maand_afsluiten"
+              ]
+            },
+            {
+              "key": "aanleveren",
+              "label": "Aanleveren",
+              "done_when": [
+                "period_delivered"
+              ],
+              "tasks": [
+                "financien.factuurgegevens_aanleveren"
+              ]
+            },
+            {
+              "key": "factureren",
+              "label": "Factuur",
+              "done_when": [
+                "period_invoiced"
+              ],
+              "tasks": [
+                "financien.factuur_vastleggen"
+              ]
+            }
+          ]
+        }
+      ],
+      "ends": [
+        {
+          "when": "rejected",
+          "label": "Afgewezen"
+        },
+        {
+          "when": "cancelled",
+          "label": "Geannuleerd"
+        },
+        {
+          "when": "accounted",
+          "label": "Verantwoord"
         }
       ]
     },
@@ -462,6 +745,125 @@
           "done_when": "request_form_signed",
           "assignee": "requester",
           "link": "/vacatures/{vacancy_id}"
+        }
+      ],
+      "courses": [
+        {
+          "key": "werving",
+          "label": "Werving",
+          "for": "case",
+          "when": [],
+          "steps": [
+            {
+              "key": "aanvraag",
+              "label": "Aanvraag",
+              "done_when": [
+                "requested"
+              ],
+              "tasks": [
+                "werving.aanvraag_voorbereiden"
+              ]
+            },
+            {
+              "key": "advies",
+              "label": "Advies en akkoord",
+              "done_when": [
+                "approval_passed"
+              ],
+              "tasks": [
+                "werving.advies_hr",
+                "werving.advies_control",
+                "werving.akkoord",
+                "werving.formulier_maken",
+                "werving.getekend_formulier_vastleggen"
+              ]
+            },
+            {
+              "key": "openstellen",
+              "label": "Openstellen",
+              "when": [
+                "needs_opening"
+              ],
+              "done_when": [
+                "opened"
+              ],
+              "tasks": [
+                "werving.openstellen"
+              ]
+            },
+            {
+              "key": "vervullen",
+              "label": "Vervullen",
+              "done_when": [
+                "filled"
+              ],
+              "tasks": [
+                "werving.vervullen",
+                "werving.link_vastleggen",
+                "werving.collega_voorstellen",
+                "werving.account_aanvragen"
+              ]
+            }
+          ]
+        },
+        {
+          "key": "tekst",
+          "label": "Tekst",
+          "for": "text",
+          "when": [],
+          "steps": [
+            {
+              "key": "schrijven",
+              "label": "Schrijven",
+              "done_when": [
+                "text_written"
+              ],
+              "tasks": [
+                "teksten.schrijven",
+                "teksten.opmerkingen_verwerken"
+              ],
+              "notes": [
+                {
+                  "when": "text_returned",
+                  "text": "Terug met opmerkingen"
+                }
+              ]
+            },
+            {
+              "key": "beoordelen",
+              "label": "Beoordelen",
+              "done_when": [
+                "text_judged"
+              ],
+              "tasks": [
+                "teksten.beoordelen"
+              ]
+            },
+            {
+              "key": "vaststellen",
+              "label": "Vaststellen",
+              "done_when": [
+                "text_settled"
+              ],
+              "tasks": [
+                "teksten.schrijven"
+              ]
+            }
+          ]
+        }
+      ],
+      "ends": [
+        {
+          "when": "rejected",
+          "label": "Afgewezen"
+        },
+        {
+          "when": "withdrawn",
+          "label": "Ingetrokken"
+        },
+        {
+          "when": "filled",
+          "label": "Vervuld"
         }
       ]
     }

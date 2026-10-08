@@ -180,7 +180,6 @@ function OfferRow({
                   <CopyButton text="Kopieer tekenlink" value={link} size="sm" />
                   <CopyButton
                     text="Kopieer bericht"
-                    appearance="neutral-transparent"
                     size="sm"
                     value={invitationMessage({
                       reference: quote.reference,
@@ -245,6 +244,11 @@ interface QuoteCardProps {
   ownerName?: string | null;
   /** The reader is a beheerder, who can grant the right to approve. */
   isAdmin?: boolean;
+  /**
+   * The budget changed since this quote was made. Offering it would send
+   * amounts that no longer hold: the next step is a new quote.
+   */
+  outdated?: boolean;
   busy: boolean;
   onAction: (action: CardAction) => void;
 }
@@ -259,6 +263,7 @@ export function QuoteCard({
   approval,
   mayManage,
   isAdmin = false,
+  outdated = false,
   evidence,
   ownerName,
   busy,
@@ -270,7 +275,8 @@ export function QuoteCard({
   // Complete once the offers and the approval are in: until then no action,
   // so a button never changes under the pointer.
   const ready = detail !== undefined && approval !== undefined;
-  const next = mayManage && ready ? primaryAction(quote, offers, approval) : null;
+  const step = mayManage && ready ? primaryAction(quote, offers, approval) : null;
+  const next = outdated && mayManage && ready && quote.status === 'issued' ? 'new-quote' : step;
   const open = quote.status === 'issued';
   const blocked = awaitsApproval(approval);
   // Approval is a matter between making and offering; once the quote is out

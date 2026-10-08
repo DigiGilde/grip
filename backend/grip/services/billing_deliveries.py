@@ -287,6 +287,15 @@ class PeriodView:
     open_export_ids: tuple[UUID, ...]
     invoice_numbers: tuple[str, ...]
     last_step_at: datetime | None
+    # What is to be delivered is only a naverrekening: every month of the
+    # period was delivered before, and a later change (a promotion recorded
+    # afterwards, a corrected month) left a difference.
+    correction: bool = False
+    # The day of the latest invoice recorded for the period, when there is one.
+    invoiced_on: date | None = None
+    # Invoiced minus delivered once every delivery has its invoice; None
+    # while a delivery still waits for one. Not zero: something to look at.
+    invoice_difference_cents: int | None = None
 
     @property
     def months_to_close(self) -> tuple[Month, ...]:
@@ -304,6 +313,8 @@ class NextStep:
     from_date: date | None = None
     # For "none" with a from_date: the month that can be closed then.
     upcoming_month: Month | None = None
+    # For "deliver": only a naverrekening on a period delivered before.
+    correction: bool = False
 
 
 @dataclass(frozen=True)
@@ -523,6 +534,11 @@ async def overview(
             )
         steps = [m.closed_at for m in closed if m.closed_at is not None]
         steps += [e.created_at for e in period_exports]
+        invoice_days = [
+            invoice_of_export[e.id].invoice_date
+            for e in period_exports
+            if e.id in invoice_of_export
+        ]
         views.append(
             PeriodView(
                 period=period,
@@ -536,6 +552,11 @@ async def overview(
                 open_export_ids=open_exports,
                 invoice_numbers=numbers,
                 last_step_at=max(steps) if steps else None,
+                correction=state_name == READY and not undelivered and pending != 0,
+                invoiced_on=max(invoice_days) if invoice_days else None,
+                invoice_difference_cents=(invoiced_cents - delivered_cents)
+                if state_name == INVOICED and period_exports
+                else None,
             )
         )
 
@@ -575,6 +596,7 @@ def _next_step(views: list[PeriodView], *, billable: bool, today: date) -> NextS
                 "deliver",
                 period_key=view.period.key,
                 amount_cents=view.to_deliver_cents,
+                correction=view.correction,
             )
     if billable:
         for view in views:

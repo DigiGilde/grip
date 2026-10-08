@@ -220,6 +220,9 @@ async def test_the_invoice_is_recorded_against_the_period(act_as, world):
     assert quarter["invoiced_cents"] == 3 * MONTH_CENTS - 100
     assert quarter["awaits_invoice"] is False
     assert quarter["deliveries"][0]["invoice_number"] == "F-2026-014"
+    # A hundred cents less was invoiced than delivered: said, not hidden.
+    assert quarter["invoice_difference_cents"] == -100
+    assert quarter["invoiced_on"] == "2026-04-08"
     assert body["invoiced_cents"] == 3 * MONTH_CENTS - 100
 
     again = await client.post(
@@ -274,6 +277,48 @@ async def test_a_change_after_delivery_travels_with_the_next_delivery(
         ).scalars()
     )
     assert kinds == ["correction", "original", "original", "original"]
+
+
+async def test_a_change_after_the_invoice_is_a_naverrekening_not_a_ready_period(
+    act_as, world, db_session
+):
+    """The quarter was delivered and invoiced; a promotion recorded later
+    leaves a difference. That is a naverrekening on an invoiced period, and
+    the page is told so with the invoice that was sent."""
+    client = act_as(world.manager)
+    await _terms(client, world, details=DETAILS)
+    await _close(client, world, "2026-01", "2026-02", "2026-03")
+    try:
+        assert (await _deliver(client, world, "2026-Q1")).status_code == 201
+    except DocumentEngineError:
+        pytest.skip("the PDF engine's system libraries are not installed here")
+    body = await _overview(client, world)
+    assert _period(body, "2026-Q1")["correction"] is False
+    invoiced = await client.post(
+        f"{_base(world)}/billing/periods/2026-Q1/invoice",
+        json={
+            "invoice_number": "F-2026-014",
+            "invoice_date": "2026-04-08",
+            "amount_cents": 3 * MONTH_CENTS,
+        },
+    )
+    assert invoiced.status_code == 201, invoiced.text
+    assert _period(invoiced.json(), "2026-Q1")["invoice_difference_cents"] == 0
+
+    await rates.set_person_scale(
+        db_session, world.member.id, date(2026, 3, 1), 12, actor=world.beheerder
+    )
+    await db_session.flush()
+    body = await _overview(client, world)
+    quarter = _period(body, "2026-Q1")
+    assert quarter["state"] == "ready" and quarter["correction"] is True
+    assert quarter["invoice_numbers"] == ["F-2026-014"]
+    step = body["next_step"]
+    assert step["kind"] == "deliver" and step["correction"] is True
+    assert step["amount_cents"] == -240_000
+    assert step["invoice_numbers"] == ["F-2026-014"]
+    assert step["invoiced_on"] == "2026-04-08"
+    assert step["delivered_on"] is not None
 
 
 async def test_names_are_on_the_specification_only_when_the_agreement_says(

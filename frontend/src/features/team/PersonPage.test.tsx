@@ -284,7 +284,9 @@ describe('what each reader sees of a person', () => {
       { path: '/team/p-1' },
     );
     await waitFor(() =>
-      expect(texts(container, 'nldd-inline-dialog')).toEqual(['Deze persoon is niet gevonden']),
+      expect(container.querySelector('[data-state="not-found"]')?.textContent).toContain(
+        'Deze persoon is niet gevonden',
+      ),
     );
   });
 });

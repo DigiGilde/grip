@@ -46,9 +46,10 @@ describe('AllocationSheet', () => {
     expect(allText(sheet).replace(/\u00a0|\u202f/g, ' ')).toContain(
       'Loopt mee met de regel: 1 okt 2026 t/m 29 okt 2026',
     );
+    // An action, so a real button, not bare text.
     expect(sheet.querySelector('nldd-button[text="Afwijkende periode"]')).toHaveAttribute(
       'appearance',
-      'neutral-transparent',
+      'secondary',
     );
   });
 

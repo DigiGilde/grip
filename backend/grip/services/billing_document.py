@@ -49,6 +49,12 @@ _EXTRA_STYLE = """
   tr.month-head th { font-weight: bold; padding-top: 3mm; border-bottom: 0; }
   /* A month's name stays with its first line. */
   tr.month-head { break-after: avoid; }
+  tr.month-total td, tr.month-total th { border-bottom: 0; color: #444;
+    font-weight: normal; text-align: right; }
+  tr.month-total { break-before: avoid; }
+  /* The closing lines never stand alone on a next page. */
+  p.note, .colophon { break-before: avoid; }
+  .colophon { break-inside: avoid; }
 """
 
 _DETAIL_ROWS = (
@@ -100,8 +106,26 @@ def _lines_table(content: dict[str, Any]) -> str:
     span = len(head)
     body: list[str] = []
     current = None
+    # A subtotal per month when the document holds more than one month and a
+    # month more than one line: the screen names the amount per month too.
+    months = [line["month"] for line in content["lines"]]
+    several = len(set(months)) > 1
+
+    def month_total(month: Any) -> str:
+        own = [line for line in content["lines"] if line["month"] == month]
+        if not several or len(own) < 2:
+            return ""
+        label = escape(own[0]["month_label"])
+        amount = format_euro(sum(line["amount_cents"] for line in own))
+        return (
+            f'<tr class="month-total"><th scope="row" colspan="{span - 1}">'
+            f'Subtotaal {label}</th><td class="num">{amount}</td></tr>'
+        )
+
     for line in content["lines"]:
         if line["month"] != current:
+            if current is not None and (closing := month_total(current)):
+                body.append(closing)
             current = line["month"]
             body.append(
                 f'<tr class="month-head"><th scope="rowgroup" colspan="{span}">'
@@ -117,6 +141,8 @@ def _lines_table(content: dict[str, Any]) -> str:
             f'<td class="num">{format_euro(line["amount_cents"])}</td>',
         ]
         body.append("<tr>" + "".join(cells) + "</tr>")
+    if current is not None and (closing := month_total(current)):
+        body.append(closing)
     total = (
         f'<tr class="total"><th scope="row" colspan="{span - 1}">Totaal</th>'
         f'<td class="num">{format_euro(content["total_cents"])}</td></tr>'
@@ -172,11 +198,23 @@ def render_html(content: dict[str, Any], letterhead: Letterhead | None = None) -
         else ""
     )
     corrections = any(line["correction"] for line in content["lines"])
+    # Only differences on what was delivered before: a naverrekening, named so.
+    only_corrections = bool(content["lines"]) and all(
+        line["correction"] for line in content["lines"]
+    )
+    title = "Naverrekening" if only_corrections else "Factuurverzoek"
+    amount_label = "Na te verrekenen over" if only_corrections else "Te factureren over"
     basis = (
         "De bedragen volgen uit de inzet die per maand is vastgesteld, tegen het "
         "tarief dat in die maand gold."
     )
-    if corrections:
+    if only_corrections:
+        basis = (
+            "Dit is het verschil dat is ontstaan nadat deze periode is "
+            "aangeleverd. Het komt bovenop wat eerder over de periode is "
+            "aangeleverd; een negatief bedrag gaat eraf."
+        )
+    elif corrections:
         basis += (
             " Een regel met Naverrekening is het verschil dat na een eerdere "
             "aanlevering is ontstaan."
@@ -193,7 +231,7 @@ def render_html(content: dict[str, Any], letterhead: Letterhead | None = None) -
 <html lang="nl">
 <head>
 <meta charset="utf-8">
-<title>Factuurverzoek {reference}</title>
+<title>{title} {reference}</title>
 <meta name="author" content="{escape(sender)}">
 <meta name="dcterms.created" content="{stamp}">
 <meta name="dcterms.modified" content="{stamp}">
@@ -205,7 +243,7 @@ def render_html(content: dict[str, Any], letterhead: Letterhead | None = None) -
 <body>
 <main class="{"ribboned" if ribbon else "plain"}">
 {_head(sender, letterhead)}
-<h1>Factuurverzoek</h1>
+<h1>{title}</h1>
 <dl class="letter">
 <dt>Aan</dt><dd>Financiële administratie</dd>
 <dt>Datum</dt><dd>{escape(format_date(delivered.date()))}</dd>
@@ -213,7 +251,7 @@ def render_html(content: dict[str, Any], letterhead: Letterhead | None = None) -
 </dl>
 
 <div class="amount-due">
-<div>Te factureren over {escape(str(content["period_label"]))}</div>
+<div>{amount_label} {escape(str(content["period_label"]))}</div>
 <div class="figure">{format_euro(content["total_cents"])}</div>
 </div>
 

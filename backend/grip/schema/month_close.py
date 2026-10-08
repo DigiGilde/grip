@@ -91,5 +91,19 @@ class CloseMonthIn(BaseModel):
     established: list[EstablishedIn] = Field(default_factory=list)
 
 
+class MonthPreviewLineOut(BaseModel):
+    allocation_id: Annotated[UUID, ROSTER]
+    # The amount per person tells the rate: class D, as on the month itself.
+    amount_cents: Annotated[int, D]
+
+
+class MonthPreviewOut(BaseModel):
+    """What a month comes to at the percentages someone entered."""
+
+    month: Annotated[str, A]
+    lines: Annotated[list[MonthPreviewLineOut], nested()] = Field(default_factory=list)
+    total_cents: Annotated[int, B]
+
+
 class ReopenMonthIn(BaseModel):
     reason: str = Field(min_length=1, max_length=2000)

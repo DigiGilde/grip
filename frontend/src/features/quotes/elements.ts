@@ -8,6 +8,7 @@ import '@nldd/design-system/checkbox-field';
 import '@nldd/design-system/file-field';
 import '@nldd/design-system/title-cell';
 import '@nldd/design-system/checkbox';
+import '@nldd/design-system/radio-button';
 import '@nldd/design-system/card';
 import '@nldd/design-system/icon-button';
 import '@nldd/design-system/list';

@@ -4,7 +4,7 @@ import { useInstance } from '@/layout/useInstance';
 import { useRouterLinks } from '@/layout/useRouterLinks';
 import { PATHS } from '@/paths';
 import { IconCell } from '@/ui/Icon';
-import { EmptyNotice, Page, Section, Stack } from '@/ui/layout';
+import { Page, Section, Stack, NoAccess } from '@/ui/layout';
 
 interface Entry {
   path: string;
@@ -115,10 +115,7 @@ export function AdminPage() {
           </Stack>
         </div>
       ) : (
-        <EmptyNotice
-          text="Beheer is voor beheerders"
-          supportingText="Heb je hier iets nodig, vraag het dan aan een beheerder. Wie dat zijn zie je onder Team."
-        />
+        <NoAccess who="Beheer is voor beheerders. Heb je hier iets nodig, vraag het dan aan een beheerder. Wie dat zijn zie je onder Team." />
       )}
     </Page>
   );

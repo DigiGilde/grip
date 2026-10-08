@@ -14,6 +14,11 @@ export interface VacancyShell {
   vacancy: Vacancy;
   options: VacancyOptions | undefined;
   openSheet: (sheet: SharedSheet) => void;
+  /**
+   * Whether the header of the vacancy holds the one primary button of the
+   * page. A tab gives its own next step the accent only when it does not.
+   */
+  headerPrimary: boolean;
 }
 
 export const VacancyShellContext = createContext<VacancyShell | null>(null);

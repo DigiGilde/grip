@@ -1,4 +1,4 @@
-import { waitFor } from '@testing-library/react';
+import { waitFor, cleanup } from '@testing-library/react';
 import { Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderApp } from '@/test/utils';
@@ -100,10 +100,13 @@ function renderPage(
 
 const loaded = (container: HTMLElement) =>
   waitFor(() => expect(container.querySelector('[data-section]')).not.toBeNull());
+/** The editor of the open section. Its text is a property, as on the real element. */
 const field = (container: HTMLElement) =>
-  container.querySelector('nldd-multi-line-text-field') as HTMLElement;
-const type = (container: HTMLElement, value: string) =>
+  container.querySelector('nldd-text-editor') as HTMLElement & { value?: string };
+const type = (container: HTMLElement, value: string) => {
+  field(container).value = value;
   field(container).dispatchEvent(new CustomEvent('input', { detail: { value } }));
+};
 /** The state of each section, as its row says it. */
 const states = (container: HTMLElement, selector: string) =>
   [...container.querySelectorAll(`${selector} > * nldd-list-item nldd-text-cell`)]
@@ -127,7 +130,7 @@ describe('QuoteDraftPage', () => {
       'Bedragen uit de begroting',
       'Standaardtekst',
     ]);
-    expect(container.querySelector('nldd-multi-line-text-field')).toBeNull();
+    expect(container.querySelector('nldd-text-editor')).toBeNull();
     // One primary action, not available yet, with the reason next to it as a way in.
     expect(texts(container, 'nldd-button[appearance="primary"]')).toEqual(['Maak offerte']);
     expect(
@@ -138,10 +141,11 @@ describe('QuoteDraftPage', () => {
     expect(container.textContent).toContain('Nog één onderdeel te schrijven: Inleiding.');
     expect(container.querySelector('[data-problems]')).toBeNull();
     const rowButtons = [...container.querySelectorAll('[data-section] nldd-button')];
+    // Every action is a real button; none is bare text.
     expect(rowButtons.map((el) => el.getAttribute('appearance'))).toEqual([
       'secondary',
-      'neutral-transparent',
-      'neutral-transparent',
+      'secondary',
+      'secondary',
     ]);
     expect(
       [...container.querySelectorAll('nldd-link')]
@@ -154,7 +158,7 @@ describe('QuoteDraftPage', () => {
     const { container } = renderPage({}, '/opdrachten/a-1/offerte/schrijven?onderdeel=voorwaarden');
     await loaded(container);
     const block = container.querySelector('[data-section="voorwaarden"]') as Element;
-    expect(block.querySelector('nldd-multi-line-text-field')).toBeNull();
+    expect(block.querySelector('nldd-text-editor')).toBeNull();
     expect(block.querySelector('strong')?.textContent).toBe('voorwaarden');
     expect([...block.querySelectorAll('li')].map((el) => el.textContent)).toEqual([
       'Betaling per maand',
@@ -173,7 +177,7 @@ describe('QuoteDraftPage', () => {
     expect(block.querySelector('nldd-link')?.getAttribute('href')).toBe(
       '/opdrachten/a-1/begroting',
     );
-    expect(block.querySelector('nldd-multi-line-text-field')).toBeNull();
+    expect(block.querySelector('nldd-text-editor')).toBeNull();
   });
 
   it('keeps what is typed in the browser until the server confirmed the save', async () => {
@@ -193,9 +197,7 @@ describe('QuoteDraftPage', () => {
     await waitFor(() => expect(field(container)).not.toBeNull());
     expect(container.textContent).toContain('Waarom deze opdracht, in een paar zinnen.');
     type(container, 'De opdracht in het kort.');
-    await waitFor(() =>
-      expect(field(container).getAttribute('value')).toBe('De opdracht in het kort.'),
-    );
+    await waitFor(() => expect(field(container).value).toBe('De opdracht in het kort.'));
     expect(JSON.parse(localStorage.getItem('grip.offertetekst.a-1.inleiding') ?? '{}').text).toBe(
       'De opdracht in het kort.',
     );
@@ -217,6 +219,71 @@ describe('QuoteDraftPage', () => {
     ).toBe(false);
   });
 
+  it('takes a written section into the quote, says it is saved and moves on', async () => {
+    const start = {
+      ...DRAFT,
+      sections: [section({ key: 'scope', heading: 'Scope', included: false }), ...DRAFT.sections],
+    };
+    const saved = {
+      ...start,
+      sections: [
+        section({ key: 'scope', heading: 'Scope', body: 'Wat wel en niet.', origin: 'written' }),
+        ...DRAFT.sections,
+      ],
+    };
+    const { container, calls } = renderPage(
+      {
+        '/api/assignments/a-1/quote-draft': start,
+        'PUT /api/assignments/a-1/quote-draft/sections/scope': saved,
+      },
+      '/opdrachten/a-1/offerte/schrijven?onderdeel=scope',
+    );
+    await loaded(container);
+    // What is left out stands after what is in the quote.
+    expect(
+      [...container.querySelectorAll('[data-section]')].map((el) =>
+        el.getAttribute('data-section'),
+      ),
+    ).toEqual(['inleiding', 'kosten', 'voorwaarden', 'scope']);
+    await waitFor(() => expect(field(container)).not.toBeNull());
+    type(container, 'Wat wel en niet.');
+    await waitFor(() => expect(field(container).value).toBe('Wat wel en niet.'));
+    clickButton(container, 'Bewaar');
+    await waitFor(() => expect(calls.some((call) => call.method === 'PUT')).toBe(true));
+    expect(calls.find((call) => call.method === 'PUT')?.body).toMatchObject({
+      body: 'Wat wel en niet.',
+      included: true,
+    });
+    await waitFor(() =>
+      expect(container.querySelector('[data-saved]')?.textContent).toBe('Scope is bewaard.'),
+    );
+    // On to the section that still needs writing.
+    await waitFor(() =>
+      expect(container.querySelector('[data-section="inleiding"] nldd-text-editor')).not.toBeNull(),
+    );
+    expect(container.querySelector('[data-section="scope"] nldd-text-editor')).toBeNull();
+  });
+
+  it('says what the sender still lacks, and who can fill it in', async () => {
+    const lacking = {
+      ...DRAFT,
+      problems: [],
+      sections: [section({ body: 'Tekst.', origin: 'written' }), ...DRAFT.sections.slice(1)],
+      sender_problem: 'Onder Beheer, Afzender ontbreekt nog: de ondertekenaar.',
+      may_set_sender: false,
+    };
+    const { container } = renderPage({ '/api/assignments/a-1/quote-draft': lacking });
+    await loaded(container);
+    const row = container.querySelector('[data-sender-problem]');
+    expect(row?.querySelector('nldd-text-cell')?.getAttribute('supporting-text')).toBe(
+      'Onder Beheer, Afzender ontbreekt nog: de ondertekenaar. Vraag een beheerder om dit in te vullen.',
+    );
+    expect(row?.querySelector('nldd-link')).toBeNull();
+    expect(
+      container.querySelector('nldd-button[appearance="primary"]')?.hasAttribute('disabled'),
+    ).toBe(true);
+  });
+
   it('puts back a text that was typed and never saved', async () => {
     localStorage.setItem(
       'grip.offertetekst.a-1.inleiding',
@@ -224,7 +291,7 @@ describe('QuoteDraftPage', () => {
     );
     const { container } = renderPage({}, '/opdrachten/a-1/offerte/schrijven?onderdeel=inleiding');
     await loaded(container);
-    await waitFor(() => expect(field(container)?.getAttribute('value')).toBe('Half af'));
+    await waitFor(() => expect(field(container)?.value).toBe('Half af'));
     expect(container.textContent).toContain('was nog niet bewaard en staat hier weer');
   });
 
@@ -255,7 +322,7 @@ describe('QuoteDraftPage', () => {
     await loaded(container);
     await waitFor(() => expect(field(container)).not.toBeNull());
     type(container, 'Mijn tekst');
-    await waitFor(() => expect(field(container).getAttribute('value')).toBe('Mijn tekst'));
+    await waitFor(() => expect(field(container).value).toBe('Mijn tekst'));
     clickButton(container, 'Bewaar');
     await waitFor(() =>
       expect(container.querySelector('nldd-banner[variant="warning"]')?.getAttribute('text')).toBe(
@@ -264,7 +331,7 @@ describe('QuoteDraftPage', () => {
     );
     // Their text is shown; mine is still in the field and in this browser.
     expect(container.querySelector('[data-their-text]')?.textContent).toBe('Tekst van een collega');
-    expect(field(container).getAttribute('value')).toBe('Mijn tekst');
+    expect(field(container).value).toBe('Mijn tekst');
     expect(JSON.parse(localStorage.getItem('grip.offertetekst.a-1.inleiding') ?? '{}').text).toBe(
       'Mijn tekst',
     );
@@ -311,16 +378,14 @@ describe('QuoteDraftPage', () => {
     await loaded(container);
     await waitFor(() => expect(field(container)).not.toBeNull());
     type(container, 'Mijn tekst');
-    await waitFor(() => expect(field(container).getAttribute('value')).toBe('Mijn tekst'));
+    await waitFor(() => expect(field(container).value).toBe('Mijn tekst'));
     clickButton(container, 'Bewaar');
     await waitFor(() => expect(container.querySelector('[data-their-text]')).not.toBeNull());
     expect(container.querySelector('nldd-banner[variant="warning"]')?.getAttribute('text')).toBe(
       'Een collega heeft dit onderdeel intussen gewijzigd',
     );
     clickButton(container, 'Neem de andere tekst over');
-    await waitFor(() =>
-      expect(field(container).getAttribute('value')).toBe('Tekst van een collega'),
-    );
+    await waitFor(() => expect(field(container).value).toBe('Tekst van een collega'));
     expect(states(container, '[data-section="inleiding"]')).toEqual(['Zelf geschreven']);
   });
 
@@ -359,6 +424,36 @@ describe('QuoteDraftPage', () => {
     expect(texts(container, 'nldd-list nldd-text-cell')).toContain('Offerte van de collega');
   });
 
+  it('says so when a proposal was written without the context from the corpus, and only then', async () => {
+    const LINE = 'Opgesteld zonder de context uit het corpus: dat was niet bereikbaar.';
+    const proposal = (context: 'used' | 'none' | 'unreachable') => ({
+      ...DRAFT,
+      sections: [
+        section({
+          body: 'Een voorstel.',
+          origin: 'generated',
+          settled: false,
+          generated: { context },
+        }),
+        ...DRAFT.sections.slice(1),
+      ],
+    });
+    for (const [context, shown] of [
+      ['unreachable', true],
+      ['used', false],
+      ['none', false],
+    ] as const) {
+      const { container } = renderPage(
+        { '/api/assignments/a-1/quote-draft': proposal(context) },
+        '/opdrachten/a-1/offerte/schrijven?onderdeel=inleiding',
+      );
+      await loaded(container);
+      await waitFor(() => expect(field(container)).not.toBeNull());
+      expect(container.textContent?.includes(LINE)).toBe(shown);
+      cleanup();
+    }
+  });
+
   it('shows a model draft as a proposal until someone saves it', async () => {
     const proposed = {
       ...DRAFT,
@@ -379,7 +474,7 @@ describe('QuoteDraftPage', () => {
     clickButton(container, 'Stel een concept op');
     await waitFor(() => expect(container.querySelector('[data-proposal]')).not.toBeNull());
     expect(calls.some((call) => call.url.endsWith('/sections/inleiding/draft'))).toBe(true);
-    expect(field(container).getAttribute('value')).toBe('Een voorstel voor de inleiding.');
+    expect(field(container).value).toBe('Een voorstel voor de inleiding.');
     expect(states(container, '[data-section="inleiding"]')).toEqual([
       'Concept van het taalmodel: nog niet vastgesteld',
     ]);

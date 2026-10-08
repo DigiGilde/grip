@@ -1,7 +1,6 @@
 import { Fragment, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { errorMessage } from '@/api/client';
 import { useNlddEvent } from '@/components/nldd/events';
 import { Button } from '@/features/assignments/ui';
 import { useAssignmentShell } from '@/features/assignments/shell';
@@ -9,7 +8,7 @@ import { formatDate, formatEuro } from '@/lib/format';
 import { useInstance } from '@/layout/useInstance';
 import { PageHeading } from '@/pages/PageHeading';
 import { OpenRow, RowActions, ROW_ACTIONS_COLUMN, type RowAction } from '@/ui/RowActions';
-import { EmptyNotice, ErrorNotice, Loading, Quiet, Stack } from '@/ui/layout';
+import { EmptyNotice, LoadError, Loading, Quiet, Stack } from '@/ui/layout';
 import { Invoices } from './BillingSection';
 import { billingKey, fetchBillingStatus } from './api';
 import {
@@ -26,7 +25,7 @@ import { MonthSheet } from './MonthSheet';
 import { INVOICE_PARAM, MONTH_PARAM, PERIOD_PARAM, monthsFromParam } from './paths';
 import {
   PERIOD_STATE_COLOR,
-  PERIOD_STATE_TEXT,
+  periodStateText,
   RHYTHM_TEXT,
   periodAmount,
   periodLine,
@@ -195,7 +194,7 @@ function PeriodRows({
         <nldd-cell hide-below="md">
           <nldd-badge
             color={isNext ? PERIOD_STATE_COLOR[period.state] : 'neutral'}
-            text={PERIOD_STATE_TEXT[period.state]}
+            text={periodStateText(period)}
           />
         </nldd-cell>
         <nldd-text-cell hide-below="md" size="sm" color="secondary" text={periodLine(period)} />
@@ -204,7 +203,7 @@ function PeriodRows({
           text={amount ? `**${euro(amount)}**` : ''}
           {...(done ? { color: 'secondary' } : {})}
           hide-above="sm"
-          supporting-text={PERIOD_STATE_TEXT[period.state]}
+          supporting-text={periodStateText(period)}
         />
         <nldd-text-cell
           hide-below="md"
@@ -316,7 +315,9 @@ export function MonthClosePage() {
         {/* Inside the tabs of an assignment the shell shows the name and the way back. */}
         {shell ? null : <PageHeading text={title} instanceName={instance?.name} />}
         {overview.isPending ? <Loading /> : null}
-        {overview.isError ? <ErrorNotice message={errorMessage(overview.error)} /> : null}
+        {overview.isError ? (
+          <LoadError error={overview.error} retry={() => void overview.refetch()} />
+        ) : null}
         {data && !started ? (
           <EmptyNotice text="Maanden afsluiten kan zodra er een akkoord is" />
         ) : null}

@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
-import { errorMessage } from '@/api/client';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { useInstance } from '@/layout/useInstance';
 import { ActionBar } from '@/ui/ActionBar';
-import { EmptyNotice, ErrorNotice, Loading, Page, Quiet, SectionHeading, Stack } from '@/ui/layout';
+import { EmptyNotice, LoadError, Loading, Page, Quiet, SectionHeading, Stack } from '@/ui/layout';
 import { UPDATE_KEYS, byDay, fetchUpdates, markUpdatesSeen, type UpdateItem } from './updates';
 
 /** One sentence; the thing it is about is a link to where it is to be seen. */
@@ -61,7 +60,7 @@ export function UpdateFeed({ limit = 10, paged = false, level = 3 }: UpdateFeedP
   }, [shown, queryClient]);
 
   if (query.isPending) return <Loading />;
-  if (query.isError) return <ErrorNotice message={errorMessage(query.error)} />;
+  if (query.isError) return <LoadError error={query.error} retry={() => void query.refetch()} />;
   if (days.length === 0) return <EmptyNotice text="Niets nieuws" />;
   return (
     <RouterLinks>

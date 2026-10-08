@@ -108,6 +108,11 @@ export interface VacancyTextWork {
   publication_missing: boolean;
   drafting_available: boolean;
   drafting_note?: string | null;
+  /**
+   * Only in the answer to a tailored draft: whether the policy context from
+   * the corpus went along to the model.
+   */
+  context?: 'used' | 'none' | 'unreachable';
   reviewer_options?: { id: string; name: string }[];
 }
 

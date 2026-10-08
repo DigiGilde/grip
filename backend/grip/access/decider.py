@@ -215,18 +215,43 @@ class LocalDecider:
             return allow("relation:guest_signer")
         return deny(_NO_GRANT)
 
+    async def _reads_rate_table(self, req: AccessRequest) -> Decision:
+        """The amounts on a rate card: for who works with money anyway.
+
+        A member of a team, a planner and a person without rights see no
+        money anywhere; the price list would tell them what a colleague in a
+        known scale is billed at.
+        """
+        if req.resource.kind is not ResourceKind.RATE_CARD:
+            return deny("not_applicable")
+        functions = req.subject.functions
+        if BEHEERDER in functions:
+            return allow("function:beheerder")
+        if LEZER in functions:
+            return allow("function:lezer")
+        person_id = req.subject.person_id
+        if person_id is not None and await self._relations.manages_any_assignment(
+            person_id
+        ):
+            return allow("relation:assignment_manager")
+        return deny(_NO_GRANT)
+
     async def _person_reads(self, req: AccessRequest) -> Decision:
         res, data_class = req.resource, req.data_class
         if data_class is None:
             return deny("data_class_required")
 
         if data_class is DataClass.MASTER_DATA:
-            # Rate cards are not personal; every active person may read them.
+            # Which cards there are, when they hold and which scales a
+            # category covers is not personal and not money; every active
+            # person may read it.
             return (
                 allow("active_person")
                 if res.kind is ResourceKind.RATE_CARD
                 else deny("not_applicable")
             )
+        if data_class is DataClass.RATE_TABLE:
+            return await self._reads_rate_table(req)
 
         decision = await self._person_reads_exact(req, data_class)
         if decision.allowed:
@@ -269,6 +294,17 @@ class LocalDecider:
                 person_id, res.id
             ):
                 return allow("relation:manager")
+            # A cost item nothing covers yet is looking for a budget to carry
+            # it: whoever owns or manages an assignment may read it, to let a
+            # line of their own cover it. Without this an item the beheerder
+            # made could be covered by nobody: the beheerder edits no budget,
+            # and no manager would know the item exists.
+            if (
+                res.id is not None
+                and await self._relations.manages_any_assignment(person_id)
+                and await self._relations.cost_item_is_uncovered(res.id)
+            ):
+                return allow("relation:manager_of_a_budget")
             if res.id is None and await self._relations.manages_any_assignment(
                 person_id
             ):
@@ -462,7 +498,7 @@ class LocalDecider:
             # Scale history, cost rates and targets are master data of a
             # person: changed with ``manage_users``, never with ``edit``.
             return deny("use_manage_users")
-        if data_class is DataClass.MASTER_DATA:
+        if data_class in (DataClass.MASTER_DATA, DataClass.RATE_TABLE):
             return deny("use_manage_rates")
         # The narrower views are derived; there is nothing to edit.
         return deny("not_applicable")

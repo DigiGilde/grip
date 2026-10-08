@@ -32,7 +32,17 @@ export function assignmentInput(form: FormState, creating: boolean): AssignmentI
     kind: form.kind,
     client_organisation_id: external ? form.clientId || null : null,
   };
-  if (creating) return input;
+  if (form.startDate && form.endDate && form.endDate < form.startDate) {
+    return 'De einddatum ligt voor de begindatum.';
+  }
+  // The period is asked at once: budget lines and inzet follow it.
+  if (creating) {
+    return {
+      ...input,
+      ...(form.startDate ? { start_date: form.startDate } : {}),
+      ...(form.endDate ? { end_date: form.endDate } : {}),
+    };
+  }
   return {
     ...input,
     client_contact: external ? form.clientContact.trim() || null : null,

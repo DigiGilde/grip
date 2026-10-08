@@ -1,9 +1,9 @@
-import { NameLine, Page, Stack } from '@/ui/layout';
+import { useCourses } from '@/features/tasks/course';
+import { courseLine } from '@/ui/course';
+import { LoadError, NameLine, Page, Stack, TabNav } from '@/ui/layout';
 import { useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { errorMessage } from '@/api/client';
-import { orUndef } from '@/components/nldd/events';
 import { useInstance } from '@/layout/useInstance';
 import { useRouterLinks } from '@/layout/useRouterLinks';
 import { formatEuro, formatPeriod } from '@/lib/format';
@@ -12,16 +12,8 @@ import { assignmentKeys, fetchAssignments, type AssignmentSummary } from './api'
 import { AssignmentFormSheet } from './AssignmentFormSheet';
 import { PHASE_VIEW_LABELS, STATUS_COLORS, statusLabel, type Phase } from './labels';
 import { assignmentPath } from './paths';
-import { EmptyNotice, ErrorNotice, Loading } from './ui';
-import {
-  VIEWS,
-  VIEW_PARAM,
-  countByPhase,
-  daysSince,
-  durationText,
-  phaseOfView,
-  viewHref,
-} from './views';
+import { EmptyNotice, Loading } from './ui';
+import { VIEWS, VIEW_PARAM, countByPhase, phaseOfView, viewHref } from './views';
 
 const EMPTY_TEXT: Record<Phase, { text: string; supporting: string }> = {
   potential: {
@@ -66,34 +58,45 @@ function NameCell({ item, phase }: { item: AssignmentSummary; phase?: Phase }) {
   );
 }
 
-function StatusCell({ item }: { item: AssignmentSummary }) {
+type Courses = ReturnType<typeof useCourses>['byId'];
+
+/**
+ * Where the assignment stands and whose move it is: the same words as its
+ * page and its tasks. Until that is known, the status as a word.
+ */
+function StandingCell({ item, courses }: { item: AssignmentSummary; courses: Courses }) {
+  const line = courseLine(courses.get(item.id)?.course);
   return (
-    <nldd-cell>
-      <nldd-badge color={STATUS_COLORS[item.status] ?? 'neutral'} text={statusLabel(item.status)} />
-    </nldd-cell>
+    <nldd-text-cell
+      text={line ? line.step : statusLabel(item.status)}
+      {...(line?.who ? { 'supporting-text': line.who } : {})}
+    />
   );
 }
 
 /** What an account manager needs: client, where it stands, what it may be worth, how long. */
 function PipelineTable({ items }: { items: AssignmentSummary[] }) {
   const showAmounts = items.some((item) => 'pipeline_amount_cents' in item);
+  const courses = useCourses(
+    'assignment',
+    items.map((item) => item.id),
+  ).byId;
   return (
     <nldd-table
       accessible-label="Potentiële opdrachten"
-      columns={`minmax(220px,2fr) minmax(160px,1fr) 190px${showAmounts ? ' 170px' : ''} 150px`}
+      columns={`minmax(220px,1.6fr) minmax(160px,1fr) minmax(240px,1.6fr)${showAmounts ? ' 170px' : ''}`}
     >
       <nldd-table-row slot="header">
         <nldd-text-cell text="Potentiële opdracht" />
         <nldd-text-cell text="Opdrachtgever" />
         <nldd-text-cell text="Stand" />
         {showAmounts && <nldd-text-cell text="Bedrag" horizontal-alignment="right" />}
-        <nldd-text-cell text="In deze stand sinds" />
       </nldd-table-row>
       {items.map((item) => (
         <nldd-table-row key={item.id}>
           <NameCell item={item} />
           <nldd-text-cell text={item.client_name ?? ''} />
-          <StatusCell item={item} />
+          <StandingCell item={item} courses={courses} />
           {showAmounts && (
             <nldd-text-cell
               text={
@@ -112,7 +115,6 @@ function PipelineTable({ items }: { items: AssignmentSummary[] }) {
               horizontal-alignment="right"
             />
           )}
-          <nldd-text-cell text={durationText(daysSince(item.status_since))} />
         </nldd-table-row>
       ))}
     </nldd-table>
@@ -128,25 +130,29 @@ function AssignmentTable({
   label: string;
   phase: Phase;
 }) {
+  const courses = useCourses(
+    'assignment',
+    items.map((item) => item.id),
+  ).byId;
   return (
     <nldd-table
       accessible-label={label}
-      columns="minmax(240px,2fr) minmax(160px,1fr) minmax(200px,1fr) minmax(140px,1fr)"
-      sm-columns="minmax(0,1fr)"
+      columns="minmax(240px,1.6fr) minmax(160px,1fr) minmax(240px,1.6fr) minmax(200px,1fr)"
+      sm-columns="minmax(0,1fr) minmax(0,1fr)"
     >
       <nldd-table-row slot="header">
         <nldd-text-cell text="Opdracht" />
         <nldd-text-cell text="Opdrachtgever" hide-below="md" />
+        <nldd-text-cell text="Stand" />
         <nldd-text-cell text="Periode" hide-below="md" />
-        <nldd-text-cell text="Eigenaar" hide-below="md" />
       </nldd-table-row>
       {items.map((item) => (
         <nldd-table-row key={item.id}>
           {/* The view says the status; a row names it only when it differs. */}
           <NameCell item={item} phase={phase} />
           <nldd-text-cell text={item.client_name ?? ''} hide-below="md" />
+          <StandingCell item={item} courses={courses} />
           <nldd-text-cell text={formatPeriod(item.start_date, item.end_date)} hide-below="md" />
-          <nldd-text-cell text={item.owner_name ?? ''} hide-below="md" />
         </nldd-table-row>
       ))}
     </nldd-table>
@@ -187,22 +193,19 @@ export function AssignmentsPage() {
             />
           )}
           {/* Each view has its own address, so this is navigation between pages. */}
-          <nldd-tab-bar navigation accessible-label="Weergave van de opdrachten">
-            {VIEWS.map((view) => (
-              <nldd-tab-bar-item
-                key={view.phase}
-                href={viewHref(pathname, view.phase)}
-                text={
-                  query.isSuccess
-                    ? `${PHASE_VIEW_LABELS[view.phase]} (${counts[view.phase]})`
-                    : PHASE_VIEW_LABELS[view.phase]
-                }
-                current={orUndef(view.phase === phase)}
-              />
-            ))}
-          </nldd-tab-bar>
+          <TabNav
+            label="Weergave van de opdrachten"
+            current={phase}
+            items={VIEWS.map((view) => ({
+              key: view.phase,
+              href: viewHref(pathname, view.phase),
+              text: query.isSuccess
+                ? `${PHASE_VIEW_LABELS[view.phase]} (${counts[view.phase]})`
+                : PHASE_VIEW_LABELS[view.phase],
+            }))}
+          />
           {query.isPending && <Loading />}
-          {query.isError && <ErrorNotice message={errorMessage(query.error)} />}
+          {query.isError && <LoadError error={query.error} retry={() => void query.refetch()} />}
           {query.isSuccess && items.length === 0 && (
             <EmptyNotice
               text={EMPTY_TEXT[phase].text}

@@ -148,6 +148,12 @@ async def make(
 ) -> StoredDocument:
     """Fill the form once and keep it. With a kept form that still fits the
     vacancy nothing new is made."""
+    missing = await service.request_missing(db, vacancy)
+    if missing:
+        raise DomainValidationError(
+            "Het aanvraagformulier kan nog niet worden gemaakt. "
+            + service.missing_sentence(missing)
+        )
     versions = await _kept(db, REQUEST_FORM, vacancy.id)
     if versions and not await changed_since(db, vacancy, versions[0]):
         raise DomainValidationError(

@@ -11,7 +11,16 @@ import { Figures, type Figure } from '@/features/reports/ui';
 import { Button } from '@/features/team/ui/controls';
 import { ActionBar } from '@/ui/ActionBar';
 import { OpenCell, OpenRow, ROW_ACTIONS_COLUMN, RowActions } from '@/ui/RowActions';
-import { EmptyNotice, ErrorNotice, Loading, Page, Quiet, Section, Stack } from '@/ui/layout';
+import {
+  ErrorNotice,
+  LoadError,
+  Loading,
+  Page,
+  Quiet,
+  Section,
+  Stack,
+  NotFound,
+} from '@/ui/layout';
 import {
   COVERAGE_OPTIONS_KEY,
   attachmentUrl,
@@ -104,12 +113,9 @@ export function CostItemPage() {
         <Stack gap="group">
           {/* No link back: the second bar of Financieel marks Kosten and leads there. */}
           {notFound ? (
-            <EmptyNotice
-              text="Deze kostenpost is niet gevonden"
-              supportingText="De kostenpost bestaat niet, of je mag hem niet inzien."
-            />
+            <NotFound what="Deze kostenpost" />
           ) : query.isError ? (
-            <ErrorNotice message={errorMessage(query.error)} />
+            <LoadError error={query.error} retry={() => void query.refetch()} />
           ) : !item ? (
             <Loading />
           ) : (
@@ -176,7 +182,8 @@ function State({ item }: { item: CostItem }) {
     { label: COST_LABELS.forecast, value: formatEuro(item.forecast_cents) },
     {
       label: COST_LABELS.variance,
-      value: formatEuro(item.variance_cents),
+      // The word says the direction; the amount is the size of it.
+      value: formatEuro(Math.abs(item.variance_cents)),
       ...(over ? { attention: varianceWord(item) } : { detail: varianceWord(item) }),
     },
   ];

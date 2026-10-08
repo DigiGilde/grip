@@ -6,14 +6,14 @@ import { Button, TextInput } from '@/features/assignments/ui';
 import { useInstance } from '@/layout/useInstance';
 import { formatEuro } from '@/lib/format';
 import {
-  EmptyNotice,
-  ErrorNotice,
   FormSheet,
+  LoadError,
   Loading,
   Page,
   Quiet,
   Section,
   Stack,
+  StateNotice,
 } from '@/ui/layout';
 import {
   approvalKeys,
@@ -112,12 +112,15 @@ export function ApprovalPage() {
       >
         {query.isPending ? <Loading /> : null}
         {query.isError && hidden ? (
-          <EmptyNotice
+          <StateNotice
+            state="not-found"
             text="Deze offerte staat niet voor je klaar"
-            supportingText="Er is geen goedkeuring voor gevraagd, of je hebt het recht om offertes goed te keuren niet."
+            detail="Er is geen goedkeuring voor gevraagd, of je hebt het recht om offertes goed te keuren niet."
           />
         ) : null}
-        {query.isError && !hidden ? <ErrorNotice message={errorMessage(query.error)} /> : null}
+        {query.isError && !hidden ? (
+          <LoadError error={query.error} retry={() => void query.refetch()} />
+        ) : null}
 
         {quote && approval ? (
           <>

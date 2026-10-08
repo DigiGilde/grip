@@ -23,3 +23,22 @@ export function periodLabel(value: YearChoice): string {
 }
 
 export const YEAR_FILTER_LABEL = 'Jaar';
+
+/**
+ * The year a view of one assignment opens on: this year when the assignment
+ * runs in it, otherwise its first year, and the whole period when that year
+ * is not on offer. An assignment for next year has nothing to show in this one.
+ */
+export function startingYear(
+  start: string | null | undefined,
+  end: string | null | undefined,
+  now: Date = new Date(),
+): YearChoice {
+  const current = currentYearChoice(now);
+  if (!start) return current;
+  const first = start.slice(0, 4);
+  const last = (end ?? start).slice(0, 4);
+  if (current >= first && current <= last) return current;
+  const offered = yearOptions(now).some((option) => option.value === first);
+  return offered ? first : WHOLE_PERIOD;
+}

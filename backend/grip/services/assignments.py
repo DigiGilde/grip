@@ -767,6 +767,26 @@ def _validate_line(values: dict[str, Any]) -> None:
             raise DomainValidationError("Een vaste regel heeft geen FTE of categorie.")
 
 
+def _ensure_year_in_period(assignment: Assignment, values: dict[str, Any]) -> None:
+    """A fixed amount belongs to a year the assignment runs in.
+
+    Outside the period it would stand in the budget, the quote and the letter
+    as money for a year in which nothing is delivered.
+    """
+    if values.get("kind") != "fixed" or values.get("year") is None:
+        return
+    if assignment.start_date is None or assignment.end_date is None:
+        return
+    first, last = assignment.start_date.year, assignment.end_date.year
+    if first <= values["year"] <= last:
+        return
+    running = str(first) if first == last else f"{first} t/m {last}"
+    raise DomainValidationError(
+        f"Het jaar {values['year']} valt buiten de looptijd van de opdracht "
+        f"({running}). Kies een jaar binnen de looptijd."
+    )
+
+
 def _line_years(values: dict[str, Any]) -> set[int]:
     if values.get("kind") == "fixed":
         return {values["year"]} if values.get("year") is not None else set()
@@ -816,6 +836,7 @@ async def add_budget_line(
         "year": year,
     }
     _validate_line(values)
+    _ensure_year_in_period(assignment, values)
     closed = await ensure_years_open(
         session, _line_years(values), allow_closed_year=allow_closed_year
     )
@@ -891,6 +912,8 @@ async def update_budget_line(
         }
     after = {**before, **changes}
     _validate_line(after)
+    if after.get("year") != before.get("year"):
+        _ensure_year_in_period(await get_assignment(session, line.assignment_id), after)
     closed = await ensure_years_open(
         session,
         _line_years(before) | _line_years(after),

@@ -38,6 +38,19 @@ export function hasOwnPeriod(line: BudgetLine | undefined, parent?: ParentPeriod
   return line.start_date !== parent?.start || line.end_date !== parent?.end;
 }
 
+/**
+ * The year a new fixed amount most likely belongs to: this year when the
+ * assignment runs in it, otherwise the first year of the assignment.
+ */
+export function proposedYear(parent?: ParentPeriod, today = new Date()): string {
+  const now = today.getFullYear();
+  const first = parent?.start ? Number(parent.start.slice(0, 4)) : null;
+  const last = parent?.end ? Number(parent.end.slice(0, 4)) : null;
+  if (first === null) return String(now);
+  if (now >= first && (last === null || now <= last)) return String(now);
+  return String(first);
+}
+
 export function lineForm(line?: BudgetLine, parent?: ParentPeriod): LineForm {
   return {
     ownPeriod: line?.kind !== 'fixed' && hasOwnPeriod(line, parent),
@@ -51,7 +64,7 @@ export function lineForm(line?: BudgetLine, parent?: ParentPeriod): LineForm {
     startDate: line?.start_date ?? '',
     endDate: line?.end_date ?? '',
     amount: centsToInput(line?.amount_cents),
-    year: line?.year ? String(line.year) : String(new Date().getFullYear()),
+    year: line?.year ? String(line.year) : proposedYear(parent),
   };
 }
 

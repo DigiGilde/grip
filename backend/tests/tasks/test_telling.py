@@ -203,7 +203,7 @@ async def test_advice_from_someone_with_an_account_is_theirs(as_person, world, b
     await build.decision(world.vacancy, "control_advice", person=world.adviser)
     adviser = by_headline(await mine(as_person(world.adviser)))
     task = adviser["Geef het advies van concern control"]
-    assert task["needs_me"] is True and task["action_text"] == "Leg vast"
+    assert task["needs_me"] is True and task["action_text"] == "Leg het advies vast"
     assert "Vera Vraag" in task["why"]
     # The requester waits, and is told for whom.
     requester = await mine(as_person(world.requester))
@@ -251,6 +251,7 @@ async def test_a_request_that_misses_something_lists_what(as_person, world, buil
         "Schaal",
         "Soort contract",
         "Aan wie de aanvraag is gericht",
+        "Vastgestelde aanleiding en motivatie",
     ]
     assert not any(item.get("done") for item in task["checklist"])
 

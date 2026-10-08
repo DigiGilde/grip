@@ -44,3 +44,4 @@ Grip heeft lezers met heel verschillend werk:
 - Het menubalk-onderdeel van het designsysteem heeft geen plek voor een badge. Grip zet de badge in het onderdeel en maakt er met eigen CSS één regel van. Dat hoort als voorstel bij het designsysteem.
 - De regels voor navigatie binnen een onderdeel (tabs, overzichtspagina, terugkoppeling) staan in `docs/ontwerp.md`. Een aantal pagina's volgt ze nog niet; de lijst staat daar.
 - De kop van de tekenpagina's heeft een eigen opzet en volgt deze balk nog niet.
+- Tabs van een geopend ding (een opdracht, een vacature) en de weergaven van een lijst gebruiken sinds de doorloop op visuele hiërarchie dezelfde menubalk als de hoofdbalk, en niet de tabbalk van het designsysteem: die tekent het huidige tabblad als gevuld vlak en leest onder een hoofdknop als een tweede knop. De regel en het voorstel voor het designsysteem staan in `docs/ontwerp.md`.

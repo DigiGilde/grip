@@ -1,16 +1,15 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ApiError, errorMessage } from '@/api/client';
+import { errorMessage } from '@/api/client';
 import { centsToInput, parseEuroToCents } from '@/features/assignments/money';
 import { Button, SelectInput, TextInput } from '@/features/assignments/ui';
 import { useInstance } from '@/layout/useInstance';
 import { formatEuro } from '@/lib/format';
 import {
-  EmptyNotice,
-  ErrorNotice,
   Facts,
   FormFields,
   FormSheet,
+  LoadError,
   Loading,
   Page,
   Quiet,
@@ -87,14 +86,18 @@ export function QuoteSettingsPage() {
     setError(null);
     setOpen(true);
   };
-  const forbidden = query.error instanceof ApiError && query.error.status === 403;
 
   return (
     <>
       <Page title="Offertes" instanceName={instance?.name} spacing="sections">
         {query.isPending ? <Loading /> : null}
-        {query.isError && forbidden ? <EmptyNotice text="Beheer is voor beheerders" /> : null}
-        {query.isError && !forbidden ? <ErrorNotice message={errorMessage(query.error)} /> : null}
+        {query.isError ? (
+          <LoadError
+            error={query.error}
+            retry={() => void query.refetch()}
+            who="Beheer is voor beheerders. Wie dat zijn zie je onder Team."
+          />
+        ) : null}
         {query.data ? (
           <Section title="Interne goedkeuring" level={2}>
             <Facts

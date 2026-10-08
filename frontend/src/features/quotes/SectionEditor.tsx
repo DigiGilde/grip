@@ -1,9 +1,10 @@
 import { useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
-import { orUndef, useNlddEvent } from '@/components/nldd/events';
 import { Button, TextInput } from '@/features/assignments/ui';
 import { ErrorNotice, FormSheet, Quiet, Stack } from '@/ui/layout';
+import { QUOTE_SECTION_MARKS } from '@/ui/text/marks';
+import { TextEditor, type TextEditorHandle } from '@/ui/TextEditor';
 import {
   conflictOf,
   draftSection,
@@ -27,6 +28,8 @@ interface SectionEditorProps {
   mayDraft: boolean;
   /** The draft as the server has it after a save or a model draft. */
   onChanged: (draft: QuoteDraft) => void;
+  /** A person saved the text: the page moves on to what is next. */
+  onSaved?: (draft: QuoteDraft) => void;
 }
 
 /**
@@ -37,7 +40,13 @@ interface SectionEditorProps {
  * between, the server refuses, the person sees their text and chooses, and
  * nothing is overwritten unseen.
  */
-export function SectionEditor({ assignmentId, section, mayDraft, onChanged }: SectionEditorProps) {
+export function SectionEditor({
+  assignmentId,
+  section,
+  mayDraft,
+  onChanged,
+  onSaved,
+}: SectionEditorProps) {
   const [local] = useState(() => readLocal(assignmentId, section.key));
   const restored = local !== null && local.text !== section.body;
   const [text, setText] = useState(restored ? local.text : section.body);
@@ -49,14 +58,12 @@ export function SectionEditor({ assignmentId, section, mayDraft, onChanged }: Se
   const [problem, setProblem] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
 
-  const fieldRef = useRef<HTMLElement>(null);
-  useNlddEvent(fieldRef, 'input', (event) => {
-    const detail = (event as CustomEvent<{ value?: string }>).detail;
-    const next = detail?.value ?? (event.target as HTMLTextAreaElement | null)?.value ?? '';
+  const editor = useRef<TextEditorHandle>(null);
+  const typed = (next: string) => {
     setText(next);
     setSavedAt(null);
     keepLocal(assignmentId, section.key, { text: next, base, at: new Date().toISOString() });
-  });
+  };
 
   const settle = (draft: QuoteDraft) => {
     const now = draft.sections.find((item) => item.key === section.key);
@@ -76,11 +83,15 @@ export function SectionEditor({ assignmentId, section, mayDraft, onChanged }: Se
     mutationFn: (onTopOf: number | undefined) =>
       saveSection(assignmentId, section.key, {
         body: text,
+        // Writing a section that was left out puts it in the quote: nobody
+        // writes a text to leave it out.
+        ...(section.included || !text.trim() ? {} : { included: true }),
         ...(onTopOf === undefined ? {} : { version: onTopOf }),
       }),
     onSuccess: (draft) => {
       settle(draft);
       setSavedAt(new Date().toISOString());
+      onSaved?.(draft);
     },
     onError: (failure) => {
       const conflict = conflictOf(failure);
@@ -117,9 +128,9 @@ export function SectionEditor({ assignmentId, section, mayDraft, onChanged }: Se
     onError: (failure) => setRewriteError(errorMessage(failure)),
   });
   const startRewrite = () => {
-    const area = fieldRef.current?.shadowRoot?.querySelector('textarea');
-    const start = area?.selectionStart ?? 0;
-    const end = area?.selectionEnd ?? 0;
+    const picked = editor.current?.selection();
+    const start = picked?.start ?? 0;
+    const end = picked?.end ?? 0;
     if (end <= start) {
       setProblem('Selecteer eerst de passage die je wilt laten herschrijven.');
       return;
@@ -157,12 +168,17 @@ export function SectionEditor({ assignmentId, section, mayDraft, onChanged }: Se
           telt het mee.
         </nldd-text>
       ) : null}
-      <nldd-multi-line-text-field
-        ref={fieldRef}
+      {unsettled && section.generated?.context === 'unreachable' ? (
+        <Quiet>Opgesteld zonder de context uit het corpus: dat was niet bereikbaar.</Quiet>
+      ) : null}
+      <TextEditor
+        ref={editor}
+        label={`Tekst van ${section.heading}`}
         value={text}
-        rows={Math.min(24, Math.max(8, text.split('\n').length + 2))}
-        accessible-label={`Tekst van ${section.heading}`}
-        disabled={orUndef(propose.isPending)}
+        onChange={typed}
+        marks={QUOTE_SECTION_MARKS}
+        rows={10}
+        disabled={propose.isPending}
       />
       {theirs !== null ? (
         <Stack gap="related">
@@ -212,7 +228,6 @@ export function SectionEditor({ assignmentId, section, mayDraft, onChanged }: Se
           {mayDraft && emptyForModel ? (
             <Button
               text={section.body ? 'Stel een nieuw concept op' : 'Stel een concept op'}
-              appearance="neutral-transparent"
               loading={propose.isPending}
               disabled={save.isPending}
               onClick={() => {
@@ -224,7 +239,6 @@ export function SectionEditor({ assignmentId, section, mayDraft, onChanged }: Se
           {mayDraft && text ? (
             <Button
               text="Herschrijf selectie"
-              appearance="neutral-transparent"
               disabled={propose.isPending}
               onClick={startRewrite}
             />

@@ -278,11 +278,7 @@ export function TaskSheet({ taskId, onClose }: TaskSheetProps) {
                     </Stack>
                   ) : (
                     <nldd-button-group>
-                      <Button
-                        text="Schrijf een notitie"
-                        appearance="neutral-transparent"
-                        onClick={() => setWriting(true)}
-                      />
+                      <Button text="Schrijf een notitie" onClick={() => setWriting(true)} />
                     </nldd-button-group>
                   )}
                 </>

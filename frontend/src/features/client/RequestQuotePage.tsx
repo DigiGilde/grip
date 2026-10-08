@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { errorMessage } from '@/api/client';
 import { Button, DateInput, SelectInput, TextInput } from '@/features/assignments/ui';
-import { EmptyNotice, ErrorNotice, Loading, SectionHeading } from '@/ui/layout';
+import { EmptyNotice, LoadError, Loading, SectionHeading } from '@/ui/layout';
 import { NodePicker } from '@/features/nodes';
 import { useInstance } from '@/layout/useInstance';
 import { PageHeading } from '@/pages/PageHeading';
@@ -66,7 +66,9 @@ export function RequestQuotePage() {
       <nldd-simple-section>
         <PageHeading text="Offerte aanvragen" instanceName={instance?.name} />
         {options.isPending ? <Loading /> : null}
-        {options.isError ? <ErrorNotice message={errorMessage(options.error)} /> : null}
+        {options.isError ? (
+          <LoadError error={options.error} retry={() => void options.refetch()} />
+        ) : null}
         {options.data && !options.data.may_request ? (
           <EmptyNotice
             text="Je kunt geen offerte aanvragen"

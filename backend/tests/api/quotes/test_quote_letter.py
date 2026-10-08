@@ -29,7 +29,7 @@ SENDER = {
     "contact": {"name": "", "role": "", "email": "", "phone": ""},
     "signatory": {
         "on_behalf_of": "het Voorbeeldgilde",
-        "name": "",
+        "name": "Dirk Directeur",
         "title": "Directeur",
         "organisation": "",
     },
@@ -594,3 +594,145 @@ async def test_required_sections_keep_their_order(act_as, world, db_session):
     )
     moved = await client.put(url, json={"keys": ["tussen", "a", "b"]})
     assert moved.status_code == 200
+
+
+# --- standard texts follow what holds now ------------------------------------------
+
+YEAR_BLOCKS = [
+    {"key": "inleiding", "heading": "Inleiding", "draftable": True},
+    {"key": "kosten", "heading": "Kosten", "with_costs": True},
+    {
+        "key": "voorwaarden",
+        "heading": "Leveringsvoorwaarden",
+        "body": "1. Deze offerte is gebaseerd op de tarieven van {jaar}.",
+    },
+]
+
+
+async def _with_year_blocks(db_session, world) -> None:
+    await instance_settings.set_values(
+        db_session, {quote_sender.TEXT_BLOCKS.key: YEAR_BLOCKS}, actor=world.beheerder
+    )
+
+
+async def test_the_rate_year_in_the_letter_is_the_year_of_the_budget(
+    act_as, configured, db_session
+):
+    """Not the year the quote happens to be written in: the years the
+    personnel lines run over, also when the budget moves after the draft
+    was started."""
+    world = configured
+    await _with_year_blocks(db_session, world)
+    await _write(act_as, world, "inleiding", "Wij helpen u graag.")
+    draft = (
+        await act_as(world.manager).get(
+            f"/api/assignments/{world.assignment.id}/quote-draft"
+        )
+    ).json()
+    assert "tarieven van 2026." in draft["sections"][2]["body"]
+
+    # The line now runs into the next year: the saved draft follows.
+    moved = await act_as(world.manager).patch(
+        f"/api/budget-lines/{world.line.id}",
+        json={"start_date": "2026-07-01", "end_date": "2027-06-30"},
+    )
+    assert moved.status_code == 200, moved.text
+    draft = (
+        await act_as(world.manager).get(
+            f"/api/assignments/{world.assignment.id}/quote-draft"
+        )
+    ).json()
+    assert "tarieven van 2026 en 2027." in draft["sections"][2]["body"]
+    issued = await _issue(act_as, world)
+    quote = await db_session.get(Quote, issued["id"])
+    frozen = {s["key"]: s["body"] for s in quote.snapshot["letter"]["sections"]}
+    assert "tarieven van 2026 en 2027." in frozen["voorwaarden"]
+
+
+async def test_a_standard_text_a_person_changed_is_left_alone(
+    act_as, configured, db_session
+):
+    world = configured
+    await _with_year_blocks(db_session, world)
+    await _write(act_as, world, "inleiding", "Wij helpen u graag.")
+    await _write(act_as, world, "voorwaarden", "1. Eigen voorwaarden voor dit jaar.")
+    await act_as(world.manager).patch(
+        f"/api/budget-lines/{world.line.id}",
+        json={"start_date": "2026-07-01", "end_date": "2027-06-30"},
+    )
+    draft = (
+        await act_as(world.manager).get(
+            f"/api/assignments/{world.assignment.id}/quote-draft"
+        )
+    ).json()
+    assert draft["sections"][2]["body"] == "1. Eigen voorwaarden voor dit jaar."
+
+
+async def test_a_quote_is_not_made_while_the_letter_would_print_an_empty_sender(
+    act_as, configured, db_session
+):
+    """No signatory, and a closing that names a contact person nobody filled
+    in: the draft says so, and making is refused with the place."""
+    world = configured
+    await instance_settings.set_values(
+        db_session,
+        {
+            quote_sender.SENDER.key: {
+                **SENDER,
+                "signatory": {**SENDER["signatory"], "name": ""},
+            },
+            quote_sender.LETTER.key: {
+                "opening": "Hierbij de offerte.",
+                "closing": "**Contactpersoon {eenheid}**\n{contactpersoon}",
+                "billing_annex": True,
+            },
+        },
+        actor=world.beheerder,
+    )
+    await _write(act_as, world, "inleiding", "Wij helpen u graag.")
+    draft = (
+        await act_as(world.manager).get(
+            f"/api/assignments/{world.assignment.id}/quote-draft"
+        )
+    ).json()
+    assert draft["sender_problem"] == (
+        "Onder Beheer, Afzender ontbreekt nog: de contactpersoon en de ondertekenaar."
+    )
+    assert draft["may_set_sender"] is False
+    as_beheerder = (
+        await act_as(world.beheerder).get(
+            f"/api/assignments/{world.assignment.id}/quote-draft"
+        )
+    ).json()
+    assert as_beheerder["may_set_sender"] is True
+    refused = await _issue(act_as, world, expect=422)
+    assert "de contactpersoon en de ondertekenaar" in json.dumps(
+        refused, ensure_ascii=False
+    )
+
+    # Filled in under Beheer: the draft that was already saved follows.
+    await instance_settings.set_values(
+        db_session,
+        {
+            quote_sender.SENDER.key: {
+                **SENDER,
+                "contact": {
+                    "name": "Carla Contact",
+                    "role": "",
+                    "email": "contact@voorbeeld.example",
+                    "phone": "",
+                },
+            }
+        },
+        actor=world.beheerder,
+    )
+    draft = (
+        await act_as(world.manager).get(
+            f"/api/assignments/{world.assignment.id}/quote-draft"
+        )
+    ).json()
+    assert draft["sender_problem"] is None
+    assert "Carla Contact" in draft["closing"]
+    issued = await _issue(act_as, world)
+    quote = await db_session.get(Quote, issued["id"])
+    assert "Carla Contact" in quote.snapshot["letter"]["closing"]

@@ -1,12 +1,15 @@
 import { useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError, errorMessage } from '@/api/client';
 import { formatDate } from '@/lib/format';
 import { ExternalLink } from '@/ui/Icon';
-import { ErrorNotice, FormSheet, Loading, Quiet, Section, Stack } from '@/ui/layout';
+import { ErrorNotice, FormSheet, LoadError, Loading, Quiet, Section, Stack } from '@/ui/layout';
 import { VACANCY_KEYS, type TextKind, type Vacancy } from './api';
 import { todayIso } from './hooks';
 import { TEXT_KIND_LABELS } from './labels';
+import { vacancyTextWritePath } from './paths';
+import { useVacancyShell } from './shell';
 import { StructuredText } from './StructuredText';
 import {
   TEXT_WORK_KEY,
@@ -27,9 +30,10 @@ import {
   type Remark,
   type Round,
   type TextWork as Work,
+  type ActionKey,
   type VacancyTextWork,
 } from './textWorkApi';
-import { Button, CheckboxInput, DateInput, SelectInput, TextInput } from './ui';
+import { Button, CheckboxInput, DateInput, QuietButton, SelectInput, TextInput } from './ui';
 
 const STATE_COLORS: Record<Work['state'], 'neutral' | 'warning' | 'success' | 'accent'> = {
   none: 'neutral',
@@ -136,14 +140,9 @@ function WriteSheet({
       busy={change.busy}
       error={problem ?? change.error}
     >
-      <TextInput
-        label={label}
-        hint="Een kop schrijf je als een regel die begint met ##, een lijst met een streepje per regel."
-        value={body}
-        onChange={setBody}
-        multiline
-        required
-      />
+      {/* The motivation goes into a field of the request form that holds
+          plain text only, so it is written as plain text. */}
+      <TextInput label={label} value={body} onChange={setBody} multiline required />
       {moved && (
         <Stack gap="close">
           <Quiet>
@@ -438,11 +437,10 @@ function RemarkItem({
       {resolve.error && <ErrorNotice message={resolve.error} />}
       {mayAct && (
         <nldd-button-group>
-          <Button text="Antwoord" size="sm" appearance="neutral-transparent" onClick={onAnswer} />
-          <Button
+          <QuietButton text="Antwoord" size="sm" onClick={onAnswer} />
+          <QuietButton
             text={remark.resolved_at ? 'Zet weer open' : 'Markeer als afgehandeld'}
             size="sm"
-            appearance="neutral-transparent"
             loading={resolve.busy}
             onClick={() => resolve.run(undefined)}
           />
@@ -480,6 +478,7 @@ function TextBlock({
   leading: boolean;
 }) {
   const [showAll, setShowAll] = useState(false);
+  const { headerPrimary } = useVacancyShell();
   const latest = work.versions[work.versions.length - 1];
   const settled = [...work.versions].reverse().find((version) => version.settled_at);
   const start = useWorkChange(vacancy.id, () => startFromStandardText(vacancy.id));
@@ -490,75 +489,67 @@ function TextBlock({
   const isVacancyText = work.kind === 'vacancy_text';
   const standard = work.standard_text;
 
-  function act() {
-    const key = work.action.key;
-    if (key === 'start') start.run(undefined);
-    else if (key === 'write') open({ kind: 'write', text: work.kind, start: '', basedOn: null });
-    else if (key === 'process' || key === 'revise') {
-      open({
-        kind: 'write',
-        text: work.kind,
-        start: latest?.body ?? '',
-        basedOn: latest?.id ?? null,
-      });
-    } else if (key === 'offer') open({ kind: 'offer', text: work.kind });
-    else if (key === 'withdraw' && round) withdraw.run(round.id);
-    else if (key === 'judge' && work.viewer_review_id) {
-      open({ kind: 'judge', text: work.kind, reviewId: work.viewer_review_id });
-    } else if (key === 'settle' && latest) settle.run(latest.id);
+  const navigate = useNavigate();
+  // The vacancy text is written on a page of its own; the motivation, a few
+  // plain sentences for the request form, in a sheet.
+  function write(startText: string, basedOn: string | null) {
+    if (isVacancyText) navigate(vacancyTextWritePath(vacancy.id));
+    else open({ kind: 'write', text: work.kind, start: startText, basedOn });
   }
 
-  const secondary: ReactNode[] = [];
-  const primary = work.action.key;
-  if (work.may_write && latest && !['process', 'revise'].includes(primary)) {
-    secondary.push(
-      <Button
-        key="write"
-        text="Schrijf verder"
-        appearance="neutral-transparent"
-        onClick={() =>
-          open({ kind: 'write', text: work.kind, start: latest.body, basedOn: latest.id })
-        }
-      />,
+  // A text with passages still to fill is not ready for anyone else: the
+  // next step is to write on, whatever the workflow would offer otherwise.
+  const unfinished = work.may_write && latest !== undefined && work.open_passages.length > 0;
+  const step: ActionKey =
+    unfinished && ['offer', 'settle'].includes(work.action.key) ? 'write' : work.action.key;
+  const stepText = step === work.action.key ? work.action.text : 'Schrijf verder';
+
+  function act() {
+    if (step === 'start') start.run(undefined);
+    else if (step === 'write') write(latest?.body ?? '', latest?.id ?? null);
+    else if (step === 'process' || step === 'revise') write(latest?.body ?? '', latest?.id ?? null);
+    else if (step === 'offer') open({ kind: 'offer', text: work.kind });
+    else if (step === 'withdraw' && round) withdraw.run(round.id);
+    else if (step === 'judge' && work.viewer_review_id) {
+      open({ kind: 'judge', text: work.kind, reviewId: work.viewer_review_id });
+    } else if (step === 'settle' && latest) settle.run(latest.id);
+  }
+
+  // Everything else this reader can do with the text: real buttons beside
+  // the next step, never bare text.
+  const others: ReactNode[] = [];
+  if (work.may_write && latest && !['write', 'process', 'revise'].includes(step)) {
+    others.push(
+      <Button key="write" text="Schrijf verder" onClick={() => write(latest.body, latest.id)} />,
     );
   }
-  if (work.may_write && !latest && primary !== 'write') {
-    secondary.push(
-      <Button
-        key="own"
-        text="Schrijf zelf"
-        appearance="neutral-transparent"
-        onClick={() => open({ kind: 'write', text: work.kind, start: '', basedOn: null })}
-      />,
-    );
+  if (work.may_write && !latest && step !== 'write') {
+    others.push(<Button key="own" text="Schrijf zelf" onClick={() => write('', null)} />);
   }
   if (isVacancyText && work.may_write && standard && data.drafting_available) {
-    secondary.push(
+    others.push(
       <Button
         key="tailored"
         text="Stel een tekst op maat op"
-        appearance="neutral-transparent"
         onClick={() => open({ kind: 'tailored' })}
       />,
     );
   }
-  if (work.may_settle && latest && primary !== 'settle') {
-    secondary.push(
+  if (work.may_settle && latest && step !== 'settle' && !unfinished) {
+    others.push(
       <Button
         key="settle"
         text="Stel vast"
-        appearance="neutral-transparent"
         loading={settle.busy}
         onClick={() => settle.run(latest.id)}
       />,
     );
   }
   if (work.may_remark && latest) {
-    secondary.push(
+    others.push(
       <Button
         key="remark"
         text="Plaats een opmerking"
-        appearance="neutral-transparent"
         onClick={() => open({ kind: 'remark', text: work.kind })}
       />,
     );
@@ -595,6 +586,9 @@ function TextBlock({
           {standard.unread ? ' Die tekst is afgeleid en nog niet nagelezen.' : ''}
         </Quiet>
       )}
+      {isVacancyText && data.context === 'unreachable' && (
+        <Quiet>Opgesteld zonder de context uit het corpus: dat was niet bereikbaar.</Quiet>
+      )}
       {latest && <StructuredText text={latest.body} />}
       {latest && (
         <Quiet>
@@ -608,7 +602,11 @@ function TextBlock({
         </Quiet>
       )}
       {work.open_passages.length > 0 && work.state !== 'settled' && (
-        <Quiet>Nog in te vullen voor je kunt vaststellen: {work.open_passages.join(', ')}</Quiet>
+        <Quiet>
+          {work.open_passages.length === 1
+            ? 'Nog 1 plek in te vullen voor je de tekst kunt voorleggen of vaststellen'
+            : `Nog ${work.open_passages.length} plekken in te vullen voor je de tekst kunt voorleggen of vaststellen`}
+        </Quiet>
       )}
       {work.latest_changes.length > 0 && (
         <Quiet>
@@ -617,19 +615,19 @@ function TextBlock({
         </Quiet>
       )}
       {error && <ErrorNotice message={error} />}
-      {(work.action.key !== 'none' || secondary.length > 0) && (
+      {(step !== 'none' || others.length > 0) && (
         <nldd-button-group>
-          {work.action.key !== 'none' && (
+          {step !== 'none' && (
             <Button
-              text={work.action.text}
-              // The next step of a text is its one filled button; what else
-              // can be done with it stays quiet beside it.
-              appearance={leading && work.action.key === 'judge' ? 'primary' : 'secondary'}
+              text={stepText}
+              // The next step of the text that leads on this screen is the one
+              // accent, unless the header of the vacancy already holds it.
+              appearance={leading && !headerPrimary ? 'primary' : 'secondary'}
               loading={start.busy || settle.busy || withdraw.busy}
               onClick={act}
             />
           )}
-          {secondary}
+          {others}
         </nldd-button-group>
       )}
       {work.remarks.length > 0 && (
@@ -666,7 +664,6 @@ function TextBlock({
                   showAll ? 'Verberg eerdere versies' : `Toon eerdere versies (${earlier.length})`
                 }
                 size="sm"
-                appearance="neutral-transparent"
                 onClick={() => setShowAll(!showAll)}
               />
             </nldd-button-group>
@@ -700,6 +697,7 @@ function Publications({
   leading: boolean;
 }) {
   const remove = useWorkChange(vacancyId, (id: string) => removePublication(vacancyId, id));
+  const { headerPrimary } = useVacancyShell();
   if (data.publications.length === 0 && !data.may_record_publication) return null;
   return (
     <Section title="Gepubliceerd">
@@ -713,7 +711,6 @@ function Publications({
             <Button
               text="Verwijder de link"
               size="sm"
-              appearance="neutral-transparent"
               loading={remove.busy}
               onClick={() => remove.run(publication.id)}
             />
@@ -725,7 +722,9 @@ function Publications({
         <nldd-button-group>
           <Button
             text="Leg de link naar de vacature vast"
-            appearance={leading && data.publication_missing ? 'secondary' : 'neutral-transparent'}
+            appearance={
+              leading && data.publication_missing && !headerPrimary ? 'primary' : 'secondary'
+            }
             onClick={() => open({ kind: 'publication' })}
           />
         </nldd-button-group>
@@ -746,7 +745,7 @@ export function TextWork({ vacancy }: { vacancy: Vacancy }) {
   const [sheet, setSheet] = useState<Sheet | null>(null);
   const [opened, setOpened] = useState(0);
   if (query.isPending) return <Loading />;
-  if (query.isError) return <ErrorNotice message={errorMessage(query.error)} />;
+  if (query.isError) return <LoadError error={query.error} retry={() => void query.refetch()} />;
   const data = query.data;
   const open = (next: Sheet) => {
     setOpened((count) => count + 1);

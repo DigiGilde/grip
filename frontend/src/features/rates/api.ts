@@ -6,7 +6,8 @@ export type Category = (typeof CATEGORIES)[number];
 
 export interface RateBand {
   category: string;
-  monthly_rate_cents: number;
+  /** Absent for a reader who may not read the amounts of the price list. */
+  monthly_rate_cents?: number;
 }
 
 export interface ScaleBand {
@@ -29,6 +30,8 @@ export interface RateCardList {
   /** Newest first. */
   items: RateCard[];
   may_manage: boolean;
+  /** Whether the bands carry their amounts for this reader. */
+  may_read_amounts?: boolean;
   /** Instance setting: the increase proposed for a new card, as a decimal string. */
   default_increase_pct: string;
 }

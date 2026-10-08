@@ -1,8 +1,7 @@
 import { useCallback, useRef, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { errorMessage } from '@/api/client';
 import { InlineSelect } from '@/features/assignments/ui';
-import { EmptyNotice, ErrorNotice } from '@/ui/layout';
+import { EmptyNotice, LoadError } from '@/ui/layout';
 import { formatDate } from '@/lib/format';
 import { fetchAssignmentContext, fetchContextNode, nodeKeys, type NodeLookup } from './api';
 import { NodeCard, NodeCardGrid } from './NodeCard';
@@ -83,7 +82,7 @@ export function AssignmentContextView({
           />
         </nldd-container>
       ) : null}
-      {query.isError ? <ErrorNotice message={errorMessage(query.error)} /> : null}
+      {query.isError ? <LoadError error={query.error} retry={() => void query.refetch()} /> : null}
       {data?.notice ? <nldd-banner variant="neutral" size="sm" text={data.notice} /> : null}
       {query.isSuccess && items.length === 0 ? (
         <EmptyNotice text="Deze opdracht heeft geen context" />

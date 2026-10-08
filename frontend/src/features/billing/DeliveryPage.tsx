@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
-import { errorMessage } from '@/api/client';
 import {
   deliveryDocumentUrl,
   fetchDelivery,
@@ -10,7 +9,7 @@ import { DETAIL_LABELS } from '@/features/month-close/periodText';
 import { useInstance } from '@/layout/useInstance';
 import { formatDate, formatEuro, formatPercent } from '@/lib/format';
 import { ActionBar } from '@/ui/ActionBar';
-import { ErrorNotice, Facts, Loading, Page, Section } from '@/ui/layout';
+import { Facts, LoadError, Loading, Page, Section } from '@/ui/layout';
 
 const ADDRESS = ['organisation', 'attention_of', 'address', 'postcode_city', 'reference'] as const;
 
@@ -62,7 +61,9 @@ export function DeliveryPage() {
       spacing="sections"
     >
       {delivery.isPending ? <Loading /> : null}
-      {delivery.isError ? <ErrorNotice message={errorMessage(delivery.error)} /> : null}
+      {delivery.isError ? (
+        <LoadError error={delivery.error} retry={() => void delivery.refetch()} />
+      ) : null}
       {data ? (
         <>
           <nldd-card background="tinted" accessible-label="Te factureren">

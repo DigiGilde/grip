@@ -44,6 +44,18 @@ Elk scherm is vastgelegd met een browser zonder venster, op 1440 en 390 breed, d
 | Opdrachten | ![](a/lijst-beheer-voor.png) | ![](a/lijst-beheer-na.png) |
 | Opdracht, smal | ![](a/alfa-overzicht-390-voor.png) | ![](a/alfa-overzicht-390-na.png) |
 
+## Tabs die geen knoppen zijn
+
+Na de eerste ronde kwam de vraag of tabs er zo uit horen te zien: onder de hoofdknop "Vraag aan" stond een tabbalk waarvan het huidige tabblad dezelfde kleur, vorm en hoogte had. Dat is hoe de tabbalk van het designsysteem tekent, en het breekt de regel van één accent op elke pagina met tabs.
+
+| | |
+|---|---|
+| Vacature | ![](a/vacature-tabs-na.png) |
+| Opdracht | ![](a/opdracht-tabs-na.png) |
+| Vacature, smal | ![](a/vacature-tabs-smal-na.png) |
+
+Bekeken: een vacature en een opdracht op 1440, 1024 en 390, donker en licht; de lijst van opdrachten op 1440 en 390; een persoon onder de tweede balk van Team; het bord Inzet. Op elk van die schermen is de hoofdknop het enige gevulde vlak in de accentkleur. De documenttabbalk van het designsysteem is voor geopende documenten die je sluit en verschuift, en past hier niet.
+
 ## Gedeelde oorzaken, opgelost in de basis
 
 | Oorzaak | Bouwsteen | Gebruik |
@@ -60,6 +72,8 @@ Elk scherm is vastgelegd met een browser zonder venster, op 1440 en 390 breed, d
 | Een rij kon niet in een nieuw tabblad open | `OpenCell` neemt `href` | Een gewone klik roept `onOpen` aan, een klik met een toets erbij volgt de link |
 | `RouterLinks` slokte een slot op | `RouterLinks` neemt `slot` en maakt zelf geen vak (`display: contents`) | Een titelblok erin komt in de kop van de sectie |
 | De kop boven tabs stond twee keer uitgeschreven | `ThingHead` met `title`, `instanceName`, `back`, `tabs={{ label, items, current }}` en de inhoud tussen titel en tabs | De schil van een opdracht gebruikt hem; die van een vacature kan volgen |
+| Het huidige tabblad was een gevuld vlak, even hoog en rond als de hoofdknop | `TabNav` tekent de menubalk van het designsysteem: tekst, een haarlijn onder de rij, een lijn onder het tabblad waar je bent | Ook voor de weergaven van de lijst van opdrachten. Smal blijft het één keuzelijst |
+| De hoofdknop stond direct op de tabs | `ThingHead` neemt `action` (rechts van de titel) en `course` (de stappenbalk, tussen kop en tabs) | De schil van een vacature gebruikt `ThingHead` nu ook |
 | Tekens als icoon in de tijdbalk | `mark` op een balk is `'attention'` of `'mismatch'` | Het icoon voor aandacht, of de woorden "Ander tarief" |
 
 Alle bestaande eigenschappen werken als voorheen.

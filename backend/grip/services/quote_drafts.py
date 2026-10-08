@@ -28,6 +28,7 @@ saves it. A quote cannot be made while an included section is unsettled.
 from __future__ import annotations
 
 import copy
+import re
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from typing import Any
@@ -156,6 +157,134 @@ async def client_of(
     return await session.get(Organisation, assignment.client_organisation_id)
 
 
+def years_text(years: list[int]) -> str:
+    """Years as they are said: "2027", "2026 en 2027", "2026, 2027 en 2028"."""
+    words = [str(year) for year in sorted(set(years))]
+    if len(words) <= 1:
+        return "".join(words)
+    return ", ".join(words[:-1]) + " en " + words[-1]
+
+
+async def rate_years(
+    session: AsyncSession, assignment: Assignment, *, today: date | None = None
+) -> list[int]:
+    """The years whose rates price this quote: those the personnel lines of
+    the budget run over. Without such a line the years of the assignment,
+    and without a period this year."""
+    years: set[int] = set()
+    for line in await AssignmentRepository(session).budget_lines([assignment.id]):
+        if line.kind == "personnel" and line.start_date and line.end_date:
+            years.update(range(line.start_date.year, line.end_date.year + 1))
+    if not years and assignment.start_date and assignment.end_date:
+        years.update(range(assignment.start_date.year, assignment.end_date.year + 1))
+    if not years:
+        years.add((today or datetime.now(UTC).date()).year)
+    return sorted(years)
+
+
+async def _placeholder_values(
+    session: AsyncSession,
+    assignment: Assignment,
+    sender: dict[str, Any],
+    *,
+    today: date | None = None,
+) -> dict[str, str]:
+    # The letter states the rhythm the assignment is billed by.
+    from grip.services import billing_deliveries
+    from grip.services.billing_periods import RHYTHM_TEXTS
+
+    terms = await billing_deliveries.terms_of(session, assignment.id)
+    return quote_sender.placeholders(
+        sender,
+        year=years_text(await rate_years(session, assignment, today=today)),
+        billing=RHYTHM_TEXTS[terms.rhythm],
+    )
+
+
+_PLACEHOLDER = re.compile(r"\{([a-z_]+)\}")
+
+
+def _follows(template: str, text: str) -> bool:
+    """Whether a text is still the standard text, whatever stood between its
+    braces when it was filled in."""
+    parts = _PLACEHOLDER.split(template)
+    pattern = "".join(
+        ".*?" if index % 2 else re.escape(part) for index, part in enumerate(parts)
+    )
+    return re.fullmatch(pattern, text, re.DOTALL) is not None
+
+
+# What a standard text can ask of the sender, in the words of the Beheer page.
+_SENDER_NEEDS = {
+    "organisatie": "de naam van de organisatie",
+    "eenheid": "de naam van de organisatie",
+    "contactpersoon": "de contactpersoon",
+    "opdrachtenadres": "het adres voor opdrachten",
+}
+
+
+async def _bring_up_to_date(
+    session: AsyncSession,
+    assignment: Assignment,
+    content: dict[str, Any],
+    sender: dict[str, Any],
+) -> list[str]:
+    """Fill the standard texts of a draft with what holds now, in place.
+
+    A standard text is filled in when the draft starts; the budget, the
+    billing terms and the sender can change afterwards. A text nobody changed
+    follows them: the years of the rates, the rhythm of billing, the contact
+    person. A text a person wrote is left alone.
+
+    Returns what the sender still lacks for the texts this draft uses.
+    """
+    values = await _placeholder_values(session, assignment, sender)
+    letter = await quote_sender.current_letter(session)
+    blocks = {
+        block["key"]: block for block in await quote_sender.current_blocks(session)
+    }
+    used: set[str] = set()
+
+    for field_name in ("opening", "closing"):
+        template = letter[field_name]
+        if template and _follows(template, content.get(field_name) or ""):
+            content[field_name] = quote_sender.fill_placeholders(template, values)
+            used.update(_PLACEHOLDER.findall(template))
+    for section in content["sections"]:
+        block = blocks.get(section["key"])
+        if (
+            block is None
+            or section.get("origin") != "standard"
+            or section.get("custom")
+        ):
+            continue
+        if not _follows(block["body"], section["body"]):
+            continue
+        section["body"] = quote_sender.fill_placeholders(block["body"], values)
+        if section["included"]:
+            used.update(_PLACEHOLDER.findall(block["body"]))
+
+    missing: list[str] = []
+    for name in sorted(used):
+        need = _SENDER_NEEDS.get(name)
+        if need and not values.get(name) and need not in missing:
+            missing.append(need)
+    if not sender["signatory"]["name"]:
+        missing.append("de ondertekenaar")
+    return missing
+
+
+def sender_problem(missing: list[str]) -> str | None:
+    """One sentence for what the sender lacks, or None."""
+    if not missing:
+        return None
+    if len(missing) == 1:
+        named = missing[0]
+    else:
+        named = ", ".join(missing[:-1]) + " en " + missing[-1]
+    return f"Onder Beheer, Afzender ontbreekt nog: {named}."
+
+
 async def start_content(
     session: AsyncSession, assignment: Assignment, *, today: date | None = None
 ) -> dict[str, Any]:
@@ -165,14 +294,7 @@ async def start_content(
     sender = await quote_sender.current_sender(session)
     letter = await quote_sender.current_letter(session)
     blocks = await quote_sender.current_blocks(session)
-    # The letter states the rhythm the assignment is billed by.
-    from grip.services import billing_deliveries
-    from grip.services.billing_periods import RHYTHM_TEXTS
-
-    terms = await billing_deliveries.terms_of(session, assignment.id)
-    values = quote_sender.placeholders(
-        sender, year=today.year, billing=RHYTHM_TEXTS[terms.rhythm]
-    )
+    values = await _placeholder_values(session, assignment, sender, today=today)
     client = await client_of(session, assignment)
     addressee = [client.name] if client is not None else []
     if assignment.client_contact:
@@ -207,8 +329,25 @@ async def read_draft(
     that was never saved is the organisation's start, not yet a row."""
     row = await find_draft(session, assignment.id)
     if row is not None:
-        return _normalise(copy.deepcopy(row.content)), True
+        content = _normalise(copy.deepcopy(row.content))
+        await _bring_up_to_date(
+            session, assignment, content, await quote_sender.current_sender(session)
+        )
+        return content, True
     return await start_content(session, assignment), False
+
+
+async def sender_gaps(session: AsyncSession, assignment: Assignment) -> list[str]:
+    """What the sender still lacks for the letter of this assignment."""
+    row = await find_draft(session, assignment.id)
+    content = (
+        _normalise(copy.deepcopy(row.content))
+        if row is not None
+        else await start_content(session, assignment)
+    )
+    return await _bring_up_to_date(
+        session, assignment, content, await quote_sender.current_sender(session)
+    )
 
 
 def _prose(value: Any, where: str) -> str:
@@ -636,8 +775,11 @@ async def frozen_letter(
     row = await find_draft(session, assignment.id)
     if row is None:
         return None
-    content = row.content
     sender = await quote_sender.current_sender(session)
+    # A copy: the standard texts are brought up to date for this quote; the
+    # stored draft keeps what was saved.
+    content = _normalise(copy.deepcopy(row.content))
+    missing = await _bring_up_to_date(session, assignment, content, sender)
     included = [section for section in content["sections"] if section["included"]]
 
     if strict:
@@ -653,6 +795,13 @@ async def frozen_letter(
                     f"Het onderdeel '{section['heading']}' heeft nog geen tekst. "
                     "Schrijf het of laat het onderdeel weg."
                 )
+        # What the writer can solve comes first; then what only a beheerder can.
+        problem = sender_problem(missing)
+        if problem is not None:
+            raise DomainValidationError(
+                f"{problem} De brief zou die plek leeg laten. Een beheerder vult "
+                "dit in."
+            )
         # The contact person and the signatory stand on the quote on purpose.
         allowed = {
             " ".join(name.split()).casefold()

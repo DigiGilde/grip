@@ -206,9 +206,18 @@ describe('the steps of a vacancy', () => {
   it('starts at preparing the request and moves on when it is filled', () => {
     expect(requestPrepared(VACANCY)).toBe(false);
     expect(vacancySteps(VACANCY)).toMatchObject({ current: 1, action: 'prepare' });
-    // The motivation is asked by the form but does not hold up the request.
-    expect(requestPrepared(prepared)).toBe(true);
-    expect(vacancySteps(prepared)).toMatchObject({ current: 2, action: 'submit' });
+    // The motivation is printed on the form: without a settled one the
+    // request is not prepared. The server's list decides when it is there.
+    expect(requestPrepared(prepared)).toBe(false);
+    expect(
+      requestPrepared({
+        ...prepared,
+        request_missing: ['een vastgestelde aanleiding en motivatie'],
+      }),
+    ).toBe(false);
+    const complete = { ...prepared, request_missing: [] };
+    expect(requestPrepared(complete)).toBe(true);
+    expect(vacancySteps(complete)).toMatchObject({ current: 2, action: 'submit' });
   });
 
   it('follows the procedure of the type', () => {
@@ -271,11 +280,17 @@ describe('FunctionFrameworkPage', () => {
     stubApi({ '/api/function-framework': FRAMEWORK });
     const { container } = renderApp(<FunctionFrameworkPage />);
     await waitFor(() =>
-      expect(container.querySelector('nldd-list[accessible-label="Functiefamilies"]')).not.toBeNull(),
+      expect(
+        container.querySelector('nldd-list[accessible-label="Functiefamilies"]'),
+      ).not.toBeNull(),
     );
-    const rows = [...container.querySelectorAll('nldd-list[accessible-label="Functiefamilies"] nldd-list-item')];
+    const rows = [
+      ...container.querySelectorAll('nldd-list[accessible-label="Functiefamilies"] nldd-list-item'),
+    ];
     expect(
-      rows.map((row) => [...row.querySelectorAll('nldd-text-cell')].map((cell) => cell.getAttribute('text'))),
+      rows.map((row) =>
+        [...row.querySelectorAll('nldd-text-cell')].map((cell) => cell.getAttribute('text')),
+      ),
     ).toEqual([
       ['Testadvisering', '2 functiegroepen'],
       ['Testuitvoering', '1 functiegroep'],
@@ -283,7 +298,9 @@ describe('FunctionFrameworkPage', () => {
     expect(rows.every((row) => !row.hasAttribute('expanded'))).toBe(true);
     expect(container.querySelector('nldd-table')).toBeNull();
     expect(container.textContent).toContain('3 functiegroepen in 2 functiefamilies');
-    expect(container.querySelector('nldd-link[href="https://bron.example/functiegebouw"]')).not.toBeNull();
+    expect(
+      container.querySelector('nldd-link[href="https://bron.example/functiegebouw"]'),
+    ).not.toBeNull();
     // One primary action; the reload is the quiet one next to it.
     const primary = container.querySelectorAll('nldd-button[appearance="primary"]');
     expect([...primary].map((button) => button.getAttribute('text'))).toEqual([
@@ -315,7 +332,9 @@ describe('FunctionFrameworkPage', () => {
         groups_updated: 0,
         groups_kept: 1,
       }),
-    ).toBe('Opnieuw geladen: gelijk aan het referentiebestand. 1 met de hand gewijzigd en zo gelaten.');
+    ).toBe(
+      'Opnieuw geladen: gelijk aan het referentiebestand. 1 met de hand gewijzigd en zo gelaten.',
+    );
     expect(
       reloadSummary({
         families_created: 0,

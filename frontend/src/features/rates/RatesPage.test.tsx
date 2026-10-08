@@ -147,6 +147,26 @@ describe('the time line of rate cards', () => {
     expect(document.body.querySelectorAll('form')).toHaveLength(0);
   });
 
+  it('shows no amount column to a reader who may not read the price list', async () => {
+    const api = mockApi({
+      '/api/rates/cards': {
+        items: [{ ...CURRENT, rate_bands: [{ category: 'D' }] }],
+        may_manage: false,
+        may_read_amounts: false,
+        default_increase_pct: '5.00',
+      },
+      '/api/rates/valid': { stretches: [], has_gap: false },
+    });
+    const view = renderApp(<RatesPage />, { path: '/beheer/tarieven' });
+    await waitFor(() => expect(view.container.querySelector('nldd-table')).not.toBeNull());
+    expect(api.calls.length).toBeGreaterThan(0);
+    const cells = texts(view.container, 'nldd-table nldd-text-cell');
+    expect(cells).toContain('14, 15');
+    expect(cells).not.toContain('Maandtarief');
+    expect(cells).not.toContain('Niet ingevuld');
+    expect(plain(view.container.textContent)).not.toMatch(/€/);
+  });
+
   it('gives the manager one primary action and nothing open by default', async () => {
     const { container } = await renderRates([CURRENT], true);
     const primary = [...container.querySelectorAll('nldd-button[appearance="primary"]')];
@@ -165,7 +185,11 @@ describe('the time line of rate cards', () => {
   it('shows an error when the request fails', async () => {
     mockApi({});
     const { container } = renderApp(<RatesPage />, { path: '/beheer/tarieven' });
-    await waitFor(() => expect(container.querySelector('nldd-banner')).not.toBeNull());
+    await waitFor(() =>
+      expect(
+        container.querySelector('[data-state="not-found"], [data-state="failed"]'),
+      ).not.toBeNull(),
+    );
   });
 });
 

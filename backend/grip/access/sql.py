@@ -135,6 +135,16 @@ class SqlRelationSource:
         )
         return await self._exists(exists(created_uncovered))
 
+    async def cost_item_is_uncovered(self, cost_item_id: UUID) -> bool:
+        # The item has to exist: an id that names nothing is not an item
+        # looking for a budget, and a caller may probe with one to learn
+        # whether the reader sees every item.
+        uncovered = select(CostItem.id).where(
+            CostItem.id == cost_item_id,
+            ~exists().where(CostCoverage.cost_item_id == CostItem.id),
+        )
+        return await self._exists(exists(uncovered))
+
     async def is_invited_signer(
         self,
         quote_id: UUID,

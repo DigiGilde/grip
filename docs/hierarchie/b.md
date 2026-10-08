@@ -77,3 +77,20 @@ Het scherm haalt dat woord nu uit de lijst met vacatures. Beter is dat de taak h
 - Het bord van de taken toont ook een lege kolom, omdat de kolommen de vaste standen zijn.
 - De formulieren van een persoon gebruiken nog het eigen paneel van deze map en niet `FormSheet`.
 - De tabel met opdrachten onder de tijdbalk van een persoon herhaalt de balken, maar draagt de links en de periode in woorden.
+
+## Vervolg: tekst schrijven, knoppen en velden
+
+Na de ronde kwamen drie dingen terug uit gebruik; de regels staan in `docs/ontwerp.md` onder "Een actie ziet eruit als een knop" en "Tekst invoeren".
+
+- **De vacaturetekst schrijf je op een eigen pagina**, in de editor van het designsysteem, op een leesbare breedte. Plekken die nog ingevuld moeten worden zijn gemarkeerd en geteld, met een stap naar de volgende. De uitleg over tekens voor opmaak is weg; de werkbalk biedt wat de tekst kan bevatten.
+- **Dezelfde editor** staat bij een onderdeel van een offerte, bij de standaardteksten voor vacatures en bij de standaardteksten en de afsluiting van de offertebrief. Een bewaarde tekst wordt overal met dezelfde bouwsteen getoond.
+- **Een actie is een knop.** Kale tekst als actie is uit de schermen; wat nu niet kan wordt niet aangeboden.
+
+| | |
+|---|---|
+| De tekstpagina | ![](b/tekstpagina-na.png) |
+| Licht | ![](b/tekstpagina-licht-na.png) |
+| Een onderdeel van een offerte | ![](b/offerte-editor-na.png) |
+| De acties onder een tekst | ![](b/tekst-acties-na.png) |
+
+Smal: ![](b/tekstpagina-smal-na.png)

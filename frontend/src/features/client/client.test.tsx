@@ -359,7 +359,9 @@ describe('ReceivedQuotePage', () => {
       <ReceivedQuotePage />,
     );
     await waitFor(() =>
-      expect(texts(container, 'nldd-inline-dialog')).toEqual(['Deze offerte is niet gevonden']),
+      expect(container.querySelector('[data-state="not-found"]')?.textContent).toContain(
+        'Deze offerte is niet gevonden',
+      ),
     );
   });
 });
@@ -497,6 +499,8 @@ describe('AdminPage', () => {
   it('tells anyone else that it is for the beheerder', () => {
     const { container } = renderApp(<AdminPage />, { path: PATHS.admin });
     expect(container.querySelector('nldd-list')).toBeNull();
-    expect(texts(container, 'nldd-inline-dialog')).toEqual(['Beheer is voor beheerders']);
+    const state = container.querySelector('[data-state="no-access"]');
+    expect(state?.textContent).toContain('Je hebt hier geen toegang');
+    expect(state?.textContent).toContain('Beheer is voor beheerders');
   });
 });

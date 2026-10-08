@@ -1,13 +1,12 @@
 import { useRef, useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { errorMessage } from '@/api/client';
 import { formatEuro } from '@/lib/format';
 import { useInstance } from '@/layout/useInstance';
 import { useRouterLinks } from '@/layout/useRouterLinks';
 import { ActionBar } from '@/ui/ActionBar';
 import { OpenRow } from '@/ui/RowActions';
-import { ErrorNotice, Loading, Page } from '@/ui/layout';
+import { LoadError, Loading, Page } from '@/ui/layout';
 import { costsKey, fetchCostItems, type CostItem } from './api';
 import { CoverageMiniBar } from './CostBars';
 import { ItemSheet, type ItemTarget } from './CostSheets';
@@ -82,7 +81,7 @@ export function CostsPage() {
           }
         />
         {query.isPending && <Loading />}
-        {query.isError && <ErrorNotice message={errorMessage(query.error)} />}
+        {query.isError && <LoadError error={query.error} retry={() => void query.refetch()} />}
         {query.data && (
           <nldd-table
             accessible-label="Kostenposten"

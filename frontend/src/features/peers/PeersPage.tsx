@@ -4,7 +4,7 @@ import { useAuth } from '@/auth/context';
 import { useInstance } from '@/layout/useInstance';
 import { PATHS } from '@/paths';
 import { ActionBar } from '@/ui/ActionBar';
-import { EmptyNotice, Page } from '@/ui/layout';
+import { Page, NoAccess } from '@/ui/layout';
 import { OpenCell, OpenRow } from '@/ui/RowActions';
 import { EmptyRows, QueryState } from '@/features/team/ui/states';
 import { PEERS_KEY, ROLE_LABELS, fetchPeers, type Peer } from './api';
@@ -47,7 +47,9 @@ export function PeersPage() {
             actions={[{ text: 'Nieuwe koppeling', onClick: () => setAdding(true), primary: true }]}
           />
         ) : null}
-        {isAdmin ? null : <EmptyNotice text="Koppelingen zijn voor beheerders" />}
+        {isAdmin ? null : (
+          <NoAccess who="Koppelingen zijn voor beheerders. Wie dat zijn zie je onder Team." />
+        )}
         {isAdmin ? (
           <QueryState query={query}>
             {query.data && !query.data.outway_configured ? (

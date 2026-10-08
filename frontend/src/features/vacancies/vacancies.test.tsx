@@ -131,41 +131,51 @@ describe('VacanciesPage', () => {
     step_since: '2026-01-05',
   };
 
-  it('lists vacancies in aligned columns, with the next step and the status', async () => {
+  it('lists vacancies with where each stands and whose move it is', async () => {
     stubApi({
       '/api/vacancies': [SUMMARY],
       '/api/vacancies/unfilled-roles': [],
       '/api/vacancies/options': OPTIONS,
+      '/api/tasks/courses': {
+        items: [
+          {
+            case_kind: 'vacancy',
+            case_id: 'v-1',
+            course: {
+              key: 'werving',
+              label: 'Werving',
+              steps: [],
+              current_label: 'Advies en akkoord',
+              next: { mine: false, headline: 'Het advies van HR', sentence: '', who: 'HR' },
+            },
+          },
+        ],
+      },
     });
     const { container } = renderApp(<VacanciesPage />);
     await waitFor(() => expect(container.querySelector('nldd-link')).not.toBeNull());
     const table = container.querySelector('nldd-table')!;
     // One track list for all rows: that is what aligns the columns.
-    expect(table.getAttribute('columns')).toBe('minmax(240px,2fr) 150px minmax(240px,1.4fr) 150px');
+    expect(table.getAttribute('columns')).toBe('minmax(240px,2fr) 150px minmax(260px,1.6fr)');
     const header = [...table.querySelectorAll('nldd-table-row[slot="header"] nldd-text-cell')];
-    expect(header.map((cell) => cell.getAttribute('text'))).toEqual([
-      'Vacature',
-      'Type',
-      'Volgende stap',
-      'Status',
-    ]);
+    // The name, then where it stands and whose move: nothing else.
+    expect(header.map((cell) => cell.getAttribute('text'))).toEqual(['Vacature', 'Type', 'Stand']);
     const row = table.querySelector('nldd-table-row:not([slot])')!;
     const link = row.querySelector('nldd-link')!;
     expect(link.getAttribute('href')).toBe('/vacatures/v-1');
     expect(link.getAttribute('text')).toBe('Backend-ontwikkelaar');
     expect(row.textContent).toContain('Opdracht Alfa · Schaal 11, 0,8 fte');
-    // The next step in the words of the step bar, with what it waits on and how long.
-    const step = row.querySelector('nldd-text-cell[hide-below="md"][supporting-text]')!;
-    expect(step.getAttribute('text')).toBe('Advies en akkoord');
-    expect(step.getAttribute('supporting-text')).toMatch(/^Wacht op advies HR, al /);
-    // The status is a word next to its color, once per width.
-    const badge = row.querySelector('nldd-badge')!;
-    expect(badge.getAttribute('text')).toBe('Aangevraagd');
-    expect(badge.getAttribute('color')).toBe('accent');
-    expect(row.querySelector('nldd-text-cell[hide-above="sm"]')?.getAttribute('overline')).toBe(
-      'Aangevraagd',
+    // The step in the words of the vacancy's own page, and who is waited on.
+    await waitFor(() =>
+      expect(row.querySelector('nldd-text-cell[supporting-text]')?.getAttribute('text')).toBe(
+        'Advies en akkoord',
+      ),
     );
-    expect(row.textContent).not.toContain('Laatste stap');
+    expect(
+      row.querySelector('nldd-text-cell[supporting-text]')?.getAttribute('supporting-text'),
+    ).toBe('Wacht op HR');
+    // The step says where it stands; no tag says it a second time.
+    expect(row.querySelector('nldd-badge')).toBeNull();
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Vacatures');
   });
 
@@ -211,7 +221,11 @@ describe('VacanciesPage', () => {
     stubApi({ '/api/vacancies/options': OPTIONS, '/api/vacancies/unfilled-roles': [] });
     const { container } = renderApp(<VacanciesPage />);
     await waitFor(() =>
-      expect(container.querySelector('nldd-banner[variant="critical"]')).not.toBeNull(),
+      expect(
+        container.querySelector(
+          '[data-state="not-found"], [data-state="failed"], [data-state="unreachable"]',
+        ),
+      ).not.toBeNull(),
     );
   });
 });

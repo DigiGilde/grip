@@ -385,8 +385,14 @@ def rates_differ(stretches: list[ValidStretch]) -> bool:
     return len(seen) > 1
 
 
-def valid_rates_summary(stretches: list[ValidStretch]) -> str:
-    """One sentence about which card prices a period."""
+def valid_rates_summary(
+    stretches: list[ValidStretch], *, tell_difference: bool = True
+) -> str:
+    """One sentence about which card prices a period.
+
+    ``tell_difference`` off leaves out whether the next card has other
+    rates: that is for who may read the amounts.
+    """
     cards = [s for s in stretches if s.card is not None]
     gap = any(s.card is None for s in stretches)
     if not cards:
@@ -403,11 +409,12 @@ def valid_rates_summary(stretches: list[ValidStretch]) -> str:
         nxt = cards[1]
         assert nxt.card is not None
         text += f" Vanaf {date_text(nxt.start_date)} geldt {nxt.card.name}"
-        text += (
-            " met andere tarieven; de periode wordt per dag geprijsd."
-            if rates_differ(stretches)
-            else " met dezelfde tarieven."
-        )
+        if not tell_difference:
+            text += "."
+        elif rates_differ(stretches):
+            text += " met andere tarieven; de periode wordt per dag geprijsd."
+        else:
+            text += " met dezelfde tarieven."
     if gap:
         text += " Voor een deel van de periode is er geen tarievenkaart."
     return text

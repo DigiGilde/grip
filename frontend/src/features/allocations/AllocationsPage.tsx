@@ -1,10 +1,9 @@
-import { Page } from '@/ui/layout';
+import { LoadError, Page } from '@/ui/layout';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
-import { errorMessage } from '@/api/client';
 import { useRateCards } from '@/features/assignments/rateText';
-import { EmptyNotice, ErrorNotice, Loading } from '@/features/assignments/ui';
+import { EmptyNotice, Loading } from '@/features/assignments/ui';
 import { VACANCY_KEYS, fetchUnfilledRoles, newVacancyPath } from '@/features/vacancies/api';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { useInstance } from '@/layout/useInstance';
@@ -231,7 +230,7 @@ export function AllocationsPage() {
         ]}
       />
       {query.isPending && <Loading />}
-      {query.isError && <ErrorNotice message={errorMessage(query.error)} />}
+      {query.isError && <LoadError error={query.error} retry={() => void query.refetch()} />}
       {board && rowCount === 0 && (
         <EmptyNotice
           text={

@@ -36,6 +36,32 @@
       "action": "Maak offerte",
       "why": "{opdracht} heeft een begroting en nog geen offerte die geldt.",
       "then": "Daarna bied je de offerte aan.",
+      "destination": "assignment.quote",
+      "situations": {
+        "quote_outdated": {
+          "title": "Maak een nieuwe offerte",
+          "awaited": "Een nieuwe offerte",
+          "do": "De begroting van {opdracht} is gewijzigd nadat de offerte is gemaakt. Maak een nieuwe offerte; de oude vervalt.",
+          "wait": "De begroting van {opdracht} is gewijzigd na de offerte. Je wacht op {wie}, die een nieuwe offerte maakt. Jij hoeft nu niets te doen.",
+          "action": "Maak offerte"
+        },
+        "quote_expired": {
+          "title": "Maak een nieuwe offerte",
+          "awaited": "Een nieuwe offerte",
+          "do": "De offerte voor {opdrachtgever} is verlopen. Maak een nieuwe offerte.",
+          "wait": "De offerte voor {opdrachtgever} is verlopen. Je wacht op {wie}, die een nieuwe maakt. Jij hoeft nu niets te doen.",
+          "action": "Maak offerte"
+        }
+      }
+    },
+    "offerte.goedkeuring_vragen": {
+      "title": "Vraag interne goedkeuring",
+      "awaited": "Het vragen van interne goedkeuring",
+      "do": "De offerte voor {opdrachtgever} heeft interne goedkeuring nodig voordat zij naar de opdrachtgever kan. Vraag die aan.",
+      "wait": "Je wacht op {wie}, die interne goedkeuring vraagt voor de offerte. Jij hoeft nu niets te doen.",
+      "action": "Vraag goedkeuring",
+      "why": "De offerte voor {opdracht} is gemaakt en mag pas na interne goedkeuring worden aangeboden.",
+      "then": "Na goedkeuring bied je de offerte aan.",
       "destination": "assignment.quote"
     },
     "offerte.intern_beoordelen": {
@@ -76,7 +102,14 @@
       "action": "Bekijk de offerte",
       "why": "De offerte voor {opdracht} is aangeboden aan {opdrachtgever}.",
       "then": "Na het akkoord kan de opdracht in uitvoering.",
-      "destination": "assignment.quote"
+      "destination": "assignment.quote",
+      "situations": {
+        "verbally_agreed": {
+          "awaited": "Het getekende akkoord",
+          "wait": "{opdrachtgever} gaf mondeling akkoord. De opdracht gaat in zodra het getekende akkoord is vastgelegd bij de offerte.",
+          "do": "{opdrachtgever} gaf mondeling akkoord. Leg het getekende akkoord vast bij de offerte; dan gaat de opdracht in."
+        }
+      }
     },
     "offerte.reactie_verwerken": {
       "title": "Maak een nieuwe offerte na de afwijzing",
@@ -174,7 +207,7 @@
       "destination": "vacancy.request",
       "situations": {
         "incomplete": {
-          "do": "De aanvraag voor {functie} mist nog gegevens. Vul ze in; daarna vraag je de vacature aan.",
+          "do": "De aanvraag voor {functie} is nog niet compleet. Vul aan wat ontbreekt; daarna vraag je de vacature aan.",
           "action": "Bereid aanvraag voor"
         }
       }
@@ -184,7 +217,7 @@
       "awaited": "Het advies van HR",
       "do": "Lees de aanvraag voor {functie} en leg je advies vast: akkoord of niet akkoord, met een toelichting.",
       "wait": "Je wacht op het advies van HR van {wie}. Jij hoeft nu niets te doen.",
-      "action": "Leg vast",
+      "action": "Leg het advies vast",
       "why": "De vacature voor {functie} is op {ingediend_op} aangevraagd door {aanvrager}.",
       "then": "Na beide adviezen volgt het akkoord.",
       "destination": "vacancy.decisions",
@@ -198,13 +231,13 @@
         "unnamed_recorder": {
           "title": "Leg het advies van HR vast",
           "do": "Er is nog niemand genoemd voor het advies van HR op de vacature voor {functie}. Vraag het op en leg het vast, met de naam van wie het gaf.",
-          "action": "Leg vast"
+          "action": "Leg het advies vast"
         },
         "named_outside": {
           "title": "Leg het advies van HR vast",
           "do": "Het advies van HR komt van {wie}, die grip niet gebruikt. Leg het vast zodra je het hebt ontvangen.",
           "wait": "Je wacht op het advies van HR van {wie}, die grip niet gebruikt. Vraag het zelf op; alleen een beheerder kan het daarna vastleggen.",
-          "action": "Leg vast"
+          "action": "Leg het advies vast"
         }
       }
     },
@@ -213,7 +246,7 @@
       "awaited": "Het advies van concern control",
       "do": "Lees de aanvraag voor {functie} en leg je advies vast: akkoord of niet akkoord, met een toelichting.",
       "wait": "Je wacht op het advies van concern control van {wie}. Jij hoeft nu niets te doen.",
-      "action": "Leg vast",
+      "action": "Leg het advies vast",
       "why": "De vacature voor {functie} is op {ingediend_op} aangevraagd door {aanvrager}.",
       "then": "Na beide adviezen volgt het akkoord.",
       "destination": "vacancy.decisions",
@@ -227,13 +260,13 @@
         "unnamed_recorder": {
           "title": "Leg het advies van concern control vast",
           "do": "Er is nog niemand genoemd voor het advies van concern control op de vacature voor {functie}. Vraag het op en leg het vast, met de naam van wie het gaf.",
-          "action": "Leg vast"
+          "action": "Leg het advies vast"
         },
         "named_outside": {
           "title": "Leg het advies van concern control vast",
           "do": "Het advies van concern control komt van {wie}, die grip niet gebruikt. Leg het vast zodra je het hebt ontvangen.",
           "wait": "Je wacht op het advies van concern control van {wie}, die grip niet gebruikt. Vraag het zelf op; alleen een beheerder kan het daarna vastleggen.",
-          "action": "Leg vast"
+          "action": "Leg het advies vast"
         }
       }
     },
@@ -242,7 +275,7 @@
       "awaited": "Het akkoord op de vacature",
       "do": "HR en concern control hebben geadviseerd over de vacature voor {functie}. Leg je besluit vast: akkoord of niet akkoord.",
       "wait": "Je wacht op het akkoord van {wie}. Jij hoeft nu niets te doen.",
-      "action": "Leg vast",
+      "action": "Leg het akkoord vast",
       "why": "Beide adviezen op de vacature voor {functie} zijn vastgelegd.",
       "then": "Na het akkoord kan de vacature worden opengesteld of vervuld.",
       "destination": "vacancy.decisions",
@@ -256,13 +289,13 @@
         "unnamed_recorder": {
           "title": "Leg het akkoord vast",
           "do": "Er is nog niemand genoemd voor het akkoord op de vacature voor {functie}. Vraag het op en leg het vast, met de naam van wie het gaf.",
-          "action": "Leg vast"
+          "action": "Leg het akkoord vast"
         },
         "named_outside": {
           "title": "Leg het akkoord vast",
           "do": "Het akkoord komt van {wie}, die grip niet gebruikt. Leg het vast zodra je het hebt ontvangen.",
           "wait": "Je wacht op het akkoord van {wie}, die grip niet gebruikt. Vraag het zelf op; alleen een beheerder kan het daarna vastleggen.",
-          "action": "Leg vast"
+          "action": "Leg het akkoord vast"
         }
       }
     },

@@ -6,16 +6,18 @@ import { orUndef, useNlddEvent } from '@/components/nldd/events';
 import { Button, TextInput } from '@/features/assignments/ui';
 import { formatDateTime } from '@/features/quotes/format';
 import { formatEuro, formatMonth, formatPercent } from '@/lib/format';
-import { ErrorNotice, FormSheet, Loading, Quiet, Stack } from '@/ui/layout';
+import { ErrorNotice, FormSheet, LoadError, Loading, Quiet, Stack } from '@/ui/layout';
 import {
   closeMonth,
   fetchMonth,
   monthKeys,
   normalisePercent,
   percentInput,
+  previewMonth,
   reopenMonth,
   type MonthDetail,
   type MonthLine,
+  type MonthPreview,
 } from './api';
 
 /** A sheet to read in: no form, no primary button. */
@@ -107,13 +109,19 @@ function WorkTable({
   editable,
   edits,
   onEdit,
+  preview,
 }: {
   detail: MonthDetail;
   editable: boolean;
   edits: Record<string, string>;
   onEdit: (allocationId: string, value: string) => void;
+  /** The amounts at the entered percentages, from the server; absent while they equal the plan. */
+  preview?: MonthPreview;
 }) {
   const lines = detail.lines;
+  const previewed = new Map<string, number | undefined>(
+    (preview?.lines ?? []).map((line) => [line.allocation_id, line.amount_cents]),
+  );
   const showPct = has(lines, 'planned_fte_pct');
   const showAmount = has(lines, 'planned_amount_cents');
   const columns = [
@@ -133,7 +141,15 @@ function WorkTable({
         const value = typed ?? percentInput(line.planned_fte_pct);
         const worked = editable ? value : line.established_fte_pct;
         const changed = differs(line.planned_fte_pct, worked);
-        const amount = detail.closed ? line.established_amount_cents : line.planned_amount_cents;
+        const planned = line.planned_amount_cents;
+        // An open month shows what the entered percentage comes to; the
+        // planned amount stays next to it when the two differ.
+        const now = editable ? (previewed.get(line.allocation_id) ?? planned) : planned;
+        const amount = detail.closed ? line.established_amount_cents : now;
+        const moved =
+          editable && amount !== null && amount !== undefined && planned !== amount
+            ? `gepland ${formatEuro(planned)}`
+            : undefined;
         return (
           <nldd-table-row key={line.allocation_id}>
             <nldd-text-cell
@@ -166,6 +182,7 @@ function WorkTable({
               <nldd-text-cell
                 text={amount === null || amount === undefined ? '' : formatEuro(amount)}
                 horizontal-alignment="right"
+                {...(moved ? { 'supporting-text': moved } : {})}
               />
             ) : null}
           </nldd-table-row>
@@ -227,6 +244,26 @@ export function MonthSheet({ assignmentId, month, onClose }: MonthSheetProps) {
   const name = shown ? formatMonth(shown) : '';
   const editable = Boolean(data && !data.closed && data.may_close);
 
+  // The percentages that differ from the plan and are valid: what a close
+  // now would establish. The server prices them, so the amount follows the
+  // percentage before the month is closed.
+  const entered = (data?.lines ?? []).flatMap((line) => {
+    const typed = edits[line.allocation_id];
+    const pct = typed === undefined ? null : normalisePercent(typed);
+    return pct !== null && Number(pct) !== Number(line.planned_fte_pct)
+      ? [{ allocation_id: line.allocation_id, fte_pct: pct }]
+      : [];
+  });
+  const enteredKey = entered.map((entry) => `${entry.allocation_id}:${entry.fte_pct}`).join(',');
+  const preview = useQuery({
+    queryKey: [...monthKeys.detail(assignmentId, shown ?? ''), 'preview', enteredKey],
+    queryFn: () => previewMonth(assignmentId, shown ?? '', entered),
+    enabled: editable && shown !== null && entered.length > 0,
+    placeholderData: (previous) => previous,
+    retry: false,
+  });
+  const previewNow = entered.length > 0 ? preview.data : undefined;
+
   const close = () => {
     if (!data || !shown) return;
     const established: { allocation_id: string; fte_pct: string }[] = [];
@@ -248,7 +285,9 @@ export function MonthSheet({ assignmentId, month, onClose }: MonthSheetProps) {
   const body = (
     <>
       {detail.isPending && shown ? <Loading /> : null}
-      {detail.isError ? <ErrorNotice message={errorMessage(detail.error)} /> : null}
+      {detail.isError ? (
+        <LoadError error={detail.error} retry={() => void detail.refetch()} />
+      ) : null}
       {data?.pricing_problem ? (
         <nldd-banner
           variant="warning"
@@ -263,6 +302,7 @@ export function MonthSheet({ assignmentId, month, onClose }: MonthSheetProps) {
           editable={editable}
           edits={edits}
           onEdit={(id, value) => setEdits((current) => ({ ...current, [id]: value }))}
+          preview={previewNow}
         />
       ) : null}
       {data && data.lines.length === 0 ? (
@@ -284,7 +324,16 @@ export function MonthSheet({ assignmentId, month, onClose }: MonthSheetProps) {
         onSubmit={close}
       >
         {body}
-        <Quiet>Werkte iemand meer of minder, pas dan het percentage aan.</Quiet>
+        {previewNow?.total_cents !== undefined &&
+        data?.planned_total_cents !== undefined &&
+        previewNow.total_cents !== data.planned_total_cents ? (
+          <nldd-text data-month-total>
+            De maand komt op {formatEuro(previewNow.total_cents)}; gepland was{' '}
+            {formatEuro(data.planned_total_cents)}.
+          </nldd-text>
+        ) : (
+          <Quiet>Werkte iemand meer of minder, pas dan het percentage aan.</Quiet>
+        )}
       </FormSheet>
     );
   }

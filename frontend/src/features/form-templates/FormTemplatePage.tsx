@@ -2,22 +2,14 @@ import { DocumentLink } from '@/ui/Icon';
 import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
-import { ApiError, errorMessage } from '@/api/client';
+import { errorMessage } from '@/api/client';
 import { VACANCY_KEYS, fetchVacancies } from '@/features/vacancies/api';
 import { SelectInput } from '@/features/vacancies/ui';
 import { useInstance } from '@/layout/useInstance';
 import { useRouterLinks } from '@/layout/useRouterLinks';
 import { PATHS } from '@/paths';
 import { OpenCell, OpenRow } from '@/ui/RowActions';
-import {
-  EmptyNotice,
-  ErrorNotice,
-  FilterSelect,
-  FormSheet,
-  Loading,
-  Page,
-  Section,
-} from '@/ui/layout';
+import { FilterSelect, FormSheet, LoadError, Loading, Page, Section } from '@/ui/layout';
 import {
   fetchTemplateDetail,
   setTemplateField,
@@ -156,7 +148,6 @@ export function FormTemplatePage() {
   // The most recent vacancy by default: what a requester would get today.
   const recent = vacancies.data?.[0]?.id;
   const sampleOf = picked ?? recent ?? EXAMPLE;
-  const denied = detail.error instanceof ApiError && detail.error.status === 403;
   const data = detail.data;
 
   return (
@@ -168,8 +159,13 @@ export function FormTemplatePage() {
         back={{ href: PATHS.vacancySetup, text: 'Terug naar Vacatureformulier en taalmodel' }}
       >
         {detail.isPending ? <Loading /> : null}
-        {denied ? <EmptyNotice text="Dit is voor beheerders" /> : null}
-        {detail.isError && !denied ? <ErrorNotice message={errorMessage(detail.error)} /> : null}
+        {detail.isError ? (
+          <LoadError
+            error={detail.error}
+            retry={() => void detail.refetch()}
+            who="Beheer is voor beheerders. Wie dat zijn zie je onder Team."
+          />
+        ) : null}
 
         {data ? (
           <Section title="Bekijk het formulier" level={2}>

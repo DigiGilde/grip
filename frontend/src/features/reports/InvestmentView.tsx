@@ -1,14 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { errorMessage } from '@/api/client';
 import { formatEuro, formatFte } from '@/lib/format';
-import { EmptyNotice, ErrorNotice, Loading, Quiet } from '@/ui/layout';
-import {
-  fetchInvestment,
-  reportKeys,
-  type InvestmentMoney,
-  type InvestmentTime,
-} from './api';
+import { EmptyNotice, LoadError, Loading, Quiet } from '@/ui/layout';
+import { fetchInvestment, reportKeys, type InvestmentMoney, type InvestmentTime } from './api';
 import { monthName } from './labels';
 import { topicPath } from './topics';
 import { MoneyCell, NumberCell, ReportBlock } from './ui';
@@ -36,8 +30,8 @@ function MoneyDerivation({ money, year }: { money: InvestmentMoney; year: number
           <th scope="row">
             <Link to={topicPath('omzet', y)}>Verwachte omzet van externe opdrachten</Link>
             <span className="grip-derivation__sub">
-              {formatEuro(money.realised_cents)} gerealiseerd, {formatEuro(money.planned_cents)}{' '}
-              nog gepland
+              {formatEuro(money.realised_cents)} gerealiseerd, {formatEuro(money.planned_cents)} nog
+              gepland
               {hasVerbal ? `, waarvan ${formatEuro(money.verbal_cents)} op mondeling akkoord` : ''}
             </span>
           </th>
@@ -211,7 +205,7 @@ export function InvestmentView({ year, bare }: { year: string; bare?: boolean })
     queryFn: () => fetchInvestment(year),
   });
   if (query.isPending) return <Loading />;
-  if (query.isError) return <ErrorNotice message={errorMessage(query.error)} />;
+  if (query.isError) return <LoadError error={query.error} retry={() => void query.refetch()} />;
   const { money, time, money_withheld: withheld } = query.data;
   if (!money && !time && !withheld) {
     return (

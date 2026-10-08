@@ -110,6 +110,7 @@ class _Wanted:
     assignee_role: str | None
     waiting_on: str | None
     waiting: bool
+    situation: str | None = None
 
 
 def _assignee(
@@ -143,6 +144,16 @@ def _assignee(
     return None, role, None, False
 
 
+def _situation(template: Template, facts: dict[str, bool]) -> str | None:
+    """The first fact that holds among those the guidance has other words for."""
+    from grip.tasks import telling
+
+    guide = telling.guidance().templates.get(template.key)
+    if guide is None:
+        return None
+    return next((name for name in guide.situations if facts.get(name, False)), None)
+
+
 def _due(template: Template, subject: Subject, existing: Task | None) -> date | None:
     if template.due is None:
         return None
@@ -157,6 +168,7 @@ def _apply(task: Task, wanted: _Wanted) -> None:
     task.title = wanted.title
     task.link = wanted.link
     task.due_on = wanted.due_on
+    task.situation = wanted.situation
     if task.assigned_by_id is not None:
         return
     # Waiting set by the plan follows the plan: once the person waited for
@@ -226,6 +238,7 @@ async def _reconcile_case(
                 assignee_role=role,
                 waiting_on=waiting_on,
                 waiting=waiting,
+                situation=_situation(template, facts),
             )
             if task is None:
                 await _create(db, case, plan, wanted, key)
@@ -283,6 +296,7 @@ async def _create(
             due_on=wanted.due_on,
             status="waiting" if wanted.waiting else "todo",
             closing_fact=template.done_when,
+            situation=wanted.situation,
         )
         .on_conflict_do_nothing()
     )

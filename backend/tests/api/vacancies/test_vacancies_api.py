@@ -25,6 +25,19 @@ async def _create(client, budget_line, **extra):
     return response.json()
 
 
+async def _motivate(client, vacancy_id):
+    """Write and settle the motivation: a request cannot be made without it."""
+    response = await client.post(
+        f"{BASE}/{vacancy_id}/texts",
+        json={"kind": "motivation", "body": "De rol is nog niet ingevuld."},
+    )
+    assert response.status_code == 201, response.text
+    response = await client.post(
+        f"{BASE}/{vacancy_id}/texts/{response.json()['texts'][-1]['id']}/establish"
+    )
+    assert response.status_code == 200, response.text
+
+
 async def _decide(client, vacancy_id, kind, **body):
     return await client.put(f"{BASE}/{vacancy_id}/decisions/{kind}", json=body)
 
@@ -32,6 +45,7 @@ async def _decide(client, vacancy_id, kind, **body):
 async def _approve(client, act_as, beheerder, vacancy_id):
     """Submit and get both advices and the approval, as the beheerder."""
     act_as(beheerder)
+    await _motivate(client, vacancy_id)
     response = await client.post(
         f"{BASE}/{vacancy_id}/submit", json={"requested_on": "2026-09-28"}
     )
@@ -328,6 +342,7 @@ async def test_naming_is_editing_and_deciding_is_not(
     # Before the request nothing can be recorded.
     response = await _decide(client, vid, "hr_advice", person_name="Fictieve Adviseur")
     assert response.status_code == 422
+    await _motivate(client, vid)
     await client.post(f"{BASE}/{vid}/submit", json={"requested_on": "2026-09-28"})
 
     # The manager names the adviser, with the account.
@@ -546,7 +561,11 @@ async def test_model_draft_keeps_its_origin_and_needs_a_person(
     assert rewritten["origin_model_id"] == "testmodel-1"
     response = await client.post(f"{BASE}/{vid}/texts/{rewritten['id']}/establish")
     assert response.status_code == 200
-    current = [t for t in response.json()["texts"] if t["is_current"]]
+    current = [
+        t
+        for t in response.json()["texts"]
+        if t["is_current"] and t["kind"] == "vacancy_text"
+    ]
     assert [t["id"] for t in current] == [rewritten["id"]]
     assert current[0]["established_by_name"] == "Fictieve Beheerder"
 
@@ -696,6 +715,7 @@ async def test_request_form_download(
     assert (await _upload(client, blank_form, test_mapping)).status_code == 201
 
     act_as(manager)
+    await _motivate(client, vid)
     await client.post(f"{BASE}/{vid}/submit", json={"requested_on": "2026-09-28"})
     await _decide(
         client,
@@ -708,10 +728,9 @@ async def test_request_form_download(
     assert status["available"] is True
     assert status["file_name"] == "aanvraagformulier-vacature-backend-ontwikkelaar.pdf"
     open_sources = {field["source"] for field in status["open_fields"]}
-    assert "motivation" in open_sources and "approver_name" in open_sources
+    # The motivation was settled before the request, so the form has it.
+    assert "motivation" not in open_sources and "approver_name" in open_sources
     assert "requester_name" not in open_sources
-    labels = {field["source"]: field["label"] for field in status["open_fields"]}
-    assert labels["motivation"] == "Aanleiding en motivatie (vastgesteld)"
 
     response = await client.get(f"{BASE}/{vid}/request-form")
     assert response.status_code == 200
@@ -724,7 +743,8 @@ async def test_request_form_download(
     assert fields["datum"]["/V"] == "28-9-2026"
     assert fields["hr_naam"]["/V"] == "Fictieve Adviseur"
     assert fields["decl_ja"]["/V"] == "/Ja"
-    assert not fields["motivatie"].get("/V")
+    # Settled before the request, so it is on the form.
+    assert fields["motivatie"]["/V"] == "De rol is nog niet ingevuld."
 
     # The named adviser gets the form too.
     act_as(adviser)
@@ -819,6 +839,7 @@ async def test_naming_a_person_of_the_instance_by_id(
 ) -> None:
     act_as(manager)
     vacancy = await _create(client, budget_line)
+    await _motivate(client, vacancy["id"])
     await client.post(f"{BASE}/{vacancy['id']}/submit", json={})
 
     # Picked from the list: the name comes from the person record.
@@ -876,6 +897,7 @@ async def test_list_says_which_step_and_what_it_waits_on(
     )
 
     act_as(beheerder)
+    await _motivate(client, vid)
     await client.post(f"{BASE}/{vid}/submit", json={"requested_on": "2026-09-28"})
     listed = await row()
     assert (listed["step"], listed["step_detail"], listed["step_since"]) == (

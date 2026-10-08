@@ -36,7 +36,7 @@ from grip.models.person import Person
 from grip.models.quote import Quote, QuoteApproval
 from grip.models.role import PersonRole
 from grip.models.task import Task
-from grip.models.vacancy import Vacancy
+from grip.models.vacancy import Vacancy, VacancyText
 from grip.tasks import catalogue
 from grip.tasks.cases import period_words
 from grip.tasks.plan import Template, known_plans, plan_for
@@ -90,7 +90,15 @@ DESTINATION_VARIABLES = frozenset(
 #   unnamed_recorder: the same, for a reader who may record it right away;
 #   named_outside: the person named has no account, someone else records it;
 #   incomplete: the request of the vacancy still misses something.
-SITUATIONS = frozenset({"unnamed", "unnamed_recorder", "named_outside", "incomplete"})
+# Situations the telling works out itself, and any fact of the catalogue:
+# a task is told in the words of the first such fact that holds for it.
+_FACT_SITUATIONS = frozenset().union(
+    *catalogue.CASE_FACTS.values(), *catalogue.SUBJECT_FACTS.values()
+)
+SITUATIONS = (
+    frozenset({"unnamed", "unnamed_recorder", "named_outside", "incomplete"})
+    | _FACT_SITUATIONS
+)
 _REQUIRED = ("title", "awaited", "do", "wait", "action", "why", "destination")
 _TEXT_FIELDS = ("title", "awaited", "do", "wait", "action", "why", "then")
 _SITUATION_FIELDS = frozenset({"title", "awaited", "do", "wait", "action"})
@@ -319,6 +327,8 @@ class _Context:
     quotes: dict[str, Quote] = field(default_factory=dict)
     approvals: dict[str, QuoteApproval] = field(default_factory=dict)
     lines: dict[str, BudgetLine] = field(default_factory=dict)
+    # Vacancies whose motivation for the request is settled.
+    motivated: set[UUID] = field(default_factory=set)
     # Rights in grip that nobody holds today.
     unheld: set[str] = field(default_factory=set)
 
@@ -347,6 +357,15 @@ async def _load_context(
             )
         ).all()
         context.vacancies = {vacancy.id: vacancy for vacancy in vacancies}
+        context.motivated = set(
+            await db.scalars(
+                select(VacancyText.vacancy_id).where(
+                    VacancyText.vacancy_id.in_(vacancy_ids),
+                    VacancyText.kind == "motivation",
+                    VacancyText.established_at.is_not(None),
+                )
+            )
+        )
         person_ids |= {v.requester_id for v in vacancies if v.requester_id}
         line_ids = {v.budget_line_id for v in vacancies if v.budget_line_id}
         if line_ids:
@@ -488,10 +507,15 @@ def _named(vacancy: Vacancy, kind: str) -> tuple[str | None, bool]:
     return None, False
 
 
-def _missing_request_fields(vacancy: Vacancy) -> list[ChecklistItem]:
+def _missing_request_fields(vacancy: Vacancy, motivated: bool) -> list[ChecklistItem]:
+    """What the request needs before it can be made: the fields of the form
+    and a settled motivation, which is printed on it."""
     return [
-        ChecklistItem(text=text, done=getattr(vacancy, name) not in (None, ""))
-        for name, text in _REQUEST_FIELDS
+        *(
+            ChecklistItem(text=text, done=getattr(vacancy, name) not in (None, ""))
+            for name, text in _REQUEST_FIELDS
+        ),
+        ChecklistItem(text="Vastgestelde aanleiding en motivatie", done=motivated),
     ]
 
 
@@ -603,12 +627,15 @@ async def _tell_one(access: TaskAccess, view: TaskView, context: _Context) -> Te
         and vacancy is not None
         and vacancy.status == "draft"
     ):
-        checklist = _missing_request_fields(vacancy)
+        checklist = _missing_request_fields(vacancy, vacancy.id in context.motivated)
         if any(not item.done for item in checklist):
             situation = "incomplete"
         else:
             checklist = []
 
+    # No situation of the kinds above: the one the facts gave the task.
+    if situation is None:
+        situation = task.situation
     told = guide.in_situation(situation)
     blocked = None
     if (

@@ -521,6 +521,7 @@ async def _vacancy_response(
         created_at=vacancy.created_at,
         has_openings=StepKind.internal_opening
         in applicable_steps(vacancy.vacancy_type),
+        request_missing=await service.request_missing(db, vacancy),
         function_group_id=vacancy.function_group_id,
         function_family_name=family_name,
         function_group_scales=group_scales,

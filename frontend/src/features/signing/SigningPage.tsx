@@ -20,14 +20,14 @@ import { CheckboxInput, DocumentLink } from '@/features/quotes/ui';
 import { useInstance } from '@/layout/useInstance';
 import { formatDate, formatEuro } from '@/lib/format';
 import {
-  EmptyNotice,
-  ErrorNotice,
   FormSheet,
+  LoadError,
   Loading,
   Page,
   Quiet,
   Section,
   Stack,
+  StateNotice,
 } from '@/ui/layout';
 import { fetchSigningQuote, signingDocumentUrl, signingKeys, type SigningQuote } from './api';
 
@@ -145,12 +145,15 @@ export function SigningPage() {
       <Page title={title} instanceName={instance?.name} width="960px">
         {query.isPending ? <Loading /> : null}
         {query.isError && notFound ? (
-          <EmptyNotice
+          <StateNotice
+            state="not-found"
             text="Deze offerte staat niet voor je klaar"
-            supportingText="De link klopt niet, de uitnodiging is verlopen of ingetrokken, of je bent ingelogd met een ander e-mailadres dan waarop je bent uitgenodigd."
+            detail="De link klopt niet, de uitnodiging is verlopen of ingetrokken, of je bent ingelogd met een ander e-mailadres dan waarop je bent uitgenodigd."
           />
         ) : null}
-        {query.isError && !notFound ? <ErrorNotice message={errorMessage(query.error)} /> : null}
+        {query.isError && !notFound ? (
+          <LoadError error={query.error} retry={() => void query.refetch()} />
+        ) : null}
 
         {quote ? (
           <>

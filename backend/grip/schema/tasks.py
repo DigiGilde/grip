@@ -114,6 +114,63 @@ class CaseTasksOut(BaseModel):
     tracks: Annotated[list[TrackOut], nested()] = Field(default_factory=list)
 
 
+class CourseStepOut(BaseModel):
+    key: Annotated[str, A]
+    label: Annotated[str, A]
+    # done, current or future.
+    state: Annotated[str, A]
+    note: Annotated[str | None, A] = None
+
+
+class CourseNextOut(BaseModel):
+    """What must happen now, as this reader must hear it."""
+
+    mine: Annotated[bool, A] = False
+    headline: Annotated[str, A] = ""
+    sentence: Annotated[str, A] = ""
+    who: Annotated[str | None, A] = None
+    since: Annotated[date | None, A] = None
+    due_on: Annotated[date | None, A] = None
+    overdue: Annotated[bool, A] = False
+    action_text: Annotated[str | None, A] = None
+    action_href: Annotated[str | None, A] = None
+    missing: Annotated[list[str], A] = Field(default_factory=list)
+    blocked: Annotated[str | None, A] = None
+    task_id: Annotated[UUID | None, A] = None
+    task_key: Annotated[str | None, A] = None
+
+
+class CourseOut(BaseModel):
+    """Where a case, or one part of it, stands and what is next."""
+
+    key: Annotated[str, A]
+    label: Annotated[str, A]
+    subject: Annotated[str, A] = "case"
+    subject_key: Annotated[str, A] = ""
+    subject_label: Annotated[str | None, A] = None
+    steps: Annotated[list[CourseStepOut], nested()] = Field(default_factory=list)
+    current_key: Annotated[str | None, A] = None
+    current_label: Annotated[str | None, A] = None
+    position: Annotated[str | None, A] = None
+    next: Annotated[CourseNextOut | None, nested()] = None
+    ended: Annotated[str | None, A] = None
+    more_to_do: Annotated[int, A] = 0
+    more_waiting: Annotated[int, A] = 0
+
+
+class CaseCourseOut(BaseModel):
+    case_kind: Annotated[str, A]
+    case_id: Annotated[UUID, A]
+    # The course of the case itself; absent for a case without one.
+    course: Annotated[CourseOut | None, nested()] = None
+    # The courses of its parts: a text, a billing period.
+    parts: Annotated[list[CourseOut], nested()] = Field(default_factory=list)
+
+
+class CaseCoursesOut(BaseModel):
+    items: Annotated[list[CaseCourseOut], nested()] = Field(default_factory=list)
+
+
 class TaskCreateIn(BaseModel):
     case_kind: CaseKind
     case_id: UUID

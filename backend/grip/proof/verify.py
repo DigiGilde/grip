@@ -159,12 +159,12 @@ def _check_quote(bundle: dict[str, Any], report: Report) -> str | None:
     fingerprint = sha256_hex(canonical)
     if fingerprint != quote.get("vingerafdruk"):
         report.wrong(
-            "De offerte in de bundel past niet bij de vingerafdruk die erbij "
-            "staat: de offerte of de vingerafdruk is gewijzigd."
+            "De offerte in de bundel past niet bij het echtheidskenmerk dat erbij "
+            "staat: de offerte of het echtheidskenmerk is gewijzigd."
         )
         return None
     report.proven(
-        f"De offerte in de bundel heeft vingerafdruk {fingerprint} "
+        f"De offerte in de bundel heeft echtheidskenmerk {fingerprint} "
         f"(kenmerk {quote.get('kenmerk') or 'onbekend'})."
     )
     return fingerprint
@@ -304,7 +304,7 @@ def _check_identity(
     report.proven(
         "Dat ID-token is afgegeven voor een aanmelding die aan precies dit "
         f"besluit ({statement.get('besluit')}) over precies deze offerte is "
-        "gebonden: de nonce in het token is opnieuw berekend uit de vingerafdruk, "
+        "gebonden: de nonce in het token is opnieuw berekend uit het echtheidskenmerk, "
         "de hash van het document, het besluit, het kenmerk en de willekeurige "
         "waarde in de verklaring, en komt overeen."
     )
@@ -462,7 +462,7 @@ def _check_passkey(
         return
     report.proven(
         "Een passkey tekende voor precies dit besluit: de uitdaging is berekend "
-        "uit de vingerafdruk van de offerte, de hash van het document, het "
+        "uit het echtheidskenmerk van de offerte, de hash van het document, het "
         "besluit en het kenmerk, en de handtekening klopt met de publieke "
         f"sleutel in de verklaring (op {stated.get('origin')})."
     )

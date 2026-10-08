@@ -34,9 +34,9 @@ describe('VacancySetupPage', () => {
     });
     const { container } = renderApp(<VacancySetupPage />);
     await waitFor(() =>
-      expect(
-        container.querySelector('nldd-inline-dialog[text="Dit is voor beheerders"]'),
-      ).not.toBeNull(),
+      expect(container.querySelector('[data-state="no-access"]')?.textContent).toContain(
+        'Beheer is voor beheerders',
+      ),
     );
     expect(container.querySelector('nldd-button')).toBeNull();
     expect(container.querySelector('nldd-title[text="Taalmodel"]')).toBeNull();

@@ -1,10 +1,9 @@
 import { useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ApiError, errorMessage } from '@/api/client';
 import { useInstance } from '@/layout/useInstance';
 import { useRouterLinks } from '@/layout/useRouterLinks';
 import { formatEuro } from '@/lib/format';
-import { EmptyNotice, ErrorNotice, Loading, Page } from '@/ui/layout';
+import { EmptyNotice, LoadError, Loading, Page } from '@/ui/layout';
 import { approvalKeys, approvalPath, fetchWaitingApprovals } from './approval';
 import { formatDateTime } from './format';
 import './register';
@@ -20,18 +19,17 @@ export function ApprovalListPage() {
     retry: false,
   });
   const items = query.data?.items ?? [];
-  const noRight = query.error instanceof ApiError && query.error.status === 403;
 
   return (
     <Page title="Wacht op mijn goedkeuring" instanceName={instance?.name}>
       {query.isPending ? <Loading /> : null}
-      {query.isError && noRight ? (
-        <EmptyNotice
-          text="Offertes goedkeuren is voor wie dat recht heeft"
-          supportingText="Een beheerder kent het toe bij Team, onder Rechten in grip van een persoon."
+      {query.isError ? (
+        <LoadError
+          error={query.error}
+          retry={() => void query.refetch()}
+          who="Offertes goedkeuren is voor wie dat recht heeft. Een beheerder kent het toe bij Team, onder Rechten in grip van een persoon."
         />
       ) : null}
-      {query.isError && !noRight ? <ErrorNotice message={errorMessage(query.error)} /> : null}
       {query.data && items.length === 0 ? (
         <EmptyNotice text="Er wacht geen offerte op je goedkeuring" />
       ) : null}

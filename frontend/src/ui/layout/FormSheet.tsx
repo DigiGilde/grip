@@ -12,9 +12,11 @@
  *   - Validate on submit, never before the user has typed.
  *   - One primary action. "Annuleer" sits in the title bar, away from it.
  */
+import { PrimaryTakenContext } from '@/ui/primary';
 import { useId, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { orUndef, useNlddEvent } from '@/components/nldd/events';
+import { useFormMessage } from './formMessage';
 
 if (import.meta.env.MODE !== 'test') void import('./register');
 
@@ -37,6 +39,12 @@ interface FormSheetProps {
   onSubmit: () => void;
   onClose: () => void;
   busy?: boolean;
+  /**
+   * The form cannot be sent yet because a choice it starts from is not made.
+   * Only for that: a field that is still empty is checked on submit. The
+   * sheet says why next to the choice.
+   */
+  submitDisabled?: boolean;
   /** Shown above the fields after a failed submit. */
   error?: string | null;
   size?: keyof typeof WIDTH;
@@ -46,10 +54,19 @@ interface FormSheetProps {
 interface SubmitButtonProps {
   text: string;
   loading?: boolean;
+  disabled?: boolean;
 }
 
-function SubmitButton({ text, loading }: SubmitButtonProps) {
-  return <nldd-button appearance="primary" type="submit" text={text} loading={orUndef(loading)} />;
+function SubmitButton({ text, loading, disabled }: SubmitButtonProps) {
+  return (
+    <nldd-button
+      appearance="primary"
+      type="submit"
+      text={text}
+      loading={orUndef(loading)}
+      disabled={orUndef(disabled)}
+    />
+  );
 }
 
 export function FormSheet({
@@ -59,6 +76,7 @@ export function FormSheet({
   onSubmit,
   onClose,
   busy,
+  submitDisabled,
   error,
   size = 'form',
   children,
@@ -69,10 +87,13 @@ export function FormSheet({
   const titleId = useId();
   useNlddEvent(sheetRef, 'close', onClose);
   useNlddEvent(barRef, 'dismiss', onClose);
+  const message = useFormMessage(sheetRef, error);
   useNlddEvent(formRef, 'submit', (event) => {
     event.preventDefault();
-    if (!busy) onSubmit();
+    message.submitted();
+    if (!busy && !submitDisabled) onSubmit();
   });
+  const shownError = message.shown;
 
   return createPortal(
     <nldd-sheet ref={sheetRef} open={orUndef(open)} placement="right" width={WIDTH[size]}>
@@ -87,17 +108,22 @@ export function FormSheet({
         <nldd-simple-section>
           <nldd-title id={titleId} slot="header" size={2} text={title} heading-level={1} />
           <nldd-container gap="24">
-            {error ? <nldd-banner variant="critical" size="sm" text={error} /> : null}
+            {shownError ? (
+              <nldd-banner variant="critical" size="sm" text={shownError} data-state="error" />
+            ) : null}
             <nldd-form ref={formRef} {...NO_NATIVE_VALIDATION}>
               {/* nldd-form moves its direct children into its own form element.
                   React then loses track of siblings it wants to insert before,
                   and a field that appears conditionally blanks the page. One
                   stable wrapper that React owns keeps the fields together, and
                   it spaces them, since the form now has one child to space. */}
-              <FormFields>{children}</FormFields>
+              {/* A sheet is a state of its own: its one accent is its own. */}
+              <PrimaryTakenContext.Provider value={false}>
+                <FormFields>{children}</FormFields>
+              </PrimaryTakenContext.Provider>
               <nldd-form-actions>
                 <nldd-button-group>
-                  <SubmitButton text={submitText} loading={busy} />
+                  <SubmitButton text={submitText} loading={busy} disabled={submitDisabled} />
                 </nldd-button-group>
               </nldd-form-actions>
             </nldd-form>

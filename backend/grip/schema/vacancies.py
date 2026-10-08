@@ -169,6 +169,9 @@ class VacancyOut(BaseModel):
     # Whether this type of vacancy is opened at all (not for an intended or
     # ready candidate).
     has_openings: Annotated[bool, NO_NAMES]
+    # What the vacancy lacks before it can be requested and its request form
+    # made, in the words a person reads; empty when it can.
+    request_missing: Annotated[list[str], NO_NAMES] = []
 
     # The function group the FGR name was taken from, and what it allows.
     function_group_id: Annotated[UUID | None, NO_NAMES] = None

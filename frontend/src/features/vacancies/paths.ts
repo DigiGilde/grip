@@ -23,3 +23,7 @@ export function vacancyTabPath(id: string, tab: VacancyTabKey): string {
 
 /** The page of a person in the team. */
 export const personPath = (id: string) => PATHS.teamPerson.replace(':personId', id);
+
+/** The page on which the vacancy text is written. */
+export const vacancyTextWritePath = (id: string) =>
+  PATHS.vacancyTextWrite.replace(':vacancyId', id);

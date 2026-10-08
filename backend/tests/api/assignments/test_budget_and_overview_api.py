@@ -125,6 +125,35 @@ async def test_planner_and_member_cannot_edit_the_budget(world, as_person):
         assert response.status_code == 403
 
 
+async def test_a_fixed_amount_belongs_to_a_year_the_assignment_runs_in(
+    world, as_person
+):
+    """Money for a year outside the period would end up in the quote and the
+    letter for a year in which nothing is delivered."""
+    client = as_person(world.owner)
+    first, last = world.assignment.start_date.year, world.assignment.end_date.year
+    refused = await client.post(
+        f"/api/assignments/{world.assignment.id}/budget-lines",
+        json={
+            "description": "Licenties",
+            "kind": "fixed",
+            "amount_cents": 600000,
+            "year": last + 1,
+        },
+    )
+    assert refused.status_code == 422, refused.text
+    assert "buiten de looptijd" in refused.text
+    moved = await client.patch(
+        f"/api/budget-lines/{world.fixed_line.id}", json={"year": first - 1}
+    )
+    assert moved.status_code == 422 and "buiten de looptijd" in moved.text
+    # Another change to a line leaves its year alone.
+    kept = await client.patch(
+        f"/api/budget-lines/{world.fixed_line.id}", json={"amount_cents": 123400}
+    )
+    assert kept.status_code == 200, kept.text
+
+
 async def test_closed_year_override_is_for_the_beheerder(world, as_person):
     response = await as_person(world.owner).post(
         f"/api/assignments/{world.assignment.id}/budget-lines",

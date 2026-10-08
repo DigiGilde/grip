@@ -6,7 +6,14 @@ import { renderApp } from '@/test/utils';
 import { normalisePercent, percentInput } from './api';
 import type { BillingOverview, BillingPeriod, PeriodMonth } from './billingApi';
 import { MonthClosePage } from './MonthClosePage';
-import { periodLine, stepAction, stepLine, stepTitle } from './periodText';
+import {
+  invoiceDifferenceText,
+  periodLine,
+  periodStateText,
+  stepAction,
+  stepLine,
+  stepTitle,
+} from './periodText';
 
 function month(key: string, label: string, state: PeriodMonth['state'], cents = 1440000) {
   return {
@@ -251,6 +258,43 @@ describe('the words of the one thing to do', () => {
     expect(stepLine(none, OVERVIEW)).toBe('Vanaf 1 nov 2026 sluit je oktober 2026 af.');
   });
 
+  it('calls a change after the invoice a naverrekening, with the invoice that went out', () => {
+    const step = {
+      ...OVERVIEW.next_step,
+      kind: 'deliver' as const,
+      period_key: '2026-Q1',
+      period_label: 'eerste kwartaal 2026',
+      amount_cents: 500000,
+      correction: true,
+      invoice_numbers: ['F-2026-0412'],
+      invoiced_on: '2026-04-08',
+      delivered_on: '2026-04-02',
+    };
+    expect(stepTitle(step)).toMatch(/^Naverrekening over het eerste kwartaal 2026: €\s5\.000$/);
+    expect(stepLine(step, OVERVIEW)).toBe(
+      'De periode zelf is gefactureerd op 8 apr 2026 (factuur F-2026-0412). Na die tijd is er iets gewijzigd; lever het verschil aan.',
+    );
+    expect(stepAction(step)).toBe('Lever de naverrekening aan');
+    expect(stepLine({ ...step, invoice_numbers: [], invoiced_on: null }, OVERVIEW)).toMatch(
+      /^De periode zelf is aangeleverd op 2 apr 2026\./,
+    );
+    const period = { ...Q1, state: 'ready' as const, correction: true };
+    expect(periodStateText(period)).toBe('Naverrekening');
+    expect(periodLine(period)).toBe('Gefactureerd, factuur F-2026-014; daarna gewijzigd');
+    expect(periodStateText(Q2)).toBe('Klaar om aan te leveren');
+  });
+
+  it('says so when less or more was invoiced than delivered', () => {
+    expect(invoiceDifferenceText({ ...Q1, invoice_difference_cents: -10000 })).toMatch(
+      /^€\s100 minder gefactureerd dan aangeleverd$/,
+    );
+    expect(periodLine({ ...Q1, invoice_difference_cents: -10000 })).toMatch(
+      /^Factuur F-2026-014; €\s100 minder gefactureerd dan aangeleverd$/,
+    );
+    expect(invoiceDifferenceText({ ...Q1, invoice_difference_cents: 0 })).toBeNull();
+    expect(invoiceDifferenceText(Q1)).toBeNull();
+  });
+
   it('gives each period one line for its last step', () => {
     expect(periodLine(Q1)).toBe('Factuur F-2026-014');
     expect(periodLine(Q2)).toBe('Alle 3 maanden afgesloten');
@@ -322,6 +366,11 @@ describe('MonthClosePage', () => {
     const { container, calls } = renderTab(overview, {
       '/api/assignments/a-1/months/2026-07': OPEN_MONTH,
       'POST /api/assignments/a-1/months/2026-07/close': { ...OPEN_MONTH, closed: true },
+      'POST /api/assignments/a-1/months/2026-07/preview': {
+        month: '2026-07',
+        lines: [{ allocation_id: 'al-1', amount_cents: 1080000 }],
+        total_cents: 1080000,
+      },
     });
     await waitFor(() => expect(primaryButtons(container)).toEqual(['Sluit juli 2026 af']));
     expect(openSheet()).toBeUndefined();
@@ -342,9 +391,25 @@ describe('MonthClosePage', () => {
         ),
       ).toBe(true),
     );
+    // The amount follows the percentage, priced by the server, before closing.
+    await waitFor(() =>
+      expect(sheet.querySelector('[data-month-total]')?.textContent).toMatch(
+        /De maand komt op €\s10\.800; gepland was €\s14\.400\./,
+      ),
+    );
+    expect(
+      [...sheet.querySelectorAll('nldd-text-cell')].some(
+        (cell) =>
+          /€\s10\.800/.test(cell.getAttribute('text') ?? '') &&
+          /gepland €\s14\.400/.test(cell.getAttribute('supporting-text') ?? ''),
+      ),
+    ).toBe(true);
+    expect(calls.find((call) => call.url.endsWith('/preview'))?.body).toEqual({
+      established: [{ allocation_id: 'al-1', fte_pct: '60' }],
+    });
     sheet.querySelector('nldd-form')?.dispatchEvent(new Event('submit', { cancelable: true }));
-    await waitFor(() => expect(calls.some((call) => call.method === 'POST')).toBe(true));
-    expect(calls.find((call) => call.method === 'POST')?.body).toEqual({
+    await waitFor(() => expect(calls.some((call) => call.url.endsWith('/close'))).toBe(true));
+    expect(calls.find((call) => call.url.endsWith('/close'))?.body).toEqual({
       established: [{ allocation_id: 'al-1', fte_pct: '60' }],
     });
   });

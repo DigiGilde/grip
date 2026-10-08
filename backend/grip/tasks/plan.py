@@ -9,7 +9,7 @@ arrange work and never reach past a rule of the domain.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -58,6 +58,52 @@ class Template:
 
 
 @dataclass(frozen=True)
+class StepNote:
+    """What happened at a step, said next to it while a fact holds."""
+
+    when: str
+    text: str
+
+
+@dataclass(frozen=True)
+class CourseStep:
+    key: str
+    label: str
+    # Facts that must all hold for the step to be behind us. A name can be
+    # prefixed with "not " and, for a fact of another subject of the case,
+    # with that subject's kind and a dot ("quote_round.quote_offered").
+    done_when: tuple[str, ...]
+    # The step is part of the course only while these hold.
+    when: tuple[str, ...] = ()
+    # The task templates whose work belongs to this step.
+    tasks: tuple[str, ...] = ()
+    notes: tuple[StepNote, ...] = ()
+    # What to say when the step is current and nobody has a task.
+    idle: str | None = None
+
+
+@dataclass(frozen=True)
+class Course:
+    """The way of a case, or of one subject of a case, in a few steps."""
+
+    key: str
+    label: str
+    case_kind: str
+    # "case", or the kind of subject this course is about.
+    subject: str
+    when: tuple[str, ...]
+    steps: tuple[CourseStep, ...]
+
+
+@dataclass(frozen=True)
+class CourseEnd:
+    """How a case ended, when a fact says so."""
+
+    when: str
+    label: str
+
+
+@dataclass(frozen=True)
 class Track:
     key: str
     label: str
@@ -71,6 +117,8 @@ class Plan:
     replaces: tuple[str, ...]
     tracks: dict[str, tuple[Track, ...]]
     templates: dict[str, tuple[Template, ...]]
+    courses: dict[str, tuple[Course, ...]] = field(default_factory=dict)
+    ends: dict[str, tuple[CourseEnd, ...]] = field(default_factory=dict)
 
     def template(self, key: str) -> Template | None:
         for templates in self.templates.values():
@@ -160,6 +208,66 @@ def _template(case_kind: str, tracks: set[str], raw: dict[str, Any]) -> Template
     )
 
 
+def _course_fact(case_kind: str, subject: str, condition: str) -> None:
+    """Refuse a condition of a course that names a fact nobody computes."""
+    name = _fact_name(condition)
+    if "." in name:
+        kind, fact = name.split(".", 1)
+        if kind not in catalogue.SUBJECTS[case_kind] or (
+            fact not in catalogue.SUBJECT_FACTS[kind]
+        ):
+            raise PlanError(f"Het verloop noemt een onbekend feit '{name}'.")
+        return
+    if name not in catalogue.facts_for(case_kind, subject):
+        raise PlanError(f"Het verloop noemt een onbekend feit '{name}'.")
+
+
+def _course(case_kind: str, template_keys: set[str], raw: dict[str, Any]) -> Course:
+    subject = raw.get("for", "case")
+    if subject not in catalogue.SUBJECTS[case_kind]:
+        raise PlanError(f"Verloop {raw.get('key')}: onbekend onderwerp '{subject}'.")
+    steps = []
+    for item in raw.get("steps", ()):
+        done_when = tuple(item.get("done_when") or ())
+        if not done_when:
+            raise PlanError(f"Stap {item.get('key')} zegt niet wanneer hij klaar is.")
+        when = tuple(item.get("when") or ())
+        notes = tuple(
+            StepNote(when=note["when"], text=note["text"])
+            for note in item.get("notes", ())
+        )
+        for condition in (*done_when, *when, *(note.when for note in notes)):
+            _course_fact(case_kind, subject, condition)
+        tasks = tuple(item.get("tasks") or ())
+        for key in tasks:
+            if key not in template_keys:
+                raise PlanError(f"Stap {item.get('key')} noemt onbekende taak {key}.")
+        steps.append(
+            CourseStep(
+                key=item["key"],
+                label=item["label"],
+                done_when=done_when,
+                when=when,
+                tasks=tasks,
+                notes=notes,
+                idle=item.get("idle"),
+            )
+        )
+    if not 1 <= len(steps) <= 5:
+        raise PlanError(f"Verloop {raw.get('key')} heeft een tot vijf stappen.")
+    when = tuple(raw.get("when") or ())
+    for condition in when:
+        _course_fact(case_kind, subject, condition)
+    return Course(
+        key=raw["key"],
+        label=raw["label"],
+        case_kind=case_kind,
+        subject=subject,
+        when=when,
+        steps=tuple(steps),
+    )
+
+
 def parse_plan(data: dict[str, Any]) -> Plan:
     """Check a plan against the catalogue and return it."""
     version = data.get("version")
@@ -167,6 +275,8 @@ def parse_plan(data: dict[str, Any]) -> Plan:
         raise PlanError("Het plan heeft geen versie.")
     tracks: dict[str, tuple[Track, ...]] = {}
     templates: dict[str, tuple[Template, ...]] = {}
+    courses: dict[str, tuple[Course, ...]] = {}
+    ends: dict[str, tuple[CourseEnd, ...]] = {}
     seen: set[str] = set()
     for case_kind, section in (data.get("case_kinds") or {}).items():
         if case_kind not in catalogue.CASE_KINDS:
@@ -190,11 +300,29 @@ def parse_plan(data: dict[str, Any]) -> Plan:
             seen.add(template.key)
             parsed.append(template)
         templates[case_kind] = tuple(parsed)
+        # A step may name a template this version leaves out (its event does
+        # not exist yet): known to the plan, so not an error.
+        named = {raw["key"] for raw in section.get("templates", ())}
+        courses[case_kind] = tuple(
+            _course(case_kind, named, raw) for raw in section.get("courses", ())
+        )
+        kind_ends = tuple(
+            CourseEnd(when=end["when"], label=end["label"])
+            for end in section.get("ends", ())
+        )
+        for end in kind_ends:
+            _course_fact(case_kind, "case", end.when)
+        ends[case_kind] = kind_ends
     replaces = data.get("replaces") or ()
     if not all(isinstance(old, str) and old for old in replaces):
         raise PlanError("Onder 'replaces' staan versies van het plan.")
     return Plan(
-        version=version, replaces=tuple(replaces), tracks=tracks, templates=templates
+        version=version,
+        replaces=tuple(replaces),
+        tracks=tracks,
+        templates=templates,
+        courses=courses,
+        ends=ends,
     )
 
 

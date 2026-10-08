@@ -83,7 +83,8 @@ async def test_rates_valid_on_a_date_and_over_a_period(client, world, as_person)
     )
     await client.post(f"/api/rates/cards/{created.json()['id']}/activate")
 
-    as_person(world.outsider)
+    # Someone who works with money: the owner of an assignment.
+    as_person(world.owner)
     on_a_day = (
         await client.get("/api/rates/valid", params={"start_date": "2026-03-01"})
     ).json()

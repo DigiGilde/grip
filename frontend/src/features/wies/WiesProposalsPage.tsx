@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
 import { CheckboxInput } from '@/features/vacancies/ui';
 import { ActionBar } from '@/ui/ActionBar';
-import { EmptyNotice, ErrorNotice, Loading, Page, SectionHeading } from '@/ui/layout';
+import { EmptyNotice, ErrorNotice, LoadError, Loading, Page, SectionHeading } from '@/ui/layout';
 import { useInstance } from '@/layout/useInstance';
 import { formatDate } from '@/lib/format';
 import { PATHS } from '@/paths';
@@ -144,7 +144,7 @@ export function WiesProposalsPage() {
       back={{ href: PATHS.admin, text: 'Terug naar Beheer' }}
     >
       {query.isPending && <Loading text="Wies wordt geraadpleegd" />}
-      {query.isError && <ErrorNotice message={errorMessage(query.error)} />}
+      {query.isError && <LoadError error={query.error} retry={() => void query.refetch()} />}
       {data && !data.configured && (
         <EmptyNotice
           text="De koppeling met Wies is niet ingesteld"

@@ -80,7 +80,7 @@ interface CopyButtonProps {
   text: string;
   /** What lands on the clipboard. */
   value: string;
-  appearance?: 'primary' | 'secondary' | 'neutral-transparent';
+  appearance?: 'primary' | 'secondary';
   size?: 'sm' | 'md';
 }
 

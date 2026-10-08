@@ -121,6 +121,35 @@ async def proposal(
     return _lines(inputs, month, options, None)
 
 
+async def preview(
+    session: AsyncSession,
+    assignment_id: UUID,
+    month: Month,
+    *,
+    established: Mapping[UUID, Decimal] | None = None,
+    options: PricingOptions = DEFAULT_OPTIONS,
+) -> tuple[calc.BillingLine, ...]:
+    """What the month would come to at these percentages. Changes nothing.
+
+    The same lines a close at ``established`` would bill, so the person sees
+    the amount follow the percentage before settling it.
+    """
+    inputs = await load_inputs_for_assignment(session, assignment_id, options=options)
+    running = {line.allocation_id for line in _lines(inputs, month, options, None)}
+    wanted = {str(k): Decimal(v) for k, v in (established or {}).items()}
+    if set(wanted) - running:
+        raise DomainValidationError(
+            "Er is inzet vastgesteld die niet in deze maand op deze opdracht loopt."
+        )
+    for pct in wanted.values():
+        if not Decimal(0) <= pct <= Decimal(100):
+            raise DomainValidationError(
+                "Een vastgesteld percentage ligt tussen 0 en 100."
+            )
+    actuals = {(allocation_id, month): pct for allocation_id, pct in wanted.items()}
+    return _lines(inputs, month, options, actuals)
+
+
 async def close_month(
     session: AsyncSession,
     assignment_id: UUID,

@@ -21,6 +21,7 @@ import { RowMenu, type RowAction } from '@/ui/RowActions';
 import { useRef } from 'react';
 import { orUndef, useNlddEvent } from '@/components/nldd/events';
 import { iconAttribute } from './icons';
+import { usePrimaryTaken } from './primary';
 
 if (import.meta.env.MODE !== 'test') {
   void import('@nldd/design-system/dropdown');
@@ -126,7 +127,8 @@ function ActionItem({ action }: { action: ActionBarAction }) {
   const onClick = action.href ? undefined : () => action.onClick?.();
   useNlddEvent(buttonRef, 'click', onClick);
   useNlddEvent(menuRef, 'select', onClick);
-  const appearance = action.primary ? 'primary' : 'secondary';
+  const taken = usePrimaryTaken();
+  const appearance = action.primary && !taken ? 'primary' : 'secondary';
   return (
     <nldd-toolbar-item slot="end" priority={action.primary ? 3 : 2}>
       <nldd-button

@@ -122,6 +122,9 @@ class Task(Base):
     )
     # The fact that closes the task; empty when a person ticks it.
     closing_fact: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    # The fact that colours how the task is told ("the quote is outdated"),
+    # set by the engine from the same facts that open and close the task.
+    situation: Mapped[str | None] = mapped_column(String(80), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

@@ -185,7 +185,7 @@ describe('ApprovalPage', () => {
   it('says nothing about a quote the reader may not approve', async () => {
     const { container } = renderPage({});
     await waitFor(() =>
-      expect(container.querySelector('nldd-inline-dialog')?.getAttribute('text')).toBe(
+      expect(container.querySelector('[data-state="not-found"]')?.textContent).toContain(
         'Deze offerte staat niet voor je klaar',
       ),
     );

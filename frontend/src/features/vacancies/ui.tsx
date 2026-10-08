@@ -5,9 +5,11 @@
  * They exist because nldd events are custom events on the element itself,
  * which a JSX `on*` prop never sees.
  */
+import { MultiLineField, TextField } from '@/ui/fields';
 import { iconAttribute } from '@/ui/icons';
 import { useRef, type ReactNode } from 'react';
 import { orUndef, useNlddEvent } from '@/components/nldd/events';
+import { dateFieldRange } from '@/ui/dateRange';
 
 // Tests leave the nldd-* elements unregistered on purpose, so they read the
 // light DOM this app is responsible for. Elements upgrade whenever their
@@ -21,45 +23,7 @@ function eventValue(event: Event): string {
   return target?.value === undefined || target.value === null ? '' : String(target.value);
 }
 
-interface ButtonProps {
-  text: string;
-  onClick?: () => void;
-  appearance?: 'primary' | 'secondary' | 'destructive' | 'neutral-transparent';
-  size?: 'xs' | 'sm' | 'md';
-  type?: 'button' | 'submit';
-  loading?: boolean;
-  disabled?: boolean;
-  accessibleLabel?: string;
-  slot?: string;
-}
-
-export function Button({
-  text,
-  onClick,
-  appearance = 'secondary',
-  size,
-  type,
-  loading,
-  disabled,
-  accessibleLabel,
-  slot,
-}: ButtonProps) {
-  const ref = useRef<HTMLElement>(null);
-  useNlddEvent(ref, 'click', onClick ? () => onClick() : undefined);
-  return (
-    <nldd-button
-      ref={ref}
-      text={text}
-      appearance={appearance}
-      {...(size ? { size } : {})}
-      {...(type ? { type } : {})}
-      {...(slot ? { slot } : {})}
-      {...(accessibleLabel ? { 'accessible-label': accessibleLabel } : {})}
-      loading={orUndef(loading)}
-      disabled={orUndef(disabled)}
-    />
-  );
-}
+export { Button, QuietButton } from '@/ui/Button';
 
 interface FieldProps {
   label: string;
@@ -71,37 +35,16 @@ interface FieldProps {
   invalid?: boolean;
 }
 
+/** One line, or plain text of more lines with `multiline`. See `@/ui/fields`. */
 export function TextInput({
-  label,
-  value,
-  onChange,
-  optional,
-  hint,
-  required,
-  invalid,
-  keyboard,
   multiline,
+  keyboard,
+  ...field
 }: FieldProps & { keyboard?: 'decimal' | 'numeric' | 'url'; multiline?: boolean }) {
-  const ref = useRef<HTMLElement>(null);
-  useNlddEvent(ref, 'input', (event) => onChange(eventValue(event)));
-  return (
-    <nldd-form-field
-      label={label}
-      optional={orUndef(optional)}
-      {...(hint ? { 'supporting-label': hint } : {})}
-    >
-      {multiline ? (
-        <nldd-multi-line-text-field ref={ref} value={value} invalid={orUndef(invalid)} />
-      ) : (
-        <nldd-text-field
-          ref={ref}
-          value={value}
-          required={orUndef(required)}
-          invalid={orUndef(invalid)}
-          {...(keyboard ? { keyboard } : {})}
-        />
-      )}
-    </nldd-form-field>
+  return multiline ? (
+    <MultiLineField {...field} />
+  ) : (
+    <TextField {...field} {...(keyboard ? { keyboard } : {})} />
   );
 }
 
@@ -126,6 +69,7 @@ export function DateInput({
       <nldd-date-field
         ref={ref}
         value={value}
+        {...dateFieldRange()}
         required={orUndef(required)}
         invalid={orUndef(invalid)}
       />
@@ -287,7 +231,7 @@ export function LinkButton({
 }: {
   text: string;
   href: string;
-  appearance?: 'primary' | 'secondary' | 'neutral-transparent';
+  appearance?: 'primary' | 'secondary';
   download?: boolean;
 }) {
   return (

@@ -1,13 +1,11 @@
 import { fetchAssignmentFinance, financeKeys } from '../financeApi';
 import { signalText } from '../financeText';
 import { ActionBar, type ActionBarAction } from '@/ui/ActionBar';
-import { Facts as FactList, Section, Stack } from '@/ui/layout';
+import { Facts as FactList, Quiet, Section, Stack } from '@/ui/layout';
 import { ROW_ACTIONS_COLUMN, RowActions, RowMenu, type RowAction } from '@/ui/RowActions';
 import { useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
 import { errorMessage } from '@/api/client';
-import { RouterLinks } from '@/layout/RouterLinks';
 import { formatDate } from '@/lib/format';
 import { AssignmentContextView } from '../../nodes';
 import {
@@ -21,10 +19,8 @@ import {
 } from '../api';
 import { AssignmentFormSheet } from '../AssignmentFormSheet';
 import { KIND_LABELS, ROLE_LABELS, TRANSITION_LABELS, statusLabel } from '../labels';
-import { assignmentTabPath } from '../paths';
 import { useAssignmentShell } from '../shell';
 import { ReadOnlyNote } from '../ReadOnlyNote';
-import { useStanding } from '../useStanding';
 import { Button, EmptyNotice, ErrorNotice, FormSheet, SelectInput, TextInput } from '../ui';
 
 /**
@@ -305,46 +301,6 @@ function ContextRefs({ assignment }: { assignment: AssignmentDetail }) {
   );
 }
 
-/**
- * The way from an idea to an agreed assignment, with the step it is at.
- * Shown while the assignment is still potential.
- */
-function NextSteps({ assignment }: { assignment: AssignmentDetail }) {
-  const steps = useStanding(assignment);
-  const navigate = useNavigate();
-  if (!steps) return null;
-  const action = steps.action;
-  return (
-    <Section title="Van idee naar opdracht">
-      <RouterLinks>
-        <nldd-step-bar accessible-label="Stappen naar een akkoord">
-          {steps.steps.map((step) => (
-            // Every step says its own state, so the bar never derives one.
-            <nldd-step-bar-item
-              key={step.key}
-              text={step.text}
-              status={step.state === 'done' ? 'past' : step.state}
-              {...(step.tab && step.state !== 'future'
-                ? { href: assignmentTabPath(assignment.id, step.tab) }
-                : {})}
-            />
-          ))}
-        </nldd-step-bar>
-      </RouterLinks>
-      <nldd-text>{steps.advice}</nldd-text>
-      {action && (
-        <div>
-          <Button
-            appearance="primary"
-            text={action.text}
-            onClick={() => navigate(assignmentTabPath(assignment.id, action.tab))}
-          />
-        </div>
-      )}
-    </Section>
-  );
-}
-
 /** The step that needs a word of explanation before it is taken. */
 const NEEDS_NOTE = 'verbally_agreed';
 
@@ -467,7 +423,6 @@ function Overview({ assignment }: { assignment: AssignmentDetail }) {
     <nldd-simple-section>
       <Stack gap="section">
         <Stack gap="group">
-          <NextSteps assignment={assignment} />
           {assignment.permissions.read_financial && (
             <AgreedDifference assignmentId={assignment.id} />
           )}
@@ -479,6 +434,12 @@ function Overview({ assignment }: { assignment: AssignmentDetail }) {
           {status.problem && <ErrorNotice message={status.problem} />}
           {!assignment.permissions.edit_basic && (
             <ReadOnlyNote assignment={assignment} what="deze gegevens" />
+          )}
+          {assignment.permissions.edit_basic && !assignment.start_date && (
+            <Quiet>
+              De opdracht heeft nog geen looptijd. Begrotingsregels en inzet volgen de looptijd: vul
+              haar in bij Wijzig gegevens.
+            </Quiet>
           )}
           <Facts assignment={assignment} />
         </Stack>

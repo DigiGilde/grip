@@ -859,6 +859,13 @@ async def seed(
             **kwargs,
         )
 
+    async def motivate(vacancy_id: UUID, actor: Person, body: str) -> None:
+        """A request needs a settled motivation: it is printed on the form."""
+        text = await vacancies.add_text(
+            db, vacancy_id, "motivation", actor=actor, body=body
+        )
+        await vacancies.establish_text(db, text.id, actor=actor)
+
     # 1. The open role on Delta: approved, with an established human text, open.
     open_role = await vacancies.create_vacancy_from_budget_line(
         db,
@@ -868,6 +875,16 @@ async def seed(
         fgr_function_name="Senior Medewerker ICT (fictief)",
         scale=11,
         addressee_name=tess.name,
+    )
+    await motivate(
+        open_role.id,
+        priya,
+        (
+            "Fictief voorbeeld. Op Opdracht Delta 2026-2027 staat een "
+            "begrotingsregel voor een developer van 1 FTE die sinds de "
+            "start niet is ingevuld. Met deze vacature vullen we die rol "
+            "in."
+        ),
     )
     await vacancies.submit_request(
         db, open_role.id, actor=priya, requested_on=date(2026, 9, 1)
@@ -882,18 +899,6 @@ async def seed(
     await decide(
         open_role.id, "approval", tess.name, date(2026, 9, 8), person_id=tess.id
     )
-    motivation = await vacancies.add_text(
-        db,
-        open_role.id,
-        "motivation",
-        actor=priya,
-        body=(
-            "Fictief voorbeeld. Op Opdracht Delta 2026-2027 staat een "
-            "begrotingsregel voor een developer van 1 FTE die sinds de start "
-            "niet is ingevuld. Met deze vacature vullen we die rol in."
-        ),
-    )
-    await vacancies.establish_text(db, motivation.id, actor=priya)
     vacancy_text = await vacancies.add_text(
         db,
         open_role.id,
@@ -927,6 +932,15 @@ async def seed(
         scale=11,
         addressee_name=tess.name,
     )
+    await motivate(
+        pending.id,
+        lotte,
+        (
+            "Fictief voorbeeld. De organisatie heeft een "
+            "communicatieadviseur nodig voor het eigen werk; de rol is "
+            "niet declarabel."
+        ),
+    )
     await vacancies.submit_request(
         db, pending.id, actor=lotte, requested_on=date(2026, 10, 1)
     )
@@ -959,6 +973,15 @@ async def seed(
         fgr_function_name="Coordinerend Adviseur (fictief)",
         scale=14,
         addressee_name=tess.name,
+    )
+    await motivate(
+        ready.id,
+        lotte,
+        (
+            "Fictief voorbeeld. Voor de rol op Opdracht Epsilon 2027 is "
+            "een gerede kandidaat bekend die het werk nu al tijdelijk "
+            "doet."
+        ),
     )
     await vacancies.submit_request(
         db, ready.id, actor=lotte, requested_on=date(2026, 9, 14)

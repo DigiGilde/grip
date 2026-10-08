@@ -673,6 +673,33 @@ async def set_step(
     return step
 
 
+# What the request form asks for on the vacancy itself, with the words a
+# person reads when it is missing.
+REQUEST_FIELDS: tuple[tuple[str, str], ...] = (
+    ("fgr_function_name", "FGR-functienaam"),
+    ("scale", "schaal"),
+    ("contract_type", "type contract"),
+    ("addressee_name", "aan wie de aanvraag gericht is"),
+)
+MOTIVATION_MISSING = "een vastgestelde aanleiding en motivatie"
+
+
+async def request_missing(db: AsyncSession, vacancy: Vacancy) -> list[str]:
+    """What a vacancy still lacks before it can be requested and its request
+    form made: the fields the form asks for and a settled motivation, which is
+    printed on it. The one list for the service, the screen and the tasks."""
+    missing = [
+        label for name, label in REQUEST_FIELDS if getattr(vacancy, name) in (None, "")
+    ]
+    if await established_text(db, vacancy.id, TextKind.motivation) is None:
+        missing.append(MOTIVATION_MISSING)
+    return missing
+
+
+def missing_sentence(missing: list[str]) -> str:
+    return "Ontbreekt nog: " + ", ".join(missing) + "."
+
+
 async def submit_request(
     db: AsyncSession,
     vacancy_id: UUID,
@@ -684,6 +711,11 @@ async def submit_request(
     vacancy = await _get(db, vacancy_id)
     if vacancy.status != VacancyStatus.draft.value:
         raise DomainValidationError("Deze vacature is al aangevraagd.")
+    missing = await request_missing(db, vacancy)
+    if missing:
+        raise DomainValidationError(
+            "De vacature kan nog niet worden aangevraagd. " + missing_sentence(missing)
+        )
     day = requested_on or date.today()
     vacancy.requested_on = day
     vacancy.status = VacancyStatus.requested.value

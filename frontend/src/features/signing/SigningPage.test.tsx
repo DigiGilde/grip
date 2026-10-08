@@ -282,7 +282,7 @@ describe('SigningPage', () => {
   it('explains a link that leads nowhere without saying whether the quote exists', async () => {
     const { container } = renderSigning({});
     await waitFor(() =>
-      expect(container.querySelector('nldd-inline-dialog')?.getAttribute('text')).toBe(
+      expect(container.querySelector('[data-state="not-found"]')?.textContent).toContain(
         'Deze offerte staat niet voor je klaar',
       ),
     );

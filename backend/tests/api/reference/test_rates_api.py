@@ -6,18 +6,66 @@ from grip.models.audit_log import AuditLog
 from grip.repositories.domain import RateRepository
 
 
-async def test_everyone_reads_rate_cards(client, world, as_person):
-    as_person(world.outsider)
-    resp = await client.get("/api/rates/cards")
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["may_manage"] is False
-    card = body["items"][0]
-    assert card["year"] == 2026 and card["status"] == "active"
-    assert {b["category"]: b["monthly_rate_cents"] for b in card["rate_bands"]}[
-        "D"
-    ] == 1800000
-    assert {"scale": 14, "category": "D"} in card["scale_bands"]
+async def test_everyone_reads_which_cards_there_are_but_not_the_amounts(
+    client, world, as_person
+):
+    """A person without money rights sees the cards and the scales per
+    category, never an amount."""
+    for person in (world.outsider, world.planner, world.report, world.hired):
+        as_person(person)
+        resp = await client.get("/api/rates/cards")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["may_manage"] is False and body["may_read_amounts"] is False
+        card = body["items"][0]
+        assert card["year"] == 2026 and card["status"] == "active"
+        assert {b["category"] for b in card["rate_bands"]} >= {"D"}
+        assert {"scale": 14, "category": "D"} in card["scale_bands"]
+        assert "monthly_rate_cents" not in resp.text
+        assert "1800000" not in resp.text
+        one = await client.get(f"/api/rates/cards/{card['id']}")
+        assert one.status_code == 200 and "monthly_rate_cents" not in one.text
+        valid = await client.get(
+            "/api/rates/valid", params={"start_date": "2026-03-01"}
+        )
+        assert valid.status_code == 200
+        assert "monthly_rate_cents" not in valid.text
+        assert "rates_differ" not in valid.json()
+
+
+async def test_who_works_with_money_reads_the_amounts(client, world, as_person):
+    """The beheerder, the lezer and who owns or manages an assignment."""
+    for person in (world.beheerder, world.lezer, world.owner):
+        as_person(person)
+        body = (await client.get("/api/rates/cards")).json()
+        assert body["may_read_amounts"] is True
+        card = body["items"][0]
+        assert {b["category"]: b["monthly_rate_cents"] for b in card["rate_bands"]}[
+            "D"
+        ] == 1800000
+        valid = (
+            await client.get("/api/rates/valid", params={"start_date": "2026-03-01"})
+        ).json()
+        assert valid["rates_differ"] is False
+        assert valid["stretches"][0]["rate_bands"][0]["monthly_rate_cents"] > 0
+
+
+async def test_a_draft_card_is_for_the_beheerder_only(client, world, as_person):
+    as_person(world.beheerder)
+    created = await client.post(
+        "/api/rates/cards",
+        json={"valid_from": "2027-01-01", "copy_previous": True, "increase_pct": "5"},
+    )
+    assert created.status_code == 201, created.text
+    draft = created.json()["id"]
+    assert draft in {
+        c["id"] for c in (await client.get("/api/rates/cards")).json()["items"]
+    }
+    for person in (world.lezer, world.owner, world.planner, world.outsider):
+        as_person(person)
+        listed = (await client.get("/api/rates/cards")).json()["items"]
+        assert draft not in {c["id"] for c in listed}
+        assert (await client.get(f"/api/rates/cards/{draft}")).status_code == 404
 
 
 async def test_beheerder_may_manage(client, world, as_person):

@@ -75,7 +75,16 @@ async def vacancy(db_session, budget_line, requester):
     )
 
 
+async def _motivate(db, vacancy, actor):
+    """A settled motivation: a request cannot be made without it."""
+    text = await service.add_text(
+        db, vacancy.id, "motivation", actor=actor, body="De rol is nog open."
+    )
+    await service.establish_text(db, text.id, actor=actor)
+
+
 async def _approve(db, vacancy, actor):
+    await _motivate(db, vacancy, actor)
     await service.submit_request(db, vacancy.id, actor=actor, requested_on=REQUESTED)
     await service.record_decision(
         db,
@@ -165,6 +174,7 @@ async def test_request_advice_and_approval_become_steps(db_session, vacancy, req
 
 
 async def test_a_rejected_approval_closes_the_request(db_session, vacancy, requester):
+    await _motivate(db_session, vacancy, requester)
     await service.submit_request(
         db_session, vacancy.id, actor=requester, requested_on=REQUESTED
     )
@@ -462,6 +472,7 @@ async def test_the_request_form_is_filled_from_the_vacancy(
     )
     assert template.is_active
 
+    await _motivate(db_session, vacancy, requester)
     await service.submit_request(
         db_session, vacancy.id, actor=requester, requested_on=REQUESTED
     )
@@ -510,9 +521,9 @@ async def test_the_request_form_is_filled_from_the_vacancy(
     assert fields["control_wel"]["/V"] == "/Off"
     assert not fields["akkoord_naam"].get("/V")
     assert fields["akkoord_wel"]["/V"] == "/Off"
-    # The draft did not leave grip.
-    assert not fields["motivatie"].get("/V")
-    assert "motivation" in generated.open_sources
+    # The motivation settled before the request is on the form.
+    assert fields["motivatie"]["/V"] == "De rol is nog open."
+    assert "motivation" not in generated.open_sources
     assert "approval_decision" in generated.open_sources
 
     text = await service.add_text(
@@ -576,3 +587,49 @@ async def test_a_filled_form_is_refused_as_template_unless_cleared(
                 "fields": [{"name": "aanvrager", "type": "text", "source": "kpi"}]
             },
         )
+
+
+async def test_a_request_needs_the_form_fields_and_a_settled_motivation(
+    db_session, budget_line, requester
+):
+    """What the form asks for is the condition for asking: the one list."""
+    bare = await service.create_vacancy_from_budget_line(
+        db_session, actor=requester, budget_line_id=budget_line.id
+    )
+    missing = await service.request_missing(db_session, bare)
+    assert missing == [
+        "FGR-functienaam",
+        "schaal",
+        "type contract",
+        "aan wie de aanvraag gericht is",
+        "een vastgestelde aanleiding en motivatie",
+    ]
+    with pytest.raises(DomainValidationError) as refused:
+        await service.submit_request(db_session, bare.id, actor=requester)
+    assert "Ontbreekt nog: FGR-functienaam" in str(refused.value)
+
+    await service.update_vacancy(
+        db_session,
+        bare.id,
+        actor=requester,
+        changes={
+            "fgr_function_name": "Medewerker ICT",
+            "scale": 11,
+            "contract_type": "temporary_project",
+            "addressee_name": "Fictief Directielid",
+        },
+    )
+    # A draft of the motivation is not a motivation.
+    draft = await service.add_text(
+        db_session, bare.id, "motivation", actor=requester, body="Concept."
+    )
+    assert await service.request_missing(db_session, bare) == [
+        "een vastgestelde aanleiding en motivatie"
+    ]
+    with pytest.raises(DomainValidationError):
+        await service.submit_request(db_session, bare.id, actor=requester)
+
+    await service.establish_text(db_session, draft.id, actor=requester)
+    assert await service.request_missing(db_session, bare) == []
+    requested = await service.submit_request(db_session, bare.id, actor=requester)
+    assert requested.status == "requested"

@@ -1,11 +1,10 @@
 import { useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { errorMessage } from '@/api/client';
 import { STATUS_COLORS, statusLabel } from '@/features/assignments/labels';
 import { assignmentPath } from '@/features/assignments/paths';
 import { Button } from '@/features/assignments/ui';
-import { EmptyNotice, ErrorNotice, Loading } from '@/ui/layout';
+import { EmptyNotice, LoadError, Loading } from '@/ui/layout';
 import { QUOTE_STATUS_COLORS, QUOTE_STATUS_LABELS } from '@/features/quotes/api';
 import { formatDateTime } from '@/features/quotes/format';
 import { Segments } from '@/features/team/ui/controls';
@@ -54,7 +53,7 @@ function SentRequests() {
         </div>
       ) : null}
       {query.isPending ? <Loading /> : null}
-      {query.isError ? <ErrorNotice message={errorMessage(query.error)} /> : null}
+      {query.isError ? <LoadError error={query.error} retry={() => void query.refetch()} /> : null}
       {query.isSuccess && items.length === 0 ? (
         <EmptyNotice
           text="Er zijn geen uitgezette aanvragen"
@@ -125,7 +124,7 @@ function ReceivedQuotes() {
   return (
     <nldd-container gap="16">
       {query.isPending ? <Loading /> : null}
-      {query.isError ? <ErrorNotice message={errorMessage(query.error)} /> : null}
+      {query.isError ? <LoadError error={query.error} retry={() => void query.refetch()} /> : null}
       {query.isSuccess && items.length === 0 ? (
         <EmptyNotice text="Er zijn geen ontvangen offertes" />
       ) : null}
@@ -177,7 +176,7 @@ function ReceivedRequests() {
   return (
     <nldd-container gap="16">
       {query.isPending ? <Loading /> : null}
-      {query.isError ? <ErrorNotice message={errorMessage(query.error)} /> : null}
+      {query.isError ? <LoadError error={query.error} retry={() => void query.refetch()} /> : null}
       {query.isSuccess && items.length === 0 ? (
         <EmptyNotice text="Er zijn geen ontvangen aanvragen" />
       ) : null}

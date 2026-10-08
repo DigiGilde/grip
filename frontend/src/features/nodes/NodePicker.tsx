@@ -1,9 +1,8 @@
 import { useRef, useState } from 'react';
 import { useQueries, useQuery } from '@tanstack/react-query';
-import { errorMessage } from '@/api/client';
 import { orUndef, useNlddEvent } from '@/components/nldd/events';
 import { Button, TextInput } from '@/features/assignments/ui';
-import { EmptyNotice, ErrorNotice, FilterSelect, Loading, SectionHeading } from '@/ui/layout';
+import { EmptyNotice, FilterSelect, LoadError, Loading, SectionHeading } from '@/ui/layout';
 import {
   fetchCorpora,
   lookupNode,
@@ -154,8 +153,8 @@ export function NodePicker({ value, onChange, max = 50 }: NodePickerProps) {
   return (
     <nldd-container gap="16">
       <nldd-text>
-        Context is de politieke wens, het doel of het instrument waar deze aanvraag uit volgt.
-        Je kiest nodes uit een corpus of plakt een URI. Context is niet verplicht.
+        Context is de politieke wens, het doel of het instrument waar deze aanvraag uit volgt. Je
+        kiest nodes uit een corpus of plakt een URI. Context is niet verplicht.
       </nldd-text>
 
       <SectionHeading text="Gekozen context" level={3} />
@@ -184,7 +183,6 @@ export function NodePicker({ value, onChange, max = 50 }: NodePickerProps) {
                   <Button
                     text="Verwijder"
                     size="sm"
-                    appearance="neutral-transparent"
                     accessibleLabel={`Verwijder ${name} uit de context`}
                     onClick={() => remove(uri)}
                   />
@@ -204,7 +202,9 @@ export function NodePicker({ value, onChange, max = 50 }: NodePickerProps) {
 
       <SectionHeading text="Zoek in een corpus" level={3} />
       {corpora.isPending ? <Loading text="Bezig met ophalen van de corpora" /> : null}
-      {corpora.isError ? <ErrorNotice message={errorMessage(corpora.error)} /> : null}
+      {corpora.isError ? (
+        <LoadError error={corpora.error} retry={() => void corpora.refetch()} />
+      ) : null}
       {corpora.data?.problem ? (
         <nldd-banner variant="neutral" size="sm" text={corpora.data.problem} />
       ) : null}
@@ -233,7 +233,9 @@ export function NodePicker({ value, onChange, max = 50 }: NodePickerProps) {
             }}
           />
           {search.isFetching ? <Loading text="Bezig met zoeken" /> : null}
-          {search.isError ? <ErrorNotice message={errorMessage(search.error)} /> : null}
+          {search.isError ? (
+            <LoadError error={search.error} retry={() => void search.refetch()} />
+          ) : null}
           {search.data?.problem ? (
             <nldd-banner variant="warning" size="sm" text={search.data.problem} />
           ) : null}

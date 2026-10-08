@@ -1,8 +1,10 @@
 /**
  * The tabs of one open thing (an assignment, a vacancy): each tab a page with
- * its own address. On a wide screen the design system's tab bar; on a narrow
- * one the same choice as one select, because a tab bar that does not fit
- * cuts its labels down to a letter.
+ * its own address. They read as sides of the thing, never as buttons: plain
+ * text on one line with a hairline under the row and a line under the tab
+ * you are on. Nothing is filled; the only filled accent on a page is its
+ * primary action. On a narrow screen the same choice is one select, because
+ * a row that does not fit hides its labels.
  */
 import { useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -49,18 +51,23 @@ export function TabNav({ label, items, current }: TabNavProps) {
       </nav>
     );
   }
-  // Each tab is a page with its own address, so this is navigation: the
-  // design system then renders a nav landmark and marks the current page.
+  // Each tab is a page with its own address, so this is navigation between
+  // pages: links in a nav landmark, the current one marked `aria-current`.
+  // The design system's menu bar draws exactly that, with a line under the
+  // current page. Its tab bar is a segmented control: the current tab is a
+  // filled accent pill that reads as a second primary button.
   return (
-    <nldd-tab-bar ref={ref} navigation accessible-label={label}>
-      {items.map((item) => (
-        <nldd-tab-bar-item
-          key={item.key}
-          href={item.href}
-          text={item.text}
-          current={orUndef(item.key === current)}
-        />
-      ))}
-    </nldd-tab-bar>
+    <div className="thing-tabs">
+      <nldd-menu-bar ref={ref} accessible-label={label}>
+        {items.map((item) => (
+          <nldd-menu-bar-item
+            key={item.key}
+            href={item.href}
+            text={item.text}
+            current={orUndef(item.key === current)}
+          />
+        ))}
+      </nldd-menu-bar>
+    </div>
   );
 }

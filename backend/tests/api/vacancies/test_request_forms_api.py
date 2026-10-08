@@ -11,7 +11,12 @@ from pypdf import PdfReader
 from grip.models.vacancy import Vacancy, VacancyStatus
 from grip.services import instance_settings
 from grip.services.vacancies import request_forms
-from tests.api.vacancies.test_vacancies_api import BASE, _create, _decide
+from tests.api.vacancies.test_vacancies_api import (
+    BASE,
+    _create,
+    _decide,
+    _motivate,
+)
 
 
 async def _template(client, act_as, beheerder, blank_form, test_mapping) -> None:
@@ -27,6 +32,7 @@ async def _template(client, act_as, beheerder, blank_form, test_mapping) -> None
 async def _vacancy(client, act_as, manager, budget_line) -> str:
     act_as(manager)
     vacancy = await _create(client, budget_line)
+    await _motivate(client, vacancy["id"])
     await client.post(
         f"{BASE}/{vacancy['id']}/submit", json={"requested_on": "2026-09-28"}
     )
@@ -196,3 +202,29 @@ async def test_the_forms_go_when_the_vacancy_has_closed(
     assert removed == 2
     out = (await client.get(url)).json()
     assert out["current"] is None and out["signed"] == []
+
+
+async def test_no_form_and_no_request_while_the_motivation_is_not_settled(
+    client, act_as, manager, beheerder, budget_line, blank_form, test_mapping
+) -> None:
+    await _template(client, act_as, beheerder, blank_form, test_mapping)
+    act_as(manager)
+    vacancy = await _create(client, budget_line)
+    assert vacancy["request_missing"] == ["een vastgestelde aanleiding en motivatie"]
+    url = f"{BASE}/{vacancy['id']}/request-forms"
+
+    standing = (await client.get(url)).json()
+    assert standing["missing"] == ["een vastgestelde aanleiding en motivatie"]
+    refused = await client.post(url)
+    assert refused.status_code == 422
+    assert (
+        "Ontbreekt nog: een vastgestelde aanleiding en motivatie"
+        in (refused.json()["detail"])
+    )
+    refused = await client.post(f"{BASE}/{vacancy['id']}/submit", json={})
+    assert refused.status_code == 422
+    assert "kan nog niet worden aangevraagd" in refused.json()["detail"]
+
+    await _motivate(client, vacancy["id"])
+    assert (await client.get(url)).json()["missing"] == []
+    assert (await client.post(url)).status_code == 201

@@ -113,7 +113,7 @@ export function offerState(offer: QuoteOffer, quote: QuoteSummary): string {
   if (offer.channel === 'document') {
     return quote.acceptance?.form === 'uploaded_pdf'
       ? 'Getekend exemplaar vastgelegd'
-      : 'Meegegeven, wacht op het getekende exemplaar';
+      : 'Als document verstuurd, wacht op het getekende exemplaar';
   }
   const invitation = offer.invitation;
   if (!invitation) return 'Uitgenodigd om te tekenen';

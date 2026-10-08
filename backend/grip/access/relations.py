@@ -52,6 +52,10 @@ class RelationSource(Protocol):
         """The person manages an assignment whose budget covers the cost item."""
         ...
 
+    async def cost_item_is_uncovered(self, cost_item_id: UUID) -> bool:
+        """No budget line carries any part of the cost item yet."""
+        ...
+
     async def is_invited_signer(
         self,
         quote_id: UUID,
@@ -108,6 +112,7 @@ class InMemoryRelationSource:
     line_managers: set[tuple[UUID, UUID]] = field(default_factory=set)
     # (person_id, cost_item_id)
     cost_item_managers: set[tuple[UUID, UUID]] = field(default_factory=set)
+    uncovered_cost_items: set[UUID] = field(default_factory=set)
     # quote_id -> invitations as (invitation_id, lowercased email, person_id)
     invitations: dict[UUID, list[tuple[UUID | None, str | None, UUID | None]]] = field(
         default_factory=dict
@@ -148,6 +153,9 @@ class InMemoryRelationSource:
 
     async def manages_cost_item(self, person_id: UUID, cost_item_id: UUID) -> bool:
         return (person_id, cost_item_id) in self.cost_item_managers
+
+    async def cost_item_is_uncovered(self, cost_item_id: UUID) -> bool:
+        return cost_item_id in self.uncovered_cost_items
 
     async def is_invited_signer(
         self,

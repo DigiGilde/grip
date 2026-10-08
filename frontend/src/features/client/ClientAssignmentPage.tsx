@@ -5,7 +5,14 @@ import { useParams } from 'react-router-dom';
 import { ApiError, errorMessage } from '@/api/client';
 import { STATUS_COLORS, statusLabel } from '@/features/assignments/labels';
 import { Button } from '@/features/assignments/ui';
-import { EmptyNotice, ErrorNotice, Loading, SectionHeading } from '@/ui/layout';
+import {
+  EmptyNotice,
+  ErrorNotice,
+  LoadError,
+  Loading,
+  SectionHeading,
+  NotFound,
+} from '@/ui/layout';
 import { AssignmentContextView } from '@/features/nodes';
 import { QUOTE_STATUS_COLORS, QUOTE_STATUS_LABELS } from '@/features/quotes/api';
 import { formatDateTime } from '@/features/quotes/format';
@@ -284,13 +291,10 @@ export function ClientAssignmentPage() {
         <nldd-container gap="16">
           <BackLink href={clientPath()} text="Terug naar aanvragen" />
           {query.isPending ? <Loading /> : null}
-          {query.isError && notFound ? (
-            <EmptyNotice
-              text="Deze aanvraag is niet gevonden"
-              supportingText="De aanvraag bestaat niet, of je bent er niet bij betrokken."
-            />
+          {query.isError && notFound ? <NotFound what="Deze aanvraag" /> : null}
+          {query.isError && !notFound ? (
+            <LoadError error={query.error} retry={() => void query.refetch()} />
           ) : null}
-          {query.isError && !notFound ? <ErrorNotice message={errorMessage(query.error)} /> : null}
           {assignment ? (
             <>
               <div>
@@ -331,7 +335,9 @@ export function ClientAssignmentPage() {
             {reachable && progress.isPending ? (
               <Loading text="Bezig met opvragen bij de opdrachtnemer" />
             ) : null}
-            {progress.isError ? <ErrorNotice message={errorMessage(progress.error)} /> : null}
+            {progress.isError ? (
+              <LoadError error={progress.error} retry={() => void progress.refetch()} />
+            ) : null}
             {progress.data ? <ProgressView progress={progress.data} /> : null}
           </nldd-simple-section>
 

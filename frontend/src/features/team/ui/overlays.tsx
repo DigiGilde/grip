@@ -1,6 +1,7 @@
 import { useId, useLayoutEffect, useRef, type FormEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { orUndef, useNlddEvent } from '@/components/nldd/events';
+import { useFormMessage } from '@/ui/layout/formMessage';
 import { Button } from './controls';
 import './nldd';
 
@@ -79,14 +80,18 @@ interface FormProps {
  * own child, so React keeps control of the fields and Enter submits.
  */
 export function Form({ onSubmit, submitText, submitting, error, children }: FormProps) {
+  const formRef = useRef<HTMLFormElement>(null);
+  // The message goes once the reader changes a field; see useFormMessage.
+  const message = useFormMessage(formRef, error);
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    message.submitted();
     if (!submitting) onSubmit();
   };
   return (
     <nldd-form>
-      <form onSubmit={handleSubmit} noValidate>
-        {error ? <nldd-banner variant="critical" text={error} /> : null}
+      <form ref={formRef} onSubmit={handleSubmit} noValidate>
+        {message.shown ? <nldd-banner variant="critical" text={message.shown} /> : null}
         {children}
         <nldd-form-actions>
           <nldd-button-group>

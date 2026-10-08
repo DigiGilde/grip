@@ -108,6 +108,23 @@ export function closeMonth(
   }).then(monthDetail);
 }
 
+/** What a month comes to at the entered percentages; changes nothing. */
+export interface MonthPreview {
+  month: string;
+  lines: { allocation_id: string; amount_cents?: number }[];
+  total_cents?: number;
+}
+
+export function previewMonth(
+  assignmentId: string,
+  month: string,
+  established: { allocation_id: string; fte_pct: string }[],
+): Promise<MonthPreview> {
+  return apiPost<MonthPreview>(`/api/assignments/${assignmentId}/months/${month}/preview`, {
+    established,
+  });
+}
+
 export function reopenMonth(
   assignmentId: string,
   month: string,

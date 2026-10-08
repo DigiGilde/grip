@@ -18,16 +18,17 @@ import {
   TextInput,
 } from '@/features/vacancies/ui';
 import {
-  EmptyNotice,
   ErrorNotice,
+  type Fact,
   Facts,
   FormSheet,
+  LoadError,
   Loading,
   Page,
   Quiet,
   Section,
   SectionHeading,
-  type Fact,
+  NoAccess,
 } from '@/ui/layout';
 import {
   SETUP_KEYS,
@@ -237,7 +238,9 @@ function Templates() {
   return (
     <Section title="Aanvraagformulier">
       {templates.isPending && <Loading />}
-      {templates.isError && <ErrorNotice message={errorMessage(templates.error)} />}
+      {templates.isError && (
+        <LoadError error={templates.error} retry={() => void templates.refetch()} />
+      )}
       {activate.isError && <ErrorNotice message={errorMessage(activate.error)} />}
       {templates.data && (
         <nldd-table
@@ -333,7 +336,7 @@ function LanguageModelSection() {
   return (
     <Section title="Taalmodel">
       {model.isPending && <Loading />}
-      {model.isError && <ErrorNotice message={errorMessage(model.error)} />}
+      {model.isError && <LoadError error={model.error} retry={() => void model.refetch()} />}
       {status.data && <nldd-text>{status.data.provider_text}</nldd-text>}
       {status.data?.note && <Quiet>{status.data.note}</Quiet>}
       {missing.length > 0 && <Quiet>Ontbreekt in de omgeving: {missing.join(', ')}</Quiet>}
@@ -377,7 +380,11 @@ export function VacancySetupPage() {
         spacing="sections"
         back={{ href: PATHS.admin, text: 'Terug naar Beheer' }}
       >
-        {denied ? <EmptyNotice text="Dit is voor beheerders" /> : <Templates />}
+        {denied ? (
+          <NoAccess who="Beheer is voor beheerders. Wie dat zijn zie je onder Team." />
+        ) : (
+          <Templates />
+        )}
         {!denied && !access.isPending ? <LanguageModelSection /> : null}
       </Page>
     </RouterLinks>

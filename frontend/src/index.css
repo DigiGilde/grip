@@ -139,3 +139,37 @@ nldd-simple-section > div:not([slot]) > :not(nldd-spacer) + :not(nldd-spacer) {
     display: block;
   }
 }
+
+/* The head of an open thing: its name, and at the right its one next step. */
+.thing-title-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  column-gap: var(--primitives-space-24);
+  row-gap: var(--primitives-space-16);
+}
+
+.thing-action {
+  flex: none;
+}
+
+/*
+ * The tabs of an open thing: sides of the thing, not buttons. A hairline
+ * under the whole row, text in the colour of text, a line under the tab you
+ * are on. The design system's menu bar item has no tone of its own, so these
+ * set its inner values (as the second navigation bar does); that belongs
+ * upstream as a proposal. The first label starts on the edge of the page.
+ */
+.thing-tabs {
+  border-block-end: var(--semantics-dividers-thickness) solid var(--semantics-dividers-color);
+}
+
+.thing-tabs nldd-menu-bar {
+  margin-inline-start: calc(-1 * var(--semantics-menu-bar-items-inline-padding));
+}
+
+.thing-tabs nldd-menu-bar-item {
+  --_menu-bar-item-font: var(--primitives-font-body-md-medium-flat);
+  --_menu-bar-item-content-color: var(--semantics-content-color);
+}

@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { errorMessage } from '@/api/client';
 import { Button } from '@/features/assignments/ui';
-import { ErrorNotice, Facts, Loading, Stack } from '@/ui/layout';
+import { Facts, LoadError, Loading, Stack } from '@/ui/layout';
 import {
   DECISION_DONE,
   VERIFY_PATH,
@@ -37,7 +36,7 @@ export function DecisionReceipt({ scope, evidenceId, pdfHref }: ReceiptProps) {
     retry: false,
   });
   if (query.isPending) return <Loading />;
-  if (query.isError) return <ErrorNotice message={errorMessage(query.error)} />;
+  if (query.isError) return <LoadError error={query.error} retry={() => void query.refetch()} />;
   const evidence = query.data;
   return (
     <Stack gap="related">

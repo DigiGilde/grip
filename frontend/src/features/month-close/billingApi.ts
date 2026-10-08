@@ -71,6 +71,12 @@ export interface BillingPeriod {
   invoice_numbers?: string[];
   awaits_invoice?: boolean;
   last_step_at: string | null;
+  /** What is to be delivered is only a naverrekening on a period delivered before. */
+  correction?: boolean;
+  /** The day of the latest invoice for the period. */
+  invoiced_on?: string | null;
+  /** Invoiced minus delivered, once every delivery has an invoice. */
+  invoice_difference_cents?: number | null;
 }
 
 export interface NextStep {
@@ -81,6 +87,11 @@ export interface NextStep {
   period_label: string | null;
   amount_cents?: number | null;
   from_date: string | null;
+  /** For "deliver": only a naverrekening, with what happened to the period itself. */
+  correction?: boolean;
+  invoice_numbers?: string[];
+  invoiced_on?: string | null;
+  delivered_on?: string | null;
 }
 
 export interface BillingOverview {
@@ -159,6 +170,8 @@ export function deliveryCsvUrl(deliveryId: string): string {
 
 export interface BillingAcross {
   assignments: BillingOverview[];
+  /** False when the reader may see the money of no assignment: the page is then not theirs. */
+  reads_money?: boolean;
   can_mail: boolean;
 }
 

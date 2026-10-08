@@ -320,7 +320,7 @@ describe('QuotePage', () => {
     });
     await waitFor(() => expect(primaries(container)).toEqual(['Leg getekende pdf vast']));
     expect(container.querySelector('nldd-card [data-offer]')?.textContent).toContain(
-      'Meegegeven, wacht op het getekende exemplaar',
+      'Als document verstuurd, wacht op het getekende exemplaar',
     );
   });
 
@@ -342,6 +342,29 @@ describe('QuotePage', () => {
       'De opdrachtgever gebruikt grip nog niet.',
     );
     expect(document.body.textContent).not.toContain('instantie');
+  });
+
+  it('chooses no channel for the person and shows the choice', async () => {
+    await renderTab({ quotes: [QUOTE] });
+    const sheet = [...document.body.querySelectorAll('nldd-sheet')].find(
+      (el) => el.querySelector('nldd-title')?.getAttribute('text') === 'Offerte aanbieden',
+    ) as Element;
+    await waitFor(() => expect(sheet.querySelectorAll('nldd-list-item')).toHaveLength(3));
+    const rows = [...sheet.querySelectorAll('nldd-list-item')];
+    // Every row draws a radio, and none is chosen yet.
+    expect(rows.every((row) => row.querySelector('nldd-radio-button[decorative]'))).toBe(true);
+    expect(rows.some((row) => row.hasAttribute('checked'))).toBe(false);
+    const submit = sheet.querySelector('nldd-button[type="submit"]');
+    expect(submit?.hasAttribute('disabled')).toBe(true);
+    expect(sheet.textContent).toContain('Kies eerst hoe de opdrachtgever de offerte krijgt.');
+    // Choosing one marks it and frees the button.
+    const document_ = rows.find(
+      (row) => row.querySelector('nldd-text-cell')?.getAttribute('text') === 'Als document',
+    ) as Element;
+    document_.dispatchEvent(new CustomEvent('change', { detail: { checked: true } }));
+    await waitFor(() => expect(document_.hasAttribute('checked')).toBe(true));
+    expect(document_.querySelector('nldd-radio-button')?.hasAttribute('checked')).toBe(true);
+    expect(sheet.querySelector('nldd-button[type="submit"]')?.hasAttribute('disabled')).toBe(false);
   });
 
   it('gives a reader the card without actions', async () => {
@@ -421,7 +444,10 @@ describe('QuotePage', () => {
     expect(container.textContent).toContain(
       'De begroting is gewijzigd sinds deze offerte; het totaal is gelijk gebleven.',
     );
-    expect(primaries(container)).toEqual(['Bied aan']);
+    // Offering the old quote would send amounts that no longer hold: the
+    // card's next step is the new quote.
+    expect(primaries(container)).toEqual(['Maak nieuwe offerte']);
+    expect(texts(container, 'nldd-button')).not.toContain('Bied aan');
   });
 
   it('names the new total when it changed, and proposes nothing while the budget stands', async () => {

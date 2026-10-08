@@ -4,6 +4,7 @@ import { renderApp } from '@/test/utils';
 import { AssignmentShellContext } from '../shell';
 import { referenceText, signalText, varianceText, varianceWord } from '../financeText';
 import { FIGURES, allText, assignment, finance, mockApi, plain } from '../testing';
+import { startingYear } from '@/features/overview/years';
 import { FinanceTab } from './FinanceTab';
 
 afterEach(() => vi.unstubAllGlobals());
@@ -223,5 +224,24 @@ describe('finance wording', () => {
     expect(plain(text.text)).toContain('Vrije ruimte op Ontwerper');
     expect(text.text).toContain('18,5%');
     expect(text.text).toContain('drempel van 10%');
+  });
+});
+
+describe('the year the tab opens on', () => {
+  const now = new Date('2026-10-08T12:00:00');
+
+  it('is this year when the assignment runs in it', () => {
+    expect(startingYear('2026-01-01', '2026-12-31', now)).toBe('2026');
+    expect(startingYear('2025-07-01', '2027-06-30', now)).toBe('2026');
+    expect(startingYear(null, null, now)).toBe('2026');
+  });
+
+  it('is the first year of an assignment that lies in another year', () => {
+    expect(startingYear('2027-01-01', '2027-12-31', now)).toBe('2027');
+    expect(startingYear('2025-01-01', '2025-12-31', now)).toBe('2025');
+  });
+
+  it('is the whole period when that year is not on offer', () => {
+    expect(startingYear('2031-01-01', '2031-12-31', now)).toBe('all');
   });
 });

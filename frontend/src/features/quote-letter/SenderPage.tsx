@@ -1,23 +1,24 @@
+import { QUOTE_SECTION_MARKS } from '@/ui/text/marks';
+import { TextEditor } from '@/ui/TextEditor';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ApiError, errorMessage } from '@/api/client';
+import { errorMessage } from '@/api/client';
 import { Button, TextInput } from '@/features/assignments/ui';
 import { CheckboxInput } from '@/features/quotes/ui';
 import { useInstance } from '@/layout/useInstance';
 import { PATHS } from '@/paths';
 import { OpenCell, OpenRow, ROW_ACTIONS_COLUMN, RowActions, type RowAction } from '@/ui/RowActions';
 import {
-  EmptyNotice,
-  ErrorNotice,
+  type Fact,
   Facts,
   FormFields,
   FormSheet,
+  LoadError,
   Loading,
   Page,
   Quiet,
   Section,
   Stack,
-  type Fact,
 } from '@/ui/layout';
 import {
   applyProfile,
@@ -57,9 +58,6 @@ const NEW_BLOCK: TextBlock = {
   draftable: true,
   required: false,
 };
-
-const MARKS_HINT =
-  'Een lege regel begint een alinea. Een regel met "- " is een opsomming, met "1. " een genummerde lijst. **vet** en *cursief*.';
 
 /** Who sends the quotes of this instance, and with which standard texts. For the beheerder. */
 /** Only what is filled in: an empty line says nothing about the sender. */
@@ -154,7 +152,6 @@ export function SenderPage() {
     },
   ];
 
-  const forbidden = query.error instanceof ApiError && query.error.status === 403;
   const set = (change: Partial<Sender>) => setSender((now) => (now ? { ...now, ...change } : now));
 
   return (
@@ -166,8 +163,13 @@ export function SenderPage() {
         back={{ href: PATHS.admin, text: 'Terug naar Beheer' }}
       >
         {query.isPending ? <Loading /> : null}
-        {query.isError && forbidden ? <EmptyNotice text="Beheer is voor beheerders" /> : null}
-        {query.isError && !forbidden ? <ErrorNotice message={errorMessage(query.error)} /> : null}
+        {query.isError ? (
+          <LoadError
+            error={query.error}
+            retry={() => void query.refetch()}
+            who="Beheer is voor beheerders. Wie dat zijn zie je onder Team."
+          />
+        ) : null}
 
         {data && !data.sender.organisation ? (
           // Nothing filled in yet: the page has one job, and says so first.
@@ -448,14 +450,15 @@ export function SenderPage() {
           onChange={(heading) => setBlock((now) => ({ ...now, heading }))}
           required
         />
-        <TextInput
+        <TextEditor
           label="Standaardtekst"
-          hint={`Leeg laten voor een onderdeel dat je per offerte schrijft. ${MARKS_HINT}${
+          hint={`Leeg laten voor een onderdeel dat je per offerte schrijft.${
             data ? ` Tussen accolades vult grip in: ${data.placeholders.join(', ')}.` : ''
           }`}
           value={block.body}
           onChange={(body) => setBlock((now) => ({ ...now, body }))}
-          multiline
+          marks={QUOTE_SECTION_MARKS}
+          rows={10}
           optional
         />
         <TextInput
@@ -510,12 +513,13 @@ export function SenderPage() {
           multiline
           optional
         />
-        <TextInput
+        <TextEditor
           label="Afsluiting"
-          hint={`De tekst na het laatste onderdeel, voor het tekenblok. ${MARKS_HINT}`}
+          hint="De tekst na het laatste onderdeel, voor het tekenblok."
           value={letter?.closing ?? ''}
           onChange={(closing) => setLetter((now) => (now ? { ...now, closing } : now))}
-          multiline
+          marks={QUOTE_SECTION_MARKS}
+          rows={6}
           optional
         />
         <CheckboxInput

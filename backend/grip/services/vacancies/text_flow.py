@@ -748,7 +748,7 @@ async def tailored_input(
         contract_type=ContractType(vacancy.contract_type)
         if vacancy.contract_type
         else None,
-        assignment_name=values.get("opdracht"),
+        assignment_name=values.get(library.ASSIGNMENT_NAME),
         client_name=client_name,
         unit_name=values.get("eenheid"),
         context=tuple(context),

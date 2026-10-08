@@ -39,6 +39,14 @@ function ChannelRow({
       checked={orUndef(checked && option.available)}
       disabled={orUndef(!option.available)}
     >
+      {/* The row is the radio; this only draws its shape, so the choice shows. */}
+      <nldd-cell width="32px">
+        <nldd-radio-button
+          decorative
+          checked={orUndef(checked && option.available)}
+          disabled={orUndef(!option.available)}
+        />
+      </nldd-cell>
       <nldd-text-cell
         text={OFFER_CHANNEL_LABELS[option.channel] ?? option.channel}
         supporting-text={line}
@@ -75,13 +83,14 @@ export function OfferSheet({
   const options = ORDER.map((name) => channels.find((option) => option.channel === name)).filter(
     (option): option is QuoteChannel => option !== undefined,
   );
-  const suggested =
-    options.find((option) => option.suggested && option.available) ??
-    options.find((option) => option.available);
+  // No channel is chosen for the person: offering is the moment the quote
+  // leaves, and a default would send it a way nobody picked.
   const [chosen, setChosen] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [problem, setProblem] = useState<string | null>(null);
-  const channel = (chosen ?? suggested?.channel ?? null) as OfferChannel | null;
+  const channel = (
+    options.some((option) => option.channel === chosen && option.available) ? chosen : null
+  ) as OfferChannel | null;
 
   return (
     <FormSheet
@@ -89,6 +98,7 @@ export function OfferSheet({
       title="Offerte aanbieden"
       submitText="Bied aan"
       busy={busy}
+      submitDisabled={channel === null}
       error={problem ?? error}
       onClose={() => {
         setProblem(null);
@@ -117,6 +127,7 @@ export function OfferSheet({
           />
         ))}
       </nldd-list>
+      {channel === null ? <Quiet>Kies eerst hoe de opdrachtgever de offerte krijgt.</Quiet> : null}
       {channel === 'signing_link' ? (
         <TextInput
           label="E-mailadres van wie tekent"

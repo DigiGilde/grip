@@ -23,6 +23,11 @@ export interface DraftSection {
   origin: SectionOrigin | string;
   /** False for a text the model drafted that nobody saved yet. */
   settled: boolean;
+  /**
+   * How a model draft came about. `context` says whether the policy context
+   * from the corpus went along: used, none to give, or not reachable.
+   */
+  generated?: { context?: 'used' | 'none' | 'unreachable' } | null;
   /** Counts up with every save; sent back so nobody overwrites a colleague unseen. */
   version?: number;
   changed_by?: string | null;
@@ -47,6 +52,10 @@ export interface QuoteDraft {
   /** Whether a language model can be asked at all. */
   drafting_available: boolean;
   problems: { key: string; problem: string }[];
+  /** What the sender still lacks for this letter, as one sentence; null when complete. */
+  sender_problem?: string | null;
+  /** Whether this reader can fill that in under Beheer. */
+  may_set_sender?: boolean;
   subject: string;
   addressee: string[];
   salutation: string;

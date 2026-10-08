@@ -15,6 +15,8 @@ export interface RequestForms {
   /** The instance has a blank form in use. */
   available: boolean;
   may_make: boolean;
+  /** What the vacancy lacks before a form can be made; empty when it can. */
+  missing?: string[];
   /** The newest kept form; null when none was made yet. */
   current: KeptForm | null;
   earlier: KeptForm[];

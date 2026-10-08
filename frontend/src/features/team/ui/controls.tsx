@@ -1,6 +1,9 @@
+import { Button as SharedButton, QuietButton } from '@/ui/Button';
+import { TextField as SharedTextField } from '@/ui/fields';
 import { useRef, type ReactNode } from 'react';
 import { orUndef, useNlddEvent } from '@/components/nldd/events';
 import './nldd';
+import { dateFieldRange } from '@/ui/dateRange';
 
 function eventValue(event: Event): string {
   const detail = (event as CustomEvent<{ value?: unknown }>).detail;
@@ -23,32 +26,15 @@ interface ButtonProps {
   accessibleLabel?: string;
 }
 
-/** An nldd-button with a click handler bound on the element itself. */
-export function Button({
-  text,
-  onClick,
-  appearance = 'secondary',
-  size,
-  type = 'button',
-  loading,
-  disabled,
-  slot,
-  accessibleLabel,
-}: ButtonProps) {
-  const ref = useRef<HTMLElement>(null);
-  useNlddEvent(ref, 'click', onClick);
-  return (
-    <nldd-button
-      ref={ref}
-      text={text}
-      appearance={appearance}
-      type={type}
-      {...(size ? { size } : {})}
-      {...(slot ? { slot } : {})}
-      {...(accessibleLabel ? { 'accessible-label': accessibleLabel } : {})}
-      loading={orUndef(loading)}
-      disabled={orUndef(disabled)}
-    />
+/**
+ * A button of the shared three ranks (`@/ui/Button`). The quiet appearance
+ * exists here only for "Annuleer", the way out of a form.
+ */
+export function Button({ appearance = 'secondary', type = 'button', ...rest }: ButtonProps) {
+  return appearance === 'neutral-transparent' ? (
+    <QuietButton type={type} {...rest} />
+  ) : (
+    <SharedButton appearance={appearance} type={type} {...rest} />
   );
 }
 
@@ -76,40 +62,9 @@ interface TextFieldProps extends FieldProps {
   autocomplete?: string;
 }
 
-/** A labelled text field. The form field hands the label to the input. */
-export function TextField({
-  label,
-  value,
-  onChange,
-  supportingLabel,
-  optional,
-  invalid,
-  type,
-  keyboard,
-  required,
-  autocomplete,
-  children,
-}: TextFieldProps) {
-  const ref = useRef<HTMLElement>(null);
-  useNlddEvent(ref, 'input', (event) => onChange(eventValue(event)));
-  return (
-    <nldd-form-field
-      label={label}
-      {...(supportingLabel ? { 'supporting-label': supportingLabel } : {})}
-      optional={orUndef(optional)}
-    >
-      <nldd-text-field
-        ref={ref}
-        value={value}
-        {...(type ? { type } : {})}
-        {...(keyboard ? { keyboard } : {})}
-        {...(autocomplete ? { autocomplete } : {})}
-        required={orUndef(required)}
-        invalid={orUndef(invalid)}
-      />
-      {children}
-    </nldd-form-field>
-  );
+/** A labelled field of one line: the shared one (`@/ui/fields`). */
+export function TextField({ supportingLabel, width: _width, ...field }: TextFieldProps) {
+  return <SharedTextField {...field} {...(supportingLabel ? { hint: supportingLabel } : {})} />;
 }
 
 interface DateFieldProps extends FieldProps {
@@ -141,6 +96,7 @@ export function DateField({
         <nldd-date-field
           ref={ref}
           value={value}
+          {...dateFieldRange()}
           required={orUndef(required)}
           invalid={orUndef(invalid)}
         />

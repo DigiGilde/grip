@@ -57,6 +57,7 @@ import {
   SelectInput,
   TextInput,
 } from './ui';
+import { LoadError } from '@/ui/layout';
 
 function LineSheet({
   assignmentId,
@@ -84,6 +85,8 @@ function LineSheet({
   const at = (field: LineField) => (fieldProblem?.field === field ? fieldProblem.message : '');
   // The person whose implications still have to be filled in; empty for none.
   const [applyFor, setApplyFor] = useState('');
+  // The scale that stood on the line before the intended person replaced it.
+  const [replacedCategory, setReplacedCategory] = useState('');
   const [seenSession, setSeenSession] = useState(session);
   if (seenSession !== session) {
     setSeenSession(session);
@@ -134,6 +137,13 @@ function LineSheet({
   // the fields are the user's to change.
   if (applyFor && derivation && derivation.intended_person_id === applyFor) {
     setApplyFor('');
+    // A scale that was already chosen and now changes is said, not swapped
+    // in silence.
+    setReplacedCategory(
+      derivation.rate_category && form.category && form.category !== derivation.rate_category
+        ? form.category
+        : '',
+    );
     setForm((current) => ({
       ...current,
       ...(derivation.rate_category ? { category: derivation.rate_category } : {}),
@@ -151,6 +161,10 @@ function LineSheet({
     }));
   }
   const impliedCategory = derivation?.rate_category ?? '';
+  const replacedNote =
+    replacedCategory && impliedCategory && form.category === impliedCategory
+      ? `De schaal van de regel is gewijzigd van ${categoryText(card, replacedCategory)} naar ${categoryText(card, impliedCategory)}: de schaal van de beoogde persoon. Je kunt hieronder een andere kiezen.`
+      : '';
   const followsPerson = impliedCategory !== '' && form.category === impliedCategory;
   const departsFromPerson = impliedCategory !== '' && form.category !== '' && !followsPerson;
 
@@ -227,7 +241,10 @@ function LineSheet({
           (followsPerson ? `Volgt uit de beoogde persoon. ${cardNote}`.trim() : cardNote)
         }
         value={form.category}
-        onChange={(category) => set({ category })}
+        onChange={(category) => {
+          setReplacedCategory('');
+          set({ category });
+        }}
         placeholder="Kies een schaal"
         options={RATE_CATEGORIES.map((c) => ({ value: c, label: categoryOptionText(card, c) }))}
         required={!form.personId}
@@ -301,6 +318,9 @@ function LineSheet({
               {...(resultLines.length > 0 ? { 'supporting-text': resultLines.join(' ') } : {})}
             />
           )}
+          {replacedNote ? (
+            <nldd-banner variant="warning" size="sm" text={replacedNote} data-replaced-scale />
+          ) : null}
           {form.personId && roleChoices.length > 0 && (
             <nldd-button-group>
               {roleChoices.map((choice) => (
@@ -509,7 +529,7 @@ export function BudgetEditor({ assignmentId, actions = [] }: BudgetEditorProps) 
   return (
     <nldd-container gap="24">
       {query.isPending && <Loading />}
-      {query.isError && <ErrorNotice message={errorMessage(query.error)} />}
+      {query.isError && <LoadError error={query.error} retry={() => void query.refetch()} />}
       {problem && <ErrorNotice message={problem} />}
       {budget?.period_missing && budget.period_message && (
         <nldd-banner variant="neutral" size="sm" text={budget.period_message} />

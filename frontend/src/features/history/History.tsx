@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
-import { errorMessage } from '@/api/client';
 import { useAuth } from '@/auth/context';
 import { useInstance } from '@/layout/useInstance';
 import { PATHS } from '@/paths';
 import { Button } from '@/features/team/ui/controls';
 import { ActionBar } from '@/ui/ActionBar';
-import { EmptyNotice, ErrorNotice, Loading, Page, Quiet, Stack } from '@/ui/layout';
+import { EmptyNotice, LoadError, Loading, Page, Quiet, Stack, NoAccess } from '@/ui/layout';
 import {
   HISTORY_KEYS,
   PAGE_SIZE,
@@ -86,7 +85,7 @@ function HistoryList({
   }, [rows.length, hasNextPage, isFetchingNextPage, fetchNextPage, pages]);
 
   if (query.isPending) return <Loading />;
-  if (query.isError) return <ErrorNotice message={errorMessage(query.error)} />;
+  if (query.isError) return <LoadError error={query.error} retry={() => void query.refetch()} />;
   if (rows.length === 0 && query.isFetchingNextPage) return <Loading />;
   if (rows.length === 0 && !query.hasNextPage) return <EmptyNotice text="Nog niets gebeurd" />;
   if (rows.length === 0)
@@ -265,7 +264,7 @@ export function ActivityPage() {
           />
         </>
       ) : (
-        <EmptyNotice text="Activiteit is voor beheerders" />
+        <NoAccess who="Activiteit is voor beheerders. Wie dat zijn zie je onder Team." />
       )}
     </Page>
   );

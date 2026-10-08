@@ -1,11 +1,10 @@
 import { useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { errorMessage } from '@/api/client';
 import { QUOTE_STATUS_LABELS } from '@/features/quotes/api';
 import { useInstance } from '@/layout/useInstance';
 import { useRouterLinks } from '@/layout/useRouterLinks';
 import { formatDate } from '@/lib/format';
-import { EmptyNotice, ErrorNotice, Loading, Page } from '@/ui/layout';
+import { EmptyNotice, LoadError, Loading, Page } from '@/ui/layout';
 import { fetchSigningInvitations, signingKeys } from './api';
 
 /** What the reader can do with a quote, in the word of the action. */
@@ -27,7 +26,7 @@ export function SigningListPage() {
   return (
     <Page title="Offertes om te tekenen" instanceName={instance?.name} width="960px">
       {query.isPending ? <Loading /> : null}
-      {query.isError ? <ErrorNotice message={errorMessage(query.error)} /> : null}
+      {query.isError ? <LoadError error={query.error} retry={() => void query.refetch()} /> : null}
       {query.data && invitations.length === 0 ? (
         <EmptyNotice
           text="Er staat geen offerte voor je klaar"

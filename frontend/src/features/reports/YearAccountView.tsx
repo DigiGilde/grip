@@ -1,8 +1,7 @@
 import { DocumentLink } from '@/ui/Icon';
 import { useQuery } from '@tanstack/react-query';
-import { errorMessage } from '@/api/client';
 import { STATUS_COLORS, statusLabel } from '@/features/assignments/labels';
-import { EmptyNotice, ErrorNotice, Loading } from '@/ui/layout';
+import { EmptyNotice, LoadError, Loading } from '@/ui/layout';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { fetchYearAccount, reportKeys, yearAccountCsvUrl, type YearAccountRow } from './api';
 import { KIND_LABELS, scopeNote } from './labels';
@@ -64,7 +63,7 @@ export function YearAccountView({ year, bare }: { year: string; bare?: boolean }
     queryFn: () => fetchYearAccount(year),
   });
   if (query.isPending) return <Loading />;
-  if (query.isError) return <ErrorNotice message={errorMessage(query.error)} />;
+  if (query.isError) return <LoadError error={query.error} retry={() => void query.refetch()} />;
   const account = query.data;
   const rows = account.rows ?? [];
   if (rows.length === 0) {

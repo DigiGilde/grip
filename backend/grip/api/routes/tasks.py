@@ -21,9 +21,14 @@ from grip.core.config import Settings, get_settings
 from grip.core.database import get_db
 from grip.models.task import Task
 from grip.schema.tasks import (
+    CaseCourseOut,
+    CaseCoursesOut,
     CaseKind,
     CaseTasksOut,
     ChecklistItemOut,
+    CourseNextOut,
+    CourseOut,
+    CourseStepOut,
     TaskCountsOut,
     TaskCreateIn,
     TaskListOut,
@@ -34,7 +39,7 @@ from grip.schema.tasks import (
     TrackOut,
 )
 from grip.services.errors import NotFoundError
-from grip.tasks import catalogue, engine, service
+from grip.tasks import catalogue, course, engine, service
 from grip.tasks.access import TaskAccess
 from grip.tasks.handlers import register_task_handlers
 from grip.tasks.service import TaskView
@@ -234,6 +239,148 @@ async def list_case_tasks(
                 )
                 for track in tracks
             ],
+        ),
+        _CLASSES,
+    )
+
+
+def _course_out(view: course.CourseView) -> CourseOut:
+    told = view.next
+    return CourseOut(
+        key=view.key,
+        label=view.label,
+        subject=view.subject,
+        subject_key=view.subject_key,
+        subject_label=view.subject_label,
+        steps=[
+            CourseStepOut(key=s.key, label=s.label, state=s.state, note=s.note)
+            for s in view.steps
+        ],
+        current_key=view.current_key,
+        current_label=view.current_label,
+        position=view.position,
+        next=CourseNextOut(
+            mine=told.mine,
+            headline=told.headline,
+            sentence=told.sentence,
+            who=told.who,
+            since=told.since,
+            due_on=told.due_on,
+            overdue=told.overdue,
+            action_text=told.action_text,
+            action_href=told.action_href,
+            missing=list(told.missing),
+            blocked=told.blocked,
+            task_id=told.task_id,
+            task_key=told.task_key,
+        )
+        if told
+        else None,
+        ended=view.ended,
+        more_to_do=view.more_to_do,
+        more_waiting=view.more_waiting,
+    )
+
+
+def _case_course_out(
+    case_kind: str, case_id: UUID, views: list[course.CourseView]
+) -> CaseCourseOut:
+    own = next((view for view in views if view.subject == "case"), None)
+    return CaseCourseOut(
+        case_kind=case_kind,
+        case_id=case_id,
+        course=_course_out(own) if own else None,
+        parts=[_course_out(view) for view in views if view.subject != "case"],
+    )
+
+
+@router.get("/cases/{case_kind}/{case_id}/course", response_model=None)
+async def read_case_course(
+    case_kind: CaseKind,
+    case_id: UUID,
+    subject: CurrentSubject,
+    decider: AccessDecider,
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, Any]:
+    """Where one assignment or vacancy stands, whose move it is and what
+    that person must do. Read from the same facts as its tasks."""
+    access = _access(db, decider, subject)
+    rights = await access.case(
+        case_kind,
+        case_id if case_kind == "assignment" else None,
+        case_id if case_kind == "vacancy" else None,
+    )
+    if not rights.read:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Niet gevonden"
+        )
+    today = date.today()
+    if case_kind == "assignment":
+        await engine.evaluate_assignments(
+            db, {case_id}, today=today, instance_base_uri=settings.INSTANCE_BASE_URI
+        )
+    else:
+        await engine.evaluate_vacancies(db, {case_id})
+    views = await course.of_case(
+        db,
+        access,
+        case_kind,
+        case_id,
+        today=today,
+        instance_base_uri=settings.INSTANCE_BASE_URI,
+    )
+    return build_response(_case_course_out(case_kind, case_id, views), _CLASSES)
+
+
+@router.get("/courses", response_model=None)
+async def list_courses(
+    subject: CurrentSubject,
+    decider: AccessDecider,
+    case_kind: CaseKind = Query(...),
+    ids: str = Query("", max_length=8000),
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, Any]:
+    """Where each of the named cases stands, for a list. A case the reader
+    may not read is left out without a word."""
+    access = _access(db, decider, subject)
+    wanted: set[UUID] = set()
+    for raw in ids.split(","):
+        try:
+            wanted.add(UUID(raw.strip()))
+        except ValueError:
+            continue
+    readable: set[UUID] = set()
+    for case_id in list(wanted)[:200]:
+        rights = await access.case(
+            case_kind,
+            case_id if case_kind == "assignment" else None,
+            case_id if case_kind == "vacancy" else None,
+        )
+        if rights.read:
+            readable.add(case_id)
+    today = date.today()
+    if case_kind == "assignment":
+        await engine.evaluate_assignments(
+            db, readable, today=today, instance_base_uri=settings.INSTANCE_BASE_URI
+        )
+    else:
+        await engine.evaluate_vacancies(db, readable)
+    found = await course.of_cases(
+        db,
+        access,
+        case_kind,
+        readable,
+        today=today,
+        instance_base_uri=settings.INSTANCE_BASE_URI,
+    )
+    return build_response(
+        CaseCoursesOut(
+            items=[
+                _case_course_out(case_kind, case_id, views)
+                for case_id, views in found.items()
+            ]
         ),
         _CLASSES,
     )

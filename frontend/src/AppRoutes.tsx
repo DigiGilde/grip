@@ -10,6 +10,7 @@ import { PATHS } from '@/paths';
 import { AllocationsPage } from '@/features/allocations/AllocationsPage';
 import { AssignmentLayout } from '@/features/assignments/AssignmentLayout';
 import { ASSIGNMENT_TAB_SEGMENTS } from '@/features/assignments/paths';
+import { AssignmentTab } from '@/features/assignments/TabGuard';
 import { BudgetTab } from '@/features/assignments/tabs/BudgetTab';
 import { FinanceTab } from '@/features/assignments/tabs/FinanceTab';
 import { OverviewTab } from '@/features/assignments/tabs/OverviewTab';
@@ -37,6 +38,7 @@ import { VerifyProofPage } from '@/features/quotes/VerifyProofPage';
 import { SigningLayout } from '@/features/signing/SigningLayout';
 import { SigningListPage } from '@/features/signing/SigningListPage';
 import { SigningPage } from '@/features/signing/SigningPage';
+import { AdminOnly } from '@/pages/AdminOnly';
 import { OrganisationsAdminPage } from '@/features/organisations/OrganisationsAdminPage';
 import { RolesAdminPage } from '@/features/roles/RolesAdminPage';
 import { PeersPage } from '@/features/peers/PeersPage';
@@ -65,7 +67,9 @@ import {
   RequestTab,
   TextTab,
 } from '@/features/vacancies/tabs/VacancyTabs';
+import { VacancyTab } from '@/features/vacancies/TabGuard';
 import { VacancyLayout } from '@/features/vacancies/VacancyLayout';
+import { VacancyTextPage } from '@/features/vacancies/VacancyTextPage';
 import type { ReactElement } from 'react';
 
 /**
@@ -121,11 +125,46 @@ export function AppRoutes() {
         <Route path={PATHS.assignmentDetail} element={<AssignmentLayout />}>
           <Route index element={<OverviewTab />} />
           <Route path={ASSIGNMENT_TAB_SEGMENTS.tasks} element={<AssignmentTasksTab />} />
-          <Route path={ASSIGNMENT_TAB_SEGMENTS.finance} element={<FinanceTab />} />
-          <Route path={ASSIGNMENT_TAB_SEGMENTS.staffing} element={<StaffingTab />} />
-          <Route path={ASSIGNMENT_TAB_SEGMENTS.budget} element={<BudgetTab />} />
-          <Route path={ASSIGNMENT_TAB_SEGMENTS.quote} element={<QuotePage />} />
-          <Route path={ASSIGNMENT_TAB_SEGMENTS.monthClose} element={<MonthClosePage />} />
+          <Route
+            path={ASSIGNMENT_TAB_SEGMENTS.finance}
+            element={
+              <AssignmentTab tab="finance">
+                <FinanceTab />
+              </AssignmentTab>
+            }
+          />
+          <Route
+            path={ASSIGNMENT_TAB_SEGMENTS.staffing}
+            element={
+              <AssignmentTab tab="staffing">
+                <StaffingTab />
+              </AssignmentTab>
+            }
+          />
+          <Route
+            path={ASSIGNMENT_TAB_SEGMENTS.budget}
+            element={
+              <AssignmentTab tab="budget">
+                <BudgetTab />
+              </AssignmentTab>
+            }
+          />
+          <Route
+            path={ASSIGNMENT_TAB_SEGMENTS.quote}
+            element={
+              <AssignmentTab tab="quote">
+                <QuotePage />
+              </AssignmentTab>
+            }
+          />
+          <Route
+            path={ASSIGNMENT_TAB_SEGMENTS.monthClose}
+            element={
+              <AssignmentTab tab="monthClose">
+                <MonthClosePage />
+              </AssignmentTab>
+            }
+          />
           <Route path={ASSIGNMENT_TAB_SEGMENTS.history} element={<AssignmentHistoryTab />} />
         </Route>
         <Route path={PATHS.activity} element={<ActivityPage />} />
@@ -142,9 +181,18 @@ export function AppRoutes() {
           <Route path={VACANCY_TAB_SEGMENTS.decisions} element={<DecisionsTab />} />
           <Route path={VACANCY_TAB_SEGMENTS.text} element={<TextTab />} />
           <Route path={VACANCY_TAB_SEGMENTS.procedure} element={<ProcedureTab />} />
-          <Route path={VACANCY_TAB_SEGMENTS.fulfilment} element={<FulfilmentTab />} />
+          <Route
+            path={VACANCY_TAB_SEGMENTS.fulfilment}
+            element={
+              <VacancyTab tab="fulfilment">
+                <FulfilmentTab />
+              </VacancyTab>
+            }
+          />
           <Route path={VACANCY_TAB_SEGMENTS.history} element={<VacancyHistoryTab />} />
         </Route>
+        {/* Writing the vacancy text is a page of its own, outside the tabs. */}
+        <Route path={PATHS.vacancyTextWrite} element={<VacancyTextPage />} />
         <Route path={PATHS.clientRequest} element={<RequestQuotePage />} />
         <Route path={PATHS.clientAssignment} element={<ClientAssignmentPage />} />
         <Route path={PATHS.receivedQuote} element={<ReceivedQuotePage />} />
@@ -154,8 +202,22 @@ export function AppRoutes() {
         <Route path={PATHS.quoteSettings} element={<QuoteSettingsPage />} />
         <Route path={PATHS.quoteSender} element={<SenderPage />} />
         <Route path={PATHS.peers} element={<PeersPage />} />
-        <Route path={PATHS.organisations} element={<OrganisationsAdminPage />} />
-        <Route path={PATHS.roles} element={<RolesAdminPage />} />
+        <Route
+          path={PATHS.organisations}
+          element={
+            <AdminOnly title="Organisaties">
+              <OrganisationsAdminPage />
+            </AdminOnly>
+          }
+        />
+        <Route
+          path={PATHS.roles}
+          element={
+            <AdminOnly title="Rollen">
+              <RolesAdminPage />
+            </AdminOnly>
+          }
+        />
         <Route path={PATHS.rates} element={<RatesPage />} />
         <Route path={PATHS.teamPerson} element={<PersonPage />} />
         <Route path={PATHS.costItem} element={<CostItemPage />} />

@@ -1,7 +1,6 @@
 import { useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { errorMessage } from '@/api/client';
 import {
   NOTHING_PLANNED_TEXT,
   nothingPlanned,
@@ -23,15 +22,15 @@ import { useRouterLinks } from '@/layout/useRouterLinks';
 import { formatEuro, formatMonth } from '@/lib/format';
 import { ActionBar } from '@/ui/ActionBar';
 import {
-  KeyFigures,
-  SignalList,
   EmptyNotice,
-  ErrorNotice,
+  KeyFigures,
+  LoadError,
   Loading,
   NameLine,
   Page,
   Quiet,
   Section,
+  SignalList,
   Stack,
 } from '@/ui/layout';
 import { OpenRow } from '@/ui/RowActions';
@@ -276,7 +275,7 @@ export function OverviewPage() {
             ]}
           />
           {query.isPending && <Loading />}
-          {query.isError && <ErrorNotice message={errorMessage(query.error)} />}
+          {query.isError && <LoadError error={query.error} retry={() => void query.refetch()} />}
           {query.isSuccess && rows.length === 0 && (
             <EmptyNotice
               text="Er zijn geen opdrachten om te tonen"

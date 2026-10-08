@@ -121,11 +121,18 @@ export function Page({
 
 interface ThingHeadProps extends TitleBlockProps {
   /**
-   * What stands between the title and the tabs: the line that says what
-   * state the thing is in, its key figures or its step bar. Laid out at the
-   * distance between blocks.
+   * What says what state the thing is in, right under its name: one line of
+   * status and facts, its key figures.
    */
   children?: ReactNode;
+  /**
+   * The one next step on the thing, as its primary button. It stands on the
+   * title line at the right (under the title on a narrow screen): part of
+   * the head, never on top of the tabs.
+   */
+  action?: ReactNode;
+  /** The course of the thing (a step bar), between the head and the tabs. */
+  course?: ReactNode;
   /** The tabs of the thing; left out while it is loading or was not found. */
   tabs?: { label: string; items: readonly TabNavItem[]; current: string };
 }
@@ -135,26 +142,41 @@ const NO_BOTTOM_PADDING: object = { 'padding-bottom': '0' };
 
 /**
  * The head of one open thing with tabs (an assignment, a vacancy): where it
- * belongs, its name, what state it is in, and its tabs. Each tab below is a
- * section of its own with its own top padding, so this section has none at
- * the bottom: the two would add up under the tabs.
+ * belongs, its name with its one next step, what state it is in, its course,
+ * and its tabs. Three kinds of thing stay apart: the action in the head, the
+ * course, and the tabs after a clear distance. Each tab below is a section
+ * of its own with its own top padding, so this section has none at the
+ * bottom: the two would add up under the tabs.
  */
-export function ThingHead({ title, lead, instanceName, back, children, tabs }: ThingHeadProps) {
+export function ThingHead({
+  title,
+  lead,
+  instanceName,
+  back,
+  children,
+  action,
+  course,
+  tabs,
+}: ThingHeadProps) {
   return (
     <nldd-simple-section {...NO_BOTTOM_PADDING}>
       {/* The back link is an in-app link; the wrapper carries the header slot. */}
-      {back ? (
-        <RouterLinks slot="header">
-          <nldd-container gap={GAP.close}>
-            <BackLink href={back.href} text={back.text} />
+      <RouterLinks slot="header">
+        <nldd-container gap={GAP.close}>
+          {back && <BackLink href={back.href} text={back.text} />}
+          <div className="thing-title-line">
             <PageHeading text={title} lead={lead} instanceName={instanceName} inline />
-          </nldd-container>
-        </RouterLinks>
-      ) : (
-        <PageHeading text={title} lead={lead} instanceName={instanceName} />
-      )}
-      <Stack gap="group">
-        {children}
+            {action ? <div className="thing-action">{action}</div> : null}
+          </div>
+        </nldd-container>
+      </RouterLinks>
+      <Stack gap="section">
+        {children || course ? (
+          <Stack gap="group">
+            {children}
+            {course}
+          </Stack>
+        ) : null}
         {tabs && <TabNav label={tabs.label} items={tabs.items} current={tabs.current} />}
       </Stack>
     </nldd-simple-section>
@@ -323,11 +345,11 @@ export function Quiet({ children }: { children: ReactNode }) {
 
 /** What a screen shows while loading, on an error, or when there is nothing. */
 export function Loading({ text = 'Bezig met laden' }: { text?: string }) {
-  return <nldd-inline-dialog variant="loading" text={text} />;
+  return <nldd-inline-dialog variant="loading" text={text} data-state="loading" />;
 }
 
 export function ErrorNotice({ message }: { message: string }) {
-  return <nldd-banner variant="critical" size="sm" text={message} />;
+  return <nldd-banner variant="critical" size="sm" text={message} data-state="error" />;
 }
 
 /** An empty state says what can be done here, not only that there is nothing. */
@@ -335,6 +357,7 @@ export function EmptyNotice({ text, supportingText }: { text: string; supporting
   return (
     <nldd-inline-dialog
       text={text}
+      data-state="empty"
       {...(supportingText ? { 'supporting-text': supportingText } : {})}
     />
   );

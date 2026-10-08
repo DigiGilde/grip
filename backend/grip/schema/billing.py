@@ -232,6 +232,13 @@ class BillingPeriodOut(BaseModel):
     # Whether an invoice can be recorded for what was delivered.
     awaits_invoice: Annotated[bool, B] = False
     last_step_at: Annotated[datetime | None, A] = None
+    # What is to be delivered is only a naverrekening on a period that was
+    # delivered before.
+    correction: Annotated[bool, B] = False
+    # The day of the latest invoice for the period.
+    invoiced_on: Annotated[date | None, B] = None
+    # Invoiced minus delivered, once every delivery has an invoice.
+    invoice_difference_cents: Annotated[int | None, B] = None
 
 
 class NextStepOut(BaseModel):
@@ -246,6 +253,12 @@ class NextStepOut(BaseModel):
     amount_cents: Annotated[int | None, B] = None
     # For "none": the first day something can be done, and what.
     from_date: Annotated[date | None, A] = None
+    # For "deliver": only a naverrekening on a period delivered before, with
+    # what happened to the period itself.
+    correction: Annotated[bool, B] = False
+    invoice_numbers: Annotated[list[str], B] = Field(default_factory=list)
+    invoiced_on: Annotated[date | None, B] = None
+    delivered_on: Annotated[date | None, B] = None
 
 
 class BillingOverviewOut(BaseModel):

@@ -4,7 +4,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { ApiError, errorMessage } from '@/api/client';
 import { Button, TextInput } from '@/features/assignments/ui';
-import { EmptyNotice, ErrorNotice, FormSheet, Loading, SectionHeading } from '@/ui/layout';
+import { EmptyNotice, FormSheet, LoadError, Loading, SectionHeading, NotFound } from '@/ui/layout';
 import {
   ACCEPTANCE_FORM_LABELS,
   QUOTE_STATUS_COLORS,
@@ -195,13 +195,10 @@ export function ReceivedQuotePage() {
         <nldd-container gap="16">
           <BackLink href={clientPath('offertes')} text="Terug naar ontvangen offertes" />
           {query.isPending ? <Loading /> : null}
-          {query.isError && notFound ? (
-            <EmptyNotice
-              text="Deze offerte is niet gevonden"
-              supportingText="Hij bestaat niet, of je bent er niet bij betrokken."
-            />
+          {query.isError && notFound ? <NotFound what="Deze offerte" /> : null}
+          {query.isError && !notFound ? (
+            <LoadError error={query.error} retry={() => void query.refetch()} />
           ) : null}
-          {query.isError && !notFound ? <ErrorNotice message={errorMessage(query.error)} /> : null}
 
           {detail && quote ? (
             <>

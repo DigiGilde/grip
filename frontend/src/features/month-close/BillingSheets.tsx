@@ -200,7 +200,13 @@ export function DeliverSheet({ overview, period, onClose }: DeliverSheetProps) {
   return (
     <FormSheet
       open={period !== null}
-      title={shown ? `Lever ${periodName(shown.label)} aan` : 'Lever aan'}
+      title={
+        shown
+          ? shown.correction
+            ? `Lever de naverrekening over ${periodName(shown.label)} aan`
+            : `Lever ${periodName(shown.label)} aan`
+          : 'Lever aan'
+      }
       submitText={
         shown?.to_deliver_cents !== null && shown?.to_deliver_cents !== undefined
           ? `Lever ${formatEuro(shown.to_deliver_cents)} aan`

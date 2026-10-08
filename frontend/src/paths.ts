@@ -38,6 +38,7 @@ export const PATHS = {
   formTemplate: '/vacatures/beheer/formulier/:templateId',
   functionFramework: '/beheer/functiegebouw',
   vacancyDetail: '/vacatures/:vacancyId',
+  vacancyTextWrite: '/vacatures/:vacancyId/tekst/schrijven',
   client: '/aanvragen',
   clientRequest: '/aanvragen/nieuw',
   clientAssignment: '/aanvragen/opdracht/:assignmentId',

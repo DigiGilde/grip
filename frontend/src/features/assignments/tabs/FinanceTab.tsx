@@ -1,20 +1,21 @@
 import { useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { errorMessage } from '@/api/client';
 import { orUndef, useNlddEvent } from '@/components/nldd/events';
 import { IconCell } from '@/ui/Icon';
 import {
   KeyFigures,
+  LoadError,
   Quiet,
   Section,
+  type Signal as SignalItem,
   SignalList,
   Stack,
-  type Signal as SignalItem,
 } from '@/ui/layout';
+import type { YearChoice } from '@/features/overview/api';
 import {
   YEAR_FILTER_LABEL,
-  currentYearChoice,
   periodLabel,
+  startingYear,
   yearOptions,
 } from '@/features/overview/years';
 import { MonthColumns } from '@/features/reports/charts/MonthColumns';
@@ -32,7 +33,7 @@ import { FIGURE_LABELS, referenceText, rateCauseText, signalText } from '../fina
 import { FIGURE_COLUMNS, FigureCells, FigureHeaderCells } from '../FigureCells';
 import { useRateCards } from '../rateText';
 import { useAssignmentShell } from '../shell';
-import { EmptyNotice, ErrorNotice, Loading } from '../ui';
+import { EmptyNotice, Loading } from '../ui';
 
 // The chevron turns with the row. Spread as a plain attribute because the
 // package types do not list it on the icon cell.
@@ -280,7 +281,11 @@ export function FinanceTab() {
   const assignment = useAssignmentShell();
   const rates = useRateCards();
   const assignmentId = assignment?.id ?? '';
-  const [year, setYear] = useState(currentYearChoice);
+  // Opens on this year when the assignment runs in it, otherwise on the
+  // first year of the assignment: an assignment for next year has nothing
+  // to show in this one.
+  const [chosenYear, setYear] = useState<YearChoice | null>(null);
+  const year = chosenYear ?? startingYear(assignment?.start_date, assignment?.end_date);
   const query = useQuery({
     queryKey: financeKeys.assignment(assignmentId, year),
     queryFn: () => fetchAssignmentFinance(assignmentId, year),
@@ -326,7 +331,7 @@ export function FinanceTab() {
           />
         )}
         {query.isPending && <Loading />}
-        {query.isError && <ErrorNotice message={errorMessage(query.error)} />}
+        {query.isError && <LoadError error={query.error} retry={() => void query.refetch()} />}
         {finance && (
           <>
             <Quiet>{referenceText(finance.reference_month)}</Quiet>

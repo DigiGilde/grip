@@ -52,6 +52,32 @@ export function errorMessage(error: unknown): string {
   return 'De server is niet bereikbaar. Controleer je verbinding en probeer het opnieuw.';
 }
 
+/** Why a request for data gave nothing to show. */
+export type LoadFailure = 'no-access' | 'not-found' | 'unreachable' | 'failed';
+
+/**
+ * What kind of failure a request for data ended in. A screen shows one of
+ * four states for it and nothing else; see `LoadError` in `@/ui/layout`.
+ */
+export function loadFailure(error: unknown): LoadFailure {
+  if (!(error instanceof ApiError)) return 'unreachable';
+  if (error.status === 401 || error.status === 403) return 'no-access';
+  if (error.status === 404) return 'not-found';
+  if (error.status === 502 || error.status === 503 || error.status === 504) return 'unreachable';
+  return 'failed';
+}
+
+/**
+ * Whether a failed request for data is worth asking again. An answer of the
+ * server about this reader (no access, not found, refused) does not change by
+ * asking again; only a failure to get an answer does. Without this a screen
+ * keeps saying "Bezig met laden" for seconds after the server said no.
+ */
+export function retryLoad(failureCount: number, error: unknown): boolean {
+  if (error instanceof ApiError && error.status < 500) return false;
+  return failureCount < 1;
+}
+
 type QueryParams = Record<string, string | number | boolean | undefined | null>;
 
 function buildUrl(path: string, params?: QueryParams): string {

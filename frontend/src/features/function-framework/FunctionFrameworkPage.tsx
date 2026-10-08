@@ -8,7 +8,16 @@ import { useInstance } from '@/layout/useInstance';
 import { PATHS } from '@/paths';
 import { formatDate } from '@/lib/format';
 import { Button, DateInput, SelectInput, TextInput } from '@/features/vacancies/ui';
-import { EmptyNotice, ErrorNotice, FormSheet, Loading, Page, Quiet, Stack } from '@/ui/layout';
+import {
+  EmptyNotice,
+  ErrorNotice,
+  FormSheet,
+  LoadError,
+  Loading,
+  Page,
+  Quiet,
+  Stack,
+} from '@/ui/layout';
 import {
   FRAMEWORK_KEYS,
   createFunctionGroup,
@@ -167,7 +176,6 @@ function GroupTable({ groups, onEdit, label }: GroupRowsProps) {
                 <Button
                   text="Wijzig"
                   size="sm"
-                  appearance="neutral-transparent"
                   accessibleLabel={`Wijzig de functiegroep ${group.name}`}
                   onClick={() => onEdit(group)}
                 />
@@ -320,7 +328,9 @@ export function FunctionFrameworkPage() {
           reloading={reload.isPending}
         />
         {framework.isPending && <Loading />}
-        {framework.isError && <ErrorNotice message={errorMessage(framework.error)} />}
+        {framework.isError && (
+          <LoadError error={framework.error} retry={() => void framework.refetch()} />
+        )}
         {reload.isError && <ErrorNotice message={errorMessage(reload.error)} />}
         {source && (
           <Stack gap="tight">

@@ -1,3 +1,5 @@
+import { useCourses } from '@/features/tasks/course';
+import { courseLine } from '@/ui/course';
 import { useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -32,8 +34,8 @@ import {
   roleLabel,
   typeConsequence,
 } from './newVacancy';
-import { DateInput, SelectInput, TextInput } from './ui';
-import { ErrorNotice, FormSheet, Loading, Page } from '@/ui/layout';
+import { DateInput, SelectInput, TextInput, Note } from './ui';
+import { FormSheet, LoadError, Loading, Page } from '@/ui/layout';
 import { useVacancyViewFilter } from './views';
 import { OpenRow } from '@/ui/RowActions';
 
@@ -67,11 +69,15 @@ function VacancyTable({
   // A reader who only gets the published vacancies has no type or step.
   const withType = vacancies.some((vacancy) => vacancy.vacancy_type !== undefined);
   const withStep = vacancies.some((vacancy) => vacancy.step !== undefined);
+  // Where each vacancy stands and whose move it is, in the words of its page.
+  const courses = useCourses(
+    'vacancy',
+    withStep ? vacancies.map((vacancy) => vacancy.id) : [],
+  ).byId;
   const wide = [
     'minmax(240px,2fr)',
     ...(withType ? ['150px'] : []),
-    ...(withStep ? ['minmax(240px,1.4fr)'] : []),
-    '150px',
+    ...(withStep ? ['minmax(260px,1.6fr)'] : ['150px']),
   ].join(' ');
   // The name gets the larger share: a long function name must fit beside the step.
   const narrow = withStep ? 'minmax(0,1.3fr) minmax(0,1fr)' : 'minmax(0,1fr) 130px';
@@ -80,11 +86,15 @@ function VacancyTable({
       <nldd-table-row slot="header">
         <nldd-text-cell text="Vacature" />
         {withType && <nldd-text-cell text="Type" hide-below="md" />}
-        {withStep && <nldd-text-cell text="Volgende stap" />}
-        <nldd-text-cell text="Status" {...(withStep ? { 'hide-below': 'md' } : {})} />
+        {withStep ? <nldd-text-cell text="Stand" /> : <nldd-text-cell text="Status" />}
       </nldd-table-row>
       {vacancies.map((vacancy) => {
-        const standing = standingOf(vacancy);
+        const line = courseLine(courses.get(vacancy.id)?.course);
+        const fallback = standingOf(vacancy);
+        // The course when it is known; until then what the list itself says.
+        const standing = line
+          ? { step: line.step, detail: line.who }
+          : { step: fallback.step || statusWord(vacancy), detail: fallback.detail };
         const status = statusWord(vacancy);
         return (
           <OpenRow key={vacancy.id} onOpen={() => open(vacancy.id)}>
@@ -107,25 +117,16 @@ function VacancyTable({
                 text={vacancy.vacancy_type ? VACANCY_TYPE_LABELS[vacancy.vacancy_type] : ''}
               />
             )}
-            {withStep && (
-              <>
-                <nldd-text-cell
-                  hide-below="md"
-                  text={standing.step}
-                  supporting-text={standing.detail}
-                />
-                {/* Narrow: the status has no column of its own and reads above the step. */}
-                <nldd-text-cell
-                  hide-above="sm"
-                  overline={status}
-                  text={standing.step}
-                  supporting-text={standing.detail}
-                />
-              </>
+            {withStep ? (
+              <nldd-text-cell
+                text={standing.step}
+                {...(standing.detail ? { 'supporting-text': standing.detail } : {})}
+              />
+            ) : (
+              <nldd-cell>
+                <nldd-badge color={STATUS_COLORS[vacancy.status]} text={status} />
+              </nldd-cell>
             )}
-            <nldd-cell {...(withStep ? { 'hide-below': 'md' } : {})}>
-              <nldd-badge color={STATUS_COLORS[vacancy.status]} text={status} />
-            </nldd-cell>
           </OpenRow>
         );
       })}
@@ -143,9 +144,31 @@ interface CreateSheetProps {
   filled: FilledRole[];
   /** The budget line to start with, when the visitor came from a role. */
   initialLine?: string | null;
+  /** Roles a vacancy already runs for: not offered again, and said so. */
+  running: VacancySummary[];
 }
 
-function CreateSheet({ open, onClose, options, roles, filled, initialLine }: CreateSheetProps) {
+/** "Ontwerper (Opdracht Alfa 2026)" for each role that already has a vacancy. */
+function runningText(running: VacancySummary[]): string {
+  const names = running.map((vacancy) =>
+    vacancy.assignment_name
+      ? `${vacancy.function_title} (${vacancy.assignment_name})`
+      : vacancy.function_title,
+  );
+  return running.length === 1
+    ? `Voor ${names[0]} loopt al een vacature; die staat in de lijst.`
+    : `Voor ${names.join(', ')} lopen al vacatures; die staan in de lijst.`;
+}
+
+function CreateSheet({
+  open,
+  onClose,
+  options,
+  roles,
+  filled,
+  initialLine,
+  running,
+}: CreateSheetProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const withoutLine = options?.can_create_without_budget_line ?? false;
@@ -253,6 +276,7 @@ function CreateSheet({ open, onClose, options, roles, filled, initialLine }: Cre
         placeholder="Kies een rol"
         required
       />
+      {running.length > 0 ? <Note>{runningText(running)}</Note> : null}
       {loose && (
         <>
           <TextInput label="Functie" value={title} onChange={setTitle} required />
@@ -344,7 +368,9 @@ export function VacanciesPage() {
           ]}
         />
         {vacancies.isPending && <Loading />}
-        {vacancies.isError && <ErrorNotice message={errorMessage(vacancies.error)} />}
+        {vacancies.isError && (
+          <LoadError error={vacancies.error} retry={() => void vacancies.refetch()} />
+        )}
         {vacancies.data && (
           <VacancyTable
             vacancies={orderVacancies(vacancies.data, order)}
@@ -363,6 +389,11 @@ export function VacanciesPage() {
         roles={unfilled}
         filled={filled}
         initialLine={requestedLine}
+        running={(vacancies.data ?? []).filter(
+          (vacancy) =>
+            vacancy.budget_line_id &&
+            ['draft', 'requested', 'approved', 'open'].includes(vacancy.status),
+        )}
       />
     </div>
   );

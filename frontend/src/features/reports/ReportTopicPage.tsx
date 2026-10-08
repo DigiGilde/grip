@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
-import { errorMessage } from '@/api/client';
-import { EmptyNotice, ErrorNotice, Loading, Page } from '@/ui/layout';
+import { EmptyNotice, LoadError, Loading, Page } from '@/ui/layout';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { useInstance } from '@/layout/useInstance';
 import { ActionBar } from '@/ui/ActionBar';
@@ -53,7 +52,7 @@ function SteeringTopic({ slug, year }: { slug: TopicSlug; year: string }) {
     queryFn: () => fetchSteering(year),
   });
   if (query.isPending) return <Loading />;
-  if (query.isError) return <ErrorNotice message={errorMessage(query.error)} />;
+  if (query.isError) return <LoadError error={query.error} retry={() => void query.refetch()} />;
   return (
     topicBlock(slug, query.data) || (
       <EmptyNotice

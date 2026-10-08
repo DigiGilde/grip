@@ -121,6 +121,9 @@ def _period_out(view: billing_deliveries.PeriodView) -> BillingPeriodOut:
         invoice_numbers=list(view.invoice_numbers),
         awaits_invoice=bool(view.open_export_ids),
         last_step_at=view.last_step_at,
+        correction=view.correction,
+        invoiced_on=view.invoiced_on,
+        invoice_difference_cents=view.invoice_difference_cents,
     )
 
 
@@ -128,13 +131,17 @@ def _next_out(
     state: billing_deliveries.Overview,
 ) -> NextStepOut:
     step = state.next_step
-    period = next(
+    view = next(
         (
-            v.period
+            v
             for v in (*state.periods, *state.upcoming)
             if v.period.key == step.period_key
         ),
         None,
+    )
+    period = view.period if view is not None else None
+    last_delivery = (
+        view.deliveries[-1] if view is not None and view.deliveries else None
     )
     month = step.month or step.upcoming_month
     return NextStepOut(
@@ -145,6 +152,12 @@ def _next_out(
         period_label=period.label if period else None,
         amount_cents=step.amount_cents,
         from_date=step.from_date,
+        correction=step.correction,
+        invoice_numbers=list(view.invoice_numbers) if view and step.correction else [],
+        invoiced_on=view.invoiced_on if view and step.correction else None,
+        delivered_on=last_delivery.delivered_at.date()
+        if last_delivery is not None and step.correction
+        else None,
     )
 
 
@@ -428,11 +441,15 @@ async def billing_across(
         )
     classes = schema_classes(BillingOverviewOut)
     items: list[dict[str, Any]] = []
+    # Whether the reader may see the money of any assignment at all: an empty
+    # list for who may not is "not for you", not "everything is done".
+    reads_money = False
     for row in rows:
         resource = Resource.assignment(row.assignment.id)
         permitted = await access.classes(resource, classes)
         if B not in permitted:
             continue
+        reads_money = True
         try:
             value = await _overview_value(
                 db, decider, access.subject, resource, row.assignment.id
@@ -443,7 +460,7 @@ async def billing_across(
             continue
         items.append(build_response(value, permitted))
     mailable, _ = await billing_deliveries.can_mail(db)
-    return {"assignments": items, "can_mail": mailable}
+    return {"assignments": items, "can_mail": mailable, "reads_money": reads_money}
 
 
 @router.post("/billing/deliveries/batch", response_model=None)

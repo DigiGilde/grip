@@ -2,7 +2,6 @@ import { ReadOnlyNote } from '../ReadOnlyNote';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { errorMessage } from '@/api/client';
 import { AllocationSheet, type AllocationPreset } from '@/features/allocations/AllocationSheet';
 import type { Allocation } from '@/features/allocations/api';
 import {
@@ -18,7 +17,7 @@ import { RouterLinks } from '@/layout/RouterLinks';
 import { formatMonth } from '@/lib/format';
 import { PATHS } from '@/paths';
 import { ActionBar } from '@/ui/ActionBar';
-import { SignalList, Stack } from '@/ui/layout';
+import { LoadError, SignalList, Stack } from '@/ui/layout';
 import { RowMenu, type RowAction } from '@/ui/RowActions';
 import { CellPanel } from '@/ui/timeline/CellPanel';
 import {
@@ -41,7 +40,7 @@ import {
 } from '../staffingModel';
 import { assignmentTabPath } from '../paths';
 import { ownersText } from '../steps';
-import { Button, ErrorNotice, Loading } from '../ui';
+import { Button, Loading } from '../ui';
 
 interface SheetState {
   open: boolean;
@@ -277,7 +276,7 @@ export function StaffingTab() {
           />
         )}
         {query.isPending && <Loading />}
-        {query.isError && <ErrorNotice message={errorMessage(query.error)} />}
+        {query.isError && <LoadError error={query.error} retry={() => void query.refetch()} />}
         {staffing && !hasRoles && (
           // Nothing to put a person on yet: say what comes first and whose turn it is.
           <nldd-inline-dialog
