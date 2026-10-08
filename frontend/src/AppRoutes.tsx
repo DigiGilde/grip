@@ -29,6 +29,7 @@ import { SigningLayout } from '@/features/signing/SigningLayout';
 import { SigningListPage } from '@/features/signing/SigningListPage';
 import { SigningPage } from '@/features/signing/SigningPage';
 import { OrganisationsAdminPage } from '@/features/organisations/OrganisationsAdminPage';
+import { RolesAdminPage } from '@/features/roles/RolesAdminPage';
 import { PeersPage } from '@/features/peers/PeersPage';
 import { RatesPage } from '@/features/rates/RatesPage';
 import { AssignmentReportPage } from '@/features/reports/AssignmentReportPage';
@@ -112,6 +113,7 @@ export function AppRoutes() {
         <Route path={PATHS.receivedQuote} element={<ReceivedQuotePage />} />
         <Route path={PATHS.peers} element={<PeersPage />} />
         <Route path={PATHS.organisations} element={<OrganisationsAdminPage />} />
+        <Route path={PATHS.roles} element={<RolesAdminPage />} />
         <Route path={PATHS.rates} element={<RatesPage />} />
         <Route path={PATHS.teamPerson} element={<PersonPage />} />
         <Route path={PATHS.ratesLegacy} element={<Navigate to={PATHS.rates} replace />} />

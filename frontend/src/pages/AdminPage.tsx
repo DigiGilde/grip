@@ -22,6 +22,11 @@ const SECTIONS: { path: string; title: string; text: string }[] = [
     text: 'De lijst waaruit je een opdrachtgever of opdrachtnemer kiest: ophalen uit het overheidsregister en wat zelf is toegevoegd.',
   },
   {
+    path: PATHS.roles,
+    title: 'Rollen',
+    text: 'De vaste lijst met rollen voor een begrotingsregel: ophalen uit Wies, hernoemen, samenvoegen en wat nog beoordeeld moet worden.',
+  },
+  {
     path: PATHS.vacancySetup,
     title: 'Vacatureformulier en taalmodel',
     text: 'Het lege aanvraagformulier vacature, de koppeling van de velden en de instelling van het taalmodel.',

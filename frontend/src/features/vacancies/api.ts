@@ -296,3 +296,63 @@ export const newVacancyPath = (budgetLineId: string) =>
 
 /** The address of the filled request form; a plain download link. */
 export const requestFormUrl = (id: string) => `${BASE}/${id}/request-form`;
+
+// --- the recruitment reference and the hire ---------------------------------
+
+export interface RecruitmentRef {
+  system: string;
+  reference: string;
+  url?: string | null;
+}
+
+export interface ProposedAllocation {
+  budget_line_id: string;
+  start_date: string;
+  end_date: string;
+  fte_pct: string;
+}
+
+export interface Hire {
+  person_id?: string | null;
+  person_name?: string | null;
+  start_date: string;
+  /** "prospective" until the person has started. */
+  stage?: string | null;
+  /** The inzet that follows from the hire, when it was not planned at once. */
+  proposed_allocation?: ProposedAllocation | null;
+  allocation_id?: string | null;
+}
+
+export interface VacancyHire {
+  vacancy_id: string;
+  recruitment_ref?: RecruitmentRef | null;
+  hire?: Hire | null;
+}
+
+export interface RecruitmentRefInput {
+  reference: string;
+  url?: string | null;
+  system?: string | null;
+}
+
+export interface HireInput {
+  start_date: string;
+  person_id?: string;
+  name?: string;
+  suborganization?: string;
+  create_allocation: boolean;
+  note?: string;
+}
+
+/** The recruitment system a reference points into unless another is named. */
+export const DEFAULT_RECRUITMENT_SYSTEM = 'Emply';
+
+export const hireKey = (id: string) => ['vacancies', 'hire', id] as const;
+
+export const fetchVacancyHire = (id: string) => apiGet<VacancyHire>(`${BASE}/${id}/hire`);
+export const setRecruitmentRef = (id: string, body: RecruitmentRefInput) =>
+  apiPut<VacancyHire>(`${BASE}/${id}/recruitment-ref`, body);
+export const recordHire = (id: string, body: HireInput) =>
+  apiPost<VacancyHire>(`${BASE}/${id}/hire`, body);
+export const withdrawHire = (id: string, reason: string) =>
+  apiPost<VacancyHire>(`${BASE}/${id}/hire/withdraw`, { reason });

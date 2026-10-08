@@ -165,7 +165,7 @@ export function RolePicker({
       {problem ? <nldd-banner variant="critical" text={problem} /> : null}
       {added ? (
         <nldd-banner
-          variant="info"
+          variant="accent"
           text={`De rol "${added}" is toegevoegd`}
           supporting-text="De beheerder bekijkt nieuwe rollen en voegt ze samen als er al een rol voor bestond."
         />

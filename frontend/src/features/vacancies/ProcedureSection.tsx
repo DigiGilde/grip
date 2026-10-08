@@ -12,7 +12,8 @@ import {
 import { todayIso, useVacancyChange } from './hooks';
 import { CHANNEL_LABELS } from './labels';
 import { Button, CheckboxInput, DateInput, Note, TextInput } from './ui';
-import { FormSheet, SectionHeading } from '@/ui/layout';
+import { FormSheet, Stack } from '@/ui/layout';
+import { useVacancyShell } from './shell';
 
 const OPENING_STEPS: readonly string[] = [
   'internal_opening',
@@ -102,7 +103,7 @@ function StepSheet({
   );
 }
 
-function PublishSheet({
+export function PublishSheet({
   vacancy,
   options,
   open,
@@ -172,17 +173,11 @@ function PublishSheet({
   );
 }
 
-/** The steps of the procedure with their dates, and opening the vacancy. */
-export function ProcedureSection({
-  vacancy,
-  options,
-}: {
-  vacancy: Vacancy;
-  options: VacancyOptions | undefined;
-}) {
+/** The steps of the procedure with their dates. Opening itself is the header's action. */
+export function ProcedureSection({ vacancy }: { vacancy: Vacancy }) {
+  const { openSheet } = useVacancyShell();
   const [stepKind, setStepKind] = useState<string | null>(null);
   const [stepOpen, setStepOpen] = useState(false);
-  const [publishing, setPublishing] = useState(false);
 
   const canOpen =
     vacancy.permissions.can_edit &&
@@ -195,70 +190,52 @@ export function ProcedureSection({
   const selected = vacancy.procedure.find((step) => step.kind === stepKind);
 
   return (
-    <>
-      <SectionHeading text="Procedure" />
-      {vacancy.has_openings === false && (
-        <Note>
-          Een vacature voor een beoogde of gerede kandidaat wordt niet opengesteld; daarvoor
-          geldt een aparte procedure.
-        </Note>
-      )}
-      <nldd-list appearance="box-base" accessible-label="Stappen van de procedure">
+    <Stack gap="group">
+      <nldd-table accessible-label="Stappen van de procedure" columns="minmax(240px,2fr) minmax(200px,1fr)">
+        <nldd-table-row slot="header">
+          <nldd-text-cell text="Stap" />
+          <nldd-text-cell text="Wanneer" />
+        </nldd-table-row>
         {vacancy.procedure.map((step) => {
           const detail = supporting(step);
           return (
-            <nldd-list-item key={step.kind}>
+            <nldd-table-row key={step.kind}>
               <nldd-text-cell
                 text={`${step.position}. ${step.label}`}
                 {...(detail ? { 'supporting-text': detail } : {})}
               />
-              <nldd-spacer-cell size="8" />
               <nldd-text-cell
-                width="fit-content"
                 color={step.recorded ? 'content' : 'secondary'}
                 text={stepState(step)}
               />
-            </nldd-list-item>
+            </nldd-table-row>
           );
         })}
-      </nldd-list>
-      {canOpen && (
-        <>
-          <nldd-spacer size="8" />
-          <nldd-button-group>
-            {!published && (
-              <Button text="Stel open" appearance="primary" onClick={() => setPublishing(true)} />
-            )}
-            {published && <Button text="Wijzig kanalen" onClick={() => setPublishing(true)} />}
-            {editableSteps.map((step) => (
-              <Button
-                key={step.kind}
-                text={`${step.recorded ? 'Wijzig' : 'Start'} ${step.label.toLowerCase()}`}
-                onClick={() => {
-                  setStepKind(step.kind);
-                  setStepOpen(true);
-                }}
-              />
-            ))}
-          </nldd-button-group>
-          <PublishSheet
-            key={`publish-${vacancy.status}-${(vacancy.channels ?? []).join(',')}`}
-            vacancy={vacancy}
-            options={options}
-            open={publishing}
-            onClose={() => setPublishing(false)}
-          />
-          {selected && (
-            <StepSheet
-              key={`${selected.kind}-${selected.started_on ?? ''}-${selected.ended_on ?? ''}`}
-              vacancy={vacancy}
-              step={selected}
-              open={stepOpen}
-              onClose={() => setStepOpen(false)}
+      </nldd-table>
+      {canOpen && published && (
+        <nldd-button-group>
+          <Button text="Wijzig kanalen" onClick={() => openSheet('publish')} />
+          {editableSteps.map((step) => (
+            <Button
+              key={step.kind}
+              text={`${step.recorded ? 'Wijzig' : 'Start'} ${step.label.toLowerCase()}`}
+              onClick={() => {
+                setStepKind(step.kind);
+                setStepOpen(true);
+              }}
             />
-          )}
-        </>
+          ))}
+        </nldd-button-group>
       )}
-    </>
+      {canOpen && selected && (
+        <StepSheet
+          key={`${selected.kind}-${selected.started_on ?? ''}-${selected.ended_on ?? ''}`}
+          vacancy={vacancy}
+          step={selected}
+          open={stepOpen}
+          onClose={() => setStepOpen(false)}
+        />
+      )}
+    </Stack>
   );
 }

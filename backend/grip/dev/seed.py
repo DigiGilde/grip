@@ -978,6 +978,15 @@ async def seed(
         hires=1,
     )
     await db.flush()
+    # The roles of the example budget lines became catalogue entries on the
+    # way. They are part of the example, not something for a beheerder to
+    # look at.
+    await db.execute(
+        text("UPDATE catalogue_role SET needs_review = false WHERE needs_review")
+    )
+    result.counts["catalogue_roles"] = (
+        await db.execute(text("SELECT count(*) FROM catalogue_role"))
+    ).scalar_one()
     extended = await extend(db, settings=settings)
     result.counts.update(corpus_peers=extended["peers"], context_refs=extended["refs"])
     return result

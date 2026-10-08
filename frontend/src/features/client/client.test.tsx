@@ -416,6 +416,7 @@ describe('AdminPage', () => {
       PATHS.rates,
       PATHS.peers,
       PATHS.organisations,
+      PATHS.roles,
       PATHS.vacancySetup,
       PATHS.functionFramework,
       PATHS.wiesProposals,

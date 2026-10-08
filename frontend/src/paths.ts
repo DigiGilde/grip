@@ -29,6 +29,7 @@ export const PATHS = {
   admin: '/beheer',
   peers: '/beheer/koppelingen',
   organisations: '/beheer/organisaties',
+  roles: '/beheer/rollen',
   reports: '/rapportage',
   reportAssignment: '/rapportage/opdrachten/:assignmentId',
   reportTopic: '/rapportage/:topic',
