@@ -19,7 +19,7 @@ async def _role_audit(db, person_id) -> list[AuditLog]:
     rows = await db.execute(
         select(AuditLog)
         .where(AuditLog.entity == "assignment_role")
-        .order_by(AuditLog.created_at, AuditLog.id)
+        .order_by(AuditLog.occurred_at, AuditLog.id)
     )
     return [
         row

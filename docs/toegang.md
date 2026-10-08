@@ -135,6 +135,8 @@ decide(subject, action, resource, data_class)
 
 **Kostenposten (klasse B).** Een kostenpost hoort niet bij een opdracht. De beheerder mag kostenposten aanmaken en wijzigen. Daarnaast wijzigt een kostenpost wie een opdracht beheert waarvan de begroting hem dekt; zolang nog niets hem dekt, is dat wie hem heeft aangemaakt.
 
+**Eigenaar en managers van een opdracht.** Wie eigenaar of manager is, wijzigt de eigenaar of een manager van die opdracht, en de beheerder op elke opdracht, want een eigenaar kan vertrokken zijn. Het is een eigen handeling: ze geeft de beheerder geen recht om de opdracht zelf te wijzigen. Een beheerder die zichzelf manager maakt, heeft daarna de rechten van een manager, en het auditlog vermeldt dat hij zichzelf heeft aangewezen. Een opdracht houdt altijd een eigenaar.
+
 **Offerte uitgeven en maand afsluiten.** Dat doet alleen de eigenaar of manager van de opdracht, ook de beheerder niet. Een afgesloten maand heropenen kan alleen de beheerder.
 
 **Gast-ondertekenaar zonder account.** Wie is uitgenodigd om een offerte te tekenen en geen persoon is in de instantie, krijgt na het inloggen een gastsessie. Dat gebeurt alleen als de identiteitsprovider het e-mailadres heeft bevestigd en er voor dat adres een uitnodiging openstaat die niet is verlopen. Een gastsessie bereikt alleen de tekenpagina's; elk ander deel van de API weigert haar.
