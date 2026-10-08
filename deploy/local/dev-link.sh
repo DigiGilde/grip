@@ -156,7 +156,10 @@ PY
         )
         ;;
     env)
-        echo "OUTWAY_URL=http://localhost:$OUTWAY_PORT"
+        # 127.0.0.1, not localhost: the dev outway listens on IPv4 only and
+        # the backend's HTTP client does not fall back from ::1, so with
+        # "localhost" every corpus shows as unreachable.
+        echo "OUTWAY_URL=http://127.0.0.1:$OUTWAY_PORT"
         ;;
     status)
         echo "  dev outway               http://localhost:$OUTWAY_PORT   (unknown grant hashes go on to the stand-in corpus on 8040)"

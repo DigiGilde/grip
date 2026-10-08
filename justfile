@@ -68,7 +68,7 @@ seed *ARGS:
 # `just seed --extend` adds the corpus peers and the context of the example
 # assignments to data that was seeded earlier; a fresh seed includes them.
 # The dev backend reaches the stand-in as its outway: start the backend with
-#   OUTWAY_URL=http://localhost:8040
+#   OUTWAY_URL=http://127.0.0.1:8040
 # Nothing else is needed for context and the node picker: outbound
 # federation (FEDERATION_OUTBOUND_ENABLED) stays off and INSTANCE_TOOI_URI
 # stays empty. A backend in a container uses http://host.docker.internal:8040.
