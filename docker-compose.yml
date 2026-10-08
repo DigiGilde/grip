@@ -1,0 +1,74 @@
+# Local development. Ports differ from Bouwmeester (5433/8000/5173) so both
+# can run side by side.
+
+services:
+  db:
+    image: postgres:16
+    ports:
+      - "127.0.0.1:${DB_HOST_PORT:-5434}:5432"
+    environment:
+      POSTGRES_USER: grip
+      POSTGRES_PASSWORD: grip
+      POSTGRES_DB: grip
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U grip -d grip"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "127.0.0.1:8010:8010"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://grip:grip@db:5432/grip
+      # Local development has no identity provider. Without this opt-in the
+      # app refuses to start: a missing OIDC_ISSUER must never silently
+      # disable authentication.
+      DEV_NO_AUTH: ${DEV_NO_AUTH:-1}
+      # Default secret is for local development only.
+      SESSION_SECRET_KEY: ${SESSION_SECRET_KEY:-local-dev-secret-key}
+      BOOTSTRAP_BEHEERDER_EMAILS: ${BOOTSTRAP_BEHEERDER_EMAILS:-}
+      INSTANCE_NAME: ${INSTANCE_NAME:-Grip (lokaal)}
+      INSTANCE_BASE_URI: ${INSTANCE_BASE_URI:-http://localhost:8010}
+      INSTANCE_TOOI_URI: ${INSTANCE_TOOI_URI:-}
+      INSTANCE_KEY: ${INSTANCE_KEY:-lokaal}
+      PARENT_INSTANCE_URI: ${PARENT_INSTANCE_URI:-}
+      FRONTEND_URL: http://localhost:5183
+      BACKEND_URL: http://localhost:8010
+      # The source is mounted over /app, so keep the venv outside it.
+      UV_PROJECT_ENVIRONMENT: /tmp/venv
+      HOME: /tmp
+    volumes:
+      - ./backend:/app
+    entrypoint: []
+    command: >
+      sh -c "uv sync --frozen &&
+             uv run alembic upgrade head &&
+             uv run uvicorn grip.core.app:create_app --factory
+             --host 0.0.0.0 --port 8010 --reload --reload-dir grip"
+
+  frontend:
+    image: node:22-slim
+    working_dir: /app
+    ports:
+      - "127.0.0.1:5183:5183"
+    depends_on:
+      - backend
+    environment:
+      # Where the dev server proxies /api to.
+      VITE_API_URL: http://backend:8010
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5183"
+
+volumes:
+  pgdata:
+  frontend_node_modules:

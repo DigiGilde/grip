@@ -1,0 +1,38 @@
+# Local working material, never commit
+grip.html
+Grip.html
+/*.pdf
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Node
+node_modules/
+dist/
+coverage/
+.vite/
+*.tsbuildinfo
+
+# Databases and exports
+*.db
+*.sqlite
+*.grist
+
+# OS and editors
+.DS_Store
+.idea/
+.vscode/

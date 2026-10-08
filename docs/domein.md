@@ -1,0 +1,225 @@
+# Domein
+
+Deze specificatie is overgenomen uit de basisbeschrijving van het Grist-document dat grip vervangt, aangevuld met wat het plan voor federatie, tekenen en verrekening toevoegt. Alle opdrachtnamen, bedragen en tarieven in de voorbeelden zijn fictief.
+
+## Wat Grist deed en waar het knelde
+
+Het Grist-document plant en volgt opdrachten: de begroting per opdracht, wie erop werkt tegen welk tarief, externe kosten en welke begroting die dekt, en een declarabiliteits-KPI per persoon. De tabellen heten Opdracht, Begroting, Inzet, Team, Tarievenleaflet, Kosten, Factuur, Kostendekking en KPI per persoon. Het dashboard "Stand van zaken" toont per opdracht Begroot, Uitputting en Beschikbaar.
+
+Vier knelpunten:
+
+1. **Delen is alles of niets.** Alles staat in een document, terwijl opdrachteigenaren, teamleden en managers elk een ander beeld nodig hebben.
+2. **Schaal is geen data.** De schaal van iemand staat in vrije tekst ("Schaal 11, maar rekent met 12"). Begrotingsregels verstoppen rol, FTE, schaal en startdatum in hun omschrijving ("Developer #2 (vanaf Q2, schaal 10/11)").
+3. **Maar een jaar.** Er is een tarieventabel en opdrachten zijn per jaar geknipt ("Opdracht Alfa 2026"). Inzet die over 31 december loopt is niet te prijzen.
+4. **De offerte is handwerk.** De begroting is de basis, maar de offerte ontstaat buiten de tool.
+
+## Begrippen
+
+UI-termen zijn Nederlands; code en schema gebruiken de Engelse naam.
+
+| UI-term | Codenaam | Betekenis |
+|---|---|---|
+| Opdracht | `assignment` | De eenheid waarvoor een offerte wordt gemaakt |
+| Begrotingsregel | `budget_line` | Een regel van de begroting van een opdracht: een rol (personeel) of een vaste post |
+| Begroot | `budgeted` | Gepland bedrag |
+| Uitputting | `used` | Bedrag dat op een begrotingsregel is vastgelegd. Grist spelt ook "Uitnutting"; grip gebruikt "Uitputting" |
+| Beschikbaar | `available` | `budgeted - used` |
+| Team, medewerker | `person` | Iemand die kan worden ingezet |
+| Inzetschaal | `billing_scale` | De schaal waartegen iemand wordt gedeclareerd |
+| Categorie | `rate_category` | Tariefband A t/m E, elk voor twee schalen |
+| Maandtarief | `monthly_rate` | Tarief per FTE per maand voor een categorie in een jaar |
+| Tarievenleaflet | `rate_card` | Alle tarieven van een kalenderjaar |
+| Inzet | `allocation` | Een persoon op een begrotingsregel, voor een periode, tegen een FTE-percentage |
+| Kostenpost | `cost_item` | Externe kosten, bijvoorbeeld een hostingcontract |
+| Factuur | `invoice_line` | Een bedrag op een kostenpost, gerealiseerd of ingeschat |
+| Realisatie, inschatting | `actual`, `estimate` | Soort factuurregel |
+| Kostendekking | `cost_coverage` | Welke begrotingsregel welk deel van een kostenpost dekt |
+| Target KPI % declarabel | `billability_target` | Deel van iemands jaar dat declarabel moet zijn |
+| Offerte | `quote` | Document dat uit de begroting van een opdracht wordt gegenereerd |
+| Akkoord | `quote_acceptance` | De vastlegging dat de opdrachtgever een offerte heeft aanvaard |
+| Maandafsluiting | `month_close` | De vastgestelde werkelijke inzet van een maand |
+| Factuurgegevens | `billing_export` | Wat per periode naar het financiële systeem gaat |
+| Inhuur | `hire` | Kostprijs en marge van een ingehuurde persoon |
+| Vacature | `vacancy` | Een open rol op een begrotingsregel, met het soort vacature, het soort contract, de stappen van de procedure en een vacaturetekst |
+| Stand van zaken | `status_overview` | Dashboard per opdracht |
+
+"Factuur" betekent in Grist een regel aan de inkoopkant, op een kostenpost. Het is geen verkoopfactuur. Wat grip richting de opdrachtgever oplevert heet factuurgegevens.
+
+## Datamodel
+
+Afspraken:
+
+- Geld in hele centen, nooit floating point.
+- FTE en percentages als exacte decimalen, datums als datum.
+- Een waarde die hieronder "afgeleid" heet wordt berekend met de rekenregels en niet opgeslagen, zodat ze niet kan afwijken.
+- De uitzondering is een uitgegeven offerte: een bevroren momentopname.
+
+### Tarieven
+
+| Entiteit | Velden | Bron in Grist |
+|---|---|---|
+| `rate_card` | `year` (PK), `status` (`draft`, `active`, `closed`) | nieuw |
+| `rate_band` | `year`, `category` (A t/m E), `monthly_rate`; uniek op (`year`, `category`) | Tarievenleaflet |
+| `scale_band` | `year`, `scale` (int), `category`; uniek op (`year`, `scale`) | Tarievenleaflet |
+
+Tarieven en de koppeling van schaal naar categorie zijn allebei per jaar, dus elk jaar kan een van beide veranderen.
+
+### Mensen
+
+| Entiteit | Velden | Bron in Grist |
+|---|---|---|
+| `person` | `name`, `manager_id` naar person, `digi_gilde` (bool), `active` | Team |
+| `person_scale` | `person_id`, `valid_from`, `valid_to` (optioneel), `billing_scale` | Team.Notitie (vrije tekst) |
+| `billability_target` | `person_id`, `year`, `target_pct` | Team, KPI per persoon |
+| `hire` | kostprijs en marge bij een ingehuurde persoon | nieuw |
+
+De salarisschaal wordt niet opgeslagen. Het kenmerk `digi_gilde` heeft voor zover bekend geen invloed op een berekening.
+
+### Opdrachten en begroting
+
+| Entiteit | Velden | Bron in Grist |
+|---|---|---|
+| `assignment` | `name`, `status`, `quote_date`, `client_contact`, `quoted_amount`, `start_date`, `end_date`, `notes` | Opdracht |
+| | URI, soort (extern, intern), verkeersvorm (federatief, document, geen), opdrachtgever en opdrachtnemer als organisatie, URI van de bovenliggende opdracht, `context_refs` (node-URI's) | nieuw |
+| `assignment_role` | persoon, opdracht, eigenaar of manager | Opdracht (eigenaar) |
+| `budget_line` | `assignment_id`, `description`, `kind` (`personnel`, `fixed`), `position` | Begroting |
+| | personeel: `role`, `fte`, `rate_category`, `start_date`, `end_date`; `budgeted` afgeleid | uit de omschrijving gehaald |
+| | vast: `amount`, `year`; `budgeted` = `amount` | Begroot |
+| `allocation` | `person_id`, `budget_line_id` (alleen personeelsregels), `start_date`, `end_date`, `fte_pct` | Inzet |
+| `quote` | `assignment_id`, `issued_at`, `issued_by`, `snapshot` (regels, tarieven en totalen zoals uitgegeven), `total` | nieuw |
+| `quote_acceptance` | hash van de momentopname, ondertekenaar, organisatie, tijdstip, vorm, handtekening of bestand | nieuw |
+| `month_close` | opdracht, maand, vastgestelde inzet per persoon, vastgesteld door | nieuw |
+| `billing_export` | periode, regels, exportrun | nieuw |
+| `vacancy` | begrotingsregel, profiel, status, kanaal (intern, federatief, werving), stappen | nieuw |
+
+Statussen van een opdracht: concept, aangevraagd, offerte uitgegeven, akkoord, in uitvoering, afgerond, verantwoord. Daarnaast afgewezen en geannuleerd.
+
+### Kosten
+
+| Entiteit | Velden | Bron in Grist |
+|---|---|---|
+| `cost_item` | `description`, `budgeted`; `forecast` en `covered` afgeleid | Kosten |
+| `invoice_line` | `reference` (bijvoorbeeld "HOST-26-01"), `description`, `kind` (`actual`, `estimate`), `amount`, `cost_item_id`, `period` | Factuur; `period` is nieuw |
+| `cost_coverage` | `cost_item_id`, `budget_line_id`, `pct`; `amount` afgeleid | Kostendekking |
+
+Een kostenpost hoort niet bij een opdracht. De dekking kan over begrotingsregels van meerdere opdrachten verdeeld zijn.
+
+### Federatie en controle
+
+| Entiteit | Inhoud |
+|---|---|
+| `peer` | Een andere instantie of een corpus: peer-id, organisatie, contract |
+| `federation_outbox` | Uitgaande berichten, verstuurd door een worker |
+| `federation_inbox` | Inkomende berichten, idempotent op bericht-UUID |
+| `audit_log` | Wie, wanneer, oude en nieuwe waarde |
+
+## Rekenregels
+
+Een maand is een kalendermaand. De voorbeelden gebruiken fictieve bedragen; bij de import worden ze vervangen door gevallen uit de echte Grist-export, en die worden de unittests.
+
+| # | Regel |
+|---|---|
+| R1 | `rate(person, month)` = `monthly_rate(year, category)`, waarbij `category` = `scale_band(year, billing_scale(person, month))` |
+| R2 | Inzet per maand = `fte_pct × rate(person, month) × month_fraction`. `month_fraction` is 1 voor een hele maand |
+| R3 | Inzetbedrag = som van R2 over de maanden in [`start_date`, `end_date`] |
+| R4 | `budgeted` van een personeelsregel = som over de maanden van `fte × monthly_rate(year, rate_category)` |
+| R5 | `budgeted` van een vaste regel = `amount` |
+| R6 | `forecast` (prognose realisatie) van een kostenpost = som van de factuurregels, realisatie en inschatting |
+| R7 | Dekkingsbedrag `amount` = `pct × cost_item.forecast` |
+| R8 | `covered` (dekking) van een kostenpost = som van de dekkingsbedragen. De som van `pct` per kostenpost mag niet boven 100% uitkomen; toon het ongedekte restant |
+| R9 | `used` van een begrotingsregel = som van de inzetbedragen + som van de dekkingsbedragen |
+| R10 | `available` = `budgeted - used`. Negatief betekent overschrijding en moet opvallen |
+| R11 | Totalen per opdracht = som over de begrotingsregels |
+| R12 | KPI-realisatie(persoon, jaar) = som van de inzetbedragen van die persoon in de maanden van dat jaar |
+| R13 | KPI-target(persoon, jaar) = `target_pct ×` som over de maanden van het jaar van `rate(person, month)` |
+| R14 | Signaleer inzet van iemand die in een andere categorie declareert dan de begrotingsregel aanneemt: die regel gaat onder- of overschrijden |
+
+Reken in exacte decimalen en rond pas af op centen bij het tonen of vastleggen van een totaal.
+
+### Rekenvoorbeelden
+
+Alle voorbeelden gaan uit van categorie D met een maandtarief van € 18.000 in 2026.
+
+| Regel | Geval | Uitkomst |
+|---|---|---|
+| R4 | Productmanager, 0,8 FTE, categorie D, heel 2026: 0,8 × 12 × € 18.000 | € 172.800 |
+| R7 | 30% van een hostingcontract met een prognose van € 15.000 | € 4.500 |
+| R12 | 12 maanden 100% inzet, categorie D | € 216.000 |
+| R13 | Target 90%: 90% × 12 × € 18.000 | € 194.400 |
+
+### Maandafsluiting
+
+De regels hierboven rekenen met geplande inzet. Verrekening gaat per maand op werkelijke inzet. De geplande inzet staat klaar als voorstel; de manager van de opdracht past afwijkingen aan en sluit de maand af. De vastgestelde inzet in `month_close` voedt de uitputting en de factuurgegevens.
+
+Voor uitputting (R9) en KPI-realisatie (R12) geldt:
+
+- Een afgesloten maand telt met de vastgestelde inzet. Het vastgestelde percentage geldt voor de hele maand, zonder verdere verrekening naar kalenderdagen; een latere start of een eerder einde zit in het percentage dat de manager vaststelt.
+- Een open maand telt met de geplande inzet, geprijsd volgens R2.
+- Overzichten tonen de twee delen apart: gerealiseerd (afgesloten maanden) en prognose (open maanden).
+
+## Meerdere jaren
+
+- Er is een tarievenkaart per kalenderjaar. Een nieuw jaar begint als conceptkopie van het vorige.
+- Een gesloten jaar is vergrendeld. Wijzigen vraagt de functie beheerder en laat een auditregel achter.
+- Opdrachten, begrotingsregels en inzet hebben datums en mogen over 31 december lopen. Bedragen worden per maand gesplitst en geprijsd met het jaar van die maand (R1 t/m R4).
+- Een maand zonder actieve tarievenkaart is een validatiefout, nooit stilletjes nul.
+- De schaalhistorie per persoon (`person_scale.valid_from`) zorgt dat een promotie halverwege het jaar goed geprijsd wordt.
+- Elk overzicht heeft een jaarfilter plus een optie "hele looptijd". Standaard staat het huidige jaar.
+- Een vaste begrotingsregel geldt voor een jaar. Loopt een vaste post over meerdere jaren, dan is er een regel per jaar.
+
+## Schermen
+
+- **Stand van zaken**: per opdracht Begroot, Uitputting en Beschikbaar; doorklikken naar begrotingsregels, en per regel het team en de kosten. Volgt de Grist-pagina, plus een jaarfilter.
+- **Opdrachten** met de begrotingseditor per opdracht.
+- **Inzet**: per persoon en per begrotingsregel, met de waarschuwingen van R14.
+- **Kosten en facturen**, met de dekking per kostenpost.
+- **Tarieven**: tarievenkaarten per jaar.
+- **Team** en **KPI per persoon**, afgeschermd volgens [toegang.md](toegang.md).
+- **Offerte**: gegenereerd uit de begrotingsregels. Per regel omschrijving, FTE, periode, categorie, maandtarief en bedrag; subtotalen per jaar; totaal.
+
+## Migratie vanuit Grist
+
+1. Bevries een bron: download het document als SQLite (`GET /api/docs/{docId}/download`) en bewaar het bij de importrun.
+2. Lees de kolom-metadata (`GET /api/docs/{docId}/tables/{tableId}/columns`) en controleer de formules achter R2, R6 en R7 voordat de rekenmodule definitief is.
+3. Haal de records op (`GET /api/docs/{docId}/tables/{tableId}/records`) en zet ze om volgens de kolom "Bron in Grist" hierboven.
+4. Zet vrije tekst om naar velden: schalen uit Team.Notitie, en rol, FTE, schaal en start uit de omschrijvingen van begrotingsregels. Lever elke omzetting als lijst die een mens bevestigt. De import gokt niet.
+5. Laad de Tarievenleaflet als tarievenkaart van een jaar. Welk jaar wordt bij de import bevestigd; de basisbeschrijving gaat uit van 2026.
+6. Sluit aan: elk totaal per opdracht, begrotingsregel, kostenpost en KPI is tot op de euro gelijk aan de Grist-waarde uit dezelfde momentopname.
+7. De import is herhaalbaar tot de overstap. Daarna wordt het Grist-document alleen-lezen.
+
+Vorm van het aansluitrapport, met fictieve cijfers:
+
+| Opdracht | Begroot | Uitputting | Beschikbaar |
+|---|---:|---:|---:|
+| Opdracht Alfa 2026 | € 1.250.000 | € 1.100.000 | € 150.000 |
+| Opdracht Beta 2026 | € 480.000 | € 452.500 | € 27.500 |
+
+Opdrachten die in Grist per jaar zijn geknipt blijven bij de import zoals ze zijn. Nieuwe opdrachten mogen meerdere jaren beslaan.
+
+## Acceptatiecriteria
+
+- Een import van een Grist-momentopname reproduceert elk totaal per opdracht, begrotingsregel, kostenpost en KPI tot op de euro.
+- Inzet van 2026-07-01 tot 2027-06-30 wordt voor de maanden in 2026 tegen de tarieven van 2026 geprijsd en voor de maanden in 2027 tegen die van 2027.
+- Een maand prijzen zonder actieve tarievenkaart geeft een duidelijke foutmelding.
+- De manager van een opdracht kan de KPI van een ander niet opvragen, niet via de UI en niet via de API. Tests op API-niveau dekken dat af.
+- Een gegenereerde offerte telt op tot de begroting van de opdracht. Een uitgegeven offerte verandert niet als tarieven worden aangepast.
+- De hash in een akkoord klopt met de momentopname van de offerte.
+- Unittests dekken R1 t/m R14, inclusief de rekenvoorbeelden.
+
+## Open vragen die de import beantwoordt
+
+Elke vraag heeft een voorlopige keuze. De bouwer houdt die aan tot de Grist-formules anders uitwijzen.
+
+| Vraag | Voorlopige keuze | Raakt |
+|---|---|---|
+| Hoe worden gedeeltelijke maanden geprijsd? | Naar rato van kalenderdagen | R2 |
+| Gaat het dekkingspercentage over de prognose of over het begrote bedrag? | Prognose | R7 |
+| Telt de prognose van een kostenpost realisatie en inschatting bij elkaar op? | Ja | R6 |
+| Is Begroot op personeelsregels in Grist ingevoerd of berekend, en wijken regels af van FTE × tarief? | Berekend; afwijkingen opsommen tijdens de import | R4 |
+| Is het bedrag op een opdracht het afgesproken offertebedrag of afgeleid uit de begroting? | Afgesproken bedrag, ingevoerd; toon het verschil met de begroting | `quoted_amount` |
+| Voor welk jaar geldt de huidige Tarievenleaflet? | 2026 | `rate_card` |
+
+## Open vragen die de import niet beantwoordt
+
+- Welke vorm heeft de export van factuurgegevens? Het financiële systeem en zijn formaat zijn niet bekend.
+- Welk formaat en sjabloon krijgt de offerte? De basisbeschrijving stelt een pdf uit een HTML-sjabloon voor.

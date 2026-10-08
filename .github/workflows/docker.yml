@@ -1,0 +1,118 @@
+name: Build and deploy
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      matrix:
+        include:
+          - image: backend
+            context: ./backend
+            dockerfile: ./backend/Dockerfile
+          - image: frontend
+            context: ./frontend
+            dockerfile: ./frontend/Dockerfile
+            target: production
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # ghcr.io wants a lowercase path; the organisation name may not be.
+      - name: Compute image prefix
+        id: prefix
+        run: echo "value=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ steps.prefix.outputs.value }}/${{ matrix.image }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha
+
+      - name: Compute build metadata
+        id: build_meta
+        run: |
+          echo "git_sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          echo "build_time=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          target: ${{ matrix.target || '' }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            GIT_SHA=${{ steps.build_meta.outputs.git_sha }}
+            BUILD_TIME=${{ steps.build_meta.outputs.build_time }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Deploy to ZAD. Skipped until the repository is configured:
+  #
+  #   variable  ZAD_PROJECT_ID       the ZAD project of this instance
+  #   variable  ZAD_DEPLOYMENT_NAME  optional, defaults to "main"
+  #   secret    ZAD_API_KEY          set with: gh secret set ZAD_API_KEY
+  #
+  # Convention, as in the settings derivation in backend/grip/core/config.py:
+  # component-1 is the frontend, component-2 the backend. Each further
+  # instance is its own ZAD project and needs its own deploy job or workflow.
+  deploy:
+    needs: build
+    if: vars.ZAD_PROJECT_ID != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - name: Compute image references
+        id: image
+        run: |
+          echo "prefix=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+          echo "tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy backend to ZAD
+        uses: RijksICTGilde/zad-actions/deploy@v4
+        with:
+          api-key: ${{ secrets.ZAD_API_KEY }}
+          project-id: ${{ vars.ZAD_PROJECT_ID }}
+          deployment-name: ${{ vars.ZAD_DEPLOYMENT_NAME || 'main' }}
+          component: component-2
+          image: ${{ steps.image.outputs.prefix }}/backend:${{ steps.image.outputs.tag }}
+
+      - name: Deploy frontend to ZAD
+        uses: RijksICTGilde/zad-actions/deploy@v4
+        with:
+          api-key: ${{ secrets.ZAD_API_KEY }}
+          project-id: ${{ vars.ZAD_PROJECT_ID }}
+          deployment-name: ${{ vars.ZAD_DEPLOYMENT_NAME || 'main' }}
+          component: component-1
+          image: ${{ steps.image.outputs.prefix }}/frontend:${{ steps.image.outputs.tag }}
