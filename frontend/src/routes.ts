@@ -8,8 +8,10 @@ export interface Viewer {
 
 export interface AppRoute {
   path: string;
-  /** Page heading, navigation label and document title. */
+  /** Page heading and document title, and the navigation label unless `label` is set. */
   title: string;
+  /** A shorter word for the bar, where the page title would crowd out other sections. */
+  label?: string;
   /** An nldd-icon name, shown in the bottom bar on small screens. */
   icon: string;
   /**
@@ -70,6 +72,7 @@ export const APP_ROUTES: readonly AppRoute[] = [
   {
     path: PATHS.costs,
     title: 'Kosten en facturen',
+    label: 'Kosten',
     icon: 'euro-sign',
     area: 'work',
     for: ['beheerder', 'lezer', 'assignment_manager'],
@@ -98,6 +101,11 @@ export const APP_ROUTES: readonly AppRoute[] = [
     also: [PATHS.ratesLegacy, PATHS.vacancySetup],
   },
 ];
+
+/** The word for a section in the bar. */
+export function navLabel(route: AppRoute): string {
+  return route.label ?? route.title;
+}
 
 /** The sections the bar offers this viewer, in order. */
 export function routesFor(viewer: Viewer, area?: AppRoute['area']): AppRoute[] {

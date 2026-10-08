@@ -1,0 +1,35 @@
+/*
+ * The count on a section of the main navigation. The design system's menu bar
+ * item has no place for a badge, so the item becomes one row that does not
+ * wrap: the link, then the count beside the label on the same centre line.
+ * The count is decoration: the item's accessible name carries the number in
+ * words.
+ */
+.main-navigation nldd-menu-bar-item {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.main-navigation nldd-menu-bar-item > .nav-count {
+  flex: none;
+  margin-inline: -4px 8px;
+  pointer-events: none;
+}
+
+/*
+ * The menu button of a narrow screen with the count on its corner, the way a
+ * badge sits on an icon: it belongs to the button, not to what stands next
+ * to it.
+ */
+.navigation-menu-button {
+  position: relative;
+  display: inline-flex;
+}
+
+.navigation-menu-button > nldd-badge {
+  position: absolute;
+  inset-block-start: -4px;
+  inset-inline-end: -6px;
+  pointer-events: none;
+}

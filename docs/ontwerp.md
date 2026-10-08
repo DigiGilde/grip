@@ -117,6 +117,35 @@ Een rij in een lijst of tabel is nooit een kop.
 | Rechten in grip | Wat iemand in grip mag: beheerder, planner, lezer, aanvrager, tekenbevoegde |
 | Aanvraag voorbereiden, aanvragen, advies en akkoord, openstellen, vervullen | De stappen van een vacature |
 
+## Navigatie
+
+De hoofdbalk staat in `frontend/src/layout`; welke onderdelen er zijn, voor wie en welke pagina's erbij horen staat in `frontend/src/routes.ts`. Het waarom staat in ADR 0033.
+
+**Een nieuw onderdeel van Beheer** voeg je toe met één regel in de lijst van `pages/AdminPage.tsx`. Het adres begint met `/beheer/`, dan blijft Beheer actief. Kan dat niet, zet het adres dan bij `also` van Beheer in de routetabel.
+
+**Binnen een onderdeel kies je één middel:**
+
+| Middel | Wanneer |
+|---|---|
+| Tabs | Meerdere kanten van één ding dat je open hebt: een opdracht, een vacature. Elk tabblad heeft een eigen adres |
+| Overzichtspagina | Losse pagina's die bij elkaar horen maar niet over hetzelfde ding gaan: Beheer, Rapportage. De pagina zelf is het menu |
+| Link in de `ActionBar` | Eén afgeleide lijst van dezelfde gegevens, zoals "Open rollen" bij Vacatures. Hooguit één; worden het er meer, dan zijn het tabs |
+
+**Waar je bent.** Een pagina onder een overzicht of een lijst heeft boven de titel één link terug: "Terug naar" met de naam van het onderdeel zoals die in de balk staat, bijvoorbeeld "Terug naar Opdrachten". Geen kruimelpad: grip is twee lagen diep.
+
+Deze pagina's volgen dat nog niet:
+
+| Pagina | Wat er nog moet gebeuren |
+|---|---|
+| `features/assignments/AssignmentLayout.tsx` | De link staat onder de titel en zegt "opdrachten" met een kleine letter |
+| `features/team/PersonPage.tsx` | Een kruimelpad in plaats van de link |
+| `features/vacancies/VacancyLayout.tsx` | Geen link terug |
+| De pagina's onder Beheer (tarieven, offertes, afzender, koppelingen, organisaties, rollen, activiteit, functiegebouw) | Geen link terug naar Beheer |
+| `features/wies/WiesProposalsPage.tsx` | Staat onder Beheer en linkt terug naar "team" |
+| `features/reports` | "Terug naar de rapportage" naast "Terug naar Rapportage" |
+| `features/vacancies/VacanciesPage.tsx` | Twee links in de `ActionBar`; "Formulier en taalmodel" hoort alleen onder Beheer |
+| `features/signing/SigningLayout.tsx` | Een eigen kop met losse tekst; de naam van de instantie als link naar het begin en het account als knop met een menu, zoals in de hoofdbalk |
+
 ## Twee valkuilen in het designsysteem
 
 **`nldd-form` verplaatst zijn kinderen.** Het zet zijn directe kinderen in een eigen formulierelement. Verschijnt er daarna een veld, dan vindt React de plek niet meer en wordt de pagina leeg. Zet de velden daarom in één vast element: `FormSheet` en `FormFields` doen dat.

@@ -252,20 +252,21 @@ describe('MyTasksBlock', () => {
 });
 
 describe('the navigation', () => {
-  it('carries the number of my open tasks', async () => {
+  it('carries the number of my open tasks, beside the label and in words', async () => {
     stubApi({ '/api/tasks/count': { open: 3, to_do: 2, overdue: 1 } });
     const { container } = renderApp(<MainNavigation />, { path: '/' });
-    await waitFor(() =>
-      expect(container.querySelector('nldd-tab-bar-item[href="/taken"]')).toHaveAttribute(
-        'text',
-        'Taken (3)',
-      ),
-    );
+    const item = () => container.querySelector('nldd-menu-bar-item[href="/taken"]');
+    await waitFor(() => expect(item()?.querySelector('nldd-badge')).toHaveAttribute('number', '3'));
+    expect(item()).toHaveAttribute('text', 'Taken');
+    expect(item()).toHaveAttribute('accessible-label', 'Taken, 3 open taken');
   });
 
   it('shows the plain word when there is nothing', async () => {
     stubApi({ '/api/tasks/count': {} });
     const { container } = renderApp(<MainNavigation />, { path: '/' });
-    expect(container.querySelector('nldd-tab-bar-item[href="/taken"]')).toHaveAttribute('text', 'Taken');
+    const item = container.querySelector('nldd-menu-bar-item[href="/taken"]');
+    expect(item).toHaveAttribute('text', 'Taken');
+    expect(item?.querySelector('nldd-badge')).toBeNull();
+    expect(item).not.toHaveAttribute('accessible-label');
   });
 });

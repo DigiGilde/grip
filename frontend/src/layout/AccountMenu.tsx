@@ -78,6 +78,7 @@ export function AccountMenu({ placement, compact }: AccountMenuProps) {
       start-icon="person-circle"
       text={name}
       {...(viewingAs ? { 'supporting-text': 'Bekijk als, alleen lokaal' } : {})}
+      horizontal-alignment="left"
       max-width="280px"
       single-line
       expandable

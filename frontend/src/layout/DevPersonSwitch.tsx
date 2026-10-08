@@ -76,9 +76,8 @@ function PersonItem({ person, current }: { person: DevPerson; current: boolean }
   return (
     <nldd-menu-item
       ref={ref}
-      type="radio"
-      text={person.name}
-      selected={current ? true : undefined}
+      text={current ? `**${person.name}**` : person.name}
+      {...(current ? { details: 'Zo kijk je nu' } : {})}
     />
   );
 }
