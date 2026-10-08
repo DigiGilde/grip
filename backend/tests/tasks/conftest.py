@@ -26,7 +26,7 @@ from grip.models.month_close import MonthClose
 from grip.models.organisation import Organisation
 from grip.models.outgoing_invoice import OutgoingInvoice, OutgoingInvoiceDelivery
 from grip.models.person import Person
-from grip.models.quote import Quote, QuoteOffer
+from grip.models.quote import Quote, QuoteApproval, QuoteOffer
 from grip.models.vacancy import Vacancy, VacancyDecision
 from grip.models.vacancy_hire import VacancyHire
 from grip.services import events
@@ -178,6 +178,21 @@ class Builder:
         self.db.add(offer)
         await self.db.flush()
         return offer
+
+    async def approval(
+        self, quote: Quote, *, by: Person | None = None, status: str = "requested"
+    ) -> QuoteApproval:
+        approval = QuoteApproval(
+            quote_id=quote.id,
+            quote_hash=quote.snapshot_hash,
+            status=status,
+            requested_by_id=by.id if by else None,
+            requested_at=NOW,
+            decided_at=NOW if status in ("approved", "sent_back") else None,
+        )
+        self.db.add(approval)
+        await self.db.flush()
+        return approval
 
     async def close(self, assignment: Assignment, month: date) -> MonthClose:
         close = MonthClose(assignment_id=assignment.id, month=month, closed_at=NOW)

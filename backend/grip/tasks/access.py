@@ -9,6 +9,8 @@ this module only remembers the answers for the length of one request.
 - Edit (add a task, hand one over, change any task): whoever may edit the
   basics or the staffing of the assignment, or edit the vacancy.
 - The person a task is for may always change its status.
+- A task that asks for internal approval of a quote is readable by whoever
+  may approve quotes, as the quote itself is.
 """
 
 from __future__ import annotations
@@ -22,6 +24,7 @@ from sqlalchemy.orm import selectinload
 
 from grip.access import Action, DataClass, Resource, Subject
 from grip.access.decider import Decider, decide
+from grip.access.quote_approval import quote_resource
 from grip.access.vacancies import vacancy_resource
 from grip.models.assignment import AssignmentRole, BudgetLine
 from grip.models.task import Task
@@ -36,6 +39,15 @@ class CaseRights:
 
 
 _NONE = CaseRights(read=False, edit=False)
+
+
+def _asks_for_approval(task: Task) -> bool:
+    return (
+        task.subject_kind == "quote_approval"
+        and task.is_open
+        and task.subject_id is not None
+        and task.assignment_id is not None
+    )
 
 
 class TaskAccess:
@@ -120,7 +132,18 @@ class TaskAccess:
         return _NONE
 
     async def of_task(self, task: Task) -> CaseRights:
-        return await self.case(task.case_kind, task.assignment_id, task.vacancy_id)
+        rights = await self.case(task.case_kind, task.assignment_id, task.vacancy_id)
+        if rights.read or not _asks_for_approval(task):
+            return rights
+        # Whoever may approve quotes reads a quote for which approval was
+        # asked, without any other relation to the assignment. The task that
+        # asks for that approval is theirs to see; nothing else of the case is.
+        assert task.assignment_id is not None and task.subject_id is not None
+        resource = quote_resource(
+            UUID(task.subject_id), task.assignment_id, approval_requested=True
+        )
+        read = await self._may(Action.READ, resource, DataClass.ASSIGNMENT_BASIC)
+        return CaseRights(read=read, edit=False)
 
     async def assignment_roles(self) -> dict[UUID, str]:
         """The assignments this person owns or manages, with the role."""

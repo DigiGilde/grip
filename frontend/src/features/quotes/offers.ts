@@ -5,6 +5,7 @@
 import { formatDate } from '@/lib/format';
 import type { QuoteDetail, QuoteOffer, QuoteSummary } from './api';
 import { OFFER_CHANNEL_LABELS } from './api';
+import { awaitsApproval, type ApprovalState } from './approval';
 import { formatDateTime } from './format';
 
 export interface QuoteStep {
@@ -12,23 +13,38 @@ export interface QuoteStep {
   status: 'past' | 'current' | 'future';
 }
 
-/** The steps of one quote: gemaakt, aangeboden, getekend of afgewezen. */
-export function quoteSteps(quote: QuoteSummary, offers: readonly QuoteOffer[]): QuoteStep[] {
+/**
+ * The steps of one quote: gemaakt, aangeboden, getekend of afgewezen. Where
+ * the organisation approves a quote internally first, that is a step between
+ * making and offering; elsewhere it does not show.
+ */
+export function quoteSteps(
+  quote: QuoteSummary,
+  offers: readonly QuoteOffer[],
+  approval?: ApprovalState | null,
+): QuoteStep[] {
   const decided = quote.status === 'accepted' || quote.status === 'rejected';
   const offered = offers.length > 0 || decided;
-  return [
-    { text: 'Gemaakt', status: 'past' },
-    { text: 'Aangeboden', status: offered ? 'past' : 'current' },
-    {
-      text:
-        quote.status === 'accepted'
-          ? 'Getekend'
-          : quote.status === 'rejected'
-            ? 'Afgewezen'
-            : 'Getekend of afgewezen',
-      status: decided ? 'past' : offered ? 'current' : 'future',
-    },
-  ];
+  const needsApproval = Boolean(approval?.approval_required);
+  const approved = offered || !awaitsApproval(approval);
+  const steps: QuoteStep[] = [{ text: 'Gemaakt', status: 'past' }];
+  if (needsApproval) {
+    steps.push({ text: 'Interne goedkeuring', status: approved ? 'past' : 'current' });
+  }
+  steps.push({
+    text: 'Aangeboden',
+    status: offered ? 'past' : approved ? 'current' : 'future',
+  });
+  steps.push({
+    text:
+      quote.status === 'accepted'
+        ? 'Getekend'
+        : quote.status === 'rejected'
+          ? 'Afgewezen'
+          : 'Getekend of afgewezen',
+    status: decided ? 'past' : offered ? 'current' : 'future',
+  });
+  return steps;
 }
 
 /** Offers newest first, with one entry per signing link: the latest offer on it. */
@@ -89,17 +105,29 @@ export function linkWorks(offer: QuoteOffer): boolean {
   return state === 'invited' || state === 'opened';
 }
 
-export type PrimaryAction = 'offer' | 'record-signed' | null;
+export type PrimaryAction = 'offer' | 'record-signed' | 'request-approval' | 'new-quote' | null;
 
 /**
  * The one thing to do now on an open quote, for whoever manages it. After
- * issuing: offer it. When it went out as a document: record the signed copy.
- * While the client has it by link or in its own grip: nothing; the decision
- * comes in by itself.
+ * making: offer it, or first ask for the internal approval the organisation
+ * wants. Sent back: make a new quote. When it went out as a document: record
+ * the signed copy. While an approver or the client has it: nothing; the
+ * decision comes in by itself.
  */
-export function primaryAction(quote: QuoteDetail | QuoteSummary, offers: readonly QuoteOffer[]): PrimaryAction {
+export function primaryAction(
+  quote: QuoteDetail | QuoteSummary,
+  offers: readonly QuoteOffer[],
+  approval?: ApprovalState | null,
+): PrimaryAction {
   if (quote.status !== 'issued') return null;
-  if (offers.length === 0) return 'offer';
+  if (offers.length === 0) {
+    if (!awaitsApproval(approval)) return 'offer';
+    if (approval?.status === 'sent_back') return 'new-quote';
+    if (approval?.status === 'requested') return null;
+    return approval?.may_request_approval && approval.approver_available
+      ? 'request-approval'
+      : null;
+  }
   const latest = listedOffers(offers)[0];
   return latest?.channel === 'document' ? 'record-signed' : null;
 }

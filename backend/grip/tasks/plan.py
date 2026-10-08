@@ -14,6 +14,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+from grip.services import events
 from grip.tasks import catalogue
 
 _PLAN_DIR = Path(__file__).resolve().parents[1] / "data" / "tasks"
@@ -135,6 +136,7 @@ def _template(case_kind: str, tracks: set[str], raw: dict[str, Any]) -> Template
         "waiting_on",
         "due",
         "link",
+        "requires_event",
     }
     if unknown:
         raise fail(f"onbekende instelling {sorted(unknown)}")
@@ -175,6 +177,11 @@ def parse_plan(data: dict[str, Any]) -> Plan:
         parsed = []
         for raw in section.get("templates", ()):
             template = _template(case_kind, keys, raw)
+            # A template for work that this version of grip cannot announce
+            # yet is checked and then left out, until its event type exists.
+            required = raw.get("requires_event")
+            if required is not None and required not in events.EVENT_TYPES:
+                continue
             if template.key in seen:
                 raise PlanError(f"Taak {template.key} staat twee keer in het plan.")
             seen.add(template.key)

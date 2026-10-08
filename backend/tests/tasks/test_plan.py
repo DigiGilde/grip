@@ -21,7 +21,7 @@ def test_the_shipped_plan_is_valid_and_small():
     plan = current_plan()
     keys = [t.key for templates in plan.templates.values() for t in templates]
     assert len(keys) == len(set(keys))
-    assert 12 <= len(keys) <= 22
+    assert 12 <= len(keys) <= 26
     assert plan.version
 
 
@@ -59,6 +59,14 @@ def test_a_plan_cannot_reach_past_the_catalogue(field, value, message):
     _first(raw)[field] = value
     with pytest.raises(PlanError, match=message):
         parse_plan(raw)
+
+
+def test_a_template_waits_for_its_event_type():
+    raw = copy.deepcopy(RAW)
+    _first(raw)["requires_event"] = "nog_niet.bestaand"
+    plan = parse_plan(raw)
+    assert plan.template(_first(raw)["key"]) is None
+    assert plan.template("financien.naverrekening_aanleveren") is not None
 
 
 def test_a_key_cannot_be_used_twice():

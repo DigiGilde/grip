@@ -25,6 +25,9 @@ import { CostsPage } from '@/features/costs/CostsPage';
 import { MonthClosePage } from '@/features/month-close/MonthClosePage';
 import { OverviewPage } from '@/features/overview/OverviewPage';
 import { QuotePage } from '@/features/quotes/QuotePage';
+import { ApprovalListPage } from '@/features/quotes/ApprovalListPage';
+import { ApprovalPage } from '@/features/quotes/ApprovalPage';
+import { QuoteSettingsPage } from '@/features/quotes/QuoteSettingsPage';
 import { SigningLayout } from '@/features/signing/SigningLayout';
 import { SigningListPage } from '@/features/signing/SigningListPage';
 import { SigningPage } from '@/features/signing/SigningPage';
@@ -131,6 +134,9 @@ export function AppRoutes() {
         <Route path={PATHS.clientRequest} element={<RequestQuotePage />} />
         <Route path={PATHS.clientAssignment} element={<ClientAssignmentPage />} />
         <Route path={PATHS.receivedQuote} element={<ReceivedQuotePage />} />
+        <Route path={PATHS.quoteApprovals} element={<ApprovalListPage />} />
+        <Route path={PATHS.quoteApproval} element={<ApprovalPage />} />
+        <Route path={PATHS.quoteSettings} element={<QuoteSettingsPage />} />
         <Route path={PATHS.peers} element={<PeersPage />} />
         <Route path={PATHS.organisations} element={<OrganisationsAdminPage />} />
         <Route path={PATHS.roles} element={<RolesAdminPage />} />

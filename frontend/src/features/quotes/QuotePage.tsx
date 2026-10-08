@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { errorMessage } from '@/api/client';
 import { Button, DateInput, TextInput } from '@/features/assignments/ui';
 import { useAssignmentShell } from '@/features/assignments/shell';
@@ -20,17 +20,23 @@ import {
   renewInvitation,
   withdrawInvitation,
   type OfferChannel,
-  type QuoteDetail,
   type QuotePreview,
   type QuoteSummary,
 } from './api';
+import {
+  approvalKeys,
+  approvalPath,
+  fetchApprovals,
+  requestApproval,
+  withdrawApproval,
+} from './approval';
 import { OfferSheet } from './OfferSheet';
 import { EarlierQuoteRow, QuoteCard, type CardAction } from './QuoteCard';
 import { QuoteContentTable } from './QuoteContentTable';
 import { partMonthNote } from './format';
 import { FileInput } from './ui';
 
-type Dialog = 'issue' | 'offer' | 'upload' | 'reject' | null;
+type Dialog = 'issue' | 'offer' | 'upload' | 'reject' | 'approval' | null;
 
 function differenceText(preview: QuotePreview): string | null {
   const difference = preview.difference_cents;
@@ -73,7 +79,18 @@ export function QuotePage() {
     enabled: current !== null,
   });
 
+  // Where the organisation approves quotes internally; elsewhere this says
+  // "not required" for every quote and nothing of it shows.
+  const approvals = useQuery({
+    queryKey: approvalKeys.ofAssignment(assignmentId),
+    queryFn: () => fetchApprovals(assignmentId),
+    enabled: current !== null,
+  });
+  const approval = approvals.data?.items?.find((item) => item.quote_id === current?.id) ?? null;
+  const navigate = useNavigate();
+
   const [dialog, setDialog] = useState<Dialog>(null);
+  const [approvalNote, setApprovalNote] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
 
@@ -108,7 +125,7 @@ export function QuotePage() {
   const submit = (action: () => Promise<unknown>) =>
     run.mutate(action, { onError: (error) => setFormError(errorMessage(error)) });
   /** An action without a sheet: a failure shows above the card. */
-  const act = (action: () => Promise<QuoteDetail>) =>
+  const act = (action: () => Promise<unknown>) =>
     run.mutate(action, { onError: (error) => setPageError(errorMessage(error)) });
 
   const onCard = (action: CardAction) => {
@@ -116,6 +133,10 @@ export function QuotePage() {
     if (action.kind === 'offer') open('offer');
     else if (action.kind === 'upload') open('upload');
     else if (action.kind === 'reject') open('reject');
+    else if (action.kind === 'request-approval') open('approval');
+    else if (action.kind === 'new-quote') open('issue');
+    else if (action.kind === 'review') navigate(approvalPath(current.id));
+    else if (action.kind === 'withdraw-approval') act(() => withdrawApproval(current.id));
     else if (action.kind === 'withdraw-link') {
       act(() => withdrawInvitation(current.id, action.invitationId));
     } else act(() => renewInvitation(current.id, action.invitationId));
@@ -184,6 +205,7 @@ export function QuotePage() {
               <QuoteCard
                 quote={current}
                 detail={detail.data}
+                approval={approvals.isPending ? undefined : approval}
                 mayManage={mayManage}
                 busy={run.isPending}
                 onAction={onCard}
@@ -268,6 +290,32 @@ export function QuotePage() {
           );
         }}
       />
+
+      <FormSheet
+        open={dialog === 'approval'}
+        title="Goedkeuring vragen"
+        submitText="Vraag goedkeuring"
+        busy={run.isPending}
+        error={dialog === 'approval' ? formError : null}
+        onClose={close}
+        onSubmit={() => {
+          if (!current) return;
+          submit(() => requestApproval(current.id, approvalNote.trim() || null));
+        }}
+      >
+        <nldd-text>
+          Een collega met het recht om offertes goed te keuren beoordeelt offerte{' '}
+          {current?.reference ?? ''}. Daarna kun je haar aanbieden. De opdrachtgever ziet hier
+          niets van.
+        </nldd-text>
+        <TextInput
+          label="Toelichting voor wie goedkeurt"
+          value={approvalNote}
+          onChange={setApprovalNote}
+          optional
+          multiline
+        />
+      </FormSheet>
 
       <FormSheet
         open={dialog === 'upload'}

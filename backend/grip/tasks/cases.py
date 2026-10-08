@@ -24,7 +24,7 @@ from grip.models.month_close import BillingExport, MonthClose
 from grip.models.organisation import Organisation
 from grip.models.outgoing_invoice import OutgoingInvoice, OutgoingInvoiceDelivery
 from grip.models.person import Person
-from grip.models.quote import Quote, QuoteOffer
+from grip.models.quote import Quote, QuoteApproval, QuoteOffer
 from grip.models.task import OPEN_STATUSES, Task
 from grip.models.vacancy import Vacancy
 from grip.models.vacancy_hire import VacancyHire
@@ -89,6 +89,8 @@ class Subject:
     facts: dict[str, bool] = field(default_factory=dict)
     anchors: dict[str, date | None] = field(default_factory=dict)
     variables: dict[str, str] = field(default_factory=dict)
+    # The person the subject names, for a template whose assignee is "maker".
+    person_id: UUID | None = None
 
 
 @dataclass
@@ -245,6 +247,25 @@ async def load_assignment_cases(
         )
     ).all()
     quotes_by_assignment = _grouped(quotes, "assignment_id")
+    # Internal approval: a request exists only where the instance asks for
+    # one, so the request itself is the trigger and no setting is read here.
+    approvals = (
+        await db.execute(
+            select(
+                QuoteApproval.id,
+                QuoteApproval.quote_id,
+                QuoteApproval.status,
+                QuoteApproval.requested_by_id,
+                QuoteApproval.requested_at,
+                QuoteApproval.decided_at,
+                Quote.assignment_id,
+                Quote.reference,
+            )
+            .join(Quote, Quote.id == QuoteApproval.quote_id)
+            .where(Quote.assignment_id.in_(ids), QuoteApproval.status != "withdrawn")
+        )
+    ).all()
+    approvals_by_assignment = _grouped(approvals, "assignment_id")
     quote_ids = [quote.id for quote in quotes]
     offered: set[UUID] = set()
     if quote_ids:
@@ -306,6 +327,7 @@ async def load_assignment_cases(
             for allocation in allocations_by_line.get(line.id, [])
         ]
         own_quotes = quotes_by_assignment.get(assignment.id, [])
+        own_approvals = approvals_by_assignment.get(assignment.id, [])
         is_client = _same_base(
             client_uris.get(assignment.client_organisation_id)
             if assignment.client_organisation_id
@@ -333,6 +355,10 @@ async def load_assignment_cases(
 
         rejected = [quote for quote in own_quotes if quote.status == "rejected"]
         live = [q for q in own_quotes if q.status in ("issued", "accepted")]
+        # TODO(stand van een potentiële opdracht): the assignment screens get
+        # one function for where a potential assignment stands (budget, quote
+        # made, offered, accepted). The facts of the quote round below must
+        # come from that function once it exists, not from this second copy.
         # Staffing comes into view once the work is agreed, or a quote is out:
         # a draft that nobody has seen yet is no reason to line people up.
         facts["staffing_in_view"] = (
@@ -381,6 +407,42 @@ async def load_assignment_cases(
                 for quote in own_quotes
                 if quote.status != "superseded"
             ],
+            "quote_approval": [
+                Subject(
+                    kind="quote_approval",
+                    repeat_key=str(approval.id),
+                    subject_id=str(approval.quote_id),
+                    facts={"approval_decided": approval.status != "requested"},
+                    anchors={"approval_requested_on": approval.requested_at.date()},
+                    variables={"kenmerk": approval.reference or ""},
+                )
+                for approval in own_approvals
+            ],
+            "sent_back_quote": [
+                Subject(
+                    kind="sent_back_quote",
+                    repeat_key=str(approval.id),
+                    subject_id=str(approval.quote_id),
+                    facts={
+                        "quote_superseded": any(
+                            later.issued_at > approval.decided_at
+                            for later in own_quotes
+                        )
+                    },
+                    variables={"kenmerk": approval.reference or ""},
+                    person_id=approval.requested_by_id,
+                )
+                for approval in own_approvals
+                if approval.status == "sent_back" and approval.decided_at is not None
+            ],
+            # TODO(naverrekening): one subject per delivered month whose price
+            # changed afterwards, with the fact "correction_delivered" and the
+            # anchor "correction_arose_on". The source is
+            # services.price_changes.pending_corrections, which prices every
+            # month and is too slow to call on each evaluation; it needs a
+            # stored row per correction that arose (see the event
+            # billing_correction.arose) before this list can be filled.
+            "correction_month": [],
             "open_role": _open_roles(own_lines, allocations_by_line, today),
         }
 

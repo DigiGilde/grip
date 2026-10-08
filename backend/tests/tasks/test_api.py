@@ -317,3 +317,26 @@ async def test_the_tasks_of_a_vacancy_follow_the_vacancy_s_rights(as_person, wor
     assert (await as_person(world.lezer).get(path)).json()["can_add"] is False
     assert (await as_person(world.outsider).get(path)).status_code == 404
     assert (await as_person(world.member).get(path)).status_code == 404
+
+
+# --- internal approval ---------------------------------------------------------
+
+
+async def test_an_approver_sees_the_request_and_nothing_else_of_the_case(
+    as_person, world, build, create_person
+):
+    approver = await create_person(
+        "goedkeurder@example.org", functions=["offertegoedkeurder"]
+    )
+    quote = await build.quote(world.other)
+    await build.approval(quote, by=world.beheerder)
+    mine = (await as_person(approver).get("/api/tasks/mine")).json()
+    assert [item["title"].split(" ")[0] for item in mine["items"]] == ["Beoordeel"]
+    assert mine["items"][0]["can_change"] is True
+    assert mine["items"][0]["can_complete"] is False
+    case = await as_person(approver).get(
+        f"/api/tasks/cases/assignment/{world.other.id}"
+    )
+    assert case.status_code == 404
+    outsider = (await as_person(world.outsider).get("/api/tasks/mine")).json()
+    assert outsider.get("items", []) == []

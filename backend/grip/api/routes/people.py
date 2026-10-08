@@ -32,6 +32,7 @@ from grip.access import (
 )
 from grip.access.deps import AccessDecider, CurrentSubject, require
 from grip.api.reference_support import may, period_or_today
+from grip.api.routes.rates import _impact_out as impact_out
 from grip.core.auth import CurrentPerson
 from grip.core.database import get_db
 from grip.models.person import Person
@@ -411,6 +412,27 @@ async def add_scale(
         allow_closed_year=body.confirm_closed_year,
     )
     return await _one(db, decider, subject, person_id, period_or_today(None, None))
+
+
+@router.post("/{person_id}/scales/preview", response_model=None)
+async def preview_scale(
+    person_id: UUID,
+    body: ScaleCreate,
+    subject: CurrentSubject,
+    decider: AccessDecider,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """What recording this scale would touch, before it is saved.
+
+    A scale with a start date in the past changes the price of months that
+    are already closed, delivered or invoiced. This shows them per
+    assignment with the difference in euro. Saves nothing.
+    """
+    await require(decider, subject, Action.MANAGE_USERS, Resource.person(person_id))
+    impact = await rates.scale_change_preview(
+        db, person_id, body.valid_from, body.billing_scale, valid_to=body.valid_to
+    )
+    return impact_out(impact).model_dump(mode="json")
 
 
 @router.post(

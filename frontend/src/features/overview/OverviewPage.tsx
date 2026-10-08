@@ -12,7 +12,7 @@ import { useInstance } from '@/layout/useInstance';
 import { useRouterLinks } from '@/layout/useRouterLinks';
 import { formatEuro, formatMonth } from '@/lib/format';
 import { ActionBar } from '@/ui/ActionBar';
-import { CardGrid, EmptyNotice, ErrorNotice, Loading, Page, Quiet, Section, Stack } from '@/ui/layout';
+import { EmptyNotice, ErrorNotice, Loading, Page, Quiet, Section, Stack } from '@/ui/layout';
 import { OpenRow } from '@/ui/RowActions';
 import { fetchOverview, hasFigures, overviewKeys, type Figures, type OverviewRow } from './api';
 import {
@@ -226,10 +226,11 @@ export function OverviewPage() {
             />
           )}
           {query.isSuccess && rows.length > 0 && (
-            <CardGrid itemWidth="340px">
+            // Attention and tasks side by side; one of them alone takes the row.
+            <div className="grip-start">
               <Attention rows={shownRows} />
               <MyTasks />
-            </CardGrid>
+            </div>
           )}
           {tiles.length > 0 && (
             <ul className="grip-tiles" aria-label={`Kerncijfers ${period}`}>

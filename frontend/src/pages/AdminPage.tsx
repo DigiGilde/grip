@@ -12,6 +12,11 @@ const SECTIONS: { path: string; title: string; text: string }[] = [
     text: 'De tarievenkaart per jaar: het maandtarief per categorie en in welke categorie een schaal declareert.',
   },
   {
+    path: PATHS.quoteSettings,
+    title: 'Offertes',
+    text: 'Of een offerte intern wordt goedgekeurd voor ze naar de opdrachtgever gaat, en vanaf welk bedrag.',
+  },
+  {
     path: PATHS.peers,
     title: 'Koppelingen',
     text: 'Opdrachtgevers, opdrachtnemers en corpora waarmee jullie grip berichten uitwisselt.',

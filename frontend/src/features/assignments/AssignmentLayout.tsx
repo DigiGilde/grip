@@ -7,7 +7,8 @@ import { RouterLinks } from '@/layout/RouterLinks';
 import { useInstance } from '@/layout/useInstance';
 import { useRouterLinks } from '@/layout/useRouterLinks';
 import { formatEuro, formatPeriod } from '@/lib/format';
-import { Page, Quiet, Stack } from '@/ui/layout';
+import { PageHeading } from '@/pages/PageHeading';
+import { Quiet, Stack } from '@/ui/layout';
 import { PATHS } from '@/paths';
 import { assignmentKeys, fetchAssignment, type AssignmentDetail } from './api';
 import { fetchAssignmentFinance, financeKeys } from './financeApi';
@@ -16,6 +17,9 @@ import { relationText, STATUS_COLORS, statusLabel } from './labels';
 import { assignmentTabPath, type AssignmentTabKey } from './paths';
 import { AssignmentShellContext, TAB_LABELS, visibleTabs } from './shell';
 import { ErrorNotice, Loading } from './ui';
+
+/** Spread as plain attributes; the package types do not list the padding overrides. */
+const HEADER_PADDING: object = { 'padding-bottom': '0' };
 
 /** The whole period: the header never follows a year filter on a tab. */
 const WHOLE_PERIOD = 'all';
@@ -112,7 +116,10 @@ export function AssignmentLayout() {
 
   return (
     <>
-      <Page title={assignment?.name ?? 'Opdracht'} instanceName={instance?.name}>
+      {/* The tab below is a section of its own with its own top padding;
+          without a bottom padding here the two would add up under the tabs. */}
+      <nldd-simple-section {...HEADER_PADDING}>
+        <PageHeading text={assignment?.name ?? 'Opdracht'} instanceName={instance?.name} />
         <Stack gap="related">
           <RouterLinks>
             <nldd-link href={PATHS.assignments} text="Terug naar opdrachten" size="md" />
@@ -145,7 +152,7 @@ export function AssignmentLayout() {
             </>
           )}
         </Stack>
-      </Page>
+      </nldd-simple-section>
       {assignment && (
         <AssignmentShellContext.Provider value={assignment}>
           <Outlet />

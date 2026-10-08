@@ -47,6 +47,17 @@ class BudgetLineOut(BaseModel):
     budgeted_cents: Annotated[int | None, in_class(B)]
     budgeted_by_year: Annotated[dict[str, int], in_class(B)]
     pricing_error: Annotated[str | None, in_class(B)]
+    # Why the line runs over or under: someone on it bills in another
+    # category than it was budgeted at, from a date. With the cause named
+    # ("gepromoveerd per 1 juli 2026: vanaf dan categorie C, de regel is
+    # begroot op B") for who may see what that person bills, and without the
+    # person ("tariefwijziging per 1 juli 2026") for who may see the signal.
+    rate_difference_notes: Annotated[list[str], in_class(D)] = Field(
+        default_factory=list
+    )
+    rate_difference_signals: Annotated[list[str], in_class(SIGNAL)] = Field(
+        default_factory=list
+    )
     # The colleague the role is meant for. Staffing data: absent for a reader
     # without class C, and never part of a quote.
     intended_person_id: Annotated[UUID | None, in_class(C)] = None

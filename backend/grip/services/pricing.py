@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass, field
+from datetime import date, timedelta
 from decimal import Decimal
 from uuid import UUID
 
@@ -444,6 +445,141 @@ async def category_signals(
             )
         )
     return tuple(signals)
+
+
+_MONTH_NAMES = (
+    "januari",
+    "februari",
+    "maart",
+    "april",
+    "mei",
+    "juni",
+    "juli",
+    "augustus",
+    "september",
+    "oktober",
+    "november",
+    "december",
+)
+
+CAUSE_PROMOTION = "promotion"
+CAUSE_SCALE_CHANGE = "scale_change"
+CAUSE_RATE_CARD = "rate_card"
+CAUSE_OTHER = "other"
+
+
+@dataclass(frozen=True)
+class RateDifference:
+    """Why a budget line runs over or under: the R14 signal with its cause.
+
+    A line is budgeted at one category. The person on it bills at the
+    correct rate, whatever was budgeted or quoted; when that is another
+    category the line runs over or under from a date. Grip shows that and
+    names the cause; it does not block anything.
+    """
+
+    budget_line_id: UUID
+    allocation_id: UUID
+    person_id: UUID
+    since: date
+    line_category: str
+    person_category: str
+    direction: str
+    cause: str
+    # Names the categories: for who may see what a person bills (class D).
+    text: str
+    # Without the person and the categories: for who may see only that
+    # something differs.
+    generic_text: str
+
+
+def _day_text(day: date) -> str:
+    return f"{day.day} {_MONTH_NAMES[day.month - 1]} {day.year}"
+
+
+def describe_rate_difference(
+    mismatch: calc.CategoryMismatch,
+    scales: Iterable[calc.PersonScale],
+    rates: calc.RateBook,
+) -> RateDifference:
+    since = mismatch.since or mismatch.first_month.first_day
+    own = sorted(
+        (s for s in scales if s.person_id == mismatch.person_id),
+        key=lambda s: s.valid_from,
+    )
+    new = next((s for s in own if s.valid_from == since), None)
+    old = next(
+        (
+            s
+            for s in own
+            if s.valid_from < since
+            and (s.valid_to or date.max) >= since - timedelta(days=1)
+        ),
+        None,
+    )
+    tail = (
+        f"vanaf dan categorie {mismatch.person_category}, de regel is begroot op "
+        f"{mismatch.line_category}"
+    )
+    when = _day_text(since)
+    if new is not None and old is not None and new.billing_scale > old.billing_scale:
+        cause, text = CAUSE_PROMOTION, f"gepromoveerd per {when}: {tail}"
+    elif new is not None and old is not None:
+        cause, text = CAUSE_SCALE_CHANGE, f"inzetschaal gewijzigd per {when}: {tail}"
+    elif any(card.valid_from == since for card in rates.cards):
+        cause = CAUSE_RATE_CARD
+        text = (
+            f"nieuwe tarievenkaart per {when}: de schaal valt vanaf dan in "
+            f"categorie {mismatch.person_category}, de regel is begroot op "
+            f"{mismatch.line_category}"
+        )
+    else:
+        cause = CAUSE_OTHER
+        text = (
+            f"declareert in categorie {mismatch.person_category}; de regel is "
+            f"begroot op {mismatch.line_category}"
+        )
+    generic = (
+        "tarief wijkt af van de begroting"
+        if cause == CAUSE_OTHER
+        else f"tariefwijziging per {when}"
+    )
+    return RateDifference(
+        budget_line_id=UUID(mismatch.budget_line_id),
+        allocation_id=UUID(mismatch.allocation_id),
+        person_id=UUID(mismatch.person_id),
+        since=since,
+        line_category=mismatch.line_category,
+        person_category=mismatch.person_category,
+        direction=mismatch.direction.value,
+        cause=cause,
+        text=text,
+        generic_text=generic,
+    )
+
+
+async def rate_differences(
+    session: AsyncSession,
+    assignment_id: UUID,
+    *,
+    options: PricingOptions = DEFAULT_OPTIONS,
+) -> tuple[RateDifference, ...]:
+    """Per budget line of an assignment why it runs over or under (R14),
+    with the cause named: a promotion from a date, a new rate card, or a
+    person who bills in another category than was budgeted."""
+    inputs = await load_inputs_for_assignment(session, assignment_id, options=options)
+    found: list[RateDifference] = []
+    for line in inputs.lines:
+        try:
+            mismatches = calc.category_mismatches(
+                line, inputs.allocations, inputs.rates, inputs.scales
+            )
+        except calc.CalcError:
+            continue
+        found.extend(
+            describe_rate_difference(m, inputs.scales, inputs.rates) for m in mismatches
+        )
+    return tuple(found)
 
 
 async def cost_item_coverage(

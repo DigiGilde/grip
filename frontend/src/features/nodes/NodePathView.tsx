@@ -70,7 +70,7 @@ function StepRow({ step, first, last, end, current, previousOrganisation, onStep
     first ? 'grip-path__step--first' : '',
     last ? 'grip-path__step--last' : '',
     current ? 'grip-path__step--current' : '',
-    end && !current ? 'grip-path__step--end' : '',
+    end && !current && !elsewhere ? 'grip-path__step--end' : '',
   ]
     .filter(Boolean)
     .join(' ');

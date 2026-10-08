@@ -243,9 +243,27 @@ async def test_scale_history(client, world, as_person):
     report = by_id(body["items"], world.report)
     assert report["billing_scale"] == 12 and report["rate_category"] == "C"
 
+    # A scale recorded afterwards for a date inside an earlier period: that
+    # period ends the day before, and the new one runs until the next.
+    inserted = await client.post(
+        f"/api/people/{world.report.id}/scales",
+        json={"valid_from": "2026-03-15", "billing_scale": 10},
+    )
+    assert inserted.status_code == 201
+    scales = inserted.json()["scales"]
+    assert [(s["valid_from"], s["valid_to"], s["billing_scale"]) for s in scales] == [
+        ("2026-01-01", "2026-03-14", 14),
+        ("2026-03-15", "2026-06-30", 10),
+        ("2026-07-01", None, 12),
+    ]
+    # An end date that reaches into the next period is still an overlap.
     overlap = await client.post(
         f"/api/people/{world.report.id}/scales",
-        json={"valid_from": "2026-03-01", "billing_scale": 10},
+        json={
+            "valid_from": "2026-05-01",
+            "valid_to": "2026-08-31",
+            "billing_scale": 11,
+        },
     )
     assert overlap.status_code == 422
 

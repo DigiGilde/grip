@@ -113,10 +113,14 @@ class _Wanted:
 
 
 def _assignee(
-    template: Template, case: CaseSnapshot
+    template: Template, case: CaseSnapshot, subject: Subject
 ) -> tuple[UUID | None, str | None, str | None, bool]:
     """Person, role, who is waited on, and whether the task starts waiting."""
     role = template.assignee
+    if role in catalogue.SUBJECT_PERSON_ROLES:
+        if subject.person_id is not None:
+            return subject.person_id, None, None, False
+        return None, "owner", None, False
     if role in catalogue.VACANCY_PERSON_ROLES:
         person_id = case.people.get(role)
         if person_id is not None:
@@ -205,7 +209,7 @@ async def _reconcile_case(
                     continue
                 first_open_taken = True
 
-            person_id, role, waiting_on, waiting = _assignee(template, case)
+            person_id, role, waiting_on, waiting = _assignee(template, case, subject)
             wanted = _Wanted(
                 template=template,
                 subject=subject,

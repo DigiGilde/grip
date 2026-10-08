@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 
 from sqlalchemy import select
 
 from grip.models.task import Task
 from grip.tasks.engine import add_working_days
 
-from .conftest import INSTANCE, TODAY
+from .conftest import INSTANCE, NOW, TODAY
 
 
 async def tasks(db, *, key: str | None = None, status: str | None = None) -> list[Task]:
@@ -100,10 +100,6 @@ async def test_a_rejection_opens_a_new_round(db_session, build, evaluate):
     assert (await one(db_session, "offerte.reactie_verwerken")).status == "todo"
     rounds = await tasks(db_session, key="offerte.opstellen")
     assert {(task.repeat_key, task.status) for task in rounds} == {("ronde-2", "todo")}
-
-    from datetime import timedelta
-
-    from .conftest import NOW
 
     await build.quote(assignment, issued_at=NOW + timedelta(hours=1))
     await evaluate()
@@ -243,8 +239,6 @@ async def test_a_reopened_month_reopens_its_task(
     await build.allocation(await build.line(assignment), person)
     close = await build.close(assignment, date(2026, 1, 1))
     await evaluate()
-    from .conftest import NOW
-
     close.reopened_at = NOW
     close.reopen_reason = "Correctie"
     outcome = await evaluate()
@@ -459,3 +453,54 @@ def test_working_days_skip_the_weekend():
     assert add_working_days(date(2026, 10, 9), 1) == date(2026, 10, 12)
     assert add_working_days(date(2026, 10, 8), 5) == date(2026, 10, 15)
     assert add_working_days(date(2026, 10, 8), 0) == date(2026, 10, 8)
+
+
+# --- internal approval of a quote ---------------------------------------------
+
+
+async def test_a_request_for_approval_is_work_for_the_approver(
+    db_session, build, evaluate, create_person
+):
+    maker = await create_person("maker@example.org")
+    assignment = await build.assignment(status="quoted")
+    await build.line(assignment)
+    quote = await build.quote(assignment)
+    quote.reference = "T-2026-0042"
+    approval = await build.approval(quote, by=maker)
+    await evaluate()
+    review = await one(db_session, "offerte.intern_beoordelen")
+    assert review.title == "Beoordeel offerte T-2026-0042"
+    assert review.assignee_role == "offertegoedkeurder"
+    assert review.due_on == add_working_days(TODAY, 3)
+
+    approval.status = "sent_back"
+    approval.decided_at = NOW
+    await evaluate()
+    assert (await one(db_session, "offerte.intern_beoordelen")).status == "done"
+    again = await one(db_session, "offerte.na_terugsturen_opnieuw_maken")
+    assert again.assignee_person_id == maker.id
+    assert again.status == "todo"
+
+    await build.quote(assignment, issued_at=NOW + timedelta(hours=1))
+    await evaluate()
+    assert (
+        await one(db_session, "offerte.na_terugsturen_opnieuw_maken")
+    ).status == "done"
+
+
+async def test_a_withdrawn_request_takes_its_task_along(db_session, build, evaluate):
+    assignment = await build.assignment(status="quoted")
+    await build.line(assignment)
+    approval = await build.approval(await build.quote(assignment))
+    await evaluate()
+    approval.status = "withdrawn"
+    await evaluate()
+    assert (await one(db_session, "offerte.intern_beoordelen")).status == "obsolete"
+
+
+async def test_no_approval_task_without_a_request(db_session, build, evaluate):
+    assignment = await build.assignment(status="quoted")
+    await build.line(assignment)
+    await build.quote(assignment)
+    await evaluate()
+    assert await tasks(db_session, key="offerte.intern_beoordelen") == []

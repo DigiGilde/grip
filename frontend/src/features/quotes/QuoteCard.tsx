@@ -11,6 +11,7 @@ import {
   type QuoteOffer,
   type QuoteSummary,
 } from './api';
+import { APPROVER_RIGHT, approvalLine, awaitsApproval, type ApprovalState } from './approval';
 import { formatDateTime } from './format';
 import {
   invitationMessage,
@@ -29,6 +30,10 @@ export type CardAction =
   | { kind: 'offer' }
   | { kind: 'upload' }
   | { kind: 'reject' }
+  | { kind: 'request-approval' }
+  | { kind: 'withdraw-approval' }
+  | { kind: 'review' }
+  | { kind: 'new-quote' }
   | { kind: 'withdraw-link'; invitationId: string }
   | { kind: 'renew-link'; invitationId: string };
 
@@ -149,6 +154,8 @@ interface QuoteCardProps {
   quote: QuoteSummary;
   /** The quote with its offers, once loaded. */
   detail: QuoteDetail | undefined;
+  /** Internal approval, where the organisation asks for it; undefined while loading. */
+  approval?: ApprovalState | null;
   mayManage: boolean;
   busy: boolean;
   onAction: (action: CardAction) => void;
@@ -158,12 +165,21 @@ interface QuoteCardProps {
  * One quote as one card: the amount, where it stands, and the one thing to
  * do next. Everything else is quiet.
  */
-export function QuoteCard({ quote, detail, mayManage, busy, onAction }: QuoteCardProps) {
+export function QuoteCard({ quote, detail, approval, mayManage, busy, onAction }: QuoteCardProps) {
   const offers = detail?.offers ?? [];
   const listed = listedOffers(offers);
-  const steps = quoteSteps(quote, offers);
-  const next = mayManage && detail ? primaryAction(quote, offers) : null;
+  const steps = quoteSteps(quote, offers, approval);
+  // Complete once the offers and the approval are in: until then no action,
+  // so a button never changes under the pointer.
+  const ready = detail !== undefined && approval !== undefined;
+  const next = mayManage && ready ? primaryAction(quote, offers, approval) : null;
   const open = quote.status === 'issued';
+  const blocked = awaitsApproval(approval);
+  // Approval is a matter between making and offering; once the quote is out
+  // or decided it is history and stays in the details.
+  const approvalText = open && offers.length === 0 ? approvalLine(approval) : null;
+  const mayReview = open && Boolean(approval?.may_decide_approval);
+  const mayWithdrawApproval = open && Boolean(approval?.may_withdraw);
   const name = detail?.content?.name ?? '';
   const current = steps.findIndex((step) => step.status === 'current') + 1;
   // The link with its validity, for the offer that still waits on a signature.
@@ -212,7 +228,7 @@ export function QuoteCard({ quote, detail, mayManage, busy, onAction }: QuoteCar
         <nldd-step-bar
           {...{ current: current > 0 ? current : steps.length + 1 }}
           accessible-label="Stappen van deze offerte"
-          data-ready={detail ? 'true' : 'false'}
+          data-ready={ready ? 'true' : 'false'}
         >
           {steps.map((step) => (
             <nldd-step-bar-item key={step.text} text={step.text} />
@@ -246,7 +262,24 @@ export function QuoteCard({ quote, detail, mayManage, busy, onAction }: QuoteCar
           </Stack>
         ) : null}
 
-        {mayManage && open && detail ? (
+        {approvalText ? (
+          <Stack gap="close">
+            <nldd-text>{approvalText}</nldd-text>
+            {approval?.status === 'requested' && approval.current?.request_note ? (
+              <Quiet>Toelichting bij de aanvraag: {approval.current.request_note}</Quiet>
+            ) : null}
+            {blocked && approval && !approval.approver_available ? (
+              <nldd-banner
+                variant="warning"
+                size="sm"
+                text="Niemand kan deze offerte nu goedkeuren"
+                supporting-text={`Een beheerder kent het recht "${APPROVER_RIGHT}" toe bij een collega onder Team.`}
+              />
+            ) : null}
+          </Stack>
+        ) : null}
+
+        {open && ready && (mayManage || mayReview || mayWithdrawApproval) ? (
           <nldd-container layout="row" gap="8" vertical-alignment="center">
             {next === 'offer' ? (
               <Button
@@ -254,6 +287,22 @@ export function QuoteCard({ quote, detail, mayManage, busy, onAction }: QuoteCar
                 appearance="primary"
                 disabled={busy}
                 onClick={() => onAction({ kind: 'offer' })}
+              />
+            ) : null}
+            {next === 'request-approval' ? (
+              <Button
+                text="Vraag goedkeuring"
+                appearance="primary"
+                disabled={busy}
+                onClick={() => onAction({ kind: 'request-approval' })}
+              />
+            ) : null}
+            {next === 'new-quote' ? (
+              <Button
+                text="Maak nieuwe offerte"
+                appearance="primary"
+                disabled={busy}
+                onClick={() => onAction({ kind: 'new-quote' })}
               />
             ) : null}
             {next === 'record-signed' ? (
@@ -264,21 +313,52 @@ export function QuoteCard({ quote, detail, mayManage, busy, onAction }: QuoteCar
                 onClick={() => onAction({ kind: 'upload' })}
               />
             ) : null}
-            <nldd-icon-button icon="more" text="Meer acties voor deze offerte">
-              <nldd-menu slot="popup" placement="bottom-start">
-                {next !== 'offer' ? (
-                  <MenuAction text="Bied opnieuw aan" onSelect={() => onAction({ kind: 'offer' })} />
-                ) : null}
-                {next !== 'record-signed' ? (
-                  <MenuAction
-                    text="Leg getekende pdf vast"
-                    onSelect={() => onAction({ kind: 'upload' })}
-                  />
-                ) : null}
-                <MenuAction text="Leg afwijzing vast" onSelect={() => onAction({ kind: 'reject' })} />
-              </nldd-menu>
-            </nldd-icon-button>
+            {mayReview ? (
+              <Button
+                text="Beoordeel"
+                appearance={next === null ? 'primary' : 'secondary'}
+                disabled={busy}
+                onClick={() => onAction({ kind: 'review' })}
+              />
+            ) : null}
+            {mayManage || mayWithdrawApproval ? (
+              <nldd-icon-button icon="more" text="Meer acties voor deze offerte">
+                <nldd-menu slot="popup" placement="bottom-start">
+                  {mayWithdrawApproval ? (
+                    <MenuAction
+                      text={
+                        approval?.status === 'approved'
+                          ? 'Trek de goedkeuring in'
+                          : 'Trek de aanvraag in'
+                      }
+                      onSelect={() => onAction({ kind: 'withdraw-approval' })}
+                    />
+                  ) : null}
+                  {mayManage && next !== 'offer' && !blocked ? (
+                    <MenuAction
+                      text="Bied opnieuw aan"
+                      onSelect={() => onAction({ kind: 'offer' })}
+                    />
+                  ) : null}
+                  {mayManage && next !== 'record-signed' && !blocked ? (
+                    <MenuAction
+                      text="Leg getekende pdf vast"
+                      onSelect={() => onAction({ kind: 'upload' })}
+                    />
+                  ) : null}
+                  {mayManage ? (
+                    <MenuAction
+                      text="Leg afwijzing vast"
+                      onSelect={() => onAction({ kind: 'reject' })}
+                    />
+                  ) : null}
+                </nldd-menu>
+              </nldd-icon-button>
+            ) : null}
           </nldd-container>
+        ) : null}
+        {mayManage && open && blocked && approval?.blocked_message && next !== 'new-quote' ? (
+          <Quiet>{approval.blocked_message}</Quiet>
         ) : null}
       </nldd-container>
     </nldd-card>

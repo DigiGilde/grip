@@ -5,6 +5,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, status
 
+from grip import calc
 from grip.access import Action, DataClass, Resource, build_response, schema_classes
 from grip.api.assignment_support import DbSession, RequestAccess
 from grip.core.auth import CurrentPerson
@@ -20,7 +21,7 @@ from grip.schema.budget_lines import (
 )
 from grip.services import assignment_views as views
 from grip.services import assignments as service
-from grip.services import budget_intent, periods
+from grip.services import budget_intent, periods, pricing
 
 router = APIRouter(tags=["budget"])
 
@@ -101,13 +102,30 @@ async def _budget(
     # A reservation just made changes who is staffed here, and so who may
     # see what a person bills.
     access.forget()
+    try:
+        differences = await pricing.rate_differences(db, assignment_id)
+    except calc.CalcError:
+        differences = ()
     lines = []
     for line_view in view.lines:
         intent = intents.get(line_view.line.id)
         may_see_rate = intent is not None and await access.may(
             Action.READ, Resource.allocation(assignment_id, intent.person_id), D
         )
-        lines.append(_line_out(line_view, intent, may_see_rate))
+        out = _line_out(line_view, intent, may_see_rate)
+        for difference in differences:
+            if difference.budget_line_id != line_view.line.id:
+                continue
+            if difference.generic_text not in out.rate_difference_signals:
+                out.rate_difference_signals.append(difference.generic_text)
+            # The cause names what a person bills: decided per person.
+            if await access.may(
+                Action.READ,
+                Resource.allocation(assignment_id, difference.person_id),
+                D,
+            ):
+                out.rate_difference_notes.append(difference.text)
+        lines.append(out)
     follows = periods.assignment_period(view.row.assignment)
     waiting = any(
         v.line.kind == "personnel" and v.line.start_date is None for v in view.lines

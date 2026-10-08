@@ -24,3 +24,16 @@
 .grip-tile--plain:hover {
   border-color: var(--primitives-color-neutral-150);
 }
+
+/* What needs attention and the reader's tasks, next to each other when both
+   are there and the page is wide enough. */
+.grip-start {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 24px 48px;
+  align-items: start;
+}
+
+.grip-start:empty {
+  display: none;
+}

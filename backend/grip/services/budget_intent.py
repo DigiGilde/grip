@@ -395,6 +395,9 @@ async def _reserve(
     allow_closed_year: bool,
 ) -> Allocation | None:
     assert line.intended_person_id and line.fte is not None
+    # The stored size: the reservation must equal what a later read of the
+    # line gives, to the last decimal.
+    await session.refresh(line, attribute_names=["fte", "start_date", "end_date"])
     if line.start_date is None or line.end_date is None:
         # The line waits for the period of the assignment; so does the
         # reservation (``reserve_waiting``).
@@ -749,14 +752,21 @@ async def line_intents(
         reservation = reservations.get(line.id)
         if reservation is not None and reservation.person_id != person_id:
             reservation = None
+        waiting = line.start_date is None
+        # In step: same period, and the size the line implies. A cap at 100
+        # percent is not drift, it is the size one person can have.
         in_step = bool(
             reservation is not None
             and line.fte is not None
             and reservation.start_date == line.start_date
             and reservation.end_date == line.end_date
-            and reservation.fte_pct == reservation_pct(line.fte)
+            and abs(reservation.fte_pct - reservation_pct(line.fte)) < Decimal("0.01")
         )
-        if reservation is None:
+        if waiting:
+            # Nothing to be out of step with yet.
+            in_step = True
+            notes.append("De reservering volgt zodra de opdracht een periode heeft.")
+        elif reservation is None:
             notes.append(
                 "Voor deze persoon staat geen inzet op de regel. Dat gebeurt als "
                 "een maand van de periode al is afgesloten, of als de inzet is "

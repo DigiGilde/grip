@@ -6,6 +6,7 @@ import pytest
 
 from grip.federation import terms
 from grip.federation.contract_loader import example_files, load_schemas
+from grip.services.terms import PENDING_CONTRACT_TERMS
 
 # Contract terms that are the same in code: from standards, technical, or
 # already domain vocabulary on both sides.
@@ -67,7 +68,7 @@ def test_every_contract_property_has_a_code_name():
     assert found - known == set()
     # And the other way around: no mapping for a term the contract dropped.
     # Except what grip uses ahead of the contract, which is listed as such.
-    assert set(terms.PROPERTIES.values()) - found == set(terms.PENDING_CONTRACT_TERMS)
+    assert set(terms.PROPERTIES.values()) - found == set(PENDING_CONTRACT_TERMS)
 
 
 def test_no_code_name_leaks_into_the_contract():

@@ -345,7 +345,7 @@ describe('NodePathView', () => {
     expect(link.textContent).toBe('Ander corpuscorpus.anderministerie.example');
     expect(link.querySelector('nldd-icon')?.getAttribute('icon')).toBe('external-link');
     // The end in another corpus is not drawn as an origin: the way goes on there.
-    expect(list.querySelector('.grip-path__step--end a')).not.toBeNull();
+    expect(list.querySelector('.grip-path__step--end')).toBeNull();
   });
 
   it('opens a step in another corpus in the sheet when this instance can ask that corpus', () => {

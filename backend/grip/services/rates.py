@@ -23,6 +23,7 @@ from grip.models.rates import (
     ScaleBand,
 )
 from grip.repositories.domain import PersonDetailRepository, RateRepository
+from grip.services import events
 from grip.services.errors import (
     ClosedYearError,
     DomainValidationError,
@@ -600,10 +601,18 @@ async def set_person_scale(
     valid_to: date | None = None,
     allow_closed_year: bool = False,
 ) -> PersonScale:
-    """Record the billing scale of a person from a date on.
+    """Record the billing scale of a person from a date on. Any date.
 
-    An open-ended earlier period is ended on the day before ``valid_from``.
-    Periods may not overlap.
+    The period that held on that day is ended the day before. Without an end
+    date the new scale runs until the next recorded one, or stays open.
+    Other periods may not be overlapped.
+
+    A start date in the past is the truth and is allowed: a promotion is
+    often decided after the day it takes effect. Open months and closed
+    months that were not delivered then price at the new scale; for months
+    already delivered the difference becomes a correction to deliver
+    (``grip.services.price_changes``, which also shows it beforehand through
+    ``scale_change_preview``).
     """
     if valid_to is not None and valid_to < valid_from:
         raise DomainValidationError("De einddatum ligt voor de begindatum.")
@@ -614,9 +623,16 @@ async def set_person_scale(
         years_between(valid_from, valid_to or valid_from),
         allow_closed_year=allow_closed_year,
     )
+    # Imported here: that module prices, and pricing reads this one.
+    from grip.services import price_changes
+
+    pending = await price_changes.pending_corrections(session)
     existing = await PersonDetailRepository(session).scales([person_id])
+    previous: int | None = None
     for scale in existing:
-        if scale.valid_from < valid_from and scale.valid_to is None:
+        if scale.valid_from < valid_from <= (scale.valid_to or date.max):
+            # The scale that held on that day ends the day before.
+            previous = scale.billing_scale
             old = audit_fields(scale, _SCALE_FIELDS)
             scale.valid_to = valid_from - timedelta(days=1)
             record_audit(
@@ -628,6 +644,10 @@ async def set_person_scale(
                 old_value=old,
                 new_value=audit_fields(scale, _SCALE_FIELDS),
             )
+    if valid_to is None:
+        later = [s.valid_from for s in existing if s.valid_from > valid_from]
+        if later:
+            valid_to = min(later) - timedelta(days=1)
     for scale in existing:
         ends = scale.valid_to or date.max
         new_ends = valid_to or date.max
@@ -654,7 +674,56 @@ async def set_person_scale(
             **({"closed_year_override": closed} if closed else {}),
         },
     )
+    if not price_changes.is_preview():
+        await events.emit(
+            session,
+            events.PERSON_SCALE_CHANGED,
+            {
+                "person_id": str(person_id),
+                "valid_from": valid_from.isoformat(),
+                "valid_to": valid_to.isoformat() if valid_to else None,
+                "billing_scale": billing_scale,
+                "previous_billing_scale": previous,
+            },
+        )
+        await price_changes.emit_new_corrections(
+            session,
+            pending,
+            cause=f"inzetschaal gewijzigd met ingang van {date_text(valid_from)}",
+        )
     return scale
+
+
+async def scale_change_preview(
+    session: AsyncSession,
+    person_id: UUID,
+    valid_from: date,
+    billing_scale: int,
+    *,
+    valid_to: date | None = None,
+) -> Any:
+    """What recording this scale would do to what is already priced.
+
+    Per assignment: the open months, the closed months and the months
+    already delivered or invoiced that get another amount, with the
+    difference. Saves nothing.
+    """
+    from grip.services import price_changes
+
+    async def change() -> None:
+        await set_person_scale(
+            session,
+            person_id,
+            valid_from,
+            billing_scale,
+            valid_to=valid_to,
+            actor=None,
+            allow_closed_year=True,
+        )
+
+    return await price_changes.preview(
+        session, change, since=valid_from, person_id=person_id
+    )
 
 
 async def set_billability_target(

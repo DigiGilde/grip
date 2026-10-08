@@ -1,5 +1,5 @@
 {
-  "version": "2026.1",
+  "version": "2026.2",
   "description": "Het meegeleverde plan. Een taak ontstaat als alles onder 'when' waar is en sluit zodra het feit onder 'done_when' waar is. Namen van onderwerpen ('for'), feiten en rollen komen uit de catalogus in grip/tasks/catalogue.py; het plan kan er geen bedenken.",
   "case_kinds": {
     "assignment": {
@@ -50,6 +50,37 @@
           "done_when": "quote_issued",
           "assignee": "owner",
           "link": "/opdrachten/{assignment_id}/offerte"
+        },
+        {
+          "key": "offerte.intern_beoordelen",
+          "track": "offerte",
+          "title": "Beoordeel offerte {kenmerk}",
+          "for": "quote_approval",
+          "when": [
+            "contractor"
+          ],
+          "done_when": "approval_decided",
+          "assignee": "offertegoedkeurder",
+          "due": {
+            "working_days": 3,
+            "after": "approval_requested_on"
+          },
+          "link": "/opdrachten/{assignment_id}/offerte",
+          "requires_event": "quote_approval.requested"
+        },
+        {
+          "key": "offerte.na_terugsturen_opnieuw_maken",
+          "track": "offerte",
+          "title": "Maak een nieuwe offerte: {kenmerk} is teruggestuurd",
+          "for": "sent_back_quote",
+          "when": [
+            "contractor",
+            "potential"
+          ],
+          "done_when": "quote_superseded",
+          "assignee": "maker",
+          "link": "/opdrachten/{assignment_id}/begroting",
+          "requires_event": "quote_approval.sent_back"
         },
         {
           "key": "offerte.aanbieden",
@@ -204,6 +235,25 @@
             "after": "delivered_on"
           },
           "link": "/opdrachten/{assignment_id}/maandafsluiting?maand={repeat_key}"
+        },
+        {
+          "key": "financien.naverrekening_aanleveren",
+          "track": "financien",
+          "title": "Lever de naverrekening van {maand} aan",
+          "for": "correction_month",
+          "when": [
+            "contractor",
+            "external",
+            "may_bill"
+          ],
+          "done_when": "correction_delivered",
+          "assignee": "manager",
+          "due": {
+            "working_days": 5,
+            "after": "correction_arose_on"
+          },
+          "link": "/opdrachten/{assignment_id}/maandafsluiting?maand={repeat_key}",
+          "requires_event": "billing_correction.arose"
         }
       ]
     },

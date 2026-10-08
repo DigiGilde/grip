@@ -20,6 +20,9 @@ SUBJECTS: dict[str, frozenset[str]] = {
             "quote_round",
             "rejected_quote",
             "received_quote",
+            "quote_approval",
+            "sent_back_quote",
+            "correction_month",
             "open_role",
             "month_to_close",
             "closed_month",
@@ -74,6 +77,9 @@ SUBJECT_FACTS: dict[str, frozenset[str]] = {
     "quote_round": frozenset({"quote_issued", "quote_offered", "quote_accepted"}),
     "rejected_quote": frozenset({"quote_superseded"}),
     "received_quote": frozenset({"quote_decided"}),
+    "quote_approval": frozenset({"approval_decided"}),
+    "sent_back_quote": frozenset({"quote_superseded"}),
+    "correction_month": frozenset({"correction_delivered"}),
     "open_role": frozenset({"role_staffed"}),
     "month_to_close": frozenset({"month_closed"}),
     "closed_month": frozenset({"billing_delivered", "invoice_recorded"}),
@@ -85,6 +91,9 @@ ANCHORS: dict[str, frozenset[str]] = {
     "quote_round": frozenset(),
     "rejected_quote": frozenset(),
     "received_quote": frozenset(),
+    "quote_approval": frozenset({"approval_requested_on"}),
+    "sent_back_quote": frozenset(),
+    "correction_month": frozenset({"correction_arose_on"}),
     "open_role": frozenset({"needed_from"}),
     "month_to_close": frozenset({"month_end"}),
     "closed_month": frozenset({"closed_on", "delivered_on"}),
@@ -93,7 +102,12 @@ ANCHORS: dict[str, frozenset[str]] = {
 # Who a task can be for. A role is resolved when the task is read, except
 # "requester" and "decision:<kind>", which name a person on a vacancy.
 ASSIGNMENT_ROLES = frozenset({"owner", "manager"})
-FUNCTION_ROLES = frozenset({"planner", "beheerder", "tekenbevoegde", "aanvrager"})
+FUNCTION_ROLES = frozenset(
+    {"planner", "beheerder", "tekenbevoegde", "aanvrager", "offertegoedkeurder"}
+)
+# The person a subject names: who asked for approval of a quote. Without such
+# a person the task is for the owner of the assignment.
+SUBJECT_PERSON_ROLES = frozenset({"maker"})
 VACANCY_PERSON_ROLES = frozenset(
     {
         "requester",
@@ -103,7 +117,7 @@ VACANCY_PERSON_ROLES = frozenset(
     }
 )
 ASSIGNEES: dict[str, frozenset[str]] = {
-    "assignment": ASSIGNMENT_ROLES | FUNCTION_ROLES,
+    "assignment": ASSIGNMENT_ROLES | FUNCTION_ROLES | SUBJECT_PERSON_ROLES,
     "vacancy": ASSIGNMENT_ROLES | FUNCTION_ROLES | VACANCY_PERSON_ROLES,
 }
 
@@ -114,6 +128,7 @@ ROLE_LABELS: dict[str, str] = {
     "beheerder": "Beheerder",
     "tekenbevoegde": "Tekenbevoegde",
     "aanvrager": "Aanvrager",
+    "offertegoedkeurder": "Offertegoedkeurder",
 }
 
 STATUS_LABELS: dict[str, str] = {
@@ -131,6 +146,8 @@ FACT_LABELS: dict[str, str] = {
     "quote_accepted": "de opdrachtgever heeft akkoord gegeven",
     "quote_superseded": "er is een nieuwe offerte uitgegeven",
     "quote_decided": "er is akkoord gegeven of afgewezen",
+    "approval_decided": "de offerte is goedgekeurd of teruggestuurd",
+    "correction_delivered": "de naverrekening is aangeleverd",
     "role_staffed": "de rol is ingevuld",
     "started": "de opdracht is in uitvoering",
     "month_closed": "de maand is afgesloten",
