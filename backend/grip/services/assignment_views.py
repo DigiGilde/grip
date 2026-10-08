@@ -59,6 +59,9 @@ def describe_calc_error(exc: calc.CalcError, *, personal: bool = False) -> str:
     Without ``personal`` the sentence never names a scale or a person: a
     budget total is class B, and a scale is class D.
     """
+    if isinstance(exc, calc.MissingPeriodError):
+        # A line that follows an assignment without a period.
+        return "Nog geen periode: vul de periode van de opdracht in."
     if isinstance(exc, calc.MissingRateCardError):
         return f"Er is geen actieve tarievenkaart voor {exc.year}."
     if isinstance(exc, calc.MissingRateError):

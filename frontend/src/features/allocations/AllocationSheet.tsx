@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
 import { decimalToInput, parseDecimal } from '@/features/assignments/money';
 import { PeriodChoice } from '@/features/assignments/PeriodChoice';
-import { DateInput, FormSheet, SelectInput, TextInput } from '@/features/assignments/ui';
+import { FormSheet, SelectInput, TextInput } from '@/features/assignments/ui';
 import { formatFte, formatMonth, formatPeriod } from '@/lib/format';
 import {
   addAllocation,
@@ -49,8 +49,10 @@ const initial = (allocation?: Allocation, preset?: AllocationPreset): FormState 
   lineId: allocation?.budget_line_id ?? preset?.lineId ?? '',
   startDate: allocation?.start_date ?? preset?.startDate ?? '',
   endDate: allocation?.end_date ?? preset?.endDate ?? '',
-  // An existing inzet and a month picked on the board have their own dates.
-  ownPeriod: Boolean(allocation || preset?.startDate || preset?.endDate),
+  // A month picked on the board is a period of its own.
+  ownPeriod: allocation
+    ? allocation.period_source !== 'line'
+    : Boolean(preset?.startDate || preset?.endDate),
   pct: decimalToInput(allocation?.fte_pct),
 });
 
@@ -89,24 +91,24 @@ export function AllocationSheet({
     enabled: open && !allocation,
   });
 
-  // A new inzet runs over the period of its budget line unless it deviates.
+  // Inzet runs over the period of its budget line unless it deviates. For an
+  // existing inzet that follows, the dates in force are those of the line.
   const chosenLine = options.data?.lines.find((line) => line.budget_line_id === form.lineId);
-  const startDate = form.ownPeriod ? form.startDate : (chosenLine?.start_date ?? '');
-  const endDate = form.ownPeriod ? form.endDate : (chosenLine?.end_date ?? '');
+  const follows = allocation?.period_source === 'line';
+  const lineStart = chosenLine?.start_date ?? (follows ? allocation?.start_date : undefined);
+  const lineEnd = chosenLine?.end_date ?? (follows ? allocation?.end_date : undefined);
+  const period = form.ownPeriod
+    ? { period_source: 'own' as const, start_date: form.startDate, end_date: form.endDate }
+    : { period_source: 'line' as const };
 
   const save = useMutation({
     mutationFn: (pct: string) =>
       allocation
-        ? updateAllocation(allocation.id, {
-            start_date: startDate,
-            end_date: endDate,
-            fte_pct: pct,
-          })
+        ? updateAllocation(allocation.id, { ...period, fte_pct: pct })
         : addAllocation({
             budget_line_id: form.lineId,
             person_id: form.personId,
-            start_date: startDate,
-            end_date: endDate,
+            ...period,
             fte_pct: pct,
           }),
     onSuccess: () => {
@@ -125,12 +127,8 @@ export function AllocationSheet({
       setProblem('Kies een persoon en een begrotingsregel.');
       return;
     }
-    if (!startDate || !endDate) {
-      setProblem(
-        form.ownPeriod
-          ? 'Vul de begin- en einddatum in.'
-          : 'De begrotingsregel heeft nog geen periode. Kies een afwijkende periode.',
-      );
+    if (form.ownPeriod && (!form.startDate || !form.endDate)) {
+      setProblem('Vul de begin- en einddatum in.');
       return;
     }
     const pct = parseDecimal(form.pct);
@@ -186,33 +184,16 @@ export function AllocationSheet({
           supporting-text="Afgesloten maanden kun je hier niet wijzigen. Heropen de maand bij de maandafsluiting van de opdracht om dat wel te doen."
         />
       )}
-      {allocation ? (
-        <>
-          <DateInput
-            label="Begindatum"
-            value={form.startDate}
-            onChange={(value) => set({ startDate: value })}
-            required
-          />
-          <DateInput
-            label="Einddatum"
-            value={form.endDate}
-            onChange={(value) => set({ endDate: value })}
-            required
-          />
-        </>
-      ) : (
-        <PeriodChoice
-          parent="de begrotingsregel"
-          parentStart={chosenLine?.start_date}
-          parentEnd={chosenLine?.end_date}
-          own={form.ownPeriod}
-          onOwn={(ownPeriod) => set({ ownPeriod })}
-          startDate={form.startDate}
-          endDate={form.endDate}
-          onChange={set}
-        />
-      )}
+      <PeriodChoice
+        parent="de begrotingsregel"
+        parentStart={lineStart}
+        parentEnd={lineEnd}
+        own={form.ownPeriod}
+        onOwn={(ownPeriod) => set({ ownPeriod })}
+        startDate={form.startDate}
+        endDate={form.endDate}
+        onChange={set}
+      />
       <TextInput
         label="Inzet in procenten"
         hint="Deel van een volledige werkweek, bijvoorbeeld 50"

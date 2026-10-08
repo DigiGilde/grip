@@ -39,6 +39,9 @@ class QuoteBundle:
 
 def describe_calc_error(exc: calc.CalcError) -> str:
     """A calculation error as a sentence for the user."""
+    if isinstance(exc, calc.MissingPeriodError):
+        # A line that follows an assignment without a period.
+        return "Nog geen periode: vul de periode van de opdracht in."
     if isinstance(exc, calc.MissingRateCardError):
         return (
             "Voor een maand in de periode is er geen actieve tarievenkaart. "

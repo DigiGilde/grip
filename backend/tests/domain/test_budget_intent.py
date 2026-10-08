@@ -19,6 +19,7 @@ from grip.services import (
     staffing,
 )
 from grip.services.errors import DomainValidationError
+from grip.services.periods import PeriodChangeBlockedError
 
 YEAR = (date(2026, 1, 1), date(2026, 12, 31))
 
@@ -737,24 +738,25 @@ async def test_closed_month_keeps_the_established_inzet(
     )
     (reservation,) = await _allocations(db_session, line.id)
 
-    # Moving the start out of the closed month is not carried over.
-    await budget_intent.update_line(
-        db_session, line.id, actor=beheerder, start_date=date(2026, 2, 1)
-    )
-    assert reservation.start_date == date(2026, 1, 1)
-    assert (await _intent(db_session, line)).in_step is False
+    # The reservation follows the line, so the line cannot leave the closed
+    # month either: the change is refused as a whole, and says why.
+    with pytest.raises(PeriodChangeBlockedError, match="afgesloten maand 2026-01"):
+        await budget_intent.update_line(
+            db_session, line.id, actor=beheerder, start_date=date(2026, 2, 1)
+        )
+    assert (line.start_date, reservation.start_date) == (YEAR[0], YEAR[0])
+    assert (await _intent(db_session, line)).in_step is True
 
-    # Replacing the person: the established inzet stays as ordinary inzet,
-    # and the new person cannot be put into the closed month.
+    # Replacing the person: the established inzet stays as ordinary inzet
+    # with a period of its own, and the new person cannot be put into the
+    # closed month.
     await budget_intent.update_line(
-        db_session,
-        line.id,
-        actor=beheerder,
-        start_date=date(2026, 1, 1),
-        intended_person_id=second.id,
+        db_session, line.id, actor=beheerder, intended_person_id=second.id
     )
     remaining = await _allocations(db_session, line.id)
-    assert [(a.person_id, a.from_budget) for a in remaining] == [(first.id, False)]
+    assert [(a.person_id, a.from_budget, a.period_source) for a in remaining] == [
+        (first.id, False, "own")
+    ]
     intent = await _intent(db_session, line)
     assert intent.person_id == second.id and intent.allocation_id is None
     assert any("geen inzet op de regel" in note for note in intent.notes)
@@ -767,6 +769,7 @@ async def test_closed_month_keeps_the_established_inzet(
         intended_person_id=second.id,
     )
     assert (await _intent(db_session, line)).allocation_id is not None
+    assert remaining[0].start_date == YEAR[0]  # untouched
 
 
 async def test_deleting_the_line_takes_its_reservation_along(

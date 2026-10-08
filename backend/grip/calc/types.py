@@ -26,6 +26,18 @@ class InvalidInputError(CalcError, ValueError):
     pass
 
 
+class MissingPeriodError(InvalidInputError):
+    """A personnel budget line has no period, so it cannot be priced.
+
+    This is a line that follows an assignment without a period. It is never
+    priced as zero.
+    """
+
+    def __init__(self, line_id: str) -> None:
+        super().__init__(f"personnel budget line {line_id} has no period yet")
+        self.line_id = line_id
+
+
 class MissingRateCardError(CalcError):
     def __init__(self, year: int) -> None:
         super().__init__(f"no usable rate card for {year}")

@@ -8,7 +8,7 @@ money follows from, is class B.
 
 from datetime import date
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -34,6 +34,10 @@ class BudgetLineOut(BaseModel):
     position: Annotated[int, in_class(A)]
     role: Annotated[str | None, in_class(C)]
     fte: Annotated[Decimal | None, in_class(C)]
+    # "assignment": the line runs as long as the assignment; "own": it has a
+    # period of its own. start_date and end_date are the period in force;
+    # both are null for a line that follows an assignment without a period.
+    period_source: Annotated[str, in_class(C)]
     start_date: Annotated[date | None, in_class(C)]
     end_date: Annotated[date | None, in_class(C)]
     rate_category: Annotated[str | None, in_class(B)]
@@ -67,6 +71,13 @@ class BudgetOut(BaseModel):
     assignment_id: Annotated[UUID, in_class(A)]
     assignment_name: Annotated[str, in_class(A)]
     can_edit: Annotated[bool, in_class(A)]
+    # The period lines follow; null while the assignment has none.
+    assignment_start_date: Annotated[date | None, in_class(A)]
+    assignment_end_date: Annotated[date | None, in_class(A)]
+    # True when lines wait for the assignment to get a period. The message
+    # is the one thing to do; such lines are not priced, never as zero.
+    period_missing: Annotated[bool, in_class(A)]
+    period_message: Annotated[str | None, in_class(A)]
     lines: Annotated[list[BudgetLineOut], nested()]
     subtotals_by_year: Annotated[dict[str, int], in_class(B)]
     total_budgeted_cents: Annotated[int | None, in_class(B)]
@@ -82,6 +93,8 @@ class BudgetLineCreate(BaseModel):
     role: str | None = Field(default=None, max_length=255)
     fte: Decimal | None = None
     rate_category: str | None = None
+    # Without dates a personnel line follows the period of the assignment.
+    period_source: Literal["assignment", "own"] | None = None
     start_date: date | None = None
     end_date: date | None = None
     amount_cents: int | None = Field(default=None, ge=0)
@@ -101,6 +114,8 @@ class BudgetLineUpdate(BaseModel):
     role: str | None = Field(default=None, max_length=255)
     fte: Decimal | None = None
     rate_category: str | None = None
+    # "assignment" makes the line follow the assignment again.
+    period_source: Literal["assignment", "own"] | None = None
     start_date: date | None = None
     end_date: date | None = None
     amount_cents: int | None = Field(default=None, ge=0)
@@ -116,6 +131,9 @@ class DeriveRequest(BaseModel):
     """What the form knows so far when it asks what a person implies."""
 
     intended_person_id: UUID
+    # "assignment": the line follows the assignment, so the proposal is the
+    # assignment's period and dates sent here are ignored.
+    period_source: Literal["assignment", "own"] | None = None
     start_date: date | None = None
     end_date: date | None = None
     fte: Decimal | None = Field(default=None, gt=0)

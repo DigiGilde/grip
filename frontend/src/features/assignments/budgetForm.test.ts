@@ -20,6 +20,7 @@ describe('lineInput', () => {
       role: 'Productmanager',
       fte: '0.8',
       rate_category: 'D',
+      period_source: 'own',
       start_date: '2026-01-01',
       end_date: '2026-12-31',
     });
@@ -88,23 +89,27 @@ describe('lineInput', () => {
   });
 
   it('prices only what is filled in', () => {
-    expect(previewInput({ ...lineForm(), fte: '0,8' })).toEqual({ kind: 'personnel', fte: '0.8' });
+    expect(previewInput({ ...lineForm(), fte: '0,8' })).toEqual({
+      kind: 'personnel',
+      fte: '0.8',
+      period_source: 'assignment',
+    });
     expect(previewInput(personnel)).toMatchObject({ rate_category: 'D', start_date: '2026-01-01' });
   });
 
   it('follows the period of the assignment unless the line has its own', () => {
     const parent = { start: '2026-03-01', end: '2026-09-30' };
     const following = { ...personnel, ownPeriod: false, startDate: '', endDate: '' };
-    expect(lineInput(following, true, undefined, parent)).toMatchObject({
-      start_date: '2026-03-01',
-      end_date: '2026-09-30',
-    });
-    expect(lineInput(following, true, undefined, { start: null, end: null })).toContain(
-      'nog geen looptijd',
-    );
+    // A following line sends no dates: it moves with the assignment.
+    const sent = lineInput(following, true);
+    expect(sent).toMatchObject({ period_source: 'assignment' });
+    expect(sent).not.toHaveProperty('start_date');
+    expect(lineInput(personnel, true)).toMatchObject({ period_source: 'own', start_date: '2026-01-01' });
+    expect(previewInput(following)).not.toHaveProperty('start_date');
     const base = { id: '1', assignment_id: 'a', description: 'x', kind: 'personnel', position: 1 };
     expect(lineForm({ ...base, start_date: '2026-03-01', end_date: '2026-09-30' }, parent).ownPeriod).toBe(false);
     expect(lineForm({ ...base, start_date: '2026-04-01', end_date: '2026-09-30' }, parent).ownPeriod).toBe(true);
     expect(lineForm(undefined, parent).ownPeriod).toBe(false);
+    expect(lineForm({ ...base, period_source: 'own', start_date: '2026-03-01', end_date: '2026-09-30' }, parent).ownPeriod).toBe(true);
   });
 });

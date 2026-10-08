@@ -137,68 +137,87 @@ def _covers(period: tuple[date, date], month: date) -> bool:
     return period[0] <= m.last_day and period[1] >= m.first_day
 
 
-async def follow_line(
-    session: AsyncSession,
-    line: BudgetLine,
-    *,
-    allow_closed_year: bool = False,
-    closed_months: list[date] | None = None,
-) -> list[UUID]:
-    """Give the allocations that follow a line the period the line now has.
-
-    Returns the ids of the allocations that moved. Refuses, changing nothing,
-    when one of them would enter or leave a closed month.
-    """
+async def _followers(session: AsyncSession, line_id: UUID) -> list[Allocation]:
     result = await session.execute(
         select(Allocation).where(
-            Allocation.budget_line_id == line.id,
+            Allocation.budget_line_id == line_id,
             Allocation.period_source == FOLLOWS_LINE,
         )
     )
-    followers = [
-        a
-        for a in result.scalars()
-        if (a.start_date, a.end_date) != (line.start_date, line.end_date)
-    ]
-    if not followers:
-        return []
-    if line.start_date is None or line.end_date is None:
+    return list(result.scalars())
+
+
+def _check_move(
+    line: BudgetLine,
+    followers: list[Allocation],
+    new: Period,
+    closed_months: list[date],
+) -> set[int]:
+    """Refuse a move of followers that is not possible; return the years it
+    touches."""
+    moving = [a for a in followers if (a.start_date, a.end_date) != new]
+    if not moving:
+        return set()
+    if new[0] is None or new[1] is None:
         raise DomainValidationError(
             f"Op '{line.description}' staat inzet die de regel volgt. De periode "
             "kan daarom niet leeg worden."
         )
-    new = (line.start_date, line.end_date)
-    if closed_months is None:
-        closed_months = await MonthCloseRepository(session).closed_months(
-            line.assignment_id
-        )
-    years: set[int] = years_between(*new)
-    for allocation in followers:
+    years = years_between(*new)
+    for allocation in moving:
         old = (allocation.start_date, allocation.end_date)
         years |= years_between(*old)
         for month in closed_months:
-            if _covers(old, month) != _covers(new, month):
+            if _covers(old, month) != _covers((new[0], new[1]), month):
                 raise PeriodChangeBlockedError(str(Month.of(month)), line.description)
+    return years
+
+
+async def follow_line(
+    session: AsyncSession,
+    line: BudgetLine,
+    new: Period,
+    *,
+    allow_closed_year: bool = False,
+) -> list[UUID]:
+    """Give the allocations that follow a line the period the line gets.
+
+    Call it before the line itself is changed. Everything is checked first:
+    when one allocation would enter or leave a closed month nothing changes.
+    Returns the ids of the allocations that moved.
+    """
+    followers = await _followers(session, line.id)
+    closed_months = await MonthCloseRepository(session).closed_months(
+        line.assignment_id
+    )
+    years = _check_move(line, followers, new, closed_months)
+    if not years:
+        return []
     await ensure_years_open(session, years, allow_closed_year=allow_closed_year)
+    moved = []
     for allocation in followers:
-        allocation.start_date, allocation.end_date = new
+        if (allocation.start_date, allocation.end_date) != new:
+            assert new[0] is not None and new[1] is not None
+            allocation.start_date, allocation.end_date = new[0], new[1]
+            moved.append(allocation.id)
     await session.flush()
-    return [a.id for a in followers]
+    return moved
 
 
 async def follow_assignment(
     session: AsyncSession,
     assignment: Assignment,
+    new: Period,
     *,
     allow_closed_year: bool = False,
 ) -> dict[str, Any]:
-    """Give the lines that follow an assignment the period it now has.
+    """Give the lines that follow an assignment the period it gets.
 
-    The inzet that follows those lines moves along. Returns what moved, for
-    the one audit row at the assignment. Refuses as a whole when anything
-    would change inside a closed month or a closed year.
+    Call it before the assignment itself is changed, with the period it will
+    have (both dates, or ``(None, None)``). The inzet that follows those
+    lines moves along. Everything is checked first, so a refusal changes
+    nothing. Returns what moved, for the one audit row at the assignment.
     """
-    new = assignment_period(assignment)
     result = await session.execute(
         select(BudgetLine)
         .where(
@@ -215,23 +234,24 @@ async def follow_assignment(
         return {}
     closed_months = await MonthCloseRepository(session).closed_months(assignment.id)
     years: set[int] = set()
+    followers: dict[UUID, list[Allocation]] = {}
     for line in lines:
         years |= years_between(line.start_date, line.end_date) | years_between(*new)
+        followers[line.id] = await _followers(session, line.id)
+        years |= _check_move(line, followers[line.id], new, closed_months)
     await ensure_years_open(session, years, allow_closed_year=allow_closed_year)
-    moved_allocations: list[UUID] = []
+    moved_allocations: list[str] = []
     for line in lines:
         line.start_date, line.end_date = new
+        for allocation in followers[line.id]:
+            if (allocation.start_date, allocation.end_date) != new:
+                assert new[0] is not None and new[1] is not None
+                allocation.start_date, allocation.end_date = new[0], new[1]
+                moved_allocations.append(str(allocation.id))
     await session.flush()
-    for line in lines:
-        moved_allocations += await follow_line(
-            session,
-            line,
-            allow_closed_year=allow_closed_year,
-            closed_months=closed_months,
-        )
     return {
         "moved_budget_lines": [str(line.id) for line in lines],
-        "moved_allocations": [str(a) for a in moved_allocations],
+        "moved_allocations": moved_allocations,
     }
 
 

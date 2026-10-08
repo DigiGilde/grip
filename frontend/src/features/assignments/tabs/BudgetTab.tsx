@@ -41,7 +41,7 @@ function AssignmentPeriod({ assignment }: { assignment: AssignmentDetail }) {
             label: 'Looptijd van de opdracht',
             value: known
               ? formatPeriod(assignment.start_date, assignment.end_date)
-              : 'Nog niet ingevuld. Regels zonder eigen periode worden pas berekend als de looptijd er is.',
+              : 'Nog niet ingevuld',
           },
         ]}
       />

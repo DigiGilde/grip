@@ -33,7 +33,7 @@ from grip.models.month_close import MonthCloseLine
 from grip.models.organisation import Organisation
 from grip.models.person import Person
 from grip.models.rates import RATE_CATEGORIES
-from grip.services import events
+from grip.services import events, periods
 from grip.services.errors import (
     DomainValidationError,
     IllegalTransitionError,
@@ -106,6 +106,7 @@ _LINE_FIELDS = (
     "role",
     "fte",
     "rate_category",
+    "period_source",
     "start_date",
     "end_date",
     "amount_cents",
@@ -114,6 +115,7 @@ _LINE_FIELDS = (
 _ALLOCATION_FIELDS = (
     "person_id",
     "budget_line_id",
+    "period_source",
     "start_date",
     "end_date",
     "fte_pct",
@@ -287,9 +289,16 @@ async def update_assignment(
     assignment_id: UUID,
     *,
     actor: Person | None,
+    allow_closed_year: bool = False,
     **changes: Any,
 ) -> Assignment:
-    """Change descriptive fields. Status changes go through ``transition``."""
+    """Change descriptive fields. Status changes go through ``transition``.
+
+    A change of the period moves the budget lines that follow the assignment,
+    and the inzet that follows those lines. It is refused as a whole when
+    that would change anything inside a closed month. The audit row of the
+    assignment lists what moved.
+    """
     # No longer a property of an assignment; ignored when still sent.
     changes.pop("traffic_form", None)
     unknown = set(changes) - _EDITABLE_ASSIGNMENT_FIELDS
@@ -309,6 +318,12 @@ async def update_assignment(
     end = changes.get("end_date", assignment.end_date)
     if start and end and end < start:
         raise DomainValidationError("De einddatum ligt voor de begindatum.")
+    moved: dict[str, Any] = {}
+    new_period = (start, end) if start and end else (None, None)
+    if new_period != periods.assignment_period(assignment):
+        moved = await periods.follow_assignment(
+            session, assignment, new_period, allow_closed_year=allow_closed_year
+        )
     old = {k: audit_value(getattr(assignment, k)) for k in changes}
     for key, value in changes.items():
         setattr(assignment, key, value)
@@ -320,14 +335,25 @@ async def update_assignment(
         entity="assignment",
         entity_id=assignment.id,
         old_value=old,
-        new_value={k: audit_value(v) for k, v in changes.items()},
+        new_value={**{k: audit_value(v) for k, v in changes.items()}, **moved},
     )
+    if moved:
+        # Lines that just got a period can now hold the reservation of their
+        # intended person. Imported here: that module builds on this one.
+        from grip.services import budget_intent
+
+        await budget_intent.reserve_waiting(
+            session, assignment.id, actor=actor, allow_closed_year=allow_closed_year
+        )
     return assignment
 
 
 # Statuses in which an external assignment involves another party, so that
 # party has to be known by then. Creating an assignment needs only a name.
 _NEEDS_COUNTERPARTY = frozenset({"requested", "quoted", VERBALLY_AGREED, "accepted"})
+# Statuses from which the budget has to be priceable: every personnel line
+# has a period by then.
+_NEEDS_PERIOD = frozenset({"quoted", VERBALLY_AGREED, "accepted", "in_progress"})
 
 
 def _check_ready_for(
@@ -384,6 +410,15 @@ async def transition(
     if target not in allowed_transitions(assignment):
         raise IllegalTransitionError(assignment.status, target)
     _check_ready_for(assignment, target, reason, enforce=enforce_readiness)
+    if (
+        enforce_readiness
+        and target in _NEEDS_PERIOD
+        and await periods.lines_without_period(session, assignment.id)
+    ):
+        raise DomainValidationError(
+            "Vul eerst de periode van de opdracht in: er zijn begrotingsregels "
+            "die de opdracht volgen en nog geen periode hebben."
+        )
     old = assignment.status
     assignment.status = target
     if target == VERBALLY_AGREED:
@@ -664,14 +699,16 @@ def _validate_line(values: dict[str, Any]) -> None:
     if kind not in BUDGET_LINE_KINDS:
         raise DomainValidationError(f"Onbekend soort begrotingsregel: {kind}")
     if kind == "personnel":
-        missing = [
-            f
-            for f in ("fte", "rate_category", "start_date", "end_date")
-            if values.get(f) is None
-        ]
-        if missing:
+        # A line that follows the assignment has its dates once the
+        # assignment has a period (grip.services.periods).
+        follows = values.get("period_source") == periods.FOLLOWS_ASSIGNMENT
+        needed = ("fte", "rate_category") + (
+            () if follows else ("start_date", "end_date")
+        )
+        if [f for f in needed if values.get(f) is None]:
             raise DomainValidationError(
-                "Een personeelsregel heeft FTE, categorie, begin- en einddatum nodig."
+                "Een personeelsregel heeft FTE en categorie nodig, en een begin- en "
+                "einddatum als ze een eigen periode heeft."
             )
         if values.get("amount_cents") is not None or values.get("year") is not None:
             raise DomainValidationError(
@@ -683,7 +720,11 @@ def _validate_line(values: dict[str, Any]) -> None:
             )
         if Decimal(values["fte"]) <= 0:
             raise DomainValidationError("De omvang in FTE is groter dan nul.")
-        if values["end_date"] < values["start_date"]:
+        if (
+            values.get("start_date") is not None
+            and values.get("end_date") is not None
+            and values["end_date"] < values["start_date"]
+        ):
             raise DomainValidationError("De einddatum ligt voor de begindatum.")
     else:
         if values.get("amount_cents") is None or values.get("year") is None:
@@ -717,13 +758,28 @@ async def add_budget_line(
     end_date: date | None = None,
     amount_cents: int | None = None,
     year: int | None = None,
+    period_source: str | None = None,
     allow_closed_year: bool = False,
 ) -> BudgetLine:
-    await get_assignment(session, assignment_id)
+    """Add a budget line.
+
+    A personnel line follows the period of the assignment unless it is given
+    dates of its own (``period_source`` "own", or dates that differ from the
+    assignment's). While the assignment has no period a following line has
+    no dates and is not priced.
+    """
+    assignment = await get_assignment(session, assignment_id)
+    if kind == "personnel":
+        period_source, start_date, end_date = periods.line_period(
+            assignment, period_source, start_date, end_date
+        )
+    else:
+        period_source = periods.OWN
     values: dict[str, Any] = {
         "kind": kind,
         "fte": fte,
         "rate_category": rate_category,
+        "period_source": period_source,
         "start_date": start_date,
         "end_date": end_date,
         "amount_cents": amount_cents,
@@ -784,6 +840,25 @@ async def update_budget_line(
         )
     line = await get_budget_line(session, line_id)
     before = {f: getattr(line, f) for f in _LINE_FIELDS}
+    if line.kind == "personnel" and {"period_source", "start_date", "end_date"} & set(
+        changes
+    ):
+        # Dates sent without a source make the period the line's own; a
+        # source sent without dates keeps the dates the line has.
+        source = changes.get("period_source")
+        dated = "start_date" in changes or "end_date" in changes
+        start = changes.get("start_date", line.start_date)
+        end = changes.get("end_date", line.end_date)
+        if source is None and not dated:
+            source = line.period_source
+        assignment = await get_assignment(session, line.assignment_id)
+        source, start, end = periods.line_period(assignment, source, start, end)
+        changes = {
+            **changes,
+            "period_source": source,
+            "start_date": start,
+            "end_date": end,
+        }
     after = {**before, **changes}
     _validate_line(after)
     closed = await ensure_years_open(
@@ -791,6 +866,17 @@ async def update_budget_line(
         _line_years(before) | _line_years(after),
         allow_closed_year=allow_closed_year,
     )
+    if (after["start_date"], after["end_date"]) != (
+        before["start_date"],
+        before["end_date"],
+    ):
+        # Inzet that follows the line moves with it, or the change is refused.
+        await periods.follow_line(
+            session,
+            line,
+            (after["start_date"], after["end_date"]),
+            allow_closed_year=allow_closed_year,
+        )
     old = {k: audit_value(before[k]) for k in changes}
     for key, value in changes.items():
         setattr(line, key, value)
@@ -859,18 +945,26 @@ async def add_allocation(
     budget_line_id: UUID,
     person_id: UUID,
     *,
-    start_date: date,
-    end_date: date,
     fte_pct: Decimal,
     actor: Person | None,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    period_source: str | None = None,
     allow_closed_year: bool = False,
 ) -> Allocation:
-    """Put a person on a personnel budget line."""
+    """Put a person on a personnel budget line.
+
+    The inzet follows the period of the line unless it is given dates of its
+    own (``period_source`` "own", or dates that differ from the line's).
+    """
     line = await get_budget_line(session, budget_line_id)
     if line.kind != "personnel":
         raise DomainValidationError("Inzet kan alleen op een personeelsregel.")
     if await session.get(Person, person_id) is None:
         raise NotFoundError("Persoon", person_id)
+    period_source, start_date, end_date = periods.allocation_period(
+        line, period_source, start_date, end_date
+    )
     _validate_allocation(start_date, end_date, fte_pct)
     closed = await ensure_years_open(
         session,
@@ -886,6 +980,7 @@ async def add_allocation(
     allocation = Allocation(
         person_id=person_id,
         budget_line_id=budget_line_id,
+        period_source=period_source,
         start_date=start_date,
         end_date=end_date,
         fte_pct=fte_pct,
@@ -921,12 +1016,27 @@ async def update_allocation(
     start_date: date | None = None,
     end_date: date | None = None,
     fte_pct: Decimal | None = None,
+    period_source: str | None = None,
     allow_closed_year: bool = False,
 ) -> Allocation:
+    """Change inzet.
+
+    Dates sent without a source give the inzet a period of its own (unless
+    they equal the line's); ``period_source`` "line" makes it follow the
+    line again.
+    """
     allocation = await get_allocation(session, allocation_id)
     line = await get_budget_line(session, allocation.budget_line_id)
+    new_source = allocation.period_source
     new_start = start_date or allocation.start_date
     new_end = end_date or allocation.end_date
+    if period_source is not None or start_date is not None or end_date is not None:
+        new_source, new_start, new_end = periods.allocation_period(
+            line,
+            period_source,
+            None if period_source == periods.FOLLOWS_LINE else new_start,
+            None if period_source == periods.FOLLOWS_LINE else new_end,
+        )
     new_pct = fte_pct if fte_pct is not None else allocation.fte_pct
     _validate_allocation(new_start, new_end, new_pct)
     closed = await ensure_years_open(
@@ -942,6 +1052,7 @@ async def update_allocation(
         new_period=(new_start, new_end),
     )
     old = audit_fields(allocation, _ALLOCATION_FIELDS)
+    allocation.period_source = new_source
     allocation.start_date = new_start
     allocation.end_date = new_end
     allocation.fte_pct = new_pct

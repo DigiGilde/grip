@@ -767,6 +767,14 @@ class LinePreview:
     reason: str | None
 
 
+def _missing_text(missing: list[str]) -> str:
+    # What still has to be filled in before the line can be priced.
+    if len(missing) == 1:
+        return f"Nog niet te berekenen: {missing[0]} ontbreekt."
+    listed = ", ".join(missing[:-1]) + " en " + missing[-1]
+    return f"Nog niet te berekenen: {listed} ontbreken."
+
+
 async def preview_budget_line(
     session: AsyncSession,
     *,
@@ -777,21 +785,38 @@ async def preview_budget_line(
     end_date: date | None = None,
     amount_cents: int | None = None,
     year: int | None = None,
+    period_name: str = "de periode",
     options: PricingOptions = DEFAULT_OPTIONS,
 ) -> LinePreview:
     """What a line with these values would be budgeted at. Saves nothing.
 
-    The same calculation as for a saved line (R4, R5). A form that is not
-    complete yet gives no amount and no error.
+    The same calculation as for a saved line (R4, R5). Without an amount the
+    reason always says what is missing.
     """
     from grip.services.pricing import load_rate_book
 
     if kind == "fixed":
+        missing = [
+            name
+            for name, value in (("het bedrag", amount_cents), ("het jaar", year))
+            if value is None
+        ]
         if amount_cents is None or year is None:
-            return LinePreview(None, {}, None)
+            return LinePreview(None, {}, _missing_text(missing))
         return LinePreview(amount_cents, {year: amount_cents}, None)
-    if not (fte and rate_category and start_date and end_date) or end_date < start_date:
-        return LinePreview(None, {}, None)
+    missing = [
+        name
+        for name, value in (
+            ("de omvang", fte),
+            ("de schaal", rate_category),
+            (period_name, start_date and end_date),
+        )
+        if not value
+    ]
+    if not (fte and rate_category and start_date and end_date):
+        return LinePreview(None, {}, _missing_text(missing))
+    if end_date < start_date:
+        return LinePreview(None, {}, "De einddatum ligt voor de begindatum.")
     line = calc.BudgetLine(
         id="preview",
         assignment_id="preview",

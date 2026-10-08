@@ -145,7 +145,7 @@ function LineSheet({
   const departsFromPerson = impliedCategory !== '' && form.category !== '' && !followsPerson;
 
   // The outcome of the line as the server prices it, while it is filled in.
-  const toPrice = previewInput(form, parent);
+  const toPrice = previewInput(form);
   const preview = useQuery({
     queryKey: ['budget-preview', assignmentId, toPrice],
     queryFn: () => previewBudgetLine(assignmentId, toPrice),
@@ -166,7 +166,7 @@ function LineSheet({
   });
 
   const submit = () => {
-    const input = lineInput(form, !line, line, parent);
+    const input = lineInput(form, !line, line);
     if (typeof input === 'string') {
       setProblem(input);
       return;
@@ -469,6 +469,9 @@ export function BudgetEditor({ assignmentId }: { assignmentId: string }) {
       {query.isPending && <Loading />}
       {query.isError && <ErrorNotice message={errorMessage(query.error)} />}
       {problem && <ErrorNotice message={problem} />}
+      {budget?.period_missing && budget.period_message && (
+        <nldd-banner variant="neutral" size="sm" text={budget.period_message} />
+      )}
       {budget?.pricing_error && (
         <nldd-banner
           variant="warning"

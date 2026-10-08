@@ -33,6 +33,7 @@ export function effectivePeriod(form: LineForm, parent?: ParentPeriod) {
 
 /** A saved line deviates when its dates are not those of the assignment. */
 export function hasOwnPeriod(line: BudgetLine | undefined, parent?: ParentPeriod): boolean {
+  if (line?.period_source) return line.period_source === 'own';
   if (!line?.start_date && !line?.end_date) return false;
   return line.start_date !== parent?.start || line.end_date !== parent?.end;
 }
@@ -41,7 +42,8 @@ export function lineForm(line?: BudgetLine, parent?: ParentPeriod): LineForm {
   return {
     ownPeriod: line?.kind !== 'fixed' && hasOwnPeriod(line, parent),
     kind: line?.kind ?? 'personnel',
-    description: line?.description ?? '',
+    // The form edits the detail; the shown name is the role plus the detail.
+    description: line?.detail ?? (line?.role ? '' : (line?.description ?? '')),
     role: line?.role ?? '',
     personId: line?.intended_person_id ?? '',
     fte: decimalToInput(line?.fte),
@@ -58,7 +60,6 @@ export function lineInput(
   form: LineForm,
   isNew: boolean,
   original?: BudgetLine,
-  parent?: ParentPeriod,
 ): BudgetLineInput | string {
   const personnel = form.kind === 'personnel';
   if (personnel && !form.role.trim()) return 'Kies een rol.';
@@ -71,11 +72,8 @@ export function lineInput(
     if (fte === null) return 'De omvang in FTE is een getal, bijvoorbeeld 0,8.';
     // With an intended person the server takes the category from them.
     if (!form.category && !form.personId) return 'Kies een schaal.';
-    const period = effectivePeriod(form, parent);
-    if (!period.start || !period.end) {
-      return form.ownPeriod
-        ? 'Vul de begin- en einddatum in.'
-        : 'De opdracht heeft nog geen looptijd. Vul die in, of kies een afwijkende periode.';
+    if (form.ownPeriod && (!form.startDate || !form.endDate)) {
+      return 'Vul de begin- en einddatum in.';
     }
     const personChanged = form.personId !== (original?.intended_person_id ?? '');
     return {
@@ -83,8 +81,10 @@ export function lineInput(
       role: form.role.trim() || null,
       fte,
       ...(form.category ? { rate_category: form.category } : {}),
-      start_date: period.start,
-      end_date: period.end,
+      // A following line sends no dates: it moves with the assignment.
+      ...(form.ownPeriod
+        ? { period_source: 'own' as const, start_date: form.startDate, end_date: form.endDate }
+        : { period_source: 'assignment' as const }),
       ...(personChanged ? { intended_person_id: form.personId || null } : {}),
     };
   }
@@ -95,7 +95,7 @@ export function lineInput(
 }
 
 /** The values to price, as far as the form is filled in. */
-export function previewInput(form: LineForm, parent?: ParentPeriod): BudgetLineInput {
+export function previewInput(form: LineForm): BudgetLineInput {
   if (form.kind === 'fixed') {
     const cents = parseEuroToCents(form.amount);
     return {
@@ -105,13 +105,18 @@ export function previewInput(form: LineForm, parent?: ParentPeriod): BudgetLineI
     };
   }
   const fte = parseDecimal(form.fte);
-  const period = effectivePeriod(form, parent);
   return {
     kind: 'personnel',
     ...(fte !== null && Number(fte) > 0 ? { fte } : {}),
     ...(form.category ? { rate_category: form.category } : {}),
-    ...(period.start ? { start_date: period.start } : {}),
-    ...(period.end ? { end_date: period.end } : {}),
+    // A following line is priced by the server over the assignment's period.
+    ...(form.ownPeriod
+      ? {
+          period_source: 'own' as const,
+          ...(form.startDate ? { start_date: form.startDate } : {}),
+          ...(form.endDate ? { end_date: form.endDate } : {}),
+        }
+      : { period_source: 'assignment' as const }),
   };
 }
 

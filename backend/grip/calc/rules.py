@@ -44,6 +44,7 @@ from grip.calc.types import (
     InvalidInputError,
     InvoiceLine,
     MismatchDirection,
+    MissingPeriodError,
     MissingPersonScaleError,
     MonthAmount,
     PersonScale,
@@ -224,6 +225,13 @@ def allocation_amount(
 
 
 def _require_personnel(line: BudgetLine) -> tuple[Decimal, str, date, date]:
+    if (
+        line.fte is not None
+        and line.rate_category is not None
+        and line.start_date is None
+        and line.end_date is None
+    ):
+        raise MissingPeriodError(line.id)
     if (
         line.fte is None
         or line.rate_category is None

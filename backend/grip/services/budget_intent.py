@@ -59,7 +59,7 @@ from grip.models.assignment import Allocation, Assignment, BudgetLine
 from grip.models.catalogue_role import CatalogueRole, PersonCatalogueRole
 from grip.models.person import Person
 from grip.repositories.domain import PersonDetailRepository
-from grip.services import assignments, standing
+from grip.services import assignments, periods, standing
 from grip.services.errors import (
     DomainValidationError,
     MonthClosedError,
@@ -394,15 +394,17 @@ async def _reserve(
     actor: Person | None,
     allow_closed_year: bool,
 ) -> Allocation | None:
-    assert line.intended_person_id and line.start_date and line.end_date
-    assert line.fte is not None
+    assert line.intended_person_id and line.fte is not None
+    if line.start_date is None or line.end_date is None:
+        # The line waits for the period of the assignment; so does the
+        # reservation (``reserve_waiting``).
+        return None
     try:
         allocation = await assignments.add_allocation(
             session,
             line.id,
             line.intended_person_id,
-            start_date=line.start_date,
-            end_date=line.end_date,
+            period_source=periods.FOLLOWS_LINE,
             fte_pct=reservation_pct(line.fte),
             actor=actor,
             allow_closed_year=allow_closed_year,
@@ -428,8 +430,10 @@ async def _release(
             session, reservation.id, actor=actor, allow_closed_year=allow_closed_year
         )
     except (MonthClosedError, DomainValidationError):
-        # Work was already established on it. It stays as ordinary inzet.
+        # Work was already established on it. It stays as ordinary inzet with
+        # a period of its own, no longer tied to the line.
         reservation.from_budget = False
+        reservation.period_source = periods.OWN
         await session.flush()
 
 
@@ -999,6 +1003,7 @@ async def derive(
     start_date: date | None = None,
     end_date: date | None = None,
     fte: Decimal | None = None,
+    period_source: str | None = None,
     exclude_line_id: UUID | None = None,
     may_see_assignment: MaySeeAssignment | None = None,
     today: date | None = None,
@@ -1048,11 +1053,15 @@ async def derive(
         if all(choice.role.lower() != a.role.lower() for a in alternatives):
             alternatives.append(choice)
 
-    # Period.
-    start, end = start_date, end_date
-    period_source: str | None = None
+    # Period. A line that follows the assignment has the assignment's
+    # period or none; nothing is proposed from the person's side then.
+    follows_assignment = period_source == periods.FOLLOWS_ASSIGNMENT
+    start, end = (None, None) if follows_assignment else (start_date, end_date)
+    period_source = None
     period_text: str | None = None
-    if start is not None or end is not None:
+    if follows_assignment and periods.assignment_period(assignment) == (None, None):
+        notes.append(periods.NO_PERIOD_MESSAGE)
+    elif start is not None or end is not None:
         period_source, period_text = PERIOD_GIVEN, "opgegeven"
     elif assignment.start_date is not None:
         start, end = assignment.start_date, assignment.end_date
@@ -1228,3 +1237,25 @@ async def derive(
         rate_summary=rate_summary,
         category_notes=category.category_notes,
     )
+
+
+async def reserve_waiting(
+    session: AsyncSession,
+    assignment_id: UUID,
+    *,
+    actor: Person | None,
+    allow_closed_year: bool = False,
+) -> None:
+    """Make the reservations that waited for the assignment to get a period."""
+    result = await session.execute(
+        select(BudgetLine).where(
+            BudgetLine.assignment_id == assignment_id,
+            BudgetLine.intended_person_id.is_not(None),
+            BudgetLine.start_date.is_not(None),
+        )
+    )
+    for line in result.scalars():
+        if await reservation_of(session, line.id) is None:
+            await _reserve(
+                session, line, actor=actor, allow_closed_year=allow_closed_year
+            )

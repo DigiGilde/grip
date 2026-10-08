@@ -96,6 +96,10 @@ export interface BudgetLine {
   id: string;
   assignment_id: string;
   description: string;
+  /** The free text that tells the line apart; the form edits this. */
+  detail?: string;
+  /** 'assignment' when the line follows the assignment, 'own' when it deviates. */
+  period_source?: string;
   kind: string;
   position: number;
   role?: string | null;
@@ -125,6 +129,9 @@ export interface Budget {
   assignment_id: string;
   assignment_name: string;
   can_edit: boolean;
+  /** Lines wait for the assignment to get a period; the message says what to do. */
+  period_missing?: boolean;
+  period_message?: string | null;
   lines: BudgetLine[];
   subtotals_by_year?: Record<string, number>;
   total_budgeted_cents?: number | null;
@@ -138,6 +145,8 @@ export interface BudgetLineInput {
   role?: string | null;
   fte?: string | null;
   rate_category?: string | null;
+  /** 'assignment' follows the assignment; 'own' has its own two dates. */
+  period_source?: 'assignment' | 'own';
   start_date?: string | null;
   end_date?: string | null;
   amount_cents?: number | null;

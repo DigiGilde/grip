@@ -1,0 +1,26 @@
+# The database of the local Bouwmeester. Bouwmeester itself runs from its
+# checkout on the host (see ../bouwmeester.sh), so no image of it has to be
+# built. Own project name and port: a Bouwmeester stack of your own on 5433
+# is left alone.
+
+name: grip-local-bouwmeester
+
+services:
+  db:
+    image: postgres:16
+    ports:
+      - "127.0.0.1:9201:5432"
+    environment:
+      POSTGRES_USER: bouwmeester
+      POSTGRES_PASSWORD: bouwmeester
+      POSTGRES_DB: bouwmeester
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bouwmeester -d bouwmeester"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  pgdata:

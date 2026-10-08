@@ -6,7 +6,7 @@ fact, which a planner may see. The categories behind it are class D.
 
 from datetime import date
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -31,6 +31,9 @@ class AllocationOut(BaseModel):
     role: Annotated[str | None, in_class(ROSTER)]
     # On an assignment that is still potential: this inzet may not happen.
     tentative: Annotated[bool, in_class(ROSTER)]
+    # "line": the inzet runs as long as its budget line; "own": it has a
+    # period of its own. The two dates are the period in force either way.
+    period_source: Annotated[str, in_class(C)]
     start_date: Annotated[date, in_class(C)]
     end_date: Annotated[date, in_class(C)]
     fte_pct: Annotated[Decimal, in_class(C)]
@@ -52,8 +55,10 @@ class AllocationListOut(BaseModel):
 class AllocationCreate(BaseModel):
     budget_line_id: UUID
     person_id: UUID
-    start_date: date
-    end_date: date
+    # Without dates the inzet follows the period of the budget line.
+    period_source: Literal["line", "own"] | None = None
+    start_date: date | None = None
+    end_date: date | None = None
     fte_pct: Decimal = Field(gt=0, le=100)
     allow_closed_year: bool = False
 
@@ -61,6 +66,8 @@ class AllocationCreate(BaseModel):
 class AllocationUpdate(BaseModel):
     """Only the fields that are sent are changed."""
 
+    # "line" makes the inzet follow its budget line again.
+    period_source: Literal["line", "own"] | None = None
     start_date: date | None = None
     end_date: date | None = None
     fte_pct: Decimal | None = Field(default=None, gt=0, le=100)

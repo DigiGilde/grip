@@ -20,7 +20,7 @@ from grip.schema.budget_lines import (
 )
 from grip.services import assignment_views as views
 from grip.services import assignments as service
-from grip.services import budget_intent
+from grip.services import budget_intent, periods
 
 router = APIRouter(tags=["budget"])
 
@@ -69,6 +69,7 @@ def _line_out(
         position=line.position,
         role=line.role,
         fte=line.fte,
+        period_source=line.period_source,
         start_date=line.start_date,
         end_date=line.end_date,
         rate_category=line.rate_category,
@@ -107,10 +108,18 @@ async def _budget(
             Action.READ, Resource.allocation(assignment_id, intent.person_id), D
         )
         lines.append(_line_out(line_view, intent, may_see_rate))
+    follows = periods.assignment_period(view.row.assignment)
+    waiting = any(
+        v.line.kind == "personnel" and v.line.start_date is None for v in view.lines
+    )
     model = BudgetOut(
         assignment_id=assignment_id,
         assignment_name=view.row.assignment.name,
         can_edit=await access.may(Action.EDIT, resource, B),
+        assignment_start_date=follows[0],
+        assignment_end_date=follows[1],
+        period_missing=waiting,
+        period_message=periods.NO_PERIOD_MESSAGE if waiting else None,
         lines=lines,
         subtotals_by_year={str(y): c for y, c in view.budgeted_by_year.items()},
         total_budgeted_cents=sum(view.budgeted_by_year.values())
@@ -185,6 +194,7 @@ async def derive_budget_line(
         start_date=body.start_date,
         end_date=body.end_date,
         fte=body.fte,
+        period_source=body.period_source,
         exclude_line_id=body.budget_line_id,
         may_see_assignment=may_see,
     )

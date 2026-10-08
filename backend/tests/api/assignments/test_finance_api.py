@@ -277,7 +277,18 @@ async def test_preview_prices_a_line_before_it_is_saved(world, as_person):
     }
     # Not complete yet: no amount and no error.
     incomplete = (await client.post(url, json={"kind": "personnel", "fte": "1"})).json()
-    assert incomplete["budgeted_cents"] is None and incomplete["reason"] is None
+    assert incomplete["budgeted_cents"] is None
+    assert incomplete["reason"] == (
+        "Nog niet te berekenen: de schaal en de periode ontbreken."
+    )
+    # A following line is priced over the period of the assignment.
+    following = (
+        await client.post(
+            url,
+            json={"fte": "0.8", "rate_category": "D", "period_source": "assignment"},
+        )
+    ).json()
+    assert following["budgeted_cents"] is not None or "looptijd" in following["reason"]
     # A year without a rate card says so.
     missing = (
         await client.post(

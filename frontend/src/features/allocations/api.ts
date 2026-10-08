@@ -16,6 +16,8 @@ export interface Allocation {
   role?: string | null;
   /** On an assignment that is still potential: this inzet may not happen. */
   tentative?: boolean;
+  /** 'line' when the inzet follows its budget line, 'own' when it deviates. */
+  period_source?: 'line' | 'own';
   start_date?: string;
   end_date?: string;
   fte_pct?: string;
@@ -57,6 +59,8 @@ export interface AllocationOptions {
 export interface AllocationInput {
   budget_line_id?: string;
   person_id?: string;
+  /** 'line' when the inzet follows its budget line, 'own' when it deviates. */
+  period_source?: 'line' | 'own';
   start_date?: string;
   end_date?: string;
   fte_pct?: string;

@@ -20,6 +20,7 @@ from grip.schema.finance import (
     SignalOut,
 )
 from grip.services import assignment_finance as finance
+from grip.services import assignments
 
 router = APIRouter(tags=["finance"])
 
@@ -225,15 +226,22 @@ async def preview_budget_line(
     browser never computes an amount itself.
     """
     await _require_financial(assignment_id, access)
+    start, end, period_name = body.start_date, body.end_date, "de periode"
+    if body.period_source == "assignment":
+        # A following line is priced over the period of the assignment.
+        assignment = await assignments.get_assignment(db, assignment_id)
+        start, end = assignment.start_date, assignment.end_date
+        period_name = "de looptijd van de opdracht"
     preview = await finance.preview_budget_line(
         db,
         kind=body.kind,
         fte=body.fte,
         rate_category=body.rate_category,
-        start_date=body.start_date,
-        end_date=body.end_date,
+        start_date=start,
+        end_date=end,
         amount_cents=body.amount_cents,
         year=body.year,
+        period_name=period_name,
     )
     return build_response(
         LinePreviewOut(

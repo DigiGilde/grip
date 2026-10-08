@@ -166,6 +166,11 @@ def to_calc_scale(scale: PersonScale) -> calc.PersonScale:
     )
 
 
+# Raised by the calculation module for a line that waits for the period of
+# its assignment; re-exported here for the callers of this module.
+MissingPeriodError = calc.MissingPeriodError
+
+
 def to_calc_line(line: BudgetLine | QuoteLineSource) -> calc.BudgetLine:
     return calc.BudgetLine(
         id=str(line.id),

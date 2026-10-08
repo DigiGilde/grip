@@ -53,6 +53,9 @@ INTERNAL_COLUMNS = frozenset(
         "assignment_id",
         "intended_person_id",
         "role_id",
+        # A quote shows the period in force (start_date, end_date), not
+        # whether the line follows the assignment.
+        "period_source",
         "created_at",
         "updated_at",
     }

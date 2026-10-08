@@ -136,6 +136,9 @@ class LinePreviewIn(BaseModel):
     kind: str = "personnel"
     fte: Decimal | None = None
     rate_category: str | None = None
+    # "assignment": price over the period of the assignment, whatever dates
+    # are sent; anything else: over the two dates.
+    period_source: str | None = None
     start_date: date | None = None
     end_date: date | None = None
     amount_cents: int | None = None
@@ -143,7 +146,7 @@ class LinePreviewIn(BaseModel):
 
 
 class LinePreviewOut(BaseModel):
-    # Null while the form is not complete or the line cannot be priced.
+    # Null while the line cannot be priced; the reason then says what is missing.
     budgeted_cents: Annotated[int | None, in_class(B)]
     budgeted_by_year: Annotated[dict[str, int], in_class(B)]
     reason: Annotated[str | None, in_class(B)]
