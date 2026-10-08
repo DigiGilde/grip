@@ -1,3 +1,4 @@
+from decimal import Decimal
 from functools import lru_cache
 from urllib.parse import quote, urlparse
 
@@ -23,6 +24,11 @@ class Settings(BaseSettings):
     # Own identifier, for instances smaller than a registered organisation.
     INSTANCE_KEY: str = "lokaal"
     PARENT_INSTANCE_URI: str = ""
+
+    # Percentage the monthly rates go up by when a new rate card is started
+    # as a copy of an earlier year. Only the default the beheerder is shown;
+    # the percentage used is chosen per card and kept in its audit row.
+    RATE_INDEXATION_DEFAULT_PCT: Decimal = Decimal("5")
 
     # Federation (FSC). Only grip.federation reads these settings.
     # Serve the routes that other organisations call. Off by default: the
@@ -121,6 +127,11 @@ class Settings(BaseSettings):
     WIES_API_KEY: str = ""
     GRIP_EXPORT_KEY: str = ""
     WIES_SUBORGANIZATIONS: str = ""
+    # The merk grip proposes a new colleague under when none is given.
+    WIES_DEFAULT_SUBORGANIZATION: str = ""
+    # Days a person record is kept after a hire fell through. Four weeks is a
+    # common term; have the privacy officer confirm it for the organisation.
+    PROSPECTIVE_RETENTION_DAYS: int = 28
 
     CORS_ORIGINS: list[str] = Field(default_factory=list)
 

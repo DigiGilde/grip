@@ -51,6 +51,7 @@ async def test_worked_example_thirty_percent_of_fifteen_thousand(
     assert body["budgeted_cents"] == 1600000
     assert body["forecast_cents"] == 1500000
     assert body["actual_cents"] == 1000000 and body["estimate_cents"] == 500000
+    assert body["variance_cents"] == 100000
     assert body["covered_cents"] == 450000
     assert body["uncovered_cents"] == 1050000
     assert Decimal(body["pct_total"]) == Decimal(30)

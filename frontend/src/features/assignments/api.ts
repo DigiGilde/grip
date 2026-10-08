@@ -3,20 +3,29 @@
  * are absent from a response, not null, so most fields are optional here.
  */
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from '@/api/client';
+import type { Phase } from './labels';
 
 export interface AssignmentSummary {
   id: string;
   uri: string;
   name: string;
   kind: string;
-  traffic_form: string;
   status: string;
+  /** potential, active or closed; derived from the status. */
+  phase: Phase;
+  /** The day the assignment got its current status. */
+  status_since: string | null;
+  /** When it was shared with the grip instance of the client; null when not. */
+  shared_with_client_at?: string | null;
   client_organisation_id: string | null;
   client_name: string | null;
   start_date: string | null;
   end_date: string | null;
   owner_name: string | null;
   quoted_amount_cents?: number | null;
+  /** Latest quote, or the budget without one; only for a potential assignment. */
+  pipeline_amount_cents?: number | null;
+  pipeline_amount_source?: 'quote' | 'budget' | null;
 }
 
 export interface AssignmentList {
@@ -36,6 +45,8 @@ export interface AssignmentPermissions {
   edit_staffing: boolean;
   read_financial: boolean;
   read_staffing: boolean;
+  /** Who is on the team, by name: what a team member may see. */
+  read_roster: boolean;
 }
 
 export interface AssignmentDetail extends AssignmentSummary {
@@ -46,6 +57,9 @@ export interface AssignmentDetail extends AssignmentSummary {
   client_contact: string | null;
   quote_date: string | null;
   notes: string | null;
+  /** What was agreed verbally and when; null without a verbal agreement. */
+  verbal_agreement_note?: string | null;
+  verbal_agreement_at?: string | null;
   roles: RoleHolder[];
   allowed_transitions: string[];
   permissions: AssignmentPermissions;
@@ -54,7 +68,6 @@ export interface AssignmentDetail extends AssignmentSummary {
 export interface AssignmentInput {
   name?: string;
   kind?: string;
-  traffic_form?: string;
   client_organisation_id?: string | null;
   client_contact?: string | null;
   start_date?: string | null;
@@ -135,8 +148,12 @@ export const createAssignment = (input: AssignmentInput) =>
 export const updateAssignment = (id: string, input: AssignmentInput) =>
   apiPatch<AssignmentDetail>(`/api/assignments/${id}`, input);
 
-export const transitionAssignment = (id: string, target: string) =>
-  apiPost<AssignmentDetail>(`/api/assignments/${id}/transition`, { target });
+/** `reason` is the note of a verbal agreement, required for that step. */
+export const transitionAssignment = (id: string, target: string, reason?: string) =>
+  apiPost<AssignmentDetail>(`/api/assignments/${id}/transition`, {
+    target,
+    ...(reason ? { reason } : {}),
+  });
 
 export const setAssignmentRole = (id: string, personId: string, role: string) =>
   apiPut<AssignmentDetail>(`/api/assignments/${id}/roles/${personId}`, { role });

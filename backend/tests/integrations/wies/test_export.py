@@ -294,13 +294,17 @@ async def test_no_amount_rate_or_category_in_the_answer(
         "start_date",
         "end_date",
         "client_tooi_uri",
+        "client_registry_id",
         "owner_email",
         "roles",
         "description",
+        "role_name",
+        "role_wies_id",
         "fte",
         "open",
         "placements",
         "person_email",
+        "person_uri",
     }
 
 
@@ -346,3 +350,65 @@ def test_only_the_export_skips_the_session_check():
     assert is_public_path("/api/integrations/wies/export")
     assert not is_public_path("/api/integrations/wies/reconciliation")
     assert not is_public_path("/api/integrations/wies/export/extra")
+
+
+async def test_client_without_tooi_uri_is_named_by_its_register_id(db_session, make):
+    from grip.models.organisation import Organisation
+
+    part = Organisation(
+        name="Directie Voorbeeld", source="registry", registry_id="9004"
+    )
+    db_session.add(part)
+    await db_session.flush()
+    await make.assignment(client=part)
+
+    item = (await _export(db_session)).assignments[0]
+
+    assert (item.client_tooi_uri, item.client_registry_id) == (None, "9004")
+
+
+async def test_role_goes_with_its_catalogue_name_and_wies_id(db_session, make):
+    from sqlalchemy import select
+
+    from grip.models.catalogue_role import CatalogueRole
+
+    line = await make.line(await make.assignment(), role="developer")
+    entry = (await db_session.execute(select(CatalogueRole))).scalars().one()
+    entry.wies_public_id = "11111111-1111-1111-1111-111111111111"
+    entry.name = "Developer"
+    await db_session.flush()
+    await db_session.refresh(line)
+
+    (role,) = (await _export(db_session)).assignments[0].roles
+
+    assert (role.description, role.role_name, role.role_wies_id) == (
+        "Developer",
+        "Developer",
+        "11111111-1111-1111-1111-111111111111",
+    )
+
+
+async def test_line_without_role_sends_its_own_text(db_session, make):
+    from grip.models.assignment import BudgetLine
+
+    assignment = await make.assignment()
+    db_session.add(
+        BudgetLine(
+            assignment_id=assignment.id,
+            description="Extra handen",
+            kind="personnel",
+            fte=1,
+            rate_category="D",
+            start_date=assignment.start_date,
+            end_date=assignment.end_date,
+        )
+    )
+    await db_session.flush()
+
+    (role,) = (await _export(db_session)).assignments[0].roles
+
+    assert (role.description, role.role_name, role.role_wies_id) == (
+        "Extra handen",
+        None,
+        None,
+    )

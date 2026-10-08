@@ -224,6 +224,7 @@ async def receive(
                         operation=op.operation_id,
                         payload=terms.from_contract(payload),
                         path_parameters=path_parameters or {},
+                        contract_payload=payload,
                         received_at=row.received_at,
                     ),
                 )

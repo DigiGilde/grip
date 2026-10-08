@@ -13,7 +13,6 @@ from sqlalchemy import select
 from grip.core.auth import DEV_PERSON_COOKIE
 from grip.core.config import get_settings
 from grip.federation import registry, signing, terms
-from grip.federation.bridge.inbound import contract_quote_hash
 from grip.federation.bridge.organisations import from_reference, own_organisation
 from grip.federation.events import register_event_handlers
 from grip.federation.models import FederationOutbox, Peer
@@ -200,7 +199,6 @@ async def received_quote(db_session, beheerder, monkeypatch):
         db_session,
         name="Opdracht Alfa",
         actor=None,
-        traffic_form="federated",
         client_organisation_id=own.id,
         contractor_organisation_id=contractor.id,
         uri=f"{settings.INSTANCE_BASE_URI}/id/opdracht/3f2a8c54-6d1b-4f0e-9a77-1c2b3d4e5f60",
@@ -217,6 +215,9 @@ async def received_quote(db_session, beheerder, monkeypatch):
         end_date=date(2026, 12, 31),
         actor=None,
     )
+    # The quote came from the contractor's instance: the assignment is shared
+    # with it, which is why a decision goes back there.
+    assignments.share_with_instance(assignment, CONTRACTOR["instance_uri"])
     snapshot = await quotes.build_snapshot(db_session, assignment)
     quote = await quotes.receive_quote(
         db_session,
@@ -268,9 +269,9 @@ async def test_tekenbevoegde_accepts_and_the_signed_message_is_queued(
     assert queued.operation == "sendAcceptance"
     assert queued.path == f"/v1/offertes/{received_quote.id}/akkoorden"
     message = queued.payload
-    # The queued message is in contract terms, carries the contract's hash of
-    # the quote, and its signature covers exactly what is sent.
-    assert message[terms.term("quote_hash")] == contract_quote_hash(received_quote)
+    # The queued message is in contract terms, carries the one hash of the
+    # quote, and its signature covers exactly what is sent.
+    assert message[terms.term("quote_hash")] == received_quote.snapshot_hash
     assert message[terms.term("signer")]["functie"] == "Directeur"
     signing.verify_acceptance(message, signing.own_jwks(get_settings()))
 

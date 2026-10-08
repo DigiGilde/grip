@@ -35,7 +35,7 @@ describe('VacancySetupPage', () => {
     const { container } = renderApp(<VacancySetupPage />);
     await waitFor(() =>
       expect(
-        container.querySelector('nldd-inline-dialog[text="Dit is voor de beheerder"]'),
+        container.querySelector('nldd-inline-dialog[text="Dit is voor beheerders"]'),
       ).not.toBeNull(),
     );
     expect(container.querySelector('nldd-button')).toBeNull();

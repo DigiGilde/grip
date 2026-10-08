@@ -27,6 +27,7 @@ from grip.schema.assignments import (
 )
 from grip.services import assignment_views as views
 from grip.services import assignments as service
+from grip.services.phase import Phase
 
 router = APIRouter(tags=["assignments"])
 
@@ -36,22 +37,41 @@ _SUMMARY_CLASSES = schema_classes(AssignmentSummaryOut)
 _DETAIL_CLASSES = schema_classes(AssignmentDetailOut)
 
 
-def _summary_fields(row: views.AssignmentRow) -> dict[str, Any]:
+def _summary_fields(
+    row: views.AssignmentRow, budgeted_cents: int | None = None
+) -> dict[str, Any]:
+    """The fields of a summary.
+
+    ``budgeted_cents`` is what a potential assignment without a quote is
+    worth; the caller computes it only for whoever may see money.
+    """
     a = row.assignment
     owner = row.owner
+    shared_at = a.shared_at
+    pipeline_cents: int | None = None
+    pipeline_source: str | None = None
+    if row.phase is Phase.POTENTIAL:
+        if row.latest_quote_cents is not None:
+            pipeline_cents, pipeline_source = row.latest_quote_cents, "quote"
+        elif budgeted_cents is not None:
+            pipeline_cents, pipeline_source = budgeted_cents, "budget"
     return {
         "id": a.id,
         "uri": a.uri,
         "name": a.name,
         "kind": a.kind,
-        "traffic_form": a.traffic_form,
         "status": a.status,
+        "phase": row.phase.value,
+        "status_since": row.status_since.date() if row.status_since else None,
+        "shared_with_client_at": shared_at.date() if shared_at else None,
         "client_organisation_id": a.client_organisation_id,
         "client_name": row.client_name,
         "start_date": a.start_date,
         "end_date": a.end_date,
         "owner_name": owner.person_name if owner else None,
         "quoted_amount_cents": a.quoted_amount_cents,
+        "pipeline_amount_cents": pipeline_cents,
+        "pipeline_amount_source": pipeline_source,
     }
 
 
@@ -68,6 +88,10 @@ async def _detail(row: views.AssignmentRow, access: RequestAccess) -> dict[str, 
         client_contact=a.client_contact,
         quote_date=a.quote_date,
         notes=a.notes,
+        verbal_agreement_note=a.verbal_agreement_note,
+        verbal_agreement_at=a.verbal_agreement_at.date()
+        if a.verbal_agreement_at
+        else None,
         roles=[
             RoleHolderOut(person_id=r.person_id, name=r.person_name, role=r.role)
             for r in row.roles
@@ -82,6 +106,9 @@ async def _detail(row: views.AssignmentRow, access: RequestAccess) -> dict[str, 
             edit_staffing=await access.may(Action.EDIT, resource, DataClass.STAFFING),
             read_financial=await access.may(Action.READ, resource, B),
             read_staffing=await access.may(Action.READ, resource, DataClass.STAFFING),
+            read_roster=await access.may(
+                Action.READ, resource, DataClass.STAFFING_ROSTER
+            ),
         ),
     )
     return build_response(model, await access.classes(resource, _DETAIL_CLASSES))
@@ -107,8 +134,17 @@ async def list_assignments(
         )
         if A not in permitted:
             continue
+        budgeted: int | None = None
+        if (
+            B in permitted
+            and row.phase is Phase.POTENTIAL
+            and row.latest_quote_cents is None
+        ):
+            budgeted = await views.budgeted_total(db, row.assignment.id)
         items.append(
-            build_response(AssignmentSummaryOut(**_summary_fields(row)), permitted)
+            build_response(
+                AssignmentSummaryOut(**_summary_fields(row, budgeted)), permitted
+            )
         )
     return {
         "items": items,
@@ -129,7 +165,6 @@ async def create_assignment(
         name=body.name.strip(),
         actor=person,
         kind=body.kind,
-        traffic_form=body.traffic_form,
         client_organisation_id=body.client_organisation_id,
         client_contact=body.client_contact,
         start_date=body.start_date,

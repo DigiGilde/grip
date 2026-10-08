@@ -8,6 +8,7 @@ throwaway instance in a temporary directory, reached over a unix socket, so
 it cannot collide with a database on a TCP port.
 """
 
+import hashlib
 import tempfile
 from collections.abc import AsyncIterator, Iterator
 from datetime import UTC, date, datetime, timedelta
@@ -187,8 +188,8 @@ async def seed(db: AsyncSession) -> Seed:
         Quote(
             uri=f"{OWN_BASE}/id/offerte/1",
             assignment_id=s.own,
-            snapshot={},
-            snapshot_hash="0" * 64,
+            canonical=b"{}",
+            snapshot_hash=hashlib.sha256(b"{}").hexdigest(),
             total_cents=0,
             issued_at=now,
         ),

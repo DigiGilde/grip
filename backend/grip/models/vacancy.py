@@ -171,7 +171,19 @@ class Vacancy(Base):
     function_title: Mapped[str] = mapped_column(String(255))
     # Name of the function in the government's function framework (FGR).
     fgr_function_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # The function group of the Functiegebouw Rijk the name above was taken
+    # from. The name stays as it was printed when chosen, so a later renaming
+    # of the group does not change a request that was already issued.
+    function_group_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("function_group.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     scale: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Why the scale lies outside the scales of the function group, when it
+    # does. Without a reason such a scale is refused.
+    scale_deviation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     fte: Mapped[Decimal] = mapped_column(Numeric(5, 2))
     declarable: Mapped[bool] = mapped_column(Boolean)
     vacancy_type: Mapped[str] = mapped_column(
@@ -198,6 +210,13 @@ class Vacancy(Base):
     # Who the request is addressed to. Often not a user of this instance, so
     # it is a name and not a reference.
     addressee_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Set when the addressee has an account here; the name above is then the
+    # name of that person at the time.
+    addressee_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("person.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     requested_on: Mapped[date | None] = mapped_column(Date, nullable=True)
     published_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

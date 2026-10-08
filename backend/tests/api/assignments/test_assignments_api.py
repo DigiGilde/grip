@@ -129,16 +129,59 @@ async def test_person_options_need_someone_who_staffs(world, as_person):
     assert (await as_person(world.lezer).get("/api/person-options")).status_code == 403
 
 
-async def test_organisations(world, as_person):
-    client = as_person(world.owner)
-    created = await client.post("/api/organisations", json={"name": "Voorbeelddienst"})
-    assert created.status_code == 201
-    names = {
-        o["name"] for o in (await client.get("/api/organisations")).json()["items"]
-    }
-    assert names == {"Voorbeeldministerie", "Voorbeelddienst"}
-    outsider = as_person(world.outsider)
-    assert (await outsider.get("/api/organisations")).status_code == 403
+async def test_permissions_tell_the_screen_which_parts_to_offer(world, as_person):
+    url = f"/api/assignments/{world.assignment.id}"
+
+    async def permissions(person):
+        return (await as_person(person).get(url)).json()["permissions"]
+
+    owner = await permissions(world.owner)
+    assert all(owner.values())
+
+    planner = await permissions(world.planner)
     assert (
-        await outsider.post("/api/organisations", json={"name": "X"})
-    ).status_code == 403
+        planner["read_staffing"] and planner["read_roster"] and planner["edit_staffing"]
+    )
+    assert not planner["read_financial"] and not planner["edit_basic"]
+
+    # A team member sees who is on the team, not how much time or money.
+    member = await permissions(world.member)
+    assert member["read_roster"]
+    assert not member["read_staffing"] and not member["read_financial"]
+
+    lezer = await permissions(world.lezer)
+    assert lezer["read_financial"]
+    assert not lezer["read_roster"] and not lezer["read_staffing"]
+
+
+async def test_a_new_assignment_is_potential_and_needs_only_a_name(world, as_person):
+    client = as_person(world.planner)
+    created = await client.post("/api/assignments", json={"name": "Opdracht Zeta"})
+    assert created.status_code == 201
+    body = created.json()
+    assert body["phase"] == "potential"
+    assert body["status"] == "draft"
+    assert body["status_since"] is not None
+    assert "traffic_form" not in body
+    # A field of an older client is ignored, not refused.
+    again = await client.post(
+        "/api/assignments", json={"name": "Opdracht Eta", "traffic_form": "document"}
+    )
+    assert again.status_code == 201
+
+
+async def test_list_says_phase_and_what_a_potential_assignment_may_be_worth(
+    world, as_person
+):
+    body = (await as_person(world.beheerder).get("/api/assignments")).json()
+    alfa = by_id(body["items"], "id", world.assignment.id)
+    assert alfa["phase"] == "potential"
+    # No quote yet, so the budget stands in: 172,800 plus 15,000.
+    assert alfa["pipeline_amount_cents"] == 18780000
+    assert alfa["pipeline_amount_source"] == "budget"
+    # Money is class B: a planner gets the phase, not the amount.
+    planner = (await as_person(world.planner).get("/api/assignments")).json()
+    alfa = by_id(planner["items"], "id", world.assignment.id)
+    assert alfa["phase"] == "potential"
+    assert "pipeline_amount_cents" not in alfa
+    assert "pipeline_amount_source" not in alfa

@@ -65,6 +65,34 @@ reset-db:
 seed *ARGS:
     cd backend && uv run python -m grip.dev.seed {{ ARGS }}
 
+# `just seed --extend` adds the corpus peers and the context of the example
+# assignments to data that was seeded earlier; a fresh seed includes them.
+# The dev backend reaches the stand-in as its outway: start the backend with
+#   OUTWAY_URL=http://localhost:8040
+# Nothing else is needed for context and the node picker: outbound
+# federation (FEDERATION_OUTBOUND_ENABLED) stays off and INSTANCE_TOOI_URI
+# stays empty. A backend in a container uses http://host.docker.internal:8040.
+# Start the stand-in corpus for local development on port 8040 (fictional nodes, corpus-context v1)
+corpus-standin PORT="8040":
+    cd backend && uv run uvicorn grip.dev.corpus_standin.app:app --port {{ PORT }}
+
+# Fetches the organisation export of organisaties.overheid.nl and brings the
+# list of organisations in line with it. `--file PATH` applies a download.
+# Take over the government organisations from the public register (see docs/organisaties.md)
+sync-organisations *ARGS:
+    cd backend && uv run python -m grip.integrations.organisations {{ ARGS }}
+
+# Load the families, groups and scales of the Functiegebouw Rijk from the
+# reference file in the repo (`--file PATH` for another file in that format)
+load-function-framework *ARGS:
+    cd backend && uv run python -m grip.integrations.function_framework {{ ARGS }}
+
+# Needs the link with Wies (WIES_BASE_URL and WIES_API_KEY); without it the
+# catalogue is kept by hand under Beheer.
+# Take over the roles from the skills of Wies (see docs/rollen.md)
+sync-roles:
+    cd backend && uv run python -m grip.integrations.wies.sync_roles
+
 # Subcommands: inspect, check, propose, confirm, load, reconcile. Paths are
 # relative to where you call it, for example
 # `just import-grist inspect ../import/document.grist`.

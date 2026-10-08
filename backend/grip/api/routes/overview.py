@@ -7,6 +7,14 @@ from fastapi import APIRouter
 
 from grip.access import Action, DataClass, Resource, build_response, schema_classes
 from grip.api.assignment_support import DbSession, RequestAccess, YearFilter, parse_year
+from grip.api.routes.assignment_finance import figures_out
+from grip.schema.board import (
+    AssignmentStaffingOut,
+    RoleBarOut,
+    RoleGapOut,
+    RoleMonthOut,
+    RoleStaffingOut,
+)
 from grip.schema.overview import (
     AssignmentOverviewOut,
     LineCostOut,
@@ -15,7 +23,10 @@ from grip.schema.overview import (
     TeamMemberOut,
     TotalsOut,
 )
+from grip.services import assignment_finance as finance
 from grip.services import assignment_views as views
+from grip.services import staffing_board
+from grip.services.phase import Phase
 
 router = APIRouter(tags=["overview"])
 
@@ -25,6 +36,7 @@ _ROW_CLASSES = schema_classes(OverviewRowOut)
 _TEAM_CLASSES = schema_classes(TeamMemberOut)
 _LINE_CLASSES = schema_classes(LineOverviewOut) - _TEAM_CLASSES | {DataClass.STAFFING}
 _HEAD_CLASSES = frozenset({A, B})
+_ROLE_BAR_CLASSES = schema_classes(RoleBarOut)
 
 
 def _totals(totals: Any) -> TotalsOut | None:
@@ -48,6 +60,8 @@ async def get_overview(
     """One row per assignment the person may read.
 
     The amounts are class B: a reader without it gets the rows without them.
+    They come from the same read model as the Financieel tab of an
+    assignment, so the two always agree.
     """
     selected = parse_year(year)
     if await access.may(Action.READ, Resource.assignment(), A):
@@ -57,21 +71,25 @@ async def get_overview(
             db, only_ids=await access.own_assignment_ids()
         )
     items: list[dict[str, Any]] = []
-    priced: list[views.Totals] = []
+    priced: dict[Phase, list[finance.Figures]] = {phase: [] for phase in Phase}
     any_financial = False
     for row in rows:
         resource = Resource.assignment(row.assignment.id)
         permitted = await access.classes(resource, _ROW_CLASSES)
         if A not in permitted:
             continue
-        totals: views.Totals | None = None
+        figures: finance.Figures | None = None
         error: str | None = None
+        reference = None
         if B in permitted:
             any_financial = True
-            view = await views.assignment_view(db, row.assignment.id, year=selected)
-            totals, error = view.totals, view.pricing_error
-            if totals is not None:
-                priced.append(totals)
+            data = await finance.assignment_finance(
+                db, row.assignment.id, year=selected
+            )
+            figures, error = data.totals, data.pricing_error
+            reference = data.reference_month
+            if figures is not None:
+                priced[row.phase].append(figures)
         a = row.assignment
         items.append(
             build_response(
@@ -79,20 +97,23 @@ async def get_overview(
                     assignment_id=a.id,
                     name=a.name,
                     status=a.status,
+                    phase=row.phase.value,
                     client_name=row.client_name,
                     start_date=a.start_date,
                     end_date=a.end_date,
-                    totals=_totals(totals),
+                    figures=figures_out(figures),
                     pricing_error=error,
+                    reference_month=reference,
                 ),
                 permitted,
             )
         )
     result: dict[str, Any] = {"year": selected, "rows": items}
     if any_financial:
-        grand = _totals(views.Totals.of(priced))
-        assert grand is not None
-        result["totals"] = grand.model_dump(mode="json")
+        for phase in Phase:
+            subtotal = figures_out(finance.Figures.sum(priced[phase]))
+            assert subtotal is not None
+            result[f"figures_{phase.value}"] = subtotal.model_dump(mode="json")
     return result
 
 
@@ -184,4 +205,115 @@ async def get_assignment_overview(
         await access.classes(resource, _HEAD_CLASSES),
     )
     head["lines"] = lines
+    return head
+
+
+@router.get("/assignments/{assignment_id}/staffing", response_model=None)
+async def get_assignment_staffing(
+    assignment_id: UUID, access: RequestAccess, db: DbSession
+) -> dict[str, Any]:
+    """Per role what is asked, who fills it and what is still open. No amounts.
+
+    A reader with the staffing class gets months, bars and gaps. A team
+    member gets the names on each role and nothing about time.
+    """
+    resource = Resource.assignment(assignment_id)
+    await access.require(Action.READ, resource, A, hide_existence=True)
+    await access.require(Action.READ, resource, DataClass.STAFFING_ROSTER)
+    data = await staffing_board.assignment_staffing(db, assignment_id)
+    classes = await access.classes(
+        resource, {A, DataClass.STAFFING, DataClass.STAFFING_ROSTER}
+    )
+    sees_time = DataClass.STAFFING in classes
+    can_fill = await access.may(Action.EDIT, resource, DataClass.STAFFING)
+
+    roles: list[dict[str, Any]] = []
+    for role in data.roles:
+        bars: list[dict[str, Any]] = []
+        for item in role.bars:
+            bar = item.bar
+            about = Resource.allocation(assignment_id, bar.person_id)
+            permitted = set(await access.classes(about, _ROLE_BAR_CLASSES - {A})) | {A}
+            if DataClass.STAFFING not in permitted:
+                continue
+            bars.append(
+                build_response(
+                    RoleBarOut(
+                        allocation_id=bar.allocation_id,
+                        person_id=bar.person_id,
+                        person_name=bar.person_name,
+                        assignment_id=bar.assignment_id,
+                        assignment_name=bar.assignment_name,
+                        budget_line_id=bar.budget_line_id,
+                        line_description=bar.line_description,
+                        role=bar.role,
+                        tentative=bar.tentative,
+                        verbally_agreed=bar.verbally_agreed,
+                        start_date=bar.start_date,
+                        end_date=bar.end_date,
+                        fte_pct=bar.fte_pct,
+                        closed_months=list(bar.closed_months),
+                        can_edit=await access.may(
+                            Action.EDIT, about, DataClass.STAFFING
+                        ),
+                        category_mismatch=bar.category_mismatch,
+                        line_category=bar.line_category,
+                        person_category=bar.person_category,
+                        starts_on=item.starts_on,
+                        before_start=item.before_start,
+                        outside_role_period=item.outside_role_period,
+                    ),
+                    permitted,
+                )
+            )
+        body = build_response(
+            RoleStaffingOut(
+                budget_line_id=role.budget_line_id,
+                description=role.description,
+                role=role.role,
+                fte=role.fte,
+                start_date=role.start_date,
+                end_date=role.end_date,
+                months=[
+                    RoleMonthOut(
+                        month=m.month,
+                        asked_pct=m.asked_pct,
+                        filled_pct=m.filled_pct,
+                        open_pct=m.open_pct,
+                        over=m.over,
+                        closed=m.closed,
+                    )
+                    for m in role.months
+                ],
+                bars=[],
+                gaps=[
+                    RoleGapOut(start=g.start, end=g.end, open_fte=g.open_fte)
+                    for g in role.gaps
+                ],
+                fully_staffed=role.fully_staffed,
+                names=sorted({item.bar.person_name for item in role.bars}),
+                can_fill=can_fill,
+            ),
+            classes,
+        )
+        body["bars"] = bars if sees_time else []
+        roles.append(body)
+
+    head = build_response(
+        AssignmentStaffingOut(
+            assignment_id=assignment_id,
+            months=list(data.months),
+            current_month=data.current_month,
+            closed_months=list(data.closed_months),
+            tentative=data.tentative,
+            roles=[],
+            role_count=len(data.roles),
+            staffed_count=data.staffed_count,
+            open_fte=data.open_fte,
+            open_from=data.open_from,
+            overbooked_count=len(data.overbooked_person_ids),
+        ),
+        classes,
+    )
+    head["roles"] = roles
     return head

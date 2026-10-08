@@ -411,6 +411,8 @@ class Loader:
                     step,
                     actor=self.actor,
                     reason="Import uit Grist",
+                    # Grist never had a client organisation or a start date.
+                    enforce_readiness=False,
                 ),
             )
             if done is None:

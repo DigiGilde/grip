@@ -1,0 +1,516 @@
+/*
+ * Styles of the report screens that no component provides: the figures a
+ * block leads with, and the occupancy heat map. Colours come from the design
+ * system's palette; the choices and how they were checked are in
+ * occupancy/scale.ts.
+ */
+
+/* -- figures: the conclusion of a block, before its detail ------------------ */
+
+.grip-figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.grip-figure {
+  margin: 0;
+  padding: 12px 16px;
+  border: 1px solid var(--primitives-color-neutral-150);
+  border-radius: 8px;
+  background: var(--semantics-surfaces-base-background-color);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.grip-figure dt {
+  font-size: 0.875rem;
+  color: var(--primitives-color-neutral-650);
+}
+
+.grip-figure dd {
+  margin: 0;
+}
+
+.grip-figure__value {
+  font-size: 1.75rem;
+  line-height: 1.2;
+  font-weight: 700;
+  color: var(--primitives-color-neutral-950);
+}
+
+.grip-figure__detail {
+  font-size: 0.875rem;
+  color: var(--primitives-color-neutral-650);
+}
+
+/* Nothing to report: the figure steps back. */
+.grip-figure--quiet .grip-figure__value {
+  color: var(--primitives-color-neutral-600);
+  font-weight: 400;
+}
+
+/* Needs attention: said with a mark and a word, never by colour alone. */
+.grip-figure--attention {
+  border-color: var(--primitives-color-critical-600);
+  border-left-width: 4px;
+}
+
+.grip-figure__flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--primitives-color-critical-700);
+}
+
+.grip-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.1em;
+  height: 1.1em;
+  border-radius: 50%;
+  background: var(--primitives-color-critical-600);
+  color: var(--primitives-color-neutral-0);
+  font-size: 0.75em;
+  font-weight: 700;
+  line-height: 1;
+  forced-color-adjust: none;
+}
+
+.grip-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* -- occupancy heat map ------------------------------------------------------ */
+
+.grip-occ {
+  --occ-1: light-dark(var(--primitives-color-lintblauw-300), var(--primitives-color-lintblauw-350));
+  --occ-2: var(--primitives-color-lintblauw-450);
+  --occ-3: var(--primitives-color-lintblauw-600);
+  --occ-4: var(--primitives-color-lintblauw-750);
+  --occ-over: var(--primitives-color-rood-600);
+  --occ-ink: var(--primitives-color-neutral-950);
+  --occ-inverse: var(--primitives-color-neutral-0);
+  --occ-muted: var(--primitives-color-neutral-650);
+  --occ-line: var(--primitives-color-neutral-150);
+  --occ-hatch: var(--primitives-color-neutral-400);
+  --occ-surface: var(--semantics-surfaces-base-background-color);
+}
+
+/* The table scrolls inside its block; the page never scrolls sideways. */
+.grip-occ__scroll {
+  overflow-x: auto;
+  max-width: 100%;
+  border: 1px solid var(--occ-line);
+  border-radius: 8px;
+  background: var(--occ-surface);
+}
+
+.grip-occ__table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  font-size: 0.875rem;
+  color: var(--occ-ink);
+}
+
+.grip-occ__table th,
+.grip-occ__table td {
+  padding: 3px;
+  text-align: center;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.grip-occ__table thead th {
+  padding: 8px 3px 6px;
+  font-size: 0.8125rem;
+  color: var(--occ-muted);
+  border-bottom: 1px solid var(--occ-line);
+  vertical-align: bottom;
+}
+
+/* The first column stays in view while the months scroll. */
+.grip-occ__table th[scope='row'],
+.grip-occ__table thead th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--occ-surface);
+  text-align: left;
+  padding-inline: 12px 16px;
+  min-width: 10.5rem;
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 1px 0 0 var(--occ-line);
+}
+
+.grip-occ__table th[scope='row'] {
+  font-weight: 600;
+  color: var(--occ-ink);
+}
+
+.grip-occ__name-flag {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--primitives-color-critical-700);
+}
+
+/* What lies behind us and what lies ahead: a word above the months and a rule between. */
+.grip-occ__group th {
+  padding: 6px 6px 0;
+  border-bottom: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-align: left;
+  color: var(--occ-ink);
+}
+
+.grip-occ__table .grip-occ__boundary {
+  border-left: 2px solid var(--occ-ink);
+}
+
+/* The current month. */
+.grip-occ__table thead th.grip-occ__now {
+  color: var(--occ-ink);
+  font-weight: 700;
+}
+
+.grip-occ__now-tag {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.grip-occ__table td.grip-occ__now,
+.grip-occ__table th.grip-occ__now {
+  background: var(--primitives-color-neutral-50);
+}
+
+/* One cell: the fill carries the value, the number is small and secondary. */
+.grip-occ__cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 44px;
+  height: 30px;
+  border-radius: 4px;
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  overflow: hidden;
+  cursor: pointer;
+  forced-color-adjust: none;
+}
+
+.grip-occ__cell[data-state='empty'] {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--occ-line);
+}
+
+.grip-occ__cell[data-state='unavailable'] {
+  cursor: default;
+  background: repeating-linear-gradient(
+    135deg,
+    var(--occ-hatch) 0 1px,
+    transparent 1px 6px
+  );
+  box-shadow: inset 0 0 0 1px var(--occ-line);
+}
+
+.grip-occ__cell[data-level='1'] {
+  background: var(--occ-1);
+  color: var(--occ-ink);
+}
+
+.grip-occ__cell[data-level='2'] {
+  background: var(--occ-2);
+  color: var(--occ-ink);
+}
+
+.grip-occ__cell[data-level='3'] {
+  background: var(--occ-3);
+  color: var(--occ-inverse);
+}
+
+.grip-occ__cell[data-level='4'] {
+  background: var(--occ-4);
+  color: var(--occ-inverse);
+}
+
+/* Above 100 percent: another colour, a ring, a mark and bold type. */
+.grip-occ__cell[data-state='over'] {
+  background: var(--occ-over);
+  color: var(--occ-inverse);
+  font-weight: 700;
+  font-size: 0.75rem;
+  box-shadow: inset 0 0 0 2px var(--occ-ink);
+}
+
+/* Tentative inzet: stripes over its share of the cell. */
+.grip-occ__tentative {
+  position: absolute;
+  inset-block: 0;
+  right: 0;
+  background: repeating-linear-gradient(
+    45deg,
+    transparent 0 3px,
+    var(--occ-surface) 3px 5px
+  );
+  pointer-events: none;
+}
+
+.grip-occ__value {
+  /* Above the stripes, so the number stays whole. */
+  position: relative;
+}
+
+/* Established: a dot in the corner. A shape, so it does not lean on colour. */
+.grip-occ__established {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.grip-occ__table td:focus-visible {
+  outline: none;
+}
+
+.grip-occ__table td:focus-visible .grip-occ__cell,
+.grip-occ__table td[aria-selected='true'] .grip-occ__cell {
+  outline: 3px solid var(--primitives-color-accent-600);
+  outline-offset: 1px;
+}
+
+.grip-occ__table td:hover .grip-occ__cell:not([data-state='unavailable']) {
+  outline: 2px solid var(--occ-ink);
+  outline-offset: 1px;
+}
+
+/* The average: a small bar with its number. */
+.grip-occ__average {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 120px;
+  padding-inline: 8px;
+}
+
+.grip-occ__track {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--primitives-color-neutral-150);
+  overflow: hidden;
+  forced-color-adjust: none;
+}
+
+.grip-occ__bar {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--occ-3);
+}
+
+.grip-occ__average-number {
+  min-width: 3.2em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.grip-occ__table tfoot th,
+.grip-occ__table tfoot td {
+  border-top: 2px solid var(--occ-ink);
+  padding-block: 8px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8125rem;
+}
+
+.grip-occ__table tfoot td.grip-occ__zero {
+  color: var(--occ-muted);
+  font-weight: 400;
+}
+
+/* The legend: every state with a swatch and a word. */
+.grip-occ__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.8125rem;
+  color: var(--occ-muted);
+}
+
+.grip-occ__legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.grip-occ__legend .grip-occ__cell {
+  min-width: 26px;
+  width: 26px;
+  height: 18px;
+  cursor: default;
+}
+
+/* A swatch shows the treatment, not a value. */
+.grip-occ__legend .grip-occ__value {
+  display: none;
+}
+
+.grip-occ__legend .grip-occ__cell[data-state='over']::after {
+  content: '!';
+}
+
+.grip-occ__detail {
+  border: 1px solid var(--occ-line);
+  border-left: 4px solid var(--primitives-color-accent-600);
+  border-radius: 8px;
+  padding: 12px 16px;
+  background: var(--occ-surface);
+}
+
+.grip-occ__detail h4 {
+  margin: 0 0 6px;
+  font-size: 1rem;
+}
+
+.grip-occ__detail ul {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.grip-occ__detail-total {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+@media (forced-colors: active) {
+  .grip-occ__cell {
+    forced-color-adjust: auto;
+    border: 1px solid CanvasText;
+  }
+}
+
+/* -- landing view: one tile per topic, each the way into its detail --------- */
+
+.grip-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.grip-tiles > li {
+  display: flex;
+}
+
+.grip-tile {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 148px;
+  padding: 16px 20px;
+  border: 1px solid var(--primitives-color-neutral-150);
+  border-radius: 8px;
+  background: var(--semantics-surfaces-base-background-color);
+  color: var(--primitives-color-neutral-950);
+  text-decoration: none;
+}
+
+.grip-tile:hover {
+  border-color: var(--primitives-color-accent-600);
+}
+
+.grip-tile:focus-visible {
+  outline: 3px solid var(--primitives-color-accent-600);
+  outline-offset: 2px;
+}
+
+.grip-tile--attention {
+  border-color: var(--primitives-color-critical-600);
+  border-left-width: 4px;
+  padding-left: 17px;
+}
+
+.grip-tile__topic {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--primitives-color-accent-700);
+}
+
+.grip-tile__label {
+  font-size: 0.875rem;
+  color: var(--primitives-color-neutral-650);
+}
+
+.grip-tile__value {
+  font-size: 1.75rem;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+.grip-tile__context {
+  font-size: 0.875rem;
+  color: var(--primitives-color-neutral-650);
+}
+
+.grip-tile__flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: auto;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--primitives-color-critical-700);
+}
+
+/* -- something secondary, behind a disclosure -------------------------------- */
+
+.grip-disclosure > summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding-block: 6px;
+  color: var(--primitives-color-accent-700);
+}
+
+.grip-disclosure > summary:focus-visible {
+  outline: 3px solid var(--primitives-color-accent-600);
+  outline-offset: 2px;
+}
+
+.grip-disclosure[open] > summary {
+  margin-bottom: 8px;
+}

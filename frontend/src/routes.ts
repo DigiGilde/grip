@@ -18,7 +18,6 @@ export const APP_ROUTES: readonly AppRoute[] = [
   { path: PATHS.assignments, title: 'Opdrachten', icon: 'folder' },
   { path: PATHS.allocations, title: 'Inzet', icon: 'calendar' },
   { path: PATHS.costs, title: 'Kosten en facturen', icon: 'euro-sign' },
-  { path: PATHS.rates, title: 'Tarieven', icon: 'coins' },
   { path: PATHS.team, title: 'Team', icon: 'team' },
   { path: PATHS.vacancies, title: 'Vacatures', icon: 'person-badge-plus' },
   { path: PATHS.reports, title: 'Rapportage', icon: 'chart-line' },

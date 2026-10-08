@@ -1,5 +1,6 @@
 from grip.models.assignment import Allocation, Assignment, AssignmentRole, BudgetLine
 from grip.models.audit_log import AuditLog
+from grip.models.catalogue_role import CatalogueRole, CatalogueRoleSyncRun
 from grip.models.cost import CostCoverage, CostItem, InvoiceLine
 from grip.models.http_session import HttpSession
 from grip.models.month_close import (
@@ -8,10 +9,16 @@ from grip.models.month_close import (
     MonthClose,
     MonthCloseLine,
 )
-from grip.models.organisation import Organisation
+from grip.models.organisation import Organisation, OrganisationSyncRun
 from grip.models.person import Person
 from grip.models.person_details import BillabilityTarget, Hire, PersonScale
-from grip.models.quote import Quote, QuoteAcceptance, QuoteInvitation, QuoteRejection
+from grip.models.quote import (
+    Quote,
+    QuoteAcceptance,
+    QuoteInvitation,
+    QuoteOffer,
+    QuoteRejection,
+)
 from grip.models.rates import RateBand, RateCard, ScaleBand
 from grip.models.role import PersonRole, Role
 
@@ -32,11 +39,15 @@ __all__ += [
     "InvoiceLine",
     "MonthClose",
     "MonthCloseLine",
+    "CatalogueRole",
+    "CatalogueRoleSyncRun",
     "Organisation",
+    "OrganisationSyncRun",
     "PersonScale",
     "Quote",
     "QuoteAcceptance",
     "QuoteInvitation",
+    "QuoteOffer",
     "QuoteRejection",
     "RateBand",
     "RateCard",
@@ -80,3 +91,36 @@ __all__ += ["StoredDocument"]
 from grip.importers.grist.refs import GristImportRef  # noqa: E402
 
 __all__ += ["GristImportRef"]
+
+# Functiegebouw Rijk (migration 0012_function_framework).
+from grip.models.function_framework import (  # noqa: E402
+    FunctionFamily,
+    FunctionGroup,
+)
+
+__all__ += ["FunctionFamily", "FunctionGroup"]
+
+# Standing of a person and the proposal to Wies (migration 0013_person_standing).
+from grip.models.person_standing import (  # noqa: E402
+    ColleagueProposal,
+    PersonStanding,
+)
+
+__all__ += ["ColleagueProposal", "PersonStanding"]
+
+# Recruitment reference and hire on a vacancy (migration 0014_vacancy_hire).
+from grip.models.vacancy_hire import (  # noqa: E402
+    VacancyHire,
+    VacancyRecruitmentRef,
+)
+
+__all__ += ["VacancyHire", "VacancyRecruitmentRef"]
+
+# Outgoing invoices (migration 0015_outgoing_invoice): the recorded fact that
+# an invoice was sent for one or several deliveries of billing data.
+from grip.models.outgoing_invoice import (  # noqa: E402
+    OutgoingInvoice,
+    OutgoingInvoiceDelivery,
+)
+
+__all__ += ["OutgoingInvoice", "OutgoingInvoiceDelivery"]

@@ -8,6 +8,7 @@ Every route decides through ``grip.access``; the rules are in
 from __future__ import annotations
 
 import logging
+from datetime import date
 from decimal import Decimal
 from typing import Any
 from urllib.parse import quote
@@ -78,6 +79,7 @@ from grip.schema.vacancies import (
     VacancySummaryOut,
     VacancyUpdate,
 )
+from grip.services import function_framework as framework
 from grip.services.errors import DomainValidationError, NotFoundError
 from grip.services.llm import (
     LlmNotConfiguredError,
@@ -267,6 +269,77 @@ def _step_labels(vacancy: Vacancy) -> tuple[str | None, str | None]:
     )
 
 
+def _standing(vacancy: Vacancy) -> tuple[str | None, str | None, date | None]:
+    """The step a vacancy is at, what it waits on, and since when.
+
+    The step is one of the five of the step bar on the vacancy page
+    (prepare, submit, decide, open, fill), so the list and the page use the
+    same words. No name is part of the detail.
+    """
+    status = vacancy.status
+    created = vacancy.created_at.date() if vacancy.created_at else None
+    decisions = {decision.kind: decision for decision in vacancy.decisions}
+    opens = StepKind.internal_opening in applicable_steps(vacancy.vacancy_type)
+
+    if status == VacancyStatus.draft.value:
+        missing = sum(
+            1
+            for value in (
+                vacancy.fgr_function_name,
+                vacancy.scale,
+                vacancy.contract_type,
+                vacancy.addressee_name,
+            )
+            if value in (None, "")
+        )
+        if missing:
+            detail = (
+                "Nog 1 gegeven in te vullen"
+                if missing == 1
+                else f"Nog {missing} gegevens in te vullen"
+            )
+            return "prepare", detail, created
+        return "submit", "Klaar om aan te vragen", created
+
+    if status == VacancyStatus.requested.value:
+        since = vacancy.requested_on
+        for kind, waits_on in (
+            (DecisionKind.hr_advice, "Wacht op advies HR"),
+            (DecisionKind.control_advice, "Wacht op advies concern control"),
+            (DecisionKind.approval, "Wacht op akkoord"),
+        ):
+            decision = decisions.get(kind.value)
+            if decision is None or decision.agreed is None:
+                return "decide", waits_on, since
+            if decision.decided_at is not None:
+                since = decision.decided_at.date()
+        return "decide", "Wacht op akkoord", since
+
+    approval = decisions.get(DecisionKind.approval.value)
+    approved_on = (
+        approval.decided_at.date() if approval and approval.decided_at else None
+    )
+    if status == VacancyStatus.approved.value:
+        if opens:
+            return "open", "Akkoord gegeven, nog niet opengesteld", approved_on
+        return "fill", "Akkoord gegeven", approved_on
+
+    if status == VacancyStatus.open.value:
+        recorded = [StepKind(step.kind) for step in vacancy.steps]
+        running = max(recorded, key=STEP_ORDER.index) if recorded else None
+        detail = (
+            f"{STEP_LABELS[running]} loopt"
+            if running in MINIMUM_DURATION or running in _OPENING_STEPS
+            else "Staat open"
+        )
+        opened = vacancy.published_at.date() if vacancy.published_at else approved_on
+        return "fill", detail, opened
+
+    # Ended: nothing is next. The date is when it got there, as far as known.
+    ended = vacancy.updated_at.date() if vacancy.updated_at else None
+    return None, None, ended
+
+
 def _decisions(vacancy: Vacancy) -> list[DecisionOut]:
     order = [kind.value for kind in DecisionKind]
     return [
@@ -394,6 +467,28 @@ async def _vacancy_response(
             for pid in (text.created_by_id, text.established_by_id)
             if pid is not None
         )
+    group = (
+        await framework.get_group(db, vacancy.function_group_id)
+        if vacancy.function_group_id and without_names
+        else None
+    )
+    # Read now: loading the whole list below refreshes the group.
+    family_name = group.family.name if group else None
+    group_scales = list(group.scales) if group else None
+    line_scales = (
+        await framework.budget_line_scales(db, vacancy.budget_line_id)
+        if without_names
+        else None
+    )
+    suggested: list[UUID] = []
+    if line_scales:
+        suggested = [
+            candidate.id
+            for family in await framework.list_families(db)
+            for candidate in family.groups
+            if candidate.is_valid_on(date.today())
+            and set(candidate.scales) & set(line_scales)
+        ]
     out = VacancyOut(
         id=vacancy.id,
         function_title=vacancy.function_title,
@@ -418,6 +513,17 @@ async def _vacancy_response(
         created_at=vacancy.created_at,
         has_openings=StepKind.internal_opening
         in applicable_steps(vacancy.vacancy_type),
+        function_group_id=vacancy.function_group_id,
+        function_family_name=family_name,
+        function_group_scales=group_scales,
+        scale_deviation_reason=vacancy.scale_deviation_reason,
+        suggested_function_group_ids=suggested,
+        budget_line_scales=line_scales,
+        scale_fits_budget_line=(
+            vacancy.scale in line_scales
+            if line_scales and vacancy.scale is not None
+            else None
+        ),
         # The lists below would show how many steps, decisions and versions
         # exist even with every field left out, so they stay empty for a
         # viewer who only gets the public view.
@@ -427,6 +533,7 @@ async def _vacancy_response(
         requester_id=vacancy.requester_id,
         requester_name=vacancy.requester.name if vacancy.requester else None,
         addressee_name=vacancy.addressee_name,
+        addressee_has_account=vacancy.addressee_id is not None,
         permissions=await _permissions(
             decider, subject, vacancy, assignment_id, permitted
         ),
@@ -519,6 +626,7 @@ async def list_vacancies(
         if not permitted:
             continue
         current, upcoming = _step_labels(vacancy)
+        step, detail, since = _standing(vacancy)
         summary = VacancySummaryOut(
             id=vacancy.id,
             function_title=vacancy.function_title,
@@ -533,6 +641,9 @@ async def list_vacancies(
             requested_on=vacancy.requested_on,
             current_step=current,
             next_step=upcoming,
+            step=step,
+            step_detail=detail,
+            step_since=since,
             requester_name=vacancy.requester.name if vacancy.requester else None,
         )
         result.append(build_response(summary, permitted))
@@ -739,6 +850,9 @@ async def create_vacancy(
             fgr_function_name=body.fgr_function_name,
             scale=body.scale,
             addressee_name=body.addressee_name,
+            function_group_id=body.function_group_id,
+            scale_deviation_reason=body.scale_deviation_reason,
+            addressee_id=body.addressee_id,
         )
         overrides = body.model_dump(
             include={"function_title", "fte", "start_date", "end_date"},
@@ -767,6 +881,9 @@ async def create_vacancy(
             start_date=body.start_date,
             end_date=body.end_date,
             addressee_name=body.addressee_name,
+            function_group_id=body.function_group_id,
+            scale_deviation_reason=body.scale_deviation_reason,
+            addressee_id=body.addressee_id,
         )
     return await _reloaded(db, decider, subject, vacancy.id)
 

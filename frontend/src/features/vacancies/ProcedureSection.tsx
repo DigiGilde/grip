@@ -11,7 +11,8 @@ import {
 } from './api';
 import { todayIso, useVacancyChange } from './hooks';
 import { CHANNEL_LABELS } from './labels';
-import { Button, CheckboxInput, DateInput, FormSheet, Note, SectionHeading, TextInput } from './ui';
+import { Button, CheckboxInput, DateInput, Note, TextInput } from './ui';
+import { FormSheet, SectionHeading } from '@/ui/layout';
 
 const OPENING_STEPS: readonly string[] = [
   'internal_opening',

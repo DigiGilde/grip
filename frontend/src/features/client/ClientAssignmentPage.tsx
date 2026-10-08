@@ -3,13 +3,8 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { ApiError, errorMessage } from '@/api/client';
 import { STATUS_COLORS, statusLabel } from '@/features/assignments/labels';
-import {
-  Button,
-  EmptyNotice,
-  ErrorNotice,
-  Loading,
-  SectionHeading,
-} from '@/features/assignments/ui';
+import { Button } from '@/features/assignments/ui';
+import { EmptyNotice, ErrorNotice, Loading, SectionHeading } from '@/ui/layout';
 import { AssignmentContextView } from '@/features/nodes';
 import { QUOTE_STATUS_COLORS, QUOTE_STATUS_LABELS } from '@/features/quotes/api';
 import { formatDateTime } from '@/features/quotes/format';
@@ -175,7 +170,7 @@ function UsageView({ usage }: { usage: BudgetUsage }) {
           <nldd-text-cell text="Begrotingsregel" />
           <nldd-text-cell text="Begroot" horizontal-alignment="right" />
           <nldd-text-cell text="Uitputting" horizontal-alignment="right" />
-          <nldd-text-cell text="Beschikbaar" horizontal-alignment="right" />
+          <nldd-text-cell text="Afwijking" horizontal-alignment="right" />
         </nldd-table-row>
         {lines.map((line, index) => (
           <nldd-table-row key={`${line.description}-${index}`}>
@@ -293,7 +288,7 @@ export function ClientAssignmentPage() {
           {query.isError && notFound ? (
             <EmptyNotice
               text="Deze aanvraag is niet gevonden"
-              supportingText="Hij bestaat niet, je bent er niet bij betrokken, of deze organisatie is er niet de opdrachtgever van."
+              supportingText="De aanvraag bestaat niet, of je bent er niet bij betrokken."
             />
           ) : null}
           {query.isError && !notFound ? <ErrorNotice message={errorMessage(query.error)} /> : null}
@@ -331,7 +326,7 @@ export function ClientAssignmentPage() {
             {!reachable ? (
               <EmptyNotice
                 text="De voortgang is hier niet op te vragen"
-                supportingText="De opdrachtnemer heeft geen instantie waarmee deze instantie een contract heeft, of deze instantie is niet verbonden."
+                supportingText="De opdrachtnemer werkt niet met grip, of jullie grip is er niet mee gekoppeld."
               />
             ) : null}
             {reachable && progress.isPending ? (

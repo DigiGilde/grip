@@ -5,10 +5,33 @@ Fields of a data class the asker may not see are absent, not null.
 
 from tests.api.reference.conftest import JUNE, by_id
 
-ROSTER = {"id", "name", "email", "is_active", "manager_id", "manager_name"}
-STAFFING = {"functions", "is_hired"}
+ROSTER = {
+    "id",
+    "name",
+    "email",
+    "is_active",
+    "manager_id",
+    "manager_name",
+    "uri",
+    "stage",
+    "starts_on",
+    "can_log_in",
+}
+# How someone is engaged, staffed and what they may do in grip. That someone
+# is hired, from whom and until when is part of it; what it costs is not.
+STAFFING = {
+    "functions",
+    "function_grants",
+    "is_sole_beheerder",
+    "is_hired",
+    "current_assignment_count",
+    "current_fte_pct",
+    "hires",
+}
 RATE = {"billing_scale", "rate_category", "monthly_rate_cents", "scales"}
-COST = {"cost_monthly_rate_cents", "margin_monthly_cents", "hires"}
+COST = {"cost_monthly_rate_cents", "margin_monthly_cents"}
+HIRE_FACTS = {"id", "supplier", "valid_from", "valid_to", "contract_reference"}
+HIRE_COST = {"cost_monthly_rate_cents", "notes"}
 
 
 async def _people(client, **params):
@@ -49,6 +72,11 @@ async def test_planner_sees_no_amounts(client, world, as_person):
     hired = by_id(body["items"], world.hired)
     assert hired["is_hired"] is True
     assert not (RATE | COST) & set(hired)
+    # From whom and until when, without what it costs.
+    assert set(hired["hires"][0]) == HIRE_FACTS
+    assert hired["hires"][0]["supplier"] == "Voorbeeld Detachering"
+    assert hired["current_assignment_count"] == 1
+    assert hired["current_fte_pct"] in ("100.000", "100")
 
 
 async def test_line_manager_sees_rate_of_direct_reports_only(client, world, as_person):
@@ -77,9 +105,11 @@ async def test_owner_sees_rate_and_cost_of_people_on_own_assignment(
     as_person(world.owner)
     body = await _people(client)
     hired = by_id(body["items"], world.hired)
-    assert set(hired) == ROSTER | RATE | COST
+    assert set(hired) == ROSTER | RATE | COST | {"hires"}
     assert hired["cost_monthly_rate_cents"] == 1500000
     assert hired["margin_monthly_cents"] == 300000
+    # The cost of the hire, not the staffing facts around it.
+    assert set(hired["hires"][0]) == HIRE_COST
 
     # Someone on another assignment: the name, for staffing, and nothing more.
     report = by_id(body["items"], world.report)
@@ -306,3 +336,37 @@ async def test_beheerder_unbinds_a_login(client, world, as_person, db_session):
     again = await client.delete(url)
     assert again.status_code == 422
     assert "nog niet ingelogd" in again.json()["detail"]
+
+
+async def test_grants_say_since_when_and_by_whom(client, world, as_person):
+    as_person(world.beheerder)
+    resp = await client.put(f"/api/people/{world.report.id}/functions/tekenbevoegde")
+    grants = resp.json()["function_grants"]
+    assert len(grants) == 1
+    assert grants[0]["function"] == "tekenbevoegde"
+    assert grants[0]["granted_by_name"] == "Bea Beheerder"
+    assert grants[0]["since"]
+
+    # A grant made when the instance was set up has no person behind it.
+    body = await _people(client)
+    own = by_id(body["items"], world.beheerder)
+    assert own["function_grants"][0]["granted_by_name"] is None
+
+
+async def test_sole_beheerder_is_marked(client, world, as_person):
+    as_person(world.beheerder)
+    body = await _people(client)
+    assert by_id(body["items"], world.beheerder)["is_sole_beheerder"] is True
+    assert by_id(body["items"], world.planner)["is_sole_beheerder"] is False
+
+    await client.put(f"/api/people/{world.lead.id}/functions/beheerder")
+    body = await _people(client)
+    assert by_id(body["items"], world.beheerder)["is_sole_beheerder"] is False
+    assert by_id(body["items"], world.lead)["is_sole_beheerder"] is False
+
+
+async def test_unknown_right_is_named_as_a_right(client, world, as_person):
+    as_person(world.beheerder)
+    resp = await client.put(f"/api/people/{world.report.id}/functions/koning")
+    assert resp.status_code == 422
+    assert "recht in grip" in resp.json()["detail"]

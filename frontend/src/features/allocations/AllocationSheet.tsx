@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
 import { decimalToInput, parseDecimal } from '@/features/assignments/money';
 import { DateInput, FormSheet, SelectInput, TextInput } from '@/features/assignments/ui';
-import { formatFte, formatPeriod } from '@/lib/format';
+import { formatFte, formatMonth, formatPeriod } from '@/lib/format';
 import {
   addAllocation,
   allocationKeys,
@@ -19,7 +19,18 @@ interface Props {
   session: number;
   /** The inzet to change; omit to add one. */
   allocation?: Allocation;
+  /** What a new inzet starts from, e.g. the person and month picked on the board. */
+  preset?: AllocationPreset;
+  /** Closed months of the inzet being changed (first days); they cannot change. */
+  closedMonths?: readonly string[];
   onClose: () => void;
+}
+
+export interface AllocationPreset {
+  personId?: string;
+  lineId?: string;
+  startDate?: string;
+  endDate?: string;
 }
 
 interface FormState {
@@ -30,11 +41,11 @@ interface FormState {
   pct: string;
 }
 
-const initial = (allocation?: Allocation): FormState => ({
-  personId: allocation?.person_id ?? '',
-  lineId: allocation?.budget_line_id ?? '',
-  startDate: allocation?.start_date ?? '',
-  endDate: allocation?.end_date ?? '',
+const initial = (allocation?: Allocation, preset?: AllocationPreset): FormState => ({
+  personId: allocation?.person_id ?? preset?.personId ?? '',
+  lineId: allocation?.budget_line_id ?? preset?.lineId ?? '',
+  startDate: allocation?.start_date ?? preset?.startDate ?? '',
+  endDate: allocation?.end_date ?? preset?.endDate ?? '',
   pct: decimalToInput(allocation?.fte_pct),
 });
 
@@ -48,14 +59,21 @@ function lineLabel(line: LineChoice): string {
   return `${line.assignment_name}: ${line.description}${demand ? ` (${demand})` : ''}`;
 }
 
-export function AllocationSheet({ open, session, allocation, onClose }: Props) {
+export function AllocationSheet({
+  open,
+  session,
+  allocation,
+  preset,
+  closedMonths = [],
+  onClose,
+}: Props) {
   const queryClient = useQueryClient();
-  const [form, setForm] = useState<FormState>(() => initial(allocation));
+  const [form, setForm] = useState<FormState>(() => initial(allocation, preset));
   const [problem, setProblem] = useState<string | null>(null);
   const [seenSession, setSeenSession] = useState(session);
   if (seenSession !== session) {
     setSeenSession(session);
-    setForm(initial(allocation));
+    setForm(initial(allocation, preset));
     setProblem(null);
   }
   const set = (patch: Partial<FormState>) => setForm((current) => ({ ...current, ...patch }));
@@ -145,6 +163,14 @@ export function AllocationSheet({ open, session, allocation, onClose }: Props) {
             required
           />
         </>
+      )}
+      {closedMonths.length > 0 && (
+        <nldd-banner
+          variant="neutral"
+          size="sm"
+          text={`Vastgesteld t/m ${formatMonth(closedMonths[closedMonths.length - 1])}`}
+          supporting-text="Afgesloten maanden kun je hier niet wijzigen. Heropen de maand bij de maandafsluiting van de opdracht om dat wel te doen."
+        />
       )}
       <DateInput
         label="Begindatum"

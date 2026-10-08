@@ -104,7 +104,7 @@ function PeerForm({ peer, services, onSaved }: PeerFormProps) {
     >
       {peer ? null : (
         <TextField
-          label="Peer-id"
+          label="Kenmerk in FSC (peer-id)"
           supportingLabel="Het serienummer uit het FSC-certificaat van de andere partij"
           value={peerId}
           onChange={setPeerId}

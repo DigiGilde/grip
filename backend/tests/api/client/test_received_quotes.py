@@ -103,8 +103,14 @@ async def test_a_quote_this_instance_issued_is_not_a_received_one(
     await rates.create_rate_card(db_session, 2026, actor=cast.beheerder)
     await rates.set_rate_band(db_session, 2026, "D", 1800000, actor=cast.beheerder)
     await rates.set_rate_card_status(db_session, 2026, "active", actor=cast.beheerder)
+    someone = await assignments.upsert_organisation(
+        db_session, name="Voorbeeldafnemer", tooi_uri=None
+    )
     own_work = await assignments.create_assignment(
-        db_session, name="Eigen werk", actor=cast.beheerder
+        db_session,
+        name="Eigen werk",
+        actor=cast.beheerder,
+        client_organisation_id=someone.id,
     )
     await assignments.add_budget_line(
         db_session,

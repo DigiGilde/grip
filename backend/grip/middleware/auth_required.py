@@ -41,6 +41,8 @@ PUBLIC_EXACT = (
     "/api/instance",
     # No session: Wies presents a key, checked by require_wies_export_key.
     "/api/integrations/wies/export",
+    # The same key: the new colleagues grip proposes to Wies.
+    "/api/integrations/wies/proposed-colleagues",
 )
 
 

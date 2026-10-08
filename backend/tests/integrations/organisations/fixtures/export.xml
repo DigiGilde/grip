@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fictional organisations in the format of the organisation export of
+     organisaties.overheid.nl. Written for the tests; not taken from the register.
+     The schema version in the namespace is deliberately one that never existed. -->
+<p:overheidsorganisaties p:timestamp="2026-10-08T00:00:00.000+02:00" xmlns:p="https://organisaties.overheid.nl/static/schema/oo/export/9.9.9">
+  <p:organisaties>
+    <p:organisatie p:systeemId="9001" p:resourceIdentifierTOOI="https://identifier.overheid.nl/tooi/id/ministerie/mnre9001">
+      <p:naam>Voorbeeldzaken</p:naam>
+      <p:afkorting>VZ</p:afkorting>
+      <p:afkorting>MinVZ</p:afkorting>
+      <p:types><p:type>Ministerie</p:type></p:types>
+      <p:contactpersonen><p:contact><p:type>algemeen</p:type></p:contact></p:contactpersonen>
+      <p:organisaties>
+        <p:organisatie p:systeemId="9002">
+          <p:naam>Directoraat-Generaal Proefbeleid</p:naam>
+          <p:afkorting>DGP</p:afkorting>
+          <p:types><p:type>Organisatieonderdeel</p:type></p:types>
+          <p:organisaties>
+            <p:organisatie p:systeemId="9003">
+              <p:naam>Directie Fictieve Zaken</p:naam>
+              <p:afkorting>DFZ</p:afkorting>
+              <p:types><p:type>Organisatieonderdeel</p:type></p:types>
+            </p:organisatie>
+          </p:organisaties>
+        </p:organisatie>
+        <p:organisatie p:systeemId="9004">
+          <p:naam>Directie Communicatie</p:naam>
+          <p:types><p:type>Organisatieonderdeel</p:type></p:types>
+        </p:organisatie>
+      </p:organisaties>
+    </p:organisatie>
+    <p:organisatie p:systeemId="9010" p:resourceIdentifierTOOI="https://identifier.overheid.nl/tooi/id/ministerie/mnre9002">
+      <p:naam>Ministerie van Denkbeeldige Financiën</p:naam>
+      <p:afkorting>DF</p:afkorting>
+      <p:types><p:type>Ministerie</p:type></p:types>
+      <p:organisaties>
+        <p:organisatie p:systeemId="9011">
+          <p:naam>Directie Communicatie</p:naam>
+          <p:types><p:type>Organisatieonderdeel</p:type></p:types>
+        </p:organisatie>
+      </p:organisaties>
+    </p:organisatie>
+    <p:organisatie p:systeemId="9020" p:resourceIdentifierTOOI="https://identifier.overheid.nl/tooi/id/oorg/oorg99001">
+      <p:naam>Dienst Voorbeelduitvoering</p:naam>
+      <p:afkorting>DVU</p:afkorting>
+      <p:types><p:type>Agentschap</p:type></p:types>
+      <p:relatieMetMinisterie p:systeemId="9001" p:resourceIdentifierTOOI="https://identifier.overheid.nl/tooi/id/ministerie/mnre9001">Voorbeeldzaken</p:relatieMetMinisterie>
+    </p:organisatie>
+    <p:organisatie p:systeemId="9025" p:resourceIdentifierTOOI="https://identifier.overheid.nl/tooi/id/zbo/zb99001">
+      <p:naam>Fictieve Autoriteit</p:naam>
+      <p:afkorting>FA</p:afkorting>
+      <p:types><p:type>Zelfstandig bestuursorgaan</p:type><p:type>Adviescollege</p:type></p:types>
+      <p:relatieMetMinisterie p:systeemId="9010" p:resourceIdentifierTOOI="https://identifier.overheid.nl/tooi/id/ministerie/mnre9002">Denkbeeldige Financiën</p:relatieMetMinisterie>
+    </p:organisatie>
+    <p:organisatie p:systeemId="9026" p:resourceIdentifierTOOI="https://identifier.overheid.nl/tooi/id/oorg/oorg99002">
+      <p:naam>Faculteit der Voorbeelden</p:naam>
+      <p:afkorting>FAB</p:afkorting>
+      <p:types><p:type>Organisatie met overheidsbemoeienis</p:type></p:types>
+    </p:organisatie>
+    <p:organisatie p:systeemId="9027" p:resourceIdentifierTOOI="https://identifier.overheid.nl/tooi/id/oorg/oorg99003">
+      <p:naam>Stichting Sofa en Zo</p:naam>
+      <p:types><p:type>Overheidsstichting of -vereniging</p:type></p:types>
+    </p:organisatie>
+    <p:organisatie p:systeemId="9030" p:resourceIdentifierTOOI="https://identifier.overheid.nl/tooi/id/gemeente/gm9999">
+      <p:naam>Voorbeeldstad</p:naam>
+      <p:types><p:type>Gemeente</p:type></p:types>
+    </p:organisatie>
+    <p:organisatie p:systeemId="9040" p:resourceIdentifierTOOI="https://identifier.overheid.nl/tooi/id/oorg/oorg99004">
+      <p:naam>Opgeheven Bureau</p:naam>
+      <p:types><p:type>Agentschap</p:type></p:types>
+      <p:eindDatum>2020-01-01</p:eindDatum>
+      <p:organisaties>
+        <p:organisatie p:systeemId="9041">
+          <p:naam>Afdeling van het Opgeheven Bureau</p:naam>
+          <p:types><p:type>Organisatieonderdeel</p:type></p:types>
+        </p:organisatie>
+      </p:organisaties>
+    </p:organisatie>
+    <p:organisatie p:systeemId="9050" p:resourceIdentifierTOOI="https://identifier.overheid.nl/tooi/id/oorg/oorg99005">
+      <p:naam>Algemene Inlichtingen- en Veiligheidsdienst</p:naam>
+      <p:afkorting>AIVD</p:afkorting>
+      <p:types><p:type>Organisatieonderdeel</p:type></p:types>
+      <p:organisaties>
+        <p:organisatie p:systeemId="9051">
+          <p:naam>Onderdeel dat niet mee mag</p:naam>
+          <p:types><p:type>Organisatieonderdeel</p:type></p:types>
+        </p:organisatie>
+      </p:organisaties>
+    </p:organisatie>
+  </p:organisaties>
+</p:overheidsorganisaties>

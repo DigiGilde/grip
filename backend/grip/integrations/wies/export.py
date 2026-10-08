@@ -43,8 +43,9 @@ from grip.models.assignment import (
     AssignmentRole,
     BudgetLine,
 )
+from grip.models.catalogue_role import CatalogueRole
 from grip.models.organisation import Organisation
-from grip.models.person import Person
+from grip.models.person import Person, person_uri
 from grip.models.vacancy import Vacancy, VacancyStatus
 from grip.schema.integrations_wies import (
     WiesAssignment,
@@ -93,6 +94,8 @@ def roles_for_line(
     today: date,
     has_published_vacancy: bool,
     vacancy_title: str | None = None,
+    uris: dict[UUID, str] | None = None,
+    role_wies_id: str | None = None,
 ) -> list[WiesRole]:
     """The roles one personnel line becomes in Wies.
 
@@ -100,7 +103,10 @@ def roles_for_line(
     hours Wies counts for a person are that person's own share of the line.
     Plus one open role for what is left of the line.
     """
-    description = (line.role or line.description).strip()
+    # The role when the line has one. The free text of a line stays in grip
+    # then: it may say things about scale or rate that Wies has no business
+    # with.
+    description = (line.role or line.detail).strip()
     size = line.fte or Decimal(0)
     ended = line.end_date is not None and line.end_date < today
 
@@ -109,6 +115,8 @@ def roles_for_line(
             id=str(a.id),
             url=url,
             description=description,
+            role_name=line.role,
+            role_wies_id=role_wies_id,
             start_date=a.start_date,
             end_date=a.end_date,
             fte=_fte(a.fte_pct / Decimal(100)),
@@ -116,7 +124,10 @@ def roles_for_line(
             placements=[
                 WiesPlacement(
                     id=str(a.id),
-                    person_email=emails[a.person_id],
+                    # The URI is the key; the address is absent for a
+                    # prospective colleague.
+                    person_uri=(uris or {}).get(a.person_id),
+                    person_email=emails[a.person_id] or None,
                     start_date=a.start_date,
                     end_date=a.end_date,
                 )
@@ -140,6 +151,8 @@ def roles_for_line(
             id=f"{line.id}{OPEN_SUFFIX}",
             url=url,
             description=vacancy_title or description,
+            role_name=line.role,
+            role_wies_id=role_wies_id,
             start_date=line.start_date,
             end_date=line.end_date,
             fte=_fte(open_fte),
@@ -173,7 +186,10 @@ async def build_export(
     vacancy_by_line: dict[UUID, Vacancy] = {}
     owner_email: dict[UUID, str] = {}
     emails: dict[UUID, str] = {}
+    uris: dict[UUID, str] = {}
     tooi: dict[UUID, str | None] = {}
+    role_wies_ids: dict[UUID | None, str] = {}
+    registry_id: dict[UUID, str | None] = {}
 
     if assignment_ids:
         lines = (
@@ -192,6 +208,17 @@ async def build_export(
         )
         for line in lines:
             lines_by_assignment[line.assignment_id].append(line)
+        role_ids = {line.role_id for line in lines if line.role_id}
+        if role_ids:
+            for role_id, wies_public_id in (
+                await db.execute(
+                    select(CatalogueRole.id, CatalogueRole.wies_public_id).where(
+                        CatalogueRole.id.in_(role_ids),
+                        CatalogueRole.wies_public_id.is_not(None),
+                    )
+                )
+            ).all():
+                role_wies_ids[role_id] = wies_public_id
         line_ids = [line.id for line in lines]
 
         if line_ids:
@@ -235,24 +262,34 @@ async def build_export(
         ).all()
         person_ids |= {person_id for _, person_id in owners}
         if person_ids:
-            for person_id, email in (
+            for person_id, email, uri in (
                 await db.execute(
-                    select(Person.id, Person.email).where(Person.id.in_(person_ids))
-                )
-            ).all():
-                emails[person_id] = email.strip().lower()
-        owner_email = {a_id: emails[p_id] for a_id, p_id in owners if p_id in emails}
-
-        organisation_ids = {a.client_organisation_id for a in assignments} - {None}
-        if organisation_ids:
-            for org_id, tooi_uri in (
-                await db.execute(
-                    select(Organisation.id, Organisation.tooi_uri).where(
-                        Organisation.id.in_(organisation_ids)
+                    select(Person.id, Person.email, Person.uri).where(
+                        Person.id.in_(person_ids)
                     )
                 )
             ).all():
+                emails[person_id] = (email or "").strip().lower()
+                uris[person_id] = uri or person_uri(person_id)
+        owner_email = {a_id: emails[p_id] for a_id, p_id in owners if emails.get(p_id)}
+
+        organisation_ids = {a.client_organisation_id for a in assignments} - {None}
+        if organisation_ids:
+            for org_id, tooi_uri, unit_key, org_registry_id in (
+                await db.execute(
+                    select(
+                        Organisation.id,
+                        Organisation.tooi_uri,
+                        Organisation.unit_key,
+                        Organisation.registry_id,
+                    ).where(Organisation.id.in_(organisation_ids))
+                )
+            ).all():
                 tooi[org_id] = tooi_uri
+                # A unit added by hand carries the TOOI URI of the registered
+                # organisation above it, which is the nearest thing Wies knows.
+                if unit_key is None:
+                    registry_id[org_id] = org_registry_id
 
     exported = []
     for assignment in assignments:
@@ -269,6 +306,8 @@ async def build_export(
                     today=today,
                     has_published_vacancy=vacancy is not None,
                     vacancy_title=vacancy.function_title if vacancy else None,
+                    uris=uris,
+                    role_wies_id=role_wies_ids.get(line.role_id),
                 )
             )
         exported.append(
@@ -280,6 +319,7 @@ async def build_export(
                 start_date=assignment.start_date,
                 end_date=assignment.end_date,
                 client_tooi_uri=tooi.get(assignment.client_organisation_id),
+                client_registry_id=registry_id.get(assignment.client_organisation_id),
                 owner_email=owner_email.get(assignment.id),
                 roles=roles,
             )

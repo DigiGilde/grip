@@ -21,3 +21,5 @@ export function yearOptions(now: Date = new Date()) {
 export function periodLabel(value: YearChoice): string {
   return value === WHOLE_PERIOD ? 'de hele looptijd' : value;
 }
+
+export const YEAR_FILTER_LABEL = 'Jaar';

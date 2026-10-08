@@ -1,6 +1,8 @@
 """The steering overview: each block follows what the reader may see."""
 
 from .conftest import (
+    ALFA_BUDGET_2026,
+    ALFA_COVERAGE_2026,
     ALFA_FORECAST_2026,
     ALFA_FORECAST_2027,
     ALFA_REALISED_2026,
@@ -31,6 +33,21 @@ async def test_the_beheerder_sees_every_block(as_person, world):
     assert turnover["realised_cents"] == ALFA_REALISED_2026
     assert turnover["forecast_cents"] == ALFA_FORECAST_2026
     assert turnover["pipeline_cents"] == BETA_PIPELINE_2026
+    assert turnover["expected_cents"] == ALFA_REALISED_2026 + ALFA_FORECAST_2026
+    # The same year in the words of the assignment pages, over what is
+    # agreed: Opdracht Beta is not, so its budget is not in it.
+    figures = turnover["figures"]
+    assert figures["budgeted_cents"] == ALFA_BUDGET_2026
+    assert figures["realised_cents"] == ALFA_REALISED_2026
+    assert figures["planned_cents"] == ALFA_FORECAST_2026
+    assert figures["costs_cents"] == ALFA_COVERAGE_2026
+    assert figures["expected_total_cents"] == (
+        ALFA_REALISED_2026 + ALFA_FORECAST_2026 + ALFA_COVERAGE_2026
+    )
+    assert figures["variance_cents"] == ALFA_BUDGET_2026 - (
+        ALFA_REALISED_2026 + ALFA_FORECAST_2026 + ALFA_COVERAGE_2026
+    )
+    assert figures["overrun"] is True
     july = next(m for m in turnover["months"] if m["month"] == "2026-07")
     assert july["realised_cents"] == ALFA_REALISED_2026
     assert july["forecast_cents"] == 0
@@ -53,32 +70,243 @@ async def test_turnover_agrees_with_the_stand_van_zaken(as_person, world):
     for year in (2026, 2027):
         turnover = (await _steering(client, year)).json()["turnover"]
         overview = (await client.get("/api/overview", params={"year": year})).json()
-        totals = overview["totals"]
-        assert turnover["realised_cents"] == totals["realised_cents"]
-        assert (
-            turnover["forecast_cents"] + turnover["pipeline_cents"]
-            == totals["forecast_cents"]
+        figures = [row["figures"] for row in overview["rows"] if row.get("figures")]
+        assert turnover["realised_cents"] == sum(f["realised_cents"] for f in figures)
+        assert turnover["forecast_cents"] + turnover["pipeline_cents"] == sum(
+            f["planned_cents"] for f in figures
         )
     assert turnover["forecast_cents"] == ALFA_FORECAST_2027
+
+
+def _cells(person) -> dict[str, dict]:
+    return {cell["month"]: cell for cell in person["cells"]}
 
 
 async def test_occupancy_per_person_and_month(as_person, world):
     occupancy = (await _steering(as_person(world.planner))).json()["occupancy"]
     by_name = {person["person_name"]: person for person in occupancy["persons"]}
     assert set(by_name) == set(world.staff_names)
+
     # Available all year through the billing scale, on inzet from July; the
     # closed month counts with the established 80 percent.
-    member = by_name[world.member.name]["months"]
-    assert member[:6] == ["0"] * 6
-    assert member[6] == "80"
-    assert member[7:] == ["100"] * 5
-    assert by_name[world.colleague.name]["months"][6:] == ["50"] * 6
-    assert by_name[world.other_person.name]["months"] == ["100"] * 12
+    member = _cells(by_name[world.member.name])
+    assert [member[f"2026-{m:02d}"]["pct"] for m in range(1, 7)] == ["0"] * 6
+    assert member["2026-03"]["available"] is True
+    assert member["2026-03"]["parts"] == []
+    assert member["2026-07"]["pct"] == "80"
+    assert member["2026-07"]["established"] is True
+    assert member["2026-08"]["pct"] == "100"
+    assert member["2026-08"]["established"] is False
+    part = member["2026-08"]["parts"][0]
+    assert part["assignment_name"] == "Opdracht Alfa"
+    assert part["assignment_id"] == str(world.alfa.id)
+    assert (part["pct"], part["tentative"], part["established"]) == (
+        "100",
+        False,
+        False,
+    )
+
+    # Inzet on an assignment that is not agreed yet is tentative.
+    other = _cells(by_name[world.other_person.name])
+    assert other["2026-05"]["pct"] == "100"
+    assert other["2026-05"]["tentative_pct"] == "100"
+    assert other["2026-05"]["parts"][0]["tentative"] is True
+    assert member["2026-08"]["tentative_pct"] == "0"
 
     july = next(m for m in occupancy["months"] if m["month"] == "2026-07")
     assert july["available_fte"] == "3"
     assert july["allocated_fte"] == "2.3"
+    assert july["tentative_fte"] == "1"
+    assert july["free_fte"] == "0.7"
     assert (july["under"], july["full"], july["over"]) == (2, 1, 0)
+
+
+async def test_the_figures_on_top_cover_the_rows_of_the_block(as_person, world):
+    from datetime import date
+
+    occupancy = (await _steering(as_person(world.planner))).json()["occupancy"]
+    summary = occupancy["summary"]
+    assert summary["person_count"] == 3
+    # (0*6 + 80 + 100*5) + 50*6 + 100*12 over 36 available person-months.
+    assert summary["average_pct"] == "57.8"
+    assert summary["over_count"] == 0
+    assert summary["over_months"] == []
+    today = date.today()
+    assert summary["current_month"] == f"{today.year:04d}-{today.month:02d}"
+    assert len(summary["window"]) == 4
+    assert summary["window"][0]["month"] == summary["current_month"]
+
+    own = (await _steering(as_person(world.leader))).json()["occupancy"]["summary"]
+    assert own["person_count"] == 2
+    # (580 + 300) over 24 person-months: the third person is not in it.
+    assert own["average_pct"] == "36.7"
+
+
+async def test_the_window_says_what_is_free_and_who_is_idle(db_session, world):
+    from grip.calc import Month
+    from grip.services.reports import steering
+
+    year_rows = await steering.occupancy(db_session, steering.months_of(2026))
+    window = steering.next_months(Month(2026, 10), 4)
+    window_rows = await steering.occupancy(db_session, window)
+    summary = steering.occupancy_summary(year_rows, window_rows, window)
+    october, november, december, january = summary.window
+    assert str(october.month) == "2026-10"
+    assert (str(october.allocated_fte), str(october.tentative_fte)) == ("2.50", "1.00")
+    assert str(october.free_fte) == "0.50"
+    # In January the tentative inzet has ended: one more person is free.
+    assert str(january.month) == "2027-01"
+    assert str(january.free_fte) == "1.50"
+    assert summary.idle_count == 0
+
+    later = steering.next_months(Month(2026, 12), 4)
+    idle = steering.occupancy_summary(
+        year_rows, await steering.occupancy(db_session, later), later
+    )
+    assert idle.idle_count == 1
+
+
+async def test_above_100_percent_is_counted_and_named(as_person, world, db_session):
+    from datetime import date
+    from decimal import Decimal
+
+    from grip.models.assignment import BudgetLine
+    from grip.services import assignments
+
+    beta_line = (
+        await db_session.execute(
+            BudgetLine.__table__.select().where(
+                BudgetLine.assignment_id == world.beta.id
+            )
+        )
+    ).first()
+    await assignments.add_allocation(
+        db_session,
+        beta_line.id,
+        world.member.id,
+        start_date=date(2026, 9, 1),
+        end_date=date(2026, 9, 30),
+        fte_pct=Decimal("30"),
+        actor=world.beheerder,
+    )
+    occupancy = (await _steering(as_person(world.planner))).json()["occupancy"]
+    assert occupancy["summary"]["over_count"] == 1
+    assert occupancy["summary"]["over_months"] == ["2026-09"]
+    member = next(
+        p for p in occupancy["persons"] if p["person_name"] == world.member.name
+    )
+    assert member["over_months"] == ["2026-09"]
+    september = _cells(member)["2026-09"]
+    assert september["pct"] == "130"
+    assert september["tentative_pct"] == "30"
+    assert [
+        (p["assignment_name"], p["pct"], p["tentative"]) for p in september["parts"]
+    ] == [
+        ("Opdracht Alfa", "100", False),
+        ("Opdracht Beta", "30", True),
+    ]
+
+
+async def test_a_part_is_named_only_for_who_may_see_the_assignment(as_person, world):
+    # The line manager sees how much the reports are allocated, but is on
+    # neither assignment: the parts come without the name.
+    leader = (await _steering(as_person(world.leader))).json()["occupancy"]
+    member = next(p for p in leader["persons"] if p["person_name"] == world.member.name)
+    part = _cells(member)["2026-08"]["parts"][0]
+    assert part["pct"] == "100"
+    assert "assignment_name" not in part
+    assert "assignment_id" not in part
+
+    own = (await _steering(as_person(world.member))).json()["occupancy"]
+    part = _cells(own["persons"][0])["2026-08"]["parts"][0]
+    assert part["assignment_name"] == "Opdracht Alfa"
+
+
+async def test_people_who_are_not_deployable_are_listed_apart(as_person, world):
+    occupancy = (await _steering(as_person(world.planner))).json()["occupancy"]
+    rows = {person["person_name"] for person in occupancy["persons"]}
+    left_out = {person["person_name"] for person in occupancy["not_deployable"]}
+    assert rows == set(world.staff_names)
+    assert world.beheerder.name in left_out
+    assert world.planner.name in left_out
+    assert rows.isdisjoint(left_out)
+    for person in occupancy["not_deployable"]:
+        assert set(person) == {"person_id", "person_name"}
+
+    # A line manager is told about nobody outside the own reports.
+    leader = (await _steering(as_person(world.leader))).json()["occupancy"]
+    assert leader["not_deployable"] == [
+        {"person_id": str(world.leader.id), "person_name": world.leader.name}
+    ]
+
+
+async def _set_status(db_session, assignment, status: str) -> None:
+    assignment.status = status
+    await db_session.flush()
+
+
+async def test_a_verbal_agreement_counts_in_the_forecast_and_is_shown_apart(
+    as_person, world, db_session
+):
+    await _set_status(db_session, world.beta, "verbally_agreed")
+    turnover = (await _steering(as_person(world.beheerder))).json()["turnover"]
+    assert turnover["forecast_cents"] == ALFA_FORECAST_2026 + BETA_PIPELINE_2026
+    assert turnover["verbal_cents"] == BETA_PIPELINE_2026
+    assert turnover["pipeline_cents"] == 0
+    march = next(m for m in turnover["months"] if m["month"] == "2026-03")
+    assert march["forecast_cents"] == march["verbal_cents"] == 1800000
+
+    # Verbally agreed is still tentative inzet.
+    occupancy = (await _steering(as_person(world.planner))).json()["occupancy"]
+    other = next(
+        p for p in occupancy["persons"] if p["person_name"] == world.other_person.name
+    )
+    part = _cells(other)["2026-03"]["parts"][0]
+    assert (part["tentative"], part["verbally_agreed"]) == (True, True)
+
+
+async def test_a_formal_agreement_is_committed(as_person, world, db_session):
+    await _set_status(db_session, world.beta, "accepted")
+    turnover = (await _steering(as_person(world.beheerder))).json()["turnover"]
+    assert turnover["forecast_cents"] == ALFA_FORECAST_2026 + BETA_PIPELINE_2026
+    assert turnover["verbal_cents"] == 0
+    assert turnover["pipeline_cents"] == 0
+
+    occupancy = (await _steering(as_person(world.planner))).json()["occupancy"]
+    other = next(
+        p for p in occupancy["persons"] if p["person_name"] == world.other_person.name
+    )
+    assert _cells(other)["2026-03"]["tentative_pct"] == "0"
+
+
+async def test_what_is_not_agreed_yet_is_pipeline(as_person, world, db_session):
+    for status in ("draft", "requested", "quoted"):
+        await _set_status(db_session, world.beta, status)
+        turnover = (await _steering(as_person(world.beheerder))).json()["turnover"]
+        assert turnover["forecast_cents"] == ALFA_FORECAST_2026
+        assert turnover["verbal_cents"] == 0
+        assert turnover["pipeline_cents"] == BETA_PIPELINE_2026
+
+
+async def test_a_rejected_or_cancelled_assignment_counts_for_nothing(
+    as_person, world, db_session
+):
+    for status in ("rejected", "cancelled"):
+        await _set_status(db_session, world.beta, status)
+        turnover = (await _steering(as_person(world.beheerder))).json()["turnover"]
+        assert turnover["forecast_cents"] == ALFA_FORECAST_2026
+        assert turnover["verbal_cents"] == 0
+        assert turnover["pipeline_cents"] == 0
+
+        # Its inzet will not happen: the person is free, and still a row.
+        occupancy = (await _steering(as_person(world.planner))).json()["occupancy"]
+        other = next(
+            p
+            for p in occupancy["persons"]
+            if p["person_name"] == world.other_person.name
+        )
+        assert _cells(other)["2026-03"]["pct"] == "0"
+        assert _cells(other)["2026-03"]["available"] is True
 
 
 async def test_a_lezer_sees_money_totals_and_no_persons(as_person, world):
@@ -112,6 +340,7 @@ async def test_a_line_manager_sees_only_direct_reports(as_person, world):
     assert {month["available_fte"] for month in occupancy["months"]} == {"2"}
     july = next(m for m in occupancy["months"] if m["month"] == "2026-07")
     assert july["allocated_fte"] == "1.3"
+    assert occupancy["summary"]["person_count"] == 2
 
     billability = body["billability"]
     assert billability["scope"] == "own"
@@ -121,6 +350,11 @@ async def test_a_line_manager_sees_only_direct_reports(as_person, world):
         for person in billability["persons"]
     )
     assert billability["realised_cents"] + billability["forecast_cents"] == listed
+    # One of the two has a target; with 80 percent in July and a start in
+    # July, the year ends far below 90 percent of twelve months.
+    assert billability["with_target_count"] == 1
+    assert billability["below_target_count"] == 1
+    assert billability["realisation_cents"] == listed
     member = next(
         p for p in billability["persons"] if p["person_name"] == world.member.name
     )

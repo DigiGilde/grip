@@ -10,7 +10,12 @@ import { PlaceholderPage } from '@/pages/PlaceholderPage';
 import { PATHS } from '@/paths';
 import { APP_ROUTES } from '@/routes';
 import { AllocationsPage } from '@/features/allocations/AllocationsPage';
-import { AssignmentDetailPage } from '@/features/assignments/AssignmentDetailPage';
+import { AssignmentLayout } from '@/features/assignments/AssignmentLayout';
+import { ASSIGNMENT_TAB_SEGMENTS } from '@/features/assignments/paths';
+import { BudgetTab } from '@/features/assignments/tabs/BudgetTab';
+import { FinanceTab } from '@/features/assignments/tabs/FinanceTab';
+import { OverviewTab } from '@/features/assignments/tabs/OverviewTab';
+import { StaffingTab } from '@/features/assignments/tabs/StaffingTab';
 import { AssignmentsPage } from '@/features/assignments/AssignmentsPage';
 import { ClientAssignmentPage } from '@/features/client/ClientAssignmentPage';
 import { ClientPage } from '@/features/client/ClientPage';
@@ -23,12 +28,16 @@ import { QuotePage } from '@/features/quotes/QuotePage';
 import { SigningLayout } from '@/features/signing/SigningLayout';
 import { SigningListPage } from '@/features/signing/SigningListPage';
 import { SigningPage } from '@/features/signing/SigningPage';
+import { OrganisationsAdminPage } from '@/features/organisations/OrganisationsAdminPage';
 import { PeersPage } from '@/features/peers/PeersPage';
 import { RatesPage } from '@/features/rates/RatesPage';
 import { AssignmentReportPage } from '@/features/reports/AssignmentReportPage';
 import { ReportsPage } from '@/features/reports/ReportsPage';
+import { ReportTopicPage } from '@/features/reports/ReportTopicPage';
+import { PersonPage } from '@/features/team/PersonPage';
 import { TeamPage } from '@/features/team/TeamPage';
 import { VacancySetupPage } from '@/features/form-templates/VacancySetupPage';
+import { FunctionFrameworkPage } from '@/features/function-framework/FunctionFrameworkPage';
 import { WiesProposalsPage } from '@/features/wies/WiesProposalsPage';
 import { OpenRolesPage } from '@/features/vacancies/OpenRolesPage';
 import { VacanciesPage } from '@/features/vacancies/VacanciesPage';
@@ -44,7 +53,6 @@ const SCREENS: Record<string, ReactElement> = {
   [PATHS.assignments]: <AssignmentsPage />,
   [PATHS.allocations]: <AllocationsPage />,
   [PATHS.costs]: <CostsPage />,
-  [PATHS.rates]: <RatesPage />,
   [PATHS.team]: <TeamPage />,
   [PATHS.vacancies]: <VacanciesPage />,
   [PATHS.reports]: <ReportsPage />,
@@ -86,18 +94,30 @@ export function AppRoutes() {
             element={SCREENS[route.path] ?? <PlaceholderPage title={route.title} />}
           />
         ))}
-        <Route path={PATHS.assignmentDetail} element={<AssignmentDetailPage />} />
+        {/* One assignment: a shared header and tabs around one page per concern. */}
+        <Route path={PATHS.assignmentDetail} element={<AssignmentLayout />}>
+          <Route index element={<OverviewTab />} />
+          <Route path={ASSIGNMENT_TAB_SEGMENTS.finance} element={<FinanceTab />} />
+          <Route path={ASSIGNMENT_TAB_SEGMENTS.staffing} element={<StaffingTab />} />
+          <Route path={ASSIGNMENT_TAB_SEGMENTS.budget} element={<BudgetTab />} />
+          <Route path={ASSIGNMENT_TAB_SEGMENTS.quote} element={<QuotePage />} />
+          <Route path={ASSIGNMENT_TAB_SEGMENTS.monthClose} element={<MonthClosePage />} />
+        </Route>
         <Route path={PATHS.vacancyOpenRoles} element={<OpenRolesPage />} />
         <Route path={PATHS.vacancySetup} element={<VacancySetupPage />} />
+        <Route path={PATHS.functionFramework} element={<FunctionFrameworkPage />} />
         <Route path={PATHS.vacancyDetail} element={<VacancyDetailPage />} />
         <Route path={PATHS.clientRequest} element={<RequestQuotePage />} />
         <Route path={PATHS.clientAssignment} element={<ClientAssignmentPage />} />
         <Route path={PATHS.receivedQuote} element={<ReceivedQuotePage />} />
         <Route path={PATHS.peers} element={<PeersPage />} />
+        <Route path={PATHS.organisations} element={<OrganisationsAdminPage />} />
+        <Route path={PATHS.rates} element={<RatesPage />} />
+        <Route path={PATHS.teamPerson} element={<PersonPage />} />
+        <Route path={PATHS.ratesLegacy} element={<Navigate to={PATHS.rates} replace />} />
         <Route path={PATHS.wiesProposals} element={<WiesProposalsPage />} />
-        <Route path={PATHS.assignmentQuote} element={<QuotePage />} />
-        <Route path={PATHS.assignmentMonthClose} element={<MonthClosePage />} />
         <Route path={PATHS.reportAssignment} element={<AssignmentReportPage />} />
+        <Route path={PATHS.reportTopic} element={<ReportTopicPage />} />
       </Route>
       <Route
         element={

@@ -48,6 +48,7 @@ async def process_pending(db: AsyncSession, *, limit: int = 50) -> int:
             message_id=row.message_id,
             operation=row.operation,
             payload=terms.from_contract(row.payload),
+            contract_payload=row.payload,
             path_parameters={},
             received_at=row.received_at,
         )

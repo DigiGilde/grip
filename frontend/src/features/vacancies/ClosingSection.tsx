@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { fillVacancy, withdrawVacancy, type Vacancy } from './api';
 import { useVacancyChange } from './hooks';
-import { Button, FormSheet, Note, SectionHeading, TextInput } from './ui';
+import { Button, Note, TextInput } from './ui';
+import { FormSheet, SectionHeading } from '@/ui/layout';
 
 type Closing = 'fill' | 'withdraw';
 

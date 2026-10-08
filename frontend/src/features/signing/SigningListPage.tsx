@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
-import { EmptyNotice, ErrorNotice, Loading } from '@/features/assignments/ui';
+import { EmptyNotice, ErrorNotice, Loading } from '@/ui/layout';
 import { QUOTE_STATUS_LABELS } from '@/features/quotes/api';
 import { formatDateTime } from '@/features/quotes/format';
 import { useInstance } from '@/layout/useInstance';
@@ -25,7 +25,7 @@ export function SigningListPage() {
       {query.data && invitations.length === 0 ? (
         <EmptyNotice
           text="Er staat geen offerte voor je klaar"
-          supportingText="Je ziet hier een offerte zodra iemand je heeft uitgenodigd om die te tekenen. Klopt dit niet, neem dan contact op met wie je de link stuurde."
+          supportingText="Verwacht je er een, vraag dan degene die je de link stuurde om je opnieuw uit te nodigen."
         />
       ) : null}
       {invitations.length > 0 ? (

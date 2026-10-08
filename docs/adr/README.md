@@ -23,3 +23,7 @@ Een besluit dat anderen bindt staat hier als ADR: genummerd, met context, beslui
 | [0017](0017-rekenregels-in-een-pure-module.md) | Rekenregels in een pure module | aanvaard |
 | [0018](0018-vacatureformulier-en-vacaturetekst.md) | Vacatureformulier vullen en vacaturetekst opstellen met VLAM | aanvaard |
 | [0019](0019-koppelvlak-in-het-nederlands.md) | Het koppelvlak is Nederlands, de code Engels | aanvaard |
+| [0020](0020-een-canonieke-vorm-en-een-hash-per-offerte.md) | Een offerte heeft een canonieke vorm en een hash | aanvaard |
+| [0021](0021-kanaal-per-aanbieding-van-een-offerte.md) | Het kanaal hoort bij het aanbieden van een offerte | aanvaard |
+| [0022](0022-een-nieuwe-collega-is-eerst-in-grip-bekend.md) | Een nieuwe collega is eerst in grip bekend | aanvaard |
+| [0023](0023-aangeleverd-is-niet-gefactureerd.md) | Aangeleverd is niet gefactureerd | aanvaard |

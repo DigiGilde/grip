@@ -35,6 +35,7 @@ from grip.models.vacancy import (
 )
 from grip.repositories.vacancy import FormTemplateRepository, VacancyRepository
 from grip.services import events
+from grip.services import function_framework as framework
 from grip.services.errors import DomainError, DomainValidationError, NotFoundError
 from grip.services.llm import ChatClient, get_chat_client
 from grip.services.vacancies import form as forms
@@ -125,6 +126,9 @@ async def create_vacancy(
     start_date: date | None = None,
     end_date: date | None = None,
     addressee_name: str | None = None,
+    function_group_id: UUID | None = None,
+    scale_deviation_reason: str | None = None,
+    addressee_id: UUID | None = None,
 ) -> Vacancy:
     if not function_title.strip():
         raise DomainValidationError("Een vacature heeft een functie nodig.")
@@ -161,6 +165,15 @@ async def create_vacancy(
         requester_id=actor.id if actor else None,
         addressee_name=addressee_name,
     )
+    details: dict[str, Any] = {}
+    if function_group_id is not None:
+        details["function_group_id"] = function_group_id
+    if scale_deviation_reason is not None:
+        details["scale_deviation_reason"] = scale_deviation_reason
+    if addressee_id is not None:
+        details["addressee_id"] = addressee_id
+    if details:
+        await _apply_request_details(db, vacancy, details)
     db.add(vacancy)
     await db.flush()
     record_audit(
@@ -184,6 +197,9 @@ async def create_vacancy_from_budget_line(
     fgr_function_name: str | None = None,
     scale: int | None = None,
     addressee_name: str | None = None,
+    function_group_id: UUID | None = None,
+    scale_deviation_reason: str | None = None,
+    addressee_id: UUID | None = None,
 ) -> Vacancy:
     """An open role on a budget line becomes a vacancy.
 
@@ -212,8 +228,85 @@ async def create_vacancy_from_budget_line(
         start_date=line.start_date,
         end_date=line.end_date,
         addressee_name=addressee_name,
+        function_group_id=function_group_id,
+        scale_deviation_reason=scale_deviation_reason,
+        addressee_id=addressee_id,
     )
 
+
+async def _apply_request_details(
+    db: AsyncSession, vacancy: Vacancy, values: dict[str, Any]
+) -> None:
+    """Set the function group, the scale and the addressee, and keep them sound.
+
+    - Choosing a function group prints its name on the vacancy. The printed
+      name is not touched again when the group is renamed later.
+    - A free-text FGR name without a group drops the link to a group.
+    - A group with one scale fills in that scale. A scale outside the scales
+      of the group is refused unless a reason says why it deviates.
+    - An addressee with an account is stored with the name at this moment; a
+      free-text name drops the link to an account.
+    """
+    # Everything is worked out first and assigned at the end, so a refused
+    # change leaves the vacancy as it was.
+    group_id = vacancy.function_group_id
+    fgr_name = vacancy.fgr_function_name
+    if "function_group_id" in values:
+        group_id = values.pop("function_group_id")
+        if group_id is not None:
+            chosen = await framework.get_group(db, group_id)
+            if not chosen.is_valid_on(date.today()):
+                raise DomainValidationError(
+                    f"De functiegroep {chosen.name} is niet meer geldig."
+                )
+            fgr_name = chosen.name
+            values.pop("fgr_function_name", None)
+    elif "fgr_function_name" in values:
+        group_id = None
+    if "fgr_function_name" in values:
+        fgr_name = (values.pop("fgr_function_name") or "").strip() or None
+    scale = values.pop("scale") if "scale" in values else vacancy.scale
+    reason = values.pop("scale_deviation_reason", vacancy.scale_deviation_reason)
+
+    if group_id is None:
+        reason = None
+    else:
+        group = await framework.get_group(db, group_id)
+        if scale is None and len(group.scales) == 1:
+            scale = group.scales[0]
+        reason = framework.check_scale(group, scale, reason)
+
+    addressee_id = vacancy.addressee_id
+    addressee_name = vacancy.addressee_name
+    if "addressee_id" in values:
+        addressee_id = values.pop("addressee_id")
+        if addressee_id is not None:
+            person = await db.get(Person, addressee_id)
+            if person is None or not person.is_active:
+                raise NotFoundError("Persoon", addressee_id)
+            addressee_name = person.name
+            values.pop("addressee_name", None)
+    elif "addressee_name" in values:
+        addressee_id = None
+    if "addressee_name" in values:
+        addressee_name = (values.pop("addressee_name") or "").strip() or None
+
+    vacancy.function_group_id = group_id
+    vacancy.fgr_function_name = fgr_name
+    vacancy.scale = scale
+    vacancy.scale_deviation_reason = reason
+    vacancy.addressee_id = addressee_id
+    vacancy.addressee_name = addressee_name
+
+
+_REQUEST_DETAILS = (
+    "function_group_id",
+    "fgr_function_name",
+    "scale",
+    "scale_deviation_reason",
+    "addressee_id",
+    "addressee_name",
+)
 
 _EDITABLE = (
     "function_title",
@@ -225,6 +318,9 @@ _EDITABLE = (
     "start_date",
     "end_date",
     "addressee_name",
+    "function_group_id",
+    "scale_deviation_reason",
+    "addressee_id",
 )
 
 
@@ -273,7 +369,12 @@ async def update_vacancy(
     if start and end and end < start:
         raise DomainValidationError("De einddatum ligt voor de begindatum.")
 
-    old = {name: getattr(vacancy, name) for name in values}
+    touched = list(values)
+    old = {name: getattr(vacancy, name) for name in touched}
+    details = {name: values.pop(name) for name in _REQUEST_DETAILS if name in values}
+    # The details can be refused, so they go first.
+    if details:
+        await _apply_request_details(db, vacancy, details)
     for name, value in values.items():
         setattr(vacancy, name, value)
     await db.flush()
@@ -284,13 +385,13 @@ async def update_vacancy(
         entity="vacancy",
         entity_id=vacancy.id,
         old_value={name: _plain(value) for name, value in old.items()},
-        new_value={name: _plain(value) for name, value in values.items()},
+        new_value={name: _plain(getattr(vacancy, name)) for name in touched},
     )
     return vacancy
 
 
 def _plain(value: Any) -> Any:
-    if isinstance(value, date | Decimal):
+    if isinstance(value, date | Decimal | UUID):
         return str(value)
     return value
 

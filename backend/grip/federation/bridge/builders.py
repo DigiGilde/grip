@@ -4,7 +4,8 @@ A builder reads what the event names through the repositories and the
 service layer, and returns the message in code names plus, where the message
 does not name its receiver, the recipient. It returns None when nothing has
 to be sent: the change came from another instance (``origin`` is remote),
-the assignment has no federated traffic, or a party cannot be named.
+the assignment was never shared with another instance, or a party cannot
+be named.
 
 The outbox translates the message to contract terms and validates it; a
 message that does not fit the contract aborts the domain change.
@@ -30,7 +31,7 @@ from grip.models.assignment import Assignment
 from grip.models.quote import Quote
 from grip.repositories.domain import AssignmentRepository
 from grip.repositories.vacancy import VacancyRepository
-from grip.services.assignments import mint_uri
+from grip.services.assignments import is_shared_with, mint_uri
 
 Built = dict[str, Any] | None
 
@@ -47,13 +48,29 @@ def _decimal_text(value: Decimal) -> str:
     return text if text != "-0" else "0"
 
 
-async def _federated_assignment(
+async def _shared_assignment(
     db: AsyncSession, payload: dict[str, Any]
 ) -> Assignment | None:
+    """The assignment of an event, if it is shared with another instance.
+
+    Sharing is a fact that arose from an exchange (a request, an offered
+    quote), not a setting. Nothing about an assignment that was never
+    exchanged goes out.
+    """
     assignment = await AssignmentRepository(db).get(UUID(payload["assignment_id"]))
-    if assignment is None or assignment.traffic_form != "federated":
+    if assignment is None or not assignment.shared_with_instance_uri:
         return None
     return assignment
+
+
+async def _shared_party(
+    db: AsyncSession, assignment: Assignment, organisation_id: Any
+) -> dict[str, Any] | None:
+    """A party of the assignment as recipient, if it is who it is shared with."""
+    party = reference(await organisation_by_id(db, organisation_id))
+    if party is None or not is_shared_with(assignment, party.get("instance_uri")):
+        return None
+    return party
 
 
 async def _party(db: AsyncSession, organisation_id: Any) -> dict[str, Any] | None:
@@ -63,16 +80,11 @@ async def _party(db: AsyncSession, organisation_id: Any) -> dict[str, Any] | Non
     return reference(await organisation_by_id(db, organisation_id))
 
 
-def _quote_hash(snapshot: dict[str, Any]) -> str:
-    """The hash as the contract defines it: over the snapshot in contract terms."""
-    return signing.snapshot_hash(terms.to_contract(snapshot))
-
-
 async def assignment_request(db: AsyncSession, payload: dict[str, Any]) -> Built:
     """This instance, as client, asks a contractor for a quote."""
     if _is_remote(payload):
         return None
-    assignment = await _federated_assignment(db, payload)
+    assignment = await _shared_assignment(db, payload)
     if assignment is None:
         return None
     client = await _party(db, assignment.client_organisation_id)
@@ -103,15 +115,20 @@ async def assignment_request(db: AsyncSession, payload: dict[str, Any]) -> Built
     return {"message": message}
 
 
-async def quote_issued(db: AsyncSession, payload: dict[str, Any]) -> Built:
-    """This instance, as contractor, issued a quote."""
-    if _is_remote(payload):
+async def quote_offered(db: AsyncSession, payload: dict[str, Any]) -> Built:
+    """This instance, as contractor, offers a quote to the client's instance.
+
+    Issuing a quote sends nothing. This message is written when a user
+    offers the quote through the client's grip.
+    """
+    if _is_remote(payload) or payload.get("channel") != "client_instance":
         return None
-    assignment = await _federated_assignment(db, payload)
+    assignment = await _shared_assignment(db, payload)
     if assignment is None:
         return None
-    client = reference(await organisation_by_id(db, assignment.client_organisation_id))
-    if client is None:
+    client = await _shared_party(db, assignment, assignment.client_organisation_id)
+    quote = await db.get(Quote, UUID(payload["quote_id"]))
+    if client is None or quote is None:
         return None
     message = {
         "id": payload["quote_id"],
@@ -121,8 +138,10 @@ async def quote_issued(db: AsyncSession, payload: dict[str, Any]) -> Built:
         "contractor": own_reference(),
         "client": client,
         "parent_assignment_uri": assignment.parent_assignment_uri,
-        "snapshot": payload["snapshot"],
-        "snapshot_hash": _quote_hash(payload["snapshot"]),
+        # The stored canonical form goes out as it is: it is already in
+        # contract terms and must not be translated on the way.
+        "snapshot": terms.Verbatim(quote.contract_snapshot),
+        "snapshot_hash": quote.snapshot_hash,
         "hash_algorithm": "sha-256",
         "canonicalization": "RFC8785",
         "issued_at": payload["issued_at"],
@@ -134,12 +153,12 @@ async def _decision_recipient(
     db: AsyncSession, payload: dict[str, Any]
 ) -> tuple[Quote, dict[str, Any]] | None:
     """The quote a decision is about and the contractor that issued it."""
-    assignment = await _federated_assignment(db, payload)
+    assignment = await _shared_assignment(db, payload)
     quote = await db.get(Quote, UUID(payload["quote_id"]))
     if assignment is None or quote is None:
         return None
-    contractor = reference(
-        await organisation_by_id(db, assignment.contractor_organisation_id)
+    contractor = await _shared_party(
+        db, assignment, assignment.contractor_organisation_id
     )
     if contractor is None:
         return None
@@ -161,7 +180,7 @@ async def quote_accepted(db: AsyncSession, payload: dict[str, Any]) -> Built:
     message = {
         "id": payload["acceptance_id"],
         "quote_id": payload["quote_id"],
-        "quote_hash": _quote_hash(quote.snapshot),
+        "quote_hash": quote.snapshot_hash,
         "signer": payload["signer"],
         "organisation": payload["organisation"],
         "signed_at": payload["signed_at"],
@@ -181,7 +200,7 @@ async def quote_rejected(db: AsyncSession, payload: dict[str, Any]) -> Built:
     message = {
         "id": payload["rejection_id"],
         "quote_id": payload["quote_id"],
-        "quote_hash": _quote_hash(quote.snapshot),
+        "quote_hash": quote.snapshot_hash,
         "organisation": payload.get("organisation") or own_reference(),
         "reason": payload.get("reason"),
         "rejected_at": payload["rejected_at"],
@@ -193,10 +212,10 @@ async def final_report(db: AsyncSession, payload: dict[str, Any]) -> Built:
     """This instance, as contractor, sends the final report to the client."""
     if _is_remote(payload):
         return None
-    assignment = await _federated_assignment(db, payload)
+    assignment = await _shared_assignment(db, payload)
     if assignment is None:
         return None
-    client = reference(await organisation_by_id(db, assignment.client_organisation_id))
+    client = await _shared_party(db, assignment, assignment.client_organisation_id)
     if client is None:
         return None
     report = payload.get("report") or {}
@@ -261,7 +280,7 @@ async def vacancy_published(db: AsyncSession, payload: dict[str, Any]) -> Built:
 
 BUILDERS = {
     "assignment_request.created": assignment_request,
-    "quote.issued": quote_issued,
+    "quote.offered": quote_offered,
     "quote.accepted": quote_accepted,
     "quote.rejected": quote_rejected,
     "final_report.issued": final_report,

@@ -11,7 +11,8 @@ import {
 } from './api';
 import { useVacancyChange } from './hooks';
 import { TEXT_KIND_LABELS, originOf } from './labels';
-import { Button, ErrorNotice, FormSheet, Note, Paragraphs, SectionHeading, TextInput } from './ui';
+import { Button, Note, Paragraphs, TextInput } from './ui';
+import { ErrorNotice, FormSheet, SectionHeading } from '@/ui/layout';
 
 const KINDS: TextKind[] = ['vacancy_text', 'motivation'];
 

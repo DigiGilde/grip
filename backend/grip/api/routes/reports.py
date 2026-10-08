@@ -25,6 +25,8 @@ from fastapi.responses import HTMLResponse
 
 from grip.access import Action, DataClass, Resource, build_response, schema_classes
 from grip.api.assignment_support import DbSession, RequestAccess
+from grip.api.routes.assignment_finance import figures_out
+from grip.calc import Month
 from grip.core.config import Settings, get_settings
 from grip.schema.kpi import KpiOut
 from grip.schema.overview import TotalsOut
@@ -36,8 +38,12 @@ from grip.schema.reports import (
     CostCoverageItemOut,
     CostCoverageOut,
     FinalReportOut,
+    NotDeployableOut,
+    OccupancyCellOut,
     OccupancyMonthOut,
     OccupancyOut,
+    OccupancyPartOut,
+    OccupancySummaryOut,
     OpenRoleOut,
     OpenRolesOut,
     PersonOccupancyOut,
@@ -325,6 +331,8 @@ async def _turnover_block(
         return None
     name, ids = scope
     data = await steering.turnover(db, year, assignment_ids=ids)
+    figures = figures_out(await steering.agreed_figures(db, year, assignment_ids=ids))
+    assert figures is not None
     return build_response(
         TurnoverOut(
             scope=name,
@@ -333,66 +341,156 @@ async def _turnover_block(
                     month=str(m.month),
                     realised_cents=m.realised_cents,
                     forecast_cents=m.forecast_cents,
+                    verbal_cents=m.verbal_cents,
                     pipeline_cents=m.pipeline_cents,
                 )
                 for m in data.months
             ],
             realised_cents=data.realised_cents,
             forecast_cents=data.forecast_cents,
+            verbal_cents=data.verbal_cents,
             pipeline_cents=data.pipeline_cents,
+            expected_cents=data.realised_cents + data.forecast_cents,
+            figures=figures,
             unpriced_assignments=list(data.unpriced),
         ),
         {B},
     )
 
 
+def _occupancy_month(month: steering.OccupancyMonth) -> OccupancyMonthOut:
+    return OccupancyMonthOut(
+        month=str(month.month),
+        allocated_fte=month.allocated_fte,
+        tentative_fte=month.tentative_fte,
+        available_fte=month.available_fte,
+        free_fte=month.free_fte,
+        pct=month.pct,
+        under=month.under,
+        full=month.full,
+        over=month.over,
+    )
+
+
+async def _occupancy_person(
+    access: RequestAccess,
+    row: steering.PersonOccupancy,
+    classes: frozenset[DataClass],
+) -> dict[str, Any]:
+    """One row of the occupancy, with the parts of each cell.
+
+    The name of an assignment is class A of that assignment, so it is
+    decided per assignment; the percentage belongs to the person.
+    """
+    person = build_response(
+        PersonOccupancyOut(
+            person_id=row.person_id,
+            person_name=row.person_name,
+            average_pct=row.average_pct,
+            over_months=[str(month) for month in row.over_months],
+            cells=[],
+        ),
+        classes,
+    )
+    cells: list[dict[str, Any]] = []
+    for cell in row.cells:
+        body = build_response(
+            OccupancyCellOut(
+                month=str(cell.month),
+                available=cell.available,
+                pct=cell.pct,
+                tentative_pct=cell.tentative_pct,
+                established=cell.established,
+                parts=[],
+            ),
+            {C},
+        )
+        parts: list[dict[str, Any]] = []
+        for part in cell.parts:
+            named = await access.may(
+                Action.READ, Resource.assignment(part.assignment_id), A
+            )
+            parts.append(
+                build_response(
+                    OccupancyPartOut(
+                        assignment_id=part.assignment_id,
+                        assignment_name=part.assignment_name,
+                        pct=part.pct,
+                        tentative=part.tentative,
+                        verbally_agreed=part.verbally_agreed,
+                        established=part.established,
+                    ),
+                    {C, A} if named else {C},
+                )
+            )
+        body["parts"] = parts
+        cells.append(body)
+    person["cells"] = cells
+    return person
+
+
 async def _occupancy_block(
     access: RequestAccess, db: DbSession, year: int
 ) -> dict[str, Any] | None:
     sees_all = await access.may(Action.READ, Resource.person(), C)
-    visible: list[tuple[steering.PersonOccupancy, frozenset[DataClass]]] = []
-    for row in await steering.occupancy(db, year):
-        classes = await access.classes(
-            Resource.person(row.person_id), schema_classes(PersonOccupancyOut)
-        )
-        if C in classes:
-            visible.append((row, classes))
+    person_classes = frozenset({ROSTER, C})
+
+    async def visible_of(
+        rows: list[steering.PersonOccupancy],
+    ) -> list[steering.PersonOccupancy]:
+        return [
+            row
+            for row in rows
+            if C in await access.classes(Resource.person(row.person_id), person_classes)
+        ]
+
+    year_months = steering.months_of(year)
+    all_rows = await steering.occupancy(db, year_months)
+    visible = await visible_of(all_rows)
     if not visible:
         return None
-    # The totals per month are over the visible persons only, so they say
+    # Every figure below is over the visible persons only, so it says
     # nothing about anyone else.
-    months = steering.occupancy_months(year, [row for row, _ in visible])
+    window = steering.next_months(Month.of(date.today()), 4)
+    window_rows = await visible_of(await steering.occupancy(db, window))
+    summary = steering.occupancy_summary(visible, window_rows, window)
+
     block = build_response(
         OccupancyOut(
             scope="all" if sees_all else "own",
+            summary=OccupancySummaryOut(
+                person_count=summary.person_count,
+                average_pct=summary.average_pct,
+                over_count=summary.over_count,
+                over_months=[str(month) for month in summary.over_months],
+                current_month=str(summary.current_month),
+                window=[_occupancy_month(month) for month in summary.window],
+                idle_count=summary.idle_count,
+            ),
             months=[
-                OccupancyMonthOut(
-                    month=str(m.month),
-                    allocated_fte=m.allocated_fte,
-                    available_fte=m.available_fte,
-                    pct=m.pct,
-                    under=m.under,
-                    full=m.full,
-                    over=m.over,
-                )
-                for m in months
+                _occupancy_month(month)
+                for month in steering.occupancy_months(year_months, visible)
             ],
             persons=[],
+            not_deployable=[],
         ),
         {COUNTS},
     )
     block["persons"] = [
-        build_response(
-            PersonOccupancyOut(
-                person_id=row.person_id,
-                person_name=row.person_name,
-                months=list(row.months),
-                average_pct=row.average_pct,
-            ),
-            classes,
-        )
-        for row, classes in visible
+        await _occupancy_person(access, row, person_classes) for row in visible
     ]
+    left_out = []
+    for person_id, person_name in await steering.not_deployable(
+        db, [row.person_id for row in all_rows]
+    ):
+        if C in await access.classes(Resource.person(person_id), person_classes):
+            left_out.append(
+                build_response(
+                    NotDeployableOut(person_id=person_id, person_name=person_name),
+                    {ROSTER},
+                )
+            )
+    block["not_deployable"] = left_out
     return block
 
 
@@ -479,6 +577,7 @@ async def _billability_block(
     sees_all = await access.may(Action.READ, Resource.person(), F)
     persons: list[dict[str, Any]] = []
     target = realised = forecast = 0
+    with_target = below_target = 0
     for person_id, person_name in await steering.kpi_person_ids(db, year):
         classes = await access.classes(Resource.person(person_id), _KPI_CLASSES)
         if F not in classes:
@@ -489,6 +588,10 @@ async def _billability_block(
             target += overview.target_cents or 0
             realised += overview.realised_cents
             forecast += overview.forecast_cents
+            if overview.target_cents is not None:
+                with_target += 1
+                if overview.realisation_cents < overview.target_cents:
+                    below_target += 1
         persons.append(
             build_response(
                 KpiOut(
@@ -519,6 +622,9 @@ async def _billability_block(
             target_cents=target,
             realised_cents=realised,
             forecast_cents=forecast,
+            realisation_cents=realised + forecast,
+            with_target_count=with_target,
+            below_target_count=below_target,
         ),
         {F},
     )
@@ -633,8 +739,10 @@ async def get_year_account(
                     realised_cents=totals.realised_cents if totals else None,
                     forecast_cents=totals.forecast_cents if totals else None,
                     costs_cents=totals.coverage_cents if totals else None,
-                    billed_cents=row.billed_cents,
-                    to_bill_cents=row.to_bill_cents,
+                    delivered_cents=row.delivered_cents,
+                    to_deliver_cents=row.to_deliver_cents,
+                    invoiced_cents=row.invoiced_cents,
+                    to_invoice_cents=row.to_invoice_cents,
                     difference_cents=row.difference_cents,
                     pricing_error=row.pricing_error,
                 ),
@@ -653,8 +761,10 @@ async def get_year_account(
             realised_cents=sum(t.realised_cents for t in priced),
             forecast_cents=sum(t.forecast_cents for t in priced),
             costs_cents=sum(t.coverage_cents for t in priced),
-            billed_cents=sum(r.billed_cents for r in with_amounts),
-            to_bill_cents=sum(r.to_bill_cents or 0 for r in with_amounts),
+            delivered_cents=sum(r.delivered_cents for r in with_amounts),
+            to_deliver_cents=sum(r.to_deliver_cents or 0 for r in with_amounts),
+            invoiced_cents=sum(r.invoiced_cents for r in with_amounts),
+            to_invoice_cents=sum(r.to_invoice_cents for r in with_amounts),
         ).model_dump(mode="json")
     return result
 

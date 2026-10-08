@@ -5,21 +5,29 @@ import { formatEuro } from '@/lib/format';
 import { useInstance } from '@/layout/useInstance';
 import { PageHeading } from '@/pages/PageHeading';
 import { Button, SelectField, TextField } from '@/features/team/ui/controls';
-import { centsToEuroInput, eurosToCents } from '@/features/team/ui/money';
+import { centsToEuroInput, eurosToCents, percentInput } from '@/features/team/ui/money';
 import { ConfirmDialog, Form, Sheet } from '@/features/team/ui/overlays';
 import { EmptyRows, QueryState } from '@/features/team/ui/states';
 import {
   CATEGORIES,
   RATE_CARDS_KEY,
+  ROUNDING_LABELS,
   STATUS_LABELS,
   createRateCard,
+  fetchIndexationPreview,
   fetchRateCards,
+  previewKey,
   setCardStatus,
   setRateBand,
   setScaleBand,
   type CardStatus,
+  type Indexation,
   type RateCard,
+  type Rounding,
 } from './api';
+
+/** The highest increase the server accepts, in percent. */
+const MAX_INCREASE_PCT = 25;
 
 type Editing =
   | { kind: 'band'; category: string; cents: number | null }
@@ -304,8 +312,9 @@ export function RatesPage() {
         submitting={save.isPending}
         error={formError}
         onClose={() => setEditing(null)}
-        onSave={(year, copyFrom) =>
-          save.mutate(() => createRateCard(year, copyFrom), {
+        defaultIncreasePct={query.data?.default_increase_pct ?? '0'}
+        onSave={(year, indexation) =>
+          save.mutate(() => createRateCard(year, indexation), {
             onSuccess: () => setChosenYear(year),
             onError: (error) => setFormError(errorMessage(error)),
           })
@@ -453,19 +462,38 @@ function ScaleForm({
 interface NewCardSheetProps extends SheetCommon {
   open: boolean;
   cards: RateCard[];
-  onSave: (year: number, copyFrom: number | null) => void;
+  defaultIncreasePct: string;
+  onSave: (year: number, indexation: Indexation | null) => void;
 }
 
-function NewCardSheet({ open, cards, onSave, ...common }: NewCardSheetProps) {
+function NewCardSheet({ open, cards, defaultIncreasePct, onSave, ...common }: NewCardSheetProps) {
   return (
     <Sheet open={open} title="Nieuw jaar" dismissText="Annuleer" onClose={common.onClose}>
-      <NewCardForm cards={cards} onSave={onSave} {...common} />
+      <NewCardForm
+        cards={cards}
+        defaultIncreasePct={defaultIncreasePct}
+        onSave={onSave}
+        {...common}
+      />
     </Sheet>
   );
 }
 
+const ROUNDINGS: Rounding[] = ['euro', 'ten', 'fifty'];
+
+/** "5.00" as "5", "2.50" as "2,5": the way someone would type it. */
+function percentText(value: string): string {
+  const number = Number(value);
+  return Number.isNaN(number) ? '' : String(number).replace('.', ',');
+}
+
+function signedEuro(cents: number): string {
+  return cents > 0 ? `+ ${formatEuro(cents)}` : formatEuro(cents);
+}
+
 function NewCardForm({
   cards,
+  defaultIncreasePct,
   onSave,
   submitting,
   error,
@@ -474,6 +502,21 @@ function NewCardForm({
   const latest = cards[0]?.year ?? null;
   const [year, setYear] = useState(latest === null ? '' : String(latest + 1));
   const [copyFrom, setCopyFrom] = useState(latest === null ? '' : String(latest));
+  const [increase, setIncrease] = useState(percentText(defaultIncreasePct));
+  const [rounding, setRounding] = useState<Rounding>('euro');
+
+  const pct = percentInput(increase);
+  const pctValid = pct !== null && Number(pct) <= MAX_INCREASE_PCT;
+  const indexation: Indexation | null =
+    copyFrom && pctValid ? { copyFrom: Number(copyFrom), increasePct: pct, rounding } : null;
+
+  // The server computes the new rates; the sheet only shows them.
+  const preview = useQuery({
+    queryKey: indexation ? previewKey(indexation) : ['rates', 'preview', 'none'],
+    queryFn: () => fetchIndexationPreview(indexation as Indexation),
+    enabled: indexation !== null,
+  });
+
   return (
     <Form
       submitText="Maak concept"
@@ -485,19 +528,83 @@ function NewCardForm({
           onInvalid('Vul een jaar in, bijvoorbeeld 2027.');
           return;
         }
-        onSave(number, copyFrom ? Number(copyFrom) : null);
+        if (copyFrom && !pctValid) {
+          onInvalid(`Vul een verhoging in van 0 tot en met ${MAX_INCREASE_PCT} procent.`);
+          return;
+        }
+        onSave(number, indexation);
       }}
     >
       <TextField label="Jaar" value={year} onChange={setYear} keyboard="numeric" required />
       {cards.length > 0 ? (
         <SelectField
           label="Neem tarieven en schalen over van"
-          supportingLabel="Het nieuwe jaar begint als concept"
+          supportingLabel="Het nieuwe jaar begint als concept; de indeling van schalen gaat ongewijzigd mee"
           value={copyFrom}
           onChange={setCopyFrom}
           emptyLabel="Niets overnemen"
           options={cards.map((c) => ({ value: String(c.year), label: String(c.year) }))}
         />
+      ) : null}
+      {copyFrom ? (
+        <>
+          <TextField
+            label="Verhoging"
+            supportingLabel={`Percentage waarmee elk maandtarief stijgt, van 0 tot en met ${MAX_INCREASE_PCT}`}
+            value={increase}
+            onChange={setIncrease}
+            keyboard="decimal"
+            required
+          />
+          <SelectField
+            label="Afronding van de nieuwe tarieven"
+            supportingLabel="De gekozen regel wordt met het percentage vastgelegd in de auditlog"
+            value={rounding}
+            onChange={(value) => setRounding(ROUNDINGS.find((r) => r === value) ?? 'euro')}
+            options={ROUNDINGS.map((r) => ({ value: r, label: ROUNDING_LABELS[r] }))}
+          />
+          <nldd-title
+            size={5}
+            text="Dit komt in het concept"
+            heading-level={2}
+            supporting-text="Per categorie kun je het tarief daarna nog wijzigen"
+          />
+          {indexation === null ? (
+            <nldd-inline-dialog text="Vul een geldige verhoging in om de nieuwe tarieven te zien" />
+          ) : (
+            <QueryState query={preview}>
+              <nldd-table
+                accessible-label={`Nieuwe maandtarieven op basis van ${copyFrom}`}
+                columns="70px repeat(3, minmax(100px,1fr))"
+              >
+                <nldd-table-row slot="header">
+                  <nldd-text-cell text="Categorie" />
+                  <nldd-text-cell text={`Tarief ${copyFrom}`} horizontal-alignment="right" />
+                  <nldd-text-cell text="Nieuw tarief" horizontal-alignment="right" />
+                  <nldd-text-cell text="Verschil" horizontal-alignment="right" />
+                </nldd-table-row>
+                {(preview.data?.rates ?? []).map((rate) => (
+                  <nldd-table-row key={rate.category}>
+                    <nldd-text-cell text={rate.category} />
+                    <nldd-text-cell
+                      text={formatEuro(rate.old_monthly_rate_cents)}
+                      horizontal-alignment="right"
+                    />
+                    <nldd-text-cell
+                      text={formatEuro(rate.new_monthly_rate_cents)}
+                      horizontal-alignment="right"
+                    />
+                    <nldd-text-cell
+                      text={signedEuro(rate.difference_cents)}
+                      horizontal-alignment="right"
+                    />
+                  </nldd-table-row>
+                ))}
+                <EmptyRows text={`De tarievenkaart van ${copyFrom} heeft nog geen tarieven`} />
+              </nldd-table>
+            </QueryState>
+          )}
+        </>
       ) : null}
     </Form>
   );

@@ -1,34 +1,34 @@
 /**
  * The stand van zaken endpoints. Amounts are class B: for a reader without
- * it, `totals` is an empty object and the grand total is absent.
+ * it, `figures` is absent or empty and the subtotals are absent.
  */
 import { apiGet } from '@/api/client';
+import type { Figures } from '@/features/assignments/financeApi';
+import type { Phase } from '@/features/assignments/labels';
 
-export interface Totals {
-  budgeted_cents?: number;
-  realised_cents?: number;
-  forecast_cents?: number;
-  coverage_cents?: number;
-  used_cents?: number;
-  available_cents?: number;
-  overrun?: boolean;
-}
+export type { Figures };
 
 export interface OverviewRow {
   assignment_id: string;
   name: string;
   status: string;
+  phase: Phase;
   client_name: string | null;
   start_date: string | null;
   end_date: string | null;
-  totals: Totals | null;
+  figures?: Partial<Figures> | null;
   pricing_error?: string | null;
+  /** First day of the last closed month; null when none is closed. */
+  reference_month?: string | null;
 }
 
 export interface Overview {
   year: number | null;
   rows: OverviewRow[];
-  totals?: Totals;
+  /** Subtotal per phase; pipeline is never added to running work. */
+  figures_potential?: Figures;
+  figures_active?: Figures;
+  figures_closed?: Figures;
 }
 
 export interface TeamMember {
@@ -38,16 +38,7 @@ export interface TeamMember {
   start_date?: string;
   end_date?: string;
   fte_pct?: string;
-  amount_cents?: number | null;
-  pricing_error?: string | null;
   category_mismatch?: boolean;
-}
-
-export interface LineCost {
-  cost_item_id: string;
-  description: string;
-  pct: string;
-  amount_cents: number | null;
 }
 
 export interface LineOverview {
@@ -58,20 +49,15 @@ export interface LineOverview {
   fte?: string | null;
   start_date?: string | null;
   end_date?: string | null;
-  rate_category?: string | null;
-  totals: Totals | null;
-  pricing_error?: string | null;
   team: TeamMember[];
-  costs?: LineCost[];
 }
 
+/** The lines of one assignment with their team; the staffing tab reads this. */
 export interface AssignmentOverview {
   assignment_id: string;
   name: string;
   status: string;
   year: number | null;
-  totals?: Totals | null;
-  pricing_error?: string | null;
   lines: LineOverview[];
 }
 
@@ -89,6 +75,25 @@ export const fetchAssignmentOverview = (id: string, year: YearChoice) =>
   apiGet<AssignmentOverview>(`/api/assignments/${id}/overview`, { year });
 
 /** Whether the reader got amounts at all. */
+export function hasFigures(figures: Partial<Figures> | null | undefined): figures is Figures {
+  return figures !== null && figures !== undefined && 'budgeted_cents' in figures;
+}
+
+/**
+ * The totals of the report screens (budgeted, realised, forecast, costs,
+ * available), which still read `/api/reports`. The stand van zaken itself
+ * uses `Figures`.
+ */
+export interface Totals {
+  budgeted_cents?: number;
+  realised_cents?: number;
+  forecast_cents?: number;
+  coverage_cents?: number;
+  used_cents?: number;
+  available_cents?: number;
+  overrun?: boolean;
+}
+
 export function hasAmounts(totals: Totals | null | undefined): totals is Required<Totals> {
   return totals !== null && totals !== undefined && 'budgeted_cents' in totals;
 }

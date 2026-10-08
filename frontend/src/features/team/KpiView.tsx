@@ -57,8 +57,8 @@ export function KpiView() {
             <nldd-text-cell text="Target" horizontal-alignment="right" />
             <nldd-text-cell text="Targetbedrag" horizontal-alignment="right" />
             <nldd-text-cell text="Gerealiseerd" horizontal-alignment="right" />
-            <nldd-text-cell text="Prognose" horizontal-alignment="right" />
-            <nldd-text-cell text="Realisatie" horizontal-alignment="right" />
+            <nldd-text-cell text="Nog gepland" horizontal-alignment="right" />
+            <nldd-text-cell text="Verwacht totaal" horizontal-alignment="right" />
             {mayManage ? <nldd-text-cell text="Actie" /> : null}
           </nldd-table-row>
           {rows.map((row) => (
@@ -98,7 +98,7 @@ export function KpiView() {
         <nldd-text-cell
           size="sm"
           color="secondary"
-          text="Gerealiseerd telt de afgesloten maanden met de vastgestelde inzet. Prognose telt de open maanden met de geplande inzet. Realisatie is de som van beide."
+          text="Gerealiseerd telt de afgesloten maanden met de vastgestelde inzet. Nog gepland telt de open maanden met de geplande inzet. Verwacht totaal is de som van beide."
         />
       </QueryState>
 

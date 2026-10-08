@@ -13,7 +13,15 @@ import {
   type BudgetLineInput,
 } from './api';
 import { lineForm, lineInput, type LineForm } from './budgetForm';
+import { RouterLinks } from '@/layout/RouterLinks';
 import { LINE_KIND_LABELS, RATE_CATEGORIES } from './labels';
+import {
+  cardOfYear,
+  categoryDiffers,
+  categoryOptionText,
+  useRateCards,
+  type CategoryNamer,
+} from './rateText';
 import {
   Button,
   DateInput,
@@ -50,6 +58,16 @@ function LineSheet({
     setProblem(null);
   }
   const set = (patch: Partial<LineForm>) => setForm((current) => ({ ...current, ...patch }));
+
+  // Scales and rates are per year: those of the year the line starts in, and
+  // this year until a start date is entered.
+  const rates = useRateCards(open);
+  const rateYear = /^\d{4}/.test(form.startDate)
+    ? Number(form.startDate.slice(0, 4))
+    : new Date().getFullYear();
+  const endYear = /^\d{4}/.test(form.endDate) ? Number(form.endDate.slice(0, 4)) : rateYear;
+  const card = cardOfYear(rates.cards, rateYear);
+  const endCard = endYear !== rateYear ? cardOfYear(rates.cards, endYear) : null;
 
   const save = useMutation({
     mutationFn: (input: BudgetLineInput) =>
@@ -90,15 +108,23 @@ function LineSheet({
           options={Object.entries(LINE_KIND_LABELS).map(([value, label]) => ({ value, label }))}
         />
       )}
-      <TextInput
-        label="Omschrijving"
-        value={form.description}
-        onChange={(description) => set({ description })}
-        required
-      />
       {form.kind === 'personnel' ? (
         <>
+          {/* ROLE PICKER GOES HERE. Replace this text field by the RolePicker of
+              features/roles once that folder exists; the role then becomes
+              required and the description optional. */}
           <TextInput label="Rol" optional value={form.role} onChange={(role) => set({ role })} />
+          {/* INTENDED PERSON GOES HERE: an optional "Beoogde persoon" picker,
+              once the budget line API accepts one and can say what follows
+              from the person. The name stays inside grip; the quote shows
+              only the role. */}
+          <TextInput
+            label="Omschrijving"
+            hint="Wat deze regel onderscheidt van een andere met dezelfde rol, bijvoorbeeld: #2, vanaf Q2."
+            value={form.description}
+            onChange={(description) => set({ description })}
+            required
+          />
           <TextInput
             label="Omvang in FTE"
             hint="Bijvoorbeeld 0,8"
@@ -107,29 +133,59 @@ function LineSheet({
             onChange={(fte) => set({ fte })}
             required
           />
+          <nldd-container layout="grid" column-count={2} gap="12">
+            <DateInput
+              label="Begindatum"
+              value={form.startDate}
+              onChange={(startDate) => set({ startDate })}
+              required
+            />
+            <DateInput
+              label="Einddatum"
+              value={form.endDate}
+              onChange={(endDate) => set({ endDate })}
+              required
+            />
+          </nldd-container>
           <SelectInput
-            label="Tariefcategorie"
+            label="Schaal en tarief"
+            hint={`Volgens de tarievenkaart van ${rateYear}.`}
             value={form.category}
             onChange={(category) => set({ category })}
-            placeholder="Kies een categorie"
-            options={RATE_CATEGORIES.map((c) => ({ value: c, label: `Categorie ${c}` }))}
+            placeholder="Kies een schaal"
+            options={RATE_CATEGORIES.map((c) => ({ value: c, label: categoryOptionText(card, c) }))}
             required
           />
-          <DateInput
-            label="Begindatum"
-            value={form.startDate}
-            onChange={(startDate) => set({ startDate })}
-            required
-          />
-          <DateInput
-            label="Einddatum"
-            value={form.endDate}
-            onChange={(endDate) => set({ endDate })}
-            required
-          />
+          {rates.loaded && !card && (
+            <RouterLinks>
+              <nldd-banner
+                variant="warning"
+                size="sm"
+                text={`Er is geen actieve tarievenkaart voor ${rateYear}`}
+                supporting-text="Zonder tarievenkaart kan deze regel niet worden berekend."
+              />
+              <nldd-link href="/beheer/tarieven" text="Bekijk de tarievenkaarten" size="md" />
+            </RouterLinks>
+          )}
+          {endCard && form.category && categoryDiffers(card, endCard, form.category) && (
+            <nldd-banner
+              variant="neutral"
+              size="sm"
+              text={`In ${endYear} geldt: ${categoryOptionText(endCard, form.category)}`}
+              supporting-text="De regel loopt over twee tariefjaren. Elke maand wordt geprijsd met de kaart van haar jaar."
+            />
+          )}
+          {/* LIVE AMOUNT GOES HERE: "Begroot voor deze regel", from the service,
+              once the budget line API can price a line before it is saved. */}
         </>
       ) : (
         <>
+          <TextInput
+            label="Omschrijving"
+            value={form.description}
+            onChange={(description) => set({ description })}
+            required
+          />
           <TextInput
             label="Bedrag"
             hint="In euro's"
@@ -151,12 +207,14 @@ function LineSheet({
   );
 }
 
-function lineSummary(line: BudgetLine): string {
+function lineSummary(line: BudgetLine, name: CategoryNamer): string {
   if (line.kind === 'fixed') return line.year ? `Vast bedrag, ${line.year}` : 'Vast bedrag';
   const parts = [
     line.role,
     line.fte ? `${formatFte(line.fte)} FTE` : '',
-    line.rate_category ? `categorie ${line.rate_category}` : '',
+    line.rate_category
+      ? name(line.rate_category, line.start_date ? Number(line.start_date.slice(0, 4)) : undefined)
+      : '',
     formatPeriod(line.start_date, line.end_date),
   ];
   return parts.filter(Boolean).join(', ');
@@ -185,6 +243,7 @@ export function BudgetEditor({ assignmentId }: { assignmentId: string }) {
     onError: (error) => setProblem(errorMessage(error)),
   });
 
+  const rates = useRateCards();
   const budget = query.data;
   const lines = budget?.lines ?? [];
   const showMoney = budget !== undefined && 'total_budgeted_cents' in budget;
@@ -229,7 +288,7 @@ export function BudgetEditor({ assignmentId }: { assignmentId: string }) {
             <nldd-table-row key={line.id}>
               <nldd-text-cell
                 text={line.description}
-                supporting-text={line.pricing_error ?? lineSummary(line)}
+                supporting-text={line.pricing_error ?? lineSummary(line, rates.name)}
               />
               {showMoney && (
                 <nldd-text-cell

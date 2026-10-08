@@ -143,24 +143,25 @@ async def test_overview_list(world, as_person):
     body = (await as_person(world.beheerder).get("/api/overview?year=2026")).json()
     assert body["year"] == 2026
     alfa = by_id(body["rows"], "assignment_id", world.assignment.id)
-    used = MEMBER_AMOUNT + COLLEAGUE_AMOUNT
-    assert alfa["totals"] == {
-        "budgeted_cents": PM_BUDGETED + HOSTING,
-        "realised_cents": 0,
-        "forecast_cents": used,
-        "coverage_cents": 0,
-        "used_cents": used,
-        "available_cents": PM_BUDGETED + HOSTING - used,
-        "overrun": False,
-    }
-    assert body["totals"]["budgeted_cents"] == PM_BUDGETED + HOSTING
-
-    # Another year: nothing budgeted and nothing used.
-    other_year = (
-        await as_person(world.beheerder).get("/api/overview?year=2027")
-    ).json()
-    alfa = by_id(other_year["rows"], "assignment_id", world.assignment.id)
-    assert alfa["pricing_error"] is not None or alfa["totals"]["budgeted_cents"] == 0
+    expected = MEMBER_AMOUNT + COLLEAGUE_AMOUNT
+    figures = alfa["figures"]
+    assert figures["budgeted_cents"] == PM_BUDGETED + HOSTING
+    # No month is closed: nothing realised, everything still planned.
+    assert figures["realised_cents"] == 0
+    assert figures["planned_cents"] == expected
+    assert figures["costs_cents"] == 0
+    assert figures["expected_total_cents"] == expected
+    assert figures["variance_cents"] == PM_BUDGETED + HOSTING - expected
+    assert Decimal(figures["variance_pct"]) == Decimal("13.7")
+    assert figures["overrun"] is False
+    assert Decimal(figures["realised_pct"]) == 0
+    assert alfa["reference_month"] is None
+    # The assignment is still potential: its amounts are pipeline and are
+    # never part of the running work.
+    assert alfa["phase"] == "potential"
+    assert body["figures_potential"]["budgeted_cents"] == PM_BUDGETED + HOSTING
+    assert body["figures_active"]["budgeted_cents"] == 0
+    assert "figures" not in body and "totals" not in body
 
     whole = (await as_person(world.beheerder).get("/api/overview?year=all")).json()
     assert whole["year"] is None
@@ -169,11 +170,13 @@ async def test_overview_list(world, as_person):
 async def test_overview_list_without_class_b_has_no_amounts(world, as_person):
     for person in (world.planner, world.member):
         body = (await as_person(person).get("/api/overview?year=2026")).json()
-        assert "totals" not in body
+        assert not [key for key in body if key.startswith("figures")]
         assert body["rows"], person.name
         for row in body["rows"]:
             assert "pricing_error" not in row
-            assert "totals" not in row
+            assert "reference_month" not in row
+            assert row.get("figures") is None
+            assert row["phase"] in ("potential", "active", "closed")
 
 
 async def test_overview_rejects_a_bad_year(world, as_person):

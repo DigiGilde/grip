@@ -126,7 +126,14 @@ def _head(labels: list[str], numeric_from: int) -> str:
     )
 
 
-_TOTALS_HEAD = ["Begroot", "Gerealiseerd", "Prognose", "Kosten", "Beschikbaar"]
+_TOTALS_HEAD = [
+    "Begroot",
+    "Gerealiseerd",
+    "Nog gepland",
+    "Kosten",
+    "Verwacht totaal",
+    "Afwijking",
+]
 
 
 def _totals_cells(totals: Any) -> list[str] | None:
@@ -137,6 +144,7 @@ def _totals_cells(totals: Any) -> list[str] | None:
         escape(_euro(totals.get("realised_cents"))),
         escape(_euro(totals.get("forecast_cents"))),
         escape(_euro(totals.get("coverage_cents"))),
+        escape(_euro(totals.get("used_cents"))),
         escape(_euro(totals.get("available_cents")))
         + (
             ' <span class="sub">(overschrijding)</span>'
@@ -282,7 +290,8 @@ def _cost_section(report: dict[str, Any]) -> str:
             )
         parts.append(
             "<table>\n<caption>Per jaar. Gerealiseerd is de inzet van afgesloten "
-            "maanden; prognose is de geplande inzet van open maanden.</caption>\n"
+            "maanden; nog gepland is de geplande inzet van open maanden. Afwijking is "
+            "begroot min verwacht totaal.</caption>\n"
             + _head(["Periode"] + _TOTALS_HEAD, 1)
             + f"\n<tbody>\n{_rows(period_rows, 1)}\n{total_row}\n</tbody>\n</table>"
         )

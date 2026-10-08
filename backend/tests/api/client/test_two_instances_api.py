@@ -222,6 +222,9 @@ async def test_requesting_deciding_and_following_through_the_api(instances, _tes
         quote = await quotes.issue_quote(db, received.id, actor=manager)
         total = quote.total_cents
         issued_hash_local = quote.snapshot_hash
+        # Issuing sends nothing; the quote goes out when it is offered
+        # through the client's grip.
+        await quotes.offer_quote(db, quote.id, "client_instance", actor=manager)
     await _deliver(contractor)
 
     # --- 3. the tekenbevoegde reads and accepts ---------------------------
@@ -231,7 +234,7 @@ async def test_requesting_deciding_and_following_through_the_api(instances, _tes
         assert listed["contractor_name"] == "Voorbeeldgilde"
         assert listed["total_cents"] == total
         detail = (await http.get(f"/api/received-quotes/{quote.id}")).json()
-        # The snapshot is the contractor's, translated back without loss.
+        # The quote is the contractor's: the same bytes, so the same hash.
         assert detail["quote"]["snapshot_hash"] == issued_hash_local
         (line,) = detail["quote"]["content"]["lines"]
         assert line["description"] == "Productmanager"

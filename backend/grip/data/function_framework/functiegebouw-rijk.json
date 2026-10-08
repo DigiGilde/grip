@@ -1,0 +1,755 @@
+{
+  "name": "Functiegebouw Rijk",
+  "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw",
+  "read_on": "2026-10-08",
+  "note": "Function families, function groups and the salary scales of each group as published on the public overview page of the Functiegebouw Rijk on the date above. Read once by hand, not scraped on a schedule. The site says an API for families and groups exists and that access is arranged on request (see /api on the same site); when this instance has that access, a sync can upsert on source_id. Scale 19 is published as 'Niveau 19'.",
+  "families": [
+    {
+      "key": "uitvoering",
+      "name": "Uitvoering",
+      "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/uitvoering",
+      "groups": [
+        {
+          "source_id": "a4d7c0e4-dcb8-418d-95c8-61a12b475664",
+          "name": "Medewerker Verwerken en Behandelen",
+          "scales": [
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/uitvoering/medewerker-verwerken-en-behandelen"
+        },
+        {
+          "source_id": "2d6041a4-c921-466f-b8a2-8ae8bbd34f00",
+          "name": "Medewerker Behandelen en Ontwikkelen",
+          "scales": [
+            8,
+            9,
+            10,
+            11
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/uitvoering/medewerker-behandelen-en-ontwikkelen"
+        },
+        {
+          "source_id": "23d0c996-95b4-4678-984f-611a981fea1b",
+          "name": "Senior Medewerker Behandelen en Ontwikkelen",
+          "scales": [
+            11,
+            12,
+            13,
+            14
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/uitvoering/senior-medewerker-behandelen-en-ontwikkelen"
+        },
+        {
+          "source_id": "69d90bc9-bede-477b-a716-f07f309b6869",
+          "name": "Commissiesecretaris",
+          "scales": [
+            8,
+            9,
+            10,
+            11,
+            12,
+            13
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/uitvoering/functiegroep-commissiesecretaris"
+        },
+        {
+          "source_id": "195390f4-1273-4170-9e6a-58830b395038",
+          "name": "Medewerker Vastgoed en Infrastructuur",
+          "scales": [
+            5,
+            6,
+            7,
+            8
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/uitvoering/medewerker-vastgoed-en-infrastructuur"
+        },
+        {
+          "source_id": "0e04a76c-d789-43c3-b5e6-55023bc4f8ab",
+          "name": "Senior Medewerker Vastgoed en Infrastructuur",
+          "scales": [
+            9,
+            10,
+            11
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/uitvoering/senior-medewerker-vastgoed-en-infrastructuur"
+        },
+        {
+          "source_id": "97a71f80-6baf-4b70-b7b6-625212e7e175",
+          "name": "Expert Vastgoed en Infrastructuur",
+          "scales": [
+            11,
+            12,
+            13,
+            14
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/uitvoering/expert-vastgoed-en-infrastructuur"
+        },
+        {
+          "source_id": "dc47e4bd-de56-4fda-a67c-8071c36ba1d6",
+          "name": "Senior Medewerker Iv",
+          "scales": [
+            8,
+            9,
+            10,
+            11
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/uitvoering/senior-medewerker-iv"
+        },
+        {
+          "source_id": "6371a059-e4df-4c56-8106-de877901caca",
+          "name": "Expert Iv",
+          "scales": [
+            11,
+            12,
+            13
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/uitvoering/expert-iv"
+        },
+        {
+          "source_id": "4666b278-f02f-42a5-8169-e4ef8c1f5c03",
+          "name": "Operationeel Medewerker WIV WVO",
+          "scales": [
+            5,
+            6,
+            7,
+            8
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/uitvoering/operationeel-medewerker-wiv-wvo"
+        },
+        {
+          "source_id": "76e082ef-3536-404c-8222-4747b198fbfc",
+          "name": "Operationeel Specialist WIV/WVO",
+          "scales": [
+            9,
+            10,
+            11
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/uitvoering/operationeel-specialist-wiv-wvo"
+        },
+        {
+          "source_id": "fa6afd53-b645-4cc5-a46b-bf63890e4f10",
+          "name": "Senior Operationeel Specialist WIV /WVO",
+          "scales": [
+            11,
+            12,
+            13
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/uitvoering/senior-operationeel-specialist-wiv--wvo"
+        },
+        {
+          "source_id": "460815b3-72bd-4ca1-ae33-55dba7b0ca6d",
+          "name": "(Inrichtings)beveiliger",
+          "scales": [
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/uitvoering/inrichtingsbeveiliger"
+        },
+        {
+          "source_id": "8f8f84a7-f972-487d-82b9-37c0f466d3e6",
+          "name": "Inrichtingswerker",
+          "scales": [
+            6,
+            7,
+            8
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/uitvoering/inrichtingswerker"
+        },
+        {
+          "source_id": "72ce34b9-a7a8-40af-be71-a67a0564ffe1",
+          "name": "Medewerker Educatie en Vorming",
+          "scales": [
+            5,
+            6,
+            7,
+            8,
+            9
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/uitvoering/medewerker-educatie-en-vorming"
+        },
+        {
+          "source_id": "ca98d164-b374-4ca2-96e2-1d7e40732918",
+          "name": "Zorgprofessional",
+          "scales": [
+            6,
+            7,
+            8,
+            9,
+            10
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/uitvoering/zorgprofessional"
+        },
+        {
+          "source_id": "70f54a26-8a61-416f-bc63-30dddb35a2a0",
+          "name": "Forensisch Therapeutisch Werker",
+          "scales": [
+            7,
+            8,
+            9,
+            10
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/uitvoering/forensisch-therapeutisch-werker"
+        },
+        {
+          "source_id": "bf8483eb-885d-471c-aa93-b9ccd832cc2d",
+          "name": "Sociaal-Maatschappelijk Werker",
+          "scales": [
+            8,
+            9,
+            10
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/uitvoering/sociaal-maatschappelijk-werker"
+        },
+        {
+          "source_id": "bf41533d-36ba-4eb6-9e6d-f5006ed9046c",
+          "name": "Medicus / Gedragswetenschapper",
+          "scales": [
+            10,
+            11,
+            12,
+            13,
+            14
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/uitvoering/medicus---gedragswetenschapper"
+        },
+        {
+          "source_id": "39b565e5-d16b-472f-a866-126716e681f1",
+          "name": "Geestelijk Verzorger",
+          "scales": [
+            12
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/uitvoering/geestelijk-verzorger"
+        },
+        {
+          "source_id": "8415864e-85bb-45e2-89c1-dd8f78ee16cf",
+          "name": "Medewerker Operationeel Verkeersmanagement",
+          "scales": [
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/uitvoering/medewerker-operationeel-verkeersmanagement"
+        },
+        {
+          "source_id": "2573c264-1628-490b-8150-e609a3ee5b60",
+          "name": "Medewerker Nautisch",
+          "scales": [
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/uitvoering/medewerker-nautisch"
+        },
+        {
+          "source_id": "dbaf835a-4b1d-4341-8c31-25683c0baa7f",
+          "name": "Operationeel Medewerker Scheepsmanagement",
+          "scales": [
+            6,
+            7,
+            8,
+            9,
+            10
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/uitvoering/operationeel-medewerker-scheepsmanagement"
+        },
+        {
+          "source_id": "b3605b63-cc12-4e80-a565-048375209d2f",
+          "name": "Medewerker Natuur- en Terreinbeheer",
+          "scales": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/uitvoering/medewerker-natuur--en-terreinbeheer"
+        },
+        {
+          "source_id": "3e327228-78ec-43d8-8740-439a1a89c5d5",
+          "name": "Senior Medewerker Natuur- en Terreinbeheer",
+          "scales": [
+            8,
+            9
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/uitvoering/senior-medewerker-natuur--en-terreinbeheer"
+        },
+        {
+          "source_id": "1e421bad-943f-47d9-84f1-7b7ad40cfc3a",
+          "name": "Assistent Medewerker Natuur- en Terreinbeheer",
+          "scales": [
+            1,
+            2,
+            3
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/uitvoering/assistent-medewerker-natuur--en-terreinbeheer"
+        }
+      ]
+    },
+    {
+      "key": "advisering",
+      "name": "Advisering",
+      "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/advisering",
+      "groups": [
+        {
+          "source_id": "8c18543f-1817-4fc3-a890-14a6ce429ca3",
+          "name": "Medewerker Advisering",
+          "scales": [
+            8,
+            9,
+            10,
+            11
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/advisering/medewerker-advisering"
+        },
+        {
+          "source_id": "46800b1d-3784-43c8-bcea-63920282d08f",
+          "name": "(Senior) Adviseur",
+          "scales": [
+            11,
+            12,
+            13
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/advisering/senior-adviseur"
+        },
+        {
+          "source_id": "845e0844-3715-4f75-a10e-ee27c81f751b",
+          "name": "Coördinerend / Specialistisch Adviseur",
+          "scales": [
+            13,
+            14,
+            15
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/advisering/coordinerend---specialistisch-adviseur"
+        },
+        {
+          "source_id": "21fab60a-087f-49aa-9f0e-af290822438b",
+          "name": "Strategisch Adviseur",
+          "scales": [
+            15,
+            16
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/advisering/strategisch-adviseur"
+        }
+      ]
+    },
+    {
+      "key": "kennis-en-onderzoek",
+      "name": "Kennis en Onderzoek",
+      "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/kennis-en-onderzoek",
+      "groups": [
+        {
+          "source_id": "d598f899-8377-4dfd-adc6-b4374325a700",
+          "name": "Onderzoeksondersteuner",
+          "scales": [
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/kennis-en-onderzoek/onderzoeksondersteuner"
+        },
+        {
+          "source_id": "63fb6ba7-6561-4076-ab13-74f470df1fbb",
+          "name": "Onderzoeksmedewerker",
+          "scales": [
+            8,
+            9,
+            10,
+            11
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/kennis-en-onderzoek/onderzoeksmedewerker"
+        },
+        {
+          "source_id": "fb2f87a1-46c6-4b03-99e7-8103e2997194",
+          "name": "Wetenschappelijk Medewerker",
+          "scales": [
+            10,
+            11,
+            12,
+            13
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/kennis-en-onderzoek/wetenschappelijk-medewerker"
+        },
+        {
+          "source_id": "660d490b-d8ae-4862-a380-b50df5c453ef",
+          "name": "Senior Wetenschappelijk Medewerker",
+          "scales": [
+            13,
+            14,
+            15
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/kennis-en-onderzoek/senior-wetenschappelijke-medewerker"
+        },
+        {
+          "source_id": "0a93ebb5-6b3e-4286-9372-12a9cefb45cc",
+          "name": "Topwetenschappelijk Medewerker",
+          "scales": [
+            15,
+            16,
+            17
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/kennis-en-onderzoek/topwetenschappelijk-medewerker"
+        }
+      ]
+    },
+    {
+      "key": "bedrijfsvoering",
+      "name": "Bedrijfsvoering",
+      "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/bedrijfsvoering",
+      "groups": [
+        {
+          "source_id": "96454327-4bec-4782-8c0d-10ba5556262f",
+          "name": "Adviseur Bedrijfsvoering",
+          "scales": [
+            8,
+            9,
+            10,
+            11
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/bedrijfsvoering/adviseur-bedrijfsvoering"
+        },
+        {
+          "source_id": "fb060be1-3a78-4691-81f7-04ad8f591b04",
+          "name": "Senior Adviseur Bedrijfsvoering",
+          "scales": [
+            11,
+            12,
+            13
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/bedrijfsvoering/senior-adviseur-bedrijfsvoering"
+        },
+        {
+          "source_id": "25a70eb0-d108-4ea7-96ee-daeb784bd7d4",
+          "name": "Coördinerend Specialistisch Adviseur Bedrijfsvoering",
+          "scales": [
+            13,
+            14,
+            15
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/bedrijfsvoering/coordinerend-specialistisch-adviseur-bedrijfsvoering"
+        },
+        {
+          "source_id": "567ba590-7559-46dc-b9d1-2dab81bb7bcf",
+          "name": "Assistent Medewerker Facilitair Management",
+          "scales": [
+            1,
+            2,
+            3
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/bedrijfsvoering/assistent-medewerker-facilitair-management"
+        },
+        {
+          "source_id": "dff3807b-2d51-4165-859b-4ec2232dae2f",
+          "name": "Medewerker Facilitair Management",
+          "scales": [
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/bedrijfsvoering/medewerker-facilitair-management"
+        },
+        {
+          "source_id": "5256bdb0-3f2f-4567-8607-09f4f73d9822",
+          "name": "Medewerker Vervoer",
+          "scales": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/bedrijfsvoering/medewerker-vervoer"
+        },
+        {
+          "source_id": "87f03ade-d87b-4745-a595-9d52aa08e38b",
+          "name": "Medewerker Beveiliging",
+          "scales": [
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/bedrijfsvoering/medewerker-beveiliging"
+        },
+        {
+          "source_id": "e2b72703-b951-4368-a65d-df5e1ffa9df2",
+          "name": "Assistent Medewerker Administratie",
+          "scales": [
+            1,
+            2,
+            3
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/bedrijfsvoering/assistent-medewerker-administratie"
+        },
+        {
+          "source_id": "83f191b2-c00f-4394-bcbd-59f547ad3237",
+          "name": "Medewerker Administratie",
+          "scales": [
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/bedrijfsvoering/medewerker-administratie"
+        },
+        {
+          "source_id": "3bbd0fdf-4217-4fc3-86cb-e519f1f59b9d",
+          "name": "Medewerker Communicatie",
+          "scales": [
+            5,
+            6,
+            7,
+            8
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/bedrijfsvoering/medewerker-communicatie"
+        },
+        {
+          "source_id": "ef987675-c7e7-4c3a-9e0f-1200f5a3d2c9",
+          "name": "Medewerker ICT/Techniek/Informatiebeheer/DIV",
+          "scales": [
+            5,
+            6,
+            7,
+            8
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/bedrijfsvoering/medewerker-ict-techniek-informatiebeheer-div"
+        },
+        {
+          "source_id": "297b3ea2-9413-458f-8793-09b3f968630f",
+          "name": "Managementondersteuner",
+          "scales": [
+            5,
+            6,
+            7,
+            8,
+            9,
+            10
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/bedrijfsvoering/managementondersteuner"
+        },
+        {
+          "source_id": "c41bd866-08c1-4433-bada-d7e3575cc493",
+          "name": "Trainer",
+          "scales": [
+            7,
+            8,
+            9,
+            10,
+            11,
+            12
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/bedrijfsvoering/trainer"
+        }
+      ]
+    },
+    {
+      "key": "toezicht",
+      "name": "Toezicht",
+      "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/toezicht",
+      "groups": [
+        {
+          "source_id": "aef89b4e-4f14-46bd-b8f9-666c313751a9",
+          "name": "Ondersteunend Medewerker Toezicht / Medewerker Toezicht",
+          "scales": [
+            5,
+            6,
+            7,
+            8
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/toezicht/ondersteunend-medewerker-toezicht---medewerker-toezicht"
+        },
+        {
+          "source_id": "bc826b9b-2f58-44ce-a6c0-93bdbf753210",
+          "name": "Inspecteur / Medewerker Toezicht",
+          "scales": [
+            8,
+            9,
+            10,
+            11
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/toezicht/inspecteur---medewerker-toezicht"
+        },
+        {
+          "source_id": "f12968ef-0759-43aa-92bf-c1266afea812",
+          "name": "Senior Inspecteur",
+          "scales": [
+            11,
+            12,
+            13
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/toezicht/senior-inspecteur"
+        },
+        {
+          "source_id": "85105c95-1c60-4e6a-9060-966b1e2d972e",
+          "name": "Coördinerend / Specialistisch Inspecteur",
+          "scales": [
+            13,
+            14,
+            15
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/toezicht/coordinerend---specialistisch-inspecteur"
+        },
+        {
+          "source_id": "3ca72b4c-f29e-4a1a-ad76-b4b965ce926f",
+          "name": "Strategisch Inspecteur",
+          "scales": [
+            15,
+            16
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/toezicht/strategisch-inspecteur"
+        }
+      ]
+    },
+    {
+      "key": "project---programmamanagement",
+      "name": "Project-/ Programmamanagement",
+      "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/project---programmamanagement",
+      "groups": [
+        {
+          "source_id": "cc075981-62e3-4c8a-aa85-da8be34640ca",
+          "name": "Projectleider",
+          "scales": [
+            9,
+            10,
+            11
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/project---programmamanagement/projectleider-s9-11"
+        },
+        {
+          "source_id": "1bcabee7-557f-44c7-a7cb-b2471953088f",
+          "name": "Project-/Programmamanager",
+          "scales": [
+            12,
+            13,
+            14,
+            15
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/project---programmamanagement/project--programmamanager"
+        },
+        {
+          "source_id": "7bb5e320-7be1-4b8e-94d8-915c29348e39",
+          "name": "Project-/Programmadirecteur",
+          "scales": [
+            16,
+            17
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/project---programmamanagement/project--programmadirecteur"
+        }
+      ]
+    },
+    {
+      "key": "lijnmanagement",
+      "name": "Lijnmanagement",
+      "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/lijnmanagement",
+      "groups": [
+        {
+          "source_id": "dbc8da2c-1242-406a-8ef5-fd9da21cf677",
+          "name": "Operationeel Manager",
+          "scales": [
+            7,
+            8,
+            9,
+            10,
+            11
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/lijnmanagement/operationeel-manager"
+        },
+        {
+          "source_id": "a5c1aa78-f25a-4950-a41e-ecbc6c2f40dc",
+          "name": "Manager",
+          "scales": [
+            12,
+            13,
+            14,
+            15
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/lijnmanagement/manager-s12-15"
+        },
+        {
+          "source_id": "b374e428-9ad2-4247-a8bf-ff615bd170ed",
+          "name": "Topmanager",
+          "scales": [
+            16,
+            17,
+            18
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/lijnmanagement/topmanager-s16-18"
+        },
+        {
+          "source_id": "f71439c0-d13b-4bd1-80ad-ed3446f723ba",
+          "name": "Topmanager-generaal",
+          "scales": [
+            19
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/lijnmanagement/topmanager-generaal"
+        }
+      ]
+    },
+    {
+      "key": "beleid",
+      "name": "Beleid",
+      "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/beleid",
+      "groups": [
+        {
+          "source_id": "11017440-2f81-4c83-a85c-0586ec1e689b",
+          "name": "Beleidsondersteuner",
+          "scales": [
+            8,
+            9,
+            10,
+            11
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/beleid/beleidsondersteuner"
+        },
+        {
+          "source_id": "22e70331-658a-4cec-b93b-fa72d693902b",
+          "name": "(Senior) Beleidsmedewerker",
+          "scales": [
+            11,
+            12,
+            13
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/beleid/senior-beleidsmedewerker"
+        },
+        {
+          "source_id": "f8ba0a4d-ecc3-4fd3-bb53-06ad6e045ed2",
+          "name": "Coordinerend Beleidsmedewerker",
+          "scales": [
+            13,
+            14,
+            15
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/beleid/coordinerend-beleidsmedewerker"
+        },
+        {
+          "source_id": "c641af47-0e1d-456d-8198-6b51046876b4",
+          "name": "Strategisch Beleidsmedewerker",
+          "scales": [
+            15,
+            16
+          ],
+          "source_url": "https://www.functiegebouwrijksoverheid.nl/functiegebouw/functiefamilies/beleid/strategisch-beleidsmedewerker"
+        }
+      ]
+    }
+  ]
+}

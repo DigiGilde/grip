@@ -33,8 +33,11 @@ async def test_a_multi_year_assignment_is_split_per_year(as_person, world):
     assert alfa["realised_cents"] == ALFA_REALISED_2026
     assert alfa["forecast_cents"] == ALFA_FORECAST_2026
     assert alfa["costs_cents"] == ALFA_COVERAGE_2026
-    assert alfa["billed_cents"] == world.export.total_cents == ALFA_REALISED_2026
-    assert alfa["to_bill_cents"] == 0
+    assert alfa["delivered_cents"] == world.export.total_cents == ALFA_REALISED_2026
+    assert alfa["to_deliver_cents"] == 0
+    # Delivered is not invoiced: no invoice is recorded yet.
+    assert alfa["invoiced_cents"] == 0
+    assert alfa["to_invoice_cents"] == ALFA_REALISED_2026
     assert alfa["difference_cents"] == ALFA_BUDGET_2026 - ALFA_REALISED_2026
 
     beta = _row(body, "Opdracht Beta")
@@ -45,7 +48,7 @@ async def test_a_multi_year_assignment_is_split_per_year(as_person, world):
     totals = body["totals"]
     assert totals["agreed_cents"] == ALFA_BUDGET_2026
     assert totals["realised_cents"] == ALFA_REALISED_2026
-    assert totals["billed_cents"] == ALFA_REALISED_2026
+    assert totals["delivered_cents"] == ALFA_REALISED_2026
     assert totals["budgeted_cents"] == ALFA_BUDGET_2026 + BETA_PIPELINE_2026
 
     next_year = (await client.get(URL, params={"year": 2027})).json()
@@ -53,12 +56,12 @@ async def test_a_multi_year_assignment_is_split_per_year(as_person, world):
     alfa_2027 = next_year["rows"][0]
     assert alfa_2027["agreed_cents"] == ALFA_BUDGET_2027
     assert alfa_2027["realised_cents"] == 0
-    assert alfa_2027["billed_cents"] == 0
+    assert alfa_2027["delivered_cents"] == 0
 
     assert (await client.get(URL, params={"year": 2025})).json()["rows"] == []
 
 
-async def test_realised_and_not_yet_billed(as_person, world, db_session):
+async def test_realised_and_not_yet_delivered(as_person, world, db_session):
     from decimal import Decimal
 
     from grip.calc import Month
@@ -77,8 +80,37 @@ async def test_realised_and_not_yet_billed(as_person, world, db_session):
     body = (await as_person(world.beheerder).get(URL, params={"year": 2026})).json()
     alfa = _row(body, "Opdracht Alfa")
     assert alfa["realised_cents"] == ALFA_REALISED_2026 + 1800000 + 750000
-    assert alfa["billed_cents"] == ALFA_REALISED_2026
-    assert alfa["to_bill_cents"] == 1800000 + 750000
+    assert alfa["delivered_cents"] == ALFA_REALISED_2026
+    assert alfa["to_deliver_cents"] == 1800000 + 750000
+
+
+async def test_invoiced_only_once_an_invoice_is_recorded(as_person, world, db_session):
+    from datetime import date
+
+    from grip.services import outgoing_invoices
+
+    client = as_person(world.beheerder)
+    before = (await client.get(URL, params={"year": 2026})).json()
+    assert _row(before, "Opdracht Alfa")["invoiced_cents"] == 0
+    assert before["totals"]["invoiced_cents"] == 0
+    assert before["totals"]["to_invoice_cents"] == ALFA_REALISED_2026
+
+    await outgoing_invoices.record_invoice(
+        db_session,
+        world.alfa.id,
+        export_ids=[world.export.id],
+        invoice_number="F-2026-001",
+        invoice_date=date(2026, 8, 15),
+        amount_cents=ALFA_REALISED_2026,
+        actor=world.owner,
+        today=date(2026, 10, 1),
+    )
+    after = (await client.get(URL, params={"year": 2026})).json()
+    alfa = _row(after, "Opdracht Alfa")
+    assert alfa["delivered_cents"] == ALFA_REALISED_2026
+    assert alfa["invoiced_cents"] == ALFA_REALISED_2026
+    assert alfa["to_invoice_cents"] == 0
+    assert after["totals"]["invoiced_cents"] == ALFA_REALISED_2026
 
 
 async def test_an_export_of_a_reopened_month_does_not_count(
@@ -96,7 +128,7 @@ async def test_an_export_of_a_reopened_month_does_not_count(
     )
     body = (await as_person(world.beheerder).get(URL, params={"year": 2026})).json()
     alfa = _row(body, "Opdracht Alfa")
-    assert alfa["billed_cents"] == 0
+    assert alfa["delivered_cents"] == 0
     assert alfa["realised_cents"] == 0
 
 
@@ -133,9 +165,15 @@ async def test_the_csv_has_the_documented_columns(as_person, world):
     assert alfa["assignment_uri"] == world.alfa.uri
     assert alfa["agreed"] == "153000.00"
     assert alfa["realised"] == "21900.00"
-    assert alfa["billed"] == "21900.00"
-    assert alfa["to_bill"] == "0.00"
+    assert alfa["delivered"] == "21900.00"
+    assert alfa["to_deliver"] == "0.00"
     assert alfa["currency"] == "EUR"
+    # Billing data delivered is not an invoice: nothing is invoiced until
+    # an invoice is recorded.
+    assert "billed" not in rows[0]
+    assert alfa["invoiced"] == "0.00"
+    assert alfa["to_invoice"] == "21900.00"
+    assert rows[0][-3:] == ["currency", "invoiced", "to_invoice"]
     # Not agreed: empty, which is not the same as zero.
     assert by_name["Opdracht Beta"]["agreed"] == ""
     for name in world.staff_names:

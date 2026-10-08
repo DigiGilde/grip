@@ -2,16 +2,8 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { errorMessage } from '@/api/client';
-import {
-  Button,
-  DateInput,
-  EmptyNotice,
-  ErrorNotice,
-  Loading,
-  SectionHeading,
-  SelectInput,
-  TextInput,
-} from '@/features/assignments/ui';
+import { Button, DateInput, SelectInput, TextInput } from '@/features/assignments/ui';
+import { EmptyNotice, ErrorNotice, Loading, SectionHeading } from '@/ui/layout';
 import { NodePicker } from '@/features/nodes';
 import { useInstance } from '@/layout/useInstance';
 import { PageHeading } from '@/pages/PageHeading';
@@ -78,7 +70,7 @@ export function RequestQuotePage() {
         {options.data && !options.data.may_request ? (
           <EmptyNotice
             text="Je kunt geen offerte aanvragen"
-            supportingText="Een offerte aanvragen kan met de functie aanvrager. De beheerder van deze instantie kent functies toe."
+            supportingText="Hiervoor heb je het recht aanvrager nodig. Een beheerder kent dat toe."
           />
         ) : null}
         {options.data?.may_request ? (
@@ -98,14 +90,14 @@ export function RequestQuotePage() {
               placeholder="Kies een opdrachtnemer"
               required
               options={contractors.map((item) => ({ value: item.peer_id, label: item.name }))}
-              hint="Organisaties waarmee deze instantie is gekoppeld."
+              hint="Organisaties die met grip werken en met jullie gekoppeld zijn."
             />
             {chosen && !chosen.reachable ? (
               <nldd-banner
                 variant="warning"
                 size="sm"
-                text="Met deze opdrachtnemer is het contract nog niet compleet vastgelegd"
-                supporting-text="De aanvraag wordt vastgelegd, maar kan pas worden verstuurd als de beheerder de koppeling heeft aangevuld."
+                text="De koppeling met deze opdrachtnemer is nog niet compleet"
+                supporting-text="Je aanvraag wordt bewaard en gaat weg zodra een beheerder de koppeling heeft aangevuld."
               />
             ) : null}
             <TextInput

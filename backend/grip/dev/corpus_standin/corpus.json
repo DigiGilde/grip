@@ -1,0 +1,336 @@
+{
+  "toelichting": "Fictief corpus voor lokale ontwikkeling. Alle titels, organisaties en verwijzingen zijn verzonnen.",
+  "corpora": [
+    {
+      "key": "voorbeeldministerie",
+      "corpus": "https://corpus.voorbeeldministerie.example",
+      "naam": "Corpus Voorbeeldministerie (fictief)",
+      "peer_id": "00000000000000000101",
+      "grant_hash": "dev-grant-corpus-voorbeeldministerie",
+      "beherende_organisatie": {
+        "tooi_uri": "https://identifier.overheid.nl/tooi/id/ministerie/mnre0000",
+        "naam": "Voorbeeldministerie"
+      },
+      "nodes": [
+        {
+          "key": "pi_akkoord",
+          "id": "a0000000-0000-4000-8000-000000000001",
+          "type": "politieke_input",
+          "titel": "Passage over digitale dienstverlening in het fictieve coalitieakkoord 'Samen Vooruit'",
+          "omschrijving": "Fictieve passage: burgers en bedrijven regelen hun zaken met de overheid digitaal, in een keer goed.",
+          "status": "actief",
+          "geldig_vanaf": "2025-06-12",
+          "type_details": {
+            "soort": "coalitieakkoord",
+            "referentie": "Hoofdstuk 4, paragraaf 2 (fictief)",
+            "datum": "2025-06-12"
+          }
+        },
+        {
+          "key": "pi_motie",
+          "id": "a0000000-0000-4000-8000-000000000002",
+          "type": "politieke_input",
+          "titel": "Motie over hergebruik van digitale bouwstenen (fictief)",
+          "omschrijving": "Fictieve motie die de regering vraagt gedeelde bouwstenen te hergebruiken in plaats van ze per organisatie opnieuw te bouwen.",
+          "status": "actief",
+          "geldig_vanaf": "2025-11-04",
+          "type_details": {
+            "soort": "motie",
+            "referentie": "00000-00",
+            "datum": "2025-11-04"
+          }
+        },
+        {
+          "key": "probleem",
+          "id": "a0000000-0000-4000-8000-000000000003",
+          "type": "probleem",
+          "titel": "Burgers leveren dezelfde gegevens steeds opnieuw aan",
+          "omschrijving": "Fictief probleem: gegevens die de overheid al heeft worden bij elke aanvraag opnieuw uitgevraagd.",
+          "status": "actief",
+          "geldig_vanaf": "2025-06-12"
+        },
+        {
+          "key": "kader",
+          "id": "a0000000-0000-4000-8000-000000000004",
+          "type": "beleidskader",
+          "titel": "Kader digitale dienstverlening 2026-2030 (fictief)",
+          "omschrijving": "Fictief beleidskader met de uitgangspunten voor digitale dienstverlening.",
+          "status": "actief",
+          "geldig_vanaf": "2026-01-01"
+        },
+        {
+          "key": "doel_dienstverlening",
+          "id": "a0000000-0000-4000-8000-000000000005",
+          "type": "doel",
+          "titel": "Elke burger regelt overheidszaken in een keer goed",
+          "omschrijving": "Fictief doel. Tot 1 maart 2026 droeg dit doel een andere titel.",
+          "status": "actief",
+          "geldig_vanaf": "2025-09-01",
+          "titel_historie": [
+            {
+              "vanaf": "2025-09-01",
+              "titel": "Betere digitale dienstverlening aan burgers"
+            },
+            {
+              "vanaf": "2026-03-01",
+              "titel": "Elke burger regelt overheidszaken in een keer goed"
+            }
+          ]
+        },
+        {
+          "key": "doel_bouwstenen",
+          "id": "a0000000-0000-4000-8000-000000000006",
+          "type": "doel",
+          "titel": "Overheidsdiensten hergebruiken gedeelde bouwstenen",
+          "omschrijving": "Fictief doel dat voortvloeit uit de motie over hergebruik.",
+          "status": "actief",
+          "geldig_vanaf": "2025-12-01"
+        },
+        {
+          "key": "doel_toegankelijk",
+          "id": "a0000000-0000-4000-8000-000000000007",
+          "type": "doel",
+          "titel": "Gedeelde bouwstenen zijn aantoonbaar toegankelijk",
+          "omschrijving": "Fictief subdoel: elke gedeelde bouwsteen is getoetst op toegankelijkheid.",
+          "status": "actief",
+          "geldig_vanaf": "2026-01-15"
+        },
+        {
+          "key": "wet",
+          "id": "a0000000-0000-4000-8000-000000000008",
+          "type": "instrument",
+          "titel": "Wijziging van de Voorbeeldwet digitale dienstverlening",
+          "omschrijving": "Fictief wetstraject dat eenmalige gegevensuitvraag verplicht stelt.",
+          "status": "actief",
+          "geldig_vanaf": "2026-02-01",
+          "type_details": {
+            "soort": "wetgeving"
+          }
+        },
+        {
+          "key": "subsidie",
+          "id": "a0000000-0000-4000-8000-000000000009",
+          "type": "instrument",
+          "titel": "Subsidieregeling hergebruik bouwstenen",
+          "omschrijving": "Fictieve subsidieregeling voor organisaties die een gedeelde bouwsteen in gebruik nemen.",
+          "status": "actief",
+          "geldig_vanaf": "2026-01-01",
+          "type_details": {
+            "soort": "subsidie"
+          }
+        },
+        {
+          "key": "opdracht_alfa",
+          "id": "a0000000-0000-4000-8000-000000000010",
+          "type": "instrument",
+          "titel": "Opdracht aan het Voorbeeldgilde: bouwsteen Alfa",
+          "omschrijving": "Fictieve opdracht aan een uitvoerende organisatie om een gedeelde bouwsteen te bouwen en te beheren.",
+          "status": "actief",
+          "geldig_vanaf": "2026-01-01",
+          "type_details": {
+            "soort": "overig"
+          }
+        },
+        {
+          "key": "opdracht_beta",
+          "id": "a0000000-0000-4000-8000-000000000011",
+          "type": "instrument",
+          "titel": "Opdracht aan het Voorbeeldgilde: toegankelijkheidstoets Beta",
+          "omschrijving": "Fictieve opdracht aan een uitvoerende organisatie om bouwstenen op toegankelijkheid te toetsen.",
+          "status": "actief",
+          "geldig_vanaf": "2026-03-01",
+          "type_details": {
+            "soort": "overig"
+          }
+        },
+        {
+          "key": "voorlichting",
+          "id": "a0000000-0000-4000-8000-000000000012",
+          "type": "instrument",
+          "titel": "Voorlichting over de bouwstenencatalogus",
+          "omschrijving": "Fictieve voorlichtingscampagne voor organisaties die bouwstenen kunnen hergebruiken.",
+          "status": "actief",
+          "geldig_vanaf": "2026-10-01",
+          "type_details": {
+            "soort": "voorlichting"
+          }
+        },
+        {
+          "key": "maatregel",
+          "id": "a0000000-0000-4000-8000-000000000013",
+          "type": "maatregel",
+          "titel": "Bouwstenencatalogus inrichten",
+          "omschrijving": "Fictieve maatregel: een catalogus waarin elke gedeelde bouwsteen vindbaar is.",
+          "status": "actief",
+          "geldig_vanaf": "2026-01-01"
+        },
+        {
+          "key": "effect",
+          "id": "a0000000-0000-4000-8000-000000000014",
+          "type": "effect",
+          "titel": "Minder dubbele gegevensuitvraag",
+          "omschrijving": "Fictief effect waaraan het doel wordt afgemeten.",
+          "status": "actief",
+          "geldig_vanaf": "2026-01-01"
+        },
+        {
+          "key": "bron",
+          "id": "a0000000-0000-4000-8000-000000000015",
+          "type": "bron",
+          "titel": "Evaluatie digitale dienstverlening 2025 (fictief)",
+          "omschrijving": "Fictief evaluatierapport waarnaar het doel verwijst.",
+          "status": "actief",
+          "geldig_vanaf": "2025-12-15"
+        }
+      ],
+      "edges": [
+        [
+          "kader",
+          "pi_akkoord",
+          "vloeit_voort_uit"
+        ],
+        [
+          "doel_dienstverlening",
+          "pi_akkoord",
+          "vloeit_voort_uit"
+        ],
+        [
+          "doel_dienstverlening",
+          "kader",
+          "onderdeel_van"
+        ],
+        [
+          "doel_dienstverlening",
+          "probleem",
+          "adresseert"
+        ],
+        [
+          "doel_bouwstenen",
+          "pi_motie",
+          "vloeit_voort_uit"
+        ],
+        [
+          "doel_bouwstenen",
+          "doel_dienstverlening",
+          "draagt_bij_aan"
+        ],
+        [
+          "doel_toegankelijk",
+          "doel_bouwstenen",
+          "onderdeel_van"
+        ],
+        [
+          "wet",
+          "doel_dienstverlening",
+          "implementeert"
+        ],
+        [
+          "subsidie",
+          "doel_bouwstenen",
+          "implementeert"
+        ],
+        [
+          "opdracht_alfa",
+          "doel_bouwstenen",
+          "implementeert"
+        ],
+        [
+          "opdracht_beta",
+          "doel_toegankelijk",
+          "implementeert"
+        ],
+        [
+          "voorlichting",
+          "doel_bouwstenen",
+          "implementeert"
+        ],
+        [
+          "maatregel",
+          "doel_bouwstenen",
+          "draagt_bij_aan"
+        ],
+        [
+          "wet",
+          "effect",
+          "leidt_tot"
+        ],
+        [
+          "effect",
+          "doel_dienstverlening",
+          "meet"
+        ],
+        [
+          "bron",
+          "doel_dienstverlening",
+          "verwijst_naar"
+        ],
+        [
+          "doel_bouwstenen",
+          "https://corpus.anderministerie.example/id/node/b0000000-0000-4000-8000-000000000002",
+          "draagt_bij_aan",
+          "Verwijzing naar een doel in het corpus van een ander ministerie."
+        ]
+      ]
+    },
+    {
+      "key": "anderministerie",
+      "corpus": "https://corpus.anderministerie.example",
+      "naam": "Corpus Anderministerie (fictief)",
+      "peer_id": "00000000000000000102",
+      "grant_hash": "dev-grant-corpus-anderministerie",
+      "beherende_organisatie": {
+        "tooi_uri": "https://identifier.overheid.nl/tooi/id/ministerie/mnre0001",
+        "naam": "Anderministerie"
+      },
+      "nodes": [
+        {
+          "key": "pi_toezegging",
+          "id": "b0000000-0000-4000-8000-000000000001",
+          "type": "politieke_input",
+          "titel": "Toezegging over Europese samenwerking bij digitale diensten (fictief)",
+          "omschrijving": "Fictieve toezegging om aan te sluiten op Europese afspraken over uitwisselbaarheid.",
+          "status": "actief",
+          "geldig_vanaf": "2026-02-10",
+          "type_details": {
+            "soort": "toezegging",
+            "referentie": "TZ-0000 (fictief)",
+            "datum": "2026-02-10"
+          }
+        },
+        {
+          "key": "doel_europa",
+          "id": "b0000000-0000-4000-8000-000000000002",
+          "type": "doel",
+          "titel": "Overheidsdiensten zijn Europees uitwisselbaar",
+          "omschrijving": "Fictief doel in het corpus van een ander ministerie.",
+          "status": "actief",
+          "geldig_vanaf": "2026-03-01"
+        },
+        {
+          "key": "opdracht_delta",
+          "id": "b0000000-0000-4000-8000-000000000003",
+          "type": "instrument",
+          "titel": "Opdracht aan het Voorbeeldgilde: koppeling Delta",
+          "omschrijving": "Fictieve opdracht aan een uitvoerende organisatie om een Europese koppeling te bouwen.",
+          "status": "actief",
+          "geldig_vanaf": "2026-07-01",
+          "type_details": {
+            "soort": "overig"
+          }
+        }
+      ],
+      "edges": [
+        [
+          "doel_europa",
+          "pi_toezegging",
+          "vloeit_voort_uit"
+        ],
+        [
+          "opdracht_delta",
+          "doel_europa",
+          "implementeert"
+        ]
+      ]
+    }
+  ]
+}

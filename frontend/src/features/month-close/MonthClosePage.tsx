@@ -3,20 +3,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { errorMessage } from '@/api/client';
 import { orUndef, useNlddEvent } from '@/components/nldd/events';
-import {
-  Button,
-  EmptyNotice,
-  ErrorNotice,
-  FormSheet,
-  Loading,
-  SectionHeading,
-  TextInput,
-} from '@/features/assignments/ui';
+import { Button, TextInput } from '@/features/assignments/ui';
+import { EmptyNotice, ErrorNotice, FormSheet, Loading, SectionHeading } from '@/ui/layout';
 import { DocumentLink } from '@/features/quotes/ui';
 import { formatDateTime } from '@/features/quotes/format';
 import { useInstance } from '@/layout/useInstance';
 import { formatEuro, formatMonth, formatPercent } from '@/lib/format';
+import { useAssignmentShell } from '@/features/assignments/shell';
 import { PageHeading } from '@/pages/PageHeading';
+import { BillingSection } from './BillingSection';
 import {
   closeMonth,
   createExport,
@@ -179,18 +174,18 @@ function Exports({ exports, month }: { exports: BillingExport[]; month: string }
   if (ofMonth.length === 0) {
     return (
       <EmptyNotice
-        text="Er is nog geen export van deze maand"
-        supportingText="Een export legt de factuurgegevens vast zoals ze naar het financiële systeem gaan."
+        text="Deze maand is nog niet aangeleverd"
+        supportingText="Een aanlevering legt de factuurgegevens vast zoals ze naar de financiële administratie gaan."
       />
     );
   }
   return (
     <nldd-table
-      accessible-label={`Exports van ${formatMonth(month)}`}
+      accessible-label={`Aanleveringen van ${formatMonth(month)}`}
       columns="minmax(160px,1.2fr) minmax(140px,1fr) minmax(120px,1fr) 160px"
     >
       <nldd-table-row slot="header">
-        <nldd-text-cell text="Gemaakt op" />
+        <nldd-text-cell text="Aangeleverd op" />
         <nldd-text-cell text="Door" />
         <nldd-text-cell text="Totaal" horizontal-alignment="right" />
         <nldd-text-cell text="Bestand" />
@@ -214,6 +209,7 @@ function Exports({ exports, month }: { exports: BillingExport[]; month: string }
 /** The monthly close of one assignment: establish the actual inzet per month. */
 export function MonthClosePage() {
   const { assignmentId = '' } = useParams();
+  const shell = useAssignmentShell();
   const [searchParams, setSearchParams] = useSearchParams();
   const instance = useInstance();
   const queryClient = useQueryClient();
@@ -297,8 +293,17 @@ export function MonthClosePage() {
   return (
     <>
       <nldd-simple-section>
-        <PageHeading text={title} instanceName={instance?.name} />
-        <nldd-link href={`/opdrachten/${assignmentId}`} text="Terug naar de opdracht" size="md" />
+        {/* Inside the tabs of an assignment the shell shows the name and the way back. */}
+        {shell ? null : (
+          <>
+            <PageHeading text={title} instanceName={instance?.name} />
+            <nldd-link
+              href={`/opdrachten/${assignmentId}`}
+              text="Terug naar de opdracht"
+              size="md"
+            />
+          </>
+        )}
         {timeline.isPending ? <Loading /> : null}
         {timeline.isError ? <ErrorNotice message={errorMessage(timeline.error)} /> : null}
         {timeline.data && months.length === 0 ? (
@@ -355,6 +360,8 @@ export function MonthClosePage() {
           </nldd-table>
         ) : null}
       </nldd-simple-section>
+
+      <BillingSection assignmentId={assignmentId} />
 
       {selected ? (
         <nldd-simple-section>
@@ -483,11 +490,12 @@ export function MonthClosePage() {
 
       {selected && data?.closed ? (
         <nldd-simple-section>
-          <SectionHeading text="Factuurgegevens" />
+          <SectionHeading text="Factuurgegevens aanleveren" />
           <nldd-container gap="16">
             <nldd-text>
-              Grip maakt geen facturen. Een export legt de vastgestelde inzet van deze maand
-              vast als gegevens voor het financiële systeem.
+              Aanleveren legt de vastgestelde inzet van deze maand vast als gegevens voor de
+              financiële administratie, met een CSV-bestand. Het is geen factuur: of die is
+              verstuurd leg je vast onder Aanleveren en factureren.
             </nldd-text>
             {exports.isPending ? <Loading /> : null}
             {exports.isError ? <ErrorNotice message={errorMessage(exports.error)} /> : null}
@@ -495,11 +503,11 @@ export function MonthClosePage() {
             {data.lines.some((line) => 'established_amount_cents' in line) ? (
               <nldd-button-group>
                 <Button
-                  text="Maak export"
+                  text="Lever factuurgegevens aan"
                   loading={run.isPending}
                   onClick={() =>
                     run.mutate(() => createExport(assignmentId, selected), {
-                      onSuccess: () => setNotice('De export is gemaakt.'),
+                      onSuccess: () => setNotice('De factuurgegevens zijn aangeleverd.'),
                       onError: (failure) => setError(errorMessage(failure)),
                     })
                   }

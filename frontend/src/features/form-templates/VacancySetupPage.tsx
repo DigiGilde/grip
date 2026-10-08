@@ -3,21 +3,17 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError, errorMessage } from '@/api/client';
 import { formatDate } from '@/lib/format';
 import { useInstance } from '@/layout/useInstance';
-import { PageHeading } from '@/pages/PageHeading';
 import { VACANCY_KEYS } from '@/features/vacancies/api';
+import { Button, CheckboxInput, FileInput, Note, SelectInput, TextInput } from '@/features/vacancies/ui';
 import {
-  Button,
-  CheckboxInput,
   EmptyNotice,
   ErrorNotice,
-  FileInput,
   FormSheet,
   Loading,
-  Note,
+  Page,
+  Section,
   SectionHeading,
-  SelectInput,
-  TextInput,
-} from '@/features/vacancies/ui';
+} from '@/ui/layout';
 import {
   SETUP_KEYS,
   activateFormTemplate,
@@ -218,13 +214,10 @@ function Templates() {
   });
 
   return (
-    <>
-      <SectionHeading text="Aanvraagformulier" />
-      <Note>
-        Nieuwe aanvraagformulieren worden gemaakt van het formulier dat in gebruik is. Het
-        bestand staat alleen in deze instantie.
-      </Note>
-      <nldd-spacer size="8" />
+    <Section
+      title="Aanvraagformulier"
+      description="Een nieuw aanvraagformulier wordt gemaakt van het formulier dat in gebruik is."
+    >
       {templates.isPending && <Loading />}
       {templates.isError && <ErrorNotice message={errorMessage(templates.error)} />}
       {activate.isError && <ErrorNotice message={errorMessage(activate.error)} />}
@@ -271,7 +264,7 @@ function Templates() {
         onClose={() => setUploading(false)}
         mappings={mappings.data ?? []}
       />
-    </>
+    </Section>
   );
 }
 
@@ -283,14 +276,10 @@ function LanguageModelSection() {
   });
 
   return (
-    <>
-      <SectionHeading text="Taalmodel" />
-      <Note>
-        Het taalmodel stelt concepten op van vacatureteksten. Het adres, de sleutel en het model
-        zijn instellingen van de omgeving waarin deze instantie draait; ze zijn hier niet te
-        wijzigen.
-      </Note>
-      <nldd-spacer size="8" />
+    <Section
+      title="Taalmodel"
+      description="Stelt concepten op van vacatureteksten. Adres, sleutel en model horen bij de omgeving en zijn hier niet te wijzigen."
+    >
       {model.isPending && <Loading />}
       {model.isError && <ErrorNotice message={errorMessage(model.error)} />}
       {model.data && (
@@ -336,7 +325,7 @@ function LanguageModelSection() {
           </nldd-button-group>
         </>
       )}
-    </>
+    </Section>
   );
 }
 
@@ -352,23 +341,20 @@ export function VacancySetupPage() {
   const denied = access.error instanceof ApiError && access.error.status === 403;
 
   return (
-    <>
-      <nldd-simple-section>
-        <PageHeading text="Formulier en taalmodel" instanceName={instance?.name} />
-        {denied ? (
-          <EmptyNotice
-            text="Dit is voor de beheerder"
-            supportingText="Het aanvraagformulier en het taalmodel worden door de beheerder van deze instantie ingesteld."
-          />
-        ) : (
-          <Templates />
-        )}
-      </nldd-simple-section>
-      {!denied && !access.isPending && (
-        <nldd-simple-section>
-          <LanguageModelSection />
-        </nldd-simple-section>
+    <Page
+      title="Vacatureformulier en taalmodel"
+      instanceName={instance?.name}
+      spacing="sections"
+    >
+      {denied ? (
+        <EmptyNotice
+          text="Dit is voor beheerders"
+          supportingText="Het aanvraagformulier en het taalmodel stelt een beheerder in."
+        />
+      ) : (
+        <Templates />
       )}
-    </>
+      {!denied && !access.isPending ? <LanguageModelSection /> : null}
+    </Page>
   );
 }

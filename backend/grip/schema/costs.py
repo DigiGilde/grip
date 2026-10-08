@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated, Literal
 from uuid import UUID
@@ -14,6 +14,17 @@ from grip.access import DataClass, in_class, nested
 _FIN = in_class(DataClass.ASSIGNMENT_FINANCIAL)
 
 
+class AttachmentOut(BaseModel):
+    """A document attached to an invoice line: the received invoice itself."""
+
+    id: Annotated[UUID, _FIN]
+    filename: Annotated[str, _FIN]
+    content_type: Annotated[str, _FIN]
+    size_bytes: Annotated[int, _FIN]
+    uploaded_at: Annotated[datetime, _FIN]
+    uploaded_by_name: Annotated[str | None, _FIN]
+
+
 class InvoiceLineOut(BaseModel):
     id: Annotated[UUID, _FIN]
     reference: Annotated[str | None, _FIN]
@@ -21,6 +32,7 @@ class InvoiceLineOut(BaseModel):
     kind: Annotated[str, _FIN]
     amount_cents: Annotated[int, _FIN]
     period: Annotated[date | None, _FIN]
+    attachments: Annotated[list[AttachmentOut], nested()]
 
 
 class CoverageOut(BaseModel):
@@ -41,6 +53,8 @@ class CostItemOut(BaseModel):
     forecast_cents: Annotated[int, _FIN]
     actual_cents: Annotated[int, _FIN]
     estimate_cents: Annotated[int, _FIN]
+    # Budgeted minus the expected total; negative means over budget.
+    variance_cents: Annotated[int, _FIN]
     # R8. Null when the stored percentages add up to more than 100.
     covered_cents: Annotated[int | None, _FIN]
     uncovered_cents: Annotated[int | None, _FIN]
@@ -81,3 +95,13 @@ class InvoiceLineCreate(BaseModel):
 
 class CoverageUpdate(BaseModel):
     pct: Decimal = Field(gt=0, le=100)
+
+
+class InvoiceLineUpdate(BaseModel):
+    # Only the fields sent change. Reference, description and period may be
+    # sent as null to clear them.
+    kind: Literal["actual", "estimate"] | None = None
+    amount_cents: int | None = None
+    reference: str | None = Field(default=None, max_length=100)
+    description: str | None = Field(default=None, max_length=500)
+    period: date | None = None

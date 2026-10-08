@@ -8,6 +8,7 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from grip.access import DataClass, in_class, nested
+from grip.schema.finance import FiguresOut
 
 A = DataClass.ASSIGNMENT_BASIC
 B = DataClass.ASSIGNMENT_FINANCIAL
@@ -33,20 +34,27 @@ class OverviewRowOut(BaseModel):
     assignment_id: Annotated[UUID, in_class(A)]
     name: Annotated[str, in_class(A)]
     status: Annotated[str, in_class(A)]
+    # potential, active or closed.
+    phase: Annotated[str, in_class(A)]
     client_name: Annotated[str | None, in_class(A)]
     start_date: Annotated[date | None, in_class(A)]
     end_date: Annotated[date | None, in_class(A)]
     # Null when the assignment could not be priced; see pricing_error.
-    totals: Annotated[TotalsOut | None, nested()]
+    figures: Annotated[FiguresOut | None, nested()]
     pricing_error: Annotated[str | None, in_class(B)]
+    # First day of the last closed month; null when none is closed.
+    reference_month: Annotated[date | None, in_class(B)]
 
 
 class OverviewOut(BaseModel):
     # Null means the whole period.
     year: Annotated[int | None, in_class(A)]
     rows: Annotated[list[OverviewRowOut], nested()]
-    # Over the rows that could be priced.
-    totals: Annotated[TotalsOut, nested()]
+    # Subtotal per phase, over the rows that could be priced. Potential
+    # assignments are pipeline: they are never added to running work.
+    figures_potential: Annotated[FiguresOut, nested()]
+    figures_active: Annotated[FiguresOut, nested()]
+    figures_closed: Annotated[FiguresOut, nested()]
 
 
 class TeamMemberOut(BaseModel):

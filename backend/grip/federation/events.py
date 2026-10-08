@@ -34,6 +34,8 @@ from grip.federation.models import (
 from grip.federation.outbox import enqueue
 from grip.federation.peers import find_peer_for_organisation
 from grip.federation.registry import get_message_builder
+from grip.services.errors import DomainValidationError
+from grip.services.quote_channels import NOT_CONNECTED
 
 logger = logging.getLogger(__name__)
 
@@ -73,11 +75,18 @@ async def on_assignment_request_created(
     return await _to_one(db, payload, "sendAssignmentRequest", "contractor")
 
 
-async def on_quote_issued(
+async def on_quote_offered(
     db: AsyncSession, payload: dict[str, Any]
 ) -> list[FederationOutbox]:
-    """This instance, as contractor, issued a quote."""
-    return await _to_one(db, payload, "sendQuote", "client")
+    """This instance, as contractor, offers a quote to the client's instance.
+
+    The user chose this channel, so a client that cannot be reached is an
+    error and not something to pass over in silence.
+    """
+    rows = await _to_one(db, payload, "sendQuote", "client")
+    if not rows:
+        raise DomainValidationError(NOT_CONNECTED)
+    return rows
 
 
 async def on_quote_accepted(
@@ -142,7 +151,7 @@ async def on_vacancy_published(
 # Domain event type to the handler that queues the built message.
 EVENT_HANDLERS: dict[str, EventHandler] = {
     "assignment_request.created": on_assignment_request_created,
-    "quote.issued": on_quote_issued,
+    "quote.offered": on_quote_offered,
     "quote.accepted": on_quote_accepted,
     "quote.rejected": on_quote_rejected,
     "final_report.issued": on_final_report_issued,

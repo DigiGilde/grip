@@ -1,23 +1,24 @@
 import { useQuery } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
 import { STATUS_COLORS, statusLabel } from '@/features/assignments/labels';
-import { EmptyNotice, ErrorNotice, Loading } from '@/features/assignments/ui';
+import { EmptyNotice, ErrorNotice, Loading } from '@/ui/layout';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { fetchYearAccount, reportKeys, yearAccountCsvUrl, type YearAccountRow } from './api';
 import { KIND_LABELS, scopeNote } from './labels';
 import { assignmentReportPath } from './paths';
-import { MoneyCell, ReportBlock } from './ui';
+import { formatEuro } from '@/lib/format';
+import { Figures, MoneyCell, ReportBlock } from './ui';
 
-const AMOUNT_COLUMNS = '130px 130px 130px 130px 130px 130px 140px 140px';
+const AMOUNT_COLUMNS = '125px 125px 125px 125px 110px 125px 135px 125px 135px 150px';
 
 /** Whether the API sent amounts for this row at all. */
-const hasAmounts = (row: YearAccountRow) => 'billed_cents' in row;
+const hasAmounts = (row: YearAccountRow) => 'delivered_cents' in row;
 
 function AmountCells({ row }: { row: YearAccountRow }) {
   if (!hasAmounts(row)) {
     return (
       <>
-        {Array.from({ length: 8 }, (_, index) => (
+        {Array.from({ length: 10 }, (_, index) => (
           <nldd-text-cell key={index} />
         ))}
       </>
@@ -37,8 +38,16 @@ function AmountCells({ row }: { row: YearAccountRow }) {
       <MoneyCell cents={row.realised_cents} />
       <MoneyCell cents={row.forecast_cents} />
       <MoneyCell cents={row.costs_cents} />
-      <MoneyCell cents={row.billed_cents} />
-      <MoneyCell cents={row.to_bill_cents} />
+      <MoneyCell cents={row.delivered_cents} />
+      <MoneyCell
+        cents={row.to_deliver_cents}
+        {...((row.to_deliver_cents ?? 0) > 0 ? { note: 'Nog aan te leveren' } : {})}
+      />
+      <MoneyCell cents={row.invoiced_cents} />
+      <MoneyCell
+        cents={row.to_invoice_cents}
+        {...((row.to_invoice_cents ?? 0) > 0 ? { note: 'Nog te factureren' } : {})}
+      />
       <MoneyCell
         cents={row.difference_cents}
         {...(overAgreement ? { critical: true, note: 'Meer dan afgesproken' } : {})}
@@ -48,7 +57,7 @@ function AmountCells({ row }: { row: YearAccountRow }) {
 }
 
 /** The year account: assignments received and carried out in a budget year. */
-export function YearAccountView({ year }: { year: string }) {
+export function YearAccountView({ year, bare }: { year: string; bare?: boolean }) {
   const query = useQuery({
     queryKey: reportKeys.yearAccount(year),
     queryFn: () => fetchYearAccount(year),
@@ -69,6 +78,7 @@ export function YearAccountView({ year }: { year: string }) {
   const showAmounts = rows.some(hasAmounts);
   return (
     <ReportBlock
+      bare={bare}
       testId="year-account"
       title={`Jaarverantwoording ${account.year}`}
       note={scopeNote(
@@ -77,6 +87,51 @@ export function YearAccountView({ year }: { year: string }) {
         'De opdrachten waar je bij betrokken bent. Van een opdracht over meerdere jaren tellen de maanden van dit jaar.',
       )}
     >
+      {totals && (
+        <Figures
+          label="Jaarverantwoording in het kort"
+          figures={[
+            {
+              label: 'Afgesproken',
+              value: formatEuro(totals.agreed_cents),
+              detail: 'offertes met akkoord, het deel van dit jaar',
+              quiet: totals.agreed_cents === 0,
+            },
+            {
+              label: 'Gerealiseerd',
+              value: formatEuro(totals.realised_cents),
+              detail: `en ${formatEuro(totals.forecast_cents)} nog gepland`,
+              quiet: totals.realised_cents === 0,
+            },
+            totals.to_deliver_cents > 0
+              ? {
+                  label: 'Nog aan te leveren',
+                  value: formatEuro(totals.to_deliver_cents),
+                  attention: 'Gerealiseerd, nog niet aangeleverd',
+                  detail: `${formatEuro(totals.delivered_cents)} is aangeleverd`,
+                }
+              : {
+                  label: 'Nog aan te leveren',
+                  value: formatEuro(0),
+                  detail: `${formatEuro(totals.delivered_cents)} is aangeleverd`,
+                  quiet: true,
+                },
+            totals.to_invoice_cents > 0
+              ? {
+                  label: 'Nog te factureren',
+                  value: formatEuro(totals.to_invoice_cents),
+                  attention: 'Aangeleverd, geen factuur vastgelegd',
+                  detail: `${formatEuro(totals.invoiced_cents)} is gefactureerd`,
+                }
+              : {
+                  label: 'Nog te factureren',
+                  value: formatEuro(0),
+                  detail: `${formatEuro(totals.invoiced_cents)} is gefactureerd`,
+                  quiet: true,
+                },
+          ]}
+        />
+      )}
       <RouterLinks>
         <nldd-table
           accessible-label={`Jaarverantwoording ${account.year}`}
@@ -92,8 +147,10 @@ export function YearAccountView({ year }: { year: string }) {
                 <nldd-text-cell text="Afgesproken" horizontal-alignment="right" />
                 <nldd-text-cell text="Begroot" horizontal-alignment="right" />
                 <nldd-text-cell text="Gerealiseerd" horizontal-alignment="right" />
-                <nldd-text-cell text="Prognose" horizontal-alignment="right" />
+                <nldd-text-cell text="Nog gepland" horizontal-alignment="right" />
                 <nldd-text-cell text="Kosten" horizontal-alignment="right" />
+                <nldd-text-cell text="Aangeleverd" horizontal-alignment="right" />
+                <nldd-text-cell text="Nog aan te leveren" horizontal-alignment="right" />
                 <nldd-text-cell text="Gefactureerd" horizontal-alignment="right" />
                 <nldd-text-cell text="Nog te factureren" horizontal-alignment="right" />
                 <nldd-text-cell text="Afgesproken min gerealiseerd" horizontal-alignment="right" />
@@ -127,16 +184,20 @@ export function YearAccountView({ year }: { year: string }) {
               <MoneyCell cents={totals.realised_cents} bold />
               <MoneyCell cents={totals.forecast_cents} bold />
               <MoneyCell cents={totals.costs_cents} bold />
-              <MoneyCell cents={totals.billed_cents} bold />
-              <MoneyCell cents={totals.to_bill_cents} bold />
+              <MoneyCell cents={totals.delivered_cents} bold />
+              <MoneyCell cents={totals.to_deliver_cents} bold />
+              <MoneyCell cents={totals.invoiced_cents} bold />
+              <MoneyCell cents={totals.to_invoice_cents} bold />
               <nldd-text-cell />
             </nldd-table-row>
           )}
         </nldd-table>
       </RouterLinks>
       <nldd-text size="sm" color="secondary">
-        Een opdracht opent de rapportage van die opdracht. Gefactureerd is wat in factuurgegevens
-        van afgesloten maanden is vastgelegd.
+        Een opdracht opent de rapportage van die opdracht. Aangeleverd is wat als factuurgegevens
+        van afgesloten maanden naar de financiële administratie is gegaan. Gefactureerd is een
+        factuur die in grip is vastgelegd als verstuurd; tot dat gebeurt telt niets als
+        gefactureerd.
       </nldd-text>
       {totals && (
         <div>

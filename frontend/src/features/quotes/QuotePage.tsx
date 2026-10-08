@@ -2,34 +2,32 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { errorMessage } from '@/api/client';
-import {
-  Button,
-  DateInput,
-  EmptyNotice,
-  ErrorNotice,
-  FormSheet,
-  Loading,
-  SectionHeading,
-  TextInput,
-} from '@/features/assignments/ui';
+import { Button, DateInput, TextInput } from '@/features/assignments/ui';
+import { EmptyNotice, ErrorNotice, FormSheet, Loading, SectionHeading } from '@/ui/layout';
 import { useInstance } from '@/layout/useInstance';
 import { formatDate, formatEuro } from '@/lib/format';
+import { useAssignmentShell } from '@/features/assignments/shell';
 import { PageHeading } from '@/pages/PageHeading';
 import {
   ACCEPTANCE_FORM_LABELS,
+  OFFER_CHANNEL_LABELS,
+  OFFER_DELIVERY_LABELS,
   QUOTE_STATUS_COLORS,
   QUOTE_STATUS_LABELS,
   fetchInvitations,
+  fetchQuoteDetail,
   fetchQuotePreview,
   fetchQuotes,
-  inviteSigner,
   issueQuote,
+  offerQuote,
   quoteDocumentUrl,
   quoteKeys,
   recordRejection,
   recordUploadedAcceptance,
   signedDocumentUrl,
   signingLink,
+  type QuoteChannel,
+  type QuoteOffer,
   type QuotePreview,
   type QuoteSummary,
 } from './api';
@@ -84,14 +82,121 @@ function Invitations({ quoteId }: { quoteId: string }) {
   );
 }
 
+function offerDetail(offer: QuoteOffer): string {
+  const parts = [formatDateTime(offer.offered_at)];
+  if (offer.offered_by_name) parts.push(`door ${offer.offered_by_name}`);
+  return parts.join(', ');
+}
+
+function offerState(offer: QuoteOffer): string {
+  if (offer.channel === 'client_instance') {
+    return OFFER_DELIVERY_LABELS[offer.delivery ?? ''] ?? 'Aangeboden';
+  }
+  if (offer.channel === 'signing_link') return 'Uitnodiging staat klaar';
+  return 'Document meegegeven';
+}
+
+/**
+ * Offering an issued quote: the step after issuing. The channel is chosen
+ * here, per offer, and a quote may be offered more than once.
+ */
+function Offering({
+  quote,
+  onOpen,
+  onOffer,
+  busy,
+}: {
+  quote: QuoteSummary;
+  onOpen: (dialog: Dialog) => void;
+  onOffer: (quote: QuoteSummary, channel: 'client_instance' | 'document') => void;
+  busy: boolean;
+}) {
+  const query = useQuery({
+    queryKey: quoteKeys.detail(quote.id),
+    queryFn: () => fetchQuoteDetail(quote.id),
+  });
+  const offers = query.data?.offers ?? [];
+  const channels = query.data?.channels ?? [];
+  const channel = (name: string): QuoteChannel | undefined =>
+    channels.find((option) => option.channel === name);
+  const federated = channel('client_instance');
+  if (query.isPending) return null;
+
+  return (
+    <nldd-container gap="8">
+      <nldd-title
+        size={5}
+        heading-level={4}
+        text="Aanbieden"
+        supporting-text={
+          offers.length === 0
+            ? 'De offerte is uitgegeven en nog niet aangeboden. Kies hoe de opdrachtgever haar krijgt.'
+            : 'Je kunt de offerte opnieuw of langs een andere weg aanbieden.'
+        }
+      />
+      <nldd-button-group>
+        <Button
+          text={OFFER_CHANNEL_LABELS.client_instance ?? ''}
+          appearance={federated?.suggested ? 'primary' : 'secondary'}
+          disabled={!federated?.available || busy}
+          onClick={() => onOffer(quote, 'client_instance')}
+        />
+        <Button
+          text={OFFER_CHANNEL_LABELS.signing_link ?? ''}
+          disabled={!channel('signing_link')?.available || busy}
+          onClick={() => onOpen({ kind: 'invite', quote })}
+        />
+        <Button
+          text={OFFER_CHANNEL_LABELS.document ?? ''}
+          disabled={!channel('document')?.available || busy}
+          onClick={() => onOffer(quote, 'document')}
+        />
+      </nldd-button-group>
+      {federated && !federated.available && federated.reason ? (
+        <nldd-text size="sm">
+          {OFFER_CHANNEL_LABELS.client_instance} kan nu niet: {federated.reason}
+        </nldd-text>
+      ) : null}
+      {offers.length > 0 ? (
+        <nldd-table
+          accessible-label="Hoe en wanneer deze offerte is aangeboden"
+          columns="minmax(200px,2fr) minmax(160px,2fr) minmax(160px,1fr) minmax(160px,1fr)"
+        >
+          <nldd-table-row slot="header">
+            <nldd-text-cell text="Aangeboden" />
+            <nldd-text-cell text="Aan" />
+            <nldd-text-cell text="Op" />
+            <nldd-text-cell text="Stand" />
+          </nldd-table-row>
+          {offers.map((offer) => (
+            <nldd-table-row key={offer.id}>
+              <nldd-text-cell text={OFFER_CHANNEL_LABELS[offer.channel] ?? offer.channel} />
+              <nldd-text-cell text={offer.recipient ?? 'Meegegeven of verstuurd buiten grip'} />
+              <nldd-text-cell text={offerDetail(offer)} />
+              <nldd-text-cell
+                text={offerState(offer)}
+                {...(offer.delivery === 'refused' ? { color: 'critical' } : {})}
+              />
+            </nldd-table-row>
+          ))}
+        </nldd-table>
+      ) : null}
+    </nldd-container>
+  );
+}
+
 function QuoteCard({
   quote,
   mayManage,
   onOpen,
+  onOffer,
+  busy,
 }: {
   quote: QuoteSummary;
   mayManage: boolean;
   onOpen: (dialog: Dialog) => void;
+  onOffer: (quote: QuoteSummary, channel: 'client_instance' | 'document') => void;
+  busy: boolean;
 }) {
   const open = quote.status === 'issued';
   const acceptance = quote.acceptance ?? null;
@@ -105,7 +210,7 @@ function QuoteCard({
   return (
     <nldd-container gap="8">
       <nldd-title
-        size={4}
+        size={5}
         heading-level={3}
         text={`Offerte van ${formatDateTime(quote.issued_at)}`}
         {...(quote.total_cents !== undefined
@@ -148,18 +253,21 @@ function QuoteCard({
 
       {mayManage && open ? (
         <>
+          <Offering quote={quote} onOpen={onOpen} onOffer={onOffer} busy={busy} />
+          <Invitations quoteId={quote.id} />
+          <nldd-title
+            size={5}
+            heading-level={4}
+            text="Beslissing van de opdrachtgever"
+            supporting-text="Een akkoord via het grip van de opdrachtgever of via de tekenlink komt vanzelf binnen."
+          />
           <nldd-button-group>
-            <Button
-              text="Nodig ondertekenaar uit"
-              onClick={() => onOpen({ kind: 'invite', quote })}
-            />
             <Button
               text="Leg getekende pdf vast"
               onClick={() => onOpen({ kind: 'upload', quote })}
             />
             <Button text="Leg afwijzing vast" onClick={() => onOpen({ kind: 'reject', quote })} />
           </nldd-button-group>
-          <Invitations quoteId={quote.id} />
         </>
       ) : null}
       {mayManage && !open && quote.status !== 'superseded' ? (
@@ -172,6 +280,7 @@ function QuoteCard({
 /** The quote of an assignment: what it would say now, and what was issued. */
 export function QuotePage() {
   const { assignmentId = '' } = useParams();
+  const shell = useAssignmentShell();
   const instance = useInstance();
   const queryClient = useQueryClient();
   const preview = useQuery({
@@ -186,6 +295,7 @@ export function QuotePage() {
   const [dialog, setDialog] = useState<Dialog>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [pageError, setPageError] = useState<string | null>(null);
 
   const [validUntil, setValidUntil] = useState('');
   const [conditions, setConditions] = useState('');
@@ -209,6 +319,7 @@ export function QuotePage() {
     onSuccess: async () => {
       setDialog(null);
       setFormError(null);
+      setPageError(null);
       await queryClient.invalidateQueries({ queryKey: ['quotes'] });
       await queryClient.invalidateQueries({ queryKey: ['assignments'] });
     },
@@ -228,12 +339,29 @@ export function QuotePage() {
   return (
     <>
       <nldd-simple-section>
-        <PageHeading text={title} instanceName={instance?.name} />
-        <nldd-link href={`/opdrachten/${assignmentId}`} text="Terug naar de opdracht" size="md" />
+        {/* Inside the tabs of an assignment the shell shows the name and the way back. */}
+        {shell ? null : (
+          <>
+            <PageHeading text={title} instanceName={instance?.name} />
+            <nldd-link
+              href={`/opdrachten/${assignmentId}`}
+              text="Terug naar de opdracht"
+              size="md"
+            />
+          </>
+        )}
 
         {preview.isPending ? <Loading /> : null}
         {preview.isError ? <ErrorNotice message={errorMessage(preview.error)} /> : null}
         {notice ? <nldd-banner variant="success" size="sm" text={notice} /> : null}
+        {pageError ? (
+          <nldd-banner
+            variant="critical"
+            size="sm"
+            text="Aanbieden is niet gelukt"
+            supporting-text={pageError}
+          />
+        ) : null}
 
         {data ? (
           <nldd-container gap="16">
@@ -284,6 +412,12 @@ export function QuotePage() {
 
       <nldd-simple-section>
         <SectionHeading text="Uitgegeven offertes" />
+        {list.data && !mayManage && quotes.length > 0 ? (
+          <nldd-banner
+            size="sm"
+            text="Alleen de eigenaar of een manager van deze opdracht kan een offerte aanbieden of een akkoord vastleggen."
+          />
+        ) : null}
         {list.isPending ? <Loading /> : null}
         {list.isError ? <ErrorNotice message={errorMessage(list.error)} /> : null}
         {list.data && quotes.length === 0 ? (
@@ -294,7 +428,28 @@ export function QuotePage() {
         ) : null}
         <nldd-container gap="32">
           {quotes.map((quote) => (
-            <QuoteCard key={quote.id} quote={quote} mayManage={mayManage} onOpen={open} />
+            <QuoteCard
+              key={quote.id}
+              quote={quote}
+              mayManage={mayManage}
+              onOpen={open}
+              busy={run.isPending}
+              onOffer={(offered, channel) => {
+                setNotice(null);
+                run.mutate(() => offerQuote(offered.id, { channel }), {
+                  onSuccess: () =>
+                    setNotice(
+                      channel === 'document'
+                        ? 'Vastgelegd dat de offerte als document is aangeboden. Download de offerte en geef haar mee.'
+                        : 'De offerte gaat naar de grip van de opdrachtgever.',
+                    ),
+                  onError: (error) => {
+                    setNotice(null);
+                    setPageError(errorMessage(error));
+                  },
+                });
+              }}
+            />
           ))}
         </nldd-container>
       </nldd-simple-section>
@@ -333,7 +488,7 @@ export function QuotePage() {
 
       <FormSheet
         open={dialog?.kind === 'invite'}
-        title="Ondertekenaar uitnodigen"
+        title="Aanbieden met een tekenlink"
         submitText="Nodig uit"
         busy={run.isPending}
         error={dialog?.kind === 'invite' ? formError : null}
@@ -341,7 +496,7 @@ export function QuotePage() {
         onSubmit={() => {
           if (!inviting) return;
           submit(
-            () => inviteSigner(inviting.id, email.trim()),
+            () => offerQuote(inviting.id, { channel: 'signing_link', email: email.trim() }),
             `De uitnodiging staat klaar. Stuur de ondertekenaar deze link: ${signingLink(inviting.id)}`,
           );
         }}

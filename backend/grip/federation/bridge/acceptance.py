@@ -18,7 +18,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip.core.config import get_settings
 from grip.federation import signing, terms
-from grip.federation.bridge.inbound import contract_quote_hash
 from grip.federation.bridge.organisations import own_reference
 from grip.models.person import Person
 from grip.models.quote import QuoteAcceptance, QuoteRejection
@@ -57,7 +56,7 @@ async def accept_received_quote(
     message = {
         "id": str(acceptance_id),
         "quote_id": str(quote.id),
-        "quote_hash": contract_quote_hash(quote),
+        "quote_hash": quote.snapshot_hash,
         "signer": signer_of(actor, signer_function),
         "organisation": organisation,
         "signed_at": signed_at.isoformat(),

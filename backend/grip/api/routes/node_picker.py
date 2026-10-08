@@ -39,8 +39,11 @@ from grip.schema.nodes import (
     NodeOrganisationOut,
     NodeOut,
     NodeSearchOut,
+    OriginOut,
+    PathOut,
+    PathStepOut,
 )
-from grip.services import client_side
+from grip.services import client_side, node_context
 from grip.services.assignments import get_assignment
 
 router = APIRouter(tags=["nodes"])
@@ -135,10 +138,73 @@ def chain_out(chain: dict[str, Any]) -> ChainOut:
     )
 
 
+class KnownCorpora:
+    """The corpora this instance has a peer for, to name and reach a URI."""
+
+    def __init__(self, peers: list[Any], outway_configured: bool) -> None:
+        self._peers = sorted(
+            peers, key=lambda peer: len(normalize_uri(peer.base_uri)), reverse=True
+        )
+        self.outway_configured = outway_configured
+
+    def __bool__(self) -> bool:
+        return bool(self._peers)
+
+    def _peer(self, uri: str) -> Any | None:
+        wanted = normalize_uri(uri)
+        for peer in self._peers:
+            base = normalize_uri(peer.base_uri)
+            if wanted == base or wanted.startswith(base + "/"):
+                return peer
+        return None
+
+    def name(self, uri: str) -> str | None:
+        peer = self._peer(uri)
+        return peer.name if peer is not None else None
+
+    def resolvable(self, uri: str) -> bool:
+        peer = self._peer(uri)
+        return (
+            peer is not None
+            and self.outway_configured
+            and client_side.has_grant(peer, client_side.SERVICE_CORPUS_CONTEXT)
+        )
+
+
+async def known_corpora(db: DbSession, settings: Settings) -> KnownCorpora:
+    return KnownCorpora(await client_side.corpus_peers(db), bool(settings.OUTWAY_URL))
+
+
+def _paths_out(
+    summary: node_context.ChainSummary, corpora: KnownCorpora
+) -> list[PathOut]:
+    return [
+        PathOut(
+            steps=[
+                PathStepOut(
+                    uri=step.uri,
+                    title=step.title,
+                    type=step.type,
+                    external=step.external,
+                    corpus_name=corpora.name(step.uri),
+                    resolvable=corpora.resolvable(step.uri),
+                    edge_type=step.edge_type,
+                )
+                for step in path.steps
+            ]
+        )
+        for path in summary.paths
+    ]
+
+
 async def resolve(
-    db: DbSession, corpus: CorpusClient, uri: str, peildatum: date | None
-) -> NodeLookupOut:
-    """A node URI with its node and chain, or the reason it stays a bare URI.
+    db: DbSession,
+    corpus: CorpusClient,
+    uri: str,
+    peildatum: date | None,
+    corpora: KnownCorpora,
+) -> tuple[NodeLookupOut, node_context.ChainSummary]:
+    """A node URI with its node and where it comes from, or why it stays a URI.
 
     A chain that cannot be fetched does not hide the node: title and type
     are worth showing on their own.
@@ -146,14 +212,56 @@ async def resolve(
     try:
         node = await corpus.get_node(db, uri, peildatum=peildatum)
     except CorpusError as error:
-        return NodeLookupOut(
-            uri=uri, resolved=False, problem=describe_corpus_error(error)
+        return (
+            NodeLookupOut(
+                uri=uri,
+                resolved=False,
+                problem=describe_corpus_error(error),
+                corpus_name=corpora.name(uri),
+            ),
+            node_context.ChainSummary(),
         )
     try:
-        chain = chain_out(await corpus.get_chain(db, uri, peildatum=peildatum))
+        chain = await corpus.get_chain(db, uri, peildatum=peildatum)
     except CorpusError:
         chain = None
-    return NodeLookupOut(uri=uri, resolved=True, node=node_out(node), chain=chain)
+    summary = node_context.summarise(chain, uri)
+    return (
+        NodeLookupOut(
+            uri=uri,
+            resolved=True,
+            node=node_out(node),
+            chain=chain_out(chain) if chain else None,
+            corpus_name=corpora.name(uri),
+            origins=[
+                OriginOut(uri=origin.uri, title=origin.title)
+                for origin in summary.origins
+            ],
+            steps_to_origin=summary.steps_to_origin,
+            paths=_paths_out(summary, corpora),
+        ),
+        summary,
+    )
+
+
+def _peildatum(value: str | None, accepted_on: date | None) -> date:
+    """Today, the day the quote was accepted, or a given date."""
+    if value in (None, "", "today"):
+        return date.today()
+    if value == "acceptance":
+        if accepted_on is None:
+            raise HTTPException(
+                status_code=422,
+                detail="Op deze opdracht is nog geen offerte geaccepteerd.",
+            )
+        return accepted_on
+    parsed = _date(value)
+    if parsed is None:
+        raise HTTPException(
+            status_code=422,
+            detail="De peildatum is een datum (jjjj-mm-dd) of 'acceptance'.",
+        )
+    return parsed
 
 
 async def _require_picker(access: RequestAccess) -> None:
@@ -247,10 +355,74 @@ async def lookup_node(
     client: Corpus,
     uri: Annotated[str, Query(min_length=8, max_length=500)],
     peildatum: date | None = None,
+    settings: Settings = Depends(get_settings),
 ) -> dict[str, Any]:
-    """One node by URI, with its chain up to the political input."""
+    """One node by URI, with where it comes from."""
     await _require_picker(access)
-    return build_response(await resolve(db, client, uri.strip(), peildatum), _A)
+    corpora = await known_corpora(db, settings)
+    found, _summary = await resolve(db, client, uri.strip(), peildatum, corpora)
+    return build_response(found, _A)
+
+
+_PEILDATUM = Query(
+    description=(
+        "A date, 'acceptance' for the day the quote was accepted, or nothing for today."
+    )
+)
+
+
+async def _context(
+    db: DbSession,
+    client: CorpusClient,
+    assignment_id: UUID,
+    peildatum: str | None,
+    settings: Settings,
+) -> tuple[ContextOut, set[str]]:
+    """The resolved context, and every URI its chains pass or end at."""
+    assignment = await get_assignment(db, assignment_id)
+    accepted_on = await client_side.acceptance_date(db, assignment.id)
+    as_of = _peildatum(peildatum, accepted_on)
+    corpora = await known_corpora(db, settings)
+    linked = list(assignment.context_refs or [])
+
+    notice = None
+    if linked and not corpora:
+        notice = (
+            "Er is geen corpus gekoppeld aan deze instantie, dus de context "
+            "kan niet worden opgehaald. De verwijzingen zelf blijven bewaard."
+        )
+    elif linked and not corpora.outway_configured:
+        notice = (
+            "Deze instantie is niet verbonden met andere organisaties, dus de "
+            "context kan niet worden opgehaald. De verwijzingen blijven bewaard."
+        )
+
+    items: list[NodeLookupOut] = []
+    reachable: set[str] = set(linked)
+    resolved: list[tuple[NodeLookupOut, node_context.ChainSummary]] = []
+    for uri in linked:
+        if notice is not None:
+            # Nothing can be asked: one notice above, no reason per item.
+            resolved.append(
+                (NodeLookupOut(uri=uri, resolved=False), node_context.ChainSummary())
+            )
+            continue
+        resolved.append(await resolve(db, client, uri, as_of, corpora))
+    titles = {
+        item.uri: item.node.title for item, _ in resolved if item.node is not None
+    }
+    for item, summary in resolved:
+        reachable |= summary.passed_uris
+        above = node_context.nearest_linked(summary, item.uri, linked)
+        if above is not None:
+            item.falls_under = OriginOut(uri=above, title=titles.get(above, above))
+        items.append(item)
+    return (
+        ContextOut(
+            peildatum=as_of, acceptance_date=accepted_on, notice=notice, items=items
+        ),
+        reachable,
+    )
 
 
 @router.get("/assignments/{assignment_id}/context", response_model=None)
@@ -259,45 +431,47 @@ async def assignment_context(
     access: RequestAccess,
     db: DbSession,
     client: Corpus,
-    peildatum: Annotated[
-        str | None,
-        Query(
-            description=(
-                "A date, 'acceptance' for the day the quote was accepted, "
-                "or nothing for today."
-            )
-        ),
-    ] = None,
+    peildatum: Annotated[str | None, _PEILDATUM] = None,
+    settings: Settings = Depends(get_settings),
 ) -> dict[str, Any]:
-    """The context URIs of an assignment resolved to titles and chains."""
+    """The context of an assignment: per linked node where it comes from."""
     await access.require(
         Action.READ,
         Resource.assignment(assignment_id),
         DataClass.ASSIGNMENT_BASIC,
         hide_existence=True,
     )
-    assignment = await get_assignment(db, assignment_id)
-    accepted_on = await client_side.acceptance_date(db, assignment.id)
-    if peildatum in (None, "", "today"):
-        as_of = date.today()
-    elif peildatum == "acceptance":
-        if accepted_on is None:
-            raise HTTPException(
-                status_code=422,
-                detail="Op deze opdracht is nog geen offerte geaccepteerd.",
-            )
-        as_of = accepted_on
-    else:
-        parsed = _date(peildatum)
-        if parsed is None:
-            raise HTTPException(
-                status_code=422,
-                detail="De peildatum is een datum (jjjj-mm-dd) of 'acceptance'.",
-            )
-        as_of = parsed
-    items = [
-        await resolve(db, client, uri, as_of) for uri in assignment.context_refs or []
-    ]
-    return build_response(
-        ContextOut(peildatum=as_of, acceptance_date=accepted_on, items=items), _A
+    context, _reachable = await _context(db, client, assignment_id, peildatum, settings)
+    return build_response(context, _A)
+
+
+@router.get("/assignments/{assignment_id}/context/node", response_model=None)
+async def assignment_context_node(
+    assignment_id: UUID,
+    access: RequestAccess,
+    db: DbSession,
+    client: Corpus,
+    uri: Annotated[str, Query(min_length=8, max_length=500)],
+    peildatum: Annotated[str | None, _PEILDATUM] = None,
+    settings: Settings = Depends(get_settings),
+) -> dict[str, Any]:
+    """One node on the way from the context of an assignment to its origin.
+
+    Whoever may read the assignment may follow its chains, step by step,
+    without the right to search a corpus. Only nodes those chains pass are
+    answered; any other URI is as if it does not exist.
+    """
+    await access.require(
+        Action.READ,
+        Resource.assignment(assignment_id),
+        DataClass.ASSIGNMENT_BASIC,
+        hide_existence=True,
     )
+    context, reachable = await _context(db, client, assignment_id, peildatum, settings)
+    wanted = uri.strip()
+    if wanted not in reachable:
+        raise HTTPException(status_code=404, detail="Niet gevonden")
+    found, _summary = await resolve(
+        db, client, wanted, context.peildatum, await known_corpora(db, settings)
+    )
+    return build_response(found, _A)

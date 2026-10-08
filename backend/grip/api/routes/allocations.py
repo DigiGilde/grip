@@ -1,9 +1,10 @@
 """Inzet: a person on a budget line, for a period, at a percentage."""
 
+from datetime import date
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, HTTPException, status
 
 from grip.access import (
     PLANNER,
@@ -14,6 +15,7 @@ from grip.access import (
     schema_classes,
 )
 from grip.api.assignment_support import DbSession, RequestAccess, YearFilter, parse_year
+from grip.calc import Month
 from grip.core.auth import CurrentPerson
 from grip.schema.allocations import (
     AllocationCreate,
@@ -22,8 +24,15 @@ from grip.schema.allocations import (
     LineChoiceOut,
     PersonChoiceOut,
 )
+from grip.schema.board import (
+    BoardBarOut,
+    BoardCellOut,
+    BoardOpenRoleOut,
+    BoardPersonOut,
+)
 from grip.services import assignment_views as views
 from grip.services import assignments as service
+from grip.services import staffing_board
 
 router = APIRouter(prefix="/allocations", tags=["allocations"])
 
@@ -31,6 +40,7 @@ A = DataClass.ASSIGNMENT_BASIC
 C = DataClass.STAFFING
 ROSTER = DataClass.STAFFING_ROSTER
 _CLASSES = schema_classes(AllocationOut)
+_BAR_CLASSES = schema_classes(BoardBarOut)
 
 
 async def _row(
@@ -55,6 +65,7 @@ async def _row(
         budget_line_id=view.line.id,
         budget_line_description=view.line.description,
         role=view.line.role,
+        tentative=view.tentative,
         start_date=allocation.start_date,
         end_date=allocation.end_date,
         fte_pct=allocation.fte_pct,
@@ -139,6 +150,144 @@ async def list_allocations(
         if row is not None:
             items.append(row)
     return {"items": items, "can_add": await _may_add(access, db)}
+
+
+@router.get("/board", response_model=None)
+async def get_board(
+    access: RequestAccess,
+    db: DbSession,
+    start: str | None = None,
+    months: int = 12,
+) -> dict[str, Any]:
+    """The planner's board: people over months, bars per allocation, open roles.
+
+    ``start`` is the first month as ``YYYY-MM``; by default three months back.
+    Each bar and each row is decided separately, so a team member gets the
+    own row and someone who manages an assignment the bars on it. No amounts.
+    """
+    data = await staffing_board.board(db, _board_start(start), months=months)
+
+    persons: list[dict[str, Any]] = []
+    for person in data.persons:
+        about_person = Resource.person(person.person_id)
+        person_classes = set(await access.classes(about_person, {C, ROSTER}))
+        bars: list[dict[str, Any]] = []
+        for bar in person.bars:
+            about = Resource.allocation(bar.assignment_id, bar.person_id)
+            permitted = set(await access.classes(about, _BAR_CLASSES - {A}))
+            # A row is about inzet: a bar without period and percentage has
+            # nothing to draw, so the roster alone does not show it here.
+            if C not in permitted:
+                continue
+            if await access.may(Action.READ, Resource.assignment(bar.assignment_id), A):
+                permitted.add(A)
+            bars.append(
+                build_response(
+                    BoardBarOut(
+                        allocation_id=bar.allocation_id,
+                        person_id=bar.person_id,
+                        person_name=bar.person_name,
+                        assignment_id=bar.assignment_id,
+                        assignment_name=bar.assignment_name,
+                        budget_line_id=bar.budget_line_id,
+                        line_description=bar.line_description,
+                        role=bar.role,
+                        tentative=bar.tentative,
+                        verbally_agreed=bar.verbally_agreed,
+                        start_date=bar.start_date,
+                        end_date=bar.end_date,
+                        fte_pct=bar.fte_pct,
+                        closed_months=list(bar.closed_months),
+                        can_edit=await access.may(Action.EDIT, about, C),
+                        category_mismatch=bar.category_mismatch,
+                        line_category=bar.line_category,
+                        person_category=bar.person_category,
+                    ),
+                    permitted,
+                )
+            )
+        sees_totals = C in person_classes
+        if not bars and not sees_totals:
+            continue
+        row = build_response(
+            BoardPersonOut(
+                person_id=person.person_id,
+                person_name=person.person_name,
+                manager_id=person.manager_id,
+                manager_name=person.manager_name,
+                cells=[
+                    BoardCellOut(
+                        month=cell.month,
+                        available=cell.available,
+                        pct=cell.pct,
+                        tentative_pct=cell.tentative_pct,
+                        over=cell.over,
+                        established=cell.established,
+                    )
+                    for cell in person.cells
+                ],
+                now_pct=person.now_pct,
+                room_from=person.room_from,
+                idle_from=person.idle_from,
+                over_months=list(person.over_months),
+                bars=[],
+            ),
+            # Whoever sees a bar sees whose it is.
+            person_classes | {ROSTER},
+        )
+        if not sees_totals:
+            row["cells"] = []
+        row["bars"] = bars
+        persons.append(row)
+
+    roles: list[dict[str, Any]] = []
+    for role in data.open_roles:
+        resource = Resource.assignment(role.assignment_id)
+        permitted = await access.classes(resource, {A, C})
+        if C not in permitted:
+            continue
+        roles.append(
+            build_response(
+                BoardOpenRoleOut(
+                    budget_line_id=role.budget_line_id,
+                    assignment_id=role.assignment_id,
+                    assignment_name=role.assignment_name,
+                    description=role.description,
+                    role=role.role,
+                    fte=role.fte,
+                    unfilled_fte=role.unfilled_fte,
+                    start_date=role.start_date,
+                    end_date=role.end_date,
+                    can_fill=await access.may(Action.EDIT, resource, C),
+                ),
+                permitted,
+            )
+        )
+    return {
+        "months": [month.isoformat() for month in data.months],
+        "current_month": data.current_month.isoformat(),
+        "persons": persons,
+        "open_roles": roles,
+        "can_add": await _may_add(access, db),
+    }
+
+
+def _board_start(value: str | None) -> Month:
+    if not value:
+        today = date.today()
+        month = Month(today.year, today.month)
+        # Three months of what has been, nine of what is coming.
+        year, number = month.year, month.month - 3
+        if number < 1:
+            year, number = year - 1, number + 12
+        return Month(year, number)
+    try:
+        year_text, month_text = value.split("-")
+        return Month(int(year_text), int(month_text))
+    except (ValueError, TypeError):
+        raise HTTPException(
+            status_code=422, detail="De eerste maand heeft de vorm JJJJ-MM."
+        ) from None
 
 
 @router.get("/options", response_model=None)

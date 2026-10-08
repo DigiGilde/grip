@@ -1,0 +1,153 @@
+/**
+ * The timeline as data: rows over months, with bars and a text value per
+ * cell. Feature-neutral: a caller turns its own records into these rows and
+ * keeps its record in `data`, so the same component draws people over
+ * months, assignments with their roles, and the roles of one assignment.
+ */
+
+export type BarVariant =
+  /** Firm inzet. */
+  | 'filled'
+  /** Inzet that may not happen: striped outline. */
+  | 'tentative'
+  /** Demand nobody fills: dashed outline. */
+  | 'open'
+  /** The frame of what a row asks, drawn behind its bars. */
+  | 'demand';
+
+export interface TimelineBar<B = unknown> {
+  key: string;
+  /** Index of the first month column the bar covers. */
+  column: number;
+  span: number;
+  lane: number;
+  label: string;
+  /** The bar in words: tooltip, and the text of every cell it covers. */
+  description: string;
+  variant: BarVariant;
+  /** Leading months of the bar that are closed, counted in columns. */
+  closedSpan: number;
+  /** The bar starts before, or ends after, the months on screen. */
+  clippedStart: boolean;
+  clippedEnd: boolean;
+  /** A short mark before the label for a signal, e.g. "≠". */
+  mark?: string;
+  data: B;
+}
+
+export type CellState = 'none' | 'unavailable' | 'empty' | 'quiet' | 'room' | 'over';
+
+export interface TimelineCell {
+  /** The quiet figure of the month; empty for none. */
+  text: string;
+  state: CellState;
+  /** The month is closed: what it shows was established. */
+  established: boolean;
+  /** The figure in words, without the bars. */
+  description: string;
+}
+
+export interface TimelineRow<R = unknown, B = unknown> {
+  key: string;
+  label: string;
+  /** A small figure after the label, e.g. "0,8 FTE". */
+  figure?: string;
+  /** One quiet line under the label. */
+  summary: string;
+  /** Said louder than the summary, when something needs attention. */
+  attention: string;
+  cells: TimelineCell[];
+  bars: TimelineBar<B>[];
+  lanes: number;
+  link?: { href: string; text: string } | null;
+  data: R;
+}
+
+export interface TimelineGroup<R = unknown, B = unknown> {
+  key: string;
+  /** Empty for the one group of a flat view. */
+  title: string;
+  rows: TimelineRow<R, B>[];
+}
+
+export const EMPTY_CELL: TimelineCell = {
+  text: '',
+  state: 'none',
+  established: false,
+  description: '',
+};
+
+const MONTHS_SHORT = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
+
+/** "okt", from a YYYY-MM or a date. */
+export function monthShort(iso: string): string {
+  return MONTHS_SHORT[Number(iso.slice(5, 7)) - 1] ?? '';
+}
+
+export const monthKey = (iso: string) => iso.slice(0, 7);
+
+/** The month `count` months after `month` (YYYY-MM), also backwards. */
+export function shiftMonth(month: string, count: number): string {
+  const index = Number(month.slice(0, 4)) * 12 + (Number(month.slice(5, 7)) - 1) + count;
+  return `${Math.floor(index / 12)}-${String((index % 12) + 1).padStart(2, '0')}`;
+}
+
+export interface Placement {
+  column: number;
+  span: number;
+  clippedStart: boolean;
+  clippedEnd: boolean;
+}
+
+/** Where a period falls in the months on screen; null when outside them. */
+export function placePeriod(
+  months: readonly string[],
+  start: string | null,
+  end: string | null,
+): Placement | null {
+  if (months.length === 0) return null;
+  const first = monthKey(months[0] ?? '');
+  const last = monthKey(months[months.length - 1] ?? '');
+  const from = start ? monthKey(start) : first;
+  const to = end ? monthKey(end) : last;
+  if (to < first || from > last) return null;
+  const startColumn = from < first ? 0 : months.findIndex((month) => monthKey(month) === from);
+  const endColumn =
+    to > last ? months.length - 1 : months.findIndex((month) => monthKey(month) === to);
+  if (startColumn < 0 || endColumn < startColumn) return null;
+  return {
+    column: startColumn,
+    span: endColumn - startColumn + 1,
+    clippedStart: from < first,
+    clippedEnd: to > last,
+  };
+}
+
+/** Gives every bar the first lane in which it does not overlap an earlier one. */
+export function assignLanes<T extends { column: number; span: number; lane: number }>(
+  bars: T[],
+): number {
+  const ends: number[] = [];
+  for (const bar of [...bars].sort((a, b) => a.column - b.column || b.span - a.span)) {
+    let lane = ends.findIndex((end) => end < bar.column);
+    if (lane === -1) lane = ends.length;
+    ends[lane] = bar.column + bar.span - 1;
+    bar.lane = lane;
+  }
+  return Math.max(1, ends.length);
+}
+
+/** The bars of a row that cover a month column; the demand frame is not one of them. */
+export function barsInColumn<B>(row: { bars: TimelineBar<B>[] }, column: number): TimelineBar<B>[] {
+  return row.bars.filter(
+    (bar) => bar.variant !== 'demand' && bar.column <= column && column < bar.column + bar.span,
+  );
+}
+
+/** A cell in words: its figure, then every bar in it. */
+export function cellDescription(row: TimelineRow, column: number): string {
+  const cell = row.cells[column];
+  const parts = [cell?.description ?? '', ...barsInColumn(row, column).map((bar) => bar.description)];
+  const text = parts.filter(Boolean).join('; ');
+  return text || 'geen inzet';
+}

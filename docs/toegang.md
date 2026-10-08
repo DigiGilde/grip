@@ -6,13 +6,15 @@ Schaal-, tarief- en KPI-gegevens zijn persoonsgegevens onder de AVG. In Grist wa
 
 Het woord "rol" dekt in de praktijk drie verschillende dingen: wat iemand in de organisatie doet, hoe iemand zich tot een bepaalde opdracht of persoon verhoudt, en hoe gevoelig een gegeven is. Het model houdt ze uit elkaar.
 
-### Functie in de instantie
+### Recht in grip
 
-Een functie wordt toegekend, per eenheid en voor een periode.
+Een recht in grip wordt toegekend, per eenheid en voor een periode. In de code, de API en de database heet het een functie (`function`, tabellen `role` en `person_role`); dat is zo gebleven. Op het scherm heet het een recht, onder de kop "Rechten in grip", omdat "functie" daar al twee andere dingen betekent: de functie van iemand in de organisatie of op een vacature (de functietitel) en de functiegroep uit het Functiegebouw Rijk. Waar deze tekst hieronder "functie" zegt, is het recht in grip bedoeld.
 
-| Functie | Mag |
+Toekennen en intrekken zijn elk een eigen handeling, nooit het gevolg van het aanraken van een schakelaar. Voor de twee rechten die ver reiken, beheerder en tekenbevoegde, vraagt het scherm om bevestiging. Bij elk recht staat sinds wanneer iemand het heeft en wie het heeft toegekend. De laatste beheerder kan dat recht niet verliezen.
+
+| Recht | Mag |
 |---|---|
-| Beheerder | Tarievenkaarten, gebruikers, functies toekennen, gesloten jaren wijzigen met auditregel |
+| Beheerder | Tarievenkaarten, gebruikers, rechten toekennen, gesloten jaren wijzigen met auditregel |
 | Planner | Inzet en open rollen bewerken over alle opdrachten |
 | Lezer | Opdrachten en totalen inzien |
 | Aanvrager | Aanvragen doen als opdrachtgever |
@@ -64,7 +66,7 @@ b = bewerken, l = lezen, leeg = geen toegang.
 | Tegenpartij | l | op verzoek | | | | |
 | Moeder | l | l | l (aantallen) | | | |
 
-De beheerder bewerkt daarnaast de stamgegevens uit de functietabel hierboven: tarievenkaarten, gebruikers en functies.
+De beheerder bewerkt daarnaast de stamgegevens uit de tabel hierboven: tarievenkaarten, gebruikers en rechten in grip.
 
 Functies en relaties tellen op. Wie planner is en ook leidinggevende, heeft de rechten van beide.
 

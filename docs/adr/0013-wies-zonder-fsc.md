@@ -1,6 +1,6 @@
 # 0013 Wies koppelen zonder FSC
 
-Status: aanvaard (2026-10-08)
+Status: aanvaard (2026-10-08). De regel dat Wies nooit iemand aanmaakt omdat grip die noemt is vervangen door [ADR 0022](0022-een-nieuwe-collega-is-eerst-in-grip-bekend.md).
 
 ## Context
 

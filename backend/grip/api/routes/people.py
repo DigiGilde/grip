@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from datetime import date
+from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
@@ -36,15 +37,18 @@ from grip.core.database import get_db
 from grip.models.person import Person
 from grip.models.person_details import Hire, PersonScale
 from grip.schema.people import (
+    FunctionGrantOut,
     HireCreate,
     HireOut,
+    HireWithdrawal,
     PersonCreate,
     PersonOut,
     PersonUpdate,
     ScaleCreate,
     ScaleOut,
+    StartDateUpdate,
 )
-from grip.services import rates, team
+from grip.services import rates, standing, team
 from grip.services.errors import NotFoundError
 
 router = APIRouter(prefix="/people", tags=["people"])
@@ -101,10 +105,14 @@ async def _person_out(
     *,
     names: dict[UUID, str],
     functions: list[str],
+    grants: list[team.FunctionGrant],
+    sole_beheerder_id: UUID | None,
+    staffing: team.CurrentStaffing | None,
     scales: list[PersonScale],
     hires: list[Hire],
     rate_book: calc.RateBook,
     day: date,
+    standing_view: standing.StandingView | None = None,
 ) -> PersonOut:
     facts = team.rate_facts(rate_book, scales, person.id, day)
     hire = _current_hire(hires, day)
@@ -120,10 +128,27 @@ async def _person_out(
         name=person.name,
         email=person.email,
         is_active=person.is_active,
+        uri=person.uri,
+        stage=(standing_view.stage if standing_view else "colleague"),
+        starts_on=(
+            standing_view.start_date
+            if standing_view and standing_view.is_prospective
+            else None
+        ),
+        can_log_in=bool(person.email) and person.is_active,
         manager_id=person.manager_id,
         manager_name=names.get(person.manager_id) if person.manager_id else None,
         functions=functions,
+        function_grants=[
+            FunctionGrantOut(
+                function=g.function, since=g.since, granted_by_name=g.granted_by_name
+            )
+            for g in grants
+        ],
+        is_sole_beheerder=sole_beheerder_id == person.id,
         is_hired=hire is not None,
+        current_assignment_count=staffing.assignment_count if staffing else 0,
+        current_fte_pct=staffing.fte_pct if staffing else Decimal(0),
         billing_scale=facts.billing_scale,
         rate_category=facts.category,
         monthly_rate_cents=facts.monthly_rate_cents,
@@ -167,10 +192,14 @@ async def _visible_persons(
         p.id: p.name for p in await team.list_persons(db, include_inactive=True)
     }
     functions = await team.functions_by_person(db)
+    grants = await team.function_grants_by_person(db)
+    sole_beheerder_id = await team.sole_beheerder_id(db)
+    staffing = await team.staffing_by_person(db, period[0])
     scales = await team.scales_by_person(db, ids)
     hires = await team.hires_by_person(db, ids)
     staffed_on = await team.assignments_by_person(db, period)
     rate_book = await team.load_rates(db)
+    standings = await standing.standings_by_person(db, ids)
 
     result: list[dict[str, Any]] = []
     for person in persons:
@@ -184,10 +213,14 @@ async def _visible_persons(
             person,
             names=all_names,
             functions=functions.get(person.id, []),
+            grants=grants.get(person.id, []),
+            sole_beheerder_id=sole_beheerder_id,
+            staffing=staffing.get(person.id),
             scales=scales.get(person.id, []),
             hires=hires.get(person.id, []),
             rate_book=rate_book,
             day=period[0],
+            standing_view=standings.get(person.id),
         )
         result.append(build_response(value, permitted))
     return result
@@ -262,9 +295,46 @@ async def create_person(
 ) -> dict[str, Any]:
     await require(decider, subject, Action.MANAGE_USERS, Resource.person())
     person = await team.create_person(
-        db, name=body.name, email=body.email, manager_id=body.manager_id, actor=actor
+        db,
+        name=body.name,
+        email=body.email,
+        manager_id=body.manager_id,
+        actor=actor,
+        start_date=body.start_date,
+        suborganization=body.suborganization,
+        source_ref=body.source_ref,
+        source_url=body.source_url,
     )
     return await _one(db, decider, subject, person.id, period_or_today(None, None))
+
+
+@router.put("/{person_id}/start-date", response_model=None)
+async def set_start_date(
+    person_id: UUID,
+    body: StartDateUpdate,
+    actor: CurrentPerson,
+    subject: CurrentSubject,
+    decider: AccessDecider,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Move the start date of a prospective colleague."""
+    await require(decider, subject, Action.MANAGE_USERS, Resource.person(person_id))
+    await standing.set_start_date(db, person_id, body.start_date, actor=actor)
+    return await _one(db, decider, subject, person_id, period_or_today(None, None))
+
+
+@router.post("/{person_id}/withdraw-hire", status_code=status.HTTP_204_NO_CONTENT)
+async def withdraw_hire(
+    person_id: UUID,
+    body: HireWithdrawal,
+    actor: CurrentPerson,
+    subject: CurrentSubject,
+    decider: AccessDecider,
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """A recorded hire falls through: planning, proposal and person go."""
+    await require(decider, subject, Action.MANAGE_USERS, Resource.person(person_id))
+    await standing.withdraw_hire(db, person_id, actor=actor, reason=body.reason)
 
 
 @router.patch("/{person_id}", response_model=None)

@@ -1,0 +1,298 @@
+import { fireEvent, waitFor } from '@testing-library/react';
+import { Route, Routes } from 'react-router-dom';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { renderApp } from '@/test/utils';
+import type { AssignmentPermissions } from './api';
+import { AssignmentLayout } from './AssignmentLayout';
+import { StaffingTab } from './tabs/StaffingTab';
+import { FIGURES, PERMISSIONS, allText, assignment, finance, mockApi } from './testing';
+
+afterEach(() => vi.unstubAllGlobals());
+
+const MONTHS = ['2026-01-01','2026-02-01','2026-03-01','2026-04-01','2026-05-01','2026-06-01','2026-07-01','2026-08-01','2026-09-01','2026-10-01','2026-11-01','2026-12-01'];
+
+const STAFFING = {
+  assignment_id: 'a1',
+  months: MONTHS,
+  current_month: '2026-04-01',
+  closed_months: ['2026-01-01'],
+  tentative: false,
+  role_count: 1,
+  staffed_count: 0,
+  open_fte: '0.30',
+  open_from: '2026-10-01',
+  overbooked_count: 1,
+  roles: [
+    {
+      budget_line_id: 'l1',
+      description: 'Productmanager',
+      role: 'Productmanager',
+      fte: '0.800',
+      start_date: '2026-01-01',
+      end_date: '2026-12-31',
+      fully_staffed: false,
+      can_fill: true,
+      names: ['Voorbeeld Een', 'Voorbeeld Twee'],
+      months: MONTHS.map((month, index) => ({
+        month,
+        asked_pct: '80',
+        filled_pct: index < 9 ? '80' : '50',
+        open_pct: index < 9 ? '0' : '30',
+        over: false,
+        closed: index === 0,
+      })),
+      gaps: [{ start: '2026-10-01', end: '2026-12-01', open_fte: '0.30' }],
+      bars: [
+        {
+          allocation_id: 'x1',
+          person_id: 'p1',
+          person_name: 'Voorbeeld Een',
+          budget_line_id: 'l1',
+          tentative: false,
+          verbally_agreed: false,
+          start_date: '2026-01-01',
+          end_date: '2026-12-31',
+          fte_pct: '50.00',
+          closed_months: ['2026-01-01'],
+          can_edit: true,
+          category_mismatch: true,
+          starts_on: null,
+          before_start: false,
+          outside_role_period: false,
+        },
+        {
+          allocation_id: 'x2',
+          person_id: 'p2',
+          person_name: 'Voorbeeld Twee',
+          budget_line_id: 'l1',
+          tentative: false,
+          verbally_agreed: false,
+          start_date: '2026-01-01',
+          end_date: '2026-09-30',
+          fte_pct: '30.00',
+          closed_months: [],
+          can_edit: true,
+          category_mismatch: false,
+          starts_on: '2026-12-01',
+          before_start: true,
+          outside_role_period: false,
+        },
+      ],
+    },
+  ],
+};
+
+const NAMES_ONLY = {
+  assignment_id: 'a1',
+  months: MONTHS,
+  current_month: '2026-04-01',
+  tentative: false,
+  roles: [
+    { budget_line_id: 'l1', description: 'Productmanager', bars: [], names: ['Voorbeeld Een'] },
+  ],
+};
+
+function renderShell(
+  permissions: AssignmentPermissions,
+  path = '/opdrachten/a1',
+  overrides = {},
+  staffing: unknown = STAFFING,
+) {
+  mockApi({
+    '/api/assignments/a1/financial': finance(),
+    '/api/assignments/a1/staffing': staffing,
+    '/api/allocations/options': { people: [], lines: [] },
+    '/api/assignments/a1': assignment({ permissions, ...overrides }),
+    '/api/vacancies': [],
+  });
+  return renderApp(
+    <Routes>
+      <Route path="/opdrachten/:assignmentId" element={<AssignmentLayout />}>
+        <Route index element={<p>overzicht</p>} />
+        <Route path="bemensing" element={<StaffingTab />} />
+      </Route>
+    </Routes>,
+    { path },
+  );
+}
+
+async function tabs(container: HTMLElement) {
+  await waitFor(() => expect(container.querySelector('nldd-tab-bar')).not.toBeNull());
+  return [...container.querySelectorAll('nldd-tab-bar-item')].map((item) => item.getAttribute('text'));
+}
+
+describe('AssignmentLayout', () => {
+  it('shows an owner every tab, each with its own address', async () => {
+    const { container } = renderShell(PERMISSIONS.owner);
+    expect(await tabs(container)).toEqual([
+      'Overzicht',
+      'Financieel',
+      'Bemensing',
+      'Begroting',
+      'Offerte',
+      'Maandafsluiting',
+    ]);
+    const hrefs = [...container.querySelectorAll('nldd-tab-bar-item')].map((item) =>
+      item.getAttribute('href'),
+    );
+    expect(hrefs).toEqual([
+      '/opdrachten/a1',
+      '/opdrachten/a1/financieel',
+      '/opdrachten/a1/bemensing',
+      '/opdrachten/a1/begroting',
+      '/opdrachten/a1/offerte',
+      '/opdrachten/a1/maandafsluiting',
+    ]);
+    expect(container.querySelector('nldd-tab-bar')).toHaveAttribute('navigation');
+  });
+
+  it('shows a planner no money tab', async () => {
+    const { container } = renderShell(PERMISSIONS.planner);
+    expect(await tabs(container)).toEqual(['Overzicht', 'Bemensing', 'Maandafsluiting']);
+  });
+
+  it('shows a team member the overview and the team', async () => {
+    const { container } = renderShell(PERMISSIONS.member);
+    expect(await tabs(container)).toEqual(['Overzicht', 'Bemensing']);
+  });
+
+  it('shows a lezer the money tabs and no team', async () => {
+    const { container } = renderShell(PERMISSIONS.lezer);
+    expect(await tabs(container)).toEqual([
+      'Overzicht',
+      'Financieel',
+      'Begroting',
+      'Offerte',
+      'Maandafsluiting',
+    ]);
+  });
+
+  it('marks the tab of the current address', async () => {
+    const { container } = renderShell(PERMISSIONS.owner, '/opdrachten/a1/bemensing');
+    await tabs(container);
+    const current = container.querySelectorAll('nldd-tab-bar-item[current]');
+    expect(current).toHaveLength(1);
+    expect(current[0]).toHaveAttribute('text', 'Bemensing');
+  });
+
+  it('shows key figures only to who may see money', async () => {
+    const owner = renderShell(PERMISSIONS.owner);
+    await waitFor(() =>
+      expect(
+        owner.container.querySelector('nldd-table[accessible-label^="Kerncijfers"]'),
+      ).not.toBeNull(),
+    );
+    expect(allText(owner.container)).toContain('187.800');
+    owner.unmount();
+
+    const planner = renderShell(PERMISSIONS.planner);
+    await tabs(planner.container);
+    expect(planner.container.querySelector('nldd-table[accessible-label^="Kerncijfers"]')).toBeNull();
+    expect(allText(planner.container)).not.toContain('€');
+  });
+
+  it('labels a potential assignment as such', async () => {
+    const { container } = renderShell(PERMISSIONS.owner, '/opdrachten/a1', {
+      phase: 'potential',
+      status: 'draft',
+    });
+    await tabs(container);
+    expect(container.querySelector('nldd-badge[text="Potentiële opdracht"]')).not.toBeNull();
+    expect(container.querySelector('nldd-badge[text="In voorbereiding"]')).not.toBeNull();
+  });
+});
+
+describe('Bemensing tab', () => {
+  const tabOf = (container: HTMLElement) =>
+    container.querySelectorAll('nldd-simple-section')[1] as HTMLElement;
+
+  it('draws the roles as a timeline: the demand as a frame, people as bars, the gap as open', async () => {
+    const { container } = renderShell(PERMISSIONS.planner, '/opdrachten/a1/bemensing');
+    await waitFor(() => expect(container.querySelector('table[role="grid"]')).not.toBeNull());
+    const tab = tabOf(container);
+    expect(tab.querySelector('[data-bar="demand-l1"]')).toHaveAttribute('data-demand');
+    expect(tab.querySelector('[data-bar="x1"]')?.textContent).toContain('Voorbeeld Een');
+    const gap = tab.querySelector('[data-bar="gap-l1-2026-10-01"]')!;
+    expect(gap).toHaveAttribute('data-open');
+    expect(gap.textContent).toContain('0,3 FTE open');
+    // The row label is quiet: the role with the asked FTE as a small figure.
+    expect(tab.querySelector('.grip-board__name')?.textContent).toBe('Productmanager0,8 FTE');
+    expect(tab.querySelector('.grip-board__attention')?.textContent).toContain('0,3 FTE open vanaf okt');
+    expect(tab.querySelectorAll('h2, h3')).toHaveLength(0);
+  });
+
+  it('gives the answer first and shows no amount at all', async () => {
+    const { container } = renderShell(PERMISSIONS.planner, '/opdrachten/a1/bemensing');
+    await waitFor(() => expect(container.querySelector('table[role="grid"]')).not.toBeNull());
+    const text = allText(tabOf(container));
+    expect(text).toContain('0 van 1 volledig ingevuld');
+    expect(text).toContain('0,3 FTE');
+    expect(text).toContain('vanaf oktober 2026');
+    expect(text).toContain('1 persoon');
+    expect(text).toContain('andere categorie');
+    expect(text).toContain('start op 1 dec 2026');
+    expect(text).not.toContain('€');
+    expect(tabOf(container).querySelector('nldd-link[href="/inzet?opdracht=a1"]')).not.toBeNull();
+  });
+
+  it('is the same picture for an owner, plus the ways to act', async () => {
+    const { container } = renderShell(PERMISSIONS.owner, '/opdrachten/a1/bemensing');
+    await waitFor(() => expect(container.querySelector('table[role="grid"]')).not.toBeNull());
+    const tab = tabOf(container);
+    expect(allText(tab)).not.toContain('€');
+    expect(tab.querySelector('nldd-button[text="Nieuwe inzet"]')).not.toBeNull();
+    // The open stretch proposes an inzet for exactly that gap.
+    fireEvent.click(tab.querySelector('[data-bar="gap-l1-2026-10-01"]')!);
+    await waitFor(() => expect(document.querySelector('nldd-sheet[open]')).not.toBeNull());
+    const dates = [...document.querySelectorAll('nldd-sheet[open] nldd-date-field')].map((f) =>
+      f.getAttribute('value'),
+    );
+    expect(dates).toEqual(['2026-10-01', '2026-12-31']);
+  });
+
+  it('shows a team member names per role and nothing of time', async () => {
+    const { container } = renderShell(PERMISSIONS.member, '/opdrachten/a1/bemensing', {}, NAMES_ONLY);
+    await waitFor(() =>
+      expect(container.querySelector('nldd-table[accessible-label="Wie op welke rol zit"]')).not.toBeNull(),
+    );
+    const tab = tabOf(container);
+    expect(tab.querySelector('table[role="grid"]')).toBeNull();
+    expect(allText(tab)).toContain('Voorbeeld Een');
+    expect(allText(tab)).not.toContain('%');
+  });
+
+  it('leads an empty assignment to the budget, or says whose turn it is', async () => {
+    const empty = { ...NAMES_ONLY, roles: [] };
+    const owner = renderShell(PERMISSIONS.owner, '/opdrachten/a1/bemensing', { phase: 'potential', status: 'draft' }, empty);
+    await waitFor(() =>
+      expect(owner.container.querySelector('nldd-button[text="Maak de begroting"]')).not.toBeNull(),
+    );
+    // Nothing to put a person on, so no way to add inzet and no notice about it.
+    expect(owner.container.querySelector('nldd-button[text="Nieuwe inzet"]')).toBeNull();
+    expect(owner.container.querySelector('nldd-banner[text="Inzet onder voorbehoud"]')).toBeNull();
+    owner.unmount();
+
+    const planner = renderShell(PERMISSIONS.planner, '/opdrachten/a1/bemensing', {}, empty);
+    await waitFor(() =>
+      expect(
+        planner.container.querySelector('nldd-inline-dialog[text="Deze opdracht heeft nog geen rollen"]'),
+      ).toHaveAttribute('supporting-text', expect.stringContaining('Voorbeeld Eigenaar maakt eerst de begroting')),
+    );
+    expect(planner.container.querySelector('nldd-button[text="Maak de begroting"]')).toBeNull();
+  });
+
+  it('says inzet on a potential assignment is tentative', async () => {
+    const { container } = renderShell(PERMISSIONS.planner, '/opdrachten/a1/bemensing', {
+      phase: 'potential',
+      status: 'quoted',
+    });
+    await waitFor(() =>
+      expect(container.querySelector('nldd-banner[text="Inzet onder voorbehoud"]')).not.toBeNull(),
+    );
+  });
+});
+
+// Keeps the fixture honest: the figures used above are the ones in the header.
+it('uses the same figures in header and tab fixtures', () => {
+  expect(finance().totals).toBe(FIGURES);
+});

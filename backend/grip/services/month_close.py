@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from grip import calc
 from grip.calc import Month
 from grip.core.audit import CREATE, UPDATE, record_audit
+from grip.models.assignment import Assignment
 from grip.models.month_close import (
     BillingExport,
     BillingExportLine,
@@ -28,6 +29,12 @@ from grip.models.person import Person
 from grip.repositories.domain import AssignmentRepository, MonthCloseRepository
 from grip.services.errors import DomainValidationError, NotFoundError
 from grip.services.guards import ensure_years_open
+from grip.services.phase import (
+    VERBALLY_AGREED,
+    allows_billing,
+    allows_month_close,
+    status_label,
+)
 from grip.services.pricing import (
     DEFAULT_OPTIONS,
     CalcInputs,
@@ -48,6 +55,40 @@ class BillingData:
     @property
     def total_cents(self) -> int:
         return sum(line.amount_cents for line in self.lines)
+
+
+async def _assignment_status(session: AsyncSession, assignment_id: UUID) -> str:
+    assignment = await session.get(Assignment, assignment_id)
+    if assignment is None:
+        raise NotFoundError("Opdracht", assignment_id)
+    return assignment.status
+
+
+async def ensure_month_can_close(session: AsyncSession, assignment_id: UUID) -> None:
+    """Months close only once work has started: after a verbal or a formal
+    agreement."""
+    status = await _assignment_status(session, assignment_id)
+    if not allows_month_close(status):
+        raise DomainValidationError(
+            f"Een opdracht met status '{status_label(status)}' heeft nog geen "
+            "maanden om af te sluiten. Dat kan vanaf een mondeling akkoord."
+        )
+
+
+async def ensure_billable(session: AsyncSession, assignment_id: UUID) -> None:
+    """Billing data exists only for a formally accepted assignment."""
+    status = await _assignment_status(session, assignment_id)
+    if allows_billing(status):
+        return
+    if status == VERBALLY_AGREED:
+        raise DomainValidationError(
+            "Deze opdracht heeft alleen een mondeling akkoord. Factuurgegevens "
+            "zijn er pas als de offerte formeel is geaccepteerd."
+        )
+    raise DomainValidationError(
+        f"Voor een opdracht met status '{status_label(status)}' zijn er geen "
+        "factuurgegevens."
+    )
 
 
 def _lines(
@@ -97,6 +138,7 @@ async def close_month(
     is established at its planned percentage. The percentage counts over the
     whole month.
     """
+    await ensure_month_can_close(session, assignment_id)
     repo = MonthCloseRepository(session)
     if await repo.in_force(assignment_id, month.first_day) is not None:
         raise DomainValidationError(
@@ -216,6 +258,7 @@ async def billing_data(
     The lines name persons (data class C and D). What crosses to a client is
     the role and the amount; see ``create_billing_export``.
     """
+    await ensure_billable(session, assignment_id)
     close = await MonthCloseRepository(session).in_force(assignment_id, month.first_day)
     if close is None:
         raise DomainValidationError(

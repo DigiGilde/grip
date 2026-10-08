@@ -14,6 +14,8 @@ export interface Allocation {
   budget_line_id?: string;
   budget_line_description?: string;
   role?: string | null;
+  /** On an assignment that is still potential: this inzet may not happen. */
+  tentative?: boolean;
   start_date?: string;
   end_date?: string;
   fte_pct?: string;

@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, timedelta
+from decimal import Decimal
 from uuid import UUID
 
 from sqlalchemy import func, or_, select
@@ -80,18 +81,46 @@ async def create_person(
     session: AsyncSession,
     *,
     name: str,
-    email: str,
+    email: str | None,
     actor: Person | None,
     manager_id: UUID | None = None,
+    start_date: date | None = None,
+    suborganization: str | None = None,
+    source_ref: str | None = None,
+    source_url: str | None = None,
 ) -> Person:
-    name, email = name.strip(), email.strip()
+    """Create a person.
+
+    With an email address: an ordinary person, who can log in. Without one:
+    a prospective colleague, which needs the start date; the person is
+    planned from today and logs in once the address has arrived from Wies.
+    """
+    name, email = name.strip(), (email or "").strip()
     if not name:
         raise DomainValidationError("Een naam is verplicht.")
+    if manager_id is not None:
+        await _ensure_manager(session, manager_id, person_id=None)
+    if not email:
+        if start_date is None:
+            raise DomainValidationError(
+                "Zonder e-mailadres is een startdatum nodig: de persoon wordt "
+                "dan als aanstaande collega vastgelegd."
+            )
+        from grip.services import standing
+
+        return await standing.create_prospective_colleague(
+            session,
+            name=name,
+            start_date=start_date,
+            actor=actor,
+            manager_id=manager_id,
+            suborganization=suborganization,
+            source_ref=source_ref,
+            source_url=source_url,
+        )
     if "@" not in email:
         raise DomainValidationError("Dit is geen geldig e-mailadres.")
     await _ensure_email_free(session, email)
-    if manager_id is not None:
-        await _ensure_manager(session, manager_id, person_id=None)
     person = Person(name=name, email=email, manager_id=manager_id)
     session.add(person)
     await session.flush()
@@ -135,6 +164,13 @@ async def update_person(
             raise DomainValidationError("Dit is geen geldig e-mailadres.")
         await _ensure_email_free(session, email, except_id=person.id)
         person.email = email
+        # An address typed in by hand makes a prospective colleague an
+        # ordinary person; the start date stays on record.
+        from grip.models.person_standing import PersonStanding, Stage
+
+        row = await session.get(PersonStanding, person.id)
+        if row is not None and row.stage == Stage.prospective.value:
+            row.stage = Stage.colleague.value
     if "manager_id" in changes:
         manager_id = changes["manager_id"]
         if manager_id is not None:
@@ -247,7 +283,8 @@ async def _ensure_not_last_beheerder(session: AsyncSession, person_id: UUID) -> 
     )
     if own.first() is not None:
         raise DomainValidationError(
-            "Dit is de laatste beheerder. Wijs eerst een andere beheerder aan."
+            "Dit is de laatste beheerder. Wijs eerst een andere beheerder aan; "
+            "zonder beheerder kan niemand de instantie nog beheren."
         )
 
 
@@ -256,7 +293,7 @@ async def grant_function(
 ) -> list[str]:
     """Let a person hold a function from today. Returns the functions held."""
     if function not in FUNCTIONS:
-        raise DomainValidationError(f"Onbekende functie: {function}")
+        raise DomainValidationError(f"Onbekend recht in grip: {function}")
     await get_person(session, person_id)
     today = date.today()
     held = await session.execute(
@@ -298,7 +335,7 @@ async def revoke_function(
     one made today is removed.
     """
     if function not in FUNCTIONS:
-        raise DomainValidationError(f"Onbekende functie: {function}")
+        raise DomainValidationError(f"Onbekend recht in grip: {function}")
     await get_person(session, person_id)
     if function == BEHEERDER:
         await _ensure_not_last_beheerder(session, person_id)
@@ -331,6 +368,82 @@ async def revoke_function(
             new_value={"ended": today.isoformat()},
         )
     return (await functions_by_person(session)).get(person_id, [])
+
+
+@dataclass(frozen=True)
+class FunctionGrant:
+    """A function a person holds today, with since when and who granted it."""
+
+    function: str
+    since: date
+    # None: granted by the system when the instance was set up.
+    granted_by_name: str | None
+
+
+async def function_grants_by_person(
+    session: AsyncSession, on: date | None = None
+) -> dict[UUID, list[FunctionGrant]]:
+    """Per person the functions held on a day, earliest grant per function."""
+    granter = Person.__table__.alias("granter")
+    rows = await session.execute(
+        select(
+            PersonRole.person_id,
+            PersonRole.role_id,
+            PersonRole.start_date,
+            granter.c.name,
+        )
+        .outerjoin(granter, granter.c.id == PersonRole.granted_by_id)
+        .where(*_held_on(on or date.today()))
+        .order_by(PersonRole.role_id, PersonRole.start_date)
+    )
+    result: dict[UUID, dict[str, FunctionGrant]] = defaultdict(dict)
+    for person_id, role_id, start, granted_by in rows:
+        result[person_id].setdefault(role_id, FunctionGrant(role_id, start, granted_by))
+    return {person_id: list(grants.values()) for person_id, grants in result.items()}
+
+
+async def sole_beheerder_id(session: AsyncSession) -> UUID | None:
+    """The one active person who holds beheerder today, when there is only one."""
+    rows = await session.execute(
+        select(PersonRole.person_id)
+        .join(Person, Person.id == PersonRole.person_id)
+        .where(
+            PersonRole.role_id == BEHEERDER,
+            Person.is_active.is_(True),
+            *_held_on(date.today()),
+        )
+        .distinct()
+        .limit(2)
+    )
+    holders = [row[0] for row in rows]
+    return holders[0] if len(holders) == 1 else None
+
+
+@dataclass(frozen=True)
+class CurrentStaffing:
+    """What a person is staffed on, on one day."""
+
+    assignment_count: int
+    fte_pct: Decimal
+
+
+async def staffing_by_person(
+    session: AsyncSession, day: date
+) -> dict[UUID, CurrentStaffing]:
+    rows = await session.execute(
+        select(
+            Allocation.person_id,
+            func.count(func.distinct(BudgetLine.assignment_id)),
+            func.coalesce(func.sum(Allocation.fte_pct), 0),
+        )
+        .join(BudgetLine, BudgetLine.id == Allocation.budget_line_id)
+        .where(Allocation.start_date <= day, Allocation.end_date >= day)
+        .group_by(Allocation.person_id)
+    )
+    return {
+        person_id: CurrentStaffing(count, Decimal(total))
+        for person_id, count, total in rows
+    }
 
 
 # -- bulk reads for the team screen ---------------------------------------------

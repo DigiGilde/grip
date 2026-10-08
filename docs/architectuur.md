@@ -26,8 +26,12 @@ Een opdracht is lokaal volledig. Het federatieve verkeer is een laag erbovenop, 
 |---|---|
 | Aanvraag | De opdrachtgever stuurt een aanvraag met context; de opdrachtnemer antwoordt met een offerte |
 | Voorstel | De opdrachtnemer stuurt op eigen initiatief een offerte, met weinig of geen context |
-| Tegenpartij zonder grip | De offerte gaat als document weg; het akkoord wordt handmatig vastgelegd |
+| Tegenpartij zonder grip | De offerte wordt aangeboden als document of met een tekenlink in de eigen grip |
 | Interne opdracht | Werk zonder externe opdrachtgever |
+
+Hoe een offerte de opdrachtgever bereikt is geen eigenschap van de opdracht. Een offerte wordt eerst uitgegeven en daarna aangeboden, via een kanaal dat op dat moment wordt gekozen: via de grip van de opdrachtgever (alleen als die gekoppeld is), met een tekenlink in de eigen grip, of als document. Een offerte mag vaker en langs meer dan een weg worden aangeboden; elke aanbieding wordt vastgelegd (ADR 0021).
+
+Of een opdracht met een andere instantie wordt gedeeld is een feit dat uit een uitwisseling ontstaat: een aanvraag van of naar die instantie, of een offerte die eraan is aangeboden of ervan is ontvangen. Alleen over een gedeelde opdracht gaat iets naar die instantie, en alleen een gedeelde opdracht is voor haar op te vragen.
 
 ## Identiteit
 
@@ -43,7 +47,7 @@ Elke instantie biedt achter de eigen inway de REST-dienst `grip-opdrachtverkeer`
 | Bericht | Richting | Vorm |
 |---|---|---|
 | Aanvraag met context-URI's | gever naar nemer | push |
-| Offerte (bevroren momentopname plus hash) | nemer naar gever | push |
+| Offerte (canonieke vorm plus hash), wanneer ze via de grip van de opdrachtgever wordt aangeboden | nemer naar gever | push |
 | Akkoord of afwijzing, ondertekend | gever naar nemer | push |
 | Voortgang | gever haalt op | pull |
 | Uitputting en factuurgegevens | gever haalt op, op verzoek | pull |
@@ -86,7 +90,9 @@ Node v1 bevat: URI, type, titel, omschrijving, status, geldigheid, beherende org
 
 ## Tekenen
 
-Een akkoord legt vast: het offerte-id, de hash van de momentopname, wie tekende, namens welke organisatie, wanneer en in welke vorm.
+Een offerte heeft een canonieke vorm en een hash (ADR 0020). De canonieke vorm is de inhoud in de termen van het contract, als canonieke JSON volgens RFC 8785. Ze wordt bij uitgifte een keer gemaakt en als bytes opgeslagen; de hash is de SHA-256 daarover. Die ene hash staat op het document, op de pagina's van de tekenlink, in elk akkoord en in de berichten tussen instanties. Een ontvangen offerte wordt opgeslagen zoals ze is ontvangen, zodat beide instanties dezelfde bytes en dezelfde hash hebben. Wat een scherm of rapportage toont wordt uit die bytes gelezen.
+
+Een akkoord legt vast: het offerte-id, de hash van de offerte, wie tekende, namens welke organisatie, wanneer en in welke vorm. De vorm zegt hoe er werkelijk is getekend, los van het kanaal waarlangs de offerte is aangeboden.
 
 | Vorm | Verloop |
 |---|---|

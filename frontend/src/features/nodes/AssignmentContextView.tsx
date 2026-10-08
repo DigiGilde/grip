@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
-import { EmptyNotice, ErrorNotice, InlineSelect, Loading } from '@/features/assignments/ui';
+import { InlineSelect } from '@/features/assignments/ui';
+import { EmptyNotice, ErrorNotice } from '@/ui/layout';
 import { formatDate } from '@/lib/format';
-import { fetchAssignmentContext, nodeKeys } from './api';
-import { NodeSummary } from './NodeSummary';
+import { fetchAssignmentContext, fetchContextNode, nodeKeys, type NodeLookup } from './api';
+import { NodeCard, NodeCardGrid } from './NodeCard';
+import { NodeDetailSheet } from './NodeDetailSheet';
 import './register';
 
 interface AssignmentContextViewProps {
@@ -14,72 +16,96 @@ interface AssignmentContextViewProps {
 }
 
 /**
- * The context of an assignment, resolved: per node its type, title and the
- * chain up to the political input, as of today or as of the day the quote
- * was accepted. Nodes change after an assignment is given; the acceptance
- * date shows what both parties saw then. A URI that cannot be resolved
- * stays visible as a URI.
- *
- * Works for any assignment the person may read, on the client side and on
- * the contractor side.
+ * The context of an assignment as cards: per linked node what it is and, in
+ * one line, where it comes from. A card opens the detail with the paths up
+ * to the political input. Works for any assignment the person may read, on
+ * the client side and on the contractor side.
  */
 export function AssignmentContextView({ assignmentId, count }: AssignmentContextViewProps) {
   const [moment, setMoment] = useState('');
+  const [openUri, setOpenUri] = useState<string | null>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
   const query = useQuery({
     queryKey: nodeKeys.context(assignmentId, moment),
     queryFn: () => fetchAssignmentContext(assignmentId, moment),
     enabled: count === undefined || count > 0,
+    // Keep the cards of the other date in place while the new ones load.
+    placeholderData: (previous) => previous,
   });
+  const fetchNode = useCallback(
+    (uri: string) => fetchContextNode(assignmentId, uri, moment),
+    [assignmentId, moment],
+  );
+
+  const close = () => {
+    const opened = openUri;
+    setOpenUri(null);
+    // Back to the card the detail was opened from.
+    if (opened) {
+      const card = [...(gridRef.current?.querySelectorAll<HTMLElement>('nldd-card') ?? [])].find(
+        (el) => el.dataset.nodeUri === opened,
+      );
+      card?.focus();
+    }
+  };
 
   if (count === 0) {
     return (
       <EmptyNotice
         text="Deze opdracht heeft geen context"
-        supportingText="Er zijn geen nodes aan gekoppeld. Dat mag: niet elke opdracht volgt uit een vastgelegde wens."
+        supportingText="Koppel een doel of instrument om te laten zien waar de opdracht uit voortkomt."
       />
     );
   }
   const data = query.data;
-  const items = data?.items ?? [];
+  const items: NodeLookup[] = data?.items ?? [];
+  const placeholders = query.isPending ? Math.max(1, Math.min(count ?? 1, 6)) : 0;
+
   return (
     <nldd-container gap="16">
       {data?.acceptance_date ? (
-        <InlineSelect
-          label="Peildatum van de context"
-          value={moment}
-          onChange={setMoment}
-          width="320px"
-          options={[
-            { value: '', label: 'Zoals het nu is' },
-            {
-              value: 'acceptance',
-              label: `Bij akkoord op ${formatDate(data.acceptance_date)}`,
-            },
-          ]}
-        />
+        <nldd-container layout="wrap" gap="8" horizontal-alignment="right">
+          <InlineSelect
+            label="Peildatum van de context"
+            value={moment}
+            onChange={setMoment}
+            width="260px"
+            options={[
+              { value: '', label: 'Zoals het nu is' },
+              { value: 'acceptance', label: `Bij akkoord, ${formatDate(data.acceptance_date)}` },
+            ]}
+          />
+        </nldd-container>
       ) : null}
-      {query.isPending ? <Loading text="Bezig met ophalen van de context" /> : null}
       {query.isError ? <ErrorNotice message={errorMessage(query.error)} /> : null}
-      {data ? (
-        <nldd-text size="sm">
-          Titel en status per {formatDate(data.peildatum)}. De keten is de keten van nu.
-        </nldd-text>
-      ) : null}
+      {data?.notice ? <nldd-banner variant="neutral" size="sm" text={data.notice} /> : null}
       {query.isSuccess && items.length === 0 ? (
         <EmptyNotice text="Deze opdracht heeft geen context" />
       ) : null}
-      {items.length > 0 ? (
-        <ul
-          aria-label="Context van de opdracht"
-          style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: '16px' }}
-        >
-          {items.map((item) => (
-            <li key={item.uri}>
-              <NodeSummary item={item} />
-            </li>
-          ))}
-        </ul>
+      {items.length > 0 || placeholders > 0 ? (
+        <div ref={gridRef}>
+          <NodeCardGrid label="Context van de opdracht">
+            {items.map((item) => (
+              <NodeCard
+                key={item.uri}
+                item={item}
+                hideReason={Boolean(data?.notice)}
+                onOpen={setOpenUri}
+              />
+            ))}
+            {Array.from({ length: placeholders }, (_, index) => (
+              <NodeCard key={`pending-${index}`} item={{ uri: '', resolved: false }} pending />
+            ))}
+          </NodeCardGrid>
+        </div>
       ) : null}
+      <NodeDetailSheet
+        uri={openUri}
+        known={items}
+        fetchNode={fetchNode}
+        scope={`${assignmentId}:${moment}`}
+        onClose={close}
+      />
     </nldd-container>
   );
 }

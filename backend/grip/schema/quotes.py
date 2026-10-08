@@ -104,8 +104,44 @@ class QuoteSummaryOut(BaseModel):
     rejection: Annotated[RejectionOut | None, nested()] = None
 
 
+class OfferOut(BaseModel):
+    """One time the quote was offered to the client, and through which channel."""
+
+    id: Annotated[UUID, B]
+    # client_instance, signing_link or document.
+    channel: Annotated[str, B]
+    # The client's instance, the invited email address, or nothing.
+    recipient: Annotated[str | None, B] = None
+    offered_at: Annotated[datetime, B]
+    offered_by_name: Annotated[str | None, B] = None
+    # For the channel client_instance: pending, sent or refused.
+    delivery: Annotated[str | None, B] = None
+
+
+class ChannelOut(BaseModel):
+    """A channel the quote can be offered through, or why it cannot."""
+
+    channel: Annotated[str, B]
+    available: Annotated[bool, B]
+    reason: Annotated[str | None, B] = None
+    suggested: Annotated[bool, B] = False
+
+
 class QuoteDetailOut(QuoteSummaryOut):
     content: Annotated[QuoteContentOut | None, nested()] = None
+    # How and when the quote was put before the client. Issuing alone sends
+    # nothing; an offer does.
+    offers: Annotated[list[OfferOut], nested()] = Field(default_factory=list)
+    channels: Annotated[list[ChannelOut], nested()] = Field(default_factory=list)
+
+
+class OfferQuoteIn(BaseModel):
+    channel: str = Field(pattern=r"^(client_instance|signing_link|document)$")
+    # For the signing link: who is invited to sign, and until when.
+    email: str | None = Field(
+        default=None, min_length=3, max_length=320, pattern=r"^[^@\s]+@[^@\s]+$"
+    )
+    expires_at: datetime | None = None
 
 
 class QuoteListOut(BaseModel):

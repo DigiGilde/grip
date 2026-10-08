@@ -62,18 +62,24 @@ async def test_quote_adds_up_to_the_budget(db_session, quoted):
     assert assignment.status == "quoted"
 
 
-async def test_hash_is_sha256_over_canonical_json(quoted):
+async def test_hash_is_sha256_over_the_stored_canonical_form(quoted):
     _, quote = quoted
-    # Independent of rfc8785: for this snapshot (ASCII keys, integers and
+    # The hash is over the stored bytes, nothing else.
+    assert quote.snapshot_hash == hashlib.sha256(quote.canonical).hexdigest()
+    # The bytes are the content in contract terms as canonical JSON.
+    # Independent of rfc8785: for this content (ASCII keys, integers and
     # strings only) canonical JSON equals sorted keys without whitespace.
-    expected = hashlib.sha256(
-        json.dumps(
-            quote.snapshot, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    contract = json.loads(quote.canonical)
+    assert contract["naam"] == quote.snapshot["name"] and "name" not in contract
+    assert contract["regels"][0]["soort"] == "personeel"
+    assert (
+        quote.canonical
+        == json.dumps(
+            contract, sort_keys=True, separators=(",", ":"), ensure_ascii=False
         ).encode()
-    ).hexdigest()
-
-    assert quote.snapshot_hash == expected
-    assert snapshot_hash(quote.snapshot) == expected
+    )
+    # What a screen reads is derived from those bytes, in code names.
+    assert quote.snapshot["lines"][0]["kind"] == "personnel"
     assert canonical_json({"b": 1, "a": "x"}) == b'{"a":"x","b":1}'
 
 
@@ -82,6 +88,7 @@ async def test_issued_quote_does_not_change_when_rates_change(
 ):
     assignment, quote = quoted
     before = json.dumps(quote.snapshot, sort_keys=True)
+    before_bytes = bytes(quote.canonical)
     before_hash = quote.snapshot_hash
 
     await rates.set_rate_band(db_session, 2026, "D", 20_000_00, actor=beheerder)
@@ -93,8 +100,8 @@ async def test_issued_quote_does_not_change_when_rates_change(
         )
     ).scalar_one()
     assert json.dumps(stored.snapshot, sort_keys=True) == before
+    assert bytes(stored.canonical) == before_bytes
     assert stored.snapshot_hash == before_hash
-    assert snapshot_hash(stored.snapshot) == before_hash
     # A new quote does see the new rate.
     fresh = await quotes.build_snapshot(db_session, assignment)
     assert fresh["lines"][0]["monthly_rate"]["amount_cents"] == 20_000_00

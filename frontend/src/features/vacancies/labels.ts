@@ -88,3 +88,33 @@ export function publishedOrigin(text: {
   const drafted = text.drafted_at ? ` op ${formatDate(text.drafted_at)}` : '';
   return `${established} Een taalmodel (${text.model_id ?? 'onbekend model'}) schreef${drafted} het eerste concept.`;
 }
+
+/** What the request form asks for that a vacancy does not have yet. */
+export function missingRequestDetails(vacancy: {
+  fgr_function_name?: string | null;
+  scale?: number | null;
+  contract_type?: string | null;
+  addressee_name?: string | null;
+}): string[] {
+  const missing = [];
+  if (!vacancy.fgr_function_name) missing.push('FGR-functienaam');
+  if (vacancy.scale === null || vacancy.scale === undefined) missing.push('schaal');
+  if (!vacancy.contract_type) missing.push('type contract');
+  if (!vacancy.addressee_name) missing.push('aan wie de aanvraag gericht is');
+  return missing;
+}
+
+/** "Schaal 14 valt buiten ..." when the scale is outside the line's category. */
+export function budgetLineWarning(
+  scale: number | null | undefined,
+  lineScales: number[] | null | undefined,
+): string | null {
+  if (scale === null || scale === undefined || !lineScales || lineScales.length === 0) return null;
+  if (lineScales.includes(scale)) return null;
+  const band =
+    lineScales.length === 1
+      ? `schaal ${lineScales[0]}`
+      : `schaal ${lineScales[0]} t/m ${lineScales[lineScales.length - 1]}`;
+  const direction = scale > Math.max(...lineScales) ? 'te laag' : 'te hoog';
+  return `Schaal ${scale} valt buiten de tariefcategorie van de begrotingsregel (${band}). Die regel is dan ${direction} begroot.`;
+}

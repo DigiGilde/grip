@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip.access import Action, Resource
 from grip.core.audit import CREATE, record_audit
-from grip.federation import signing, terms
+from grip.federation import terms
 from grip.federation.bridge.access import peer_access
 from grip.federation.bridge.organisations import from_reference, own_organisation
 from grip.federation.models import Peer
@@ -31,7 +31,7 @@ from grip.models.quote import Quote
 from grip.repositories.domain import AssignmentRepository
 from grip.repositories.vacancy import VacancyRepository
 from grip.services import assignments, quotes
-from grip.services.canonical import snapshot_hash as code_snapshot_hash
+from grip.services.canonical import canonical_of_received
 from grip.services.errors import (
     DomainError,
     NotFoundError,
@@ -61,15 +61,6 @@ def _refuse(error: DomainError) -> FederationProblem:
 
 def _date(value: str | None) -> date | None:
     return date.fromisoformat(value) if value else None
-
-
-def contract_quote_hash(quote: Quote) -> str:
-    """The hash of a quote as the contract defines it.
-
-    The contract hashes the snapshot as it crosses the boundary, in contract
-    terms. The domain keeps its own hash over the snapshot in code names.
-    """
-    return signing.snapshot_hash(terms.to_contract(quote.snapshot))
 
 
 async def receive_assignment_request(
@@ -125,7 +116,6 @@ async def receive_quote(
                 name=body["snapshot"]["name"],
                 actor=None,
                 kind="external",
-                traffic_form="federated",
                 client_organisation_id=client.id,
                 contractor_organisation_id=contractor.id,
                 parent_assignment_uri=body.get("parent_assignment_uri"),
@@ -134,22 +124,28 @@ async def receive_quote(
             )
         except DomainError as error:
             raise _refuse(error) from error
+        # A quote received from an instance is an exchange with it.
+        assignments.share_with_instance(assignment, peer.base_uri)
     else:
         decision = await access.may(
             Action.ISSUE_QUOTE, Resource.quote(None, assignment.id)
         )
         if not decision.allowed:
             raise _not_found()
+        assignments.share_with_instance(assignment, peer.base_uri)
     try:
         quote = await quotes.receive_quote(
             db,
             assignment.id,
             quote_id=UUID(body["id"]),
             uri=body["uri"],
-            snapshot=body["snapshot"],
-            # The route checked the hash of the message as it came in. The
-            # domain keeps its own, over the snapshot in code names.
-            claimed_hash=code_snapshot_hash(body["snapshot"]),
+            # The content is kept exactly as it came in, so both instances
+            # hold the same bytes. The domain refuses a quote whose stated
+            # hash is not the hash of those bytes.
+            canonical=canonical_of_received(
+                message.contract_payload[terms.term("snapshot")]
+            ),
+            claimed_hash=body["snapshot_hash"],
             issued_at=datetime.fromisoformat(body["issued_at"]),
             request_id=UUID(body["request_id"]) if body.get("request_id") else None,
         )
@@ -168,7 +164,12 @@ async def _own_quote(db: AsyncSession, peer: Peer, body: dict[str, Any]) -> Quot
     )
     if not decision.allowed:
         raise _not_found()
-    if body["quote_hash"] != contract_quote_hash(quote):
+    assignment = await AssignmentRepository(db).get(quote.assignment_id)
+    if assignment is None or not assignments.is_shared_with(assignment, peer.base_uri):
+        # The quote was never offered to this instance: a decision on it
+        # cannot come from there.
+        raise _not_found()
+    if body["quote_hash"] != quote.snapshot_hash:
         raise _conflict("De hash hoort niet bij de uitgegeven offerte.")
     return quote
 
@@ -244,7 +245,9 @@ async def receive_final_report(
     decision = await peer_access(db, peer).may(
         Action.DELIVER_REPORT, Resource.assignment(assignment.id)
     )
-    if not decision.allowed:
+    if not decision.allowed or not assignments.is_shared_with(
+        assignment, peer.base_uri
+    ):
         raise _not_found()
     record_audit(
         db,

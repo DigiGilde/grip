@@ -1,8 +1,10 @@
-"""Billing data of a closed month, and export runs for the financial system.
+"""Billing data of a closed month, its delivery, and recorded invoices.
 
 Grip makes no invoices. It produces the data an invoice or an internal
 settlement is made from: per closed month the established inzet priced at
-the rate card, frozen as an export run and downloadable as CSV.
+the rate card, frozen as an export run and downloadable as CSV. That is a
+delivery ("aangeleverd"). Whether an invoice was actually sent is a fact
+someone records here ("gefactureerd"); until then nothing counts as invoiced.
 """
 
 from __future__ import annotations
@@ -10,12 +12,12 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip import calc
-from grip.access import Action, DataClass, Decider, Resource, Subject
+from grip.access import Action, DataClass, Decider, Resource, Subject, decide
 from grip.access.deps import AccessDecider, CurrentSubject, require
 from grip.api.routes.quotes import filtered
 from grip.core.auth import CurrentPerson
@@ -29,8 +31,20 @@ from grip.schema.billing import (
     BillingExportListOut,
     BillingExportOut,
     BillingLineOut,
+    BillingStatusOut,
+    CorrectInvoiceIn,
+    InvoiceProposalOut,
+    MonthBillingOut,
+    OutgoingInvoiceOut,
+    RecordInvoiceIn,
+    WithdrawInvoiceIn,
 )
-from grip.services import month_close, month_overview, quote_views
+from grip.services import (
+    month_close,
+    month_overview,
+    outgoing_invoices,
+    quote_views,
+)
 from grip.services.assignments import get_assignment
 from grip.services.errors import DomainValidationError
 
@@ -214,3 +228,189 @@ async def export_csv(
             "Cache-Control": "private, no-store",
         },
     )
+
+
+# -- delivered and invoiced ---------------------------------------------------
+
+
+def _invoice_out(view: outgoing_invoices.InvoiceView) -> OutgoingInvoiceOut:
+    invoice = view.invoice
+    return OutgoingInvoiceOut(
+        id=invoice.id,
+        invoice_number=invoice.invoice_number,
+        invoice_date=invoice.invoice_date,
+        amount_cents=invoice.amount_cents,
+        delivered_cents=view.delivered_cents,
+        difference_cents=view.difference_cents,
+        months=[str(calc.Month.of(d.month)) for d in view.deliveries],
+        export_ids=[d.export_id for d in view.deliveries],
+        source=invoice.source,
+        note=invoice.note,
+        recorded_at=invoice.created_at,
+        recorded_by_name=view.recorded_by_name,
+        withdrawn_at=invoice.withdrawn_at,
+        withdrawn_by_name=view.withdrawn_by_name,
+        withdrawn_reason=invoice.withdrawn_reason,
+    )
+
+
+def _month_out(month: outgoing_invoices.MonthBilling) -> MonthBillingOut:
+    return MonthBillingOut(
+        month=str(calc.Month.of(month.month)),
+        closed=month.closed,
+        state=month.state,
+        deliverable_cents=month.deliverable_cents,
+        to_deliver_cents=month.to_deliver_cents,
+        export_id=month.export_id,
+        delivered_at=month.delivered_at,
+        delivered_by_name=month.delivered_by_name,
+        delivered_cents=month.delivered_cents,
+        invoice_id=month.invoice_id,
+        invoice_number=month.invoice_number,
+        invoice_date=month.invoice_date,
+        invoiced_cents=month.invoiced_cents,
+        invoice_on_earlier_delivery=month.invoice_on_earlier_delivery,
+    )
+
+
+async def _status(
+    db: AsyncSession,
+    decider: Decider,
+    subject: Subject,
+    resource: Resource,
+    assignment_id: UUID,
+    year: int | None = None,
+) -> dict[str, Any]:
+    position = await outgoing_invoices.billing_position(db, assignment_id, year=year)
+    invoices = await outgoing_invoices.invoices_of_assignment(db, assignment_id)
+    value = BillingStatusOut(
+        assignment_id=assignment_id,
+        year=year,
+        billable=position.billable,
+        may_record_invoice=bool(
+            await decide(decider, subject, Action.RECORD_INVOICE, resource)
+        ),
+        deliverable_cents=position.deliverable_cents,
+        delivered_cents=position.delivered_cents,
+        to_deliver_cents=position.to_deliver_cents,
+        invoiced_cents=position.invoiced_cents,
+        to_invoice_cents=position.to_invoice_cents,
+        months=[_month_out(month) for month in position.months],
+        invoices=[_invoice_out(view) for view in invoices],
+    )
+    return await filtered(decider, subject, resource, value)
+
+
+@router.get("/assignments/{assignment_id}/billing-status", response_model=None)
+async def billing_status(
+    assignment_id: UUID,
+    subject: CurrentSubject,
+    decider: AccessDecider,
+    year: int | None = Query(default=None, ge=2000, le=2200),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Per closed month whether it was delivered and invoiced, with the totals.
+
+    Delivered means billing data was exported for the financial
+    administration. Invoiced means someone recorded that an invoice was
+    sent; grip cannot see that by itself.
+    """
+    resource = await _visible(decider, subject, assignment_id)
+    await get_assignment(db, assignment_id)
+    return await _status(db, decider, subject, resource, assignment_id, year)
+
+
+@router.get(
+    "/assignments/{assignment_id}/outgoing-invoices/proposal", response_model=None
+)
+async def invoice_proposal(
+    assignment_id: UUID,
+    subject: CurrentSubject,
+    decider: AccessDecider,
+    export_id: list[UUID] = Query(default_factory=list, max_length=120),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """What was delivered for a selection of deliveries, added up."""
+    resource = await _visible(decider, subject, assignment_id)
+    await require(decider, subject, Action.RECORD_INVOICE, resource)
+    position = await outgoing_invoices.billing_position(db, assignment_id)
+    chosen = [m for m in position.months if m.export_id in set(export_id)]
+    value = InvoiceProposalOut(
+        months=[str(calc.Month.of(m.month)) for m in chosen],
+        delivered_cents=sum(m.delivered_cents or 0 for m in chosen),
+    )
+    return await filtered(decider, subject, resource, value)
+
+
+@router.post(
+    "/assignments/{assignment_id}/outgoing-invoices",
+    response_model=None,
+    status_code=status.HTTP_201_CREATED,
+)
+async def record_invoice(
+    assignment_id: UUID,
+    body: RecordInvoiceIn,
+    person: CurrentPerson,
+    subject: CurrentSubject,
+    decider: AccessDecider,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Record that an invoice was sent for one or several delivered months."""
+    resource = await _visible(decider, subject, assignment_id)
+    await require(decider, subject, Action.RECORD_INVOICE, resource)
+    await outgoing_invoices.record_invoice(
+        db,
+        assignment_id,
+        export_ids=body.export_ids,
+        invoice_number=body.invoice_number,
+        invoice_date=body.invoice_date,
+        amount_cents=body.amount_cents,
+        note=body.note,
+        actor=person,
+    )
+    return await _status(db, decider, subject, resource, assignment_id)
+
+
+@router.patch("/outgoing-invoices/{invoice_id}", response_model=None)
+async def correct_invoice(
+    invoice_id: UUID,
+    body: CorrectInvoiceIn,
+    person: CurrentPerson,
+    subject: CurrentSubject,
+    decider: AccessDecider,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Correct a recorded invoice; old and new values go to the audit log."""
+    invoice = await outgoing_invoices.get_invoice(db, invoice_id)
+    resource = await _visible(decider, subject, invoice.assignment_id)
+    await require(decider, subject, Action.RECORD_INVOICE, resource)
+    await outgoing_invoices.correct_invoice(
+        db,
+        invoice_id,
+        actor=person,
+        invoice_number=body.invoice_number,
+        invoice_date=body.invoice_date,
+        amount_cents=body.amount_cents,
+        note=body.note,
+        export_ids=body.export_ids,
+    )
+    return await _status(db, decider, subject, resource, invoice.assignment_id)
+
+
+@router.post("/outgoing-invoices/{invoice_id}/withdraw", response_model=None)
+async def withdraw_invoice(
+    invoice_id: UUID,
+    body: WithdrawInvoiceIn,
+    person: CurrentPerson,
+    subject: CurrentSubject,
+    decider: AccessDecider,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Take back an invoice that should not have been recorded."""
+    invoice = await outgoing_invoices.get_invoice(db, invoice_id)
+    resource = await _visible(decider, subject, invoice.assignment_id)
+    await require(decider, subject, Action.RECORD_INVOICE, resource)
+    await outgoing_invoices.withdraw_invoice(
+        db, invoice_id, actor=person, reason=body.reason
+    )
+    return await _status(db, decider, subject, resource, invoice.assignment_id)

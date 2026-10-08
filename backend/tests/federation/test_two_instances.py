@@ -13,6 +13,7 @@ server as the test database. The test is skipped when they do not exist.
 
 from __future__ import annotations
 
+import hashlib
 import os
 import subprocess
 import sys
@@ -25,6 +26,7 @@ from typing import Any
 
 import httpx
 import pytest
+import rfc8785
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select, text
 from sqlalchemy.engine import make_url
@@ -463,13 +465,34 @@ async def test_request_quote_acceptance_and_inspection(instances):
         quote_id = quote.id
         assert quote.total_cents == 6 * 1440000 + 6 * 1512000
         contractor_assignment_id = received.id
+        issued_bytes = bytes(quote.canonical)
+        issued_hash = quote.snapshot_hash
+        assert issued_hash == hashlib.sha256(issued_bytes).hexdigest()
+
+        # Issuing freezes the quote and sends nothing.
+        assert (await db.execute(select(FederationOutbox))).scalars().all() == []
+        # The request came from the client's instance, so offering it back
+        # through the client's grip is possible and the suggestion.
+        options = {o.channel: o for o in await quotes.channel_options(db, quote_id)}
+        assert options["client_instance"].available
+        assert options["client_instance"].suggested
+        offer = await quotes.offer_quote(db, quote_id, "client_instance", actor=manager)
+        assert offer.recipient == client.base_uri
+        (out,) = (await db.execute(select(FederationOutbox))).scalars().all()
+        assert out.operation == "sendQuote" and out.path == "/v1/offertes"
+        # What goes out is the stored canonical form, not a new translation.
+        assert rfc8785.dumps(out.payload["momentopname"]) == issued_bytes
+        assert out.payload["momentopname_hash"] == issued_hash
     await _deliver(contractor)
 
     # --- 3. the client received the quote; a tekenbevoegde accepts -------
     async with client.session() as db:
         seen = await db.get(Quote, quote_id)
         assert seen is not None and seen.total_cents == quote.total_cents
-        assert seen.snapshot == quote.snapshot, "translated back without loss"
+        # One quote, one canonical form, one hash, on both sides.
+        assert bytes(seen.canonical) == issued_bytes
+        assert seen.snapshot_hash == issued_hash
+        assert seen.snapshot == quote.snapshot
         line = seen.snapshot["lines"][0]
         assert [entry["year"] for entry in line["monthly_rates_per_year"]] == [
             2026,
@@ -520,6 +543,8 @@ async def test_request_quote_acceptance_and_inspection(instances):
         ).scalar_one()
         assert wire.processed_at is not None
         assert wire.payload["vorm"] == "eigen_instantie"
+        # The signed acceptance cites the one hash of the quote.
+        assert wire.payload["offerte_hash"] == issued_hash == stored.quote_hash
         assert validation_errors("akkoord", wire.payload) == []
         signing.verify_acceptance(wire.payload, signing.own_jwks(client.settings()))
         tampered = {**wire.payload, terms.term("quote_hash"): "0" * 64}

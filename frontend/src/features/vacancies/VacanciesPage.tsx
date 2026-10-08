@@ -7,30 +7,23 @@ import { useInstance } from '@/layout/useInstance';
 import { useRouterLinks } from '@/layout/useRouterLinks';
 import { PageHeading } from '@/pages/PageHeading';
 import { PATHS } from '@/paths';
+import { ActionBar } from '@/ui/ActionBar';
 import {
   ROLE_PARAM,
   VACANCY_KEYS,
   createVacancy,
   fetchUnfilledRoles,
   fetchVacancies,
-  type ContractType,
   type UnfilledRole,
   type VacancyOptions,
   type VacancySummary,
   type VacancyType,
 } from './api';
-import { parseFte, parseScale, useVacancyOptions } from './hooks';
-import { STATUS_COLORS, STATUS_LABELS, scaleAndFte } from './labels';
-import {
-  Button,
-  DateInput,
-  ErrorNotice,
-  FormSheet,
-  LinkButton,
-  Loading,
-  SelectInput,
-  TextInput,
-} from './ui';
+import { parseFte, useVacancyOptions } from './hooks';
+import { STATUS_COLORS, VACANCY_TYPE_LABELS, scaleAndFte } from './labels';
+import { ORDER_OPTIONS, orderVacancies, standingOf, statusWord, type ListOrder } from './list';
+import { DateInput, Note, SelectInput, TextInput } from './ui';
+import { ErrorNotice, FormSheet, Loading } from '@/ui/layout';
 
 const NO_BUDGET_LINE = 'none';
 
@@ -44,32 +37,77 @@ function summaryLine(vacancy: VacancySummary): string {
     .join(' · ');
 }
 
-function stepLine(vacancy: VacancySummary): string | undefined {
-  if (vacancy.next_step && ['draft', 'requested', 'approved', 'open'].includes(vacancy.status)) {
-    return `Volgende stap: ${vacancy.next_step}`;
-  }
-  return vacancy.current_step ? `Laatste stap: ${vacancy.current_step}` : undefined;
-}
-
-function VacancyRow({ vacancy }: { vacancy: VacancySummary }) {
-  const status = STATUS_LABELS[vacancy.status];
-  const step = stepLine(vacancy);
+/**
+ * The vacancies as a table: every column starts at the same place on every
+ * row, so status and next step can be read down the page. On a narrow
+ * screen the type and the status column go, and the status moves above the
+ * next step.
+ */
+function VacancyTable({ vacancies, emptyText }: { vacancies: VacancySummary[]; emptyText: string }) {
+  // A reader who only gets the published vacancies has no type or step.
+  const withType = vacancies.some((vacancy) => vacancy.vacancy_type !== undefined);
+  const withStep = vacancies.some((vacancy) => vacancy.step !== undefined);
+  const wide = [
+    'minmax(240px,2fr)',
+    ...(withType ? ['150px'] : []),
+    ...(withStep ? ['minmax(240px,1.4fr)'] : []),
+    '150px',
+  ].join(' ');
+  const narrow = withStep ? 'minmax(150px,1fr) minmax(150px,1fr)' : 'minmax(150px,1fr) 130px';
   return (
-    <nldd-list-item href={PATHS.vacancyDetail.replace(':vacancyId', vacancy.id)}>
-      <nldd-text-cell text={vacancy.function_title} supporting-text={summaryLine(vacancy)} />
-      <nldd-spacer-cell size="8" />
-      <nldd-cell>
-        <nldd-badge color={STATUS_COLORS[vacancy.status]} decorative />
-      </nldd-cell>
-      <nldd-spacer-cell size="8" />
-      <nldd-text-cell
-        width="fit-content"
-        text={status}
-        {...(step ? { 'supporting-text': step } : {})}
-      />
-      <nldd-spacer-cell size="8" />
-      <nldd-icon-cell size="20" color="secondary" icon="chevron-right" />
-    </nldd-list-item>
+    <nldd-table accessible-label="Vacatures" columns={wide} sm-columns={narrow}>
+      <nldd-table-row slot="header">
+        <nldd-text-cell text="Vacature" />
+        {withType && <nldd-text-cell text="Type" hide-below="md" />}
+        {withStep && <nldd-text-cell text="Volgende stap" />}
+        <nldd-text-cell text="Status" {...(withStep ? { 'hide-below': 'md' } : {})} />
+      </nldd-table-row>
+      {vacancies.map((vacancy) => {
+        const standing = standingOf(vacancy);
+        const status = statusWord(vacancy);
+        return (
+          <nldd-table-row key={vacancy.id}>
+            <nldd-cell>
+              <nldd-container gap="2">
+                <nldd-link
+                  href={PATHS.vacancyDetail.replace(':vacancyId', vacancy.id)}
+                  text={vacancy.function_title}
+                />
+                <nldd-text size="sm" color="secondary">
+                  {summaryLine(vacancy)}
+                </nldd-text>
+              </nldd-container>
+            </nldd-cell>
+            {withType && (
+              <nldd-text-cell
+                hide-below="md"
+                text={vacancy.vacancy_type ? VACANCY_TYPE_LABELS[vacancy.vacancy_type] : ''}
+              />
+            )}
+            {withStep && (
+              <>
+                <nldd-text-cell
+                  hide-below="md"
+                  text={standing.step}
+                  supporting-text={standing.detail}
+                />
+                {/* Narrow: the status has no column of its own and reads above the step. */}
+                <nldd-text-cell
+                  hide-above="sm"
+                  overline={status}
+                  text={standing.step}
+                  supporting-text={standing.detail}
+                />
+              </>
+            )}
+            <nldd-cell {...(withStep ? { 'hide-below': 'md' } : {})}>
+              <nldd-badge color={STATUS_COLORS[vacancy.status]} text={status} />
+            </nldd-cell>
+          </nldd-table-row>
+        );
+      })}
+      <nldd-inline-dialog slot="empty" text="Nog geen vacatures" supporting-text={emptyText} />
+    </nldd-table>
   );
 }
 
@@ -96,10 +134,6 @@ function CreateSheet({ open, onClose, options, roles, initialLine }: CreateSheet
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
   const [vacancyType, setVacancyType] = useState<VacancyType>('regulier');
-  const [contractType, setContractType] = useState('');
-  const [fgr, setFgr] = useState('');
-  const [scale, setScale] = useState('');
-  const [addressee, setAddressee] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -115,11 +149,6 @@ function CreateSheet({ open, onClose, options, roles, initialLine }: CreateSheet
     setError(null);
     if (!line) {
       setError('Kies de rol waarvoor je een vacature opent.');
-      return;
-    }
-    const scaleValue = parseScale(scale);
-    if (scaleValue === undefined) {
-      setError('De schaal is een heel getal van 1 tot en met 19.');
       return;
     }
     const fteValue = loose ? parseFte(fte) : null;
@@ -143,10 +172,6 @@ function CreateSheet({ open, onClose, options, roles, initialLine }: CreateSheet
             }
           : { budget_line_id: line }),
         vacancy_type: vacancyType,
-        contract_type: (contractType || null) as ContractType | null,
-        fgr_function_name: fgr.trim() || null,
-        scale: scaleValue,
-        addressee_name: addressee.trim() || null,
       });
       void queryClient.invalidateQueries({ queryKey: ['vacancies'] });
       onClose();
@@ -189,25 +214,10 @@ function CreateSheet({ open, onClose, options, roles, initialLine }: CreateSheet
         label="Type vacature"
         value={vacancyType}
         onChange={(value) => setVacancyType(value as VacancyType)}
+        hint="Bepaalt de procedure: een vacature voor een beoogde of gerede kandidaat wordt niet opengesteld."
         options={options?.vacancy_types ?? []}
       />
-      <SelectInput
-        label="Type contract"
-        value={contractType}
-        onChange={setContractType}
-        options={options?.contract_types ?? []}
-        placeholder="Nog niet bekend"
-        optional
-      />
-      <TextInput label="FGR-functienaam" value={fgr} onChange={setFgr} optional />
-      <TextInput label="Schaal" value={scale} onChange={setScale} keyboard="numeric" optional />
-      <TextInput
-        label="Aan"
-        hint="Wie akkoord moet geven op de aanvraag."
-        value={addressee}
-        onChange={setAddressee}
-        optional
-      />
+      <Note>Functienaam, schaal, type contract en geadresseerde vul je hierna in.</Note>
     </FormSheet>
   );
 }
@@ -221,6 +231,7 @@ export function VacanciesPage() {
   const [searchParams] = useSearchParams();
   const requestedLine = searchParams.get(ROLE_PARAM);
   const [creating, setCreating] = useState(requestedLine !== null);
+  const [order, setOrder] = useState<ListOrder>('waiting');
 
   const vacancies = useQuery({ queryKey: VACANCY_KEYS.list, queryFn: fetchVacancies });
   const roles = useQuery({ queryKey: VACANCY_KEYS.unfilledRoles, queryFn: fetchUnfilledRoles });
@@ -233,33 +244,39 @@ export function VacanciesPage() {
     <div ref={containerRef}>
       <nldd-simple-section>
         <PageHeading text="Vacatures" instanceName={instance?.name} />
-        <nldd-button-group>
-          {canCreate && (
-            <Button text="Nieuwe vacature" appearance="primary" onClick={() => setCreating(true)} />
-          )}
-          <LinkButton text="Open rollen" href={PATHS.vacancyOpenRoles} />
-          {options.data?.can_manage_setup && (
-            <LinkButton text="Formulier en taalmodel" href={PATHS.vacancySetup} />
-          )}
-        </nldd-button-group>
+        <ActionBar
+          label="Vacatures ordenen en acties"
+          filters={[
+            {
+              label: 'Volgorde',
+              value: order,
+              onChange: (value) => setOrder(value as ListOrder),
+              options: ORDER_OPTIONS,
+              width: '200px',
+            },
+          ]}
+          actions={[
+            { text: 'Open rollen', href: PATHS.vacancyOpenRoles },
+            ...(options.data?.can_manage_setup
+              ? [{ text: 'Formulier en taalmodel', href: PATHS.vacancySetup }]
+              : []),
+            ...(canCreate
+              ? [{ text: 'Nieuwe vacature', onClick: () => setCreating(true), primary: true }]
+              : []),
+          ]}
+        />
         <nldd-spacer size="16" />
         {vacancies.isPending && <Loading />}
         {vacancies.isError && <ErrorNotice message={errorMessage(vacancies.error)} />}
         {vacancies.data && (
-          <nldd-list appearance="box-base" accessible-label="Vacatures">
-            {vacancies.data.map((vacancy) => (
-              <VacancyRow key={vacancy.id} vacancy={vacancy} />
-            ))}
-            <nldd-inline-dialog
-              slot="empty"
-              text="Nog geen vacatures"
-              supporting-text={
-                canCreate
-                  ? 'Open een vacature voor een rol op een begroting die nog niet is ingevuld.'
-                  : 'Er staan geen vacatures open die je kunt inzien.'
-              }
-            />
-          </nldd-list>
+          <VacancyTable
+            vacancies={orderVacancies(vacancies.data, order)}
+            emptyText={
+              canCreate
+                ? 'Open een vacature voor een rol op een begroting die nog niet is ingevuld.'
+                : 'Er staan geen vacatures open die je kunt inzien.'
+            }
+          />
         )}
       </nldd-simple-section>
       <CreateSheet

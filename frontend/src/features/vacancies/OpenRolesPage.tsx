@@ -5,7 +5,8 @@ import { useInstance } from '@/layout/useInstance';
 import { PageHeading } from '@/pages/PageHeading';
 import { VACANCY_KEYS, fetchOpenRoles, type OpenRole } from './api';
 import { publishedOrigin, scaleAndFte } from './labels';
-import { EmptyNotice, ErrorNotice, Loading, Note, Paragraphs, SectionHeading } from './ui';
+import { Note, Paragraphs } from './ui';
+import { EmptyNotice, ErrorNotice, Loading, SectionHeading } from '@/ui/layout';
 
 function RoleFacts({ role }: { role: OpenRole }) {
   const facts = [

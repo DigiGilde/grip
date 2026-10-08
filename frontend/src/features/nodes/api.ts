@@ -56,17 +56,50 @@ export interface NodeSearch {
   problem?: string | null;
 }
 
+/** A political input a node follows from, or another linked node. */
+export interface NodeOrigin {
+  uri: string;
+  title: string;
+}
+
+export interface PathStep {
+  uri: string;
+  title?: string | null;
+  type?: string | null;
+  /** The step lies in another corpus than the node the path starts at. */
+  external?: boolean;
+  corpus_name?: string | null;
+  /** Whether this instance can ask the corpus of the step for the node. */
+  resolvable?: boolean;
+  /** The relation between this step and the next; absent on the last. */
+  edge_type?: string | null;
+}
+
+export interface NodePath {
+  steps?: PathStep[];
+}
+
 export interface NodeLookup {
   uri: string;
   resolved: boolean;
   problem?: string | null;
   node?: CorpusNode | null;
   chain?: NodeChain | null;
+  corpus_name?: string | null;
+  /** The political inputs at the end of the chain, nearest first. */
+  origins?: NodeOrigin[];
+  steps_to_origin?: number | null;
+  /** Per end point one path: to a political input, or into another corpus. */
+  paths?: NodePath[];
+  /** Another linked node this node's chain passes through. */
+  falls_under?: NodeOrigin | null;
 }
 
 export interface AssignmentContext {
   peildatum: string;
   acceptance_date?: string | null;
+  /** Why nothing could be resolved at all; said once instead of per node. */
+  notice?: string | null;
   items?: NodeLookup[];
 }
 
@@ -76,6 +109,8 @@ export const nodeKeys = {
   lookup: (uri: string) => ['nodes', 'lookup', uri] as const,
   context: (assignmentId: string, peildatum: string) =>
     ['nodes', 'context', assignmentId, peildatum] as const,
+  contextNode: (assignmentId: string, peildatum: string, uri: string) =>
+    ['nodes', 'context-node', assignmentId, peildatum, uri] as const,
 };
 
 export function fetchCorpora(): Promise<Corpora> {
@@ -96,4 +131,13 @@ export function fetchAssignmentContext(
   peildatum: string,
 ): Promise<AssignmentContext> {
   return apiGet<AssignmentContext>(`/api/assignments/${assignmentId}/context`, { peildatum });
+}
+
+/** One node on a chain of an assignment's context, for whoever may read the assignment. */
+export function fetchContextNode(
+  assignmentId: string,
+  uri: string,
+  peildatum: string,
+): Promise<NodeLookup> {
+  return apiGet<NodeLookup>(`/api/assignments/${assignmentId}/context/node`, { uri, peildatum });
 }

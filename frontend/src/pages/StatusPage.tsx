@@ -42,6 +42,28 @@ export function StatusPage({
   secondaryAction,
   children,
 }: StatusPageProps) {
+  if (variant === 'loading') {
+    // Spinner and heading form one centered block. The inline dialog would
+    // put the heading at the top of the page and the spinner in the middle.
+    return (
+      <nldd-app-view background="tinted">
+        <nldd-page landmarks="page">
+          <nldd-simple-section
+            width="480px"
+            vertical-alignment="center"
+            horizontal-alignment="center"
+          >
+            <div className="status-loading">
+              <nldd-activity-indicator size="40" timing="instant" />
+              <PageHeading text={title} inline />
+              {children}
+            </div>
+          </nldd-simple-section>
+        </nldd-page>
+      </nldd-app-view>
+    );
+  }
+
   return (
     <nldd-app-view background="tinted">
       <nldd-page landmarks="page">

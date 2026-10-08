@@ -16,20 +16,29 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 ASSIGNMENT_REQUEST_CREATED = "assignment_request.created"
 QUOTE_ISSUED = "quote.issued"
+# An issued quote is put before the client, through a channel.
+QUOTE_OFFERED = "quote.offered"
 QUOTE_ACCEPTED = "quote.accepted"
 QUOTE_REJECTED = "quote.rejected"
 ASSIGNMENT_STATUS_CHANGED = "assignment.status_changed"
 FINAL_REPORT_ISSUED = "final_report.issued"
 VACANCY_PUBLISHED = "vacancy.published"
+# Someone recorded that an invoice was sent for delivered billing data, or
+# took such a record back.
+INVOICE_RECORDED = "invoice.recorded"
+INVOICE_WITHDRAWN = "invoice.withdrawn"
 
 EVENT_TYPES = (
     ASSIGNMENT_REQUEST_CREATED,
     QUOTE_ISSUED,
+    QUOTE_OFFERED,
     QUOTE_ACCEPTED,
     QUOTE_REJECTED,
     ASSIGNMENT_STATUS_CHANGED,
     FINAL_REPORT_ISSUED,
     VACANCY_PUBLISHED,
+    INVOICE_RECORDED,
+    INVOICE_WITHDRAWN,
 )
 
 Handler = Callable[[AsyncSession, str, dict[str, Any]], Awaitable[None]]

@@ -17,7 +17,7 @@ no message.
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 from uuid import UUID
@@ -26,6 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip.federation.contract_loader import ContractError, operations
 from grip.federation.models import Peer
+from grip.services import quote_channels
 
 
 @dataclass(frozen=True)
@@ -34,9 +35,13 @@ class InboundMessage:
 
     message_id: UUID
     operation: str
+    # The message in code names.
     payload: dict[str, Any]
     path_parameters: dict[str, str]
     received_at: datetime
+    # The message exactly as it came in, in contract terms. A handler uses
+    # it for what must be kept as received, such as the content of a quote.
+    contract_payload: dict[str, Any] = field(default_factory=dict)
 
 
 # Runs inside the request transaction, after validation and before the
@@ -115,3 +120,6 @@ def clear_registries() -> None:
     _inbound_handlers.clear()
     _providers.clear()
     _message_builders.clear()
+    # The bridge also answers the domain's questions about the channel to a
+    # client's instance; forgetting the bridge includes those.
+    quote_channels.clear()

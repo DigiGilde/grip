@@ -8,7 +8,8 @@ import {
   type Vacancy,
   type VacancyOptions,
 } from './api';
-import { ErrorNotice, LinkButton, Loading, Note, SectionHeading } from './ui';
+import { LinkButton, Note } from './ui';
+import { ErrorNotice, Loading, SectionHeading } from '@/ui/layout';
 
 /** The request form of the instance, filled in for this vacancy. */
 export function RequestFormSection({
@@ -58,6 +59,13 @@ export function RequestFormSection({
           {status.data.open_fields.length > 0 ? (
             <>
               <SectionHeading text="Blijft open op het formulier" level={3} />
+              {vacancy.permissions.can_edit && (
+                <Note>
+                  De functienaam, de schaal, het type contract en aan wie de aanvraag gericht is
+                  vul je aan met "Bereid aanvraag voor" bij de gegevens. Advies en akkoord leg je
+                  vast onder Advies en akkoord.
+                </Note>
+              )}
               <nldd-list accessible-label="Velden die open blijven op het formulier">
                 {status.data.open_fields.map((field) => (
                   <nldd-list-item key={field.source} size="sm">

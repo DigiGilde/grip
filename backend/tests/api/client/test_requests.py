@@ -74,7 +74,8 @@ async def test_requester_asks_for_a_quote_and_it_is_queued(
     assert body["contractor_reachable"] is True
 
     assignment = await db_session.get(Assignment, body["id"])
-    assert assignment is not None and assignment.traffic_form == "federated"
+    # Asking a contractor is an exchange: shared with its instance from then on.
+    assert assignment is not None and assignment.shared_with_instance_uri
     assert assignment.start_date == date(2026, 7, 1)
     # This instance is the client, and the requester owns the assignment here.
     role = await db_session.scalar(

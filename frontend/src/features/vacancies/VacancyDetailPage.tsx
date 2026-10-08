@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { ApiError, errorMessage } from '@/api/client';
+import { orUndef, useNlddEvent } from '@/components/nldd/events';
 import { assignmentPath } from '@/features/assignments/paths';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { formatDate, formatFte, formatPeriod } from '@/lib/format';
@@ -13,65 +14,150 @@ import {
   fetchVacancy,
   submitVacancy,
   updateVacancy,
-  type ContractType,
   type Vacancy,
   type VacancyOptions,
   type VacancyType,
 } from './api';
 import { ClosingSection } from './ClosingSection';
 import { DecisionsSection } from './DecisionsSection';
-import { parseFte, parseScale, todayIso, useVacancyChange, useVacancyOptions } from './hooks';
+import { parseFte, todayIso, useVacancyChange, useVacancyOptions } from './hooks';
 import {
   CONTRACT_TYPE_LABELS,
   STATUS_COLORS,
   STATUS_LABELS,
   VACANCY_TYPE_LABELS,
+  budgetLineWarning,
+  missingRequestDetails,
   publishedOrigin,
 } from './labels';
+import { PrepareRequestSheet } from './PrepareRequestSheet';
 import { ProcedureSection } from './ProcedureSection';
 import { RequestFormSection } from './RequestFormSection';
-import { TextsSection } from './TextsSection';
 import {
-  Button,
-  DateInput,
-  EmptyNotice,
-  ErrorNotice,
-  FormSheet,
-  LinkButton,
-  Loading,
-  Note,
-  Paragraphs,
-  SectionHeading,
-  SelectInput,
-  TextInput,
-} from './ui';
+  STEP_ANCHORS,
+  requestItems,
+  vacancySteps,
+  type RequestItem,
+  type StepAction,
+} from './steps';
+import { TextsSection } from './TextsSection';
+import { Button, DateInput, LinkButton, Note, Paragraphs, SelectInput, TextInput } from './ui';
+import { EmptyNotice, ErrorNotice, FormSheet, Loading, SectionHeading } from '@/ui/layout';
 
-function Fact({ label, value }: { label: string; value: string | null | undefined }) {
-  if (!value) return null;
+const NOT_FILLED = 'Nog niet ingevuld';
+
+interface FactProps {
+  label: string;
+  value: string | null | undefined;
+  /** A line under the value, such as the function family. */
+  detail?: string | null;
+  /** Shown as "nog niet ingevuld" instead of being left out. */
+  expected?: boolean;
+  /** Makes the row a button that opens where the value is edited. */
+  onEdit?: () => void;
+}
+
+/** One label and value. With `onEdit` the whole row is the way to change it. */
+function Fact({ label, value, detail, expected, onEdit }: FactProps) {
+  const ref = useRef<HTMLElement>(null);
+  useNlddEvent(ref, 'click', onEdit ? () => onEdit() : undefined);
+  if (!value && !expected) return null;
   return (
-    <nldd-list-item>
-      <nldd-text-cell overline={label} text={value} />
+    <nldd-list-item
+      ref={ref}
+      button={orUndef(Boolean(onEdit))}
+      {...(onEdit ? { 'accessible-label': `${label}: ${value || NOT_FILLED}. Wijzig` } : {})}
+    >
+      <nldd-text-cell
+        overline={label}
+        text={value || NOT_FILLED}
+        color={value ? 'content' : 'secondary'}
+        {...(detail ? { 'supporting-text': detail } : {})}
+      />
+      {onEdit && (
+        <>
+          <nldd-spacer-cell size="8" />
+          <nldd-icon-cell size="20" color="secondary" icon="pencil" />
+        </>
+      )}
     </nldd-list-item>
   );
 }
 
-function Facts({ vacancy }: { vacancy: Vacancy }) {
+interface FactsProps {
+  vacancy: Vacancy;
+  /** Set when the reader may change the role itself (function, fte, period, type). */
+  onEditRole?: () => void;
+  /** Set when the reader may change what the request form asks for. */
+  onEditRequest?: () => void;
+}
+
+function Facts({ vacancy, onEditRole, onEditRequest }: FactsProps) {
+  // The request details are always listed for who sees the whole vacancy, so
+  // someone looking for "schaal" finds it by reading the page.
+  const full = vacancy.vacancy_type !== undefined;
   return (
     <RouterLinks>
       <nldd-list appearance="box-base" accessible-label="Gegevens van de vacature">
-        <Fact label="Functie" value={vacancy.function_title} />
-        <Fact label="FGR-functienaam" value={vacancy.fgr_function_name} />
+        <Fact label="Functie" value={vacancy.function_title} onEdit={onEditRole} />
+        <Fact label="Aantal fte" value={formatFte(vacancy.fte)} onEdit={onEditRole} />
+        <Fact
+          label="Periode"
+          value={formatPeriod(vacancy.start_date, vacancy.end_date)}
+          expected={full && Boolean(onEditRole)}
+          onEdit={onEditRole}
+        />
+        <Fact
+          label="Type vacature"
+          value={vacancy.vacancy_type ? VACANCY_TYPE_LABELS[vacancy.vacancy_type] : null}
+          onEdit={onEditRole}
+        />
+        <Fact
+          label="FGR-functienaam"
+          value={vacancy.fgr_function_name}
+          detail={
+            vacancy.function_family_name
+              ? `Functiefamilie ${vacancy.function_family_name}`
+              : vacancy.fgr_function_name && vacancy.function_group_id === null
+                ? 'Zelf ingevuld, niet uit het Functiegebouw Rijk'
+                : null
+          }
+          expected={full}
+          onEdit={onEditRequest}
+        />
         <Fact
           label="Schaal"
           value={
             vacancy.scale === null || vacancy.scale === undefined ? null : String(vacancy.scale)
           }
+          detail={
+            vacancy.scale_deviation_reason
+              ? `Wijkt af van de functiegroep: ${vacancy.scale_deviation_reason}`
+              : null
+          }
+          expected={full}
+          onEdit={onEditRequest}
         />
-        <Fact label="Aantal fte" value={formatFte(vacancy.fte)} />
-        <Fact label="Periode" value={formatPeriod(vacancy.start_date, vacancy.end_date)} />
+        <Fact
+          label="Type contract"
+          value={vacancy.contract_type ? CONTRACT_TYPE_LABELS[vacancy.contract_type] : null}
+          expected={full}
+          onEdit={onEditRequest}
+        />
+        {'addressee_name' in vacancy && (
+          <Fact
+            label="Aan"
+            value={vacancy.addressee_name}
+            detail={vacancy.addressee_name ? 'Geeft akkoord op de aanvraag' : null}
+            expected
+            onEdit={onEditRequest}
+          />
+        )}
         {vacancy.assignment_id && vacancy.assignment_name ? (
           <nldd-list-item href={assignmentPath(vacancy.assignment_id)}>
             <nldd-text-cell overline="Opdracht" text={vacancy.assignment_name} />
+            <nldd-spacer-cell size="8" />
+            <nldd-icon-cell size="20" color="secondary" icon="chevron-right" />
           </nldd-list-item>
         ) : (
           <Fact label="Opdracht" value={vacancy.assignment_name} />
@@ -79,16 +165,7 @@ function Facts({ vacancy }: { vacancy: Vacancy }) {
         {vacancy.declarable !== undefined && (
           <Fact label="Declarabel" value={vacancy.declarable ? 'Ja' : 'Nee'} />
         )}
-        <Fact
-          label="Type vacature"
-          value={vacancy.vacancy_type ? VACANCY_TYPE_LABELS[vacancy.vacancy_type] : null}
-        />
-        <Fact
-          label="Type contract"
-          value={vacancy.contract_type ? CONTRACT_TYPE_LABELS[vacancy.contract_type] : null}
-        />
         <Fact label="Aangevraagd door" value={vacancy.requester_name} />
-        <Fact label="Aan" value={vacancy.addressee_name} />
         <Fact label="Aangevraagd op" value={formatDate(vacancy.requested_on)} />
       </nldd-list>
     </RouterLinks>
@@ -108,12 +185,6 @@ function EditSheet({ vacancy, options, open, onClose }: EditSheetProps) {
   const [start, setStart] = useState(vacancy.start_date ?? '');
   const [end, setEnd] = useState(vacancy.end_date ?? '');
   const [vacancyType, setVacancyType] = useState<string>(vacancy.vacancy_type ?? 'regulier');
-  const [contractType, setContractType] = useState<string>(vacancy.contract_type ?? '');
-  const [fgr, setFgr] = useState(vacancy.fgr_function_name ?? '');
-  const [scale, setScale] = useState(
-    vacancy.scale === null || vacancy.scale === undefined ? '' : String(vacancy.scale),
-  );
-  const [addressee, setAddressee] = useState(vacancy.addressee_name ?? '');
   const [problem, setProblem] = useState<string | null>(null);
   const change = useVacancyChange(
     vacancy.id,
@@ -124,13 +195,9 @@ function EditSheet({ vacancy, options, open, onClose }: EditSheetProps) {
   function submit() {
     setProblem(null);
     const fteValue = parseFte(fte);
-    const scaleValue = parseScale(scale);
     if (!title.trim()) return setProblem('Vul de functie in.');
     if (fteValue === null) {
       return setProblem('Het aantal fte is een getal groter dan nul, bijvoorbeeld 0,8.');
-    }
-    if (scaleValue === undefined) {
-      return setProblem('De schaal is een heel getal van 1 tot en met 19.');
     }
     change.run({
       function_title: title.trim(),
@@ -138,10 +205,6 @@ function EditSheet({ vacancy, options, open, onClose }: EditSheetProps) {
       start_date: start || null,
       end_date: end || null,
       vacancy_type: vacancyType as VacancyType,
-      contract_type: (contractType || null) as ContractType | null,
-      fgr_function_name: fgr.trim() || null,
-      scale: scaleValue,
-      addressee_name: addressee.trim() || null,
     });
   }
 
@@ -163,24 +226,8 @@ function EditSheet({ vacancy, options, open, onClose }: EditSheetProps) {
         label="Type vacature"
         value={vacancyType}
         onChange={setVacancyType}
+        hint="Bepaalt de procedure: een vacature voor een beoogde of gerede kandidaat wordt niet opengesteld."
         options={options?.vacancy_types ?? []}
-      />
-      <SelectInput
-        label="Type contract"
-        value={contractType}
-        onChange={setContractType}
-        options={options?.contract_types ?? []}
-        placeholder="Nog niet bekend"
-        optional
-      />
-      <TextInput label="FGR-functienaam" value={fgr} onChange={setFgr} optional />
-      <TextInput label="Schaal" value={scale} onChange={setScale} keyboard="numeric" optional />
-      <TextInput
-        label="Aan"
-        hint="Wie akkoord moet geven op de aanvraag."
-        value={addressee}
-        onChange={setAddressee}
-        optional
       />
     </FormSheet>
   );
@@ -196,6 +243,7 @@ function SubmitSheet({
   onClose: () => void;
 }) {
   const [day, setDay] = useState(todayIso());
+  const missing = missingRequestDetails(vacancy);
   const change = useVacancyChange(
     vacancy.id,
     (requestedOn: string) => submitVacancy(vacancy.id, requestedOn),
@@ -215,6 +263,12 @@ function SubmitSheet({
         Met de aanvraag vraag je akkoord om de vacature open te stellen. Daarna kunnen het advies
         van HR en concern control en het akkoord worden vastgelegd.
       </Note>
+      {missing.length > 0 && (
+        <Note>
+          Het aanvraagformulier vraagt ook nog: {missing.join(', ')}. Je kunt nu aanvragen en dat
+          tot het akkoord aanvullen.
+        </Note>
+      )}
       <DateInput label="Datum van de aanvraag" value={day} onChange={setDay} required />
     </FormSheet>
   );
@@ -238,24 +292,149 @@ function PublicView({ vacancy }: { vacancy: Vacancy }) {
   );
 }
 
-function Details({ vacancy, options }: { vacancy: Vacancy; options: VacancyOptions | undefined }) {
-  const [sheet, setSheet] = useState<'edit' | 'submit' | null>(null);
-  const editable = vacancy.permissions.can_edit && ['draft', 'requested'].includes(vacancy.status);
+function scrollToSection(id: string) {
+  const target = document.getElementById(id);
+  if (!target) return;
+  target.scrollIntoView({ block: 'start' });
+  // Move focus too, so a keyboard or screen reader user lands there as well.
+  const heading = target.querySelector<HTMLElement>('h2');
+  if (heading) {
+    heading.tabIndex = -1;
+    heading.focus({ preventScroll: true });
+  }
+}
+
+/** One line of the checklist: ticked when filled, and the way to fill it. */
+function ChecklistItem({ item, onOpen }: { item: RequestItem; onOpen?: () => void }) {
+  const ref = useRef<HTMLElement>(null);
+  useNlddEvent(ref, 'click', onOpen ? () => onOpen() : undefined);
+  const done = item.value !== null;
+  const state = done ? 'ingevuld' : item.optional ? 'nog open, mag later' : 'nog niet ingevuld';
   return (
-    <>
-      <SectionHeading text="Gegevens" />
-      <Facts vacancy={vacancy} />
-      {(editable || (vacancy.permissions.can_edit && vacancy.status === 'draft')) && (
+    <nldd-list-item
+      ref={ref}
+      size="sm"
+      button={orUndef(Boolean(onOpen))}
+      {...(onOpen ? { 'accessible-label': `${item.label}: ${state}. ${done ? 'Wijzig' : 'Vul in'}` } : {})}
+    >
+      <nldd-icon-cell
+        size="20"
+        icon={done ? 'check-circle-filled' : 'circle'}
+        color={done ? 'success' : 'secondary'}
+      />
+      <nldd-spacer-cell size="8" />
+      <nldd-text-cell
+        text={item.label}
+        supporting-text={
+          done ? (item.value ?? '') : item.optional ? 'Nog open; kan ook na de aanvraag' : NOT_FILLED
+        }
+      />
+      {onOpen && (
         <>
-          <nldd-spacer size="8" />
-          <nldd-button-group>
-            {vacancy.permissions.can_edit && vacancy.status === 'draft' && (
-              <Button text="Vraag aan" appearance="primary" onClick={() => setSheet('submit')} />
-            )}
-            {editable && <Button text="Bewerk gegevens" onClick={() => setSheet('edit')} />}
-          </nldd-button-group>
+          <nldd-spacer-cell size="8" />
+          <nldd-icon-cell size="20" color="secondary" icon="chevron-right" />
         </>
       )}
+    </nldd-list-item>
+  );
+}
+
+const ACTION_TEXT: Record<StepAction, string> = {
+  prepare: 'Bereid aanvraag voor',
+  submit: 'Vraag aan',
+  decide: 'Naar advies en akkoord',
+  open: 'Naar openstellen',
+  fill: 'Naar afronden',
+};
+
+type SheetName = 'edit' | 'submit' | 'prepare' | null;
+
+/** Where the vacancy stands, what to do now, and what the request still needs. */
+function NextStep({ vacancy, onSheet }: { vacancy: Vacancy; onSheet: (sheet: SheetName) => void }) {
+  const steps = vacancySteps(vacancy);
+  if (!steps) return null;
+  const editable = vacancy.permissions.can_edit && ['draft', 'requested'].includes(vacancy.status);
+  const items = requestItems(vacancy);
+  const open = items.filter((item) => item.value === null && !item.optional).length;
+  // The checklist belongs to the request: shown until the approval fixes it.
+  const showChecklist = ['draft', 'requested'].includes(vacancy.status);
+
+  function act(action: StepAction) {
+    if (action === 'prepare') onSheet('prepare');
+    else if (action === 'submit') onSheet('submit');
+    else scrollToSection(STEP_ANCHORS[action]);
+  }
+
+  return (
+    <nldd-container gap="12">
+      <SectionHeading text="Volgende stap" />
+      <nldd-step-bar {...{ current: steps.current }} accessible-label="Stappen van de vacature">
+        {steps.items.map((text) => (
+          <nldd-step-bar-item key={text} text={text} />
+        ))}
+      </nldd-step-bar>
+      <nldd-text>{steps.advice}</nldd-text>
+      {showChecklist && (
+        <nldd-list
+          appearance="box-base"
+          accessible-label={
+            open > 0
+              ? `Voor het aanvraagformulier, nog ${open} in te vullen`
+              : 'Voor het aanvraagformulier, alles ingevuld'
+          }
+        >
+          {items.map((item) => (
+            <ChecklistItem
+              key={item.key}
+              item={item}
+              onOpen={
+                !editable
+                  ? undefined
+                  : item.where === 'sheet'
+                    ? () => onSheet('prepare')
+                    : () => scrollToSection(STEP_ANCHORS.texts)
+              }
+            />
+          ))}
+        </nldd-list>
+      )}
+      {steps.action && (
+        <nldd-button-group>
+          <Button
+            text={ACTION_TEXT[steps.action]}
+            appearance="primary"
+            onClick={() => act(steps.action as StepAction)}
+          />
+          {/* The request can be made before everything is filled in. */}
+          {steps.action === 'prepare' && (
+            <Button text="Vraag nu al aan" onClick={() => onSheet('submit')} />
+          )}
+        </nldd-button-group>
+      )}
+    </nldd-container>
+  );
+}
+
+function Details({ vacancy, options }: { vacancy: Vacancy; options: VacancyOptions | undefined }) {
+  const [sheet, setSheet] = useState<SheetName>(null);
+  const editable = vacancy.permissions.can_edit && ['draft', 'requested'].includes(vacancy.status);
+  const warning =
+    vacancy.scale_fits_budget_line === false
+      ? budgetLineWarning(vacancy.scale, vacancy.budget_line_scales)
+      : null;
+  return (
+    <>
+      <NextStep vacancy={vacancy} onSheet={setSheet} />
+      <nldd-spacer size="24" />
+      <SectionHeading text="Gegevens" />
+      {editable && <Note>Kies een regel om die te wijzigen.</Note>}
+      <Facts
+        vacancy={vacancy}
+        {...(editable
+          ? { onEditRole: () => setSheet('edit'), onEditRequest: () => setSheet('prepare') }
+          : {})}
+      />
+      {warning && <nldd-banner variant="warning" size="sm" text={warning} />}
       {vacancy.permissions.can_edit && !editable && (
         <Note>Na het akkoord liggen de gegevens van de aanvraag vast.</Note>
       )}
@@ -270,6 +449,14 @@ function Details({ vacancy, options }: { vacancy: Vacancy; options: VacancyOptio
             onClose={() => setSheet(null)}
           />
           <SubmitSheet vacancy={vacancy} open={sheet === 'submit'} onClose={() => setSheet(null)} />
+          <PrepareRequestSheet
+            // A fresh form per saved state of what it edits.
+            key={`prepare-${vacancy.function_group_id}-${vacancy.fgr_function_name}-${vacancy.scale}-${vacancy.contract_type}-${vacancy.addressee_name}`}
+            vacancy={vacancy}
+            options={options}
+            open={sheet === 'prepare'}
+            onClose={() => setSheet(null)}
+          />
         </>
       )}
     </>
@@ -327,13 +514,13 @@ export function VacancyDetailPage() {
       </nldd-simple-section>
       {full && (
         <>
-          <nldd-simple-section>
+          <nldd-simple-section id={STEP_ANCHORS.decide}>
             <DecisionsSection vacancy={data} />
           </nldd-simple-section>
-          <nldd-simple-section>
+          <nldd-simple-section id={STEP_ANCHORS.open}>
             <ProcedureSection vacancy={data} options={options.data} />
           </nldd-simple-section>
-          <nldd-simple-section>
+          <nldd-simple-section id={STEP_ANCHORS.texts}>
             <TextsSection vacancy={data} options={options.data} />
           </nldd-simple-section>
           {data.permissions.can_download_form && (
@@ -342,7 +529,7 @@ export function VacancyDetailPage() {
             </nldd-simple-section>
           )}
           {(data.permissions.can_fill || data.permissions.can_withdraw) && (
-            <nldd-simple-section>
+            <nldd-simple-section id={STEP_ANCHORS.fill}>
               <ClosingSection vacancy={data} />
             </nldd-simple-section>
           )}

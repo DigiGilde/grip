@@ -1,8 +1,12 @@
-"""Quotes: issue a frozen snapshot, and record acceptance or rejection.
+"""Quotes: issue one, and record acceptance or rejection.
 
-A quote is the one place where derived values are stored. The snapshot has
-the shape of the contract (grip-opdrachtverkeer, quote.snapshot), so the same
-object is hashed, stored, shown and sent.
+A quote is the one place where derived values are stored. When a quote is
+issued its content is put in the canonical form (the contract's own terms,
+as canonical JSON), those bytes are stored, and the hash over them is the
+hash of the quote. That one hash is on the document, in an acceptance of
+every form and in the messages to another instance (ADR 0020). After issue
+nothing computes a hash of a quote again; a check compares with the stored
+hash, which the database ties to the stored bytes.
 """
 
 from __future__ import annotations
@@ -18,19 +22,35 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip import calc
 from grip.core.audit import CREATE, UPDATE, record_audit
-from grip.models.assignment import Assignment, BudgetLine
+from grip.models.assignment import Assignment
+from grip.models.organisation import Organisation
 from grip.models.person import Person
 from grip.models.quote import (
     ACCEPTANCE_FORMS,
+    OFFER_CHANNELS,
+    OFFER_CLIENT_INSTANCE,
+    OFFER_DOCUMENT,
+    OFFER_SIGNING_LINK,
     Quote,
     QuoteAcceptance,
     QuoteInvitation,
+    QuoteOffer,
     QuoteRejection,
 )
 from grip.repositories.domain import AssignmentRepository
-from grip.services import events
-from grip.services.assignments import get_assignment, mint_uri, transition
-from grip.services.canonical import snapshot_hash
+from grip.services import events, quote_channels
+from grip.services.assignments import (
+    get_assignment,
+    mint_uri,
+    share_with_instance,
+    transition,
+)
+from grip.services.canonical import (
+    canonical_form,
+    hash_of,
+    read,
+    snapshot_hash,  # noqa: F401 - callers use quotes.snapshot_hash
+)
 from grip.services.errors import (
     DomainValidationError,
     NotFoundError,
@@ -43,6 +63,7 @@ from grip.services.pricing import (
     load_rate_book,
     to_calc_line,
 )
+from grip.services.quote_content import QuoteLineSource, check_content, line_source
 
 CURRENCY = "EUR"
 
@@ -58,7 +79,7 @@ def _decimal_text(value: Decimal) -> str:
 
 
 def _snapshot_line(
-    line: BudgetLine, rates: calc.RateBook, options: PricingOptions
+    line: QuoteLineSource, rates: calc.RateBook, options: PricingOptions
 ) -> dict[str, Any]:
     calc_line = to_calc_line(line)
     amount = calc.budgeted(calc_line, rates, partial_months=options.partial_months)
@@ -111,11 +132,14 @@ async def build_snapshot(
     Lines, rates and totals come from the budget of the assignment through
     the calculation module, so a quote adds up to the budget.
     """
-    lines = await AssignmentRepository(session).budget_lines([assignment.id])
-    if not lines:
+    budget_lines = await AssignmentRepository(session).budget_lines([assignment.id])
+    if not budget_lines:
         raise DomainValidationError(
             "Een offerte heeft minstens een begrotingsregel nodig."
         )
+    # From here on only the columns a quote may be built from exist: the
+    # builder never holds a budget line (grip.services.quote_content).
+    lines = [line_source(line) for line in budget_lines]
     rates = await load_rate_book(session, include_draft=options.include_draft)
     subtotals: dict[int, int] = {}
     for line in lines:
@@ -137,7 +161,12 @@ async def build_snapshot(
         snapshot["valid_until"] = valid_until.isoformat()
     if conditions:
         snapshot["conditions"] = conditions
-    return snapshot
+    return check_content(snapshot)
+
+
+def read_total(canonical: bytes) -> int:
+    """The total of a quote in cents, read from its canonical form."""
+    return int(read(canonical)["total"]["amount_cents"])
 
 
 async def get_quote(session: AsyncSession, quote_id: UUID) -> Quote:
@@ -172,6 +201,9 @@ async def issue_quote(
 
     An earlier quote that is still open is superseded. The assignment moves
     to status quoted. Emits ``quote.issued``.
+
+    Issuing sends nothing to anyone. The quote reaches the client when it is
+    offered, through a channel chosen then (``offer_quote``).
     """
     assignment = await get_assignment(session, assignment_id)
     if assignment.status not in ("draft", "requested", "quoted", "rejected"):
@@ -189,14 +221,17 @@ async def issue_quote(
     await _supersede_open_quotes(session, assignment_id)
     quote_id = uuid.uuid4()
     issued_at = issued_at or datetime.now(UTC)
+    # The one moment the canonical form is made. From here on the bytes are
+    # the quote; the working data they were built from may change freely.
+    canonical = canonical_form(snapshot)
     quote = Quote(
         id=quote_id,
         uri=mint_uri("offerte", quote_id),
         assignment_id=assignment_id,
         request_id=request_id,
         status="issued",
-        snapshot=snapshot,
-        snapshot_hash=snapshot_hash(snapshot),
+        canonical=canonical,
+        snapshot_hash=hash_of(canonical),
         total_cents=snapshot["total"]["amount_cents"],
         issued_at=issued_at,
         issued_by_id=actor.id if actor is not None else None,
@@ -243,21 +278,38 @@ async def receive_quote(
     *,
     quote_id: UUID,
     uri: str,
-    snapshot: dict[str, Any],
     claimed_hash: str,
     issued_at: datetime,
+    canonical: bytes | None = None,
+    snapshot: dict[str, Any] | None = None,
     request_id: UUID | None = None,
 ) -> Quote:
     """Client side: record a quote that came in from a contractor.
 
-    The hash is recomputed; a quote whose hash does not match its snapshot
-    is refused. Idempotent on the quote id.
+    ``canonical`` is the canonical form as it was received; it is stored
+    unchanged, so both sides hold the same bytes. The stated hash must be
+    the hash of those bytes, otherwise the quote is refused. Idempotent on
+    the quote id.
+
+    A caller on this side that has the content in code names (a quote typed
+    over from paper, a test) passes ``snapshot`` instead; the canonical form
+    is then made here, as at issue.
     """
     existing = await session.get(Quote, quote_id)
     if existing is not None:
         return existing
-    if snapshot_hash(snapshot) != claimed_hash:
+    if canonical is None:
+        if snapshot is None:
+            raise DomainValidationError("Een ontvangen offerte heeft inhoud nodig.")
+        canonical = canonical_form(snapshot)
+    if hash_of(canonical) != claimed_hash:
         raise QuoteHashMismatchError()
+    try:
+        total_cents = int(read_total(canonical))
+    except (KeyError, TypeError, ValueError) as exc:
+        raise DomainValidationError(
+            "De ontvangen offerte heeft geen leesbaar totaal."
+        ) from exc
     assignment = await get_assignment(session, assignment_id)
     await _supersede_open_quotes(session, assignment_id)
     quote = Quote(
@@ -266,9 +318,9 @@ async def receive_quote(
         assignment_id=assignment_id,
         request_id=request_id,
         status="issued",
-        snapshot=snapshot,
+        canonical=canonical,
         snapshot_hash=claimed_hash,
-        total_cents=snapshot["total"]["amount_cents"],
+        total_cents=total_cents,
         issued_at=issued_at,
         issued_by_id=None,
     )
@@ -315,6 +367,16 @@ async def invite_signer(
     )
     session.add(invitation)
     await session.flush()
+    # Inviting someone to sign here is offering the quote through the
+    # signing link.
+    await _record_offer(
+        session,
+        quote,
+        OFFER_SIGNING_LINK,
+        actor=actor,
+        recipient=email,
+        invitation_id=invitation.id,
+    )
     record_audit(
         session,
         actor=actor,
@@ -324,6 +386,190 @@ async def invite_signer(
         new_value={"quote_id": str(quote_id), "email": email},
     )
     return invitation
+
+
+# -- offering -----------------------------------------------------------------
+
+
+async def _record_offer(
+    session: AsyncSession,
+    quote: Quote,
+    channel: str,
+    *,
+    actor: Person | None,
+    recipient: str | None = None,
+    invitation_id: UUID | None = None,
+) -> QuoteOffer:
+    offer = QuoteOffer(
+        quote_id=quote.id,
+        channel=channel,
+        recipient=recipient,
+        invitation_id=invitation_id,
+        offered_at=datetime.now(UTC),
+        offered_by_id=actor.id if actor is not None else None,
+    )
+    session.add(offer)
+    await session.flush()
+    record_audit(
+        session,
+        actor=actor,
+        action=CREATE,
+        entity="quote_offer",
+        entity_id=offer.id,
+        new_value={
+            "quote_id": str(quote.id),
+            "channel": channel,
+            "recipient": recipient,
+        },
+    )
+    return offer
+
+
+async def offers_of(session: AsyncSession, quote_id: UUID) -> list[QuoteOffer]:
+    """Every time this quote was offered, oldest first."""
+    result = await session.execute(
+        select(QuoteOffer)
+        .where(QuoteOffer.quote_id == quote_id)
+        .order_by(QuoteOffer.offered_at, QuoteOffer.created_at)
+    )
+    return list(result.scalars())
+
+
+async def _client_instance_uri(
+    session: AsyncSession, assignment: Assignment
+) -> tuple[bool, str | None]:
+    """Whether the assignment has a client, and the client's instance if known."""
+    if assignment.client_organisation_id is None:
+        return False, None
+    client = await session.get(Organisation, assignment.client_organisation_id)
+    return client is not None, client.instance_uri if client is not None else None
+
+
+async def channel_options(
+    session: AsyncSession, quote_id: UUID
+) -> list[quote_channels.ChannelOption]:
+    """The channels this quote can be offered through, and why one cannot.
+
+    A quote that was decided on, or replaced by a newer one, can no longer
+    be offered at all. For an assignment that is already shared with the
+    client's instance, that channel is the suggestion; it is never forced.
+    """
+    quote = await get_quote(session, quote_id)
+    assignment = await get_assignment(session, quote.assignment_id)
+    closed = None
+    if quote.status != "issued":
+        closed = "Over deze offerte is al beslist, of er is een nieuwere uitgegeven."
+    has_client, instance_uri = await _client_instance_uri(session, assignment)
+    federated = closed or await quote_channels.client_instance_unavailable(
+        session, instance_uri, has_client=has_client
+    )
+    shared = bool(assignment.shared_with_instance_uri) and federated is None
+    return [
+        quote_channels.ChannelOption(
+            OFFER_CLIENT_INSTANCE, federated is None, federated, suggested=shared
+        ),
+        quote_channels.ChannelOption(
+            OFFER_SIGNING_LINK, closed is None, closed, suggested=False
+        ),
+        quote_channels.ChannelOption(
+            OFFER_DOCUMENT,
+            closed is None,
+            closed,
+            suggested=not shared and closed is None,
+        ),
+    ]
+
+
+async def offer_quote(
+    session: AsyncSession,
+    quote_id: UUID,
+    channel: str,
+    *,
+    actor: Person | None,
+    email: str | None = None,
+    expires_at: datetime | None = None,
+) -> QuoteOffer:
+    """Put an issued quote before the client, through one channel.
+
+    Issuing a quote freezes it and sends nothing. This is the act that makes
+    it reach the client:
+
+    - ``client_instance``: to the client's own grip instance. Possible only
+      when that instance is connected. The assignment is from then on shared
+      with that instance. Emits ``quote.offered``.
+    - ``signing_link``: ``email`` is invited to sign in this instance.
+    - ``document``: the quote goes out as a document; the signed copy is
+      recorded later as an acceptance.
+
+    A quote may be offered more than once and through more than one channel.
+    One decision closes it, whichever channel it came through.
+    """
+    if channel not in OFFER_CHANNELS:
+        raise DomainValidationError(f"Onbekend kanaal: {channel}")
+    quote = await get_quote(session, quote_id)
+    if quote.status != "issued":
+        raise QuoteAlreadyDecidedError(quote.status)
+    assignment = await get_assignment(session, quote.assignment_id)
+
+    if channel == OFFER_SIGNING_LINK:
+        if not email or not email.strip():
+            raise DomainValidationError(
+                "Voor een tekenlink is het e-mailadres van de ondertekenaar nodig."
+            )
+        before = {offer.id for offer in await offers_of(session, quote_id)}
+        invitation = await invite_signer(
+            session, quote_id, email, actor=actor, expires_at=expires_at
+        )
+        for offer in await offers_of(session, quote_id):
+            if offer.id not in before:
+                return offer
+        # The same person was invited before: offering again is a new offer
+        # on the existing invitation.
+        return await _record_offer(
+            session,
+            quote,
+            OFFER_SIGNING_LINK,
+            actor=actor,
+            recipient=invitation.email,
+            invitation_id=invitation.id,
+        )
+
+    if channel == OFFER_DOCUMENT:
+        return await _record_offer(session, quote, OFFER_DOCUMENT, actor=actor)
+
+    has_client, instance_uri = await _client_instance_uri(session, assignment)
+    reason = await quote_channels.client_instance_unavailable(
+        session, instance_uri, has_client=has_client
+    )
+    if reason is not None:
+        raise DomainValidationError(reason)
+    assert instance_uri is not None
+    share_with_instance(assignment, instance_uri)
+    offer = await _record_offer(
+        session,
+        quote,
+        OFFER_CLIENT_INSTANCE,
+        actor=actor,
+        recipient=instance_uri.strip().rstrip("/"),
+    )
+    await events.emit(
+        session,
+        events.QUOTE_OFFERED,
+        {
+            "offer_id": str(offer.id),
+            "channel": channel,
+            "quote_id": str(quote.id),
+            "quote_uri": quote.uri,
+            "assignment_id": str(assignment.id),
+            "assignment_uri": assignment.uri,
+            "request_id": str(quote.request_id) if quote.request_id else None,
+            "snapshot_hash": quote.snapshot_hash,
+            "issued_at": quote.issued_at.isoformat(),
+            "recipient_instance_uri": offer.recipient,
+            "origin": "local",
+        },
+    )
+    return offer
 
 
 async def _open_invitation(

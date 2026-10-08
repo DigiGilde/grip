@@ -4,7 +4,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { errorMessage } from '@/api/client';
 import { STATUS_COLORS, statusLabel } from '@/features/assignments/labels';
 import { assignmentPath } from '@/features/assignments/paths';
-import { Button, EmptyNotice, ErrorNotice, Loading } from '@/features/assignments/ui';
+import { Button } from '@/features/assignments/ui';
+import { EmptyNotice, ErrorNotice, Loading } from '@/ui/layout';
 import { QUOTE_STATUS_COLORS, QUOTE_STATUS_LABELS } from '@/features/quotes/api';
 import { formatDateTime } from '@/features/quotes/format';
 import { Segments } from '@/features/team/ui/controls';
@@ -195,7 +196,7 @@ function ReceivedRequests() {
       {query.isSuccess && items.length === 0 ? (
         <EmptyNotice
           text="Er zijn geen ontvangen aanvragen"
-          supportingText="Een aanvraag verschijnt hier zodra een opdrachtgever hem via zijn eigen instantie heeft verstuurd."
+          supportingText="Een aanvraag verschijnt hier zodra een opdrachtgever hem vanuit zijn eigen grip heeft verstuurd."
         />
       ) : null}
       {items.length > 0 ? (

@@ -50,7 +50,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip.calc import Month
-from grip.core.audit import CREATE, record_audit
+from grip.core.audit import CREATE, DELETE, UPDATE, record_audit
 from grip.core.bootstrap import (
     DEV_BEHEERDER_EMAIL,
     DEV_BEHEERDER_NAME,
@@ -58,6 +58,9 @@ from grip.core.bootstrap import (
 )
 from grip.core.config import Settings, get_settings
 from grip.core.database import Base
+from grip.dev import corpus_standin
+from grip.federation.contract_loader import SERVICE_CORPUS_CONTEXT
+from grip.federation.models import PEER_ROLE_CORPUS, Peer
 from grip.models.assignment import Assignment
 from grip.models.person import Person
 from grip.models.role import (
@@ -975,7 +978,143 @@ async def seed(
         hires=1,
     )
     await db.flush()
+    extended = await extend(db, settings=settings)
+    result.counts.update(corpus_peers=extended["peers"], context_refs=extended["refs"])
     return result
+
+
+# The context of the example assignments: nodes of the fictional corpus that
+# the stand-in serves (grip.dev.corpus_standin), as (corpus key, node key).
+# The internal assignment has none: empty context is allowed.
+CONTEXT: dict[str, tuple[tuple[str, str], ...]] = {
+    # An instrument and the goal it implements: one chain.
+    "Opdracht Alfa 2026": (
+        ("voorbeeldministerie", "opdracht_alfa"),
+        ("voorbeeldministerie", "doel_bouwstenen"),
+    ),
+    "Opdracht Beta 2026": (("voorbeeldministerie", "opdracht_beta"),),
+    # One node from each corpus: the multi-corpus case.
+    "Opdracht Delta 2026-2027": (
+        ("voorbeeldministerie", "maatregel"),
+        ("anderministerie", "opdracht_delta"),
+    ),
+    "Opdracht Epsilon 2027": (("voorbeeldministerie", "voorlichting"),),
+}
+# A draft left behind in the shared development database by a manual check.
+STRAY_DRAFT_NAME = "s"
+
+
+async def extend(
+    db: AsyncSession, *, settings: Settings | None = None
+) -> dict[str, int]:
+    """Register the stand-in corpora and give the example assignments context.
+
+    Idempotent, and safe on a database that was seeded earlier: it only adds
+    what is missing. Part of a fresh seed as well. The caller commits.
+
+    A peer has no service yet, so those rows are written here with an audit
+    row; the context goes through ``assignments.update_assignment``.
+    """
+    settings = settings or get_settings()
+    ensure_local_instance(settings)
+    counts = {"peers": 0, "refs": 0, "changed": 0, "removed": 0}
+
+    for corpus in corpus_standin.corpora():
+        counts["peers"] += 1
+        grants = {SERVICE_CORPUS_CONTEXT: corpus.grant_hash}
+        peer = (
+            await db.execute(select(Peer).where(Peer.peer_id == corpus.peer_id))
+        ).scalar_one_or_none()
+        if peer is None:
+            peer = Peer(
+                peer_id=corpus.peer_id,
+                name=corpus.name,
+                organisation_tooi_uri=corpus.organisation["tooi_uri"],
+                base_uri=corpus.base,
+                role=PEER_ROLE_CORPUS,
+                grant_hashes=grants,
+            )
+            db.add(peer)
+            await db.flush()
+            record_audit(
+                db,
+                actor=None,
+                action=CREATE,
+                entity="peer",
+                entity_id=peer.id,
+                new_value={
+                    "peer_id": corpus.peer_id,
+                    "role": PEER_ROLE_CORPUS,
+                    "base_uri": corpus.base,
+                    "source": "seed",
+                },
+            )
+            counts["changed"] += 1
+        elif (
+            peer.grant_hashes != grants
+            or peer.base_uri != corpus.base
+            or not peer.is_active
+        ):
+            peer.grant_hashes = grants
+            peer.base_uri = corpus.base
+            peer.is_active = True
+            await db.flush()
+            record_audit(
+                db,
+                actor=None,
+                action=UPDATE,
+                entity="peer",
+                entity_id=peer.id,
+                new_value={"base_uri": corpus.base, "source": "seed"},
+            )
+            counts["changed"] += 1
+
+    for name, nodes in CONTEXT.items():
+        refs = [corpus_standin.node_uri(corpus, node) for corpus, node in nodes]
+        counts["refs"] += len(refs)
+        assignment = (
+            (
+                await db.execute(
+                    select(Assignment)
+                    .where(Assignment.name == name)
+                    .order_by(Assignment.created_at)
+                )
+            )
+            .scalars()
+            .first()
+        )
+        if assignment is None or list(assignment.context_refs or []) == refs:
+            continue
+        await assignments.update_assignment(
+            db, assignment.id, actor=None, context_refs=refs
+        )
+        counts["changed"] += 1
+
+    strays = (
+        (
+            await db.execute(
+                select(Assignment).where(
+                    Assignment.name == STRAY_DRAFT_NAME, Assignment.status == "draft"
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for stray in strays:
+        record_audit(
+            db,
+            actor=None,
+            action=DELETE,
+            entity="assignment",
+            entity_id=stray.id,
+            old_value={"name": stray.name, "status": stray.status, "source": "seed"},
+        )
+        await db.delete(stray)
+        counts["removed"] += 1
+        counts["changed"] += 1
+    await db.flush()
+    return counts
 
 
 def describe(result: SeedResult) -> str:
@@ -1002,18 +1141,29 @@ def describe(result: SeedResult) -> str:
     return "\n".join(lines)
 
 
-async def _main(reset: bool) -> int:
+async def _main(reset: bool, extend_only: bool) -> int:
     from grip.core.database import async_session, close_db
 
     try:
         async with async_session() as db:
             try:
-                result = await seed(db, reset=reset)
+                if extend_only:
+                    counts = await extend(db)
+                else:
+                    result = await seed(db, reset=reset)
             except SeedRefusedError as exc:
                 print(f"Geweigerd: {exc}")
                 return 1
             await db.commit()
-        print(describe(result))
+        if extend_only:
+            print(
+                "Voorbeeldgegevens aangevuld: "
+                f"{counts['peers']} corpora als peer, {counts['refs']} context-URI's "
+                f"op de voorbeeldopdrachten, {counts['changed']} wijzigingen "
+                f"(waarvan {counts['removed']} verwijderd)."
+            )
+        else:
+            print(describe(result))
         return 0
     finally:
         await close_db()
@@ -1026,8 +1176,18 @@ def main() -> None:
         action="store_true",
         help="maak de database eerst leeg (alle gegevens verdwijnen)",
     )
+    parser.add_argument(
+        "--extend",
+        action="store_true",
+        help=(
+            "vul bestaande voorbeeldgegevens aan met het voorbeeldcorpus en de "
+            "context van de opdrachten; herhaalbaar, verwijdert niets anders"
+        ),
+    )
     args = parser.parse_args()
-    raise SystemExit(asyncio.run(_main(args.reset)))
+    if args.reset and args.extend:
+        parser.error("--reset en --extend gaan niet samen")
+    raise SystemExit(asyncio.run(_main(args.reset, args.extend)))
 
 
 if __name__ == "__main__":

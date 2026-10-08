@@ -2,15 +2,8 @@ import { useRef, useState } from 'react';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
 import { orUndef, useNlddEvent } from '@/components/nldd/events';
-import {
-  Button,
-  EmptyNotice,
-  ErrorNotice,
-  InlineSelect,
-  Loading,
-  SectionHeading,
-  TextInput,
-} from '@/features/assignments/ui';
+import { Button, TextInput } from '@/features/assignments/ui';
+import { EmptyNotice, ErrorNotice, FilterSelect, Loading, SectionHeading } from '@/ui/layout';
 import {
   fetchCorpora,
   lookupNode,
@@ -20,7 +13,8 @@ import {
   type NodeLookup,
 } from './api';
 import { isNodeUri, nodeTypeLabel } from './labels';
-import { NodeSummary } from './NodeSummary';
+import { NodeCard, NodeCardGrid } from './NodeCard';
+import { NodeDetailSheet } from './NodeDetailSheet';
 import './register';
 
 interface NodePickerProps {
@@ -112,6 +106,7 @@ export function NodePicker({ value, onChange, max = 50 }: NodePickerProps) {
   const [page, setPage] = useState(1);
   const [pasted, setPasted] = useState('');
   const [pasteError, setPasteError] = useState<string | null>(null);
+  const [openUri, setOpenUri] = useState<string | null>(null);
 
   const activeCorpus = corpus || searchable[0]?.base_uri || '';
   const search = useQuery({
@@ -170,38 +165,34 @@ export function NodePicker({ value, onChange, max = 50 }: NodePickerProps) {
           supportingText="Je kunt de aanvraag ook zonder context versturen."
         />
       ) : (
-        <ul
-          aria-label="Gekozen context"
-          style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: '16px' }}
-        >
+        <NodeCardGrid label="Gekozen context">
           {value.map((uri, index) => {
             const lookup = lookups[index];
             const item: NodeLookup = lookup?.data ?? {
               uri,
               resolved: false,
-              problem: lookup?.isPending
-                ? 'Bezig met opzoeken.'
-                : 'Deze URI kon niet worden opgezocht. Hij blijft bewaard zoals hij is.',
+              problem: 'Deze URI kon niet worden opgezocht. Hij blijft bewaard zoals hij is.',
             };
             const name = item.node?.title ?? uri;
             return (
-              <li key={uri}>
-                <NodeSummary
-                  item={item}
-                  action={
-                    <Button
-                      text="Verwijder"
-                      size="sm"
-                      appearance="neutral-transparent"
-                      accessibleLabel={`Verwijder ${name} uit de context`}
-                      onClick={() => remove(uri)}
-                    />
-                  }
-                />
-              </li>
+              <NodeCard
+                key={uri}
+                item={item}
+                pending={lookup?.isPending}
+                onOpen={setOpenUri}
+                action={
+                  <Button
+                    text="Verwijder"
+                    size="sm"
+                    appearance="neutral-transparent"
+                    accessibleLabel={`Verwijder ${name} uit de context`}
+                    onClick={() => remove(uri)}
+                  />
+                }
+              />
             );
           })}
-        </ul>
+        </NodeCardGrid>
       )}
       {full ? (
         <nldd-banner
@@ -220,7 +211,7 @@ export function NodePicker({ value, onChange, max = 50 }: NodePickerProps) {
       {searchable.length > 0 ? (
         <nldd-container gap="8">
           {searchable.length > 1 ? (
-            <InlineSelect
+            <FilterSelect
               label="Corpus"
               value={activeCorpus}
               onChange={(next) => {
@@ -306,12 +297,19 @@ export function NodePicker({ value, onChange, max = 50 }: NodePickerProps) {
         onChange={setPasted}
         optional
         keyboard="url"
-        hint="Bijvoorbeeld uit de adresbalk van het corpus. Ook een node uit een corpus dat hier niet gekoppeld is, kan zo mee."
+        hint="Bijvoorbeeld uit de adresbalk van het corpus."
         invalid={pasteError !== null}
       />
       <div>
         <Button text="Voeg URI toe" onClick={addPasted} disabled={full} />
       </div>
+      <NodeDetailSheet
+        uri={openUri}
+        known={lookups.flatMap((lookup) => (lookup.data ? [lookup.data] : []))}
+        fetchNode={lookupNode}
+        scope="picker"
+        onClose={() => setOpenUri(null)}
+      />
     </nldd-container>
   );
 }

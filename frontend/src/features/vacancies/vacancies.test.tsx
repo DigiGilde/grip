@@ -175,24 +175,48 @@ describe('VacanciesPage', () => {
     fte: '0.80',
     status: 'requested',
     assignment_name: 'Opdracht Alfa',
+    vacancy_type: 'regulier',
     next_step: 'Advies HR',
+    step: 'decide',
+    step_detail: 'Wacht op advies HR',
+    step_since: '2026-01-05',
   };
 
-  it('lists vacancies as links, with status and next step', async () => {
+  it('lists vacancies in aligned columns, with the next step and the status', async () => {
     stubApi({
       '/api/vacancies': [SUMMARY],
       '/api/vacancies/unfilled-roles': [],
       '/api/vacancies/options': OPTIONS,
     });
     const { container } = renderApp(<VacanciesPage />);
-    await waitFor(() => expect(container.querySelector('nldd-list-item')).not.toBeNull());
-    const row = container.querySelector('nldd-list-item')!;
-    expect(row.getAttribute('href')).toBe('/vacatures/v-1');
-    const cells = [...row.querySelectorAll('nldd-text-cell')];
-    expect(cells[0]!.getAttribute('text')).toBe('Backend-ontwikkelaar');
-    expect(cells[0]!.getAttribute('supporting-text')).toBe('Opdracht Alfa · Schaal 11, 0,8 fte');
-    expect(cells[1]!.getAttribute('text')).toBe('Aangevraagd');
-    expect(cells[1]!.getAttribute('supporting-text')).toBe('Volgende stap: Advies HR');
+    await waitFor(() => expect(container.querySelector('nldd-link')).not.toBeNull());
+    const table = container.querySelector('nldd-table')!;
+    // One track list for all rows: that is what aligns the columns.
+    expect(table.getAttribute('columns')).toBe('minmax(240px,2fr) 150px minmax(240px,1.4fr) 150px');
+    const header = [...table.querySelectorAll('nldd-table-row[slot="header"] nldd-text-cell')];
+    expect(header.map((cell) => cell.getAttribute('text'))).toEqual([
+      'Vacature',
+      'Type',
+      'Volgende stap',
+      'Status',
+    ]);
+    const row = table.querySelector('nldd-table-row:not([slot])')!;
+    const link = row.querySelector('nldd-link')!;
+    expect(link.getAttribute('href')).toBe('/vacatures/v-1');
+    expect(link.getAttribute('text')).toBe('Backend-ontwikkelaar');
+    expect(row.textContent).toContain('Opdracht Alfa · Schaal 11, 0,8 fte');
+    // The next step in the words of the step bar, with what it waits on and how long.
+    const step = row.querySelector('nldd-text-cell[hide-below="md"][supporting-text]')!;
+    expect(step.getAttribute('text')).toBe('Advies en akkoord');
+    expect(step.getAttribute('supporting-text')).toMatch(/^Wacht op advies HR, al /);
+    // The status is a word next to its color, once per width.
+    const badge = row.querySelector('nldd-badge')!;
+    expect(badge.getAttribute('text')).toBe('Aangevraagd');
+    expect(badge.getAttribute('color')).toBe('accent');
+    expect(row.querySelector('nldd-text-cell[hide-above="sm"]')?.getAttribute('overline')).toBe(
+      'Aangevraagd',
+    );
+    expect(row.textContent).not.toContain('Laatste stap');
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Vacatures');
   });
 
@@ -203,7 +227,7 @@ describe('VacanciesPage', () => {
       '/api/vacancies/options': OPTIONS,
     });
     const { container, unmount } = renderApp(<VacanciesPage />);
-    await waitFor(() => expect(container.querySelector('nldd-list')).not.toBeNull());
+    await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
     expect(container.querySelector('nldd-button[text="Nieuwe vacature"]')).toBeNull();
     expect(container.querySelector('nldd-button[text="Formulier en taalmodel"]')).toBeNull();
     expect(container.querySelector('nldd-button[text="Open rollen"]')).not.toBeNull();
@@ -256,6 +280,7 @@ describe('VacancyDetailPage', () => {
       el.getAttribute('text'),
     );
     expect(headings).toEqual([
+      'Volgende stap',
       'Gegevens',
       'Advies en akkoord',
       'Procedure',
@@ -283,7 +308,18 @@ describe('VacancyDetailPage', () => {
     expect(container.textContent).toContain('Het taalmodel is in deze instantie niet ingesteld');
     // Requested, so no request button any more; details still editable.
     expect(container.querySelector('nldd-button[text="Vraag aan"]')).toBeNull();
-    expect(container.querySelector('nldd-button[text="Bewerk gegevens"]')).not.toBeNull();
+    // Requested: the step bar stands at advice and approval, and the rows of
+    // the details are the way to change them.
+    expect(container.querySelector('nldd-step-bar')?.getAttribute('current')).toBe('3');
+    expect(
+      container.querySelector('nldd-button[text="Naar advies en akkoord"]'),
+    ).not.toBeNull();
+    const scaleRow = container.querySelector('nldd-text-cell[overline="Schaal"]')!.parentElement!;
+    expect(scaleRow.hasAttribute('button')).toBe(true);
+    // Not on this vacancy yet, and visibly so.
+    expect(
+      container.querySelector('nldd-text-cell[overline="FGR-functienaam"]')?.getAttribute('text'),
+    ).toBe('Nog niet ingevuld');
     // The adviser is named but has not decided; this viewer may only rename.
     expect(container.querySelector('nldd-button[text="Wijzig hr-adviseur"]')).not.toBeNull();
     expect(container.querySelector('nldd-button[text="Leg advies hr vast"]')).toBeNull();

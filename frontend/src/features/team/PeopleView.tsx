@@ -1,9 +1,18 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { errorMessage } from '@/api/client';
 import { formatEuro } from '@/lib/format';
-import { createPerson, fetchPeople, functionLabel, peopleKey, today, type Person } from './api';
-import { PersonSheet } from './PersonSheet';
+import { PATHS } from '@/paths';
+import {
+  createPerson,
+  fetchPeople,
+  functionLabel,
+  peopleKey,
+  personSubtitle,
+  today,
+  type Person,
+} from './api';
 import { Button, DateField, SelectField, SwitchField, TextField } from './ui/controls';
 import { Form, Sheet } from './ui/overlays';
 import { anyHas } from './ui/rows';
@@ -22,6 +31,7 @@ function amount(person: Person, field: keyof Person): string {
  */
 export function PeopleView() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [day, setDay] = useState(today());
   const [includeInactive, setIncludeInactive] = useState(false);
   const query = useQuery({
@@ -32,9 +42,10 @@ export function PeopleView() {
   const people = query.data?.items ?? [];
   const mayManage = query.data?.may_manage ?? false;
 
-  const [openId, setOpenId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
-  const opened = people.find((p) => p.id === openId) ?? null;
+  // A person has a page of their own; the reference day goes along.
+  const openPerson = (id: string) =>
+    navigate(`${PATHS.teamPerson.replace(':personId', id)}?peildatum=${day}`);
 
   const showFunctions = anyHas(people, 'functions');
   const showRate = anyHas(people, 'billing_scale');
@@ -69,6 +80,13 @@ export function PeopleView() {
             <Button text="Persoon toevoegen" onClick={() => setAdding(true)} />
           </>
         ) : null}
+        {showRate ? (
+          <Button
+            appearance="neutral-transparent"
+            text="Bekijk de tarieven per categorie"
+            onClick={() => navigate(PATHS.rates)}
+          />
+        ) : null}
       </nldd-container>
 
       <QueryState query={query}>
@@ -76,7 +94,7 @@ export function PeopleView() {
           <nldd-table-row slot="header">
             <nldd-text-cell text="Naam" />
             <nldd-text-cell text="Leidinggevende" />
-            {showFunctions ? <nldd-text-cell text="Functies" /> : null}
+            {showFunctions ? <nldd-text-cell text="Rechten in grip" /> : null}
             {showRate ? (
               <>
                 <nldd-text-cell text="Inzetschaal" />
@@ -94,10 +112,7 @@ export function PeopleView() {
           </nldd-table-row>
           {people.map((person) => (
             <nldd-table-row key={person.id}>
-              <nldd-text-cell
-                text={person.name}
-                supporting-text={person.is_active ? person.email : `${person.email}, inactief`}
-              />
+              <nldd-text-cell text={person.name} supporting-text={personSubtitle(person)} />
               <nldd-text-cell text={person.manager_name ?? ''} />
               {showFunctions ? (
                 <nldd-text-cell text={(person.functions ?? []).map(functionLabel).join(', ')} />
@@ -141,7 +156,7 @@ export function PeopleView() {
                   size="sm"
                   text="Bekijk"
                   accessibleLabel={`Bekijk ${person.name}`}
-                  onClick={() => setOpenId(person.id)}
+                  onClick={() => openPerson(person.id)}
                 />
               </nldd-cell>
             </nldd-table-row>
@@ -153,13 +168,6 @@ export function PeopleView() {
         </nldd-table>
       </QueryState>
 
-      <PersonSheet
-        person={opened}
-        people={people}
-        mayManage={mayManage}
-        day={day}
-        onClose={() => setOpenId(null)}
-      />
       <NewPersonSheet
         open={adding}
         people={people}
@@ -167,7 +175,7 @@ export function PeopleView() {
         onCreated={async (person) => {
           setAdding(false);
           await queryClient.invalidateQueries({ queryKey: ['team'] });
-          setOpenId(person.id);
+          openPerson(person.id);
         }}
       />
     </>
@@ -192,6 +200,7 @@ function NewPersonSheet({ open, people, onClose, onCreated }: NewPersonSheetProp
 function NewPersonForm({ people, onCreated }: Pick<NewPersonSheetProps, 'people' | 'onCreated'>) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [startDate, setStartDate] = useState('');
   const [managerId, setManagerId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const create = useMutation({
@@ -205,22 +214,40 @@ function NewPersonForm({ people, onCreated }: Pick<NewPersonSheetProps, 'people'
       submitting={create.isPending}
       error={error}
       onSubmit={() => {
-        if (!name.trim() || !email.includes('@')) {
-          setError('Vul een naam en een geldig e-mailadres in.');
+        const address = email.trim();
+        if (!name.trim()) {
+          setError('Vul een naam in.');
           return;
         }
-        create.mutate({ name, email, manager_id: managerId || null });
+        if (address && !address.includes('@')) {
+          setError('Dit is geen geldig e-mailadres.');
+          return;
+        }
+        if (!address && !startDate) {
+          setError('Vul een e-mailadres in, of een startdatum voor een aanstaande collega.');
+          return;
+        }
+        create.mutate({
+          name,
+          manager_id: managerId || null,
+          ...(address ? { email: address } : { start_date: startDate }),
+        });
       }}
     >
       <TextField label="Naam" value={name} onChange={setName} autocomplete="off" required />
       <TextField
         label="E-mailadres"
-        supportingLabel="Hiermee logt de persoon in met SSO Rijk"
+        supportingLabel="Hiermee logt de persoon in met SSO Rijk. Leeg laten kan voor een aanstaande collega."
         value={email}
         onChange={setEmail}
         type="email"
         autocomplete="off"
-        required
+      />
+      <DateField
+        label="Startdatum"
+        supportingLabel="Nodig als er nog geen e-mailadres is. De persoon is dan meteen in te plannen."
+        value={startDate}
+        onChange={setStartDate}
       />
       <SelectField
         label="Leidinggevende"

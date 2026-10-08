@@ -31,6 +31,7 @@ from grip.repositories.domain import (
     RateRepository,
 )
 from grip.services.errors import NotFoundError
+from grip.services.quote_content import QuoteLineSource
 
 
 @dataclass(frozen=True)
@@ -165,7 +166,7 @@ def to_calc_scale(scale: PersonScale) -> calc.PersonScale:
     )
 
 
-def to_calc_line(line: BudgetLine) -> calc.BudgetLine:
+def to_calc_line(line: BudgetLine | QuoteLineSource) -> calc.BudgetLine:
     return calc.BudgetLine(
         id=str(line.id),
         assignment_id=str(line.assignment_id),

@@ -307,7 +307,7 @@ async def received_requests(
     base = own_base(settings)
     own_ids = await own_organisation_ids(db, settings)
     query = select(Assignment).where(
-        Assignment.traffic_form == "federated",
+        Assignment.shared_with_instance_uri.is_not(None),
         Assignment.client_organisation_id.is_not(None),
         ~Assignment.uri.startswith(f"{base}/", autoescape=True),
     )

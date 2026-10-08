@@ -838,3 +838,93 @@ async def test_naming_a_person_of_the_instance_by_id(
     refused = await _decide(client, vacancy["id"], "approval", person_id=str(uuid4()))
     assert refused.status_code == 422
     assert "account" in refused.json()["detail"]
+
+
+async def test_list_says_which_step_and_what_it_waits_on(
+    client, act_as, manager, beheerder, colleague, budget_line
+) -> None:
+    """The step is named as on the vacancy page; the detail carries no name."""
+    act_as(manager)
+    vacancy = await _create(client, budget_line, addressee_name=None)
+    vid = vacancy["id"]
+
+    async def row() -> dict:
+        return next(v for v in (await client.get(BASE)).json() if v["id"] == vid)
+
+    listed = await row()
+    assert (listed["step"], listed["step_detail"]) == (
+        "prepare",
+        "Nog 1 gegeven in te vullen",
+    )
+    assert listed["step_since"] is not None
+
+    await client.patch(f"{BASE}/{vid}", json={"addressee_name": "Fictief Directielid"})
+    listed = await row()
+    assert (listed["step"], listed["step_detail"]) == (
+        "submit",
+        "Klaar om aan te vragen",
+    )
+
+    act_as(beheerder)
+    await client.post(f"{BASE}/{vid}/submit", json={"requested_on": "2026-09-28"})
+    listed = await row()
+    assert (listed["step"], listed["step_detail"], listed["step_since"]) == (
+        "decide",
+        "Wacht op advies HR",
+        "2026-09-28",
+    )
+    await _decide(
+        client,
+        vid,
+        "hr_advice",
+        person_name="Fictieve Adviseur",
+        agreed=True,
+        decided_on="2026-09-29",
+    )
+    listed = await row()
+    assert (listed["step_detail"], listed["step_since"]) == (
+        "Wacht op advies concern control",
+        "2026-09-29",
+    )
+    await _decide(
+        client,
+        vid,
+        "control_advice",
+        person_name="Fictieve Controller",
+        agreed=True,
+        decided_on="2026-09-30",
+    )
+    assert (await row())["step_detail"] == "Wacht op akkoord"
+    await _decide(
+        client,
+        vid,
+        "approval",
+        person_name="Fictief Directielid",
+        agreed=True,
+        decided_on="2026-10-01",
+    )
+    listed = await row()
+    assert (listed["step"], listed["step_since"]) == ("open", "2026-10-01")
+    assert "Fictie" not in json.dumps(
+        {k: listed[k] for k in ("step", "step_detail", "step_since")}
+    )
+
+    response = await client.post(
+        f"{BASE}/{vid}/texts", json={"kind": "vacancy_text", "body": "Tekst."}
+    )
+    text_id = response.json()["texts"][-1]["id"]
+    await client.post(f"{BASE}/{vid}/texts/{text_id}/establish")
+    await client.post(
+        f"{BASE}/{vid}/publish",
+        json={"channels": ["internal"], "opened_on": "2026-10-05"},
+    )
+    listed = await row()
+    assert (listed["step"], listed["step_detail"]) == (
+        "fill",
+        "Interne openstelling loopt",
+    )
+
+    # Someone without a role sees the open vacancy, not where it stands.
+    act_as(colleague)
+    public = next(v for v in (await client.get(BASE)).json() if v["id"] == vid)
+    assert not {"step", "step_detail", "step_since"} & public.keys()

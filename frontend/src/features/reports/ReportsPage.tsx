@@ -1,46 +1,90 @@
-import { useState } from 'react';
-import { InlineSelect } from '@/features/assignments/ui';
-import { Segments } from '@/features/team/ui/controls';
+import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
+import { errorMessage } from '@/api/client';
+import { EmptyNotice, ErrorNotice, Loading } from '@/ui/layout';
+import { RouterLinks } from '@/layout/RouterLinks';
 import { useInstance } from '@/layout/useInstance';
 import { PageHeading } from '@/pages/PageHeading';
-import { SteeringView } from './SteeringView';
-import { YearAccountView } from './YearAccountView';
-import { currentReportYear, reportYearOptions } from './years';
+import { ActionBar } from '@/ui/ActionBar';
+import { fetchSteering, reportKeys } from './api';
+import { landingTiles, type Tile } from './tiles';
+import { TOPICS, topicPath } from './topics';
+import './ui';
+import { useReportYear } from './useReportYear';
+import { reportYearOptions } from './years';
 
-type View = 'steering' | 'year-account';
+/** One headline figure, and the way into the view that explains it. */
+function TileLink({ tile, year }: { tile: Tile; year: string }) {
+  return (
+    <Link
+      to={topicPath(tile.topic, year)}
+      className={tile.attention ? 'grip-tile grip-tile--attention' : 'grip-tile'}
+      data-testid={`tile-${tile.topic}`}
+    >
+      <span className="grip-tile__topic">{TOPICS[tile.topic].title}</span>
+      <span className="grip-tile__label">{tile.label}</span>
+      <span className="grip-tile__value">{tile.value}</span>
+      <span className="grip-tile__context">{tile.context}</span>
+      {tile.attention && (
+        <span className="grip-tile__flag">
+          <span className="grip-mark" aria-hidden="true">
+            !
+          </span>
+          {tile.attention}
+        </span>
+      )}
+    </Link>
+  );
+}
 
 /**
- * Rapportage: the steering overview and the year account of a budget year.
- * The year filter sits above both and scopes everything below it. The report
- * of one assignment is reached from the year account.
+ * Rapportage: the handful of figures to check each week, on one screen.
+ * Every tile opens the view of its topic; nothing else is here but the year.
  */
 export function ReportsPage() {
   const instance = useInstance();
-  const [view, setView] = useState<View>('steering');
-  const [year, setYear] = useState(currentReportYear);
+  const [year, setYear] = useReportYear();
+  const query = useQuery({ queryKey: reportKeys.steering(year), queryFn: () => fetchSteering(year) });
+  const tiles = query.data ? landingTiles(query.data) : [];
+
   return (
     <nldd-simple-section>
       <PageHeading text="Rapportage" instanceName={instance?.name} />
       <nldd-container gap="16">
-        <nldd-container layout="wrap" gap="12" vertical-alignment="center">
-          <InlineSelect
-            label="Jaar"
-            value={year}
-            onChange={setYear}
-            options={reportYearOptions()}
-            width="140px"
-          />
-          <Segments
-            label="Weergave"
-            value={view}
-            onChange={(next) => setView(next === 'year-account' ? 'year-account' : 'steering')}
-            options={[
-              { value: 'steering', label: 'Sturing' },
-              { value: 'year-account', label: 'Jaarverantwoording' },
+        <RouterLinks>
+          <ActionBar
+            label="Rapportage filteren"
+            filters={[
+              {
+                label: 'Jaar',
+                value: year,
+                onChange: setYear,
+                options: reportYearOptions(),
+                width: '140px',
+              },
+            ]}
+            actions={[
+              { text: 'Jaarverantwoording', href: topicPath('jaarverantwoording', year) },
             ]}
           />
-        </nldd-container>
-        {view === 'steering' ? <SteeringView year={year} /> : <YearAccountView year={year} />}
+        </RouterLinks>
+        {query.isPending && <Loading />}
+        {query.isError && <ErrorNotice message={errorMessage(query.error)} />}
+        {query.isSuccess && tiles.length === 0 && (
+          <EmptyNotice
+            text="Er is voor jou geen sturingsinformatie"
+            supportingText="Je ziet hier de cijfers van opdrachten die je beheert en van personen aan wie je leiding geeft."
+          />
+        )}
+        {tiles.length > 0 && (
+          <ul className="grip-tiles" aria-label={`Kerncijfers ${year}`}>
+            {tiles.map((tile) => (
+              <li key={tile.topic}>
+                <TileLink tile={tile} year={year} />
+              </li>
+            ))}
+          </ul>
+        )}
       </nldd-container>
     </nldd-simple-section>
   );

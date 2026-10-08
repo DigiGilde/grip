@@ -257,7 +257,11 @@ export function FormSheet({
           <nldd-title id={titleId} slot="header" size={2} text={title} heading-level={1} />
           {error && <nldd-banner variant="critical" size="sm" text={error} />}
           <nldd-form ref={formRef} {...NO_NATIVE_VALIDATION}>
-            {children}
+            {/* nldd-form moves its direct children into its own form element.
+                React then loses track of siblings it wants to insert before, and
+                a field that appears conditionally crashes the page. One stable
+                wrapper that React owns keeps the fields together. */}
+            <div className="form-fields">{children}</div>
             <nldd-form-actions>
               <nldd-button-group>
                 <Button text={submitText} appearance="primary" type="submit" loading={busy} />

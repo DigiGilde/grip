@@ -42,7 +42,7 @@ describe('PeopleView', () => {
 
   it('draws the staffing column for a planner, without amounts', async () => {
     const container = await renderPeople([{ ...ROSTER, functions: ['planner'], is_hired: false }]);
-    expect(headers(container)).toEqual(['Naam', 'Leidinggevende', 'Functies', 'Actie']);
+    expect(headers(container)).toEqual(['Naam', 'Leidinggevende', 'Rechten in grip', 'Actie']);
     expect(texts(container, 'nldd-table nldd-text-cell')).toContain('Planner');
   });
 
@@ -68,7 +68,7 @@ describe('PeopleView', () => {
     expect(headers(container)).toEqual([
       'Naam',
       'Leidinggevende',
-      'Functies',
+      'Rechten in grip',
       'Inzetschaal',
       'Categorie',
       'Maandtarief',

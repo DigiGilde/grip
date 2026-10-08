@@ -1,9 +1,10 @@
 /** Dutch names for the codes the API uses. */
 
 export const STATUS_LABELS: Record<string, string> = {
-  draft: 'Concept',
+  draft: 'In voorbereiding',
   requested: 'Aangevraagd',
   quoted: 'Offerte uitgegeven',
+  verbally_agreed: 'Mondeling akkoord',
   accepted: 'Akkoord',
   in_progress: 'In uitvoering',
   completed: 'Afgerond',
@@ -14,9 +15,10 @@ export const STATUS_LABELS: Record<string, string> = {
 
 /** What the button says that moves an assignment to a status. */
 export const TRANSITION_LABELS: Record<string, string> = {
-  draft: 'Terug naar concept',
+  draft: 'Terug naar in voorbereiding',
   requested: 'Markeer als aangevraagd',
   quoted: 'Markeer offerte als uitgegeven',
+  verbally_agreed: 'Leg mondeling akkoord vast',
   accepted: 'Markeer als akkoord',
   in_progress: 'Start uitvoering',
   completed: 'Rond af',
@@ -31,6 +33,7 @@ export const STATUS_COLORS: Record<string, BadgeColor> = {
   draft: 'neutral',
   requested: 'accent',
   quoted: 'accent',
+  verbally_agreed: 'accent',
   accepted: 'success',
   in_progress: 'success',
   completed: 'neutral',
@@ -44,10 +47,20 @@ export const KIND_LABELS: Record<string, string> = {
   internal: 'Interne opdracht',
 };
 
-export const TRAFFIC_FORM_LABELS: Record<string, string> = {
-  none: 'Geen verkeer met de opdrachtgever',
-  document: 'Offerte als document',
-  federated: 'Via grip van de opdrachtgever',
+export type Phase = 'potential' | 'active' | 'closed';
+
+/** The three views of the list of assignments. */
+export const PHASE_VIEW_LABELS: Record<Phase, string> = {
+  potential: 'Pijplijn',
+  active: 'Lopend',
+  closed: 'Afgesloten',
+};
+
+/** What the phase is called next to amounts, where pipeline must not read as work. */
+export const PHASE_LABELS: Record<Phase, string> = {
+  potential: 'Potentiële opdrachten',
+  active: 'Lopende opdrachten',
+  closed: 'Afgesloten opdrachten',
 };
 
 export const ROLE_LABELS: Record<string, string> = {

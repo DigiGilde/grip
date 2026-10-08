@@ -326,14 +326,8 @@ describe('ClientAssignmentPage', () => {
           title: 'Opdracht bouwsteen Alfa',
           managing_organisation: { name: 'Voorbeeldministerie' },
         },
-        chain: {
-          nodes: [
-            { uri: 'u-1', type: 'instrument', title: 'Opdracht bouwsteen Alfa' },
-            { uri: 'u-2', type: 'doel', title: 'Hergebruik van bouwstenen' },
-            { uri: 'u-3', type: 'politieke_input', title: 'Motie over hergebruik' },
-          ],
-          edges: [{ from_uri: 'u-1', to_uri: 'u-2', type: 'implementeert' }],
-        },
+        origins: [{ uri: 'u-3', title: 'Motie over hergebruik' }],
+        steps_to_origin: 2,
       },
       {
         uri: 'https://corpus.anderministerie.example/id/node/n-2',
@@ -365,14 +359,14 @@ describe('ClientAssignmentPage', () => {
     );
     await waitFor(() => expect(container.textContent).toContain('Eerste versie opgeleverd.'));
     await waitFor(() => expect(container.textContent).toContain('Motie over hergebruik'));
-    // The chain reads from the node up to the political input, as an ordered list.
-    const steps = [...container.querySelectorAll('ol li')].map((el) => el.textContent ?? '');
-    expect(steps[0]).toContain('Instrument: Opdracht bouwsteen Alfa');
-    expect(steps[0]).toContain('implementeert');
-    expect(steps[2]).toContain('Politieke input: Motie over hergebruik');
+    // The context is a card per node that says where it comes from; the
+    // chain itself is in the detail.
+    const cards = [...container.querySelectorAll('nldd-card')].map((el) => el.textContent ?? '');
+    expect(texts(container, 'nldd-card nldd-title')[0]).toBe('Opdracht bouwsteen Alfa');
+    expect(cards[0]).toContain('Komt voort uit: Motie over hergebruik (2 stappen)');
     // A URI nobody answers for stays visible, with the reason.
-    expect(container.textContent).toContain('https://corpus.anderministerie.example/id/node/n-2');
-    expect(container.textContent).toContain('geen corpus gekoppeld');
+    expect(cards[1]).toContain('https://corpus.anderministerie.example/id/node/n-2');
+    expect(cards[1]).toContain('geen corpus gekoppeld');
     expect(texts(container, 'nldd-text-cell')).toContain(
       'De aanvraag is aangekomen bij de opdrachtnemer',
     );
@@ -418,14 +412,21 @@ describe('AdminPage', () => {
     const items = [...container.querySelectorAll('nldd-list-item')].map((el) =>
       el.getAttribute('href'),
     );
-    expect(items).toEqual([PATHS.peers, PATHS.vacancySetup, PATHS.wiesProposals]);
+    expect(items).toEqual([
+      PATHS.rates,
+      PATHS.peers,
+      PATHS.organisations,
+      PATHS.vacancySetup,
+      PATHS.functionFramework,
+      PATHS.wiesProposals,
+    ]);
   });
 
   it('tells anyone else that it is for the beheerder', () => {
     const { container } = renderApp(<AdminPage />, { path: PATHS.admin });
     expect(container.querySelector('nldd-list')).toBeNull();
     expect(texts(container, 'nldd-inline-dialog')).toEqual([
-      'Beheer is voor de beheerder van deze instantie',
+      'Beheer is voor beheerders',
     ]);
   });
 });

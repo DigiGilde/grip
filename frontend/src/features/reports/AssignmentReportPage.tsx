@@ -4,9 +4,7 @@ import { useParams } from 'react-router-dom';
 import { ApiError, errorMessage } from '@/api/client';
 import { STATUS_COLORS, statusLabel } from '@/features/assignments/labels';
 import { assignmentPath } from '@/features/assignments/paths';
-import { EmptyNotice, ErrorNotice, Loading } from '@/features/assignments/ui';
-import { TOTALS_COLUMNS, TotalsCells, TotalsHeaderCells } from '@/features/overview/TotalsCells';
-import { hasAmounts } from '@/features/overview/api';
+import { EmptyNotice, ErrorNotice, Loading } from '@/ui/layout';
 import { Segments } from '@/features/team/ui/controls';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { useInstance } from '@/layout/useInstance';
@@ -16,12 +14,22 @@ import { PATHS } from '@/paths';
 import {
   assignmentReportDocumentUrl,
   fetchAssignmentReport,
+  hasAmounts,
   reportKeys,
   type AssignmentReport,
   type Audience,
 } from './api';
 import { ACCEPTANCE_FORM_LABELS, KIND_LABELS } from './labels';
-import { MoneyCell, NumberCell, ReportBlock } from './ui';
+import {
+  Figures,
+  MoneyCell,
+  NumberCell,
+  ReportBlock,
+  TOTALS_COLUMNS,
+  TotalsCells,
+  TotalsHeaderCells,
+  type Figure,
+} from './ui';
 
 function Facts({ report }: { report: AssignmentReport }) {
   const facts: [string, string][] = [
@@ -43,6 +51,52 @@ function Facts({ report }: { report: AssignmentReport }) {
         ))}
     </nldd-list>
   );
+}
+
+/** The report in four figures: agreed, spent so far, expected, and what is left. */
+function reportFigures(report: AssignmentReport): Figure[] {
+  const totals = report.totals;
+  const figures: Figure[] = [];
+  if (report.agreed && 'total_cents' in report.agreed) {
+    figures.push({
+      label: 'Afgesproken',
+      value: formatEuro(report.agreed.total_cents),
+      detail: report.agreed.accepted_at ? `akkoord op ${formatDate(report.agreed.accepted_at)}` : '',
+    });
+  } else if (typeof report.quoted_amount_cents === 'number') {
+    figures.push({
+      label: 'Afgesproken',
+      value: formatEuro(report.quoted_amount_cents),
+      detail: 'zonder offerte met akkoord',
+    });
+  }
+  if (hasAmounts(totals)) {
+    figures.push(
+      {
+        label: 'Gerealiseerd',
+        value: formatEuro(totals.realised_cents),
+        detail: `${report.months_closed} van ${report.months_total} maanden afgesloten`,
+        quiet: totals.realised_cents === 0,
+      },
+      {
+        label: 'Verwacht totaal',
+        value: formatEuro(totals.used_cents),
+        detail: `van ${formatEuro(totals.budgeted_cents)} begroot`,
+      },
+      totals.overrun
+        ? {
+            label: 'Afwijking',
+            value: formatEuro(totals.available_cents),
+            attention: 'Overschrijding van de begroting',
+          }
+        : {
+            label: 'Afwijking',
+            value: formatEuro(totals.available_cents),
+            detail: 'begroot min verwacht totaal',
+          },
+    );
+  }
+  return figures;
 }
 
 function AgreedBlock({ report }: { report: AssignmentReport }) {
@@ -190,7 +244,7 @@ function CostBlock({ report }: { report: AssignmentReport }) {
     <ReportBlock
       testId="cost"
       title="Wat het heeft gekost"
-      note="Gerealiseerd is de vastgestelde inzet van afgesloten maanden. Prognose is de geplande inzet van open maanden."
+      note="Gerealiseerd is de vastgestelde inzet van afgesloten maanden. Nog gepland is de geplande inzet van open maanden. Afwijking is begroot min verwacht totaal."
     >
       {report.pricing_error && (
         <nldd-banner variant="warning" size="sm" text={report.pricing_error} />
@@ -354,6 +408,9 @@ export function AssignmentReportPage() {
                 target="_blank"
               />
             </nldd-container>
+            {reportFigures(report).length > 0 && (
+              <Figures label="De opdracht in het kort" figures={reportFigures(report)} />
+            )}
             <Facts report={report} />
             <AgreedBlock report={report} />
             <DeliveredBlock report={report} />

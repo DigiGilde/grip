@@ -5,7 +5,6 @@
  * nothing is added up in the browser.
  */
 import { apiGet } from '@/api/client';
-import type { Totals } from '@/features/overview/api';
 
 /** all: everything, through a function. own: what follows from the reader's relations. */
 export type Scope = 'all' | 'own';
@@ -15,7 +14,9 @@ export type Scope = 'all' | 'own';
 export interface TurnoverMonth {
   month: string;
   realised_cents: number;
+  /** Agreed formally or verbally; includes `verbal_cents`. */
   forecast_cents: number;
+  verbal_cents: number;
   pipeline_cents: number;
 }
 
@@ -24,31 +25,87 @@ export interface Turnover {
   months: TurnoverMonth[];
   realised_cents: number;
   forecast_cents: number;
+  verbal_cents: number;
   pipeline_cents: number;
+  /** Realised plus forecast. */
+  expected_cents: number;
+  /** The year of the agreed assignments, in the words of the assignment pages. */
+  figures: FinanceFigures;
   unpriced_assignments: string[];
+}
+
+export interface FinanceFigures {
+  budgeted_cents: number;
+  realised_cents: number;
+  planned_cents: number;
+  costs_cents: number;
+  expected_total_cents: number;
+  /** Budgeted minus expected total; negative is an overrun. */
+  variance_cents: number;
+  variance_pct: string | null;
+  overrun: boolean;
+  realised_total_cents: number;
+  /** Uitputting: the share of the budget that is realised. */
+  realised_pct: string | null;
 }
 
 export interface OccupancyMonth {
   month: string;
   allocated_fte: string;
+  tentative_fte: string;
   available_fte: string;
+  free_fte: string;
   pct: string | null;
   under: number;
   full: number;
   over: number;
 }
 
+export interface OccupancySummary {
+  person_count: number;
+  average_pct: string | null;
+  over_count: number;
+  over_months: string[];
+  /** Today's month, whatever year is on screen. */
+  current_month: string;
+  /** This month and the three after it. */
+  window: OccupancyMonth[];
+  idle_count: number;
+}
+
+export interface OccupancyPart {
+  /** Absent when the reader may not see that assignment. */
+  assignment_id?: string;
+  assignment_name?: string;
+  pct: string;
+  tentative: boolean;
+  verbally_agreed: boolean;
+  established: boolean;
+}
+
+export interface OccupancyCell {
+  month: string;
+  available: boolean;
+  pct: string;
+  tentative_pct: string;
+  established: boolean;
+  parts: OccupancyPart[];
+}
+
 export interface PersonOccupancy {
   person_id: string;
   person_name: string;
-  months: (string | null)[];
   average_pct: string | null;
+  over_months: string[];
+  cells: OccupancyCell[];
 }
 
 export interface Occupancy {
   scope: Scope;
+  summary: OccupancySummary;
   months: OccupancyMonth[];
   persons: PersonOccupancy[];
+  not_deployable?: { person_id: string; person_name: string }[];
 }
 
 export interface PipelineStatus {
@@ -109,6 +166,9 @@ export interface Billability {
   target_cents: number;
   realised_cents: number;
   forecast_cents: number;
+  realisation_cents: number;
+  with_target_count: number;
+  below_target_count: number;
 }
 
 export interface OpenRole {
@@ -154,8 +214,13 @@ export interface YearAccountRow {
   realised_cents?: number | null;
   forecast_cents?: number | null;
   costs_cents?: number | null;
-  billed_cents?: number;
-  to_bill_cents?: number | null;
+  /** Billing data delivered to the financial administration; not an invoice. */
+  delivered_cents?: number;
+  to_deliver_cents?: number | null;
+  /** An invoice recorded as sent; zero until one is recorded. */
+  invoiced_cents?: number;
+  /** Delivered, and no invoice recorded for it. */
+  to_invoice_cents?: number;
   difference_cents?: number | null;
   pricing_error?: string | null;
 }
@@ -166,8 +231,10 @@ export interface YearAccountTotals {
   realised_cents: number;
   forecast_cents: number;
   costs_cents: number;
-  billed_cents: number;
-  to_bill_cents: number;
+  delivered_cents: number;
+  to_deliver_cents: number;
+  invoiced_cents: number;
+  to_invoice_cents: number;
 }
 
 export interface YearAccount {
@@ -178,6 +245,22 @@ export interface YearAccount {
 }
 
 // -- report per assignment --------------------------------------------------
+
+/** Budgeted, used and available. Absent fields: the reader lacks class B. */
+export interface Totals {
+  budgeted_cents?: number;
+  realised_cents?: number;
+  forecast_cents?: number;
+  coverage_cents?: number;
+  used_cents?: number;
+  available_cents?: number;
+  overrun?: boolean;
+}
+
+/** Whether the reader got amounts at all. */
+export function hasAmounts(totals: Totals | null | undefined): totals is Required<Totals> {
+  return totals !== null && totals !== undefined && 'budgeted_cents' in totals;
+}
 
 export type Audience = 'client' | 'internal';
 

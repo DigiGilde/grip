@@ -5,3 +5,5 @@
  */
 import '@/features/assignments/register';
 import '@nldd/design-system/search-field';
+import '@nldd/design-system/card';
+import '@nldd/design-system/collection';

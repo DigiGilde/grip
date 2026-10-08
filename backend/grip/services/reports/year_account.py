@@ -3,8 +3,12 @@
 One row per assignment with something in the year. The amounts of a
 multi-year assignment are those of the months in the year, from the pricing
 service's per-year split. Agreed is the subtotal of the accepted quote for
-the year, as frozen in its snapshot. Billed is what was put in billing
-exports for the closed months of the year.
+the year, as frozen in its snapshot.
+
+Delivered ("aangeleverd") and invoiced ("gefactureerd") are two facts, and
+they come from the invoice service: delivered is billing data exported for
+the financial administration, invoiced is an invoice someone recorded as
+sent. Until an invoice is recorded, nothing counts as invoiced.
 """
 
 from __future__ import annotations
@@ -16,11 +20,10 @@ from dataclasses import dataclass
 from datetime import date
 from uuid import UUID
 
-from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from grip.models.month_close import BillingExport, MonthClose
 from grip.services import assignment_views as views
+from grip.services import outgoing_invoices
 from grip.services.pricing import DEFAULT_OPTIONS, PricingOptions
 from grip.services.reports.assignment_report import accepted_quote
 
@@ -28,6 +31,13 @@ from grip.services.reports.assignment_report import accepted_quote
 # the end, an existing one is never renamed or moved. Amounts are in euros
 # with a decimal point and two decimals; empty means "not known", which is
 # different from zero.
+#
+# One rename, made before the export was in use: "billed" and "to_bill" are
+# now "delivered" and "to_deliver". They always meant billing data delivered
+# to the financial administration, and the old names read as invoiced.
+#
+# "invoiced" and "to_invoice" were added at the end: an invoice recorded as
+# sent, and what was delivered without an invoice recorded for it.
 CSV_COLUMNS: tuple[str, ...] = (
     "year",
     "assignment_uri",
@@ -42,10 +52,12 @@ CSV_COLUMNS: tuple[str, ...] = (
     "realised",
     "forecast",
     "costs",
-    "billed",
-    "to_bill",
+    "delivered",
+    "to_deliver",
     "difference",
     "currency",
+    "invoiced",
+    "to_invoice",
 )
 
 
@@ -59,14 +71,15 @@ class YearAccountRow:
     # Of the months in the year. None when the assignment cannot be priced.
     totals: views.Totals | None
     pricing_error: str | None
-    billed_cents: int
-
-    @property
-    def to_bill_cents(self) -> int | None:
-        """Realised and not yet in a billing export."""
-        if self.totals is None:
-            return None
-        return self.totals.realised_cents - self.billed_cents
+    # Billing data delivered to the financial administration (exports).
+    delivered_cents: int
+    # Established and priced, and not delivered yet. None when a closed
+    # month cannot be priced.
+    to_deliver_cents: int | None
+    # Invoices recorded as sent, the part that falls in this year.
+    invoiced_cents: int
+    # Delivered, and no invoice recorded for it.
+    to_invoice_cents: int
 
     @property
     def difference_cents(self) -> int | None:
@@ -74,35 +87,6 @@ class YearAccountRow:
         if self.agreed_cents is None or self.totals is None:
             return None
         return self.agreed_cents - self.totals.realised_cents
-
-
-async def billed_by_assignment(
-    session: AsyncSession, year: int, assignment_ids: Iterable[UUID]
-) -> dict[UUID, int]:
-    """Billed per assignment in ``year``: the latest export of each closed month.
-
-    An export of a close that was reopened since does not count.
-    """
-    ids = list(assignment_ids)
-    if not ids:
-        return {}
-    result = await session.execute(
-        select(BillingExport)
-        .join(MonthClose, MonthClose.id == BillingExport.month_close_id)
-        .where(
-            BillingExport.assignment_id.in_(ids),
-            MonthClose.reopened_at.is_(None),
-            func.extract("year", BillingExport.month) == year,
-        )
-        .order_by(BillingExport.created_at)
-    )
-    latest: dict[tuple[UUID, date], int] = {}
-    for export in result.scalars():
-        latest[(export.assignment_id, export.month)] = export.total_cents
-    billed: dict[UUID, int] = {}
-    for (assignment_id, _month), cents in latest.items():
-        billed[assignment_id] = billed.get(assignment_id, 0) + cents
-    return billed
 
 
 def _in_year(row: views.AssignmentRow, year: int) -> bool:
@@ -121,10 +105,13 @@ async def year_account(
 ) -> list[YearAccountRow]:
     """The rows of the year account; ``assignment_ids=None`` means all."""
     rows = await views.assignment_rows(session, only_ids=assignment_ids)
-    billed = await billed_by_assignment(session, year, [r.assignment.id for r in rows])
+    positions = await outgoing_invoices.billing_positions(
+        session, [r.assignment.id for r in rows], year=year, options=options
+    )
     result: list[YearAccountRow] = []
     for row in rows:
         assignment_id = row.assignment.id
+        position = positions[assignment_id]
         view = await views.assignment_view(
             session, assignment_id, year=year, options=options
         )
@@ -134,7 +121,8 @@ async def year_account(
         if not (
             has_amounts
             or year in view.budgeted_by_year
-            or assignment_id in billed
+            or position.delivered_cents
+            or position.invoiced_cents
             or _in_year(row, year)
         ):
             continue
@@ -149,7 +137,10 @@ async def year_account(
                 agreed_cents=agreed_cents,
                 totals=view.totals,
                 pricing_error=view.pricing_error,
-                billed_cents=billed.get(assignment_id, 0),
+                delivered_cents=position.delivered_cents,
+                to_deliver_cents=position.to_deliver_cents,
+                invoiced_cents=position.invoiced_cents,
+                to_invoice_cents=position.to_invoice_cents,
             )
         )
     return result
@@ -197,10 +188,12 @@ def to_csv(rows: Iterable[YearAccountRow]) -> str:
                 _euros(totals.realised_cents if totals else None),
                 _euros(totals.forecast_cents if totals else None),
                 _euros(totals.coverage_cents if totals else None),
-                _euros(item.billed_cents),
-                _euros(item.to_bill_cents),
+                _euros(item.delivered_cents),
+                _euros(item.to_deliver_cents),
                 _euros(item.difference_cents),
                 "EUR",
+                _euros(item.invoiced_cents),
+                _euros(item.to_invoice_cents),
             ]
         )
     return buffer.getvalue()

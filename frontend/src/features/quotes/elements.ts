@@ -7,3 +7,4 @@ import '@/features/assignments/register';
 import '@nldd/design-system/checkbox-field';
 import '@nldd/design-system/file-field';
 import '@nldd/design-system/title-cell';
+import '@nldd/design-system/checkbox';

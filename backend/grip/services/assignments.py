@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Iterable
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any
 from uuid import UUID
@@ -24,7 +24,6 @@ from grip.models.assignment import (
     BUDGET_LINE_KINDS,
     ROLE_MANAGER,
     ROLE_OWNER,
-    TRAFFIC_FORMS,
     Allocation,
     Assignment,
     AssignmentRole,
@@ -47,13 +46,17 @@ from grip.services.guards import (
     ensure_years_open,
     years_between,
 )
+from grip.services.phase import VERBALLY_AGREED, counterparty_status
 
 # The lifecycle of an assignment. Every change of status goes through
 # ``transition``; nothing else writes ``Assignment.status``.
 TRANSITIONS: dict[str, frozenset[str]] = {
     "draft": frozenset({"requested", "quoted", "cancelled"}),
     "requested": frozenset({"quoted", "rejected", "cancelled"}),
-    "quoted": frozenset({"accepted", "rejected", "cancelled"}),
+    "quoted": frozenset({"verbally_agreed", "accepted", "rejected", "cancelled"}),
+    # Optional step: the client said yes, the signature has to follow. Back
+    # to quoted when the word is withdrawn or the quote has to change.
+    "verbally_agreed": frozenset({"accepted", "quoted", "rejected", "cancelled"}),
     "accepted": frozenset({"in_progress", "cancelled"}),
     "in_progress": frozenset({"completed", "cancelled"}),
     "completed": frozenset({"accounted", "in_progress"}),
@@ -69,7 +72,6 @@ _ASSIGNMENT_FIELDS = (
     "uri",
     "name",
     "kind",
-    "traffic_form",
     "status",
     "client_organisation_id",
     "contractor_organisation_id",
@@ -85,7 +87,6 @@ _EDITABLE_ASSIGNMENT_FIELDS = frozenset(
     {
         "name",
         "kind",
-        "traffic_form",
         "client_organisation_id",
         "contractor_organisation_id",
         "parent_assignment_uri",
@@ -123,6 +124,32 @@ def mint_uri(segment: str, entity_id: UUID) -> str:
     """URI of something this instance creates: ``{base}/id/{segment}/{uuid}``."""
     base = get_settings().INSTANCE_BASE_URI.rstrip("/")
     return f"{base}/id/{segment}/{entity_id}"
+
+
+def share_with_instance(assignment: Assignment, instance_uri: str) -> None:
+    """Record that this assignment is shared with another grip instance.
+
+    Not a setting: it follows from an exchange with that instance (a request
+    received from it or sent to it, a quote offered to it or received from
+    it). Sharing once is enough; a later exchange with the same instance
+    leaves the moment as it was.
+    """
+    wanted = instance_uri.strip().rstrip("/")
+    if not wanted:
+        return
+    current = (assignment.shared_with_instance_uri or "").rstrip("/")
+    if current == wanted:
+        return
+    assignment.shared_with_instance_uri = wanted
+    assignment.shared_at = datetime.now(UTC)
+
+
+def is_shared_with(assignment: Assignment, instance_uri: str | None) -> bool:
+    if not instance_uri or not assignment.shared_with_instance_uri:
+        return False
+    return assignment.shared_with_instance_uri.rstrip("/") == (
+        instance_uri.strip().rstrip("/")
+    )
 
 
 def allowed_transitions(assignment: Assignment) -> frozenset[str]:
@@ -190,7 +217,7 @@ async def create_assignment(
     name: str,
     actor: Person | None,
     kind: str = "external",
-    traffic_form: str = "none",
+    traffic_form: str | None = None,
     client_organisation_id: UUID | None = None,
     contractor_organisation_id: UUID | None = None,
     parent_assignment_uri: str | None = None,
@@ -206,11 +233,13 @@ async def create_assignment(
 
     The actor becomes the owner unless ``owner_id`` names someone else. The
     URI is minted here unless the assignment came from another instance.
+
+    ``traffic_form`` is accepted and ignored, for callers that still pass
+    it: how a quote reaches the client is chosen when a quote is offered,
+    not when the assignment is created.
     """
     if kind not in ASSIGNMENT_KINDS:
         raise DomainValidationError(f"Onbekend soort opdracht: {kind}")
-    if traffic_form not in TRAFFIC_FORMS:
-        raise DomainValidationError(f"Onbekende verkeersvorm: {traffic_form}")
     if start_date and end_date and end_date < start_date:
         raise DomainValidationError("De einddatum ligt voor de begindatum.")
     await _check_organisation(session, client_organisation_id)
@@ -222,7 +251,6 @@ async def create_assignment(
         uri=uri or mint_uri("opdracht", assignment_id),
         name=name,
         kind=kind,
-        traffic_form=traffic_form,
         status="draft",
         client_organisation_id=client_organisation_id,
         contractor_organisation_id=contractor_organisation_id,
@@ -262,6 +290,8 @@ async def update_assignment(
     **changes: Any,
 ) -> Assignment:
     """Change descriptive fields. Status changes go through ``transition``."""
+    # No longer a property of an assignment; ignored when still sent.
+    changes.pop("traffic_form", None)
     unknown = set(changes) - _EDITABLE_ASSIGNMENT_FIELDS
     if unknown:
         raise DomainValidationError(
@@ -270,10 +300,6 @@ async def update_assignment(
     assignment = await get_assignment(session, assignment_id)
     if "kind" in changes and changes["kind"] not in ASSIGNMENT_KINDS:
         raise DomainValidationError(f"Onbekend soort opdracht: {changes['kind']}")
-    if "traffic_form" in changes and changes["traffic_form"] not in TRAFFIC_FORMS:
-        raise DomainValidationError(
-            f"Onbekende verkeersvorm: {changes['traffic_form']}"
-        )
     if "context_refs" in changes:
         changes["context_refs"] = _check_context_refs(changes["context_refs"])
     for key in ("client_organisation_id", "contractor_organisation_id"):
@@ -299,6 +325,42 @@ async def update_assignment(
     return assignment
 
 
+# Statuses in which an external assignment involves another party, so that
+# party has to be known by then. Creating an assignment needs only a name.
+_NEEDS_COUNTERPARTY = frozenset({"requested", "quoted", VERBALLY_AGREED, "accepted"})
+
+
+def _check_ready_for(
+    assignment: Assignment, target: str, reason: str | None, *, enforce: bool = True
+) -> None:
+    """What an assignment must have before it can move to ``target``.
+
+    Validation lives here, at the step that needs the data, so an assignment
+    can be created with next to nothing and filled in along the way.
+    """
+    if target == VERBALLY_AGREED and not (reason and reason.strip()):
+        raise DomainValidationError(
+            "Noteer bij een mondeling akkoord wie akkoord gaf en wanneer."
+        )
+    if not enforce:
+        return
+    if (
+        target in _NEEDS_COUNTERPARTY
+        and assignment.kind == "external"
+        and assignment.client_organisation_id is None
+        and assignment.contractor_organisation_id is None
+    ):
+        raise DomainValidationError(
+            "Kies eerst de opdrachtgever. Een externe opdracht kan pas verder "
+            "als bekend is voor wie ze is."
+        )
+    if target == "in_progress" and assignment.start_date is None:
+        raise DomainValidationError(
+            "Vul eerst de begindatum in. Een opdracht in uitvoering heeft een "
+            "periode nodig."
+        )
+
+
 async def transition(
     session: AsyncSession,
     assignment_id: UUID,
@@ -307,15 +369,27 @@ async def transition(
     actor: Person | None,
     reason: str | None = None,
     origin: str = "local",
+    enforce_readiness: bool = True,
 ) -> Assignment:
-    """Move an assignment to another status, if the lifecycle allows it."""
+    """Move an assignment to another status, if the lifecycle allows it.
+
+    A step also checks that the assignment has what the new status needs (a
+    client, a start date). ``enforce_readiness=False`` skips that for records
+    taken over from an older administration, which never had those fields;
+    the note of a verbal agreement is required either way.
+    """
     if target not in ASSIGNMENT_STATUSES:
         raise DomainValidationError(f"Onbekende status: {target}")
     assignment = await get_assignment(session, assignment_id)
     if target not in allowed_transitions(assignment):
         raise IllegalTransitionError(assignment.status, target)
+    _check_ready_for(assignment, target, reason, enforce=enforce_readiness)
     old = assignment.status
     assignment.status = target
+    if target == VERBALLY_AGREED:
+        assert reason is not None
+        assignment.verbal_agreement_note = reason.strip()
+        assignment.verbal_agreement_at = datetime.now(UTC)
     await session.flush()
     record_audit(
         session,
@@ -326,18 +400,24 @@ async def transition(
         old_value={"status": old},
         new_value={"status": target, **({"reason": reason} if reason else {})},
     )
-    await events.emit(
-        session,
-        events.ASSIGNMENT_STATUS_CHANGED,
-        {
-            "assignment_id": str(assignment.id),
-            "assignment_uri": assignment.uri,
-            "old_status": old,
-            "new_status": target,
-            "reason": reason,
-            "origin": origin,
-        },
-    )
+    # Another instance never learns of a verbal agreement: the event carries
+    # the status as the counterparty sees it, and a change it cannot see is
+    # no event.
+    seen_old = counterparty_status(old)
+    seen_new = counterparty_status(target)
+    if seen_old != seen_new:
+        await events.emit(
+            session,
+            events.ASSIGNMENT_STATUS_CHANGED,
+            {
+                "assignment_id": str(assignment.id),
+                "assignment_uri": assignment.uri,
+                "old_status": seen_old,
+                "new_status": seen_new,
+                "reason": reason if target != VERBALLY_AGREED else None,
+                "origin": origin,
+            },
+        )
     return assignment
 
 
@@ -353,7 +433,7 @@ async def create_assignment_request(
     parent_assignment_uri: str | None = None,
     start_date: date | None = None,
     end_date: date | None = None,
-    traffic_form: str = "federated",
+    traffic_form: str | None = None,
 ) -> tuple[Assignment, UUID]:
     """Client side: ask a contractor for a quote.
 
@@ -366,7 +446,6 @@ async def create_assignment_request(
         name=name,
         actor=actor,
         kind="external",
-        traffic_form=traffic_form,
         client_organisation_id=client_organisation_id,
         contractor_organisation_id=contractor_organisation_id,
         parent_assignment_uri=parent_assignment_uri,
@@ -375,6 +454,12 @@ async def create_assignment_request(
         end_date=end_date,
         notes=description,
     )
+    # Asking a contractor for a quote is an exchange: from here on the
+    # assignment is shared with the contractor's instance, if it has one.
+    contractor = await session.get(Organisation, contractor_organisation_id)
+    if contractor is not None and contractor.instance_uri:
+        share_with_instance(assignment, contractor.instance_uri)
+        await session.flush()
     await transition(session, assignment.id, "requested", actor=actor)
     request_id = uuid.uuid4()
     await events.emit(
@@ -425,7 +510,6 @@ async def receive_assignment_request(
         name=name,
         actor=None,
         kind="external",
-        traffic_form="federated",
         client_organisation_id=client_organisation_id,
         contractor_organisation_id=contractor_organisation_id,
         parent_assignment_uri=parent_assignment_uri,
@@ -435,6 +519,12 @@ async def receive_assignment_request(
         notes=description,
         uri=uri,
     )
+    # A request that came in from a client's instance is shared with that
+    # instance from the start.
+    client = await session.get(Organisation, client_organisation_id)
+    if client is not None and client.instance_uri:
+        share_with_instance(assignment, client.instance_uri)
+        await session.flush()
     return await transition(
         session, assignment.id, "requested", actor=None, origin="remote"
     )

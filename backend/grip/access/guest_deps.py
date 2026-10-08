@@ -121,7 +121,7 @@ async def get_signer(
     """
     person = await resolve_person(request, db, settings)
     if person is not None:
-        return signer_for(person.name, person.email, person.id)
+        return signer_for(person.name, person.email or "", person.id)
     guest = await resolve_guest(request, settings)
     signer = signer_from_guest_session({GUEST_SESSION_KEY: guest}) if guest else None
     if signer is None:

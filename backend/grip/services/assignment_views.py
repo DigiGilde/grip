@@ -14,9 +14,10 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
+from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip import calc
@@ -27,11 +28,19 @@ from grip.models.assignment import (
     AssignmentRole,
     BudgetLine,
 )
+from grip.models.audit_log import AuditLog
 from grip.models.cost import CostItem
 from grip.models.organisation import Organisation
 from grip.models.person import Person
+from grip.models.quote import Quote
 from grip.repositories.domain import AssignmentRepository
 from grip.services.errors import NotFoundError
+from grip.services.phase import (
+    Phase,
+    assignment_phase,
+    is_tentative,
+    statuses_in_phase,
+)
 from grip.services.pricing import (
     DEFAULT_OPTIONS,
     CalcInputs,
@@ -92,6 +101,14 @@ class AssignmentRow:
     client_name: str | None
     contractor_name: str | None
     roles: tuple[RoleView, ...]
+    # When the assignment got its current status.
+    status_since: datetime | None = None
+    # Total of the latest quote that was issued; None without one.
+    latest_quote_cents: int | None = None
+
+    @property
+    def phase(self) -> Phase:
+        return assignment_phase(self.assignment)
 
     @property
     def owner(self) -> RoleView | None:
@@ -111,6 +128,8 @@ class AllocationView:
     # R14: the first run of months in which the person bills in another
     # category than the line assumes. None when there is none.
     mismatch: calc.CategoryMismatch | None
+    # The assignment is still potential, so this inzet may not happen.
+    tentative: bool = False
 
 
 @dataclass(frozen=True)
@@ -226,6 +245,40 @@ async def _roles(
     return {k: tuple(v) for k, v in grouped.items()}
 
 
+async def _status_since(
+    session: AsyncSession, assignment_ids: Iterable[UUID]
+) -> dict[UUID, datetime]:
+    """The moment of the last change of status, from the audit log."""
+    ids = [str(i) for i in set(assignment_ids)]
+    if not ids:
+        return {}
+    rows = await session.execute(
+        select(AuditLog.entity_id, func.max(AuditLog.occurred_at))
+        .where(
+            AuditLog.entity == "assignment",
+            AuditLog.entity_id.in_(ids),
+            AuditLog.new_value.has_key("status"),
+        )
+        .group_by(AuditLog.entity_id)
+    )
+    return {UUID(row[0]): row[1] for row in rows}
+
+
+async def _latest_quote_totals(
+    session: AsyncSession, assignment_ids: Iterable[UUID]
+) -> dict[UUID, int]:
+    ids = list(set(assignment_ids))
+    if not ids:
+        return {}
+    rows = await session.execute(
+        select(Quote.assignment_id, Quote.total_cents)
+        .where(Quote.assignment_id.in_(ids), Quote.issued_at.is_not(None))
+        .order_by(Quote.issued_at)
+    )
+    # Later rows overwrite earlier ones, so the latest quote wins.
+    return {row[0]: row[1] for row in rows}
+
+
 async def assignment_rows(
     session: AsyncSession,
     *,
@@ -251,6 +304,8 @@ async def assignment_rows(
         + [a.contractor_organisation_id for a in found],
     )
     roles = await _roles(session, [a.id for a in found])
+    since = await _status_since(session, [a.id for a in found])
+    quoted = await _latest_quote_totals(session, [a.id for a in found])
     return [
         AssignmentRow(
             assignment=a,
@@ -261,6 +316,8 @@ async def assignment_rows(
             if a.contractor_organisation_id
             else None,
             roles=roles.get(a.id, ()),
+            status_since=since.get(a.id) or a.created_at,
+            latest_quote_cents=quoted.get(a.id),
         )
         for a in found
     ]
@@ -316,7 +373,8 @@ async def line_options(
         .join(Assignment, Assignment.id == BudgetLine.assignment_id)
         .where(
             BudgetLine.kind == "personnel",
-            Assignment.status.notin_(("accounted", "rejected", "cancelled")),
+            # No new inzet on an assignment that has ended.
+            Assignment.status.notin_(statuses_in_phase(Phase.CLOSED)),
         )
         .order_by(Assignment.name, BudgetLine.position)
     )
@@ -340,6 +398,7 @@ def _allocation_views(
     inputs: CalcInputs,
     options: PricingOptions,
     year: int | None,
+    tentative_ids: frozenset[UUID] = frozenset(),
 ) -> list[AllocationView]:
     calc_allocations = {a.id: a for a in inputs.allocations}
     calc_lines = {line.id: line for line in inputs.lines}
@@ -378,6 +437,7 @@ def _allocation_views(
                 amount_cents=amount,
                 pricing_error=error,
                 mismatch=mismatch,
+                tentative=line.assignment_id in tentative_ids,
             )
         )
     return views
@@ -389,6 +449,31 @@ async def _person_names(session: AsyncSession, ids: Iterable[UUID]) -> dict[UUID
         return {}
     rows = await session.execute(
         select(Person.id, Person.name).where(Person.id.in_(wanted))
+    )
+    return {row[0]: row[1] for row in rows}
+
+
+async def _tentative_ids(
+    session: AsyncSession, assignment_ids: Iterable[UUID]
+) -> frozenset[UUID]:
+    """The assignments among these that are still potential."""
+    wanted = set(assignment_ids)
+    if not wanted:
+        return frozenset()
+    rows = await session.execute(
+        select(Assignment.id, Assignment.status).where(Assignment.id.in_(wanted))
+    )
+    return frozenset(row[0] for row in rows if is_tentative(row[1]))
+
+
+async def assignment_statuses(
+    session: AsyncSession, assignment_ids: Iterable[UUID]
+) -> dict[UUID, str]:
+    wanted = set(assignment_ids)
+    if not wanted:
+        return {}
+    rows = await session.execute(
+        select(Assignment.id, Assignment.status).where(Assignment.id.in_(wanted))
     )
     return {row[0]: row[1] for row in rows}
 
@@ -453,6 +538,7 @@ async def allocation_views(
         inputs,
         options,
         year,
+        await _tentative_ids(session, {line.assignment_id for line in line_list}),
     )
 
 
@@ -477,6 +563,7 @@ async def allocation_view(
         inputs,
         options,
         None,
+        await _tentative_ids(session, {line.assignment_id for line in line_list}),
     )[0]
 
 
@@ -547,6 +634,9 @@ async def assignment_view(
         inputs,
         options,
         year,
+        frozenset({assignment_id})
+        if is_tentative(row.assignment.status)
+        else frozenset(),
     )
     item_ids = [UUID(item.id) for item in inputs.cost_items]
     descriptions: dict[str, str] = {}
@@ -616,3 +706,21 @@ async def assignment_view(
         budgeted_by_year=dict(sorted(by_year.items())),
         pricing_error=first_error,
     )
+
+
+async def budgeted_total(
+    session: AsyncSession,
+    assignment_id: UUID,
+    *,
+    options: PricingOptions = DEFAULT_OPTIONS,
+) -> int | None:
+    """The whole budget of an assignment; None when it cannot be priced."""
+    line_list = await AssignmentRepository(session).budget_lines([assignment_id])
+    inputs = await load_inputs_for_lines(session, line_list, options=options)
+    try:
+        return sum(
+            calc.budgeted(line, inputs.rates, partial_months=options.partial_months)
+            for line in inputs.lines
+        )
+    except calc.CalcError:
+        return None

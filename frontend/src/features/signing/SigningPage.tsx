@@ -2,15 +2,8 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { ApiError, errorMessage } from '@/api/client';
-import {
-  Button,
-  EmptyNotice,
-  ErrorNotice,
-  FormSheet,
-  Loading,
-  SectionHeading,
-  TextInput,
-} from '@/features/assignments/ui';
+import { Button, TextInput } from '@/features/assignments/ui';
+import { EmptyNotice, ErrorNotice, FormSheet, Loading, SectionHeading } from '@/ui/layout';
 import { QuoteContentTable } from '@/features/quotes/QuoteContentTable';
 import { CheckboxInput, DocumentLink } from '@/features/quotes/ui';
 import { formatDateTime } from '@/features/quotes/format';
@@ -122,7 +115,7 @@ export function SigningPage() {
         {query.isError && notFound ? (
           <EmptyNotice
             text="Deze offerte staat niet voor je klaar"
-            supportingText="De link klopt niet, de uitnodiging is verlopen, of je bent ingelogd met een ander e-mailadres dan waarop je bent uitgenodigd."
+            supportingText="De uitnodiging is verlopen, of je bent ingelogd met een ander e-mailadres dan waarop je bent uitgenodigd."
           />
         ) : null}
         {query.isError && !notFound ? <ErrorNotice message={errorMessage(query.error)} /> : null}

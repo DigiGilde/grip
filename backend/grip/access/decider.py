@@ -135,6 +135,11 @@ class LocalDecider:
                 if BEHEERDER in functions
                 else deny(_NO_GRANT)
             )
+        if action is Action.RECORD_INVOICE:
+            # Whoever manages the assignment, and the beheerder.
+            if BEHEERDER in functions:
+                return allow("function:beheerder")
+            return await self._as_manager(req)
         if action is Action.REQUEST_ASSIGNMENT:
             return (
                 allow("function:aanvrager")

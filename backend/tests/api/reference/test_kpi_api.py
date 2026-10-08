@@ -5,6 +5,7 @@ from decimal import Decimal
 from grip.calc import Month
 from grip.services import month_close
 from tests.api.reference.conftest import by_id
+from tests.lifecycle import accept
 
 KPI_FIELDS = {
     "year",
@@ -47,6 +48,11 @@ async def test_beheerder_sets_target_and_sees_worked_example(client, world, as_p
 async def test_realised_and_forecast_are_shown_apart(
     client, world, as_person, db_session
 ):
+    await accept(db_session, world.beta.id)
+    # A month closes once the work has started. The lifecycle is not under
+    # test here, so the status is set directly.
+    world.beta.status = "in_progress"
+    await db_session.flush()
     await month_close.close_month(
         db_session, world.beta.id, Month(2026, 1), actor=world.beheerder
     )

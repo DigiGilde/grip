@@ -610,7 +610,7 @@ def require_function(
         if not set(held) & set(role_ids):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Je hebt hiervoor niet de juiste functie",
+                detail="Je hebt hiervoor niet het juiste recht in grip",
             )
         return person
 

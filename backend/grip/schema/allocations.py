@@ -29,6 +29,8 @@ class AllocationOut(BaseModel):
     budget_line_id: Annotated[UUID, in_class(A)]
     budget_line_description: Annotated[str, in_class(A)]
     role: Annotated[str | None, in_class(ROSTER)]
+    # On an assignment that is still potential: this inzet may not happen.
+    tentative: Annotated[bool, in_class(ROSTER)]
     start_date: Annotated[date, in_class(C)]
     end_date: Annotated[date, in_class(C)]
     fte_pct: Annotated[Decimal, in_class(C)]

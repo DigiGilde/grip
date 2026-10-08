@@ -37,7 +37,7 @@ export function PeersPage() {
               <nldd-banner
                 variant="warning"
                 text="Er is geen outway ingesteld"
-                supporting-text="Deze instantie kan nu niets naar andere organisaties sturen. Berichten blijven in de wachtrij staan."
+                supporting-text="Berichten naar andere organisaties blijven in de wachtrij tot de outway is ingesteld."
               />
             ) : null}
             <nldd-container layout="wrap" gap="16">
@@ -83,7 +83,7 @@ export function PeersPage() {
               ))}
               <EmptyRows
                 text="Er zijn nog geen koppelingen"
-                supportingText="Voeg de instantie van een opdrachtgever, een opdrachtnemer of een corpus-systeem toe zodra er een FSC-contract mee is."
+                supportingText="Voeg een opdrachtgever, een opdrachtnemer of een corpus toe zodra er een FSC-contract mee is."
               />
             </nldd-table>
           </QueryState>

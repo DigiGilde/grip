@@ -22,8 +22,18 @@ UI-termen zijn Nederlands; code en schema gebruiken de Engelse naam.
 | Opdracht | `assignment` | De eenheid waarvoor een offerte wordt gemaakt |
 | Begrotingsregel | `budget_line` | Een regel van de begroting van een opdracht: een rol (personeel) of een vaste post |
 | Begroot | `budgeted` | Gepland bedrag |
-| Uitputting | `used` | Bedrag dat op een begrotingsregel is vastgelegd. Grist spelt ook "Uitnutting"; grip gebruikt "Uitputting" |
-| Beschikbaar | `available` | `budgeted - used` |
+| Gerealiseerd | `realised` | Inzet van afgesloten maanden, tegen de vastgestelde inzet. Bij kosten: het deel dat op gerealiseerde factuurregels rust |
+| Nog gepland | `planned` | Inzet van open maanden, tegen de geplande inzet. De rapportages gebruiken hetzelfde woord |
+| Kosten | `costs` | Externe kosten die een begrotingsregel dekt (R7), gesplitst in gerealiseerd en ingeschat |
+| Verwacht totaal | `expected_total` | Gerealiseerd plus nog gepland plus kosten: wat de regel naar verwachting kost als alles loopt zoals gepland. Dit is het bedrag dat R9 `used` noemt |
+| Afwijking | `variance` | Begroot min verwacht totaal, in euro en als percentage van begroot. Positief is ruimte, negatief is een overschrijding |
+| Uitputting | `realised_pct` | Het deel van de begroting dat al is gerealiseerd (inzet en kosten), als percentage. Grist gebruikte het woord voor het vastgelegde bedrag; dat heet in grip verwacht totaal |
+| Peildatum van de stand | `reference_month` | De laatst afgesloten maand van een opdracht. Tot en met die maand zijn bedragen werkelijk, daarna planning |
+| Aangeleverd | `delivered` | De factuurgegevens van een afgesloten maand zijn geëxporteerd voor de financiële administratie. Het is geen factuur |
+| Nog aan te leveren | `to_deliver` | De vastgestelde inzet van afgesloten maanden, geprijsd, min wat is aangeleverd |
+| Gefactureerd | `invoiced` | Er is een factuur verstuurd. Grip weet dat alleen doordat iemand het heeft vastgelegd; tot dan heet geen bedrag gefactureerd |
+| Nog te factureren | `to_invoice` | Aangeleverd min gefactureerd: aangeleverd, en in grip nog geen factuur vastgelegd |
+| Potentiële opdracht | `phase: potential` | Een opdracht zonder akkoord van de opdrachtgever. Haar bedragen zijn pijplijn en tellen nooit mee in het lopende werk; inzet erop is onder voorbehoud |
 | Team, medewerker | `person` | Iemand die kan worden ingezet |
 | Inzetschaal | `billing_scale` | De schaal waartegen iemand wordt gedeclareerd |
 | Categorie | `rate_category` | Tariefband A t/m E, elk voor twee schalen |
@@ -31,19 +41,26 @@ UI-termen zijn Nederlands; code en schema gebruiken de Engelse naam.
 | Tarievenleaflet | `rate_card` | Alle tarieven van een kalenderjaar |
 | Inzet | `allocation` | Een persoon op een begrotingsregel, voor een periode, tegen een FTE-percentage |
 | Kostenpost | `cost_item` | Externe kosten, bijvoorbeeld een hostingcontract |
-| Factuur | `invoice_line` | Een bedrag op een kostenpost, gerealiseerd of ingeschat |
+| Factuurregel op een kostenpost | `invoice_line` | Een bedrag op een kostenpost, gerealiseerd of ingeschat. Dit is de inkoopkant |
 | Realisatie, inschatting | `actual`, `estimate` | Soort factuurregel |
 | Kostendekking | `cost_coverage` | Welke begrotingsregel welk deel van een kostenpost dekt |
 | Target KPI % declarabel | `billability_target` | Deel van iemands jaar dat declarabel moet zijn |
 | Offerte | `quote` | Document dat uit de begroting van een opdracht wordt gegenereerd |
 | Akkoord | `quote_acceptance` | De vastlegging dat de opdrachtgever een offerte heeft aanvaard |
 | Maandafsluiting | `month_close` | De vastgestelde werkelijke inzet van een maand |
-| Factuurgegevens | `billing_export` | Wat per periode naar het financiële systeem gaat |
+| Factuurgegevens, aanlevering | `billing_export` | Wat per afgesloten maand naar de financiële administratie gaat. Een export is een aanlevering |
+| Factuur | `outgoing_invoice` | De vastlegging dat een factuur aan de opdrachtgever is verstuurd, voor een of meer aanleveringen: nummer, datum, bedrag, wie het vastlegde en de bron (met de hand of het financiële systeem) |
 | Inhuur | `hire` | Kostprijs en marge van een ingehuurde persoon |
+| Recht in grip | `function` | Wat iemand in grip mag bovenop de eigen relaties: beheerder, planner, lezer, aanvrager, tekenbevoegde. De code zegt functie, het scherm zegt recht |
+| Functie | `function_title` | De functie van iemand in de organisatie of op een vacature: de functietitel. Niet het recht in grip |
+| Functiegroep | `function_group` | De groep uit het Functiegebouw Rijk waar een functie onder valt |
+| Bijlage | `stored_document` | Een bestand dat bij precies een object hoort, zoals de ontvangen factuur bij een factuurregel of de getekende offerte bij een akkoord |
 | Vacature | `vacancy` | Een open rol op een begrotingsregel, met het soort vacature, het soort contract, de stappen van de procedure en een vacaturetekst |
 | Stand van zaken | `status_overview` | Dashboard per opdracht |
 
-"Factuur" betekent in Grist een regel aan de inkoopkant, op een kostenpost. Het is geen verkoopfactuur. Wat grip richting de opdrachtgever oplevert heet factuurgegevens.
+"Factuur" betekent in Grist een regel aan de inkoopkant, op een kostenpost. Het is geen verkoopfactuur. In grip heet die een factuurregel op een kostenpost. Wat grip richting de opdrachtgever oplevert heet factuurgegevens.
+
+Grip verstuurt geen facturen. Het kent drie feiten met elk een eigen woord: aangeleverd (de export bestaat), gefactureerd (iemand heeft vastgelegd dat de factuur is verstuurd) en betaald (dat weet grip niet). Zie ADR 0023.
 
 ## Datamodel
 
@@ -52,7 +69,7 @@ Afspraken:
 - Geld in hele centen, nooit floating point.
 - FTE en percentages als exacte decimalen, datums als datum.
 - Een waarde die hieronder "afgeleid" heet wordt berekend met de rekenregels en niet opgeslagen, zodat ze niet kan afwijken.
-- De uitzondering is een uitgegeven offerte: een bevroren momentopname.
+- De uitzondering is een uitgegeven offerte. Haar inhoud wordt bij uitgifte in de canonieke vorm gezet (de termen van het contract, als canonieke JSON) en als bytes opgeslagen. De hash van de offerte is de SHA-256 over die bytes, en is overal dezelfde (ADR 0020).
 
 ### Tarieven
 
@@ -80,14 +97,15 @@ De salarisschaal wordt niet opgeslagen. Het kenmerk `digi_gilde` heeft voor zove
 | Entiteit | Velden | Bron in Grist |
 |---|---|---|
 | `assignment` | `name`, `status`, `quote_date`, `client_contact`, `quoted_amount`, `start_date`, `end_date`, `notes` | Opdracht |
-| | URI, soort (extern, intern), verkeersvorm (federatief, document, geen), opdrachtgever en opdrachtnemer als organisatie, URI van de bovenliggende opdracht, `context_refs` (node-URI's) | nieuw |
+| | URI, soort (extern, intern), opdrachtgever en opdrachtnemer als organisatie, URI van de bovenliggende opdracht, `context_refs` (node-URI's), en met welke instantie de opdracht is gedeeld (ontstaat uit een uitwisseling, wordt niet ingesteld) | nieuw |
 | `assignment_role` | persoon, opdracht, eigenaar of manager | Opdracht (eigenaar) |
 | `budget_line` | `assignment_id`, `description`, `kind` (`personnel`, `fixed`), `position` | Begroting |
 | | personeel: `role`, `fte`, `rate_category`, `start_date`, `end_date`; `budgeted` afgeleid | uit de omschrijving gehaald |
 | | vast: `amount`, `year`; `budgeted` = `amount` | Begroot |
 | `allocation` | `person_id`, `budget_line_id` (alleen personeelsregels), `start_date`, `end_date`, `fte_pct` | Inzet |
-| `quote` | `assignment_id`, `issued_at`, `issued_by`, `snapshot` (regels, tarieven en totalen zoals uitgegeven), `total` | nieuw |
-| `quote_acceptance` | hash van de momentopname, ondertekenaar, organisatie, tijdstip, vorm, handtekening of bestand | nieuw |
+| `quote` | `assignment_id`, `issued_at`, `issued_by`, `canonical` (de canonieke vorm als bytes: regels, tarieven en totalen zoals uitgegeven), de hash daarover, `total` | nieuw |
+| `quote_offer` | offerte, kanaal (grip van de opdrachtgever, tekenlink, document), wanneer, door wie, aan wie | nieuw |
+| `quote_acceptance` | hash van de offerte, ondertekenaar, organisatie, tijdstip, vorm, handtekening of bestand | nieuw |
 | `month_close` | opdracht, maand, vastgestelde inzet per persoon, vastgesteld door | nieuw |
 | `billing_export` | periode, regels, exportrun | nieuw |
 | `vacancy` | begrotingsregel, profiel, status, kanaal (intern, federatief, werving), stappen | nieuw |
@@ -160,7 +178,7 @@ Voor uitputting (R9) en KPI-realisatie (R12) geldt:
 ## Meerdere jaren
 
 - Er is een tarievenkaart per kalenderjaar. Een nieuw jaar begint als conceptkopie van het vorige.
-- Een gesloten jaar is vergrendeld. Wijzigen vraagt de functie beheerder en laat een auditregel achter.
+- Een gesloten jaar is vergrendeld. Wijzigen vraagt het recht beheerder en laat een auditregel achter.
 - Opdrachten, begrotingsregels en inzet hebben datums en mogen over 31 december lopen. Bedragen worden per maand gesplitst en geprijsd met het jaar van die maand (R1 t/m R4).
 - Een maand zonder actieve tarievenkaart is een validatiefout, nooit stilletjes nul.
 - De schaalhistorie per persoon (`person_scale.valid_from`) zorgt dat een promotie halverwege het jaar goed geprijsd wordt.
@@ -169,7 +187,7 @@ Voor uitputting (R9) en KPI-realisatie (R12) geldt:
 
 ## Schermen
 
-- **Stand van zaken**: per opdracht Begroot, Uitputting en Beschikbaar; doorklikken naar begrotingsregels, en per regel het team en de kosten. Volgt de Grist-pagina, plus een jaarfilter.
+- **Stand van zaken**: per opdracht Begroot, Gerealiseerd, Nog gepland, Kosten, Verwacht totaal, Afwijking en Uitputting, met de peildatum van de stand en een jaarfilter. Potentiële opdrachten staan apart van lopend werk, met een eigen subtotaal. Het tabblad Financieel van een opdracht toont dezelfde cijfers per begrotingsregel, de bedragen erachter, het verloop per maand en de aandachtspunten; bemensing staat op een eigen tabblad zonder bedragen.
 - **Opdrachten** met de begrotingseditor per opdracht.
 - **Inzet**: per persoon en per begrotingsregel, met de waarschuwingen van R14.
 - **Kosten en facturen**, met de dekking per kostenpost.
@@ -203,7 +221,9 @@ Opdrachten die in Grist per jaar zijn geknipt blijven bij de import zoals ze zij
 - Een maand prijzen zonder actieve tarievenkaart geeft een duidelijke foutmelding.
 - De manager van een opdracht kan de KPI van een ander niet opvragen, niet via de UI en niet via de API. Tests op API-niveau dekken dat af.
 - Een gegenereerde offerte telt op tot de begroting van de opdracht. Een uitgegeven offerte verandert niet als tarieven worden aangepast.
-- De hash in een akkoord klopt met de momentopname van de offerte.
+- Een offerte heeft een hash: op het document, in een akkoord van elke vorm en in het bericht tussen instanties staat dezelfde waarde, de SHA-256 over de opgeslagen canonieke vorm.
+- Een offerte die instantie B uitgeeft en instantie A ontvangt heeft aan beide kanten dezelfde bytes en dezelfde hash.
+- Na het uitgeven van een offerte is er niets verstuurd. Een offerte gaat naar de opdrachtgever wanneer ze wordt aangeboden, via het kanaal dat dan wordt gekozen.
 - Unittests dekken R1 t/m R14, inclusief de rekenvoorbeelden.
 
 ## Open vragen die de import beantwoordt

@@ -2,7 +2,7 @@
  * The monthly close and billing data endpoints. Fields of a data class the
  * person may not see are absent, so most fields are optional here.
  */
-import { apiGet, apiPost } from '@/api/client';
+import { apiGet, apiPatch, apiPost } from '@/api/client';
 import { withLists } from '@/lib/absent';
 
 export interface MonthState {
@@ -149,4 +149,97 @@ export function percentInput(value: string | null | undefined): string {
   const number = Number(value);
   if (Number.isNaN(number)) return '';
   return String(number).replace('.', ',');
+}
+
+/** Where a closed month stands: delivered, invoiced, or neither. */
+export interface MonthBilling {
+  month: string;
+  closed: boolean;
+  state: 'not_delivered' | 'delivered' | 'invoiced';
+  deliverable_cents: number | null;
+  to_deliver_cents: number | null;
+  export_id: string | null;
+  delivered_at: string | null;
+  delivered_by_name: string | null;
+  delivered_cents: number | null;
+  invoice_id: string | null;
+  invoice_number: string | null;
+  invoice_date: string | null;
+  invoiced_cents: number | null;
+  invoice_on_earlier_delivery: boolean;
+}
+
+/** The recorded fact that an invoice was sent. */
+export interface OutgoingInvoice {
+  id: string;
+  invoice_number: string;
+  invoice_date: string;
+  amount_cents: number;
+  delivered_cents: number;
+  difference_cents: number;
+  months: string[];
+  export_ids: string[];
+  source: 'manual' | 'financial_system';
+  note: string | null;
+  recorded_at: string;
+  recorded_by_name: string | null;
+  withdrawn_at: string | null;
+  withdrawn_by_name: string | null;
+  withdrawn_reason: string | null;
+}
+
+/**
+ * Delivered and invoiced of an assignment. The amounts, months and invoices
+ * are absent for someone who may not read the financial data.
+ */
+export interface BillingStatus {
+  assignment_id: string;
+  year: number | null;
+  billable: boolean;
+  may_record_invoice: boolean;
+  deliverable_cents?: number | null;
+  delivered_cents?: number;
+  to_deliver_cents?: number | null;
+  invoiced_cents?: number;
+  to_invoice_cents?: number;
+  months?: MonthBilling[];
+  invoices?: OutgoingInvoice[];
+}
+
+export const billingKey = (assignmentId: string) => ['months', assignmentId, 'billing'] as const;
+
+export function fetchBillingStatus(assignmentId: string): Promise<BillingStatus> {
+  return apiGet(`/api/assignments/${assignmentId}/billing-status`);
+}
+
+/** What was delivered for a selection of deliveries, added up by the server. */
+export function fetchInvoiceProposal(
+  assignmentId: string,
+  exportIds: string[],
+): Promise<{ months: string[]; delivered_cents: number }> {
+  const query = exportIds.map((id) => `export_id=${encodeURIComponent(id)}`).join('&');
+  return apiGet(`/api/assignments/${assignmentId}/outgoing-invoices/proposal?${query}`);
+}
+
+export interface InvoiceInput {
+  export_ids: string[];
+  invoice_number: string;
+  invoice_date: string;
+  amount_cents: number;
+  note: string | null;
+}
+
+export function recordInvoice(assignmentId: string, input: InvoiceInput): Promise<BillingStatus> {
+  return apiPost(`/api/assignments/${assignmentId}/outgoing-invoices`, input);
+}
+
+export function correctInvoice(
+  invoiceId: string,
+  input: Omit<InvoiceInput, 'export_ids'>,
+): Promise<BillingStatus> {
+  return apiPatch(`/api/outgoing-invoices/${invoiceId}`, { ...input, note: input.note ?? '' });
+}
+
+export function withdrawInvoice(invoiceId: string, reason: string): Promise<BillingStatus> {
+  return apiPost(`/api/outgoing-invoices/${invoiceId}/withdraw`, { reason });
 }

@@ -47,7 +47,7 @@ export function CostsPage() {
             <SelectField
               width="280px"
               label="Jaar"
-              supportingLabel="Telt de factuurregels van dat jaar"
+              supportingLabel="Telt de facturen van dat jaar"
               value={year === null ? '' : String(year)}
               onChange={(value) => setYear(value ? Number(value) : null)}
               emptyLabel="Hele looptijd"
@@ -66,7 +66,7 @@ export function CostsPage() {
               <nldd-table-row slot="header">
                 <nldd-text-cell text="Omschrijving" />
                 <nldd-text-cell text="Begroot" horizontal-alignment="right" />
-                <nldd-text-cell text="Prognose" horizontal-alignment="right" />
+                <nldd-text-cell text="Verwacht totaal" horizontal-alignment="right" />
                 <nldd-text-cell text="Gedekt" horizontal-alignment="right" />
                 <nldd-text-cell text="Ongedekt" horizontal-alignment="right" />
                 <nldd-text-cell text="Dekking" horizontal-alignment="right" />
@@ -76,7 +76,11 @@ export function CostsPage() {
                 <nldd-table-row key={item.id}>
                   <nldd-text-cell
                     text={item.description}
-                    supporting-text={`${item.invoice_lines.length} factuurregels`}
+                    supporting-text={
+                      item.invoice_lines.length === 1
+                        ? '1 factuur'
+                        : `${item.invoice_lines.length} facturen`
+                    }
                   />
                   <nldd-text-cell
                     text={formatEuro(item.budgeted_cents)}

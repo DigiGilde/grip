@@ -75,7 +75,13 @@ async def test_changes_write_audit_rows(
 
 
 async def test_closed_year_refuses_changes_without_the_flag(
-    db_session, rate_cards, beheerder, make_person, make_assignment, add_personnel_line
+    db_session,
+    rate_cards,
+    beheerder,
+    make_person,
+    make_assignment,
+    add_personnel_line,
+    accept,
 ):
     person = await make_person(14)
     assignment = await make_assignment()
@@ -89,6 +95,7 @@ async def test_closed_year_refuses_changes_without_the_flag(
         fte_pct=Decimal(100),
         actor=beheerder,
     )
+    await accept(assignment)
     await rates.set_rate_card_status(db_session, 2026, "closed", actor=beheerder)
 
     with pytest.raises(ClosedYearError):

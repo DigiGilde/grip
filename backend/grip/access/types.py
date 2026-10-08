@@ -87,6 +87,8 @@ class Action(StrEnum):
     DELIVER_REPORT = "deliver_report"
     CLOSE_MONTH = "close_month"
     REOPEN_MONTH = "reopen_month"
+    # Record, correct or withdraw the fact that an invoice was sent.
+    RECORD_INVOICE = "record_invoice"
     # Rate cards, including changes in a closed year.
     MANAGE_RATES = "manage_rates"
     # Persons, their scale history and targets, and who holds which function.
@@ -118,6 +120,8 @@ class ResourceKind(StrEnum):
     FORM_TEMPLATE = "form_template"
     # The configuration of the language model that drafts texts.
     LANGUAGE_MODEL = "language_model"
+    # The function families and groups of the Functiegebouw Rijk.
+    FUNCTION_FRAMEWORK = "function_framework"
 
 
 class PeerRole(StrEnum):

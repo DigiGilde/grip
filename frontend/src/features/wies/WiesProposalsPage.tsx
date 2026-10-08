@@ -1,16 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
-import {
-  Button,
-  CheckboxInput,
-  EmptyNotice,
-  ErrorNotice,
-  LinkButton,
-  Loading,
-  Note,
-  SectionHeading,
-} from '@/features/vacancies/ui';
+import { Button, CheckboxInput, LinkButton, Note } from '@/features/vacancies/ui';
+import { EmptyNotice, ErrorNotice, Loading, SectionHeading } from '@/ui/layout';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { useInstance } from '@/layout/useInstance';
 import { formatDate } from '@/lib/format';
@@ -151,7 +143,7 @@ export function WiesProposalsPage() {
         {data && !data.configured && (
           <EmptyNotice
             text="De koppeling met Wies is niet ingesteld"
-            supportingText="Stel in deze instantie het adres en de sleutel van Wies in. Tot die tijd beheer je personen met de hand op de pagina Team."
+            supportingText="Stel het adres en de sleutel van Wies in. Tot die tijd beheer je personen onder Team."
           />
         )}
         {confirm.isError && <ErrorNotice message={errorMessage(confirm.error)} />}

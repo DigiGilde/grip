@@ -128,6 +128,13 @@ class VacancySummaryOut(BaseModel):
     # Label of the last recorded step, and of the one that comes next.
     current_step: Annotated[str | None, NO_NAMES] = None
     next_step: Annotated[str | None, NO_NAMES] = None
+    # The step the vacancy is at, in the words of the step bar on its page:
+    # prepare, submit, decide, open or fill. None once it has ended.
+    step: Annotated[str | None, NO_NAMES] = None
+    # What that step waits on, without any name: "Wacht op advies HR".
+    step_detail: Annotated[str | None, NO_NAMES] = None
+    # Since when it has been at this step (or, once ended, when it ended).
+    step_since: Annotated[date | None, NO_NAMES] = None
     requester_name: Annotated[str | None, FULL] = None
 
 
@@ -156,6 +163,21 @@ class VacancyOut(BaseModel):
     # ready candidate).
     has_openings: Annotated[bool, NO_NAMES]
 
+    # The function group the FGR name was taken from, and what it allows.
+    function_group_id: Annotated[UUID | None, NO_NAMES] = None
+    function_family_name: Annotated[str | None, NO_NAMES] = None
+    function_group_scales: Annotated[list[int] | None, NO_NAMES] = None
+    # Why the scale lies outside the scales of the function group.
+    scale_deviation_reason: Annotated[str | None, NO_NAMES] = None
+    # Function groups whose scales overlap the scale band of the budget
+    # line's rate category: offered first when choosing.
+    suggested_function_group_ids: Annotated[list[UUID], NO_NAMES]
+    # That scale band itself, so a choice can be checked before it is saved.
+    budget_line_scales: Annotated[list[int] | None, NO_NAMES] = None
+    # False when the scale lies outside that scale band: the budget line is
+    # then budgeted too low or too high. None when it cannot be told.
+    scale_fits_budget_line: Annotated[bool | None, NO_NAMES] = None
+
     procedure: Annotated[list[ProcedureStepOut], nested()]
     decisions: Annotated[list[DecisionOut], nested()]
     texts: Annotated[list[TextOut], nested()]
@@ -163,6 +185,7 @@ class VacancyOut(BaseModel):
     requester_id: Annotated[UUID | None, FULL] = None
     requester_name: Annotated[str | None, FULL] = None
     addressee_name: Annotated[str | None, FULL] = None
+    addressee_has_account: Annotated[bool, FULL]
 
     permissions: Annotated[VacancyPermissionsOut, nested()]
 
@@ -276,6 +299,9 @@ class VacancyCreate(BaseModel):
     start_date: date | None = None
     end_date: date | None = None
     addressee_name: str | None = Field(default=None, max_length=255)
+    function_group_id: UUID | None = None
+    scale_deviation_reason: str | None = Field(default=None, max_length=2000)
+    addressee_id: UUID | None = None
 
 
 class VacancyUpdate(BaseModel):
@@ -288,6 +314,15 @@ class VacancyUpdate(BaseModel):
     start_date: date | None = None
     end_date: date | None = None
     addressee_name: str | None = Field(default=None, max_length=255)
+    # The function group of the Functiegebouw Rijk; its name is printed as
+    # the FGR name. Send ``fgr_function_name`` without it for a free-text
+    # name, which drops the link to a group.
+    function_group_id: UUID | None = None
+    # Required when the scale is not one of the group's scales.
+    scale_deviation_reason: str | None = Field(default=None, max_length=2000)
+    # The addressee when that person has an account; ``addressee_name``
+    # without it for someone who has none.
+    addressee_id: UUID | None = None
 
 
 class SubmitRequest(BaseModel):

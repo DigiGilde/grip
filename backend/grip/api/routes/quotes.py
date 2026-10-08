@@ -35,10 +35,13 @@ from grip.core.database import get_db
 from grip.models.quote import Quote
 from grip.schema.quotes import (
     AcceptanceOut,
+    ChannelOut,
     InvitationListOut,
     InvitationOut,
     InviteSignerIn,
     IssueQuoteIn,
+    OfferOut,
+    OfferQuoteIn,
     QuoteDetailOut,
     QuoteListOut,
     QuotePreviewOut,
@@ -47,7 +50,7 @@ from grip.schema.quotes import (
     RejectionOut,
     content_from_snapshot,
 )
-from grip.services import quote_views, quotes, stored_documents
+from grip.services import quote_channels, quote_views, quotes, stored_documents
 from grip.services.assignments import get_assignment
 from grip.services.errors import DomainValidationError, NotFoundError
 from grip.services.quote_document import render_quote_html
@@ -108,6 +111,52 @@ def summary_fields(bundle: quote_views.QuoteBundle) -> dict[str, Any]:
         "acceptance": acceptance,
         "rejection": rejection,
     }
+
+
+async def offer_fields(db: AsyncSession, quote: Quote) -> dict[str, Any]:
+    """The offers of a quote and the channels it can still be offered through."""
+    offers = await quotes.offers_of(db, quote.id)
+    names = await quote_views.person_names(
+        db, {offer.offered_by_id for offer in offers if offer.offered_by_id}
+    )
+    delivery = None
+    if any(offer.channel == quote_channels.OFFER_CLIENT_INSTANCE for offer in offers):
+        delivery = await quote_channels.delivery_state(db, quote.id)
+    return {
+        "offers": [
+            OfferOut(
+                id=offer.id,
+                channel=offer.channel,
+                recipient=offer.recipient,
+                offered_at=offer.offered_at,
+                offered_by_name=names.get(offer.offered_by_id)
+                if offer.offered_by_id
+                else None,
+                delivery=delivery
+                if offer.channel == quote_channels.OFFER_CLIENT_INSTANCE
+                else None,
+            )
+            for offer in offers
+        ],
+        "channels": [
+            ChannelOut(
+                channel=option.channel,
+                available=option.available,
+                reason=option.reason,
+                suggested=option.suggested,
+            )
+            for option in await quotes.channel_options(db, quote.id)
+        ],
+    }
+
+
+async def detail(db: AsyncSession, quote: Quote) -> QuoteDetailOut:
+    bundle = await quote_views.quote_bundle(db, quote.id)
+    return QuoteDetailOut(
+        **summary_fields(bundle),
+        content=content_from_snapshot(quote.snapshot),
+        **await offer_fields(db, quote),
+    )
 
 
 async def visible_quote(
@@ -226,10 +275,7 @@ async def issue_quote(
         )
     except calc.CalcError as exc:
         raise DomainValidationError(quote_views.describe_calc_error(exc)) from exc
-    bundle = await quote_views.quote_bundle(db, quote.id)
-    value = QuoteDetailOut(
-        **summary_fields(bundle), content=content_from_snapshot(quote.snapshot)
-    )
+    value = await detail(db, quote)
     return await filtered(
         decider, subject, Resource.quote(quote.id, assignment_id), value
     )
@@ -244,11 +290,39 @@ async def get_quote(
 ) -> dict[str, Any]:
     """One issued quote with its frozen content and its decision."""
     quote, resource = await visible_quote(db, decider, subject, quote_id)
-    bundle = await quote_views.quote_bundle(db, quote.id)
-    value = QuoteDetailOut(
-        **summary_fields(bundle), content=content_from_snapshot(quote.snapshot)
+    return await filtered(decider, subject, resource, await detail(db, quote))
+
+
+@router.post(
+    "/quotes/{quote_id}/offers",
+    response_model=None,
+    status_code=status.HTTP_201_CREATED,
+)
+async def offer_quote(
+    quote_id: UUID,
+    body: OfferQuoteIn,
+    person: CurrentPerson,
+    subject: CurrentSubject,
+    decider: AccessDecider,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Offer an issued quote to the client through one channel.
+
+    The channel is chosen here, per offer: the client's own grip instance,
+    a signing link in this instance, or a document. Answers the quote with
+    all its offers.
+    """
+    quote, resource = await visible_quote(db, decider, subject, quote_id)
+    await require(decider, subject, Action.ISSUE_QUOTE, resource)
+    await quotes.offer_quote(
+        db,
+        quote.id,
+        body.channel,
+        actor=person,
+        email=body.email,
+        expires_at=body.expires_at,
     )
-    return await filtered(decider, subject, resource, value)
+    return await filtered(decider, subject, resource, await detail(db, quote))
 
 
 @router.get("/quotes/{quote_id}/document", response_class=HTMLResponse)

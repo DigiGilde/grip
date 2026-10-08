@@ -17,6 +17,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from grip import calc
 from grip.models.assignment import Assignment, BudgetLine
 from grip.models.cost import CostCoverage, CostItem, InvoiceLine
+from grip.models.person import Person
+from grip.models.stored_document import StoredDocument
+from grip.services import stored_documents
 from grip.services.errors import NotFoundError
 from grip.services.pricing import (
     DEFAULT_OPTIONS,
@@ -41,6 +44,10 @@ class CoverageLine:
 class CostItemOverview:
     item: CostItem
     invoice_lines: tuple[InvoiceLine, ...]
+    # The documents attached per invoice line id, without their content.
+    attachments: dict[UUID, tuple[StoredDocument, ...]]
+    # Name of whoever uploaded a document, per person id.
+    uploader_names: dict[UUID, str]
     coverages: tuple[CoverageLine, ...]
     # R6: actual plus estimate lines (of the year, when a year is given).
     forecast_cents: int
@@ -50,6 +57,11 @@ class CostItemOverview:
     covered_cents: int | None
     uncovered_cents: int | None
     pct_total: Decimal
+
+    @property
+    def variance_cents(self) -> int:
+        """Budgeted minus the expected total; negative means over budget."""
+        return self.item.budgeted_cents - self.forecast_cents
 
     @property
     def assignment_ids(self) -> frozenset[UUID]:
@@ -109,6 +121,23 @@ async def cost_item_overviews(
     for coverage, line, assignment in coverage_rows:
         coverages[coverage.cost_item_id].append((coverage, line, assignment))
 
+    all_line_ids = [line.id for lines in invoices.values() for line in lines]
+    documents = await stored_documents.documents_of(
+        session, stored_documents.RECEIVED_INVOICE, all_line_ids
+    )
+    uploader_ids = {
+        d.uploaded_by_id
+        for docs in documents.values()
+        for d in docs
+        if d.uploaded_by_id is not None
+    }
+    uploader_names: dict[UUID, str] = {}
+    if uploader_ids:
+        people = await session.execute(
+            select(Person.id, Person.name).where(Person.id.in_(uploader_ids))
+        )
+        uploader_names = {person_id: name for person_id, name in people}
+
     result: list[CostItemOverview] = []
     for item in items:
         calc_item = to_calc_cost_item(item)
@@ -136,6 +165,10 @@ async def cost_item_overviews(
             CostItemOverview(
                 item=item,
                 invoice_lines=tuple(in_scope),
+                attachments={
+                    line.id: tuple(documents.get(line.id, ())) for line in in_scope
+                },
+                uploader_names=uploader_names,
                 coverages=tuple(
                     CoverageLine(
                         budget_line_id=line.id,

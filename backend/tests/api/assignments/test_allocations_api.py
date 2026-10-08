@@ -5,6 +5,7 @@ from decimal import Decimal
 
 from grip.calc import Month
 from grip.services import month_close
+from tests.lifecycle import accept
 
 from .conftest import by_id
 
@@ -130,6 +131,7 @@ async def test_only_planner_and_manager_edit(world, as_person):
 
 
 async def test_closed_month_refuses_a_shifted_period(world, as_person, db_session):
+    await accept(db_session, world.assignment.id)
     await month_close.close_month(
         db_session, world.assignment.id, Month.of(date(2026, 1, 1)), actor=world.owner
     )
@@ -156,3 +158,25 @@ async def test_options(world, as_person):
     assert (
         await as_person(world.member).get("/api/allocations/options")
     ).status_code == 403
+
+
+async def test_inzet_on_a_potential_assignment_is_tentative(
+    world, as_person, db_session
+):
+    from grip.services import assignments
+
+    client = as_person(world.planner)
+    body = (await client.get("/api/allocations?year=2026")).json()
+    assert all(item["tentative"] for item in body["items"])
+
+    # After the client agrees it is firm.
+    for target in ("quoted", "accepted"):
+        await assignments.transition(
+            db_session,
+            world.assignment.id,
+            target,
+            actor=world.owner,
+            enforce_readiness=False,
+        )
+    body = (await client.get("/api/allocations?year=2026")).json()
+    assert not any(item["tentative"] for item in body["items"])

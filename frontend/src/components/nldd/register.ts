@@ -38,4 +38,5 @@ import '@nldd/design-system/tab-bar';
 
 // Status and feedback
 import '@nldd/design-system/banner';
+import '@nldd/design-system/activity-indicator';
 import '@nldd/design-system/inline-dialog';

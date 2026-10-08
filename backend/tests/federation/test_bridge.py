@@ -24,6 +24,7 @@ from grip.federation.bridge.settings import get_bridge_settings
 from grip.federation.models import PEER_ROLE_CORPUS, PEER_ROLE_PARENT
 from grip.models.person import Person
 from grip.services import assignments, costs, month_close, quotes, rates
+from tests.lifecycle import accept
 
 from .conftest import CLIENT_BASE, CLIENT_PEER_ID, as_peer, t
 
@@ -75,7 +76,6 @@ async def world(db_session, make_peer):
         db_session,
         name="Opdracht Alfa",
         actor=None,
-        traffic_form="federated",
         client_organisation_id=client.id,
         contractor_organisation_id=own.id,
         context_refs=[NODE_URI],
@@ -83,6 +83,8 @@ async def world(db_session, make_peer):
         end_date=date(2026, 12, 31),
         uri=ASSIGNMENT_URI,
     )
+    # As after a request from the client's instance: shared with it.
+    assignments.share_with_instance(assignment, CLIENT_BASE)
     line = await assignments.add_budget_line(
         db_session,
         assignment.id,
@@ -104,6 +106,7 @@ async def world(db_session, make_peer):
         fte_pct=Decimal("80"),
         actor=None,
     )
+    await accept(db_session, assignment.id)
     await month_close.close_month(
         db_session,
         assignment.id,
@@ -142,12 +145,13 @@ async def _get(fed_client, path, peer_id, **params):
 
 
 async def test_client_reads_its_assignment_without_money_or_names(fed_client, world):
+    status = world["assignment"].status
     response = await _get(
         fed_client, f"/v1/opdrachten/{ASSIGNMENT_UUID}", CLIENT_PEER_ID
     )
     assert response.status_code == 200, response.text
     body = terms.from_contract(response.json())
-    assert body["uri"] == ASSIGNMENT_URI and body["status"] == "draft"
+    assert body["uri"] == ASSIGNMENT_URI and body["status"] == status
     assert body["client"]["instance_uri"] == CLIENT_BASE
     assert "spending" not in body
     assert "Medewerker" not in response.text
@@ -281,7 +285,7 @@ async def test_corpus_sees_phase_and_spending_at_its_node(fed_client, world):
     assert response.status_code == 200, response.text
     page = terms.from_contract(response.json())
     (entry,) = page["results"]
-    assert page["total"] == 1 and entry["status"] == "draft"
+    assert page["total"] == 1 and entry["status"] == world["assignment"].status
     assert entry["spending"]["budgeted"]["amount_cents"] == 12 * 1440000
     assert set(entry["spending"]) == {"budgeted", "used", "as_of"}
     assert "Medewerker" not in response.text
@@ -322,7 +326,26 @@ async def test_acceptance_for_a_quote_of_someone_else_is_404(
 ):
     from .conftest import example
 
-    quote = await quotes.issue_quote(db_session, world["assignment"].id, actor=None)
+    # A second assignment for the same client, still open for a quote.
+    client = await from_reference(db_session, CLIENT)
+    other = await assignments.create_assignment(
+        db_session,
+        name="Opdracht Beta",
+        actor=None,
+        client_organisation_id=client.id,
+        contractor_organisation_id=(await own_organisation(db_session)).id,
+    )
+    assignments.share_with_instance(other, CLIENT_BASE)
+    await assignments.add_budget_line(
+        db_session,
+        other.id,
+        description="Hosting",
+        kind="fixed",
+        amount_cents=150000,
+        year=2026,
+        actor=None,
+    )
+    quote = await quotes.issue_quote(db_session, other.id, actor=None)
     await make_peer("00000000000000000060", base_uri="https://grip.ander.example")
     rejection = example("rejection")
     rejection[t("quote_id")] = str(quote.id)
@@ -336,3 +359,35 @@ async def test_acceptance_for_a_quote_of_someone_else_is_404(
         path, json=rejection, headers=as_peer(CLIENT_PEER_ID)
     )
     assert wrong_hash.status_code == 409
+
+
+# --- a status only this side knows -----------------------------------------
+
+
+def test_no_status_unknown_to_the_contract_can_leave():
+    from grip.models.assignment import ASSIGNMENT_STATUSES
+    from grip.services.phase import counterparty_status
+
+    known = set(terms.VALUES["status"])
+    for status in ASSIGNMENT_STATUSES:
+        assert counterparty_status(status) in known, status
+    # The one status the contract does not know is the reason for the rule.
+    assert "verbally_agreed" not in known
+    assert counterparty_status("verbally_agreed") == "quoted"
+
+
+async def test_a_verbal_agreement_reads_as_quoted_for_the_other_side(
+    fed_client, db_session, world
+):
+    world["assignment"].status = "verbally_agreed"
+    await db_session.flush()
+    for path, peer_id, params in (
+        (f"/v1/opdrachten/{ASSIGNMENT_UUID}", CLIENT_PEER_ID, {}),
+        (f"/v1/opdrachten/{ASSIGNMENT_UUID}/voortgang", CLIENT_PEER_ID, {}),
+        ("/v1/doorgifte/opdrachten", PARENT_PEER_ID, {}),
+        ("/v1/opdrachten", CORPUS_PEER_ID, {"nodeUri": NODE_URI}),
+    ):
+        response = await _get(fed_client, path, peer_id, **params)
+        assert response.status_code == 200, (path, response.text)
+        assert "offerte_uitgegeven" in response.text, path
+        assert "verbally_agreed" not in response.text, path

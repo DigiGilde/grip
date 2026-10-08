@@ -73,6 +73,33 @@ export interface QuoteSummary {
   rejection?: Rejection | null;
 }
 
+export type OfferChannel = 'client_instance' | 'signing_link' | 'document';
+
+/** One time the quote was put before the client, through one channel. */
+export interface QuoteOffer {
+  id: string;
+  channel: OfferChannel | string;
+  /** The client's instance, the invited email address, or nothing. */
+  recipient?: string | null;
+  offered_at: string;
+  offered_by_name?: string | null;
+  /** For the client's own instance: pending, sent or refused. */
+  delivery?: 'pending' | 'sent' | 'refused' | string | null;
+}
+
+/** A channel the quote can be offered through, or why it cannot. */
+export interface QuoteChannel {
+  channel: OfferChannel | string;
+  available: boolean;
+  reason?: string | null;
+  suggested?: boolean;
+}
+
+export interface QuoteDetail extends QuoteSummary {
+  offers?: QuoteOffer[];
+  channels?: QuoteChannel[];
+}
+
 export interface QuoteList {
   may_manage: boolean;
   quotes: QuoteSummary[];
@@ -90,6 +117,7 @@ export const quoteKeys = {
   preview: (assignmentId: string) => ['quotes', 'preview', assignmentId] as const,
   list: (assignmentId: string) => ['quotes', 'list', assignmentId] as const,
   invitations: (quoteId: string) => ['quotes', 'invitations', quoteId] as const,
+  detail: (quoteId: string) => ['quotes', 'detail', quoteId] as const,
 };
 
 export function fetchQuotePreview(assignmentId: string): Promise<QuotePreview> {
@@ -105,6 +133,21 @@ export function issueQuote(
   input: { valid_until: string | null; conditions: string | null },
 ): Promise<QuoteSummary> {
   return apiPost(`/api/assignments/${assignmentId}/quotes`, input);
+}
+
+export function fetchQuoteDetail(quoteId: string): Promise<QuoteDetail> {
+  return apiGet(`/api/quotes/${quoteId}`);
+}
+
+/**
+ * Offers an issued quote to the client through one channel. Issuing a quote
+ * sends nothing; this does.
+ */
+export function offerQuote(
+  quoteId: string,
+  input: { channel: OfferChannel; email?: string },
+): Promise<QuoteDetail> {
+  return apiPost(`/api/quotes/${quoteId}/offers`, input);
 }
 
 export function fetchInvitations(quoteId: string): Promise<{ invitations: Invitation[] }> {
@@ -193,4 +236,16 @@ export const ACCEPTANCE_FORM_LABELS: Record<string, string> = {
   own_instance: 'Getekend in de eigen omgeving van de opdrachtgever',
   signing_link: 'Getekend via een tekenlink',
   uploaded_pdf: 'Getekende pdf vastgelegd',
+};
+
+export const OFFER_CHANNEL_LABELS: Record<string, string> = {
+  client_instance: 'Via de grip van de opdrachtgever',
+  signing_link: 'Met een tekenlink in deze grip',
+  document: 'Als document',
+};
+
+export const OFFER_DELIVERY_LABELS: Record<string, string> = {
+  pending: 'Staat klaar om te versturen',
+  sent: 'Afgeleverd bij de opdrachtgever',
+  refused: 'Niet afgeleverd',
 };

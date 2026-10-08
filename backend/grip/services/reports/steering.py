@@ -6,24 +6,29 @@ only those, so an aggregate is never taken over more than the reader sees.
 
 Turnover per month is the sum of the per-month inzet amounts the calculation
 module returns: closed months at the established percentage (realised), open
-months at the planned percentage (forecast). Inzet on an assignment that is
-not agreed yet counts as pipeline, not as forecast.
+months at the planned percentage (forecast). How firm the forecast is comes
+from the phase service: committed and verbally agreed assignments count in
+the forecast, with the verbal part shown apart; an assignment that is not
+agreed yet counts as pipeline.
 
-Occupancy has no money in it. It is the planned FTE percentage times the
-month fraction from the calculation module, and the established percentage
-for a closed month, which counts for the whole month (docs/domein.md,
-Maandafsluiting). Available is one FTE per person per month; the model has
-no part-time factor.
+Occupancy has no money in it. A cell is what a person is allocated in a
+month, in percent of one FTE, built from the parts per assignment: the
+planned percentage times the month fraction from the calculation module, or
+the established percentage of a closed month, which counts for the whole
+month (docs/domein.md, Maandafsluiting). Inzet on a potential assignment is
+tentative; that comes from the staffing service. Available is one FTE per
+person per month; the model has no part-time factor.
 """
 
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
 from fractions import Fraction
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -37,14 +42,10 @@ from grip.models.person import Person
 from grip.models.person_details import BillabilityTarget, PersonScale
 from grip.models.quote import Quote
 from grip.repositories.domain import AssignmentRepository, MonthCloseRepository
-from grip.services import cost_overview, pricing
+from grip.services import assignment_finance, cost_overview, pricing, staffing
+from grip.services.phase import Commitment, commitment_of
 from grip.services.pricing import DEFAULT_OPTIONS, PricingOptions
 from grip.services.vacancies import service as vacancies
-
-# Agreed with the client, or carried out: inzet in open months is forecast.
-COMMITTED_STATUSES = frozenset({"accepted", "in_progress", "completed", "accounted"})
-# Not agreed yet: inzet in open months is pipeline.
-PIPELINE_STATUSES = frozenset({"draft", "requested", "quoted"})
 
 QUOTE_STATUSES = ("issued", "accepted", "rejected", "superseded")
 
@@ -59,8 +60,13 @@ def months_of(year: int) -> tuple[Month, ...]:
 @dataclass(frozen=True)
 class TurnoverMonth:
     month: Month
+    # Closed months, whatever became of the assignment later.
     realised_cents: int
+    # Open months of assignments that are agreed, formally or verbally.
     forecast_cents: int
+    # The part of the forecast that rests on a verbal agreement only.
+    verbal_cents: int
+    # Open months of assignments that are not agreed yet.
     pipeline_cents: int
 
 
@@ -77,6 +83,10 @@ class Turnover:
     @property
     def forecast_cents(self) -> int:
         return sum(m.forecast_cents for m in self.months)
+
+    @property
+    def verbal_cents(self) -> int:
+        return sum(m.verbal_cents for m in self.months)
 
     @property
     def pipeline_cents(self) -> int:
@@ -139,23 +149,27 @@ async def turnover(
 
     months: list[TurnoverMonth] = []
     for month in months_of(year):
-        realised = forecast = pipeline = 0
+        realised = forecast = verbal = pipeline = 0
         for assignment_id, by_month in per_assignment.items():
             if month not in by_month:
                 continue
             closed, planned = by_month[month]
-            status = by_id[assignment_id].status
+            commitment = commitment_of(by_id[assignment_id].status)
             # A closed month is realised whatever the status became later.
             realised += closed
-            if status in COMMITTED_STATUSES:
+            if commitment is Commitment.COMMITTED:
                 forecast += planned
-            elif status in PIPELINE_STATUSES:
+            elif commitment is Commitment.VERBAL:
+                forecast += planned
+                verbal += planned
+            elif commitment is Commitment.PIPELINE:
                 pipeline += planned
         months.append(
             TurnoverMonth(
                 month=month,
                 realised_cents=realised,
                 forecast_cents=forecast,
+                verbal_cents=verbal,
                 pipeline_cents=pipeline,
             )
         )
@@ -165,46 +179,35 @@ async def turnover(
     )
 
 
-# -- occupancy ----------------------------------------------------------------
+async def agreed_figures(
+    session: AsyncSession,
+    year: int,
+    *,
+    assignment_ids: Iterable[UUID] | None = None,
+    options: PricingOptions = DEFAULT_OPTIONS,
+) -> assignment_finance.Figures:
+    """The year of the agreed assignments in the words of the assignment pages.
 
-
-@dataclass(frozen=True)
-class PersonOccupancy:
-    person_id: UUID
-    person_name: str
-    # Allocated FTE percentage per month of the year, twelve values. ``None``
-    # in a month the person was not available for inzet.
-    months: tuple[Decimal | None, ...]
-
-    @property
-    def available_months(self) -> int:
-        return sum(1 for pct in self.months if pct is not None)
-
-    @property
-    def average_pct(self) -> Decimal | None:
-        values = [pct for pct in self.months if pct is not None]
-        if not values:
-            return None
-        return _round_pct(Fraction(sum(Fraction(v) for v in values), len(values)))
-
-
-@dataclass(frozen=True)
-class OccupancyMonth:
-    month: Month
-    allocated_fte: Decimal
-    available_fte: Decimal
-    # Persons below, at and above 100 percent in this month.
-    under: int
-    full: int
-    over: int
-
-    @property
-    def pct(self) -> Decimal | None:
-        if self.available_fte == 0:
-            return None
-        return _round_pct(
-            Fraction(self.allocated_fte) / Fraction(self.available_fte) * 100
+    The sum of the figures the Financieel tab shows per assignment, over the
+    assignments that count in the forecast (agreed formally or verbally).
+    An assignment that cannot be priced is left out, as in the turnover.
+    """
+    figures: list[assignment_finance.Figures] = []
+    for assignment in await _assignments(session, assignment_ids):
+        if commitment_of(assignment.status) not in (
+            Commitment.COMMITTED,
+            Commitment.VERBAL,
+        ):
+            continue
+        data = await assignment_finance.assignment_finance(
+            session, assignment.id, year=year, options=options
         )
+        if data.totals is not None:
+            figures.append(data.totals)
+    return assignment_finance.Figures.sum(figures)
+
+
+# -- occupancy ----------------------------------------------------------------
 
 
 def _round_pct(value: Fraction) -> Decimal:
@@ -213,72 +216,205 @@ def _round_pct(value: Fraction) -> Decimal:
     )
 
 
+def _round_fte(value: Fraction) -> Decimal:
+    return (Decimal(value.numerator) / Decimal(value.denominator)).quantize(
+        Decimal("0.01")
+    )
+
+
+def next_months(first: Month, count: int) -> tuple[Month, ...]:
+    """``count`` consecutive months, starting at ``first``."""
+    months = [first]
+    while len(months) < count:
+        months.append(months[-1].next())
+    return tuple(months)
+
+
+@dataclass(frozen=True)
+class OccupancyPart:
+    """What one assignment takes of a person in a month."""
+
+    assignment_id: UUID
+    assignment_name: str
+    exact: Fraction
+    # Inzet on a potential assignment: it may not happen.
+    tentative: bool
+    # Tentative, but the client has said yes.
+    verbally_agreed: bool
+    # From a closed month: the percentage was established.
+    established: bool
+
+    @property
+    def pct(self) -> Decimal:
+        return _round_pct(self.exact)
+
+
+@dataclass(frozen=True)
+class OccupancyCell:
+    month: Month
+    # False in a month the person could not be deployed.
+    available: bool
+    parts: tuple[OccupancyPart, ...]
+
+    @property
+    def exact(self) -> Fraction:
+        return sum((part.exact for part in self.parts), Fraction(0))
+
+    @property
+    def pct(self) -> Decimal:
+        return _round_pct(self.exact)
+
+    @property
+    def tentative_pct(self) -> Decimal:
+        return _round_pct(
+            sum((p.exact for p in self.parts if p.tentative), Fraction(0))
+        )
+
+    @property
+    def established(self) -> bool:
+        """Everything in this cell comes from closed months."""
+        return bool(self.parts) and all(part.established for part in self.parts)
+
+    @property
+    def over(self) -> bool:
+        return self.exact > 100
+
+
+@dataclass(frozen=True)
+class PersonOccupancy:
+    person_id: UUID
+    person_name: str
+    # One cell per month asked for, in order.
+    cells: tuple[OccupancyCell, ...]
+
+    @property
+    def available_cells(self) -> tuple[OccupancyCell, ...]:
+        return tuple(cell for cell in self.cells if cell.available)
+
+    @property
+    def average_pct(self) -> Decimal | None:
+        """Mean over the months the person was available."""
+        cells = self.available_cells
+        if not cells:
+            return None
+        return _round_pct(sum((c.exact for c in cells), Fraction(0)) / len(cells))
+
+    @property
+    def over_months(self) -> tuple[Month, ...]:
+        return tuple(cell.month for cell in self.cells if cell.over)
+
+
+@dataclass(frozen=True)
+class OccupancyMonth:
+    """Totals of one month over the persons given."""
+
+    month: Month
+    allocated_fte: Decimal
+    # The tentative part of what is allocated.
+    tentative_fte: Decimal
+    available_fte: Decimal
+    # Room left, with nobody's overbooking set off against it.
+    free_fte: Decimal
+    pct: Decimal | None
+    under: int
+    full: int
+    over: int
+
+
+@dataclass(frozen=True)
+class OccupancySummary:
+    """The answer before the table, over exactly the persons given."""
+
+    person_count: int
+    # Mean occupancy of the year, over every available person-month.
+    average_pct: Decimal | None
+    over_count: int
+    over_months: tuple[Month, ...]
+    # Now, whatever year is on screen: this month and the three after it.
+    current_month: Month
+    window: tuple[OccupancyMonth, ...]
+    # Available in the three months after this one, without any inzet in them.
+    idle_count: int
+
+
 async def occupancy(
     session: AsyncSession,
-    year: int,
+    months: Sequence[Month],
     *,
     options: PricingOptions = DEFAULT_OPTIONS,
 ) -> list[PersonOccupancy]:
-    """Allocated FTE percentage per person and month, for everyone deployable.
+    """What every deployable person is allocated in ``months`` (consecutive).
 
     A person is available in a month with a billing scale valid in it, or
-    with inzet in it. Persons with neither in the whole year are left out.
+    with inzet in it. Persons with neither in the whole span are left out.
+    Inzet on a rejected or cancelled assignment does not count.
     """
-    year_start, year_end = date(year, 1, 1), date(year, 12, 31)
-    year_months = months_of(year)
+    if not months:
+        return []
+    wanted = set(months)
+    first_day, last_day = months[0].first_day, months[-1].last_day
 
-    allocations = list(
-        (
-            await session.execute(
-                select(Allocation).where(
-                    Allocation.start_date <= year_end, Allocation.end_date >= year_start
-                )
-            )
-        ).scalars()
+    allocations = await staffing.staffed_allocations(
+        session, start=first_day, end=last_day
     )
     established = {
         (allocation_id, Month.of(month)): Decimal(str(pct))
         for allocation_id, month, pct in await MonthCloseRepository(
             session
-        ).established([a.id for a in allocations])
+        ).established([a.allocation_id for a in allocations])
     }
+    names: dict[UUID, str] = {}
+    assignment_ids = {a.assignment_id for a in allocations}
+    if assignment_ids:
+        result = await session.execute(
+            select(Assignment.id, Assignment.name).where(
+                Assignment.id.in_(assignment_ids)
+            )
+        )
+        names = {row.id: row.name for row in result}
 
-    allocated: dict[UUID, dict[Month, Fraction]] = defaultdict(
-        lambda: defaultdict(Fraction)
+    # Per person and month, per assignment: [exact, tentative, verbal, all established].
+    parts: dict[UUID, dict[Month, dict[UUID, list[Any]]]] = defaultdict(
+        lambda: defaultdict(dict)
     )
     for allocation in allocations:
         for month, fraction in calc.month_fractions(
             allocation.start_date, allocation.end_date, options.partial_months
         ):
-            if month.year != year:
+            if month not in wanted:
                 continue
-            actual = established.get((allocation.id, month))
-            if actual is not None:
-                allocated[allocation.person_id][month] += Fraction(actual)
-            else:
-                allocated[allocation.person_id][month] += (
-                    Fraction(Decimal(allocation.fte_pct)) * fraction
-                )
+            actual = established.get((allocation.allocation_id, month))
+            exact = (
+                Fraction(actual)
+                if actual is not None
+                else Fraction(Decimal(allocation.fte_pct)) * fraction
+            )
+            slot = parts[allocation.person_id][month].setdefault(
+                allocation.assignment_id,
+                [Fraction(0), allocation.tentative, allocation.verbally_agreed, True],
+            )
+            slot[0] += exact
+            slot[3] = slot[3] and actual is not None
 
     scales = list(
         (
             await session.execute(
                 select(PersonScale).where(
-                    PersonScale.valid_from <= year_end,
+                    PersonScale.valid_from <= last_day,
                     (PersonScale.valid_to.is_(None))
-                    | (PersonScale.valid_to >= year_start),
+                    | (PersonScale.valid_to >= first_day),
                 )
             )
         ).scalars()
     )
     available: dict[UUID, set[Month]] = defaultdict(set)
     for scale in scales:
-        for month in year_months:
+        for month in months:
             if scale.valid_from <= month.last_day and (
                 scale.valid_to is None or scale.valid_to >= month.first_day
             ):
                 available[scale.person_id].add(month)
-    for person_id, by_month in allocated.items():
+    for person_id, by_month in parts.items():
         available[person_id].update(by_month)
 
     if not available:
@@ -292,39 +428,117 @@ async def occupancy(
     ).all()
     rows: list[PersonOccupancy] = []
     for person_id, name in persons:
-        months: list[Decimal | None] = []
-        for month in year_months:
-            if month not in available[person_id]:
-                months.append(None)
-            else:
-                months.append(_round_pct(allocated[person_id].get(month, Fraction(0))))
+        cells = []
+        for month in months:
+            by_assignment = parts[person_id].get(month, {})
+            cells.append(
+                OccupancyCell(
+                    month=month,
+                    available=month in available[person_id],
+                    parts=tuple(
+                        sorted(
+                            (
+                                OccupancyPart(
+                                    assignment_id=assignment_id,
+                                    assignment_name=names.get(assignment_id, ""),
+                                    exact=slot[0],
+                                    tentative=slot[1],
+                                    verbally_agreed=slot[2],
+                                    established=slot[3],
+                                )
+                                for assignment_id, slot in by_assignment.items()
+                                if slot[0] > 0
+                            ),
+                            key=lambda part: (-part.exact, part.assignment_name),
+                        )
+                    ),
+                )
+            )
         rows.append(
-            PersonOccupancy(person_id=person_id, person_name=name, months=tuple(months))
+            PersonOccupancy(person_id=person_id, person_name=name, cells=tuple(cells))
         )
     return rows
 
 
+async def occupancy_of_year(
+    session: AsyncSession, year: int, *, options: PricingOptions = DEFAULT_OPTIONS
+) -> list[PersonOccupancy]:
+    return await occupancy(session, months_of(year), options=options)
+
+
+async def not_deployable(
+    session: AsyncSession, deployable_ids: Iterable[UUID]
+) -> list[tuple[UUID, str]]:
+    """Active persons who are no row of the occupancy: no billing scale, no inzet."""
+    ids = list(deployable_ids)
+    query = select(Person.id, Person.name).where(Person.is_active.is_(True))
+    if ids:
+        query = query.where(Person.id.notin_(ids))
+    result = await session.execute(query.order_by(func.lower(Person.name), Person.id))
+    return [(row.id, row.name) for row in result]
+
+
 def occupancy_months(
-    year: int, rows: Iterable[PersonOccupancy]
+    months: Sequence[Month], rows: Iterable[PersonOccupancy]
 ) -> list[OccupancyMonth]:
     """Totals per month over exactly the persons given."""
     rows = list(rows)
     result: list[OccupancyMonth] = []
-    for index, month in enumerate(months_of(year)):
-        values = [row.months[index] for row in rows if row.months[index] is not None]
+    for month in months:
+        cells = [
+            cell
+            for row in rows
+            for cell in row.cells
+            if cell.month == month and cell.available
+        ]
+        allocated = sum((cell.exact for cell in cells), Fraction(0))
+        tentative = sum(
+            (p.exact for cell in cells for p in cell.parts if p.tentative), Fraction(0)
+        )
+        free = sum((max(Fraction(0), 100 - cell.exact) for cell in cells), Fraction(0))
         result.append(
             OccupancyMonth(
                 month=month,
-                allocated_fte=(sum(values, Decimal(0)) / Decimal(100)).quantize(
-                    Decimal("0.01")
-                ),
-                available_fte=Decimal(len(values)),
-                under=sum(1 for v in values if v < 100),
-                full=sum(1 for v in values if v == 100),
-                over=sum(1 for v in values if v > 100),
+                allocated_fte=_round_fte(allocated / 100),
+                tentative_fte=_round_fte(tentative / 100),
+                available_fte=Decimal(len(cells)),
+                free_fte=_round_fte(free / 100),
+                pct=_round_pct(allocated / len(cells)) if cells else None,
+                under=sum(1 for cell in cells if cell.exact < 100),
+                full=sum(1 for cell in cells if cell.exact == 100),
+                over=sum(1 for cell in cells if cell.exact > 100),
             )
         )
     return result
+
+
+def occupancy_summary(
+    year_rows: Sequence[PersonOccupancy],
+    window_rows: Sequence[PersonOccupancy],
+    window: Sequence[Month],
+) -> OccupancySummary:
+    """The figures on top. ``window`` is this month and the three after it."""
+    available = [cell for row in year_rows for cell in row.available_cells]
+    over_months = sorted({month for row in year_rows for month in row.over_months})
+    ahead = set(window[1:])
+    idle = 0
+    for row in window_rows:
+        coming = [c for c in row.cells if c.month in ahead and c.available]
+        if coming and all(cell.exact == 0 for cell in coming):
+            idle += 1
+    return OccupancySummary(
+        person_count=len(year_rows),
+        average_pct=_round_pct(
+            sum((c.exact for c in available), Fraction(0)) / len(available)
+        )
+        if available
+        else None,
+        over_count=sum(1 for row in year_rows if row.over_months),
+        over_months=tuple(over_months),
+        current_month=window[0],
+        window=tuple(occupancy_months(window, window_rows)),
+        idle_count=idle,
+    )
 
 
 # -- pipeline of quotes -------------------------------------------------------

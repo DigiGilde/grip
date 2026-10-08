@@ -92,6 +92,7 @@ async def client_org(db_session: AsyncSession) -> Organisation:
 def make_assignment(db_session: AsyncSession, beheerder, client_org):
     async def _make(name: str = "Opdracht Alfa", **kwargs):
         kwargs.setdefault("client_organisation_id", client_org.id)
+        kwargs.setdefault("start_date", date(2026, 1, 1))
         return await assignments.create_assignment(
             db_session, name=name, actor=beheerder, **kwargs
         )
@@ -126,3 +127,17 @@ def add_personnel_line(db_session: AsyncSession, beheerder):
         )
 
     return _add
+
+
+@pytest.fixture
+def accept(db_session: AsyncSession, beheerder):
+    """Move a draft assignment to accepted, so its months can be closed."""
+
+    async def _accept(assignment):
+        for step in ("quoted", "accepted"):
+            await assignments.transition(
+                db_session, assignment.id, step, actor=beheerder
+            )
+        return assignment
+
+    return _accept

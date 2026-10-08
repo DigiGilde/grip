@@ -8,6 +8,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    LargeBinary,
     String,
     Text,
     text,
@@ -17,16 +18,25 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from grip.core.database import Base
 from grip.models._columns import created_at, uuid_pk
+from grip.services.canonical import contract_form, read
 
 QUOTE_STATUSES = ("issued", "accepted", "rejected", "superseded")
 ACCEPTANCE_FORMS = ("own_instance", "signing_link", "uploaded_pdf")
+# How an issued quote is put before the client. Chosen per offer; one quote
+# may be offered more than once and through more than one channel.
+OFFER_CLIENT_INSTANCE = "client_instance"
+OFFER_SIGNING_LINK = "signing_link"
+OFFER_DOCUMENT = "document"
+OFFER_CHANNELS = (OFFER_CLIENT_INSTANCE, OFFER_SIGNING_LINK, OFFER_DOCUMENT)
 
 
 class Quote(Base):
-    """An issued quote: a frozen snapshot of lines, rates and totals.
+    """An issued quote: frozen content of lines, rates and totals.
 
-    This is the one place where derived values are stored. The snapshot
-    never changes after issue; a changed quote is a new quote.
+    This is the one place where derived values are stored. A quote has one
+    canonical form, stored as the exact bytes that were issued, and one hash
+    over those bytes (ADR 0020). Neither changes after issue; a changed
+    quote is a new quote.
     """
 
     __tablename__ = "quote"
@@ -36,6 +46,12 @@ class Quote(Base):
             name="status_valid",
         ),
         CheckConstraint("snapshot_hash ~ '^[0-9a-f]{64}$'", name="hash_format"),
+        # The hash is the hash of the stored bytes: an invariant of the row,
+        # not something the application has to remember.
+        CheckConstraint(
+            "snapshot_hash = encode(sha256(canonical), 'hex')",
+            name="hash_of_canonical",
+        ),
     )
 
     id: Mapped[uuid.UUID] = uuid_pk()
@@ -52,8 +68,10 @@ class Quote(Base):
     status: Mapped[str] = mapped_column(
         String(12), default="issued", server_default="issued"
     )
-    snapshot: Mapped[dict[str, Any]] = mapped_column(JSONB)
-    # SHA-256 over the RFC 8785 canonical JSON of the snapshot.
+    # The canonical form: the content in contract terms as RFC 8785 JSON,
+    # exactly as issued (or as received from the instance that issued it).
+    canonical: Mapped[bytes] = mapped_column(LargeBinary)
+    # SHA-256 over ``canonical``. The one hash of this quote, everywhere.
     snapshot_hash: Mapped[str] = mapped_column(String(64))
     total_cents: Mapped[int] = mapped_column(BigInteger)
     issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
@@ -66,6 +84,21 @@ class Quote(Base):
     document_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     document_ref: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = created_at()
+
+    @property
+    def snapshot(self) -> dict[str, Any]:
+        """The content in code names, read from the canonical form.
+
+        A view for screens, documents and reports. It is derived on every
+        read and never stored, so there is no second copy that could differ
+        from what was hashed.
+        """
+        return read(self.canonical)
+
+    @property
+    def contract_snapshot(self) -> dict[str, Any]:
+        """The content in contract terms, as it crosses to another instance."""
+        return contract_form(self.canonical)
 
 
 class QuoteInvitation(Base):
@@ -103,6 +136,46 @@ class QuoteInvitation(Base):
     )
     used_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = created_at()
+
+
+class QuoteOffer(Base):
+    """One time an issued quote was put before the client, through a channel.
+
+    Issuing a quote freezes it; offering it is a separate act. The channel
+    says how the client gets it: in the client's own grip instance, through
+    a signing link in this instance, or as a document. How the quote is
+    eventually signed is recorded on the acceptance, not here.
+    """
+
+    __tablename__ = "quote_offer"
+    __table_args__ = (
+        CheckConstraint(
+            "channel IN ('client_instance', 'signing_link', 'document')",
+            name="channel_valid",
+        ),
+        Index("ix_quote_offer_quote", "quote_id", "offered_at"),
+    )
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    quote_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("quote.id", ondelete="CASCADE")
+    )
+    channel: Mapped[str] = mapped_column(String(20))
+    # To whom: the base URI of the client's instance, the invited email
+    # address, or nothing for a document.
+    recipient: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    invitation_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("quote_invitation.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    offered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    offered_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("person.id", ondelete="SET NULL"),
+        nullable=True,
     )
     created_at: Mapped[datetime] = created_at()
 

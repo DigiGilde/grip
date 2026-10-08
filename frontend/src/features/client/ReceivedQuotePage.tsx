@@ -2,15 +2,8 @@ import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { ApiError, errorMessage } from '@/api/client';
-import {
-  Button,
-  EmptyNotice,
-  ErrorNotice,
-  FormSheet,
-  Loading,
-  SectionHeading,
-  TextInput,
-} from '@/features/assignments/ui';
+import { Button, TextInput } from '@/features/assignments/ui';
+import { EmptyNotice, ErrorNotice, FormSheet, Loading, SectionHeading } from '@/ui/layout';
 import {
   ACCEPTANCE_FORM_LABELS,
   QUOTE_STATUS_COLORS,

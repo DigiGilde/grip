@@ -218,12 +218,12 @@ def test_local_stand_in_is_left_alone():
 def wies_answers(monkeypatch):
     """Let the routes see these colleagues instead of calling Wies."""
 
-    def _set(colleagues):
+    def _set(colleagues, answers=()):
         async def _fetch(settings, **_):
-            return list(colleagues)
+            return list(colleagues), list(answers)
 
         monkeypatch.setattr(
-            "grip.api.routes.integrations_wies.fetch_colleagues", _fetch
+            "grip.api.routes.integrations_wies.fetch_wies_state", _fetch
         )
 
     return _set
@@ -369,7 +369,7 @@ async def test_wies_outage_is_a_gateway_error(
     async def _down(settings, **_):
         raise wies_client.WiesUnavailableError("Wies is niet bereikbaar.")
 
-    monkeypatch.setattr("grip.api.routes.integrations_wies.fetch_colleagues", _down)
+    monkeypatch.setattr("grip.api.routes.integrations_wies.fetch_wies_state", _down)
 
     response = await client.get(URL)
 

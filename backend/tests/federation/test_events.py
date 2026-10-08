@@ -8,6 +8,7 @@ from grip.federation.models import PEER_ROLE_CORPUS, PEER_ROLE_PARENT, Federatio
 from grip.federation.outbox import OutboundMessageInvalidError
 from grip.federation.registry import register_message_builder
 from grip.services import events as domain_events
+from grip.services.errors import DomainValidationError
 
 from .conftest import CLIENT_BASE, CLIENT_PEER_ID, code_example, example
 
@@ -25,14 +26,14 @@ async def _outbox(db_session):
     return (await db_session.execute(select(FederationOutbox))).scalars().all()
 
 
-async def test_quote_issued_goes_to_the_client_instance(db_session, make_peer):
+async def test_quote_offered_goes_to_the_client_instance(db_session, make_peer):
     client = await make_peer(CLIENT_PEER_ID, base_uri=CLIENT_BASE)
     await make_peer()
     register_message_builder(
-        "quote.issued", _builder({"message": code_example("quote")})
+        "quote.offered", _builder({"message": code_example("quote")})
     )
 
-    rows = await events.dispatch(db_session, "quote.issued", {"quote_id": QUOTE_ID})
+    rows = await events.dispatch(db_session, "quote.offered", {"quote_id": QUOTE_ID})
 
     (row,) = rows
     assert (row.peer_id, row.operation, row.path) == (
@@ -51,8 +52,8 @@ async def test_builder_receives_the_domain_payload(db_session, make_peer):
         seen.append(payload)
         return {"message": code_example("quote")}
 
-    register_message_builder("quote.issued", build)
-    await events.dispatch(db_session, "quote.issued", {"quote_id": QUOTE_ID})
+    register_message_builder("quote.offered", build)
+    await events.dispatch(db_session, "quote.offered", {"quote_id": QUOTE_ID})
     assert seen == [{"quote_id": QUOTE_ID}]
 
 
@@ -110,25 +111,41 @@ async def test_without_recipient_an_acceptance_is_not_sent(db_session, make_peer
     assert await events.dispatch(db_session, "quote.accepted", {}) == []
 
 
-async def test_counterpart_without_grip_gets_nothing(db_session, make_peer):
+async def test_offer_to_a_client_without_grip_is_refused_with_a_reason(
+    db_session, make_peer
+):
     # Only the contractor runs an instance; the client of the quote does not.
+    # The user chose to offer through the client's grip, so this is an error
+    # with a reason, not something to pass over.
     await make_peer()
     register_message_builder(
-        "quote.issued", _builder({"message": code_example("quote")})
+        "quote.offered", _builder({"message": code_example("quote")})
     )
-    assert await events.dispatch(db_session, "quote.issued", {}) == []
+    with pytest.raises(DomainValidationError, match="niet gekoppeld"):
+        await events.dispatch(db_session, "quote.offered", {})
+    assert await _outbox(db_session) == []
+
+
+async def test_counterpart_without_grip_gets_no_request(db_session, make_peer):
+    # A request to a contractor without grip is simply not sent.
+    await make_peer(CLIENT_PEER_ID, base_uri=CLIENT_BASE)
+    register_message_builder(
+        "assignment_request.created",
+        _builder({"message": code_example("assignment-request")}),
+    )
+    assert await events.dispatch(db_session, "assignment_request.created", {}) == []
     assert await _outbox(db_session) == []
 
 
 async def test_builder_returning_none_means_nothing_to_send(db_session, make_peer):
     await make_peer(CLIENT_PEER_ID, base_uri=CLIENT_BASE)
-    register_message_builder("quote.issued", _builder(None))
-    assert await events.dispatch(db_session, "quote.issued", {}) == []
+    register_message_builder("quote.offered", _builder(None))
+    assert await events.dispatch(db_session, "quote.offered", {}) == []
 
 
 async def test_without_builder_an_event_leads_to_no_message(db_session, make_peer):
     await make_peer(CLIENT_PEER_ID, base_uri=CLIENT_BASE)
-    assert await events.dispatch(db_session, "quote.issued", {}) == []
+    assert await events.dispatch(db_session, "quote.offered", {}) == []
     assert await events.dispatch(db_session, "assignment.status_changed", {}) == []
 
 
@@ -199,9 +216,9 @@ async def test_message_outside_the_contract_aborts_the_domain_change(
     await make_peer(CLIENT_PEER_ID, base_uri=CLIENT_BASE)
     broken = code_example("quote")
     broken["snapshot_hash"] = "geen hash"
-    register_message_builder("quote.issued", _builder({"message": broken}))
+    register_message_builder("quote.offered", _builder({"message": broken}))
     with pytest.raises(OutboundMessageInvalidError):
-        await events.dispatch(db_session, "quote.issued", {})
+        await events.dispatch(db_session, "quote.offered", {})
 
 
 async def test_handlers_subscribe_to_the_domain_events(db_session, make_peer):
@@ -210,17 +227,17 @@ async def test_handlers_subscribe_to_the_domain_events(db_session, make_peer):
     try:
         subscribed = events.register_event_handlers()
         assert set(subscribed) <= set(events.EVENT_HANDLERS)
-        assert {"quote.issued", "quote.accepted", "assignment_request.created"} <= set(
+        assert {"quote.offered", "quote.accepted", "assignment_request.created"} <= set(
             subscribed
         )
         # Registering twice must not send a message twice.
         events.register_event_handlers()
 
         register_message_builder(
-            "quote.issued", _builder({"message": code_example("quote")})
+            "quote.offered", _builder({"message": code_example("quote")})
         )
         await domain_events.emit(
-            db_session, domain_events.QUOTE_ISSUED, {"quote_id": QUOTE_ID}
+            db_session, domain_events.QUOTE_OFFERED, {"quote_id": QUOTE_ID}
         )
         (row,) = await _outbox(db_session)
         assert row.peer_id == client.id

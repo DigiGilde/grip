@@ -31,6 +31,9 @@ _PUBLIC_ROUTES: dict[str, str] = {
     "/api/auth/status": "tells the frontend whether anyone is logged in",
     "/api/instance": "name and base URI only; the login page shows the name",
     "/api/integrations/wies/export": "no session: a machine with a key (Wies)",
+    "/api/integrations/wies/proposed-colleagues": (
+        "no session: a machine with a key (Wies)"
+    ),
 }
 
 # Dependency callables that count as authorization.

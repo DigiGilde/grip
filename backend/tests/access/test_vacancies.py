@@ -18,6 +18,7 @@ from grip.access import (
 )
 from grip.access.vacancies import (
     form_template_resource,
+    function_framework_resource,
     language_model_resource,
     vacancy_resource,
 )
@@ -175,6 +176,19 @@ async def test_setup_is_for_the_beheerder(world, who, action) -> None:
         assert allowed is (who == "beheerder")
 
 
+@pytest.mark.parametrize("who", sorted(EVERYONE))
+async def test_function_framework_is_read_by_all_and_changed_by_the_beheerder(
+    world, who
+) -> None:
+    resource = function_framework_resource()
+    assert await world.ask(who, Action.READ, resource, DataClass.MASTER_DATA)
+    allowed = await world.ask(who, Action.EDIT, resource, DataClass.MASTER_DATA)
+    assert allowed is (who == "beheerder")
+    assert not await world.ask(who, Action.READ, resource, DataClass.STAFFING) or (
+        who == "beheerder"
+    )
+
+
 @pytest.mark.parametrize("action", list(Action))
 async def test_other_actions_do_not_apply(world, action) -> None:
     if action in (Action.READ, Action.EDIT, Action.RECORD_DECISION):
@@ -193,6 +207,7 @@ async def test_guests_and_peers_get_nothing(world) -> None:
         world.resource(open_role=True),
         form_template_resource(),
         language_model_resource(),
+        function_framework_resource(),
     ]
     for subject in subjects:
         for resource in resources:

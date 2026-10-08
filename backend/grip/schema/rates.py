@@ -5,6 +5,7 @@ Rate cards are master data: not personal and not tied to an assignment.
 
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
@@ -15,6 +16,8 @@ _MASTER = in_class(DataClass.MASTER_DATA)
 
 Category = Literal["A", "B", "C", "D", "E"]
 CardStatus = Literal["draft", "active", "closed"]
+# What a new rate is rounded to: whole euros, tens or fifties.
+Rounding = Literal["euro", "ten", "fifty"]
 
 
 class RateBandOut(BaseModel):
@@ -39,12 +42,32 @@ class RateCardListOut(BaseModel):
     # Whether the asker may change rate cards; the screen shows or hides the
     # edit actions on it.
     may_manage: Annotated[bool, _MASTER]
+    # Instance setting: the increase proposed for a new year.
+    default_increase_pct: Annotated[Decimal, _MASTER]
+
+
+class IndexedRateOut(BaseModel):
+    category: Annotated[str, _MASTER]
+    old_monthly_rate_cents: Annotated[int, _MASTER]
+    new_monthly_rate_cents: Annotated[int, _MASTER]
+    difference_cents: Annotated[int, _MASTER]
+
+
+class IndexationPreviewOut(BaseModel):
+    copy_from: Annotated[int, _MASTER]
+    increase_pct: Annotated[Decimal, _MASTER]
+    rounding: Annotated[str, _MASTER]
+    rates: Annotated[list[IndexedRateOut], nested()]
 
 
 class RateCardCreate(BaseModel):
     year: int = Field(ge=2000, le=2100)
     # A new year starts as a draft copy of this one.
     copy_from: int | None = Field(default=None, ge=2000, le=2100)
+    # With ``copy_from``: the percentage the rates go up by. Left out, the
+    # rates are copied as they are.
+    increase_pct: Decimal | None = Field(default=None, ge=0, le=25, decimal_places=2)
+    rounding: Rounding = "euro"
 
 
 class ClosedYearConfirmation(BaseModel):

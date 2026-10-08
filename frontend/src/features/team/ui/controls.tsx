@@ -182,6 +182,10 @@ export function SelectField({
   invalid,
   width,
 }: SelectFieldProps) {
+  const ref = useRef<HTMLElement>(null);
+  // The dropdown stops the native change event of the slotted select and
+  // sends its own, so the handler on the select alone never fires.
+  useNlddEvent(ref, 'change', (event) => onChange(eventValue(event)));
   return (
     <Sized width={width}>
       <nldd-form-field
@@ -189,7 +193,7 @@ export function SelectField({
         {...(supportingLabel ? { 'supporting-label': supportingLabel } : {})}
         optional={orUndef(optional)}
       >
-        <nldd-dropdown invalid={orUndef(invalid)}>
+        <nldd-dropdown ref={ref} invalid={orUndef(invalid)}>
           <select value={value} onChange={(event) => onChange(event.target.value)}>
             {emptyLabel !== undefined && <option value="">{emptyLabel}</option>}
             {groupOptions(options).map(([group, entries]) =>
@@ -274,5 +278,40 @@ export function Segments({ label, value, onChange, options }: SegmentsProps) {
         <nldd-segmented-control-item key={option.value} value={option.value} text={option.label} />
       ))}
     </nldd-segmented-control>
+  );
+}
+
+interface FileFieldProps {
+  label: string;
+  onChange: (files: File[]) => void;
+  /** Comma-separated list of accepted types, as the native input takes it. */
+  accept?: string;
+  multiple?: boolean;
+  supportingLabel?: string;
+  optional?: boolean;
+}
+
+/** A labelled file picker. The chosen files arrive as a list; a clear gives an empty one. */
+export function FileField({
+  label,
+  onChange,
+  accept,
+  multiple,
+  supportingLabel,
+  optional,
+}: FileFieldProps) {
+  const ref = useRef<HTMLElement>(null);
+  useNlddEvent(ref, 'change', (event) => {
+    const detail = (event as CustomEvent<{ files?: File[] }>).detail;
+    onChange(Array.isArray(detail?.files) ? detail.files : []);
+  });
+  return (
+    <nldd-form-field
+      label={label}
+      {...(supportingLabel ? { 'supporting-label': supportingLabel } : {})}
+      optional={orUndef(optional)}
+    >
+      <nldd-file-field ref={ref} {...(accept ? { accept } : {})} multiple={orUndef(multiple)} />
+    </nldd-form-field>
   );
 }

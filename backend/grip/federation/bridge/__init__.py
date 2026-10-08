@@ -21,11 +21,13 @@ from grip.federation.registry import (
     register_message_builder,
     register_provider,
 )
+from grip.services import quote_channels
 
 
 def register_bridge() -> None:
     """Register every handler, builder and provider. Safe to call twice."""
     from grip.federation.bridge.builders import BUILDERS
+    from grip.federation.bridge.channels import connection_check, delivery_state
     from grip.federation.bridge.inbound import HANDLERS
     from grip.federation.bridge.providers import PROVIDERS
 
@@ -35,3 +37,5 @@ def register_bridge() -> None:
         register_provider(operation, provider)
     for event_type, builder in BUILDERS.items():
         register_message_builder(event_type, builder)
+    quote_channels.register_connection_check(connection_check)
+    quote_channels.register_delivery_lookup(delivery_state)

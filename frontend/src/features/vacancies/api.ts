@@ -97,6 +97,12 @@ export interface VacancySummary {
   requested_on?: string | null;
   current_step?: string | null;
   next_step?: string | null;
+  /** The step it is at: prepare, submit, decide, open, fill; null once ended. */
+  step?: string | null;
+  /** What that step waits on, without a name. */
+  step_detail?: string | null;
+  /** Since when it is at this step, or when it ended. */
+  step_since?: string | null;
   requester_name?: string | null;
 }
 
@@ -127,6 +133,17 @@ export interface Vacancy {
   requester_id?: string | null;
   requester_name?: string | null;
   addressee_name?: string | null;
+  addressee_has_account?: boolean;
+  /** The function group the FGR name was taken from, and what it allows. */
+  function_group_id?: string | null;
+  function_family_name?: string | null;
+  function_group_scales?: number[] | null;
+  scale_deviation_reason?: string | null;
+  suggested_function_group_ids?: string[];
+  /** The scales of the budget line's rate category. */
+  budget_line_scales?: number[] | null;
+  /** False when the scale lies outside the budget line's category. */
+  scale_fits_budget_line?: boolean | null;
   permissions: VacancyPermissions;
 }
 
@@ -194,7 +211,11 @@ export interface VacancyCreate {
   addressee_name?: string | null;
 }
 
-export type VacancyUpdate = Partial<Omit<VacancyCreate, 'budget_line_id'>>;
+export type VacancyUpdate = Partial<Omit<VacancyCreate, 'budget_line_id'>> & {
+  function_group_id?: string | null;
+  scale_deviation_reason?: string | null;
+  addressee_id?: string | null;
+};
 
 export interface DecisionInput {
   /** Someone without an account in this instance, named in free text. */

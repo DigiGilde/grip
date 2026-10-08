@@ -14,7 +14,13 @@ JAN = Month(2026, 1)
 
 @pytest.fixture
 async def staffed(
-    db_session, rate_cards, beheerder, make_person, make_assignment, add_personnel_line
+    db_session,
+    rate_cards,
+    beheerder,
+    make_person,
+    make_assignment,
+    add_personnel_line,
+    accept,
 ):
     person = await make_person(14)
     assignment = await make_assignment()
@@ -28,6 +34,7 @@ async def staffed(
         fte_pct=Decimal(80),
         actor=beheerder,
     )
+    await accept(assignment)
     return assignment, line, allocation, person
 
 

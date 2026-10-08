@@ -1,191 +1,284 @@
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { errorMessage } from '@/api/client';
-import {
-  Button,
-  EmptyNotice,
-  ErrorNotice,
-  InlineSelect,
-  Loading,
-  SectionHeading,
-} from '@/features/assignments/ui';
-import { YearFilter } from '@/features/overview/YearFilter';
-import { currentYearChoice, periodLabel } from '@/features/overview/years';
+import { useRateCards } from '@/features/assignments/rateText';
+import { EmptyNotice, ErrorNotice, Loading } from '@/features/assignments/ui';
+import { VACANCY_KEYS, fetchUnfilledRoles, newVacancyPath } from '@/features/vacancies/api';
+import { RouterLinks } from '@/layout/RouterLinks';
 import { useInstance } from '@/layout/useInstance';
-import { formatEuro, formatPercent, formatPeriod } from '@/lib/format';
+import { formatMonth } from '@/lib/format';
 import { PageHeading } from '@/pages/PageHeading';
-import { allocationKeys, deleteAllocation, fetchAllocations, type Allocation } from './api';
-import { AllocationSheet } from './AllocationSheet';
-import { UnfilledRoles } from './UnfilledRoles';
-import { groupAllocations, mismatchText, type AllocationGroup, type Grouping } from './grouping';
+import { ActionBar } from '@/ui/ActionBar';
+import { AllocationSheet, type AllocationPreset } from './AllocationSheet';
+import { allocationKeys, fetchAllocationOptions, type Allocation } from './api';
+import { boardKeys, fetchBoard, type BoardBar } from './board/api';
+import { CellPanel } from '@/ui/timeline/CellPanel';
+import { Timeline, type CellRef } from '@/ui/timeline/Timeline';
+import {
+  barsInColumn,
+  buildGroups,
+  describeBar,
+  describeCell,
+  shiftMonth,
+  toTimeline,
+  type PlacedBar,
+  type RowModel,
+  type Show,
+  type View,
+} from './board/model';
 
-const GROUPINGS = [
+const VIEWS = [
   { value: 'person', label: 'Per persoon' },
-  { value: 'line', label: 'Per begrotingsregel' },
+  { value: 'team', label: 'Per team' },
+  { value: 'assignment', label: 'Per opdracht' },
 ];
 
-function GroupTable({
-  group,
-  grouping,
-  onEdit,
-  onDelete,
-  deleting,
-}: {
-  group: AllocationGroup;
-  grouping: Grouping;
-  onEdit: (item: Allocation) => void;
-  onDelete: (item: Allocation) => void;
-  deleting: string | undefined;
-}) {
-  const showTime = group.items.some((item) => item.fte_pct !== undefined);
-  const showAmount = group.items.some((item) => 'amount_cents' in item);
-  const showActions = group.items.some((item) => item.can_edit);
-  const first = grouping === 'person' ? 'Opdracht en regel' : 'Persoon';
-  return (
-    <nldd-container gap="8">
-      <SectionHeading text={group.subtitle ? `${group.title}, ${group.subtitle}` : group.title} />
-      <nldd-table
-        accessible-label={`Inzet: ${group.title}`}
-        columns={`minmax(220px,2fr)${showTime ? ' minmax(200px,1.5fr) 100px' : ''}${showAmount ? ' 140px' : ''}${showActions ? ' 220px' : ''}`}
-      >
-        <nldd-table-row slot="header">
-          <nldd-text-cell text={first} />
-          {showTime && <nldd-text-cell text="Periode" />}
-          {showTime && <nldd-text-cell text="Inzet" horizontal-alignment="right" />}
-          {showAmount && <nldd-text-cell text="Bedrag" horizontal-alignment="right" />}
-          {showActions && <nldd-text-cell text="Acties" />}
-        </nldd-table-row>
-        {group.items.map((item) => {
-          const warning = mismatchText(item);
-          const name =
-            grouping === 'person'
-              ? [item.assignment_name, item.budget_line_description].filter(Boolean).join(': ') ||
-                'Opdracht'
-              : item.person_name;
-          return (
-            <nldd-table-row key={item.id}>
-              <nldd-text-cell text={name} {...(warning ? { 'supporting-text': warning } : {})} />
-              {showTime && <nldd-text-cell text={formatPeriod(item.start_date, item.end_date)} />}
-              {showTime && (
-                <nldd-text-cell text={formatPercent(item.fte_pct)} horizontal-alignment="right" />
-              )}
-              {showAmount && (
-                <nldd-text-cell
-                  text={
-                    'amount_cents' in item
-                      ? item.amount_cents == null
-                        ? 'Niet berekend'
-                        : formatEuro(item.amount_cents)
-                      : ''
-                  }
-                  {...(item.pricing_error ? { 'supporting-text': item.pricing_error } : {})}
-                  horizontal-alignment="right"
-                />
-              )}
-              {showActions && (
-                <nldd-cell>
-                  {item.can_edit && (
-                    <nldd-button-group>
-                      <Button
-                        text="Bewerk"
-                        size="sm"
-                        accessibleLabel={`Bewerk de inzet van ${item.person_name}`}
-                        onClick={() => onEdit(item)}
-                      />
-                      <Button
-                        text="Verwijder"
-                        size="sm"
-                        appearance="neutral-transparent"
-                        accessibleLabel={`Verwijder de inzet van ${item.person_name}`}
-                        loading={deleting === item.id}
-                        onClick={() => onDelete(item)}
-                      />
-                    </nldd-button-group>
-                  )}
-                </nldd-cell>
-              )}
-            </nldd-table-row>
-          );
-        })}
-      </nldd-table>
-    </nldd-container>
-  );
+const SHOWS = [
+  { value: 'all', label: 'Iedereen' },
+  { value: 'room', label: 'Alleen met ruimte' },
+  { value: 'over', label: 'Alleen boven 100%' },
+];
+
+/** How far "eerder" and "later" move the months on screen. */
+const STEP_MONTHS = 3;
+
+function toAllocation(bar: BoardBar): Allocation {
+  return {
+    id: bar.allocation_id,
+    person_id: bar.person_id,
+    person_name: bar.person_name,
+    budget_line_id: bar.budget_line_id,
+    start_date: bar.start_date,
+    end_date: bar.end_date,
+    fte_pct: bar.fte_pct,
+  };
 }
 
-/** Inzet per person and per budget line. */
+interface SheetState {
+  open: boolean;
+  session: number;
+  allocation?: Allocation;
+  preset?: AllocationPreset;
+  closedMonths?: string[];
+}
+
+/**
+ * Inzet: the planner's board. Who is available when, where someone is
+ * double-booked, which roles are open and what ends soon, and from there:
+ * put someone on a role, change an inzet, open a vacancy. No amounts.
+ */
 export function AllocationsPage() {
   const instance = useInstance();
-  const queryClient = useQueryClient();
-  const [year, setYear] = useState(currentYearChoice);
-  const [grouping, setGrouping] = useState<Grouping>('person');
-  const [sheet, setSheet] = useState<{ open: boolean; session: number; allocation?: Allocation }>({
-    open: false,
-    session: 0,
-  });
-  const [problem, setProblem] = useState<string | null>(null);
+  // Empty means the server's default: three months back, nine ahead.
+  const [start, setStart] = useState('');
+  // `?opdracht=<id>` opens the board on one assignment, as the Bemensing tab links to it.
+  const [searchParams] = useSearchParams();
+  const onlyAssignment = searchParams.get('opdracht');
+  const [view, setView] = useState<View>(onlyAssignment ? 'assignment' : 'person');
+  const [show, setShow] = useState<Show>('all');
+  const [selected, setSelected] = useState<{ row: RowModel; column: number } | null>(null);
+  const [sheet, setSheet] = useState<SheetState>({ open: false, session: 0 });
 
-  const query = useQuery({
-    queryKey: allocationKeys.list(year),
-    queryFn: () => fetchAllocations(year),
+  const query = useQuery({ queryKey: boardKeys.board(start), queryFn: () => fetchBoard(start) });
+  // Which open roles the reader may open a vacancy for is the vacancy
+  // module's call; without that list the link is simply not offered.
+  const vacancyRoles = useQuery({
+    queryKey: VACANCY_KEYS.unfilledRoles,
+    queryFn: fetchUnfilledRoles,
+    retry: false,
   });
-  const remove = useMutation({
-    mutationFn: (id: string) => deleteAllocation(id),
-    onSuccess: () => {
-      setProblem(null);
-      void queryClient.invalidateQueries({ queryKey: allocationKeys.all });
-      void queryClient.invalidateQueries({ queryKey: ['overview'] });
-    },
-    // Removing inzet from a closed month is refused with a clear sentence.
-    onError: (error) => setProblem(errorMessage(error)),
-  });
+  const mayOpenVacancy = new Set(
+    (Array.isArray(vacancyRoles.data) ? vacancyRoles.data : []).map((role) => role.budget_line_id),
+  );
 
-  const items = query.data?.items ?? [];
-  const groups = groupAllocations(items, grouping);
-  const openSheet = (allocation?: Allocation) =>
-    setSheet((current) => ({ open: true, session: current.session + 1, allocation }));
+  // Names a category by its scales, for the few who get categories at all.
+  const rates = useRateCards();
+  const board = query.data;
+  const months = board?.months ?? [];
+  const allGroups = board ? buildGroups(board, view, show) : [];
+  const groups =
+    view === 'assignment' && onlyAssignment
+      ? allGroups.filter((group) => group.key === onlyAssignment)
+      : allGroups;
+  const rowCount = groups.reduce((count, group) => count + group.rows.length, 0);
+  // Adding needs a role to put someone on; without any, the action is not offered.
+  const options = useQuery({
+    queryKey: allocationKeys.options,
+    queryFn: fetchAllocationOptions,
+    enabled: board?.can_add === true,
+    retry: false,
+  });
+  const canAdd = (board?.can_add ?? false) && (options.data?.lines.length ?? 0) > 0;
+
+  const openSheet = (state: Omit<SheetState, 'open' | 'session'>) =>
+    setSheet((current) => ({ ...state, open: true, session: current.session + 1 }));
+
+  const editBar = (bar: PlacedBar) => {
+    if (bar.role) {
+      if (bar.role.can_fill) {
+        openSheet({
+          preset: {
+            lineId: bar.role.budget_line_id,
+            startDate: bar.role.start_date ?? '',
+            endDate: bar.role.end_date ?? '',
+          },
+        });
+      }
+      return;
+    }
+    if (bar.allocation?.can_edit) {
+      openSheet({
+        allocation: toAllocation(bar.allocation),
+        closedMonths: bar.allocation.closed_months,
+      });
+    }
+  };
+
+  const proposeNew = (row: RowModel, column: number) => {
+    const month = months[column];
+    if (!month) return;
+    openSheet({
+      preset: {
+        ...(row.person ? { personId: row.person.person_id } : {}),
+        ...(row.role ? { lineId: row.role.budget_line_id } : {}),
+        startDate: month,
+      },
+    });
+  };
+
+  const onCell = (row: RowModel, column: number, source: 'keyboard' | 'pointer') => {
+    const here = barsInColumn(row, column);
+    // An empty stretch of a row proposes a new inzet starting that month.
+    if (here.length === 0 && canAdd && source === 'pointer') {
+      proposeNew(row, column);
+      return;
+    }
+    setSelected({ row, column });
+  };
+
+  const selectedRef: CellRef | null = selected
+    ? { rowKey: selected.row.key, column: selected.column }
+    : null;
+  const selectedMonth = selected ? months[selected.column] : undefined;
+  const selectedBars = selected ? barsInColumn(selected.row, selected.column) : [];
+  const first = months[0];
+  const last = months[months.length - 1];
+  const move = (count: number) => {
+    if (!first) return;
+    setSelected(null);
+    setStart(shiftMonth(first.slice(0, 7), count));
+  };
 
   return (
     <nldd-simple-section>
       <PageHeading text="Inzet" instanceName={instance?.name} />
       <nldd-container gap="16">
-        <nldd-container layout="row" gap="12">
-          <YearFilter value={year} onChange={setYear} />
-          <InlineSelect
-            label="Groeperen"
-            value={grouping}
-            onChange={(value) => setGrouping(value === 'line' ? 'line' : 'person')}
-            options={GROUPINGS}
-            width="220px"
-          />
-          {query.data?.can_add && (
-            <Button text="Nieuwe inzet" appearance="primary" onClick={() => openSheet()} />
-          )}
-        </nldd-container>
+        <ActionBar
+          label="Inzet: weergave en periode"
+          filters={[
+            {
+              label: 'Weergave',
+              value: view,
+              onChange: (value) => {
+                setSelected(null);
+                setView(value === 'team' || value === 'assignment' ? value : 'person');
+              },
+              options: VIEWS,
+              width: '190px',
+            },
+            ...(view === 'assignment'
+              ? []
+              : [
+                  {
+                    label: 'Toon',
+                    value: show,
+                    onChange: (value: string) => {
+                      setSelected(null);
+                      setShow(value === 'room' || value === 'over' ? value : 'all');
+                    },
+                    options: SHOWS,
+                    width: '210px',
+                  },
+                ]),
+          ]}
+          actions={[
+            { text: 'Eerdere maanden', onClick: () => move(-STEP_MONTHS) },
+            { text: 'Latere maanden', onClick: () => move(STEP_MONTHS) },
+            ...(canAdd
+              ? [{ text: 'Nieuwe inzet', primary: true, onClick: () => openSheet({}) }]
+              : []),
+          ]}
+        />
         {query.isPending && <Loading />}
         {query.isError && <ErrorNotice message={errorMessage(query.error)} />}
-        {problem && <ErrorNotice message={problem} />}
-        {query.isSuccess && items.length === 0 && (
+        {board && rowCount === 0 && (
           <EmptyNotice
-            text="Er is geen inzet om te tonen"
-            supportingText={`Bedragen gaan over ${periodLabel(year)}. Je ziet je eigen inzet en die op opdrachten waar je bij betrokken bent.`}
+            text={
+              show === 'over'
+                ? 'Niemand is boven 100% ingepland'
+                : show === 'room'
+                  ? 'Niemand heeft ruimte in deze maanden'
+                  : 'Er is geen inzet om te tonen'
+            }
+            supportingText="Je ziet je eigen inzet en die op opdrachten en van mensen waar je over gaat."
           />
         )}
-        <UnfilledRoles />
-        {groups.map((group) => (
-          <GroupTable
-            key={group.key}
-            group={group}
-            grouping={grouping}
-            onEdit={openSheet}
-            onDelete={(item) => remove.mutate(item.id)}
-            deleting={remove.isPending ? remove.variables : undefined}
+        {board && rowCount > 0 && first && last && (
+          <RouterLinks>
+            <Timeline
+              label={`Inzet van ${formatMonth(first)} t/m ${formatMonth(last)}`}
+              rowHeader={view === 'assignment' ? 'Opdracht en rol' : 'Persoon'}
+              months={months}
+              currentMonth={board.current_month}
+              groups={toTimeline(groups, months, board.current_month, (row) =>
+                row.role && mayOpenVacancy.has(row.role.budget_line_id)
+                  ? { href: newVacancyPath(row.role.budget_line_id), text: 'Open een vacature' }
+                  : null,
+                rates.name,
+              )}
+              selected={selectedRef}
+              onBar={(bar) => editBar(bar.data)}
+              onCell={(row, column, source) => onCell(row.data, column, source)}
+              legend={['filled', 'established', 'tentative', 'open', 'unavailable', 'over', 'mismatch']}
+            />
+          </RouterLinks>
+        )}
+        {selected && selectedMonth && (
+          <CellPanel
+            cellKey={`${selected.row.key}-${selected.column}`}
+            title={`${selected.row.label}, ${formatMonth(selectedMonth)}`}
+            summary={
+              describeCell(selected.row, selected.column, selectedMonth, board?.current_month ?? '')
+                .split('; ')[0] ?? ''
+            }
+            items={selectedBars.map((bar) => {
+              const editable = bar.role ? bar.role.can_fill : bar.allocation?.can_edit;
+              return {
+                key: bar.key,
+                text: describeBar(bar, rates.name),
+                ...(editable
+                  ? { action: { text: bar.role ? 'Vul in' : 'Bewerk', onClick: () => editBar(bar) } }
+                  : {}),
+              };
+            })}
+            {...(canAdd && selected.row.kind !== 'line'
+              ? {
+                  action: {
+                    text: `Nieuwe inzet vanaf ${formatMonth(selectedMonth)}`,
+                    onClick: () => proposeNew(selected.row, selected.column),
+                  },
+                }
+              : {})}
           />
-        ))}
+        )}
       </nldd-container>
       <AllocationSheet
         open={sheet.open}
         session={sheet.session}
         allocation={sheet.allocation}
+        preset={sheet.preset}
+        closedMonths={sheet.closedMonths}
         onClose={() => setSheet((current) => ({ ...current, open: false }))}
       />
     </nldd-simple-section>

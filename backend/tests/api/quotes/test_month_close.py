@@ -5,12 +5,22 @@ import io
 from datetime import date
 from decimal import Decimal
 
+import pytest
+
+from tests.lifecycle import accept
+
 # 80 percent in category D: 0.8 x 18,000.
 PLANNED_CENTS = 1_440_000
 
 
 def _base(world) -> str:
     return f"/api/assignments/{world.assignment.id}"
+
+
+@pytest.fixture(autouse=True)
+async def _accepted(world, db_session):
+    """Months close and billing data exists only from an agreement on."""
+    await accept(db_session, world.assignment.id)
 
 
 async def test_timeline_lists_every_month(act_as, world):

@@ -3,7 +3,10 @@
 Every provider answers for one peer and one pull operation. It first asks
 the access model what this peer may read; what it may not read is not in the
 answer, and an assignment it has no relation with is "not found". Answers
-are built in code names; the route translates and validates them.
+are built in code names; the route translates and validates them. A status
+goes out as the other organisation should see it: a status that only this
+side knows (a verbal agreement) reads as the one before it, so nothing the
+contract does not know ever leaves.
 
 Data classes: a client gets class A and, only when the contract with it
 covers financial inspection, class B. It never gets names. A parent instance
@@ -42,7 +45,9 @@ from grip.repositories.domain import (
     MonthCloseRepository,
 )
 from grip.services import month_close, pricing
+from grip.services.assignments import is_shared_with
 from grip.services.errors import DomainError
+from grip.services.phase import counterparty_status
 
 CURRENCY = "EUR"
 Answer = dict[str, Any] | None
@@ -106,7 +111,9 @@ async def _readable(
     db: AsyncSession, access: PeerAccess, peer: Peer, assignment_id: UUID
 ) -> Assignment | None:
     assignment = await _assignment_by_id(db, assignment_id)
-    if assignment is None:
+    # A client reads what was exchanged with it. An assignment that names it
+    # as client but was never shared with its instance is not there for it.
+    if assignment is None or not is_shared_with(assignment, peer.base_uri):
         return None
     resource = Resource.assignment(assignment.id)
     if not await access.reads(resource, DataClass.ASSIGNMENT_BASIC, pull_context(peer)):
@@ -120,7 +127,7 @@ async def _assignment_body(db: AsyncSession, assignment: Assignment) -> dict[str
         "uri": assignment.uri,
         "name": assignment.name,
         "kind": assignment.kind,
-        "status": assignment.status,
+        "status": counterparty_status(assignment.status),
         "context_refs": list(assignment.context_refs or []),
         "parent_assignment_uri": assignment.parent_assignment_uri,
     }
@@ -176,7 +183,7 @@ async def get_progress(
         return None
     return {
         "assignment_uri": assignment.uri,
-        "status": assignment.status,
+        "status": counterparty_status(assignment.status),
         "as_of": _today(),
     }
 

@@ -149,7 +149,13 @@ async def test_month_without_rate_card_is_an_error(
 
 
 async def test_closed_months_count_established_open_months_planned(
-    db_session, rate_cards, beheerder, make_person, make_assignment, add_personnel_line
+    db_session,
+    rate_cards,
+    beheerder,
+    make_person,
+    make_assignment,
+    add_personnel_line,
+    accept,
 ):
     person = await make_person(14)
     assignment = await make_assignment()
@@ -163,6 +169,8 @@ async def test_closed_months_count_established_open_months_planned(
         fte_pct=Decimal(100),
         actor=beheerder,
     )
+
+    await accept(assignment)
 
     # January as planned, February established at 50 percent.
     await month_close.close_month(

@@ -49,7 +49,7 @@ export function LoginPage() {
       <nldd-page landmarks="page">
         <nldd-simple-section width="400px" vertical-alignment="center">
           <nldd-container gap="24">
-            <PageHeading text={`Inloggen bij ${instanceName}`} instanceName={instance?.name} />
+            <PageHeading text={`Inloggen bij ${instanceName}`} instanceName={instance?.name} inline />
 
             {loginFailed(location.state) && (
               <nldd-banner

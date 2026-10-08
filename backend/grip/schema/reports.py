@@ -16,6 +16,7 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from grip.access import DataClass, in_class, nested
+from grip.schema.finance import FiguresOut
 from grip.schema.kpi import KpiOut
 from grip.schema.overview import TotalsOut
 
@@ -148,8 +149,10 @@ class TurnoverMonthOut(BaseModel):
     month: Annotated[str, B]
     # Closed months, at the established inzet.
     realised_cents: Annotated[int, B]
-    # Open months of agreed assignments, at the planned inzet.
+    # Open months of assignments agreed formally or verbally, planned inzet.
     forecast_cents: Annotated[int, B]
+    # The part of the forecast that rests on a verbal agreement only.
+    verbal_cents: Annotated[int, B]
     # Open months of assignments that are not agreed yet.
     pipeline_cents: Annotated[int, B]
 
@@ -160,7 +163,14 @@ class TurnoverOut(BaseModel):
     months: Annotated[list[TurnoverMonthOut], nested()]
     realised_cents: Annotated[int, B]
     forecast_cents: Annotated[int, B]
+    verbal_cents: Annotated[int, B]
     pipeline_cents: Annotated[int, B]
+    # Realised plus forecast: what the year is expected to bring.
+    expected_cents: Annotated[int, B]
+    # The year in the words of the assignment pages, over the assignments
+    # that are agreed formally or verbally: budgeted, realised, planned,
+    # costs, expected total, variance and the share realised.
+    figures: Annotated[FiguresOut, nested()]
     # Assignments left out because their inzet could not be priced.
     unpriced_assignments: Annotated[list[str], B]
 
@@ -168,7 +178,11 @@ class TurnoverOut(BaseModel):
 class OccupancyMonthOut(BaseModel):
     month: Annotated[str, COUNTS]
     allocated_fte: Annotated[Decimal, COUNTS]
+    # The tentative part of what is allocated: inzet on potential assignments.
+    tentative_fte: Annotated[Decimal, COUNTS]
     available_fte: Annotated[Decimal, COUNTS]
+    # Room left, with nobody's overbooking set off against it.
+    free_fte: Annotated[Decimal, COUNTS]
     # Null in a month without anyone available.
     pct: Annotated[Decimal | None, COUNTS]
     under: Annotated[int, COUNTS]
@@ -176,19 +190,72 @@ class OccupancyMonthOut(BaseModel):
     over: Annotated[int, COUNTS]
 
 
+class OccupancySummaryOut(BaseModel):
+    """The figures on top, over the persons in the block and no one else."""
+
+    person_count: Annotated[int, COUNTS]
+    average_pct: Annotated[Decimal | None, COUNTS]
+    # Persons above 100 percent in some month of the year, and which months.
+    over_count: Annotated[int, COUNTS]
+    over_months: Annotated[list[str], COUNTS]
+    # Today's month, whatever year is on screen.
+    current_month: Annotated[str, COUNTS]
+    # This month and the three after it.
+    window: Annotated[list[OccupancyMonthOut], nested()]
+    # Available in the coming three months without any inzet in them.
+    idle_count: Annotated[int, COUNTS]
+
+
+class OccupancyPartOut(BaseModel):
+    """What one assignment takes of a person in a month.
+
+    The percentage is staffing (class C of the person). Which assignment it
+    is, is class A of that assignment: a reader who may not see the
+    assignment gets the part without its name.
+    """
+
+    assignment_id: Annotated[UUID, A]
+    assignment_name: Annotated[str, A]
+    pct: Annotated[Decimal, C]
+    tentative: Annotated[bool, C]
+    verbally_agreed: Annotated[bool, C]
+    established: Annotated[bool, C]
+
+
+class OccupancyCellOut(BaseModel):
+    month: Annotated[str, C]
+    # False in a month the person could not be deployed.
+    available: Annotated[bool, C]
+    pct: Annotated[Decimal, C]
+    tentative_pct: Annotated[Decimal, C]
+    # Everything in the cell comes from closed months.
+    established: Annotated[bool, C]
+    parts: Annotated[list[OccupancyPartOut], nested()]
+
+
 class PersonOccupancyOut(BaseModel):
     person_id: Annotated[UUID, ROSTER]
     person_name: Annotated[str, ROSTER]
-    # Twelve values; null in a month the person was not available.
-    months: Annotated[list[Decimal | None], C]
+    # Mean over the months the person was available.
     average_pct: Annotated[Decimal | None, C]
+    over_months: Annotated[list[str], C]
+    cells: Annotated[list[OccupancyCellOut], nested()]
+
+
+class NotDeployableOut(BaseModel):
+    person_id: Annotated[UUID, ROSTER]
+    person_name: Annotated[str, ROSTER]
 
 
 class OccupancyOut(BaseModel):
     # all: everyone available for inzet. own: the persons the reader may see.
     scope: Annotated[str, COUNTS]
+    summary: Annotated[OccupancySummaryOut, nested()]
     months: Annotated[list[OccupancyMonthOut], nested()]
     persons: Annotated[list[PersonOccupancyOut], nested()]
+    # Active persons the reader may see who are no row: no billing scale and
+    # no inzet in the year.
+    not_deployable: Annotated[list[NotDeployableOut], nested()]
 
 
 class PipelineStatusOut(BaseModel):
@@ -241,6 +308,12 @@ class BillabilityOut(BaseModel):
     target_cents: Annotated[int, F]
     realised_cents: Annotated[int, F]
     forecast_cents: Annotated[int, F]
+    # Realised plus forecast.
+    realisation_cents: Annotated[int, F]
+    # Of the persons listed: how many have a target, and how many of those
+    # are expected to end the year below it.
+    with_target_count: Annotated[int, F]
+    below_target_count: Annotated[int, F]
 
 
 class OpenRoleOut(BaseModel):
@@ -277,9 +350,14 @@ class YearAccountRowOut(BaseModel):
     realised_cents: Annotated[int | None, B]
     forecast_cents: Annotated[int | None, B]
     costs_cents: Annotated[int | None, B]
-    billed_cents: Annotated[int, B]
-    # Realised and not yet in a billing export.
-    to_bill_cents: Annotated[int | None, B]
+    # Billing data delivered to the financial administration. Not invoiced:
+    # grip only knows of an invoice once one is recorded.
+    delivered_cents: Annotated[int, B]
+    # Established and not yet in a billing export.
+    to_deliver_cents: Annotated[int | None, B]
+    # An invoice recorded as sent, and what was delivered without one.
+    invoiced_cents: Annotated[int, B]
+    to_invoice_cents: Annotated[int, B]
     # Agreed minus realised.
     difference_cents: Annotated[int | None, B]
     pricing_error: Annotated[str | None, B]
@@ -293,8 +371,10 @@ class YearAccountTotalsOut(BaseModel):
     realised_cents: Annotated[int, B]
     forecast_cents: Annotated[int, B]
     costs_cents: Annotated[int, B]
-    billed_cents: Annotated[int, B]
-    to_bill_cents: Annotated[int, B]
+    delivered_cents: Annotated[int, B]
+    to_deliver_cents: Annotated[int, B]
+    invoiced_cents: Annotated[int, B]
+    to_invoice_cents: Annotated[int, B]
 
 
 class YearAccountOut(BaseModel):

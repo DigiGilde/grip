@@ -9,7 +9,7 @@ export function PlaceholderPage({ title }: { title: string }) {
       <PageHeading text={title} instanceName={instance?.name} />
       <nldd-inline-dialog
         text="Dit scherm is nog niet beschikbaar"
-        supporting-text="Dit onderdeel wordt nog gebouwd."
+        supporting-text="We bouwen er nog aan."
       />
     </nldd-simple-section>
   );

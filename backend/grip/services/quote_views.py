@@ -63,6 +63,11 @@ async def _names(session: AsyncSession, person_ids: set[UUID]) -> dict[UUID, str
     return {row.id: row.name for row in result}
 
 
+async def person_names(session: AsyncSession, person_ids: set[UUID]) -> dict[UUID, str]:
+    """Names of persons by id, for showing who did something."""
+    return await _names(session, person_ids)
+
+
 async def _bundles(session: AsyncSession, quote_list: list[Quote]) -> list[QuoteBundle]:
     ids = [q.id for q in quote_list]
     acceptances: dict[UUID, QuoteAcceptance] = {}
@@ -236,7 +241,7 @@ async def accept_with_uploaded_pdf(
         content_type=content_type,
         actor=actor,
     )
-    return await quotes.accept_quote(
+    acceptance = await quotes.accept_quote(
         session,
         quote_id,
         quote_hash=quote.snapshot_hash,
@@ -250,6 +255,12 @@ async def accept_with_uploaded_pdf(
         document_sha256=document.sha256,
         document_ref=stored_documents.document_ref(document.id),
     )
+    # The file belongs to this acceptance; access to it follows the quote.
+    stored_documents.assign_owner(
+        document, stored_documents.SIGNED_QUOTE, acceptance.id
+    )
+    await session.flush()
+    return acceptance
 
 
 async def accept_via_signing_link(

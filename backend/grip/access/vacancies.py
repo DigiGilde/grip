@@ -31,6 +31,8 @@ Who gets what:
   editing.
 - Form templates and the configuration of the language model: beheerder
   only, for every action.
+- The function families and groups of the Functiegebouw Rijk: read by every
+  person of the instance; corrected, added to and reloaded by the beheerder.
 - Guests and peers get nothing here. What goes to another instance about a
   vacancy leaves through the federation module, not through these rules.
 
@@ -60,7 +62,12 @@ from grip.access.types import (
 )
 
 KINDS = frozenset(
-    {ResourceKind.VACANCY, ResourceKind.FORM_TEMPLATE, ResourceKind.LANGUAGE_MODEL}
+    {
+        ResourceKind.VACANCY,
+        ResourceKind.FORM_TEMPLATE,
+        ResourceKind.LANGUAGE_MODEL,
+        ResourceKind.FUNCTION_FRAMEWORK,
+    }
 )
 
 # Function ids, the same as in grip.access.decider (which imports this
@@ -121,6 +128,10 @@ def language_model_resource() -> Resource:
     return Resource(ResourceKind.LANGUAGE_MODEL)
 
 
+def function_framework_resource() -> Resource:
+    return Resource(ResourceKind.FUNCTION_FRAMEWORK)
+
+
 async def evaluate(relations: RelationSource, req: AccessRequest) -> Decision:
     """Decide a request about a vacancy, a form template or the model."""
     if req.subject.kind is not SubjectKind.PERSON:
@@ -129,6 +140,13 @@ async def evaluate(relations: RelationSource, req: AccessRequest) -> Decision:
         return deny("no_identity")
     functions = req.subject.functions
 
+    if (
+        req.resource.kind is ResourceKind.FUNCTION_FRAMEWORK
+        and req.action is Action.READ
+        and req.data_class is DataClass.MASTER_DATA
+    ):
+        # The list of function groups is public information.
+        return allow("active_person")
     if req.resource.kind is not ResourceKind.VACANCY:
         if _BEHEERDER in functions:
             return allow("function:beheerder")

@@ -31,6 +31,8 @@ class AssignmentPermissionsOut(BaseModel):
     edit_staffing: Annotated[bool, in_class(A)]
     read_financial: Annotated[bool, in_class(A)]
     read_staffing: Annotated[bool, in_class(A)]
+    # Who is on the team, by name and role: what a team member may see.
+    read_roster: Annotated[bool, in_class(A)]
 
 
 class AssignmentSummaryOut(BaseModel):
@@ -38,14 +40,25 @@ class AssignmentSummaryOut(BaseModel):
     uri: Annotated[str, in_class(A)]
     name: Annotated[str, in_class(A)]
     kind: Annotated[str, in_class(A)]
-    traffic_form: Annotated[str, in_class(A)]
     status: Annotated[str, in_class(A)]
+    # potential, active or closed; derived from the status, never stored.
+    phase: Annotated[str, in_class(A)]
+    # The day the assignment got its current status.
+    status_since: Annotated[date | None, in_class(A)]
+    # When the assignment was shared with the grip instance of the client;
+    # null when it was not.
+    shared_with_client_at: Annotated[date | None, in_class(A)]
     client_organisation_id: Annotated[UUID | None, in_class(A)]
     client_name: Annotated[str | None, in_class(A)]
     start_date: Annotated[date | None, in_class(A)]
     end_date: Annotated[date | None, in_class(A)]
     owner_name: Annotated[str | None, in_class(A)]
     quoted_amount_cents: Annotated[int | None, in_class(B)]
+    # What a potential assignment may be worth: the total of the latest
+    # quote, or the budget while there is no quote. Null for other phases.
+    pipeline_amount_cents: Annotated[int | None, in_class(B)]
+    # "quote" or "budget"; null when there is no amount.
+    pipeline_amount_source: Annotated[str | None, in_class(B)]
 
 
 class AssignmentListOut(BaseModel):
@@ -61,6 +74,9 @@ class AssignmentDetailOut(AssignmentSummaryOut):
     client_contact: Annotated[str | None, in_class(A)]
     quote_date: Annotated[date | None, in_class(A)]
     notes: Annotated[str | None, in_class(A)]
+    # What was agreed verbally and when; null without a verbal agreement.
+    verbal_agreement_note: Annotated[str | None, in_class(A)]
+    verbal_agreement_at: Annotated[date | None, in_class(A)]
     roles: Annotated[list[RoleHolderOut], nested()]
     allowed_transitions: Annotated[list[str], in_class(A)]
     permissions: Annotated[AssignmentPermissionsOut, nested()]
@@ -69,7 +85,6 @@ class AssignmentDetailOut(AssignmentSummaryOut):
 class AssignmentCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     kind: str = "external"
-    traffic_form: str = "none"
     client_organisation_id: UUID | None = None
     client_contact: str | None = Field(default=None, max_length=255)
     start_date: date | None = None
@@ -84,7 +99,6 @@ class AssignmentUpdate(BaseModel):
 
     name: str | None = Field(default=None, min_length=1, max_length=255)
     kind: str | None = None
-    traffic_form: str | None = None
     client_organisation_id: UUID | None = None
     client_contact: str | None = Field(default=None, max_length=255)
     start_date: date | None = None

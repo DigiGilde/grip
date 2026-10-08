@@ -4,7 +4,8 @@ import { assignmentKeys, fetchPersonOptions } from '@/features/assignments/api';
 import { formatDate } from '@/lib/format';
 import { recordDecision, type Decision, type DecisionInput, type DecisionKind, type Vacancy } from './api';
 import { todayIso, useVacancyChange } from './hooks';
-import { Button, DateInput, FormSheet, Note, SectionHeading, SelectInput, TextInput } from './ui';
+import { Button, DateInput, Note, SelectInput, TextInput } from './ui';
+import { FormSheet, SectionHeading } from '@/ui/layout';
 
 const KINDS: { kind: DecisionKind; label: string; who: string }[] = [
   { kind: 'hr_advice', label: 'Advies HR', who: 'HR-adviseur' },

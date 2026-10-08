@@ -1,0 +1,391 @@
+/*
+ * The timeline: rows over months with bars (ui/timeline/Timeline.tsx).
+ * First built as the planner's board, hence the class prefix. Colours and conventions follow the occupancy heat map
+ * of the reports (features/reports/occupancy/scale.ts and reports.css), so
+ * the two views speak one visual language: one hue for inzet (lintblauw),
+ * above 100 percent is a state (rood-600, bold, a mark) and not a colour
+ * step, tentative is stripes, established is a darker stretch and a dot,
+ * not deployable is hatched. The steps were validated there against both
+ * surfaces; text on lintblauw-600 and -750 is neutral-0 at 4.6:1 or better.
+ */
+.grip-board {
+  --board-fill: var(--primitives-color-lintblauw-600);
+  --board-established: var(--primitives-color-lintblauw-750);
+  --board-over: var(--primitives-color-rood-600);
+  --board-over-text: var(--primitives-color-critical-700);
+  --board-ink: var(--primitives-color-neutral-950);
+  --board-inverse: var(--primitives-color-neutral-0);
+  --board-muted: var(--primitives-color-neutral-650);
+  --board-line: var(--primitives-color-neutral-150);
+  --board-band: var(--primitives-color-neutral-50);
+  --board-hatch: var(--primitives-color-neutral-400);
+  --board-surface: var(--semantics-surfaces-base-background-color);
+  --board-column: 72px;
+  --board-name: 15rem;
+  --board-lane: 24px;
+  --board-total: 20px;
+}
+
+/* The board scrolls inside its box; the page never scrolls sideways. */
+.grip-board__scroll {
+  overflow-x: auto;
+  max-width: 100%;
+  border: 1px solid var(--board-line);
+  border-radius: 8px;
+  background: var(--board-surface);
+}
+
+.grip-board__table {
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+  width: calc(var(--board-name) + var(--months, 12) * var(--board-column));
+  font-size: 0.875rem;
+  color: var(--board-ink);
+}
+
+.grip-board__table th,
+.grip-board__table td {
+  /* Border-box, so a column is exactly --board-column wide and a bar that
+     spans n months is exactly n columns long. */
+  box-sizing: border-box;
+  padding: 0;
+  font-weight: 400;
+  text-align: left;
+  vertical-align: top;
+}
+
+.grip-board__table thead th {
+  padding: 8px 6px 6px;
+  font-size: 0.8125rem;
+  color: var(--board-muted);
+  border-bottom: 1px solid var(--board-line);
+  vertical-align: bottom;
+  white-space: nowrap;
+  width: var(--board-column);
+  min-width: var(--board-column);
+}
+
+/* The first column stays in view while the months scroll under it. */
+.grip-board__table th[scope='row'],
+.grip-board__table thead th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  width: var(--board-name);
+  min-width: var(--board-name);
+  max-width: var(--board-name);
+  background: var(--board-surface);
+  box-shadow: 1px 0 0 var(--board-line);
+}
+
+.grip-board__table th[scope='row'] {
+  padding: 6px 12px 8px;
+  border-bottom: 1px solid var(--board-line);
+}
+
+/* Quiet row labels: the bars are the main visual, not the names. */
+.grip-board__name {
+  display: block;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.grip-board__figure {
+  margin-left: 6px;
+  font-size: 0.75rem;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  color: var(--board-muted);
+}
+
+.grip-board__closed-tag {
+  display: block;
+  font-size: 0.625rem;
+  font-weight: 400;
+  color: var(--board-muted);
+}
+
+.grip-board__summary,
+.grip-board__attention {
+  display: block;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--board-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.grip-board__attention {
+  font-weight: 700;
+  color: var(--board-over-text);
+}
+
+.grip-board__row-link {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.75rem;
+}
+
+/* A group of rows: a quiet label, not a second page title. */
+.grip-board__group th {
+  position: sticky;
+  left: 0;
+  padding: 10px 12px 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--board-muted);
+  background: var(--board-surface);
+  border-bottom: 1px solid var(--board-line);
+}
+
+.grip-board__table td {
+  position: relative;
+  width: var(--board-column);
+  min-width: var(--board-column);
+  height: calc(var(--board-total) + var(--lanes, 1) * var(--board-lane) + 8px);
+  border-bottom: 1px solid var(--board-line);
+  border-left: 1px solid var(--board-line);
+  cursor: default;
+}
+
+.grip-board__table td[data-actionable] {
+  cursor: pointer;
+}
+
+/* The current month: a band down the board and a word in the header. */
+.grip-board__table td.grip-board__now,
+.grip-board__table thead th.grip-board__now {
+  background: var(--board-band);
+}
+
+.grip-board__table thead th.grip-board__now {
+  color: var(--board-ink);
+  font-weight: 700;
+}
+
+.grip-board__now-tag {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.grip-board__year {
+  display: block;
+  font-size: 0.6875rem;
+}
+
+.grip-board__table td[data-state='unavailable'] {
+  background: repeating-linear-gradient(135deg, var(--board-hatch) 0 1px, transparent 1px 6px);
+}
+
+/* The total of a month: a quiet figure, loud only when it needs attention. */
+.grip-board__total {
+  display: block;
+  height: var(--board-total);
+  padding: 4px 6px 0;
+  font-size: 0.6875rem;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  color: var(--board-muted);
+}
+
+.grip-board__total[data-state='room'] {
+  color: var(--board-ink);
+  font-weight: 600;
+}
+
+.grip-board__total[data-state='over'] {
+  color: var(--board-over-text);
+  font-weight: 700;
+  font-size: 0.75rem;
+}
+
+.grip-board__dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-right: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  vertical-align: middle;
+}
+
+/* A bar: one allocation from its first to its last month. It sits in the
+   cell of its first month and runs over the cells after it. */
+.grip-board__bar {
+  position: absolute;
+  z-index: 1;
+  left: 2px;
+  top: calc(var(--board-total) + var(--lane) * var(--board-lane) + 2px);
+  width: calc(var(--span) * var(--board-column) - 4px);
+  height: calc(var(--board-lane) - 4px);
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+  background: var(--board-fill);
+  color: var(--board-inverse);
+  font-size: 0.75rem;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  cursor: pointer;
+  forced-color-adjust: none;
+}
+
+.grip-board__bar[data-clipped-start] {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.grip-board__bar[data-clipped-end] {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.grip-board__bar-label {
+  position: relative;
+  padding-inline: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Established months: the darker stretch at the start of the bar. */
+.grip-board__bar-closed {
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: calc(var(--closed) * var(--board-column) - 2px);
+  background: var(--board-established);
+}
+
+/* Tentative: an outline with stripes instead of a fill. */
+.grip-board__bar[data-tentative] {
+  background:
+    repeating-linear-gradient(45deg, transparent 0 4px, var(--board-line) 4px 6px),
+    var(--board-surface);
+  color: var(--board-ink);
+  box-shadow: inset 0 0 0 1.5px var(--board-fill);
+}
+
+/* An open role: demand nobody fills yet. A dashed outline, no fill. */
+.grip-board__bar[data-open] {
+  background: var(--board-surface);
+  color: var(--board-ink);
+  font-weight: 600;
+  box-shadow: none;
+  border: 1.5px dashed var(--board-ink);
+}
+
+/* What a row asks: a frame behind its bars, over the months it is needed.
+   Empty space inside the frame is demand nobody fills. */
+.grip-board__bar[data-demand] {
+  z-index: 0;
+  top: calc(var(--board-total) + 1px);
+  height: calc(var(--lanes, 1) * var(--board-lane) + 2px);
+  background: var(--board-band);
+  box-shadow: inset 0 0 0 1px var(--board-muted);
+  border-radius: 6px;
+  cursor: default;
+  pointer-events: none;
+}
+
+.grip-board__bar[data-demand]:hover {
+  outline: none;
+}
+
+.grip-board__bar:hover {
+  outline: 2px solid var(--board-ink);
+  outline-offset: 1px;
+}
+
+.grip-board__table td:focus-visible {
+  outline: 3px solid var(--primitives-color-accent-600);
+  outline-offset: -3px;
+}
+
+.grip-board__table td[aria-selected='true'] {
+  box-shadow: inset 0 0 0 2px var(--board-ink);
+}
+
+/* The legend: the same marks as on the board, each with its word. */
+.grip-board__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.75rem;
+  color: var(--board-muted);
+}
+
+.grip-board__legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.grip-board__swatch {
+  position: relative;
+  display: inline-block;
+  width: 28px;
+  height: 14px;
+  border-radius: 3px;
+  background: var(--board-fill);
+  forced-color-adjust: none;
+}
+
+.grip-board__swatch[data-kind='established'] {
+  background: var(--board-established);
+}
+
+.grip-board__swatch[data-kind='tentative'] {
+  background:
+    repeating-linear-gradient(45deg, transparent 0 4px, var(--board-line) 4px 6px),
+    var(--board-surface);
+  box-shadow: inset 0 0 0 1.5px var(--board-fill);
+}
+
+.grip-board__swatch[data-kind='open'] {
+  background: var(--board-surface);
+  border: 1.5px dashed var(--board-ink);
+}
+
+.grip-board__swatch[data-kind='demand'] {
+  background: var(--board-band);
+  box-shadow: inset 0 0 0 1px var(--board-muted);
+}
+
+.grip-board__swatch[data-kind='unavailable'] {
+  background: repeating-linear-gradient(135deg, var(--board-hatch) 0 1px, transparent 1px 6px);
+  box-shadow: inset 0 0 0 1px var(--board-line);
+}
+
+.grip-board__legend-over {
+  font-weight: 700;
+  color: var(--board-over-text);
+}
+
+.grip-board__sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}

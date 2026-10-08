@@ -87,12 +87,16 @@ const CLOSED_MONTH = {
   established_total_cents: 1080000,
 };
 
+// A reader without the financial class: no amounts, months or invoices.
+const NO_BILLING = { assignment_id: 'a-1', year: null, billable: true, may_record_invoice: false };
+
 afterEach(() => vi.unstubAllGlobals());
 
 function renderMonths(replies: Record<string, unknown>, path = '/opdrachten/a-1/maandafsluiting') {
   const api = mockApi({
     '/api/assignments/a-1/months': TIMELINE,
     '/api/assignments/a-1/billing-exports': { exports: [] },
+    '/api/assignments/a-1/billing-status': NO_BILLING,
     ...replies,
   });
   const view = renderApp(
@@ -196,7 +200,7 @@ describe('MonthClosePage', () => {
     expect(texts(container, 'nldd-button')).not.toContain('Sluit maand af');
     // Not a beheerder: no way to reopen.
     expect(texts(container, 'nldd-button')).not.toContain('Heropen maand');
-    expect(texts(container, 'nldd-button')).toContain('Maak export');
+    expect(texts(container, 'nldd-button')).toContain('Lever factuurgegevens aan');
   });
 
   it('draws no column for what the reader may not see', async () => {
