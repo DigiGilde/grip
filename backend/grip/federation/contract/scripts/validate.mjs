@@ -28,28 +28,28 @@ for (const file of listJson('examples/invalid')) {
   if (validate(readJson(`examples/invalid/${file}`))) fail(`examples/invalid/${file}: expected to be rejected, but it is valid`);
 }
 for (const name of Object.keys(schemas)) {
-  if (name !== 'vocabulary' && !covered.has(name)) fail(`schemas/${name}.schema.json: no valid example`);
+  if (name !== 'woordenlijst' && !covered.has(name)) fail(`schemas/${name}.schema.json: no valid example`);
 }
 
 // The generated core vocabulary follows the vocabulary schema and matches the enums in node and edge.
 const kern = readJson('vocabulaire/kern.json');
-const validateVocabulary = validatorFor('vocabulary');
+const validateVocabulary = validatorFor('woordenlijst');
 if (!validateVocabulary(kern)) fail(`vocabulaire/kern.json: ${ajv.errorsText(validateVocabulary.errors)}`);
 const sameSet = (a, b) => a.length === b.length && a.every((item) => b.includes(item));
 const coreEnum = (schema) => schema.properties.type.anyOf.find((option) => option.enum).enum;
-if (!sameSet(coreEnum(schemas.node), kern.node_types.map((type) => type.id))) fail('node.schema.json: type enum differs from the core node types');
-if (!sameSet(coreEnum(schemas.edge), kern.edge_types.map((type) => type.id))) fail('edge.schema.json: type enum differs from the core edge types');
+if (!sameSet(coreEnum(schemas.node), kern.node_typen.map((type) => type.id))) fail('node.schema.json: type enum differs from the core node types');
+if (!sameSet(coreEnum(schemas.edge), kern.edge_typen.map((type) => type.id))) fail('edge.schema.json: type enum differs from the core edge types');
 
 // A quote hash is the SHA-256 of the canonical snapshot.
-for (const file of listJson('examples/valid').filter((name) => schemaOf(name) === 'quote')) {
+for (const file of listJson('examples/valid').filter((name) => schemaOf(name) === 'offerte')) {
   const quote = readJson(`examples/valid/${file}`);
-  if (sha256Hex(canonicalize(quote.snapshot)) !== quote.snapshot_hash) fail(`examples/valid/${file}: snapshot_hash does not match the snapshot`);
+  if (sha256Hex(canonicalize(quote.momentopname)) !== quote.momentopname_hash) fail(`examples/valid/${file}: momentopname_hash does not match the momentopname`);
 }
 
 // An acceptance JWS verifies against the example key set and signs exactly the acceptance fields.
-const SIGNED_FIELDS = ['id', 'quote_id', 'quote_hash', 'signer', 'organisation', 'signed_at', 'form'];
+const SIGNED_FIELDS = ['id', 'offerte_id', 'offerte_hash', 'ondertekenaar', 'organisatie', 'getekend_op', 'vorm'];
 const jwks = readJson('examples/valid/jwks.json');
-for (const file of listJson('examples/valid').filter((name) => schemaOf(name) === 'acceptance')) {
+for (const file of listJson('examples/valid').filter((name) => schemaOf(name) === 'akkoord')) {
   const acceptance = readJson(`examples/valid/${file}`);
   if (!acceptance.jws) continue;
   const [header, payload, signature] = acceptance.jws.split('.');

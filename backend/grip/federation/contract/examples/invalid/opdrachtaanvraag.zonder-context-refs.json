@@ -1,0 +1,29 @@
+{
+  "id": "1a2b3c4d-0000-4000-8000-000000000001",
+  "opdracht_uri": "https://grip.opdrachtgever.example/id/opdracht/3f2a8c54-6d1b-4f0e-9a77-1c2b3d4e5f60",
+  "naam": "Opdracht Alfa",
+  "omschrijving": "Fictieve aanvraag.",
+  "opdrachtgever": {
+    "tooi_uri": "https://identifier.overheid.nl/tooi/id/ministerie/mnre0000",
+    "naam": "Voorbeeldministerie",
+    "eenheid_kenmerk": "directie-voorbeeld",
+    "instantie_uri": "https://grip.opdrachtgever.example"
+  },
+  "opdrachtnemer": {
+    "tooi_uri": "https://identifier.overheid.nl/tooi/id/oorg/oorg00000",
+    "naam": "Voorbeelddienst",
+    "eenheid_kenmerk": "voorbeeldgilde",
+    "instantie_uri": "https://grip.opdrachtnemer.example"
+  },
+  "gewenste_periode": {
+    "begindatum": "2026-07-01",
+    "einddatum": "2027-06-30"
+  },
+  "budgetindicatie": {
+    "bedrag_centen": 125000000,
+    "valuta": "EUR"
+  },
+  "bovenliggende_opdracht_uri": null,
+  "contact_email": "opdrachten@opdrachtgever.example",
+  "verzonden_op": "2026-05-20T09:15:00+02:00"
+}

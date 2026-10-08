@@ -1,0 +1,19 @@
+{
+  "opdracht_uri": "https://grip.opdrachtgever.example/id/opdracht/3f2a8c54-6d1b-4f0e-9a77-1c2b3d4e5f60",
+  "maand": "2026-13",
+  "grondslag": "werkelijke_inzet",
+  "regels": [
+    {
+      "omschrijving": "Productmanager, 0,8 FTE",
+      "bedrag": {
+        "bedrag_centen": 1440000,
+        "valuta": "EUR"
+      }
+    }
+  ],
+  "totaal": {
+    "bedrag_centen": 1440000,
+    "valuta": "EUR"
+  },
+  "afgesloten_op": "2026-08-03T09:00:00+02:00"
+}

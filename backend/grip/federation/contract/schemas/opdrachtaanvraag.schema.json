@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Aanvraag",
+  "description": "Aanvraag van een opdrachtgever aan een opdrachtnemer, met de context als node-URIs.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Id van dit bericht. Bepaalt de idempotentie."
+    },
+    "opdracht_uri": {
+      "type": "string",
+      "format": "uri",
+      "description": "URI van de opdracht, uitgegeven door de opdrachtgever."
+    },
+    "naam": {
+      "type": "string",
+      "description": "Naam van de gevraagde opdracht."
+    },
+    "omschrijving": {
+      "type": "string",
+      "description": "Wat er gevraagd wordt."
+    },
+    "opdrachtgever": {
+      "$ref": "#/$defs/partij"
+    },
+    "opdrachtnemer": {
+      "$ref": "#/$defs/partij"
+    },
+    "context_uris": {
+      "type": "array",
+      "description": "URIs van de nodes waar de aanvraag uit voortkomt. Mag leeg zijn.",
+      "items": {
+        "type": "string",
+        "format": "uri"
+      },
+      "uniqueItems": true
+    },
+    "gewenste_periode": {
+      "$ref": "periode.schema.json"
+    },
+    "budgetindicatie": {
+      "$ref": "bedrag.schema.json"
+    },
+    "bovenliggende_opdracht_uri": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "uri",
+          "description": "URI van de bovenliggende opdracht bij doorzetten in een keten."
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "contact_email": {
+      "type": "string",
+      "format": "email",
+      "description": "Functioneel e-mailadres voor vragen over de aanvraag."
+    },
+    "verzonden_op": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Moment van verzenden. Met tijdzone (RFC 3339)."
+    }
+  },
+  "required": [
+    "id",
+    "opdracht_uri",
+    "naam",
+    "opdrachtgever",
+    "opdrachtnemer",
+    "context_uris",
+    "verzonden_op"
+  ],
+  "$defs": {
+    "partij": {
+      "description": "Een partij bij de opdracht. De `instantie_uri` is verplicht: onderdelen van een organisatie delen een TOOI-URI en zijn alleen aan hun instantie te onderscheiden.",
+      "allOf": [
+        {
+          "$ref": "organisatie-ref.schema.json"
+        },
+        {
+          "required": [
+            "instantie_uri"
+          ]
+        }
+      ]
+    }
+  }
+}

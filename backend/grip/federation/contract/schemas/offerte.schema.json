@@ -1,0 +1,277 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Offerte",
+  "description": "Uitgegeven offerte als bevroren momentopname met hash. Mag zonder voorafgaande aanvraag worden gestuurd (initiatief van de opdrachtnemer).",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Id van de offerte en van dit bericht. Bepaalt de idempotentie."
+    },
+    "uri": {
+      "type": "string",
+      "format": "uri",
+      "description": "URI van de offerte."
+    },
+    "opdracht_uri": {
+      "type": "string",
+      "format": "uri",
+      "description": "URI van de opdracht. Uit de aanvraag, of uitgegeven door de opdrachtnemer als er geen aanvraag was."
+    },
+    "aanvraag_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "uuid",
+          "description": "Id van de aanvraag waarop deze offerte antwoordt; null bij eigen initiatief."
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "opdrachtnemer": {
+      "$ref": "#/$defs/partij"
+    },
+    "opdrachtgever": {
+      "$ref": "#/$defs/partij"
+    },
+    "bovenliggende_opdracht_uri": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "uri",
+          "description": "URI van de bovenliggende opdracht bij doorzetten in een keten."
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "momentopname": {
+      "$ref": "#/$defs/momentopname"
+    },
+    "momentopname_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "SHA-256 over de canonieke JSON (RFC 8785) van snapshot, in hexadecimalen."
+    },
+    "hash_algoritme": {
+      "type": "string",
+      "enum": [
+        "sha-256"
+      ],
+      "description": "Gebruikt hash-algoritme."
+    },
+    "canonicalisatie": {
+      "type": "string",
+      "enum": [
+        "RFC8785"
+      ],
+      "description": "Gebruikte canonicalisatie."
+    },
+    "document": {
+      "type": "object",
+      "properties": {
+        "mediatype": {
+          "type": "string",
+          "enum": [
+            "application/pdf"
+          ],
+          "description": "Mediatype van het document."
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "SHA-256 over de bytes van het document."
+        },
+        "inhoud_base64": {
+          "type": "string",
+          "contentEncoding": "base64",
+          "description": "Het document, base64-gecodeerd."
+        }
+      },
+      "required": [
+        "mediatype",
+        "sha256"
+      ],
+      "description": "De offerte als leesbaar document, optioneel."
+    },
+    "uitgegeven_op": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Moment van uitgeven. Met tijdzone (RFC 3339)."
+    }
+  },
+  "required": [
+    "id",
+    "uri",
+    "opdracht_uri",
+    "opdrachtnemer",
+    "opdrachtgever",
+    "momentopname",
+    "momentopname_hash",
+    "hash_algoritme",
+    "canonicalisatie",
+    "uitgegeven_op"
+  ],
+  "$defs": {
+    "momentopname": {
+      "type": "object",
+      "properties": {
+        "naam": {
+          "type": "string",
+          "description": "Naam van de opdracht zoals geoffreerd."
+        },
+        "context_uris": {
+          "type": "array",
+          "description": "Node-URIs waar de offerte naar verwijst. Mag leeg zijn.",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "regels": {
+          "type": "array",
+          "description": "Offerteregels.",
+          "items": {
+            "$ref": "#/$defs/offerteregel"
+          },
+          "minItems": 1
+        },
+        "subtotalen_per_jaar": {
+          "type": "array",
+          "description": "Subtotaal per kalenderjaar.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "jaar": {
+                "type": "integer",
+                "description": "Kalenderjaar."
+              },
+              "bedrag": {
+                "$ref": "bedrag.schema.json"
+              }
+            },
+            "required": [
+              "jaar",
+              "bedrag"
+            ]
+          }
+        },
+        "totaal": {
+          "$ref": "bedrag.schema.json"
+        },
+        "geldig_tot_en_met": {
+          "type": "string",
+          "format": "date",
+          "description": "Laatste dag waarop de offerte geldig is."
+        },
+        "voorwaarden": {
+          "type": "string",
+          "description": "Voorwaarden en aannames."
+        }
+      },
+      "required": [
+        "naam",
+        "context_uris",
+        "regels",
+        "totaal"
+      ],
+      "description": "De bevroren inhoud van de offerte. Verandert nooit na uitgifte."
+    },
+    "offerteregel": {
+      "type": "object",
+      "properties": {
+        "positie": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Volgorde van de regel."
+        },
+        "omschrijving": {
+          "type": "string",
+          "description": "Omschrijving van de regel."
+        },
+        "soort": {
+          "type": "string",
+          "enum": [
+            "personeel",
+            "vast"
+          ],
+          "description": "personnel: een rol tegen FTE en tarief; fixed: een vast bedrag."
+        },
+        "rol": {
+          "type": "string",
+          "description": "Rol, bij een personeelsregel. Nooit een persoonsnaam."
+        },
+        "fte": {
+          "type": "string",
+          "pattern": "^\\d+(\\.\\d+)?$",
+          "description": "Omvang in FTE, bij een personeelsregel. Exacte decimaal als tekst, geen floating point."
+        },
+        "tariefcategorie": {
+          "type": "string",
+          "enum": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+          ],
+          "description": "Tariefcategorie."
+        },
+        "periode": {
+          "$ref": "periode.schema.json"
+        },
+        "maandtarief": {
+          "$ref": "bedrag.schema.json",
+          "description": "Maandtarief per FTE, als dat voor de hele periode van de regel hetzelfde is."
+        },
+        "bedrag": {
+          "$ref": "bedrag.schema.json"
+        },
+        "maandtarieven_per_jaar": {
+          "type": "array",
+          "minItems": 2,
+          "description": "Maandtarief per FTE per kalenderjaar, bij een personeelsregel die over tariefjaren met een verschillend tarief loopt. Staat er in plaats van `maandtarief`.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "jaar": {
+                "type": "integer",
+                "description": "Kalenderjaar."
+              },
+              "maandtarief": {
+                "$ref": "bedrag.schema.json"
+              }
+            },
+            "required": [
+              "jaar",
+              "maandtarief"
+            ]
+          }
+        }
+      },
+      "required": [
+        "positie",
+        "omschrijving",
+        "soort",
+        "bedrag"
+      ]
+    },
+    "partij": {
+      "description": "Een partij bij de opdracht. De `instantie_uri` is verplicht: onderdelen van een organisatie delen een TOOI-URI en zijn alleen aan hun instantie te onderscheiden.",
+      "allOf": [
+        {
+          "$ref": "organisatie-ref.schema.json"
+        },
+        {
+          "required": [
+            "instantie_uri"
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -2,8 +2,8 @@
   "keys": [
     {
       "kty": "EC",
-      "x": "3O4bqSCSGWPegJ3eZ08CqIIO4J_bgRP0-UhwGlhEtKQ",
-      "y": "0aFrpiTzBh631mJcj2IK5Ipm_A3fETYzTT4nlZfotws",
+      "x": "OYZfmtQgTki0hVm1E8H6Ytw5C1ioNgjPtdc6eYbiF3I",
+      "y": "BKny9gF3jJonc-v1h-iboURzy8q-bsKjYR2zjMf_L1s",
       "crv": "P-256",
       "kid": "voorbeeld-2026-01",
       "use": "sig",

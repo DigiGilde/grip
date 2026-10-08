@@ -1,31 +1,31 @@
 {
   "//": "Bron van de kernwoordenlijst. De naamruimte staat alleen hier. Na een wijziging: just build.",
-  "namespace": "https://grip-koppelvlakken.example/",
-  "namespace_status": "PLACEHOLDER: vervang door een duurzaam domein voordat versie 1.0.0 wordt vastgesteld. Het domein .example is gereserveerd en lost niet op.",
-  "node_types": [
-    { "id": "dossier", "label_nl": "Dossier", "description": "Bundeling van samenhangende nodes rond een beleidsonderwerp." },
-    { "id": "doel", "label_nl": "Doel", "description": "Wat met beleid bereikt moet worden." },
-    { "id": "instrument", "label_nl": "Instrument", "description": "Middel waarmee een doel wordt nagestreefd, zoals wetgeving, een subsidie of een opdracht aan een uitvoerder." },
-    { "id": "beleidskader", "label_nl": "Beleidskader", "description": "Kader of principe waarbinnen beleid tot stand komt." },
-    { "id": "maatregel", "label_nl": "Maatregel", "description": "Concrete actie die een doel of instrument uitvoert." },
-    { "id": "politieke_input", "label_nl": "Politieke input", "description": "Politieke wens of opdracht, zoals een passage uit het coalitieakkoord, een motie of een toezegging." },
-    { "id": "probleem", "label_nl": "Probleem", "description": "Maatschappelijk of bestuurlijk probleem waar beleid op reageert." },
-    { "id": "effect", "label_nl": "Effect", "description": "Beoogd of gemeten gevolg van beleid: output, outcome of impact." },
-    { "id": "beleidsoptie", "label_nl": "Beleidsoptie", "description": "Mogelijke aanpak die wordt verkend, voorgesteld, gekozen of afgewezen." },
-    { "id": "bron", "label_nl": "Bron", "description": "Document of publicatie waar andere nodes naar verwijzen." }
+  "naamruimte": "https://grip-koppelvlakken.example/",
+  "naamruimte_status": "PLACEHOLDER: vervang door een duurzaam domein voordat versie 1.0.0 wordt vastgesteld. Het domein .example is gereserveerd en lost niet op.",
+  "node_typen": [
+    { "id": "dossier", "label_nl": "Dossier", "omschrijving": "Bundeling van samenhangende nodes rond een beleidsonderwerp." },
+    { "id": "doel", "label_nl": "Doel", "omschrijving": "Wat met beleid bereikt moet worden." },
+    { "id": "instrument", "label_nl": "Instrument", "omschrijving": "Middel waarmee een doel wordt nagestreefd, zoals wetgeving, een subsidie of een opdracht aan een uitvoerder." },
+    { "id": "beleidskader", "label_nl": "Beleidskader", "omschrijving": "Kader of principe waarbinnen beleid tot stand komt." },
+    { "id": "maatregel", "label_nl": "Maatregel", "omschrijving": "Concrete actie die een doel of instrument uitvoert." },
+    { "id": "politieke_input", "label_nl": "Politieke input", "omschrijving": "Politieke wens of opdracht, zoals een passage uit het coalitieakkoord, een motie of een toezegging." },
+    { "id": "probleem", "label_nl": "Probleem", "omschrijving": "Maatschappelijk of bestuurlijk probleem waar beleid op reageert." },
+    { "id": "effect", "label_nl": "Effect", "omschrijving": "Beoogd of gemeten gevolg van beleid: output, outcome of impact." },
+    { "id": "beleidsoptie", "label_nl": "Beleidsoptie", "omschrijving": "Mogelijke aanpak die wordt verkend, voorgesteld, gekozen of afgewezen." },
+    { "id": "bron", "label_nl": "Bron", "omschrijving": "Document of publicatie waar andere nodes naar verwijzen." }
   ],
-  "edge_types": [
-    { "id": "implementeert", "label_nl": "Implementeert", "description": "Het ene item implementeert of voert het andere uit." },
-    { "id": "draagt_bij_aan", "label_nl": "Draagt bij aan", "description": "Het ene item draagt bij aan de realisatie van het andere." },
-    { "id": "vloeit_voort_uit", "label_nl": "Vloeit voort uit", "description": "Het ene item vloeit voort uit of is afgeleid van het andere." },
-    { "id": "conflicteert_met", "label_nl": "Conflicteert met", "description": "Spanningen of tegenstrijdigheden tussen twee items." },
-    { "id": "verwijst_naar", "label_nl": "Verwijst naar", "description": "Het ene item verwijst expliciet naar het andere." },
-    { "id": "vereist", "label_nl": "Vereist", "description": "Het ene item is een voorwaarde voor het andere." },
-    { "id": "evalueert", "label_nl": "Evalueert", "description": "Het ene item beoordeelt of evalueert het andere." },
-    { "id": "vervangt", "label_nl": "Vervangt", "description": "Het ene item vervangt het andere." },
-    { "id": "onderdeel_van", "label_nl": "Onderdeel van", "description": "Het ene item is een onderdeel of deelstrategie van het andere." },
-    { "id": "leidt_tot", "label_nl": "Leidt tot", "description": "Causale relatie: het ene item leidt tot het andere (probleem naar doel, maatregel naar effect)." },
-    { "id": "adresseert", "label_nl": "Adresseert", "description": "Het ene item adresseert of pakt het andere aan (maatregel of instrument naar probleem)." },
-    { "id": "meet", "label_nl": "Meet", "description": "Het ene item meet of monitort het andere (effect naar doel)." }
+  "edge_typen": [
+    { "id": "implementeert", "label_nl": "Implementeert", "omschrijving": "Het ene item implementeert of voert het andere uit." },
+    { "id": "draagt_bij_aan", "label_nl": "Draagt bij aan", "omschrijving": "Het ene item draagt bij aan de realisatie van het andere." },
+    { "id": "vloeit_voort_uit", "label_nl": "Vloeit voort uit", "omschrijving": "Het ene item vloeit voort uit of is afgeleid van het andere." },
+    { "id": "conflicteert_met", "label_nl": "Conflicteert met", "omschrijving": "Spanningen of tegenstrijdigheden tussen twee items." },
+    { "id": "verwijst_naar", "label_nl": "Verwijst naar", "omschrijving": "Het ene item verwijst expliciet naar het andere." },
+    { "id": "vereist", "label_nl": "Vereist", "omschrijving": "Het ene item is een voorwaarde voor het andere." },
+    { "id": "evalueert", "label_nl": "Evalueert", "omschrijving": "Het ene item beoordeelt of evalueert het andere." },
+    { "id": "vervangt", "label_nl": "Vervangt", "omschrijving": "Het ene item vervangt het andere." },
+    { "id": "onderdeel_van", "label_nl": "Onderdeel van", "omschrijving": "Het ene item is een onderdeel of deelstrategie van het andere." },
+    { "id": "leidt_tot", "label_nl": "Leidt tot", "omschrijving": "Causale relatie: het ene item leidt tot het andere (probleem naar doel, maatregel naar effect)." },
+    { "id": "adresseert", "label_nl": "Adresseert", "omschrijving": "Het ene item adresseert of pakt het andere aan (maatregel of instrument naar probleem)." },
+    { "id": "meet", "label_nl": "Meet", "omschrijving": "Het ene item meet of monitort het andere (effect naar doel)." }
   ]
 }

@@ -16,7 +16,7 @@ for (const service of services) {
 
 const kern = readJson('vocabulaire/kern.json');
 const escape = (text) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;');
-const rows = (types) => types.map((type) => `<tr><td><code>${type.id}</code></td><td>${escape(type.label_nl)}</td><td>${escape(type.description)}</td><td><code>${type.uri}</code></td></tr>`).join('\n');
+const rows = (types) => types.map((type) => `<tr><td><code>${type.id}</code></td><td>${escape(type.label_nl)}</td><td>${escape(type.omschrijving)}</td><td><code>${type.uri}</code></td></tr>`).join('\n');
 const table = (types) => `<table><thead><tr><th>Id</th><th>Naam</th><th>Betekenis</th><th>URI</th></tr></thead><tbody>${rows(types)}</tbody></table>`;
 const version = readJson('package.json').version;
 writeFileSync(`${ROOT}dist/index.html`, `<!doctype html>
@@ -30,10 +30,10 @@ writeFileSync(`${ROOT}dist/index.html`, `<!doctype html>
 ${services.map((service) => `<li><a href="${service.name}.html">${service.name}</a> (<a href="${service.name}.openapi.json">openapi.json</a>)</li>`).join('\n')}
 </ul>
 <h2>Node-typen</h2>
-${table(kern.node_types)}
+${table(kern.node_typen)}
 <h2>Edge-typen</h2>
-${table(kern.edge_types)}
-<p>De naamruimte <code>${kern.namespace}</code> is een plaatshouder.</p>
+${table(kern.edge_typen)}
+<p>De naamruimte <code>${kern.naamruimte}</code> is een plaatshouder.</p>
 </body></html>
 `);
 console.log('wrote dist/index.html');

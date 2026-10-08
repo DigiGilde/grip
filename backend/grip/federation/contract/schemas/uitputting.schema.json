@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Uitputting",
+  "description": "Begroot, uitputting en beschikbaar voor een opdracht (gegevensklasse B). Alleen op verzoek en alleen met een contract dat dit toestaat.",
+  "type": "object",
+  "properties": {
+    "opdracht_uri": {
+      "type": "string",
+      "format": "uri",
+      "description": "URI van de opdracht."
+    },
+    "peilmoment": {
+      "type": "string",
+      "format": "date",
+      "description": "Datum waarop deze stand geldt."
+    },
+    "jaar": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "description": "Kalenderjaar waarop is gefilterd; null voor de hele looptijd."
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "begroot": {
+      "$ref": "bedrag.schema.json"
+    },
+    "uitputting": {
+      "$ref": "bedrag.schema.json"
+    },
+    "beschikbaar": {
+      "$ref": "bedrag.schema.json"
+    },
+    "regels": {
+      "type": "array",
+      "description": "Stand per begrotingsregel, zonder personen.",
+      "items": {
+        "$ref": "#/$defs/uitputtingsregel"
+      }
+    }
+  },
+  "required": [
+    "opdracht_uri",
+    "peilmoment",
+    "begroot",
+    "uitputting",
+    "beschikbaar"
+  ],
+  "$defs": {
+    "uitputtingsregel": {
+      "type": "object",
+      "properties": {
+        "omschrijving": {
+          "type": "string",
+          "description": "Omschrijving van de begrotingsregel."
+        },
+        "begroot": {
+          "$ref": "bedrag.schema.json"
+        },
+        "uitputting": {
+          "$ref": "bedrag.schema.json"
+        },
+        "beschikbaar": {
+          "$ref": "bedrag.schema.json"
+        }
+      },
+      "required": [
+        "omschrijving",
+        "begroot",
+        "uitputting",
+        "beschikbaar"
+      ]
+    }
+  }
+}

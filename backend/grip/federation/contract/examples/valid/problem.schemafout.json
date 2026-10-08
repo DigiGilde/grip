@@ -4,7 +4,7 @@
   "status": 400,
   "detail": "Het bericht voldoet niet aan het schema van het contract.",
   "errors": [
-    "client: instance_uri ontbreekt",
-    "context_refs/0: is geen URI"
+    "opdrachtgever: instantie_uri ontbreekt",
+    "context_uris/0: is geen URI"
   ]
 }

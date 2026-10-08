@@ -34,11 +34,11 @@ Test deze expliciet:
 
 | Regel | Verwacht gedrag |
 |---|---|
-| Idempotentie | Hetzelfde `id` met dezelfde inhoud geeft 200 met `outcome` `duplicate` en geen tweede verwerking; met andere inhoud 409 |
-| Offertehash | `snapshot_hash` is de SHA-256 over de canonieke JSON (RFC 8785) van `snapshot`; een verschil geeft 400 |
-| Akkoord | `quote_hash` hoort bij de uitgegeven offerte, anders 409; de JWS verifieert met een sleutel uit de JWKS van de afzender en de payload is gelijk aan de velden van het bericht |
+| Idempotentie | Hetzelfde `id` met dezelfde inhoud geeft 200 met `uitkomst` `duplicaat` en geen tweede verwerking; met andere inhoud 409 |
+| Offertehash | `momentopname_hash` is de SHA-256 over de canonieke JSON (RFC 8785) van `momentopname`; een verschil geeft 400 |
+| Akkoord | `offerte_hash` hoort bij de uitgegeven offerte, anders 409; de JWS verifieert met een sleutel uit de JWKS van de afzender en de payload is gelijk aan de velden van het bericht |
 | Relatie | Een peer zonder de relatie uit `x-grip-caller` krijgt 403 of 404, nooit gegevens |
-| Gegevensklasse | Een antwoord bevat geen velden uit een andere klasse dan `x-grip-data-class` noemt; namen van medewerkers alleen in `GET /handover/staffing` |
+| Gegevensklasse | Een antwoord bevat geen velden uit een andere klasse dan `x-grip-data-class` noemt; namen van medewerkers alleen in `GET /doorgifte/bemensing` |
 | Inzage op verzoek | Operaties met `x-grip-on-request` geven 403 zolang de opdrachtnemer ze niet heeft toegestaan |
 | Peildatum | Een node opgevraagd met een `peildatum` in het verleden geeft de titel en status van die datum |
 | Ander corpus | Een node-URI uit een ander corpus wordt geaccepteerd waar een node-URI staat, en niet zelf opgelost |

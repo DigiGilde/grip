@@ -1,16 +1,16 @@
 {
   "uri": "https://corpus.voorbeeldministerie.example/id/node/0b6f1c1e-5a0e-4a53-9a43-0d3e1d6b2a01",
   "type": "politieke_input",
-  "title": "Motie over hergebruik van digitale bouwstenen",
-  "description": null,
+  "titel": "Motie over hergebruik van digitale bouwstenen",
+  "omschrijving": null,
   "status": "actief",
-  "validity": {
-    "start_date": "2025-11-04",
-    "end_date": null
+  "geldigheid": {
+    "begindatum": "2025-11-04",
+    "einddatum": null
   },
-  "managing_organisation": {
+  "beherende_organisatie": {
     "tooi_uri": "https://identifier.overheid.nl/tooi/id/ministerie/mnre0000",
-    "name": "Voorbeeldministerie"
+    "naam": "Voorbeeldministerie"
   },
   "corpus": "https://corpus.voorbeeldministerie.example",
   "peildatum": "2026-07-01"

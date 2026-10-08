@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Doorgifte: opdrachten",
+  "description": "Opdrachten met status en bedragen, voor de moederinstantie (gegevensklassen A en B).",
+  "type": "object",
+  "properties": {
+    "peilmoment": {
+      "type": "string",
+      "format": "date",
+      "description": "Datum waarop deze stand geldt."
+    },
+    "resultaten": {
+      "type": "array",
+      "description": "Opdrachten.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "opdracht": {
+            "$ref": "opdracht.schema.json"
+          },
+          "offertebedrag": {
+            "anyOf": [
+              {
+                "$ref": "bedrag.schema.json"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "begroot": {
+            "$ref": "bedrag.schema.json"
+          },
+          "uitputting": {
+            "$ref": "bedrag.schema.json"
+          },
+          "beschikbaar": {
+            "$ref": "bedrag.schema.json"
+          }
+        },
+        "required": [
+          "opdracht",
+          "begroot",
+          "uitputting",
+          "beschikbaar"
+        ]
+      }
+    }
+  },
+  "required": [
+    "peilmoment",
+    "resultaten"
+  ]
+}

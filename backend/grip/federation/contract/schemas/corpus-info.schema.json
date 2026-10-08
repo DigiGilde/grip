@@ -9,14 +9,14 @@
       "format": "uri",
       "description": "Basis-URI van het corpus. Duurzaam domein, geen hostnaam van het hostingplatform."
     },
-    "name": {
+    "naam": {
       "type": "string",
       "description": "Naam van het corpus."
     },
-    "managing_organisation": {
-      "$ref": "organisation-ref.schema.json"
+    "beherende_organisatie": {
+      "$ref": "organisatie-ref.schema.json"
     },
-    "contract_version": {
+    "contractversie": {
       "type": "string",
       "description": "Volledige versie van het contract corpus-context die deze implementatie volgt.",
       "pattern": "^\\d+\\.\\d+\\.\\d+"
@@ -24,8 +24,8 @@
   },
   "required": [
     "corpus",
-    "name",
-    "managing_organisation",
-    "contract_version"
+    "naam",
+    "beherende_organisatie",
+    "contractversie"
   ]
 }

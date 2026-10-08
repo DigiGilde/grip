@@ -5,13 +5,13 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { ROOT, readJson, loadSchemas } from './lib.mjs';
 
 const source = readJson('vocabulaire/kern.source.json');
-const base = source.namespace;
+const base = source.naamruimte;
 const def = `${base}def/`;
-const expand = (kind, type) => ({ id: type.id, uri: `${def}${kind}/${type.id}`, label_nl: type.label_nl, description: type.description, custom: false });
-const nodeTypes = source.node_types.map((type) => expand('node-type', type));
-const edgeTypes = source.edge_types.map((type) => expand('edge-type', type));
+const expand = (kind, type) => ({ id: type.id, uri: `${def}${kind}/${type.id}`, label_nl: type.label_nl, omschrijving: type.omschrijving, eigen: false });
+const nodeTypes = source.node_typen.map((type) => expand('node-type', type));
+const edgeTypes = source.edge_typen.map((type) => expand('edge-type', type));
 
-const kern = { namespace: def, node_types: nodeTypes, edge_types: edgeTypes };
+const kern = { naamruimte: def, node_typen: nodeTypes, edge_typen: edgeTypes };
 
 const isUri = (schema) =>
   schema?.format === 'uri' || schema?.items?.format === 'uri' || (schema?.anyOf ?? []).some((option) => option.format === 'uri');
@@ -42,7 +42,7 @@ for (const name of [...properties.keys()].sort()) {
 for (const type of nodeTypes) terms[type.id] = `kv:node-type/${type.id}`;
 for (const type of edgeTypes) terms[type.id] = `kv:edge-type/${type.id}`;
 
-const row = (type) => `| \`${type.id}\` | ${type.label_nl} | ${type.description} | ${type.uri} |`;
+const row = (type) => `| \`${type.id}\` | ${type.label_nl} | ${type.omschrijving} | ${type.uri} |`;
 const table = (types) => ['| Id | Naam | Betekenis | URI |', '|---|---|---|---|', ...types.map(row)].join('\n');
 const readme = `# Woordenlijst
 
@@ -66,7 +66,7 @@ Een corpus mag typen gebruiken die niet in de kernlijst staan. Daarvoor geldt:
 1. Een eigen type staat in een naamruimte van het corpus zelf, bijvoorbeeld
    \`{corpus}/def/node-type/{id}\` of \`{corpus}/def/edge-type/{id}\`. Nooit in de naamruimte van de kernlijst.
 2. In een bericht staat een kerntype als kort id (\`doel\`) en een eigen type als volledige URI.
-3. Het corpus beschrijft zijn eigen typen via \`GET /vocabulary\` van de dienst \`corpus-context\`, met \`custom: true\`.
+3. Het corpus beschrijft zijn eigen typen via \`GET /woordenlijst\` van de dienst \`corpus-context\`, met \`eigen: true\`.
 4. Een ontvanger die een eigen type niet kent, toont de node of edge met het type als URI en verwerkt de rest gewoon.
 5. Een eigen type dat in meerdere corpora nodig blijkt, wordt voorgesteld voor de kernlijst (zie CONTRIBUTING.md).
 

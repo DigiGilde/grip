@@ -41,5 +41,9 @@ gebruikt; zie `vocabulaire/README.md`.
 
 ## Stijl
 
-- Velden, paden en codelijsten in het Engels; titels en omschrijvingen in het Nederlands.
+- Paden, schemanamen, velden en waarden van codelijsten in het Nederlands, met de begrippen van het
+  domein. Onvertaald blijven termen uit standaarden en technische termen (`id`, `uri`, `type`,
+  `status`, `jws`, `kid`, de leden van een probleembericht, `page` en `pageSize`, headers), de
+  `x-`-uitbreidingen en elk `operationId`.
+- Een nieuwe term komt ook in `docs/termen.md`, met de codenaam erbij.
 - Geen persoonsnamen en geen echte bedragen in voorbeelden. Gebruik het domein `.example`.

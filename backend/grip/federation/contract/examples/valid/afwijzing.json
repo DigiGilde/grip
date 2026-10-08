@@ -1,0 +1,13 @@
+{
+  "id": "4e5f6a7b-0000-4000-8000-000000000003",
+  "offerte_id": "9d3b6c0e-2f41-4c8a-b0d2-6a1f5e7c8b90",
+  "offerte_hash": "b776fb9944b6ebb50e81dc523962b3173327e2a0e89fbd8239cc264c97bd9630",
+  "organisatie": {
+    "tooi_uri": "https://identifier.overheid.nl/tooi/id/ministerie/mnre0000",
+    "naam": "Voorbeeldministerie",
+    "eenheid_kenmerk": "directie-voorbeeld",
+    "instantie_uri": "https://grip.opdrachtgever.example"
+  },
+  "reden": "Budget niet beschikbaar.",
+  "afgewezen_op": "2026-06-11T11:00:00+02:00"
+}

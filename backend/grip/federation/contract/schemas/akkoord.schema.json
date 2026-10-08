@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Akkoord",
+  "description": "Akkoord van de opdrachtgever op een offerte. Vastlegging van wie, namens welke organisatie, wanneer, op welke versie en in welke vorm.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Id van dit bericht. Bepaalt de idempotentie."
+    },
+    "offerte_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Id van de offerte."
+    },
+    "offerte_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "De snapshot_hash van de offerte waarvoor akkoord wordt gegeven."
+    },
+    "ondertekenaar": {
+      "type": "object",
+      "properties": {
+        "naam": {
+          "type": "string",
+          "description": "Naam van de ondertekenaar aan de kant van de opdrachtgever."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "E-mailadres van de ondertekenaar."
+        },
+        "functie": {
+          "type": "string",
+          "description": "Functie van de ondertekenaar."
+        }
+      },
+      "required": [
+        "naam",
+        "email"
+      ],
+      "description": "Wie tekende."
+    },
+    "organisatie": {
+      "$ref": "organisatie-ref.schema.json",
+      "description": "De opdrachtgever namens wie is getekend. Komt het akkoord uit de eigen instantie van de opdrachtgever, dan is dit de afzender: een `instantie_uri` hierin is die van de verzendende peer. De ontvanger volgt uit de offerte: de instantie die `offerte_id` heeft uitgegeven."
+    },
+    "getekend_op": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Moment van tekenen. Met tijdzone (RFC 3339)."
+    },
+    "vorm": {
+      "type": "string",
+      "enum": [
+        "eigen_instantie",
+        "tekenlink",
+        "geuploade_pdf"
+      ],
+      "description": "own_instance: getekend in de eigen instantie van de opdrachtgever; signing_link: getekend via een tekenlink op de instantie van de opdrachtnemer; uploaded_pdf: getekend document vastgelegd door de opdrachtnemer."
+    },
+    "jws": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$",
+      "description": "Compacte JWS (RFC 7515) van de instantie van de opdrachtgever. De payload is de canonieke JSON (RFC 8785) van de velden id, quote_id, quote_hash, signer, organisation, signed_at en form. Algoritme ES256 of PS256; de header bevat een kid dat verwijst naar een sleutel in de JWKS van de afzender. Verplicht bij form own_instance."
+    },
+    "document_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "SHA-256 over het getekende document, bij form uploaded_pdf."
+    }
+  },
+  "required": [
+    "id",
+    "offerte_id",
+    "offerte_hash",
+    "ondertekenaar",
+    "organisatie",
+    "getekend_op",
+    "vorm"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "vorm": {
+            "const": "eigen_instantie"
+          }
+        },
+        "required": [
+          "vorm"
+        ]
+      },
+      "then": {
+        "required": [
+          "jws"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "vorm": {
+            "const": "geuploade_pdf"
+          }
+        },
+        "required": [
+          "vorm"
+        ]
+      },
+      "then": {
+        "required": [
+          "document_sha256"
+        ]
+      }
+    }
+  ]
+}

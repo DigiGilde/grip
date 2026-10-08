@@ -1,0 +1,73 @@
+{
+  "id": "cccccccc-0000-4000-8000-000000000001",
+  "uri": "https://grip.opdrachtnemer.example/id/offerte/cccccccc-0000-4000-8000-000000000001",
+  "opdracht_uri": "https://grip.opdrachtnemer.example/id/opdracht/dddddddd-0000-4000-8000-000000000001",
+  "aanvraag_id": null,
+  "opdrachtnemer": {
+    "tooi_uri": "https://identifier.overheid.nl/tooi/id/oorg/oorg00000",
+    "naam": "Voorbeelddienst",
+    "eenheid_kenmerk": "voorbeeldgilde",
+    "instantie_uri": "https://grip.opdrachtnemer.example"
+  },
+  "opdrachtgever": {
+    "tooi_uri": "https://identifier.overheid.nl/tooi/id/ministerie/mnre0000",
+    "naam": "Voorbeeldministerie",
+    "eenheid_kenmerk": "directie-voorbeeld",
+    "instantie_uri": "https://grip.opdrachtgever.example"
+  },
+  "bovenliggende_opdracht_uri": null,
+  "momentopname": {
+    "naam": "Voorstel Delta",
+    "context_uris": [],
+    "regels": [
+      {
+        "positie": 1,
+        "omschrijving": "Productmanager",
+        "soort": "personeel",
+        "rol": "Productmanager",
+        "fte": "0.8",
+        "tariefcategorie": "D",
+        "periode": {
+          "begindatum": "2026-07-01",
+          "einddatum": "2026-12-31"
+        },
+        "maandtarief": {
+          "bedrag_centen": 1800000,
+          "valuta": "EUR"
+        },
+        "bedrag": {
+          "bedrag_centen": 8640000,
+          "valuta": "EUR"
+        }
+      },
+      {
+        "positie": 2,
+        "omschrijving": "Hosting",
+        "soort": "vast",
+        "bedrag": {
+          "bedrag_centen": 1500000,
+          "valuta": "EUR"
+        }
+      }
+    ],
+    "subtotalen_per_jaar": [
+      {
+        "jaar": 2026,
+        "bedrag": {
+          "bedrag_centen": 10140000,
+          "valuta": "EUR"
+        }
+      }
+    ],
+    "totaal": {
+      "bedrag_centen": 10140000,
+      "valuta": "EUR"
+    },
+    "geldig_tot_en_met": "2026-06-30",
+    "voorwaarden": "Fictieve voorwaarden."
+  },
+  "momentopname_hash": "5d864a4e48ae05052372c0564b80a48d281877a4e532551b0eb03a90c6ce548f",
+  "hash_algoritme": "sha-256",
+  "canonicalisatie": "RFC8785",
+  "uitgegeven_op": "2026-06-01T10:00:00+02:00"
+}

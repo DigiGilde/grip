@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Aanbod op een vacature",
+  "description": "Aanbod van een kandidaat door een andere instantie. Bevat geen naam; contact loopt via het functionele adres.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Id van dit bericht. Bepaalt de idempotentie."
+    },
+    "vacature_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "De uuid uit de URI van de vacature (niet het `id` van een vacaturebericht)."
+    },
+    "organisatie": {
+      "$ref": "organisatie-ref.schema.json"
+    },
+    "kandidaat_referentie": {
+      "type": "string",
+      "description": "Verwijzing naar de kandidaat die alleen de aanbieder kan herleiden."
+    },
+    "profiel": {
+      "type": "string",
+      "description": "Korte, niet tot een persoon herleidbare schets van ervaring en vaardigheden."
+    },
+    "beschikbaar_vanaf": {
+      "type": "string",
+      "format": "date",
+      "description": "Beschikbaar vanaf."
+    },
+    "fte": {
+      "type": "string",
+      "pattern": "^\\d+(\\.\\d+)?$",
+      "description": "Beschikbare omvang in FTE. Exacte decimaal als tekst, geen floating point."
+    },
+    "contact_email": {
+      "type": "string",
+      "format": "email",
+      "description": "Functioneel e-mailadres van de aanbieder."
+    },
+    "aangeboden_op": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Moment van aanbieden. Met tijdzone (RFC 3339)."
+    }
+  },
+  "required": [
+    "id",
+    "vacature_id",
+    "organisatie",
+    "kandidaat_referentie",
+    "fte",
+    "contact_email",
+    "aangeboden_op"
+  ]
+}

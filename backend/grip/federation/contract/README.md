@@ -36,10 +36,19 @@ per dienst een gebundeld `openapi.json`. Dat laatste is de vorm die een implemen
 
 ## Afspraken in het contract
 
-- **Namen.** Velden, paden en codelijsten zijn Engels en volgen de begrippenlijst van het domein
-  (assignment, quote, acceptance, budget, allocation, vacancy, node, edge). Titels en omschrijvingen
-  zijn Nederlands. Nederlandse domeintermen zonder goede Engelse vorm blijven Nederlands, met name
-  de node-typen en edge-typen (`politieke_input`, `draagt_bij_aan`) en `peildatum`.
+- **Namen.** De interface is Nederlands, zoals de NL GOV API Design Rules vragen: paden,
+  schemanamen, velden en de waarden van codelijsten (statussen, vormen, soorten) volgen de
+  begrippen van het domein: opdracht, opdrachtaanvraag, offerte, akkoord, afwijzing, voortgang,
+  uitputting, factuurgegevens, eindrapport, vacature, aanbod, doorgifte, begrotingsregel,
+  bemensing, capaciteit, corpus, woordenlijst, nodes, keten.
+- **Wat niet vertaald is.** Termen uit standaarden en technische termen blijven zoals ze zijn:
+  `id`, `uri`, `type`, `status` als veldnaam, `jws`, `kid`, `jwks`, `sha256`, de leden van een
+  probleembericht (RFC 9457), de parameters voor paginering (`page`, `pageSize`), headernamen en
+  de `x-`-uitbreidingen met hun waarden. Een `operationId` is de naam van de operatie in code en
+  blijft Engels.
+- **Vertaling naar code.** Een implementatie mag intern andere namen voeren. De vertaling zit
+  dan op een plek, aan de grens. De tabel in `docs/termen.md` geeft bij elke term van het
+  contract de codenaam die grip gebruikt.
 - **Velden** in snake_case, query-parameters in camelCase, paden in kebab-case.
 - **Identiteit.** Alles wat over de grens gaat heeft een URI van de instantie die het aanmaakt:
   `{corpus}/id/node/{uuid}`, `{basis}/id/opdracht/{uuid}`. Organisaties gaan op TOOI-URI.
@@ -50,16 +59,16 @@ per dienst een gebundeld `openapi.json`. Dat laatste is de vorm die een implemen
 - **Fouten** als `application/problem+json` (RFC 9457).
 - **Idempotentie.** Elk gepusht bericht heeft een `id` (UUID). Eerste ontvangst: 201 met een
   ontvangstbevestiging. Hetzelfde `id` met dezelfde inhoud: 200 met dezelfde bevestiging en
-  `outcome` `duplicate`, zonder opnieuw te verwerken. Hetzelfde `id` met andere inhoud: 409.
-- **Offerte.** `snapshot_hash` is de SHA-256 over de canonieke JSON (RFC 8785) van `snapshot`.
+  `uitkomst` `duplicaat`, zonder opnieuw te verwerken. Hetzelfde `id` met andere inhoud: 409.
+- **Offerte.** `momentopname_hash` is de SHA-256 over de canonieke JSON (RFC 8785) van `momentopname`.
 - **Akkoord.** Bij tekenen in de eigen instantie een JWS (ES256 of PS256) over de canonieke JSON
-  van de velden `id`, `quote_id`, `quote_hash`, `signer`, `organisation`, `signed_at` en `form`.
+  van de velden `id`, `offerte_id`, `offerte_hash`, `ondertekenaar`, `organisatie`, `getekend_op` en `vorm`.
   De ontvanger controleert met de sleutels uit `GET /jwks` van de afzender.
 - **Gegevensklassen.** Elke operatie in `grip-opdrachtverkeer` draagt `x-grip-data-class`
   (A opdracht-basis, B opdracht-financieel, C bemensing) en `x-grip-caller` (de vereiste relatie
-  van de aanroeper: `client`, `contractor`, `parent`, `corpus`, `peer`). De klassen D, E en F
+  van de aanroeper: `opdrachtgever`, `opdrachtnemer`, `parent`, `corpus`, `peer`). De klassen D, E en F
   (tarief, kosten en KPI per persoon) komen in het contract niet voor. Namen van medewerkers
-  staan alleen in `GET /handover/staffing`, voor de moederinstantie.
+  staan alleen in `GET /doorgifte/bemensing`, voor de moederinstantie.
 - **Compatibiliteit.** Ontvangers negeren onbekende velden.
 
 ## FSC

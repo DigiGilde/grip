@@ -44,7 +44,7 @@ Een corpus mag typen gebruiken die niet in de kernlijst staan. Daarvoor geldt:
 1. Een eigen type staat in een naamruimte van het corpus zelf, bijvoorbeeld
    `{corpus}/def/node-type/{id}` of `{corpus}/def/edge-type/{id}`. Nooit in de naamruimte van de kernlijst.
 2. In een bericht staat een kerntype als kort id (`doel`) en een eigen type als volledige URI.
-3. Het corpus beschrijft zijn eigen typen via `GET /vocabulary` van de dienst `corpus-context`, met `custom: true`.
+3. Het corpus beschrijft zijn eigen typen via `GET /woordenlijst` van de dienst `corpus-context`, met `eigen: true`.
 4. Een ontvanger die een eigen type niet kent, toont de node of edge met het type als URI en verwerkt de rest gewoon.
 5. Een eigen type dat in meerdere corpora nodig blijkt, wordt voorgesteld voor de kernlijst (zie CONTRIBUTING.md).
 
