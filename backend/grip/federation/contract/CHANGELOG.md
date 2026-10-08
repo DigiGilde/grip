@@ -5,6 +5,10 @@ Dit bestand volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/). De v
 
 ## [Unreleased]
 
+### Verduidelijkt in grip-opdrachtverkeer
+
+- `GET /opdrachten` zei "geen bedragen" en gegevensklasse A, terwijl het antwoord voor een corpus-systeem `besteding` bevat. De omschrijving en de gegevensklasse (A en B) volgen nu het schema.
+
 ## [1.0.0] - 2026-10-08
 
 De eerste versie die wordt uitgerold. De interface is Nederlands.
