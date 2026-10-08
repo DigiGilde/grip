@@ -96,8 +96,8 @@
         },
         "peilmoment": {
           "type": "string",
-          "format": "date-time",
-          "description": "Moment waarop de totalen zijn berekend."
+          "format": "date",
+          "description": "Datum waarop de totalen zijn berekend."
         }
       },
       "required": [
