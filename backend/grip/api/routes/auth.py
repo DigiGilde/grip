@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 
 from authlib.integrations.starlette_client import OAuthError
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -31,28 +31,92 @@ LOGIN_ERROR_NO_ACCESS = "geen_toegang"
 LOGIN_ERROR_FAILED = "mislukt"
 
 
-def _frontend_redirect(settings: Settings, error: str = "") -> RedirectResponse:
-    url = settings.FRONTEND_URL
+# Where the visitor wanted to go, kept in the session across the round trip
+# to the identity provider.
+LOGIN_NEXT_SESSION_KEY = "login_next"
+_MAX_NEXT_LENGTH = 1024
+
+
+def safe_next_path(raw: object) -> str:
+    """Return ``raw`` when it is a path within this application, else ``""``.
+
+    The value comes from the query string and ends up in a redirect, so it
+    is an open-redirect vector. Only a relative path is accepted: one leading
+    slash, no scheme, no host, no backslash (browsers read ``/\\host`` as
+    ``//host``) and no control characters. API paths are refused as well: a
+    visitor must land on a page.
+    """
+    if not isinstance(raw, str) or not raw or len(raw) > _MAX_NEXT_LENGTH:
+        return ""
+    if not raw.startswith("/") or raw.startswith("//") or "\\" in raw:
+        return ""
+    if any(ord(ch) < 32 or ord(ch) == 127 for ch in raw):
+        return ""
+    parts = urlsplit(raw)
+    if parts.scheme or parts.netloc:
+        return ""
+    if parts.path == "/api" or parts.path.startswith("/api/"):
+        return ""
+    return raw
+
+
+def _frontend_redirect(
+    settings: Settings, error: str = "", next_path: str = ""
+) -> RedirectResponse:
+    base = settings.FRONTEND_URL.rstrip("/")
     if error:
-        url = f"{url.rstrip('/')}/?{urlencode({LOGIN_ERROR_PARAM: error})}"
+        url = f"{base}/?{urlencode({LOGIN_ERROR_PARAM: error})}"
+    elif next_path:
+        url = f"{base}{next_path}"
+    else:
+        url = settings.FRONTEND_URL
     return RedirectResponse(url=url, status_code=302)
+
+
+def _callback_url(request: Request, settings: Settings) -> str:
+    """The redirect URI for the identity provider.
+
+    Never built from the request: it is one of two configured origins. When
+    the request reached the API through the frontend origin (nginx or the
+    dev server proxies /api), the callback goes back the same way, so the
+    session cookie that holds the OIDC state is first-party throughout.
+    Otherwise it is BACKEND_URL. Both must be registered as redirect URIs
+    of the client. The scheme and host of the request are only believed
+    from a trusted proxy (see TrustedProxyMiddleware); a mismatch falls back
+    to BACKEND_URL.
+    """
+    frontend = settings.FRONTEND_URL.rstrip("/")
+    host = request.headers.get("host", "")
+    request_origin = f"{request.url.scheme}://{host}".lower()
+    base = frontend if request_origin == frontend.lower() else settings.BACKEND_URL
+    return f"{base.rstrip('/')}/api/auth/callback"
 
 
 @router.get("/login")
 async def login(
     request: Request,
+    next: str | None = None,  # noqa: A002 - the query parameter is called next
     settings: Settings = Depends(get_settings),
 ) -> RedirectResponse:
-    """Redirect the user to the login page of the identity provider."""
+    """Redirect the user to the login page of the identity provider.
+
+    ``next`` is the page to return to afterwards. An invalid value is
+    dropped, not refused: the visitor then lands on the start page.
+    """
     oauth = get_oauth(settings)
     if oauth is None:
         raise HTTPException(
             status_code=status.HTTP_501_NOT_IMPLEMENTED,
             detail="Inloggen is niet geconfigureerd",
         )
-    # Built from settings, not from the Host header, so it cannot be steered.
-    redirect_uri = f"{settings.BACKEND_URL.rstrip('/')}/api/auth/callback"
-    return await oauth.keycloak.authorize_redirect(request, redirect_uri)
+    next_path = safe_next_path(next)
+    if next_path:
+        request.session[LOGIN_NEXT_SESSION_KEY] = next_path
+    else:
+        request.session.pop(LOGIN_NEXT_SESSION_KEY, None)
+    return await oauth.keycloak.authorize_redirect(
+        request, _callback_url(request, settings)
+    )
 
 
 @router.get("/callback")
@@ -90,6 +154,9 @@ async def callback(
     )
 
     session = request.session
+    # Validated again on the way out: the session is not a trusted source
+    # for a redirect target.
+    next_path = safe_next_path(session.get(LOGIN_NEXT_SESSION_KEY))
     session.clear()
 
     if person is None:
@@ -109,7 +176,7 @@ async def callback(
     session["_rotate"] = True
 
     logger.info("OIDC login successful for person %s", person.id)
-    return _frontend_redirect(settings)
+    return _frontend_redirect(settings, next_path=next_path)
 
 
 @router.get("/logout")

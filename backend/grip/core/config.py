@@ -24,6 +24,33 @@ class Settings(BaseSettings):
     INSTANCE_KEY: str = "lokaal"
     PARENT_INSTANCE_URI: str = ""
 
+    # Federation (FSC). Only grip.federation reads these settings.
+    # Serve the routes that other organisations call. Off by default: the
+    # listener must only be reachable from the FSC inway.
+    FEDERATION_INBOUND_ENABLED: bool = False
+    # Send outbox messages. Off by default; needs OUTWAY_URL.
+    FEDERATION_OUTBOUND_ENABLED: bool = False
+    # Header in which the inway passes on the peer id of the caller. Taken
+    # from the 2023 reference implementation; verify against the deployed
+    # FSC version before relying on it.
+    FSC_PEER_ID_HEADER: str = "Fsc-Request-Peer-Id"
+    # Address of the own FSC outway, without a path.
+    OUTWAY_URL: str = ""
+    # ES256 private key (PEM, PKCS8) this instance signs acceptances with.
+    # Without it a local run gets a throwaway key; a deployed instance
+    # cannot sign.
+    FEDERATION_SIGNING_KEY: str = ""
+    # Key id in the JWS header. Default: the RFC 7638 thumbprint of the key.
+    FEDERATION_SIGNING_KID: str = ""
+    # JWKS (JSON) with public keys that are no longer used for signing but
+    # that earlier acceptances were signed with.
+    FEDERATION_RETIRED_JWKS: str = ""
+    FEDERATION_OUTBOX_INTERVAL_SECONDS: int = 15
+    FEDERATION_MAX_ATTEMPTS: int = 12
+    FEDERATION_HTTP_TIMEOUT_SECONDS: float = 20.0
+    FEDERATION_JWKS_TTL_SECONDS: int = 3600
+    CORPUS_CACHE_TTL_SECONDS: int = 300
+
     # Database: either provide DATABASE_URL directly, or the individual
     # components that the ZAD platform injects.
     DATABASE_URL: str = ""
@@ -62,6 +89,22 @@ class Settings(BaseSettings):
     SESSION_COOKIE_DOMAIN: str = ""
     SESSION_COOKIE_SECURE: bool = False
     SESSION_TTL_SECONDS: int = 60 * 60 * 24 * 7
+
+    # VLAM, the language model the government operates itself (drafting of
+    # vacancy texts). VLAM_API_URL is injected by the hosting platform's vlam
+    # service as a base address without a path and wins over the manual
+    # VLAM_BASE_URL. The key and the model are the instance's own settings;
+    # the model must be one that the endpoint lists under /v1/models.
+    # Without these, everything works except drafting.
+    VLAM_API_URL: str = ""
+    VLAM_BASE_URL: str = ""
+    VLAM_API_KEY: str = ""
+    VLAM_MODEL_ID: str = ""
+
+    # Comma-separated IP addresses or CIDR ranges of the proxies in front of
+    # the backend. Only from these are X-Forwarded-Proto, -Host and -For
+    # believed. Empty: no forwarded header is trusted.
+    TRUSTED_PROXIES: str = ""
 
     CORS_ORIGINS: list[str] = Field(default_factory=list)
 

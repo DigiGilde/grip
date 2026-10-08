@@ -19,6 +19,36 @@ export interface AuthStatus {
 export const LOGIN_URL = '/api/auth/login';
 export const LOGOUT_URL = '/api/auth/logout';
 
+/**
+ * Why a login ended without a session. The backend redirects to the frontend
+ * with this value in the `login_error` query parameter.
+ */
+export const LOGIN_ERROR_PARAM = 'login_error';
+export type LoginError = 'geen_toegang' | 'mislukt';
+
+export function parseLoginError(value: string | null): LoginError | null {
+  return value === 'geen_toegang' || value === 'mislukt' ? value : null;
+}
+
+/**
+ * A path inside this application, or null. The backend validates the same
+ * way; checking here too keeps a bad value out of the address bar.
+ */
+export function safeReturnPath(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  if (!value.startsWith('/') || value.startsWith('//') || value.includes('\\')) return null;
+  if (value === '/api' || value.startsWith('/api/')) return null;
+  return value;
+}
+
+/** The login URL, with the page to come back to afterwards. */
+export function loginUrl(next?: string | null): string {
+  const path = safeReturnPath(next);
+  // The start page is where a login lands anyway.
+  if (!path || path === '/') return LOGIN_URL;
+  return `${LOGIN_URL}?${new URLSearchParams({ next: path }).toString()}`;
+}
+
 export function fetchAuthStatus(): Promise<AuthStatus> {
   return apiGet<AuthStatus>('/api/auth/status');
 }

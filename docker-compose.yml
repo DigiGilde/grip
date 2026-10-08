@@ -40,8 +40,13 @@ services:
       INSTANCE_TOOI_URI: ${INSTANCE_TOOI_URI:-}
       INSTANCE_KEY: ${INSTANCE_KEY:-lokaal}
       PARENT_INSTANCE_URI: ${PARENT_INSTANCE_URI:-}
-      FRONTEND_URL: http://localhost:5183
+      # The origin the browser uses. The dev server proxies /api to this
+      # service, so pages and API share it and cookies are first-party.
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5183}
       BACKEND_URL: http://localhost:8010
+      # Proxies whose X-Forwarded-* headers are believed. Empty for the dev
+      # server (it sends none); set it for the nginx profile below.
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
       # The source is mounted over /app, so keep the venv outside it.
       UV_PROJECT_ENVIRONMENT: /tmp/venv
       HOME: /tmp
@@ -54,6 +59,8 @@ services:
              uv run uvicorn grip.core.app:create_app --factory
              --host 0.0.0.0 --port 8010 --reload --reload-dir grip"
 
+  # Development frontend: the Vite dev server with hot reload. It serves the
+  # pages on 5183 and proxies /api to the backend service (vite.config.ts).
   frontend:
     image: node:22-slim
     working_dir: /app
@@ -68,6 +75,26 @@ services:
       - ./frontend:/app
       - frontend_node_modules:/app/node_modules
     command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5183"
+
+  # The frontend as it is deployed: the static build behind nginx, which
+  # proxies /api to BACKEND_URL. Not started by default. To try it:
+  #
+  #   FRONTEND_URL=http://localhost:5184 TRUSTED_PROXIES=172.16.0.0/12 \
+  #     docker compose --profile nginx up --build
+  #
+  # and open http://localhost:5184. BACKEND_URL here is the backend as nginx
+  # reaches it inside the compose network, without a path. TRUSTED_PROXIES
+  # covers the range Docker assigns to compose networks.
+  frontend-nginx:
+    profiles: ["nginx"]
+    build:
+      context: ./frontend
+    ports:
+      - "127.0.0.1:5184:8080"
+    depends_on:
+      - backend
+    environment:
+      BACKEND_URL: http://backend:8010
 
 volumes:
   pgdata:

@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
+import { parseLoginError, safeReturnPath } from '@/api/auth';
 import { useAuth } from '@/auth/context';
 import { useNlddEvent } from '@/components/nldd/events';
 import { useInstance } from '@/layout/useInstance';
@@ -10,7 +11,13 @@ import { StatusPage } from './StatusPage';
 /** Where to go after login: the page the guard sent the visitor away from. */
 function returnPath(state: unknown): string {
   const from = (state as { from?: unknown } | null)?.from;
-  return typeof from === 'string' && from.startsWith('/') ? from : PATHS.statusOverview;
+  return safeReturnPath(from) ?? PATHS.statusOverview;
+}
+
+/** Set when the backend sent the visitor back after a login that failed. */
+function loginFailed(state: unknown): boolean {
+  const value = (state as { loginError?: unknown } | null)?.loginError;
+  return parseLoginError(typeof value === 'string' ? value : null) === 'mislukt';
 }
 
 export function LoginPage() {
@@ -18,13 +25,14 @@ export function LoginPage() {
   const location = useLocation();
   const instance = useInstance();
   const loginRef = useRef<HTMLElement>(null);
-  useNlddEvent(loginRef, 'click', login);
+  const next = returnPath(location.state);
+  useNlddEvent(loginRef, 'click', () => login(next));
 
   if (state.status === 'loading') {
     return <StatusPage variant="loading" title="Grip wordt geladen" />;
   }
   if (state.status === 'authenticated') {
-    return <Navigate to={returnPath(location.state)} replace />;
+    return <Navigate to={next} replace />;
   }
   if (state.status === 'no-access') {
     return <Navigate to={PATHS.noAccess} replace />;
@@ -40,6 +48,14 @@ export function LoginPage() {
           <nldd-container gap="24">
             <PageHeading text={`Inloggen bij ${instanceName}`} instanceName={instance?.name} />
 
+            {loginFailed(location.state) && (
+              <nldd-banner
+                variant="critical"
+                size="sm"
+                text="Inloggen is mislukt."
+                supporting-text="Probeer het opnieuw. Blijft het misgaan, neem dan contact op met de beheerder."
+              />
+            )}
             {state.status === 'error' && (
               <nldd-banner variant="critical" size="sm" text={state.message} />
             )}

@@ -9,9 +9,11 @@ from fastapi.middleware.gzip import GZipMiddleware
 
 from grip.core.config import get_settings
 from grip.core.database import async_session, close_db
+from grip.core.problem import install_exception_handlers
 from grip.core.session_store import DatabaseSessionStore, run_cleanup_loop
 from grip.middleware.auth_required import AuthRequiredMiddleware
 from grip.middleware.csrf import CSRFMiddleware
+from grip.middleware.proxy_headers import TrustedProxyMiddleware
 from grip.middleware.security_headers import SecurityHeadersMiddleware
 from grip.middleware.session import ServerSideSessionMiddleware
 
@@ -27,6 +29,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     async with async_session() as db:
         await bootstrap_beheerders(db, settings)
         await db.commit()
+
+    # Domain events are emitted inside web requests, so the handlers that
+    # turn them into outbox messages must be registered here as well as in
+    # the worker.
+    if settings.FEDERATION_OUTBOUND_ENABLED:
+        from grip.federation.events import register_event_handlers
+
+        register_event_handlers()
 
     cleanup_task = asyncio.create_task(run_cleanup_loop(app.state.session_store))
     yield
@@ -69,7 +79,11 @@ def create_app() -> FastAPI:
     # Starlette's add_middleware prepends, so the LAST one added is the
     # OUTERMOST. Request flow, outermost to innermost:
     #
-    #   CORS -> Session -> Auth -> CSRF -> SecurityHeaders -> GZip -> route
+    #   TrustedProxy -> CORS -> Session -> Auth -> CSRF -> SecurityHeaders
+    #   -> GZip -> route
+    #
+    # TrustedProxy is outermost so everything below sees the scheme, host
+    # and client address the user actually used.
     #
     # CORS must be outermost so that responses short-circuited by Auth or
     # CSRF also carry Access-Control-Allow-Origin. Without it the browser
@@ -97,6 +111,9 @@ def create_app() -> FastAPI:
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Content-Type", "X-CSRF-Token"],
     )
+    app.add_middleware(TrustedProxyMiddleware, trusted_proxies=settings.TRUSTED_PROXIES)
+
+    install_exception_handlers(app)
 
     from grip.api.routes import api_router
 

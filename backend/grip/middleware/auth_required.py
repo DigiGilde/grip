@@ -15,11 +15,10 @@ Without OIDC (local development, DEV_NO_AUTH) the middleware is a no-op.
 
 from __future__ import annotations
 
-import json
-
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from grip.core.config import Settings
+from grip.core.problem import PROBLEM_MEDIA_TYPE, problem_bytes
 
 # Paths reachable without authentication. Keep this list small: everything
 # else under /api/ needs a valid session.
@@ -31,20 +30,29 @@ PUBLIC_PREFIXES = (
     "/api/health/",
 )
 
+# Public paths that must match exactly, so a later route under the same
+# prefix does not become public by accident.
+PUBLIC_EXACT = (
+    # Name and base URI of the instance: the login page shows the name.
+    "/api/instance",
+)
+
 
 def is_public_path(path: str) -> bool:
     """Return True for routes that are reachable without authentication."""
+    if path in PUBLIC_EXACT:
+        return True
     return any(path.startswith(prefix) for prefix in PUBLIC_PREFIXES)
 
 
 async def _deny(send: Send, *, status_code: int, detail: str) -> None:
-    body = json.dumps({"detail": detail}).encode("utf-8")
+    body = problem_bytes(status_code, detail)
     await send(
         {
             "type": "http.response.start",
             "status": status_code,
             "headers": [
-                (b"content-type", b"application/json"),
+                (b"content-type", PROBLEM_MEDIA_TYPE.encode()),
                 (b"content-length", str(len(body)).encode()),
             ],
         }

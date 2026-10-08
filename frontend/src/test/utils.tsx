@@ -14,9 +14,10 @@ export const AUTHENTICATED: AuthState = {
 };
 
 interface RenderOptions {
-  path?: string;
+  /** A path, or a location with router state (as a guard or redirect leaves it). */
+  path?: string | { pathname: string; search?: string; state?: unknown };
   auth?: AuthState;
-  login?: () => void;
+  login?: (next?: string) => void;
   logout?: () => void;
 }
 

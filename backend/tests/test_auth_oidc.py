@@ -52,7 +52,14 @@ def _client(session: dict) -> TestClient:
     async def ok(_request: Request) -> JSONResponse:
         return JSONResponse({"ok": True})
 
-    paths = ["/api/instance", "/api/auth/status", "/api/health/", "/assets/app.js"]
+    paths = [
+        "/api/protected",
+        "/api/instance",
+        "/api/instances",
+        "/api/auth/status",
+        "/api/health/",
+        "/assets/app.js",
+    ]
     app = Starlette(routes=[Route(p, ok) for p in paths])
     guarded = AuthRequiredMiddleware(app, settings=_oidc_settings())
     return TestClient(_InjectSession(guarded, session))
@@ -60,31 +67,43 @@ def _client(session: dict) -> TestClient:
 
 def test_without_session_api_is_refused():
     session: dict = {}
-    resp = _client(session).get("/api/instance")
+    resp = _client(session).get("/api/protected")
     assert resp.status_code == 401
-    assert resp.json() == {"detail": "Niet ingelogd"}
+    assert resp.headers["content-type"] == "application/problem+json"
+    assert resp.json() == {
+        "type": "about:blank",
+        "title": "Niet ingelogd",
+        "status": 401,
+        "detail": "Niet ingelogd",
+    }
 
 
 def test_public_and_non_api_paths_pass_without_session():
     client = _client({})
     assert client.get("/api/auth/status").status_code == 200
+    assert client.get("/api/instance").status_code == 200
     assert client.get("/api/health/").status_code == 200
     assert client.get("/assets/app.js").status_code == 200
 
 
+def test_public_exact_path_does_not_open_its_prefix():
+    """/api/instance is public; a later /api/instances must not be."""
+    assert _client({}).get("/api/instances").status_code == 401
+
+
 def test_validated_session_passes():
-    assert _client(_fresh_session("x")).get("/api/instance").status_code == 200
+    assert _client(_fresh_session("x")).get("/api/protected").status_code == 200
 
 
 def test_session_without_person_is_refused_and_cleared():
     """Tokens alone are not enough: login must have matched a person."""
     session = {"access_token": "token", "token_validated_at": time.time()}
-    assert _client(session).get("/api/instance").status_code == 401
+    assert _client(session).get("/api/protected").status_code == 401
     assert session == {}
 
 
 def test_preflight_passes_without_session():
-    assert _client({}).options("/api/instance").status_code != 401
+    assert _client({}).options("/api/protected").status_code != 401
 
 
 def _request(session: dict) -> Request:

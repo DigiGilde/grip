@@ -18,6 +18,19 @@ http {
     sendfile on;
     keepalive_timeout 65;
 
+    # What the visitor used, to pass on to the backend. A proxy in front of
+    # this one (the platform ingress) has already set these headers and is
+    # the one that saw the real scheme and host; without such a proxy the
+    # values of this connection are the real ones.
+    map $http_x_forwarded_proto $grip_forwarded_proto {
+        default $http_x_forwarded_proto;
+        ""      $scheme;
+    }
+    map $http_x_forwarded_host $grip_forwarded_host {
+        default $http_x_forwarded_host;
+        ""      $http_host;
+    }
+
     server {
         listen 8080;
         server_name _;
@@ -33,14 +46,19 @@ http {
 
         # The API on the same origin as the frontend: the session and CSRF
         # cookies stay first-party and no CORS configuration is needed.
+        #
+        # BACKEND_URL is the backend as this container reaches it, without a
+        # path (for example http://backend:8080). The backend believes the
+        # X-Forwarded-* headers only when the address of this container is
+        # in its TRUSTED_PROXIES setting.
         location /api/ {
             proxy_pass ${BACKEND_URL};
             proxy_http_version 1.1;
-            proxy_set_header Host $http_host;
+            proxy_set_header Host $grip_forwarded_host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
-            proxy_set_header X-Forwarded-Host $http_host;
+            proxy_set_header X-Forwarded-Proto $grip_forwarded_proto;
+            proxy_set_header X-Forwarded-Host $grip_forwarded_host;
         }
 
         # Hashed assets: immutable, cache forever.

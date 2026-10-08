@@ -62,7 +62,6 @@ async def test_inactive_person_is_not_used(client, create_person):
     client.cookies.set(DEV_PERSON_COOKIE, str(person.id))
 
     assert (await client.get("/api/auth/status")).json()["authenticated"] is False
-    assert (await client.get("/api/instance")).status_code == 401
 
 
 async def test_ended_function_does_not_count(client, create_person, db_session):
@@ -85,12 +84,8 @@ async def test_ended_function_does_not_count(client, create_person, db_session):
     assert (await client.get("/api/auth/status")).json()["functions"] == []
 
 
-async def test_instance_requires_a_person(client):
-    assert (await client.get("/api/instance")).status_code == 401
-
-
-async def test_instance_returns_identity(client, create_person):
-    await create_person("beheerder@example.org", functions=["beheerder"])
+async def test_instance_is_public_and_returns_only_name_and_base_uri(client):
+    """The login page shows the instance name, so no person is needed."""
     resp = await client.get("/api/instance")
     assert resp.status_code == 200
     assert resp.json() == {

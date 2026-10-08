@@ -11,7 +11,8 @@ export type AuthState =
 
 export interface AuthContextValue {
   state: AuthState;
-  login: () => void;
+  /** Starts the login; `next` is the page to come back to afterwards. */
+  login: (next?: string) => void;
   logout: () => void;
 }
 

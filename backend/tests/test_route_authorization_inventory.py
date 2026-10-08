@@ -29,6 +29,7 @@ _PUBLIC_ROUTES: dict[str, str] = {
     "/api/auth/callback": "OIDC redirect target",
     "/api/auth/logout": "ends the session",
     "/api/auth/status": "tells the frontend whether anyone is logged in",
+    "/api/instance": "name and base URI only; the login page shows the name",
 }
 
 # Dependency callables that count as authorization.

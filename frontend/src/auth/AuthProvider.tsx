@@ -1,14 +1,14 @@
 import { useMemo, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { fetchAuthStatus, LOGIN_URL, LOGOUT_URL } from '@/api/auth';
+import { fetchAuthStatus, loginUrl, LOGOUT_URL } from '@/api/auth';
 import { errorMessage } from '@/api/client';
 import { AUTH_STATUS_KEY, toAuthState } from './authState';
 import { AuthContext, type AuthContextValue, type AuthState } from './context';
 
 // Login and logout are full-page navigations: the backend redirects to the
 // identity provider and back, which a fetch cannot follow.
-function login(): void {
-  window.location.assign(LOGIN_URL);
+function login(next?: string): void {
+  window.location.assign(loginUrl(next));
 }
 
 function logout(): void {
