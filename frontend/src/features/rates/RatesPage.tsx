@@ -144,7 +144,7 @@ export function RatesPage() {
 
   const rowActions = (c: RateCard): RowAction[] => [
     ...(c.status === 'draft'
-      ? [{ text: 'Activeer', onSelect: () => open({ kind: 'activate', card: c }) }]
+      ? [{ text: 'Stel vast', onSelect: () => open({ kind: 'activate', card: c }) }]
       : []),
     { text: 'Wijzig naam of einddatum', onSelect: () => open({ kind: 'details', card: c }) },
     ...(c.status === 'active'
@@ -172,7 +172,7 @@ export function RatesPage() {
     !mayManage || !card
       ? null
       : card.status === 'draft'
-        ? { text: 'Activeer', onClick: () => open({ kind: 'activate', card }) }
+        ? { text: 'Stel vast', onClick: () => open({ kind: 'activate', card }) }
         : closed && !unlocked
           ? { text: 'Wijzig gesloten kaart', onClick: () => open({ kind: 'unlock', card }) }
           : closed && unlocked
@@ -680,8 +680,8 @@ function ActivateSheet({ card, busy, error, onClose, onActivate }: ActivateSheet
     <FormSheet
       open={card !== null}
       size="wide"
-      title={card ? `Activeer ${card.name}` : 'Activeer tarievenkaart'}
-      submitText="Activeer"
+      title={card ? `Stel ${card.name} vast` : 'Stel tarievenkaart vast'}
+      submitText="Stel vast"
       busy={busy}
       error={error}
       onClose={onClose}
@@ -695,7 +695,7 @@ function ActivateSheet({ card, busy, error, onClose, onActivate }: ActivateSheet
         <ErrorNotice message={errorMessage(preview.error)} />
       ) : (
         <nldd-container gap="8">
-          <nldd-title size={5} text="Dit gebeurt als je activeert" heading-level={2} />
+          <nldd-title size={5} text="Dit gebeurt als je vaststelt" heading-level={2} />
           {activationSentences(preview.data).map((sentence) => (
             <nldd-text key={sentence}>{sentence}</nldd-text>
           ))}

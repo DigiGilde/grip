@@ -188,8 +188,8 @@ Voor uitputting (R9) en KPI-realisatie (R12) geldt:
 
 ## Tarieven in de tijd
 
-- Een tarievenkaart geldt van een datum tot een datum; een einddatum is optioneel. Een nieuwe kaart begint als conceptkopie van de kaart die vlak daarvoor geldt, met een verhoging en een afronding. Activeren beeindigt de vorige kaart op de dag ervoor.
-- Voor het activeren toont grip wat het doet: hoeveel begrotingsregels en hoeveel inzet vanaf de begindatum een ander bedrag krijgen, en met hoeveel in totaal.
+- Een tarievenkaart geldt van een datum tot een datum; een einddatum is optioneel. Een nieuwe kaart begint als conceptkopie van de kaart die vlak daarvoor geldt, met een verhoging en een afronding. Vaststellen beeindigt de vorige kaart op de dag ervoor.
+- Voor het vaststellen toont grip wat het doet: hoeveel begrotingsregels en hoeveel inzet vanaf de begindatum een ander bedrag krijgen, en met hoeveel in totaal.
 - Een gesloten kaart vergrendelt haar eigen periode. Wijzigen daarin vraagt het recht beheerder en laat een auditregel achter.
 - Opdrachten, begrotingsregels en inzet hebben datums en mogen over elke wisseling van kaart lopen, ook over 31 december. Bedragen worden per maand gesplitst en binnen de maand per dag geprijsd (R1 t/m R4).
 - Een dag zonder actieve tarievenkaart is een validatiefout, nooit stilletjes nul.

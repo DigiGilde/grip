@@ -18,7 +18,7 @@ Daarbij hoort een belofte: wij factureren wat het ons kost, altijd tegen het jui
 
 **De prijs volgt de dag.** Binnen een kalendermaand wordt de inzet gesplitst in de stukken waarin tarievenkaart en inzetschaal gelijk blijven. Elk stuk telt voor zijn aandeel in de maand, in kalenderdagen, tegen het maandtarief dat in dat stuk geldt. De stukken van een maand worden exact opgeteld en de maand wordt een keer afgerond. Een maand waarin niets verandert bestaat uit een stuk met precies het maanddeel van voorheen, en wordt dus berekend met dezelfde formule als altijd: bestaande totalen en de rekenvoorbeelden verschuiven niet.
 
-**Een nieuwe kaart begint als concept**, als kopie van de kaart die vlak daarvoor geldt, met een verhoging en een afronding. Activeren beeindigt de vorige kaart op de dag ervoor, in dezelfde transactie; de auditregel van de activering zegt welke kaart is ingekort. Voor het activeren toont grip wat het doet: hoeveel begrotingsregels en hoeveel inzet een ander bedrag krijgen en met hoeveel in totaal.
+**Een nieuwe kaart begint als concept**, als kopie van de kaart die vlak daarvoor geldt, met een verhoging en een afronding. Vaststellen beeindigt de vorige kaart op de dag ervoor, in dezelfde transactie; de auditregel van de activering zegt welke kaart is ingekort. Voor het activeren toont grip wat het doet: hoeveel begrotingsregels en hoeveel inzet een ander bedrag krijgen en met hoeveel in totaal.
 
 **Gesloten is een eigenschap van de kaart.** Een wijziging in de periode van een gesloten kaart vraagt het recht beheerder en laat een auditregel achter. Wat buiten die periode valt is vrij.
 

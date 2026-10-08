@@ -249,12 +249,12 @@ describe('activating a draft', () => {
     fireEvent.click(link as Element);
     const activate = () =>
       [...container.querySelectorAll('nldd-title nldd-button')].find(
-        (el) => el.getAttribute('text') === 'Activeer',
+        (el) => el.getAttribute('text') === 'Stel vast',
       );
     await waitFor(() => expect(activate()).toBeDefined());
     fireEvent.click(activate() as Element);
-    await waitFor(() => expect(openSheet(`Activeer ${DRAFT.name}`)).toBeDefined());
-    const sheet = openSheet(`Activeer ${DRAFT.name}`) as HTMLElement;
+    await waitFor(() => expect(openSheet(`Stel ${DRAFT.name} vast`)).toBeDefined());
+    const sheet = openSheet(`Stel ${DRAFT.name} vast`) as HTMLElement;
     await waitFor(() => expect(sheet.querySelectorAll('nldd-text').length).toBeGreaterThan(2));
     const sentences = [...sheet.querySelectorAll('nldd-text')].map((el) => plain(el.textContent));
     expect(sentences).toContain("De tarievenkaart 'Tarieven lopend' eindigt op 14 jul 2099.");

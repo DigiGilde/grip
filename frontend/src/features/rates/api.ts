@@ -215,6 +215,6 @@ export function setScaleBand(
 
 export const STATUS_LABELS: Record<CardStatus, string> = {
   draft: 'Concept',
-  active: 'Actief',
+  active: 'Vastgesteld',
   closed: 'Gesloten',
 };

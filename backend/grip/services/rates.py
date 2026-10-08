@@ -445,7 +445,7 @@ async def activation_preview(
     card = await get_card(session, key)
     if card.status != "draft":
         raise DomainValidationError(
-            "Alleen een tarievenkaart in concept kan worden geactiveerd."
+            "Alleen een tarievenkaart in concept kan worden vastgesteld."
         )
     card_id, since = card.id, card.valid_from
     shortened = await shortening_for(session, card)
