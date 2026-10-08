@@ -35,16 +35,16 @@ import {
   type LineForm,
   type ParentPeriod,
 } from './budgetForm';
+import { rateCauseText } from './financeText';
 import { PeriodChoice } from './PeriodChoice';
 import { decimalToInput, parseDecimal } from './money';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { LINE_KIND_LABELS, RATE_CATEGORIES } from './labels';
 import {
-  cardOfYear,
-  categoryDiffers,
   categoryOptionText,
   categoryText,
   useRateCards,
+  useValidRates,
   type CategoryNamer,
 } from './rateText';
 import {
@@ -100,14 +100,12 @@ function LineSheet({
 
   // Scales and rates are per year: those of the year the line starts in, and
   // this year until a start date is entered.
-  const rates = useRateCards(open);
+  // Scales and rates come from the card that is valid over the line's
+  // period; over today until a period is known.
   const period = effectivePeriod(form, parent);
-  const rateYear = /^\d{4}/.test(period.start)
-    ? Number(period.start.slice(0, 4))
-    : new Date().getFullYear();
-  const endYear = /^\d{4}/.test(period.end) ? Number(period.end.slice(0, 4)) : rateYear;
-  const card = cardOfYear(rates.cards, rateYear);
-  const endCard = endYear !== rateYear ? cardOfYear(rates.cards, endYear) : null;
+  const valid = useValidRates(period.start, period.end, open);
+  const card = valid.data?.stretches.find((stretch) => stretch.card_id !== null) ?? null;
+  const cardNote = valid.data?.summary ?? '';
 
   const people = useQuery({
     queryKey: assignmentKeys.personOptions,
@@ -225,8 +223,8 @@ function LineSheet({
         hint={
           at('category') ||
           (followsPerson
-            ? `Volgt uit de beoogde persoon. Tarievenkaart van ${rateYear}.`
-            : `Volgens de tarievenkaart van ${rateYear}.`)
+            ? `Volgt uit de beoogde persoon. ${cardNote}`.trim()
+            : cardNote)
         }
         value={form.category}
         onChange={(category) => set({ category })}
@@ -340,23 +338,23 @@ function LineSheet({
             }
           />
           {scaleField}
-          {rates.loaded && !card && (
+          {valid.data?.has_gap && (
             <RouterLinks>
               <nldd-banner
                 variant="warning"
                 size="sm"
-                text={`Er is geen actieve tarievenkaart voor ${rateYear}`}
-                supporting-text="Zonder tarievenkaart kan deze regel niet worden berekend."
+                text="Voor een deel van deze periode is er geen tarievenkaart"
+                supporting-text={`${valid.data.summary} Die dagen kunnen niet worden berekend.`}
               />
               <nldd-link href="/beheer/tarieven" text="Bekijk de tarievenkaarten" size="md" />
             </RouterLinks>
           )}
-          {endCard && form.category && categoryDiffers(card, endCard, form.category) && (
+          {valid.data && !valid.data.has_gap && valid.data.crosses_cards && valid.data.rates_differ && (
             <nldd-banner
               variant="neutral"
               size="sm"
-              text={`In ${endYear} geldt: ${categoryOptionText(endCard, form.category)}`}
-              supporting-text="De regel loopt over twee tariefjaren. Elke maand wordt geprijsd met de kaart van haar jaar."
+              text="De periode loopt over meer dan één tarievenkaart"
+              supporting-text={`${valid.data.summary} Elke dag wordt geprijsd met de kaart die dan geldt.`}
             />
           )}
           <TextInput
@@ -449,7 +447,7 @@ function lineSummary(line: BudgetLine, name: CategoryNamer, parent?: ParentPerio
   const parts = [
     line.fte ? `${formatFte(line.fte)} FTE` : '',
     line.rate_category
-      ? name(line.rate_category, line.start_date ? Number(line.start_date.slice(0, 4)) : undefined)
+      ? name(line.rate_category, line.start_date)
       : '',
     // Following the assignment is the normal case; only a deviation is said.
     !parent || hasOwnPeriod(line, parent)
@@ -541,7 +539,10 @@ export function BudgetEditor({ assignmentId }: { assignmentId: string }) {
             <OpenRow key={line.id} {...(canEdit ? { onOpen: () => openSheet(line) } : {})}>
               <OpenCell
                 text={lineName(line)}
-                supportingText={line.pricing_error ?? lineSummary(line, rates.name, parent)}
+                supportingText={
+                  line.pricing_error ??
+                  [lineSummary(line, rates.name, parent), rateCauseText(line)].filter(Boolean).join('. ')
+                }
                 {...(canEdit
                   ? { onOpen: () => openSheet(line), accessibleLabel: `Bewerk ${lineName(line)}` }
                   : {})}

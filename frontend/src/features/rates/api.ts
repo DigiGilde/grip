@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPut } from '@/api/client';
+import { apiGet, apiPatch, apiPost, apiPut } from '@/api/client';
 
 export type CardStatus = 'draft' | 'active' | 'closed';
 export const CATEGORIES = ['A', 'B', 'C', 'D', 'E'] as const;
@@ -14,17 +14,22 @@ export interface ScaleBand {
   category: string;
 }
 
+/** A rate card holds for a period: from a date, and to a date or open-ended. */
 export interface RateCard {
-  year: number;
+  id: string;
+  name: string;
+  valid_from: string;
+  valid_to: string | null;
   status: CardStatus;
   rate_bands: RateBand[];
   scale_bands: ScaleBand[];
 }
 
 export interface RateCardList {
+  /** Newest first. */
   items: RateCard[];
   may_manage: boolean;
-  /** Instance setting: the increase proposed for a new year, as a decimal string. */
+  /** Instance setting: the increase proposed for a new card, as a decimal string. */
   default_increase_pct: string;
 }
 
@@ -45,80 +50,163 @@ export interface IndexedRate {
 }
 
 export interface IndexationPreview {
-  copy_from: number;
+  copy_from_id: string;
+  copy_from_name: string;
   increase_pct: string;
   rounding: Rounding;
   rates: IndexedRate[];
 }
 
-/** How a new year is filled from an earlier one. */
+/** How a new card is filled from the card valid just before its start. */
 export interface Indexation {
-  copyFrom: number;
+  validFrom: string;
   increasePct: string;
   rounding: Rounding;
 }
 
+export interface MonthChange {
+  /** yyyy-mm */
+  month: string;
+  state: 'open' | 'closed' | 'delivered' | 'invoiced';
+  before_cents: number | null;
+  after_cents: number | null;
+  difference_cents: number;
+  invoice_number: string | null;
+}
+
+export interface AssignmentImpact {
+  assignment_id: string;
+  assignment_name: string;
+  open_difference_cents: number;
+  closed_difference_cents: number;
+  /** Already delivered: becomes a correction to deliver (naverrekening). */
+  correction_cents: number;
+  months: MonthChange[];
+}
+
+/** What a change does to what is already priced. Nothing was saved. */
+export interface PriceImpact {
+  budget_lines_changed: number;
+  budget_difference_cents: number;
+  allocations_changed: number;
+  open_difference_cents: number;
+  closed_difference_cents: number;
+  correction_cents: number;
+  unpriced_months: number;
+  reaches_into_the_past: boolean;
+  assignments: AssignmentImpact[];
+}
+
+export interface ActivationPreview {
+  card: RateCard;
+  /** The card that activating this one ends on the day before it starts. */
+  shortened: { id: string; name: string; old_valid_to: string | null; new_valid_to: string } | null;
+  impact: PriceImpact;
+}
+
+export interface ValidStretch {
+  start_date: string;
+  end_date: string;
+  /** Null in a gap: no card prices these days. */
+  card_id: string | null;
+  card_name: string | null;
+}
+
+export interface ValidRates {
+  stretches: ValidStretch[];
+  has_gap: boolean;
+}
+
 export const RATE_CARDS_KEY = ['rates', 'cards'] as const;
+export const coverageKey = (start: string, end: string) => ['rates', 'valid', start, end] as const;
+export const previewKey = (indexation: Indexation) =>
+  ['rates', 'preview', indexation.validFrom, indexation.increasePct, indexation.rounding] as const;
+export const activationKey = (cardId: string) => ['rates', 'activation', cardId] as const;
 
 export function fetchRateCards(): Promise<RateCardList> {
   return apiGet<RateCardList>('/api/rates/cards');
 }
 
-export const previewKey = (indexation: Indexation) =>
-  ['rates', 'preview', indexation.copyFrom, indexation.increasePct, indexation.rounding] as const;
+/** Which card prices which stretch of a period, and where no card does. */
+export function fetchValidRates(start: string, end: string): Promise<ValidRates> {
+  return apiGet<ValidRates>('/api/rates/valid', { start_date: start, end_date: end });
+}
 
-/** The rates a new year would get. The server computes them; nothing is created. */
+/** The rates a new card would get. The server computes them; nothing is created. */
 export function fetchIndexationPreview(indexation: Indexation): Promise<IndexationPreview> {
   return apiGet<IndexationPreview>('/api/rates/indexation-preview', {
-    copy_from: indexation.copyFrom,
+    valid_from: indexation.validFrom,
     increase_pct: indexation.increasePct,
     rounding: indexation.rounding,
   });
 }
 
-/** Without an indexation the year starts empty. */
-export function createRateCard(year: number, indexation: Indexation | null): Promise<RateCard> {
+export interface NewCard {
+  validFrom: string;
+  name: string | null;
+  /** Null: the card starts empty. */
+  indexation: Indexation | null;
+}
+
+/** A new card is always a draft; activating it is a separate step. */
+export function createRateCard(card: NewCard): Promise<RateCard> {
   return apiPost<RateCard>('/api/rates/cards', {
-    year,
-    copy_from: indexation?.copyFrom ?? null,
-    increase_pct: indexation?.increasePct ?? null,
-    rounding: indexation?.rounding ?? 'euro',
+    valid_from: card.validFrom,
+    name: card.name,
+    copy_previous: card.indexation !== null,
+    increase_pct: card.indexation?.increasePct ?? null,
+    rounding: card.indexation?.rounding ?? 'euro',
   });
 }
 
-/** `confirmClosedYear` states that the caller knows the year is closed. */
-export function setCardStatus(
-  year: number,
-  status: CardStatus,
-  confirmClosedYear = false,
+export function updateRateCard(
+  id: string,
+  changes: { name?: string; valid_to?: string | null },
+  confirmClosed = false,
 ): Promise<RateCard> {
-  return apiPut<RateCard>(`/api/rates/cards/${year}/status`, {
-    status,
-    confirm_closed_year: confirmClosedYear,
+  return apiPatch<RateCard>(`/api/rates/cards/${id}`, {
+    ...changes,
+    confirm_closed_year: confirmClosed,
   });
 }
 
+/** What activating a draft does, before it is done. */
+export function fetchActivationPreview(id: string): Promise<ActivationPreview> {
+  return apiGet<ActivationPreview>(`/api/rates/cards/${id}/activation-preview`);
+}
+
+export function activateRateCard(id: string, confirmClosed = false): Promise<RateCard> {
+  return apiPost<RateCard>(`/api/rates/cards/${id}/activate`, {
+    confirm_closed_year: confirmClosed,
+  });
+}
+
+export function closeRateCard(id: string): Promise<RateCard> {
+  return apiPost<RateCard>(`/api/rates/cards/${id}/close`);
+}
+
+/** `confirmClosed` states that the caller knows the card is closed. */
 export function setRateBand(
-  year: number,
+  id: string,
   category: string,
   monthlyRateCents: number,
-  confirmClosedYear = false,
+  confirmClosed = false,
 ): Promise<RateCard> {
-  return apiPut<RateCard>(`/api/rates/cards/${year}/bands/${category}`, {
+  return apiPut<RateCard>(`/api/rates/cards/${id}/bands/${category}`, {
     monthly_rate_cents: monthlyRateCents,
-    confirm_closed_year: confirmClosedYear,
+    confirm_closed_year: confirmClosed,
   });
 }
 
 export function setScaleBand(
-  year: number,
+  id: string,
   scale: number,
   category: string,
-  confirmClosedYear = false,
+  confirmClosed = false,
 ): Promise<RateCard> {
-  return apiPut<RateCard>(`/api/rates/cards/${year}/scales/${scale}`, {
+  return apiPut<RateCard>(`/api/rates/cards/${id}/scales/${scale}`, {
     category,
-    confirm_closed_year: confirmClosedYear,
+    confirm_closed_year: confirmClosed,
   });
 }
 

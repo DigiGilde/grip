@@ -13,8 +13,13 @@ export interface QuoteFact {
   status: string;
   issued_at: string;
   valid_until?: string | null;
-  /** Internal approval, when the instance asks for it on this quote. */
-  approval?: 'pending' | 'approved' | 'sent_back' | null;
+  /**
+   * Internal approval, only when this quote needs it: the status the
+   * approvals API gives (none, requested, approved, sent_back, withdrawn).
+   */
+  approval?: string | null;
+  /** Why the quote cannot be offered yet, in the server's words. */
+  blockedMessage?: string | null;
 }
 
 export interface OfferFact {
@@ -150,8 +155,19 @@ export function standing(facts: StandingFacts): Standing | null {
       toQuote,
     );
   }
-  if (inForce?.approval === 'pending') {
-    return answer('approval', 'De offerte wacht op intern akkoord voordat zij naar de opdrachtgever kan.', toQuote);
+  if (inForce?.approval === 'requested') {
+    return answer(
+      'approval',
+      inForce.blockedMessage ?? 'De offerte wacht op intern akkoord voordat zij naar de opdrachtgever kan.',
+      toQuote,
+    );
+  }
+  if (inForce?.approval === 'none' || inForce?.approval === 'withdrawn') {
+    return answer(
+      'approval',
+      inForce.blockedMessage ?? 'Deze offerte heeft intern akkoord nodig voordat zij naar de opdrachtgever kan.',
+      { text: 'Vraag intern akkoord', tab: 'quote' },
+    );
   }
   if (lastOffer) {
     return answer(

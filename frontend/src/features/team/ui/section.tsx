@@ -12,6 +12,8 @@ export interface SectionAction {
 interface SectionProps {
   title: string;
   supportingText?: string;
+  /** 2 directly on a page, 3 inside another section. */
+  level?: 2 | 3;
   /** At most one action; it opens the fields, nothing is open by default. */
   action?: SectionAction | null;
   children?: ReactNode;
@@ -22,13 +24,13 @@ interface SectionProps {
  * one action at the end of the heading line. A section shows what is; what
  * adds or changes opens from its action.
  */
-export function Section({ title, supportingText, action, children }: SectionProps) {
+export function Section({ title, supportingText, level = 2, action, children }: SectionProps) {
   return (
-    <nldd-container gap="8">
+    <nldd-container gap="16">
       <nldd-title
-        size={4}
+        size={level === 2 ? 4 : 5}
         text={title}
-        heading-level={2}
+        heading-level={level}
         {...(supportingText ? { 'supporting-text': supportingText } : {})}
       >
         {action ? (

@@ -33,7 +33,7 @@ import {
 import { OfferSheet } from './OfferSheet';
 import { EarlierQuoteRow, QuoteCard, type CardAction } from './QuoteCard';
 import { QuoteContentTable } from './QuoteContentTable';
-import { partMonthNote } from './format';
+import { partMonthNote, rateChangeNote } from './format';
 import { FileInput } from './ui';
 
 type Dialog = 'issue' | 'offer' | 'upload' | 'reject' | 'approval' | null;
@@ -155,7 +155,11 @@ export function QuotePage() {
   const showPreview = Boolean(data?.may_issue) && current?.status !== 'accepted' && !waiting;
   const difference = data ? differenceText(data) : null;
   const conditionsText = conditions ?? data?.default_conditions ?? '';
-  const partMonth = data?.content ? partMonthNote(data.content.lines) : null;
+  const partMonth = data?.content
+    ? [partMonthNote(data.content.lines), rateChangeNote(data.content.lines)]
+        .filter(Boolean)
+        .join(' ') || null
+    : null;
 
   return (
     <>

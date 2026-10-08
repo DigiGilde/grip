@@ -24,6 +24,14 @@ class YearRate(BaseModel):
     monthly_rate_cents: Annotated[int, B]
 
 
+class RatePeriod(BaseModel):
+    """The monthly rate over a part of a line, when a rate card changes inside it."""
+
+    start_date: Annotated[date, B]
+    end_date: Annotated[date, B]
+    monthly_rate_cents: Annotated[int, B]
+
+
 class YearSubtotal(BaseModel):
     year: Annotated[int, B]
     amount_cents: Annotated[int, B]
@@ -44,6 +52,9 @@ class QuoteLineOut(BaseModel):
     year: Annotated[int | None, B] = None
     # One entry per rate year the line touches.
     monthly_rates: Annotated[list[YearRate], nested()] = Field(default_factory=list)
+    # Instead of monthly_rates, when the rate changes on another date than
+    # 1 January: the rate per stretch of the line.
+    rate_periods: Annotated[list[RatePeriod], nested()] = Field(default_factory=list)
     amount_cents: Annotated[int, B]
 
 
@@ -238,6 +249,14 @@ def content_from_snapshot(snapshot: dict[str, Any]) -> QuoteContentOut:
                 )
                 for entry in line.get("monthly_rates_per_year", [])
             ]
+        rate_periods = [
+            RatePeriod(
+                start_date=entry["start_date"],
+                end_date=entry["end_date"],
+                monthly_rate_cents=cents(entry["monthly_rate"]),
+            )
+            for entry in line.get("monthly_rate_periods", [])
+        ]
         lines.append(
             QuoteLineOut(
                 position=line.get("position", 0),
@@ -251,6 +270,7 @@ def content_from_snapshot(snapshot: dict[str, Any]) -> QuoteContentOut:
                 end_date=period.get("end_date"),
                 year=line.get("year"),
                 monthly_rates=rates if line.get("kind") == "personnel" else [],
+                rate_periods=rate_periods if line.get("kind") == "personnel" else [],
                 amount_cents=cents(line.get("amount")),
             )
         )

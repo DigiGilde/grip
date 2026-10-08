@@ -211,9 +211,20 @@ def part_month_note(lines: list[dict[str, Any]]) -> str:
     return ""
 
 
+def _rate_periods(line: dict[str, Any]) -> list[dict[str, Any]]:
+    return [
+        entry
+        for entry in line.get("monthly_rate_periods") or []
+        if isinstance(entry, dict)
+    ]
+
+
 def _rate_cell(line: dict[str, Any]) -> str:
     if "monthly_rate" in line:
         return escape(format_euro(_cents(line["monthly_rate"])))
+    if _rate_periods(line):
+        # The rates stand per period on their own lines under the line.
+        return "per periode"
     parts = [
         f"{escape(str(entry.get('year')))}: "
         f"{escape(format_euro(_cents(entry.get('monthly_rate'))))}"
@@ -221,6 +232,30 @@ def _rate_cell(line: dict[str, Any]) -> str:
         if isinstance(entry, dict)
     ]
     return "<br>".join(parts)
+
+
+def _rate_period_row(line: dict[str, Any]) -> str:
+    """One small line per rate, for a line whose rate changes inside a year."""
+    periods = _rate_periods(line)
+    if not periods:
+        return ""
+    parts = [
+        f"{escape(_iso_date(entry.get('start_date')))} t/m "
+        f"{escape(_iso_date(entry.get('end_date')))}: "
+        f"{escape(format_euro(_cents(entry.get('monthly_rate'))))} per maand"
+        for entry in periods
+    ]
+    return f'<tr class="rates"><td colspan="6">{"<br>".join(parts)}</td></tr>'
+
+
+def rate_change_note(lines: list[dict[str, Any]]) -> str:
+    """One clause on a rate that changes inside the period, with the first date."""
+    for line in lines:
+        periods = _rate_periods(line)
+        if len(periods) > 1:
+            changes = _iso_date(periods[1].get("start_date"))
+            return f" Het tarief wijzigt per {changes}."
+    return ""
 
 
 def _period_cell(line: dict[str, Any]) -> str:
@@ -244,8 +279,10 @@ def _line_row(line: dict[str, Any]) -> str:
     scale = escape(scale_text(line)) if personnel else ""
     rate = _rate_cell(line) if personnel else ""
     amount = escape(format_euro(_cents(line.get("amount"))))
+    rates = _rate_period_row(line) if personnel else ""
+    opening = '<tr class="has-rates">' if rates else "<tr>"
     return (
-        "<tr>"
+        f"{opening}"
         f'<th scope="row">{description}</th>'
         f'<td class="num">{fte}</td>'
         f'<td class="keep">{_period_cell(line)}</td>'
@@ -253,6 +290,7 @@ def _line_row(line: dict[str, Any]) -> str:
         f'<td class="num">{rate}</td>'
         f'<td class="num">{amount}</td>'
         "</tr>"
+        f"{rates}"
     )
 
 
@@ -345,6 +383,10 @@ _STYLE = """
   .keep { white-space: nowrap; }
   tr { break-inside: avoid; }
   tr.subtotal th, tr.subtotal td { border-bottom: 0; }
+  tr.has-rates th, tr.has-rates td { border-bottom: 0; padding-bottom: 0.4mm; }
+  tr.has-rates { break-after: avoid; }
+  tr.rates td { font-size: 7.5pt; color: #444; padding-top: 0;
+    font-variant-numeric: tabular-nums; }
   tr.total th, tr.total td { font-weight: bold; border-top: 0.9pt solid #111;
     border-bottom: 0; }
   .note { margin-top: 2mm; }
@@ -446,8 +488,8 @@ def render_quote_html(snapshot: dict[str, Any], context: QuoteDocumentContext) -
             f'<p class="conditions">{escape(str(snapshot["conditions"]))}</p>'
         )
     note = (
-        "Bedragen zijn berekend per kalendermaand, tegen het tarief van het jaar "
-        "waarin de maand valt." + part_month_note(lines)
+        "Bedragen zijn berekend per kalendermaand, tegen het tarief dat in die "
+        "maand geldt." + part_month_note(lines) + rate_change_note(lines)
     )
     client = escape(context.client_name or "de opdrachtgever")
     issued = context.issued_at.strftime("%Y-%m-%dT%H:%M:%S+00:00")

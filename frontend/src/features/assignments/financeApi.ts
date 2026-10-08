@@ -70,6 +70,8 @@ export interface FinanceLine {
   rate_category: string | null;
   figures: Figures | null;
   pricing_error: string | null;
+  /** Why the line runs over or under; the server words it for this reader. */
+  rate_difference_notes?: string[];
   persons: PersonAmount[];
   /** Persons on the line whose amounts this reader may not see. */
   persons_hidden: number;

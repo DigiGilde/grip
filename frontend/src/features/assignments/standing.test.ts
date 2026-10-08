@@ -78,7 +78,7 @@ describe('standing', () => {
   });
 
   it('shows internal approval as a step only when the quote has one', () => {
-    const pending = standing(facts({ quotes: [{ ...issued, approval: 'pending' }], offers: [] }));
+    const pending = standing(facts({ quotes: [{ ...issued, approval: 'requested' }], offers: [] }));
     expect(states(pending)).toEqual([
       'budget:done',
       'quote:done',
@@ -89,6 +89,16 @@ describe('standing', () => {
     const approved = standing(facts({ quotes: [{ ...issued, approval: 'approved' }], offers: [] }));
     expect(approved?.current).toBe('offer');
     expect(approved?.steps.map((step) => step.key)).toContain('approval');
+    // Needed and not asked yet: asking is the step, in the server's words when it gives them.
+    const needed = standing(
+      facts({ quotes: [{ ...issued, approval: 'none', blockedMessage: 'Vanaf € 100.000 is intern akkoord nodig.' }], offers: [] }),
+    );
+    expect(needed?.current).toBe('approval');
+    expect(needed?.advice).toBe('Vanaf € 100.000 is intern akkoord nodig.');
+    expect(needed?.action?.text).toBe('Vraag intern akkoord');
+    // No approval asked of this quote: no step.
+    const plainQuote = standing(facts({ quotes: [issued], offers: [] }));
+    expect(plainQuote?.steps.map((step) => step.key)).not.toContain('approval');
   });
 
   it('goes back to the quote when it was sent back internally', () => {

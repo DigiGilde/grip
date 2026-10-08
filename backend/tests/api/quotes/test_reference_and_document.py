@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from grip.core.config import get_settings
+from grip.schema.quotes import content_from_snapshot
 from grip.services import assignments, quote_reference, quotes
 from grip.services.quote_document import (
     DocumentEngineError,
@@ -225,6 +226,34 @@ def test_scales_and_part_month_in_words():
     assert "oktober 2026 telt voor 29 van de 31 dagen" in part_month_note(part)
     late = [_line(1, period={"start_date": "2026-03-16", "end_date": "2026-12-31"})]
     assert "maart 2026 telt voor 16 van de 31 dagen" in part_month_note(late)
+
+
+def test_a_rate_that_changes_inside_the_period_shows_every_rate():
+    line = _line(1)
+    del line["monthly_rate"]
+    line["monthly_rate_periods"] = [
+        {
+            "start_date": "2026-01-01",
+            "end_date": "2026-06-30",
+            "monthly_rate": _money(1_800_000),
+        },
+        {
+            "start_date": "2026-07-01",
+            "end_date": "2026-12-31",
+            "monthly_rate": _money(1_900_000),
+        },
+    ]
+    content = _content([line])
+    html = render_quote_html(content, _context())
+    assert "1 januari 2026 t/m 30 juni 2026: € 18.000,00 per maand" in html
+    assert "1 juli 2026 t/m 31 december 2026: € 19.000,00 per maand" in html
+    assert "Het tarief wijzigt per 1 juli 2026." in html
+    found = _text(_pdf(content))
+    assert "19.000,00" in found
+    # The response for the screen carries the same periods.
+    shown = content_from_snapshot(content).lines[0]
+    assert [p.monthly_rate_cents for p in shown.rate_periods] == [1_800_000, 1_900_000]
+    assert shown.monthly_rates == []
 
 
 def test_what_the_content_holds_is_escaped():

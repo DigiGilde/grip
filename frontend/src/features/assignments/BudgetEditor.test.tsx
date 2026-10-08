@@ -38,20 +38,35 @@ const BUDGET = {
   ],
 };
 
+const BANDS = {
+  rate_bands: [{ category: 'B', monthly_rate_cents: 1312500 }],
+  scale_bands: [
+    { scale: 10, category: 'B' },
+    { scale: 11, category: 'B' },
+  ],
+};
 const CARDS = {
   may_manage: false,
   default_increase_pct: '0',
-  items: [
+  items: [{ status: 'active', valid_from: '2020-01-01', valid_to: null, name: 'Tarieven 2026', ...BANDS }],
+};
+const VALID = {
+  start_date: '2026-01-01',
+  end_date: '2026-12-31',
+  stretches: [
     {
-      year: new Date().getFullYear(),
-      status: 'active',
-      rate_bands: [{ category: 'B', monthly_rate_cents: 1312500 }],
-      scale_bands: [
-        { scale: 10, category: 'B' },
-        { scale: 11, category: 'B' },
-      ],
+      start_date: '2026-01-01',
+      end_date: '2026-12-31',
+      card_id: 'c1',
+      card_name: 'Tarieven 2026',
+      card_valid_to: '2026-12-31',
+      ...BANDS,
     },
   ],
+  crosses_cards: false,
+  rates_differ: false,
+  has_gap: false,
+  summary: 'Volgens Tarieven 2026, geldig t/m 31 december 2026.',
 };
 
 const DERIVED = {
@@ -72,7 +87,7 @@ const DERIVED = {
   budgeted_cents: null,
 };
 
-function renderEditor(derive: unknown = DERIVED, detail = assignment()) {
+function renderEditor(derive: unknown = DERIVED, detail = assignment(), valid: unknown = VALID) {
   const fetchMock = mockApi({
     '/api/assignments/a1/budget-lines/derive': derive,
     '/api/assignments/a1/budget-lines/preview': {
@@ -89,6 +104,7 @@ function renderEditor(derive: unknown = DERIVED, detail = assignment()) {
       ],
     },
     '/api/rates/cards': CARDS,
+    '/api/rates/valid': valid,
   });
   return { ...renderApp(<BudgetEditor assignmentId="a1" />), fetchMock };
 }
@@ -280,5 +296,39 @@ describe('budget line sheet', () => {
       expect(sheet.querySelector('nldd-button[text="Bewaar de looptijd van de opdracht"]')).not.toBeNull(),
     );
     expect(allText(sheet)).toContain('die nog geen looptijd heeft');
+  });
+
+  it('names the rate card that is valid over the period, and says when the period crosses cards', async () => {
+    const { container } = renderEditor(DERIVED, assignment(), {
+      ...VALID,
+      crosses_cards: true,
+      rates_differ: true,
+      summary: 'Tot en met 30 juni volgens Tarieven 2026, daarna volgens Tarieven vanaf 1 juli 2026.',
+    });
+    const sheet = await openNewLine(container);
+    await waitFor(() =>
+      expect(field(sheet, 'Schaal en tarief').getAttribute('supporting-label')).toContain(
+        'volgens Tarieven 2026',
+      ),
+    );
+    expect(
+      sheet.querySelector('nldd-banner[text="De periode loopt over meer dan één tarievenkaart"]'),
+    ).not.toBeNull();
+    const calls = (vi.mocked(fetch).mock.calls as unknown[][]).map((call) => String(call[0]));
+    expect(calls).toContain('/api/rates/valid?start_date=2026-01-01&end_date=2026-12-31');
+  });
+
+  it('says plainly when part of the period has no rate card', async () => {
+    const { container } = renderEditor(DERIVED, assignment(), {
+      ...VALID,
+      has_gap: true,
+      summary: 'Vanaf 1 juli 2026 is er geen tarievenkaart.',
+    });
+    const sheet = await openNewLine(container);
+    await waitFor(() =>
+      expect(
+        sheet.querySelector('nldd-banner[text="Voor een deel van deze periode is er geen tarievenkaart"]'),
+      ).not.toBeNull(),
+    );
   });
 });

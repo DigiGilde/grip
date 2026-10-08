@@ -35,7 +35,7 @@ async def test_signer_sees_the_invited_quote(act_as, world):
 
     document = await client.get(f"/api/signing/quotes/{quote['id']}/document")
     assert document.status_code == 200
-    assert quote["snapshot_hash"] in document.text
+    assert quote["snapshot_hash"] in document.text.replace(" ", "")
 
 
 async def test_signer_reaches_nothing_else(act_as, world):

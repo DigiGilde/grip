@@ -86,7 +86,33 @@ export function signalText(signal: Signal, thresholdPct: string): SignalText {
         variant: 'critical',
         text: `${signal.count === 1 ? '1 regel kon' : `${signal.count} regels konden`} niet worden berekend. ${signal.description ?? ''}`.trim(),
       };
+    case 'correction_due': {
+      const names = signal.months.map((month) => formatMonth(month).split(' ')[0]);
+      const months =
+        names.length > 1 ? `${names.slice(0, -1).join(', ')} en ${names.at(-1)}` : (names[0] ?? '');
+      const cause = signal.description ? ` door ${signal.description}` : '';
+      return {
+        variant: 'warning',
+        text: `Naverrekening over ${months}${cause}: ${formatEuro(signal.amount_cents)} nog aan te leveren bovenop wat al is aangeleverd`,
+      };
+    }
     default:
       return { variant: 'neutral', text: signal.description ?? signal.kind };
   }
+}
+
+const sentence = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
+/**
+ * Why a line runs over or under: the sentence that names the person for who
+ * got it, otherwise only that a rate changed and when. Empty when nothing differs.
+ */
+export function rateCauseText(line: {
+  rate_difference_notes?: string[];
+  rate_difference_signals?: string[];
+}): string {
+  const notes = line.rate_difference_notes?.length
+    ? line.rate_difference_notes
+    : (line.rate_difference_signals ?? []);
+  return notes.map(sentence).join('. ');
 }

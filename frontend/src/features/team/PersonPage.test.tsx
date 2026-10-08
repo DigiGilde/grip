@@ -48,9 +48,12 @@ interface Mock {
   person: object;
   kpi?: object;
   loginBound?: boolean;
+  roles?: object[];
+  impact?: object;
+  outgoing?: object[];
 }
 
-function mock({ person, kpi, loginBound }: Mock) {
+function mock({ person, kpi, loginBound, roles, impact, outgoing }: Mock) {
   const calls: { method: string; url: string }[] = [];
   vi.stubGlobal(
     'fetch',
@@ -65,6 +68,10 @@ function mock({ person, kpi, loginBound }: Mock) {
       else if (path === '/api/people/p-1/login')
         body = { bound: method === 'DELETE' ? false : Boolean(loginBound) };
       else if (path.startsWith('/api/people/p-1/functions/')) body = person;
+      else if (path === '/api/people/p-1/roles' && roles) body = { person_id: 'p-1', items: roles };
+      else if (path === '/api/people/p-1/scales/preview' && impact) body = impact;
+      else if (path === '/api/integrations/wies/reconciliation' && outgoing)
+        body = { configured: true, proposals: [], outgoing };
       const status = body === null ? 404 : 200;
       return Promise.resolve(
         new Response(JSON.stringify(body ?? { title: 'Niet gevonden', status: 404 }), {
@@ -142,7 +149,7 @@ describe('what a reader sees of a person', () => {
       'Rechten in grip',
     ]);
     const facts = texts(container, 'nldd-list nldd-text-cell');
-    expect(facts).toContain('Schaal 14, categorie D');
+    expect(facts).toContain('Schaal 14 sinds 1 jan 2026');
     expect(document.body.innerHTML).not.toContain('Kostprijs');
     expect(document.body.innerHTML).not.toContain('Marge');
   });
@@ -230,7 +237,7 @@ describe('what the beheerder can do', () => {
     expect(buttons(container)).toEqual([
       'Wijzig gegevens',
       'Leg inhuur vast',
-      'Nieuwe inzetschaal',
+      'Leg schaal vast',
       'Stel target in',
       'Ken een recht toe',
       'Trek in',
@@ -386,5 +393,110 @@ describe('the login of a person', () => {
     const { container, calls } = await renderPerson({ person: FULL, loginBound: true });
     expect(calls.filter((call) => call.url.endsWith('/login'))).toEqual([]);
     expect(container.querySelector('nldd-title[text="Inloggen"]')).toBeNull();
+  });
+});
+
+describe('scale, roles and a prospective colleague', () => {
+  const FULL = {
+    ...ROSTER,
+    ...STAFFING,
+    billing_scale: 12,
+    rate_category: 'C',
+    monthly_rate_cents: 1500000,
+    scales: [
+      { id: 's-1', valid_from: '2025-01-01', valid_to: '2026-04-30', billing_scale: 11 },
+      { id: 's-2', valid_from: '2026-05-01', valid_to: null, billing_scale: 12 },
+    ],
+  };
+
+  it('reads a promotion as one, with the earlier period as history', async () => {
+    const { container } = await renderPerson({ person: FULL });
+    const facts = texts(container, 'nldd-list nldd-text-cell');
+    expect(facts).toContain('Schaal 12 sinds 1 mei 2026 (was 11)');
+    expect(facts).toContain('Schaal 11');
+    expect(
+      container.querySelector('nldd-text-cell[overline="1 jan 2025 t/m 30 apr 2026"]'),
+    ).not.toBeNull();
+  });
+
+  it('shows what recording a scale changes before it is saved', async () => {
+    const { container, calls } = await renderPerson(
+      {
+        person: FULL,
+        impact: {
+          budget_lines_changed: 0,
+          budget_difference_cents: 0,
+          allocations_changed: 2,
+          open_difference_cents: 90000,
+          closed_difference_cents: 0,
+          correction_cents: 30000,
+          unpriced_months: 0,
+          reaches_into_the_past: true,
+          assignments: [],
+        },
+      },
+      ['beheerder'],
+    );
+    fireEvent.click(button(container, 'Leg schaal vast') as Element);
+    const sheet = document.body
+      .querySelector('nldd-top-title-bar[text="Inzetschaal van Rik Medewerker"]')
+      ?.closest('nldd-sheet') as HTMLElement;
+    await waitFor(() => expect(sheet.querySelector('form')).not.toBeNull());
+    // Nothing is asked before there is a scale to ask about.
+    expect(calls.some((call) => call.url.includes('/scales/preview'))).toBe(false);
+    const scale = sheet.querySelectorAll('nldd-text-field')[0] as HTMLElement;
+    fireEvent(scale, new CustomEvent('input', { detail: { value: '13' } }));
+    await waitFor(() => expect(sheet.querySelectorAll('nldd-text').length).toBeGreaterThan(1));
+    const sentences = [...sheet.querySelectorAll('nldd-text')].map((el) =>
+      (el.textContent ?? '').replace(/\u00a0/g, ' '),
+    );
+    expect(sentences.some((text) => text.startsWith('2 inzetten krijgen vanaf 1 jun 2026'))).toBe(
+      true,
+    );
+    expect(sentences.some((text) => text.includes('naverrekening van samen € 300 hoger'))).toBe(
+      true,
+    );
+    // Looking saved nothing.
+    expect(calls.filter((call) => call.method === 'POST' && call.url.endsWith('/scales'))).toEqual(
+      [],
+    );
+  });
+
+  it('shows the roles of a person with where each came from', async () => {
+    const { container } = await renderPerson({
+      person: { ...ROSTER, ...STAFFING },
+      roles: [
+        { role_id: 'r-1', name: 'Developer', source: 'wies', is_active: true },
+        { role_id: 'r-2', name: 'Productmanager', source: 'manual', is_active: true },
+      ],
+    });
+    await waitFor(() => expect(sections(container)).toContain('Rollen'));
+    expect(sections(container)).toEqual(['Wie en hoe', 'Rollen', 'Inzet', 'Rechten in grip']);
+    expect(
+      container.querySelector('nldd-text-cell[overline="Uit Wies"]')?.getAttribute('text'),
+    ).toBe('Developer');
+    expect(
+      container.querySelector('nldd-text-cell[overline="Met de hand"]')?.getAttribute('text'),
+    ).toBe('Productmanager');
+    expect(buttons(container)).toEqual([]);
+  });
+
+  it('shows the beheerder where the proposal to Wies stands for a prospective colleague', async () => {
+    const { container } = await renderPerson(
+      {
+        person: { ...ROSTER, email: null, stage: 'prospective', starts_on: '2026-09-01' },
+        outgoing: [{ person_id: 'p-1', name: 'Rik Medewerker', state: 'open' }],
+      },
+      ['beheerder'],
+    );
+    await waitFor(() =>
+      expect(
+        container.querySelector('nldd-text-cell[overline="Voorstel aan Wies"]'),
+      ).not.toBeNull(),
+    );
+    expect(
+      container.querySelector('nldd-text-cell[overline="Voorstel aan Wies"]')?.getAttribute('text'),
+    ).toBe('Voorgesteld aan Wies; nog niet overgenomen');
+    expect(container.querySelector('nldd-link[href="/beheer/wies"]')).not.toBeNull();
   });
 });

@@ -149,7 +149,7 @@ async def test_document_is_rendered_from_the_snapshot(act_as, world, db_session)
     assert "Later hernoemd" not in html
     assert "€ 172.800,00" in html
     assert "Voorbeeldministerie" in html
-    assert quote["snapshot_hash"] in html
+    assert quote["snapshot_hash"] in html.replace(" ", "")
     assert "Betaling per maand." in html
     assert "<script" not in html
 

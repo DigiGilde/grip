@@ -9,6 +9,12 @@ export interface YearRate {
   monthly_rate_cents: number;
 }
 
+export interface RatePeriod {
+  start_date: string;
+  end_date: string;
+  monthly_rate_cents: number;
+}
+
 export interface QuoteLine {
   position: number;
   description: string;
@@ -22,6 +28,8 @@ export interface QuoteLine {
   end_date?: string | null;
   year?: number | null;
   monthly_rates?: YearRate[];
+  /** Instead of monthly_rates, when the rate changes on another date than 1 January. */
+  rate_periods?: RatePeriod[];
   amount_cents: number;
 }
 

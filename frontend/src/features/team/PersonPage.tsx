@@ -12,6 +12,14 @@ import {
   ENGAGEMENT_LABELS,
   FUNCTIONS,
   addHire,
+  setPersonRoles,
+  scaleSentence,
+  scalePreviewKey,
+  scaleHistory,
+  previewScale,
+  personRolesKey,
+  fetchPersonRoles,
+  ROLE_SOURCE_LABELS,
   addScale,
   currentHire,
   engagementOf,
@@ -34,8 +42,20 @@ import {
   type Hire,
   type Kpi,
   type Person,
+  type PersonRole,
+  type Scale,
 } from './api';
-import { Button, DateField, SelectField, SwitchField, TextField } from './ui/controls';
+import { impactSentences } from '@/features/rates/impact';
+import { RolePicker } from '@/features/roles';
+import { WIES_KEYS, fetchReconciliation } from '@/features/wies/api';
+import {
+  Button,
+  CheckboxField,
+  DateField,
+  SelectField,
+  SwitchField,
+  TextField,
+} from './ui/controls';
 import { eurosToCents, percentInput } from './ui/money';
 import { ConfirmDialog, Form, Sheet } from './ui/overlays';
 import { Fact, Facts, Section } from './ui/section';
@@ -99,6 +119,7 @@ type Editing =
   | 'identity'
   | 'hire'
   | 'scale'
+  | 'roles'
   | 'target'
   | 'grant'
   | { revoke: FunctionGrant }
@@ -134,6 +155,14 @@ function PersonContent({ person, day, mayManage }: ContentProps) {
     queryFn: () => fetchPersonKpi(person.id, year),
     retry: false,
   });
+  // The roles follow the reader's right to see staffing; without it the
+  // request is refused and the section is not there.
+  const roles = useQuery({
+    queryKey: personRolesKey(person.id),
+    queryFn: () => fetchPersonRoles(person.id),
+    enabled: 'functions' in person,
+    retry: false,
+  });
   const revoked = typeof editing === 'object' && editing && 'revoke' in editing ? editing : null;
   const removedHire =
     typeof editing === 'object' && editing && 'removeHire' in editing ? editing : null;
@@ -150,9 +179,22 @@ function PersonContent({ person, day, mayManage }: ContentProps) {
           onHire={() => setEditing('hire')}
           onRemoveHire={(hire) => setEditing({ removeHire: hire })}
         />
+        {roles.data ? (
+          <Roles
+            person={person}
+            roles={roles.data.items}
+            mayManage={mayManage}
+            onEdit={() => setEditing('roles')}
+          />
+        ) : null}
         {'current_assignment_count' in person ? <Staffing person={person} day={day} /> : null}
         {'scales' in person ? (
-          <Scales person={person} mayManage={mayManage} onAdd={() => setEditing('scale')} />
+          <Scales
+            person={person}
+            day={day}
+            mayManage={mayManage}
+            onAdd={() => setEditing('scale')}
+          />
         ) : null}
         {kpi.data ? (
           <KpiSection kpi={kpi.data} mayManage={mayManage} onEdit={() => setEditing('target')} />
@@ -188,11 +230,19 @@ function PersonContent({ person, day, mayManage }: ContentProps) {
           </Sheet>
           <Sheet
             open={editing === 'scale'}
-            title={`Nieuwe inzetschaal van ${person.name}`}
+            title={`Inzetschaal van ${person.name}`}
             dismissText="Annuleer"
             onClose={close}
           >
             <ScaleForm person={person} day={day} onDone={close} />
+          </Sheet>
+          <Sheet
+            open={editing === 'roles'}
+            title={`Rollen van ${person.name}`}
+            dismissText="Annuleer"
+            onClose={close}
+          >
+            <RolesForm person={person} roles={roles.data?.items ?? []} onDone={close} />
           </Sheet>
           <Sheet
             open={editing === 'target'}
@@ -322,11 +372,7 @@ function Identity({ person, day, mayManage, onEdit, onHire, onRemoveHire }: Iden
           />
         ))}
       </Facts>
-      {/*
-        For a prospective colleague this is where the reference of the hire
-        in the recruitment system and the proposal to Wies will be linked
-        from; the screens for those belong to the vacancies and Wies features.
-      */}
+      {prospective && mayManage ? <WiesProposal person={person} /> : null}
       {mayManage && !prospective ? (
         <nldd-button-group>
           <Button
@@ -508,41 +554,54 @@ function Staffing({ person, day }: { person: Person; day: string }) {
 
 function Scales({
   person,
+  day,
   mayManage,
   onAdd,
 }: {
   person: Person;
+  day: string;
   mayManage: boolean;
   onAdd: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   useRouterLinks(ref);
-  const scales = person.scales ?? [];
-  const current =
-    person.billing_scale === null || person.billing_scale === undefined
-      ? 'Geen inzetschaal op de peildatum'
-      : `Schaal ${person.billing_scale}${person.rate_category ? `, categorie ${person.rate_category}` : ''}`;
+  const history = scaleHistory(person.scales ?? []);
+  // The period that holds on the reference day reads as a sentence; the
+  // periods around it are the history.
+  const holds = (entry: Scale) =>
+    entry.valid_from <= day && (entry.valid_to === null || entry.valid_to >= day);
+  const current = history.find(holds) ?? null;
+  const rate =
+    typeof person.monthly_rate_cents === 'number'
+      ? `Categorie ${person.rate_category}, maandtarief ${formatEuro(person.monthly_rate_cents)} per FTE`
+      : person.rate_category
+        ? `Categorie ${person.rate_category}`
+        : null;
   return (
     <Section
       title="Inzetschaal"
       supportingText="De schaal waartegen deze persoon wordt gedeclareerd"
-      action={mayManage ? { text: 'Nieuwe inzetschaal', onClick: onAdd } : null}
+      action={mayManage ? { text: 'Leg schaal vast', onClick: onAdd } : null}
     >
       <Facts label={`Inzetschaal van ${person.name}`}>
         <Fact
-          label="Nu"
-          value={current}
-          {...(typeof person.monthly_rate_cents === 'number'
-            ? { supportingText: `Maandtarief ${formatEuro(person.monthly_rate_cents)} per FTE` }
-            : {})}
+          label={`Op ${formatDate(day)}`}
+          value={current ? scaleSentence(current) : 'Geen inzetschaal'}
+          {...(rate ? { supportingText: rate } : {})}
         />
-        {scales.map((entry) => (
-          <Fact
-            key={entry.id}
-            label={formatPeriod(entry.valid_from, entry.valid_to)}
-            value={`Schaal ${entry.billing_scale}`}
-          />
-        ))}
+        {history
+          .filter((entry) => entry !== current)
+          .map((entry) => (
+            <Fact
+              key={entry.id}
+              label={formatPeriod(entry.valid_from, entry.valid_to)}
+              value={
+                entry.valid_from > day
+                  ? `${scaleSentence(entry).replace('sinds', 'vanaf')}`
+                  : `Schaal ${entry.billing_scale}`
+              }
+            />
+          ))}
       </Facts>
       <div ref={ref}>
         <nldd-link size="sm" href={PATHS.rates} text="Bekijk de tarieven per categorie" />
@@ -551,19 +610,32 @@ function Scales({
   );
 }
 
+/**
+ * Record a scale from any date, in the past or the future. Before saving,
+ * the sheet says what that changes from the date and which naverrekening it
+ * causes for months that were already delivered.
+ */
 function ScaleForm({ person, day, onDone }: { person: Person; day: string; onDone: () => void }) {
   const save = useSave(onDone);
   const [from, setFrom] = useState(day);
   const [scale, setScale] = useState('');
+  const number = /^\d+$/.test(scale.trim()) ? Number.parseInt(scale, 10) : null;
+  const valid = /^\d{4}-\d{2}-\d{2}$/.test(from) && number !== null && number >= 1 && number <= 30;
+  const impact = useQuery({
+    queryKey: scalePreviewKey(person.id, from, number ?? 0),
+    queryFn: () => previewScale(person.id, { valid_from: from, billing_scale: number as number }),
+    enabled: valid,
+    retry: false,
+  });
+  const sameStart = (person.scales ?? []).some((entry) => entry.valid_from === from);
   return (
     <Form
       submitText="Leg schaal vast"
       submitting={save.pending}
       error={save.error}
       onSubmit={() => {
-        const number = Number.parseInt(scale, 10);
-        if (!from || !/^\d+$/.test(scale.trim()) || number < 1 || number > 30) {
-          save.setError('Vul een ingangsdatum en een schaal van 1 tot en met 30 in.');
+        if (!valid || number === null) {
+          save.setError('Vul een begindatum en een schaal van 1 tot en met 30 in.');
           return;
         }
         save.run(() => addScale(person.id, { valid_from: from, billing_scale: number }));
@@ -571,12 +643,125 @@ function ScaleForm({ person, day, onDone }: { person: Person; day: string; onDon
     >
       <DateField
         label="Vanaf"
-        supportingLabel="De vorige periode eindigt de dag ervoor"
+        supportingLabel="Mag in het verleden of in de toekomst liggen; de periode die dan geldt eindigt de dag ervoor"
         value={from}
         onChange={setFrom}
         required
       />
       <TextField label="Schaal" value={scale} onChange={setScale} keyboard="numeric" required />
+      <nldd-container gap="8">
+        <nldd-title size={5} text="Dit verandert er" heading-level={2} />
+        {!valid ? (
+          <nldd-text size="sm" color="secondary">
+            Vul een datum en een schaal in om te zien wat er verandert.
+          </nldd-text>
+        ) : impact.isPending ? (
+          <nldd-inline-dialog variant="loading" text="Bezig met narekenen wat er verandert" />
+        ) : impact.isError ? (
+          <nldd-banner variant="critical" size="sm" text={errorMessage(impact.error)} />
+        ) : (
+          <>
+            {sameStart ? (
+              <nldd-text>
+                Op {formatDate(from)} begint al een periode; die wordt verbeterd naar schaal{' '}
+                {number}.
+              </nldd-text>
+            ) : null}
+            {impactSentences(impact.data, from).map((sentence) => (
+              <nldd-text key={sentence}>{sentence}</nldd-text>
+            ))}
+          </>
+        )}
+      </nldd-container>
+    </Form>
+  );
+}
+
+// -- roles (class C) -----------------------------------------------------------------------
+
+/** The roles someone can be staffed in, with where each came from. */
+function Roles({
+  person,
+  roles,
+  mayManage,
+  onEdit,
+}: {
+  person: Person;
+  roles: PersonRole[];
+  mayManage: boolean;
+  onEdit: () => void;
+}) {
+  if (roles.length === 0 && !mayManage) return null;
+  return (
+    <Section
+      title="Rollen"
+      supportingText="Waarin deze persoon kan worden ingezet"
+      action={
+        mayManage
+          ? { text: roles.length ? 'Wijzig rollen' : 'Ken rollen toe', onClick: onEdit }
+          : null
+      }
+    >
+      {roles.length > 0 ? (
+        <Facts label={`Rollen van ${person.name}`}>
+          {roles.map((role) => (
+            <Fact
+              key={role.role_id}
+              label={ROLE_SOURCE_LABELS[role.source]}
+              value={role.name}
+              {...(role.is_active
+                ? {}
+                : { supportingText: 'Deze rol is uitgezet in de rollenlijst' })}
+            />
+          ))}
+        </Facts>
+      ) : null}
+    </Section>
+  );
+}
+
+function RolesForm({
+  person,
+  roles,
+  onDone,
+}: {
+  person: Person;
+  roles: PersonRole[];
+  onDone: () => void;
+}) {
+  const save = useSave(onDone);
+  const [kept, setKept] = useState(roles.map((role) => ({ id: role.role_id, name: role.name })));
+  const [removed, setRemoved] = useState<string[]>([]);
+  const ids = kept.filter((role) => !removed.includes(role.id)).map((role) => role.id);
+  return (
+    <Form
+      submitText="Bewaar rollen"
+      submitting={save.pending}
+      error={save.error}
+      onSubmit={() => save.run(() => setPersonRoles(person.id, ids))}
+    >
+      {kept.map((role) => (
+        <CheckboxField
+          key={role.id}
+          label={role.name}
+          checked={!removed.includes(role.id)}
+          onChange={(checked) =>
+            setRemoved((old) => (checked ? old.filter((id) => id !== role.id) : [...old, role.id]))
+          }
+        />
+      ))}
+      <RolePicker
+        label="Rol toevoegen"
+        supportingLabel="Een rol die je hier toevoegt, staat als met de hand toegekend"
+        optional
+        value={null}
+        exclude={kept.map((role) => role.id)}
+        onChange={(role) => {
+          if (role && !kept.some((k) => k.id === role.id)) {
+            setKept((old) => [...old, { id: role.id, name: role.name }]);
+          }
+        }}
+      />
     </Form>
   );
 }
@@ -868,5 +1053,46 @@ function Login({ person }: { person: Person }) {
         }}
       />
     </Section>
+  );
+}
+
+// -- a prospective colleague and Wies -------------------------------------------------------
+
+const PROPOSAL_STATES: Record<string, string> = {
+  open: 'Voorgesteld aan Wies; nog niet overgenomen',
+  confirmed: 'Overgenomen door Wies',
+  declined: 'Afgewezen door Wies',
+  withdrawn: 'Ingetrokken',
+};
+
+/**
+ * Where the proposal "new colleague" to Wies stands, for the beheerder. The
+ * state comes from the reconciliation with Wies; when Wies is not connected
+ * or has no proposal for this person there is nothing to show.
+ */
+function WiesProposal({ person }: { person: Person }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useRouterLinks(ref);
+  const reconciliation = useQuery({
+    queryKey: WIES_KEYS.reconciliation,
+    queryFn: fetchReconciliation,
+    retry: false,
+  });
+  const outgoing =
+    (reconciliation.data as { outgoing?: { person_id: string; state: string }[] } | undefined)
+      ?.outgoing ?? [];
+  const proposal = outgoing.find((entry) => entry.person_id === person.id);
+  if (!proposal) return null;
+  return (
+    <div ref={ref}>
+      <Facts label={`Voorstel aan Wies voor ${person.name}`}>
+        <Fact label="Voorstel aan Wies" value={PROPOSAL_STATES[proposal.state] ?? proposal.state} />
+      </Facts>
+      <nldd-link
+        size="sm"
+        href={PATHS.wiesProposals}
+        text="Bekijk de voorstellen uit en aan Wies"
+      />
+    </div>
   );
 }

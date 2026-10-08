@@ -5,6 +5,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Response
 
+from grip import calc
 from grip.access import Action, DataClass, Resource, build_response, schema_classes
 from grip.api.assignment_support import DbSession, RequestAccess, YearFilter, parse_year
 from grip.schema.finance import (
@@ -20,7 +21,8 @@ from grip.schema.finance import (
     SignalOut,
 )
 from grip.services import assignment_finance as finance
-from grip.services import assignments
+from grip.services import assignments, pricing
+from grip.services.overview_attention import correction_due
 
 router = APIRouter(tags=["finance"])
 
@@ -72,8 +74,27 @@ async def get_assignment_finance(
     data = await finance.assignment_finance(db, assignment_id, year=parse_year(year))
     key = data.key_figures
 
+    try:
+        differences = await pricing.rate_differences(db, assignment_id)
+    except calc.CalcError:
+        differences = ()
+
     lines: list[dict[str, Any]] = []
     for item in data.lines:
+        # The cause next to the variance it explains: named for who may see
+        # what the person bills, otherwise only that a rate changed and when.
+        causes: list[str] = []
+        for difference in differences:
+            if difference.budget_line_id != item.line.id:
+                continue
+            named = await access.may(
+                Action.READ,
+                Resource.allocation(assignment_id, difference.person_id),
+                D,
+            )
+            text = difference.text if named else difference.generic_text
+            if text not in causes:
+                causes.append(text)
         persons: list[dict[str, Any]] = []
         hidden = 0
         for person in item.persons:
@@ -106,6 +127,7 @@ async def get_assignment_finance(
             rate_category=item.line.rate_category,
             figures=figures_out(item.figures),
             pricing_error=item.pricing_error,
+            rate_difference_notes=causes,
             persons=[],
             persons_hidden=hidden,
             costs=[
@@ -174,6 +196,19 @@ async def get_assignment_finance(
         ],
         free_room_threshold_pct=data.free_room_threshold_pct,
     )
+    correction = await correction_due(db, assignment_id, differences)
+    if correction is not None:
+        head.signals.append(
+            SignalOut(
+                kind="correction_due",
+                budget_line_id=None,
+                description=correction.cause,
+                amount_cents=correction.amount_cents,
+                pct=None,
+                count=len(correction.months),
+                months=list(correction.months),
+            )
+        )
     # The reader has class B (required above), so everything but the persons
     # is theirs; build_response still drops what a schema marks otherwise.
     result = build_response(head, {A, B})

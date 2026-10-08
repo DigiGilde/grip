@@ -85,6 +85,10 @@ class FinanceLineOut(BaseModel):
     figures: Annotated[FiguresOut | None, nested()]
     pricing_error: Annotated[str | None, in_class(B)]
     persons: Annotated[list[PersonAmountOut], nested()]
+    # Why the line runs over or under (R14): with the person and the
+    # categories for who may see what that person bills, otherwise only
+    # "tariefwijziging per <datum>". Filled by the route per reader.
+    rate_difference_notes: Annotated[list[str], in_class(B)] = []
     # How many persons are on the line whose amounts this reader may not see.
     persons_hidden: Annotated[int, in_class(B)]
     costs: Annotated[list[CostAmountOut], nested()]

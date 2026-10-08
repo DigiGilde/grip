@@ -112,6 +112,10 @@ export interface BudgetLine {
   budgeted_cents?: number | null;
   budgeted_by_year?: Record<string, number>;
   pricing_error?: string | null;
+  /** Why the line runs over or under, naming the person: only for who may see that. */
+  rate_difference_notes?: string[];
+  /** The same without the person: "tariefwijziging per 1 juli 2026". */
+  rate_difference_signals?: string[];
   /** The colleague the role is meant for. Never part of a quote. */
   intended_person_id?: string | null;
   intended_person_name?: string | null;

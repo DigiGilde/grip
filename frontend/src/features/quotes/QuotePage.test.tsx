@@ -173,6 +173,32 @@ describe('QuotePage', () => {
     expect(container.textContent).toContain('oktober 2026 telt voor 29 van de 31 dagen');
   });
 
+  it('shows every rate when a rate card changes inside the line', async () => {
+    const container = await renderTab({
+      preview: {
+        ...PREVIEW,
+        content: {
+          ...CONTENT,
+          lines: [
+            {
+              ...LINE,
+              monthly_rates: [],
+              rate_periods: [
+                { start_date: '2026-01-01', end_date: '2026-06-30', monthly_rate_cents: 1800000 },
+                { start_date: '2026-07-01', end_date: '2026-12-31', monthly_rate_cents: 1900000 },
+              ],
+            },
+          ],
+        },
+      },
+    });
+    const later = [...container.querySelectorAll('nldd-table nldd-text-cell')]
+      .map((el) => el.getAttribute('supporting-text'))
+      .filter(Boolean);
+    expect(later.some((text) => /^vanaf 1 jul 2026: €\s19\.000$/.test(text ?? ''))).toBe(true);
+    expect(container.textContent).toContain('Het tarief wijzigt per 1 jul 2026.');
+  });
+
   it('says why a quote cannot be made', async () => {
     const container = await renderTab({
       preview: {
@@ -224,26 +250,27 @@ describe('QuotePage', () => {
 
   it('keeps the signing link in reach after inviting someone', async () => {
     const container = await renderTab({ quotes: [QUOTE], offers: [LINK_OFFER] });
-    await waitFor(() => expect(container.querySelector('nldd-list-item')).not.toBeNull());
-    const row = container.querySelector('nldd-card nldd-list-item nldd-text-cell');
-    expect(row?.getAttribute('text')).toBe('Met een tekenlink aan tekenaar@opdrachtgever.example');
-    expect(row?.getAttribute('supporting-text')).toMatch(/^Uitgenodigd, nog niet geopend · aangeboden op/);
-    expect(texts(container, 'nldd-card nldd-list-item nldd-button')).toEqual([
-      'Kopieer tekenlink',
-      'Kopieer bericht',
-    ]);
-    expect(container.textContent).toContain('/tekenen/q-1');
-    expect(container.textContent).toContain('geldig t/m 4 mrt 2026');
+    await waitFor(() => expect(container.querySelector('[data-offer]')).not.toBeNull());
+    const row = container.querySelector('nldd-card [data-offer]') as Element;
+    const lines = [...row.querySelectorAll('nldd-text')].map((el) => el.textContent);
+    expect(lines[0]).toBe('Met een tekenlink aan tekenaar@opdrachtgever.example');
+    expect(lines[1]).toMatch(
+      /^Uitgenodigd, nog niet geopend · aangeboden op .* · link geldig t\/m 4 mrt 2026$/,
+    );
+    // The link itself is on screen, on a line of its own, with its buttons under it.
+    expect(row.querySelector('[data-signing-link]')?.textContent).toMatch(/\/tekenen\/q-1$/);
+    expect(texts(row, 'nldd-button')).toEqual(['Kopieer tekenlink', 'Kopieer bericht']);
     expect(texts(container, 'nldd-card nldd-badge')).toEqual(['Aangeboden']);
     // Waiting for the client: nothing primary, and the invitation is shown once.
     expect(primaries(container)).toEqual([]);
-    expect(container.querySelectorAll('nldd-card nldd-list-item')).toHaveLength(1);
+    expect(container.querySelectorAll('nldd-card [data-offer]')).toHaveLength(1);
     expect(container.querySelector('nldd-table')).toBeNull();
     // Withdrawing and renewing sit in the row's menu.
-    expect(texts(container, 'nldd-list-item nldd-menu-item')).toEqual([
-      'Verleng met 30 dagen',
-      'Trek de tekenlink in',
-    ]);
+    expect(texts(row, 'nldd-menu-item')).toEqual(['Verleng met 30 dagen', 'Trek de tekenlink in']);
+    // The bar says where the quote is, not step one.
+    expect(
+      [...container.querySelectorAll('nldd-step-bar-item')].map((el) => el.getAttribute('status')),
+    ).toEqual(['past', 'past', 'current']);
   });
 
   it('makes recording the signed copy the step when the quote went out as a document', async () => {
@@ -252,9 +279,9 @@ describe('QuotePage', () => {
       offers: [{ id: 'o-2', channel: 'document', offered_at: '2026-02-03T10:00:00Z' }],
     });
     await waitFor(() => expect(primaries(container)).toEqual(['Leg getekende pdf vast']));
-    expect(
-      container.querySelector('nldd-card nldd-list-item nldd-text-cell')?.getAttribute('supporting-text'),
-    ).toMatch(/^Meegegeven, wacht op het getekende exemplaar/);
+    expect(container.querySelector('nldd-card [data-offer]')?.textContent).toContain(
+      'Meegegeven, wacht op het getekende exemplaar',
+    );
   });
 
   it('lists a channel that is not possible with its reason, in the sheet', async () => {
@@ -281,7 +308,7 @@ describe('QuotePage', () => {
       mayManage: false,
       offers: [{ id: 'o-1', channel: 'signing_link', offered_at: '2026-02-02T10:00:00Z' }],
     });
-    await waitFor(() => expect(container.querySelector('nldd-list-item')).not.toBeNull());
+    await waitFor(() => expect(container.querySelector('[data-offer]')).not.toBeNull());
     expect(
       texts(container, 'nldd-button').filter((text) => text !== 'Details'),
     ).toEqual([]);

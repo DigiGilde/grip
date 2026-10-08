@@ -17,6 +17,7 @@ import {
 import {
   FIGURE_LABELS,
   referenceText,
+  rateCauseText,
   signalText,
 } from '../financeText';
 import { FIGURE_COLUMNS, FigureCells, FigureHeaderCells } from '../FigureCells';
@@ -355,8 +356,16 @@ export function FinanceTab() {
                     <nldd-table-row key={line.budget_line_id}>
                       <nldd-text-cell
                         text={line.description}
-                        {...(line.rate_category
-                          ? { 'supporting-text': rates.name(line.rate_category) }
+                        {...(line.rate_category || rateCauseText(line)
+                          ? {
+                              // The cause of a rate difference next to the line it explains.
+                              'supporting-text': [
+                                line.rate_category ? rates.name(line.rate_category) : '',
+                                rateCauseText(line),
+                              ]
+                                .filter(Boolean)
+                                .join('. '),
+                            }
                           : {})}
                       />
                       <FigureCells figures={line.figures} error={line.pricing_error} />

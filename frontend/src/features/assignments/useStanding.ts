@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { fetchQuoteDetail, fetchQuotes, quoteKeys } from '@/features/quotes/api';
+import { approvalKeys, fetchApprovals } from '@/features/quotes/approval';
 import { assignmentKeys, fetchBudget, type AssignmentDetail } from './api';
 import { standing, type Standing } from './standing';
 import { ownersText } from './steps';
@@ -29,8 +30,21 @@ export function useStanding(assignment: AssignmentDetail): Standing | null {
     enabled: potential && inForce?.status === 'issued',
     retry: false,
   });
+  const approvals = useQuery({
+    queryKey: approvalKeys.ofAssignment(assignment.id),
+    queryFn: () => fetchApprovals(assignment.id),
+    enabled: potential && money,
+    retry: false,
+  });
+  // The step for internal approval exists only for a quote that needs it.
+  const approvalOf = (quoteId: string) => {
+    const state = approvals.data?.items?.find((item) => item.quote_id === quoteId);
+    return state?.approval_required
+      ? { approval: state.status, blockedMessage: state.blocked_message ?? null }
+      : {};
+  };
   // Until the quotes have answered, say nothing rather than a first guess.
-  if (potential && money && quotes.isPending) return null;
+  if (potential && money && (quotes.isPending || approvals.isPending)) return null;
   if (inForce?.status === 'issued' && detail.isPending) return null;
   return standing({
     phase: assignment.phase,
@@ -39,7 +53,9 @@ export function useStanding(assignment: AssignmentDetail): Standing | null {
     owners: ownersText(assignment),
     quoteSeen: assignment.pipeline_amount_source === 'quote',
     ...(budget.data ? { budgetLines: budget.data.lines.length } : {}),
-    ...(quotes.data ? { quotes: quotes.data.quotes } : {}),
+    ...(quotes.data
+      ? { quotes: quotes.data.quotes.map((quote) => ({ ...quote, ...approvalOf(quote.id) })) }
+      : {}),
     ...(detail.data?.offers
       ? {
           offers: detail.data.offers.map((offer) => ({

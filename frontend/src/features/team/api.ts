@@ -1,5 +1,6 @@
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from '@/api/client';
 import { formatDate } from '@/lib/format';
+import type { PriceImpact } from '@/features/rates/api';
 
 /**
  * A person as the asker may see them. Every group of fields below is present
@@ -274,4 +275,61 @@ export function currentHire(person: Person, day: string): Hire | null {
       (hire.valid_to === null || hire.valid_to === undefined || hire.valid_to >= day),
   );
   return running.at(-1) ?? (person.hires ?? []).find((hire) => !hire.valid_from) ?? null;
+}
+
+/** What recording a scale from a date would touch. Saves nothing. */
+export function previewScale(
+  id: string,
+  body: { valid_from: string; billing_scale: number },
+): Promise<PriceImpact> {
+  return apiPost<PriceImpact>(`/api/people/${id}/scales/preview`, body);
+}
+
+export const scalePreviewKey = (id: string, from: string, scale: number) =>
+  ['team', 'scale-preview', id, from, scale] as const;
+
+/** A role a person can be staffed in, with where the link came from. */
+export interface PersonRole {
+  role_id: string;
+  name: string;
+  /** wies: from the person's skills in Wies. manual: set by the beheerder. */
+  source: 'wies' | 'manual';
+  is_active: boolean;
+}
+
+export const personRolesKey = (id: string) => ['team', 'roles', id] as const;
+
+/** The roles of a person; 404 or 403 when the asker may not see their staffing. */
+export function fetchPersonRoles(id: string): Promise<{ items: PersonRole[] }> {
+  return apiGet<{ items: PersonRole[] }>(`/api/people/${id}/roles`);
+}
+
+/** Make the roles of a person exactly this set; what is not listed is taken away. */
+export function setPersonRoles(id: string, roleIds: string[]): Promise<{ items: PersonRole[] }> {
+  return apiPut<{ items: PersonRole[] }>(`/api/people/${id}/roles`, { role_ids: roleIds });
+}
+
+export const ROLE_SOURCE_LABELS: Record<PersonRole['source'], string> = {
+  wies: 'Uit Wies',
+  manual: 'Met de hand',
+};
+
+/** The periods of a billing scale, newest first, each with the scale before it. */
+export function scaleHistory(scales: Scale[]): Array<Scale & { previous: number | null }> {
+  const ordered = [...scales].sort((a, b) => (a.valid_from < b.valid_from ? -1 : 1));
+  return ordered
+    .map((entry, index) => ({
+      ...entry,
+      previous: index > 0 ? (ordered[index - 1]?.billing_scale ?? null) : null,
+    }))
+    .reverse();
+}
+
+/** "Schaal 12 sinds 1 jul 2026 (was 11)": a promotion reads as one. */
+export function scaleSentence(entry: Scale & { previous: number | null }): string {
+  const was =
+    entry.previous !== null && entry.previous !== entry.billing_scale
+      ? ` (was ${entry.previous})`
+      : '';
+  return `Schaal ${entry.billing_scale} sinds ${formatDate(entry.valid_from)}${was}`;
 }
