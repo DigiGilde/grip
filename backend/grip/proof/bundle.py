@@ -239,6 +239,12 @@ def render_page(statement: dict[str, Any], findings: list[tuple[str, str]]) -> s
         f"{html.escape(text)}</li>"
         for status, text in findings
     )
+    # A statement made in an example instance says so above everything else.
+    notice = (
+        '<p class="voorbeeld">Voorbeeld, geen echt document</p>\n'
+        if (statement.get("instantie") or {}).get("voorbeeld")
+        else ""
+    )
     title = f"Akkoordverklaring {quote.get('kenmerk') or ''}".strip()
     lead = (
         f"{html.escape(who.get('naam') or 'Onbekend')} {html.escape(sentence)} "
@@ -260,11 +266,13 @@ th {{ width: 14rem; font-weight: 600; }}
 td {{ overflow-wrap: anywhere; }}
 li {{ margin-bottom: .4rem; }}
 .fout {{ color: #a1260d; }}
+.voorbeeld {{ border: 2px solid #1a1a1a; padding: .5rem; text-align: center;
+  font-weight: 700; }}
 @media print {{ body {{ margin: 0; }} }}
 </style>
 </head>
 <body>
-<h1>{html.escape(title)}</h1>
+{notice}<h1>{html.escape(title)}</h1>
 <p>{lead}</p>
 <table>
 {chr(10).join(rows)}

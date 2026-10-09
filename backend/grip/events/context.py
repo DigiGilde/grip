@@ -34,6 +34,9 @@ class EventContext:
     actor_kind: str | None = None
     actor_person_id: UUID | None = None
     actor_ref: str | None = None
+    # Who really logged in when a visitor of an example instance acts as an
+    # example person: stored as the reference of the actor on every event.
+    via: str | None = None
     origin: str = ORIGIN_LOCAL
     origin_peer: str | None = None
     purpose: str | None = None
@@ -65,6 +68,11 @@ def update(**changes: object) -> None:
 
 def set_person(person_id: UUID) -> None:
     update(actor_kind=ACTOR_PERSON, actor_person_id=person_id, actor_ref=None)
+
+
+def set_visitor(reference: str) -> None:
+    """Events of this request are done by a visitor, through the acting person."""
+    update(via=reference)
 
 
 def set_guest(reference: str | None) -> None:

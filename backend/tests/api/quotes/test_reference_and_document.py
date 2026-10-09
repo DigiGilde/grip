@@ -574,3 +574,13 @@ async def test_a_signed_link_shows_as_signed_and_cannot_be_withdrawn(act_as, wor
         f"/api/quotes/{quote['id']}/invitations/{invitation_id}/withdraw"
     )
     assert refused.status_code == 422
+
+
+def test_a_quote_from_an_example_instance_says_so_on_every_page():
+    lines = [_line(index) for index in range(1, 40)]
+    reader = _pdf(_content(lines), Letterhead(example=True))
+    assert len(reader.pages) >= 2
+    for page in reader.pages:
+        assert "Voorbeeld, geen echt document" in page.extract_text()
+    plain = _text(_pdf(_content([_line(1)])))
+    assert "geen echt document" not in plain

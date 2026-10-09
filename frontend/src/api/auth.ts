@@ -1,4 +1,4 @@
-import { apiGet } from './client';
+import { apiGet, apiPost } from './client';
 
 export interface AuthPerson {
   id: string;
@@ -30,6 +30,28 @@ export interface AuthStatus {
   passkey_login?: boolean;
   /** Whether this session began with a passkey instead of the identity provider. */
   passkey_session?: boolean;
+  /** An instance that holds only fictional example data. */
+  example?: boolean;
+  /**
+   * The name of who really logged in, when a visitor of an example instance
+   * looks as an example person; `person` is then that example person.
+   */
+  example_visitor?: string | null;
+}
+
+/** An example person a visitor of an example instance can look as. */
+export interface ExamplePerson {
+  id: string;
+  name: string;
+  functions: string[];
+}
+
+export function fetchExamplePersons(): Promise<ExamplePerson[]> {
+  return apiGet<ExamplePerson[]>('/api/auth/example-persons');
+}
+
+export function chooseExamplePerson(personId: string): Promise<AuthStatus> {
+  return apiPost<AuthStatus>('/api/auth/example-person', { person_id: personId });
 }
 
 export interface AuthGuest {

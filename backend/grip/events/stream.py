@@ -343,6 +343,9 @@ def _complete(session: Session, event: StreamEvent) -> None:
             event.actor_ref = current.actor_ref
         else:
             event.actor_kind = ACTOR_SYSTEM
+    if event.actor_kind == ACTOR_PERSON and event.actor_ref is None and current.via:
+        # A visitor of an example instance, acting through an example person.
+        event.actor_ref = current.via
     if event.actor_kind == ACTOR_SYSTEM and event.actor_ref is None:
         event.actor_ref = current.actor_ref or "system"
     if event.origin is None:

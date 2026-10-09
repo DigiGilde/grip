@@ -691,6 +691,16 @@ async def resolve_person(
     if person is None or not person.is_active:
         session.clear()
         return None
+    # A visitor of an example instance acts through an example person; what
+    # they do is recorded with their own login next to that person.
+    visitor = session.get("example_visitor")
+    if settings.is_example and isinstance(visitor, dict):
+        from grip.events import context as event_context
+
+        event_context.set_visitor(f"bezoeker:{visitor.get('email', '')}")
+    elif isinstance(visitor, dict):
+        # Left over from an example instance: never a session for real work.
+        return None
     return person
 
 

@@ -10,6 +10,7 @@ import {
   NavigationMenuButton,
   SectionViews,
 } from './MainNavigation';
+import { ExampleNotice } from './ExampleMode';
 import { useInstance } from './useInstance';
 import { useRouteFocus } from './useRouteFocus';
 import { useAppBadge } from '@/features/notifications/useAppBadge';
@@ -35,7 +36,11 @@ function capitalised(text: string): string {
  * example data, is a tag beside the name and no part of it.
  */
 function BrandTitle({ instanceName, markOnly }: { instanceName?: string; markOnly?: boolean }) {
-  const { organisation, environment } = instanceNames(instanceName);
+  const instance = useInstance();
+  const named = instanceNames(instanceName);
+  const organisation = named.organisation;
+  // The mode of the instance decides, not what its name happens to say.
+  const environment = instance?.example ? 'voorbeeld' : named.environment;
   const name = organisation || PRODUCT_NAME;
   if (markOnly) {
     // On a phone there is no room for the name: the mark stands alone, is
@@ -162,6 +167,7 @@ export function AppShell() {
               <div id={MAIN_CONTENT_ID} tabIndex={-1}>
                 {/* The task this page was opened for, when the address names one. */}
                 {/* The sibling pages of the section you are in; nothing for a section of one page. */}
+                <ExampleNotice />
                 <SectionViews />
                 <TaskBar />
                 <OfflineNotice />

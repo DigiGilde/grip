@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import { useAuth } from '@/auth/context';
 import { Brand } from '@/brand/Brand';
+import { ExampleNotice } from '@/layout/ExampleMode';
 import { PRODUCT_NAME, instanceNames } from '@/brand/names';
 import { Button } from '@/features/assignments/ui';
 import { useInstance } from '@/layout/useInstance';
@@ -37,6 +38,7 @@ export function SigningLayout() {
             <Button text="Uitloggen" size="sm" onClick={logout} />
           </nldd-container>
           <div id={MAIN_CONTENT_ID} tabIndex={-1}>
+            <ExampleNotice />
             <Outlet />
           </div>
         </nldd-page>

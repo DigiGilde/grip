@@ -4,6 +4,8 @@ import { apiGet } from './client';
 export interface InstanceInfo {
   name: string;
   base_uri: string;
+  /** An instance that holds only fictional example data. */
+  example?: boolean;
 }
 
 export function fetchInstance(): Promise<InstanceInfo> {

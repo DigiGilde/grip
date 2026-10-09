@@ -11,9 +11,9 @@ export PATH="/app/.venv/bin:$PATH"
 #   federation  the routes other organisations call, on 8090. Must only be
 #               reachable from the FSC inway (see grip/federation/app.py)
 #   worker      the background loops (outbox, inbox catch-up)
-#   all         web plus, when federation is switched on, the listener and
-#               the worker as child processes. For platforms that give an
-#               instance a single backend container.
+#   all         web plus the worker as a child process, and the federation
+#               listener when federation is switched on. For platforms
+#               that give an instance a single backend container.
 #
 # Migrations run only in `web` and `all`, so that exactly one container per
 # instance applies them. Set RUN_MIGRATIONS=0 to skip them there too.
@@ -73,9 +73,19 @@ case "$PROCESS" in
             uvicorn grip.federation.app:app \
                 --host 0.0.0.0 --port "$FEDERATION_PORT" --no-proxy-headers &
         fi
-        if is_on "${FEDERATION_INBOUND_ENABLED:-0}" || is_on "${FEDERATION_OUTBOUND_ENABLED:-0}"; then
+        # The worker does more than federation: it keeps tasks in line with
+        # the calendar and sends mail and notifications. It runs here unless
+        # WORKER_ENABLED=0 (another container runs it). When it stops, it is
+        # started again; the application keeps serving meanwhile.
+        if is_on "${WORKER_ENABLED:-1}"; then
             echo "Starting the worker..."
-            python -m grip.worker &
+            (
+                while true; do
+                    python -m grip.worker || echo "The worker stopped with an error."
+                    echo "Starting the worker again in 30 seconds..."
+                    sleep 30
+                done
+            ) &
         fi
         echo "Starting the application on port $WEB_PORT..."
         web

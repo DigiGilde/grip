@@ -31,7 +31,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from pypdf import PdfReader, PdfWriter
+from pypdf import PageObject, PdfReader, PdfWriter
 from pypdf.generic import (
     ArrayObject,
     DecodedStreamObject,
@@ -511,11 +511,58 @@ def format_value(value: Any, date_format: str = "d-m-yyyy") -> str:
     return str(value)
 
 
-def fill_form(pdf: bytes, mapping: FormMapping, values: Mapping[str, Any]) -> bytes:
+# Printed on every page of a form filled in an example instance.
+EXAMPLE_NOTICE = "Voorbeeld, geen echt document"
+
+
+def _mark_example(writer: PdfWriter) -> None:
+    """Print the example notice across the top of every page."""
+    size = 11
+    for page in writer.pages:
+        box = page.mediabox
+        width, height = float(box.width), float(box.height)
+        # Helvetica is one of the fonts every viewer has; no file is needed.
+        text_width = len(EXAMPLE_NOTICE) * size * 0.5
+        content = DecodedStreamObject()
+        content.set_data(
+            (
+                f"q BT /GripExample {size} Tf "
+                f"{max((width - text_width) / 2, 0):.1f} {height - 18:.1f} Td "
+                f"({EXAMPLE_NOTICE}) Tj ET Q"
+            ).encode("ascii")
+        )
+        overlay = PageObject.create_blank_page(width=width, height=height)
+        overlay[NameObject("/Resources")] = DictionaryObject(
+            {
+                NameObject("/Font"): DictionaryObject(
+                    {
+                        NameObject("/GripExample"): DictionaryObject(
+                            {
+                                NameObject("/Type"): NameObject("/Font"),
+                                NameObject("/Subtype"): NameObject("/Type1"),
+                                NameObject("/BaseFont"): NameObject("/Helvetica-Bold"),
+                            }
+                        )
+                    }
+                )
+            }
+        )
+        overlay[NameObject("/Contents")] = content
+        page.merge_page(overlay)
+
+
+def fill_form(
+    pdf: bytes,
+    mapping: FormMapping,
+    values: Mapping[str, Any],
+    *,
+    example: bool = False,
+) -> bytes:
     """Fill the template with the values and return a PDF that stays fillable.
 
     ``values`` is keyed by source name. A missing or ``None`` value leaves
-    every field of that source as it is in the template.
+    every field of that source as it is in the template. ``example`` prints
+    the notice of an example instance on every page.
     """
     unknown = set(values) - FORM_SOURCES
     if unknown:
@@ -567,4 +614,6 @@ def fill_form(pdf: bytes, mapping: FormMapping, values: Mapping[str, Any]) -> by
             "Deze velden uit de veldkoppeling staan niet in het formulier: "
             + ", ".join(sorted(remaining))
         )
+    if example:
+        _mark_example(writer)
     return _to_bytes(writer, viewer_draws=viewer_draws)

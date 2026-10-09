@@ -82,6 +82,9 @@ class Letterhead:
     ribbon_data_uri: str | None = None
     # Directory with the huisstijl typeface, or None.
     font_dir: Path | None = None
+    # Made in an example instance: every page says so, and the document
+    # never carries the Rijkslogo or the huisstijl typeface.
+    example: bool = False
 
 
 def letterhead_from_settings(settings: Settings | None = None) -> Letterhead:
@@ -101,6 +104,8 @@ def letterhead_from_settings(settings: Settings | None = None) -> Letterhead:
         candidate = Path(settings.DOCUMENT_FONT_DIR.strip())
         if (candidate / "RijksSansWeb-Regular.woff2").is_file():
             font_dir = candidate
+    if settings.is_example:
+        return Letterhead(lines=lines, example=True)
     return Letterhead(lines=lines, ribbon_data_uri=ribbon, font_dir=font_dir)
 
 
@@ -433,7 +438,13 @@ _STYLE = """
   .annex th, .annex td { border: 0.4pt solid #666; padding: 2mm; height: 9mm; }
   .annex th { width: 45%; font-weight: normal; }
 
+  /* Fixed: repeated at the top of every page of the PDF. */
+  .example-notice { position: fixed; top: -14mm; left: 0; right: 0;
+    text-align: center; font-weight: bold; font-size: 10pt; letter-spacing: 0.02em;
+    border: 1pt solid #000; padding: 1.5mm 0; }
+
   @media screen {
+    .example-notice { position: static; margin-bottom: 6mm; }
     body { background: #eee; padding: 8mm 4mm; }
     main { background: #fff; max-width: 210mm; margin: 0 auto;
       padding: 44mm 18mm 20mm; position: relative; }
@@ -441,6 +452,16 @@ _STYLE = """
     .ribbon-head { top: 0; }
   }
 """
+
+
+# On every page of a document made in an example instance.
+EXAMPLE_NOTICE = "Voorbeeld, geen echt document"
+
+
+def _example_notice(letterhead: Letterhead) -> str:
+    if not letterhead.example:
+        return ""
+    return f'<div class="example-notice">{EXAMPLE_NOTICE}</div>'
 
 
 def _head(sender: str, letterhead: Letterhead) -> str:
@@ -456,7 +477,8 @@ def _head(sender: str, letterhead: Letterhead) -> str:
             "</div>"
         )
     return (
-        f'<div class="plain-head"><div class="name">{escape(sender)}</div>{lines}</div>'
+        f'{_example_notice(letterhead)}<div class="plain-head">'
+        f'<div class="name">{escape(sender)}</div>{lines}</div>'
     )
 
 
@@ -619,7 +641,10 @@ def _letter_head(details: dict[str, Any], sender: str, letterhead: Letterhead) -
             f'<div class="wordmark"><div>{escape(name)}</div>{rest}</div>'
             "</div>"
         )
-    return f'<div class="plain-head"><div class="name">{escape(name)}</div>{rest}</div>'
+    return (
+        f'{_example_notice(letterhead)}<div class="plain-head">'
+        f'<div class="name">{escape(name)}</div>{rest}</div>'
+    )
 
 
 def _sender_column(

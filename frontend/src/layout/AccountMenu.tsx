@@ -5,6 +5,7 @@ import { PATHS } from '@/paths';
 import { install, useCanInstall } from '@/pwa/install';
 import { ICONS } from '@/ui/icons';
 import { DevPersonSwitch, useViewingAs } from './DevPersonSwitch';
+import { ExamplePersonSwitch } from './ExampleMode';
 import { useInstance } from './useInstance';
 import { useRouterLinks } from './useRouterLinks';
 import { useViewer, viewerWords } from './useViewer';
@@ -80,6 +81,7 @@ export function AccountMenu({ placement, compact }: AccountMenuProps) {
       <InstallMenuItem />
       <LogoutMenuItem />
       <DevPersonSwitch currentId={person?.id ?? null} />
+      <ExamplePersonSwitch />
     </nldd-menu>
   );
 

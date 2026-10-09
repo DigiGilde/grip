@@ -206,3 +206,11 @@ def test_a_quarter_with_three_roles_fits_one_page() -> None:
     assert len(HTML(string=html).render().pages) == 1
     # By spacing, not by a smaller letter.
     assert "font-size: 8.5pt" in html
+
+
+def test_a_billing_request_from_an_example_instance_says_so() -> None:
+    content = _content([_line("2026-01", "januari 2026", 1250000)])
+    assert "Voorbeeld, geen echt document" in render_html(
+        content, Letterhead(example=True)
+    )
+    assert "geen echt document" not in render_html(content, Letterhead())

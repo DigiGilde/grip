@@ -118,6 +118,7 @@ def build_statement(
     instance_base_uri: str,
     note: str | None = None,
     passkey: dict[str, Any] | None = None,
+    example: bool = False,
 ) -> dict[str, Any]:
     """The statement as a plain structure, ready to be made canonical.
 
@@ -141,6 +142,11 @@ def build_statement(
     }
     if passkey is not None:
         how["passkey"] = passkey
+    instance: dict[str, Any] = {"naam": instance_name, "basis_uri": instance_base_uri}
+    if example:
+        # Made in an example instance: the statement itself says so, signed
+        # with the rest. A statement of real work has no such member.
+        instance["voorbeeld"] = True
     return {
         "soort": STATEMENT_TYPE,
         "versie": STATEMENT_VERSION,
@@ -181,7 +187,7 @@ def build_statement(
             "toelichting": MANDATE_NOTE,
         },
         "toelichting": note,
-        "instantie": {"naam": instance_name, "basis_uri": instance_base_uri},
+        "instantie": instance,
     }
 
 

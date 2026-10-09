@@ -318,3 +318,7 @@ sso-check port="9011":
 # Make a key pair for notifications (web push); put the line in backend/.env
 push-key:
     cd backend && DEV_NO_AUTH=1 uv run python -m grip.integrations.push.keys
+
+# Put an example instance (INSTANCE_MODE=voorbeeld) back to its starting state
+example-reset:
+    cd backend && uv run python -m grip.core.example

@@ -13,6 +13,7 @@ import {
 } from '@/features/passkeys/api';
 import { Brand } from '@/brand/Brand';
 import { instanceNames } from '@/brand/names';
+import { ExampleNotice } from '@/layout/ExampleMode';
 import { useNlddEvent } from '@/components/nldd/events';
 import { useInstance } from '@/layout/useInstance';
 import { PATHS } from '@/paths';
@@ -89,6 +90,7 @@ export function LoginPage() {
               inline
             />
 
+            <ExampleNotice />
             {loginFailed(location.state) && (
               <nldd-banner
                 variant="critical"

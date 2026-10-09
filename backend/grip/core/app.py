@@ -31,6 +31,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # A provider whose endpoints are plain http would let people log in and
     # then refuse every session; say so now instead.
     await check_oidc_transport(settings)
+    # An example instance fills itself on an empty database; an instance for
+    # real work refuses a database that was ever filled as an example.
+    from grip.core import example
+
+    async with async_session() as db:
+        await example.prepare(db, settings)
+        await db.commit()
     async with async_session() as db:
         await bootstrap_beheerders(db, settings)
         await db.commit()

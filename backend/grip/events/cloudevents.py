@@ -113,6 +113,8 @@ VERBS: dict[str, str] = {
     "withdrawn": "ingetrokken",
     "succeeded": "gelukt",
     "refused": "geweigerd",
+    "visited": "bezocht",
+    "switched": "gewisseld",
     "guest": "als-gast",
     "published": "gepubliceerd",
     "recorded": "vastgelegd",

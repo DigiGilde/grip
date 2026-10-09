@@ -34,3 +34,20 @@ class AuthStatus(BaseModel):
     passkey_login: bool = False
     # Whether this session began with a passkey instead of the provider.
     passkey_session: bool = False
+    # An instance that holds only fictional example data (INSTANCE_MODE).
+    example: bool = False
+    # The name of who really logged in, when a visitor of an example
+    # instance looks as an example person; ``person`` is then that person.
+    example_visitor: str | None = None
+
+
+class ExamplePerson(BaseModel):
+    """An example person a visitor of an example instance can look as."""
+
+    id: UUID
+    name: str
+    functions: list[str] = []
+
+
+class ExamplePersonChoice(BaseModel):
+    person_id: UUID

@@ -466,6 +466,7 @@ async def complete_intent(
         instance_base_uri=settings.INSTANCE_BASE_URI,
         note=(intent.params.get("note") or "").strip() or None,
         passkey=confirmed[0] if confirmed else None,
+        example=settings.is_example,
     )
     signed = sign_statement(
         statement, private_key=signing_key.private_key, kid=signing_key.kid

@@ -206,11 +206,18 @@ class SeedResult:
 
 
 def ensure_local_instance(settings: Settings) -> None:
-    """Refuse anything that is not a local development instance."""
+    """Refuse anything that is not meant to hold example data.
+
+    That is a local development instance, or an instance that was deployed
+    as an example (``INSTANCE_MODE=voorbeeld``, see grip.core.example).
+    """
+    if settings.is_example:
+        return
     if not settings.DEV_NO_AUTH or settings.PUBLIC_HOST or settings.OIDC_ISSUER:
         raise SeedRefusedError(
             "Voorbeeldgegevens kunnen alleen in een lokale ontwikkelinstantie "
-            "(DEV_NO_AUTH=1, zonder PUBLIC_HOST en zonder OIDC_ISSUER)."
+            "(DEV_NO_AUTH=1, zonder PUBLIC_HOST en zonder OIDC_ISSUER) of in "
+            "een voorbeeldinstantie (INSTANCE_MODE=voorbeeld)."
         )
 
 

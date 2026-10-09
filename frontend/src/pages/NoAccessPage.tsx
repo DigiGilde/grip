@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { parseLoginError } from '@/api/auth';
 import { useAuth } from '@/auth/context';
+import { useInstance } from '@/layout/useInstance';
 import { PATHS } from '@/paths';
 import { StatusPage } from './StatusPage';
 
@@ -20,6 +21,7 @@ function loginRefused(state: unknown): boolean {
 export function NoAccessPage() {
   const { state, logout } = useAuth();
   const location = useLocation();
+  const instance = useInstance();
   const refused = loginRefused(location.state);
 
   if (state.status === 'loading') {
@@ -39,7 +41,11 @@ export function NoAccessPage() {
     <StatusPage
       variant="alert"
       title="Geen toegang"
-      message="Je bent ingelogd bij SSO Rijk, maar je hebt geen toegang tot deze omgeving. Vraag de beheerder om je toe te voegen."
+      message={
+        instance?.example
+          ? 'Dit is een voorbeeld van grip. Je adres staat niet op de lijst van bezoekers. Vraag wie je de link gaf om je toe te voegen.'
+          : 'Je bent ingelogd bij SSO Rijk, maar je hebt geen toegang tot deze omgeving. Vraag de beheerder om je toe te voegen.'
+      }
       action={{ text: 'Uitloggen', onClick: logout }}
     />
   );

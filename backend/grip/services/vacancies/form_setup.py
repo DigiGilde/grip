@@ -16,6 +16,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip.core.audit import UPDATE, record_audit
+from grip.core.config import get_settings
 from grip.models.person import Person
 from grip.models.vacancy import FormTemplate, TextKind
 from grip.repositories.vacancy import FormTemplateRepository, VacancyRepository
@@ -211,7 +212,9 @@ async def sample(db: AsyncSession, template_id: UUID, vacancy_id: UUID | None) -
         )
     try:
         mapping = forms.parse_mapping(usable_mapping(template))
-        return forms.fill_form(template.content, mapping, values)
+        return forms.fill_form(
+            template.content, mapping, values, example=get_settings().is_example
+        )
     except (forms.FormMappingError, forms.FormTemplateError) as exc:
         raise DomainValidationError(str(exc)) from exc
 

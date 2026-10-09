@@ -6,6 +6,7 @@ import logging
 import secrets
 import time
 from urllib.parse import urlencode, urlsplit
+from uuid import uuid4
 
 import httpx
 from authlib.integrations.starlette_client import OAuthError
@@ -14,9 +15,12 @@ from fastapi.responses import PlainTextResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip.access.guest_deps import has_open_invitation
+from grip.core import example
 from grip.core import oidc_diagnostics as diagnostics
 from grip.core.auth import (
     GUEST_SESSION_KEY,
+    LOGIN_SUBJECT,
+    CurrentPerson,
     display_name_from_claims,
     email_verified_claim,
     get_jwks,
@@ -33,8 +37,15 @@ from grip.core.auth import (
 from grip.core.config import Settings, get_settings
 from grip.core.database import get_db
 from grip.core.rate_limit import RateLimiter
+from grip.events import stream
 from grip.repositories.person import PersonRepository
-from grip.schema.auth import AuthStatus, GuestSummary, PersonSummary
+from grip.schema.auth import (
+    AuthStatus,
+    ExamplePerson,
+    ExamplePersonChoice,
+    GuestSummary,
+    PersonSummary,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -150,6 +161,38 @@ async def login(
     )
 
 
+def _login_facts(userinfo: dict) -> str:
+    """What the provider sent, without anything that identifies someone.
+
+    Which claims were present, whether the address counts as verified, the
+    shape of the subject and how fresh the authentication was. Enough to
+    answer, from the log of a first deployment, the questions a diagnostic
+    page would answer on a developer's machine.
+    """
+    sub = str(userinfo.get("sub") or "")
+    if not sub:
+        shape = "absent"
+    elif sub.startswith("urn:"):
+        shape = "urn"
+    elif len(sub) == 36 and sub.count("-") == 4:
+        shape = "uuid"
+    else:
+        shape = f"other({len(sub)})"
+    verified = userinfo.get("email_verified", "absent")
+    auth_time = userinfo.get("auth_time")
+    age = (
+        f"{int(time.time() - auth_time)}s"
+        if isinstance(auth_time, int | float)
+        else "absent"
+    )
+    organisation = userinfo.get("organization")
+    return (
+        f"claims={sorted(userinfo)} email_verified={verified!r} "
+        f"sub_shape={shape} auth_age={age} acr={userinfo.get('acr', 'absent')!r} "
+        f"organization={'present' if organisation else 'absent'}"
+    )
+
+
 @router.get("/callback")
 async def callback(
     request: Request,
@@ -201,6 +244,7 @@ async def callback(
     userinfo = token.get("userinfo") or {}
     email = str(userinfo.get("email") or "")
     name = display_name_from_claims(userinfo)
+    logger.info("OIDC login: %s", _login_facts(userinfo))
     match = await match_login(
         db,
         sub=str(userinfo.get("sub") or ""),
@@ -245,6 +289,32 @@ async def callback(
             return _after_login(
                 settings, _frontend_redirect(settings, next_path=landing)
             )
+
+        # An example instance holds no real people. Someone on its list of
+        # visitors comes in and looks as one of the example persons.
+        if settings.is_example and guest is not None:
+            if example.visitor_allowed(guest["email"], settings):
+                as_person = await example.default_person(db)
+                if as_person is not None:
+                    session["access_token"] = token.get("access_token")
+                    session["refresh_token"] = token.get("refresh_token")
+                    session["id_token"] = token.get("id_token")
+                    session["person_id"] = str(as_person.id)
+                    session[example.VISITOR_SESSION_KEY] = {
+                        "email": guest["email"],
+                        "name": guest["name"],
+                    }
+                    session["_rotate"] = True
+                    stream.append(
+                        db,
+                        "login.visited",
+                        subject=(LOGIN_SUBJECT, uuid4()),
+                        person_id=as_person.id,
+                        payload={"email": guest["email"], "as": str(as_person.id)},
+                    )
+                    logger.info("OIDC login as visitor of the example")
+                    return _frontend_redirect(settings, next_path=next_path)
+            logger.info("OIDC login refused: not a visitor of the example")
 
         # The reason goes to the log and to the event stream, where a
         # beheerder reads it; the visitor only learns that there is no access.
@@ -448,6 +518,7 @@ async def auth_status(
         return AuthStatus(
             authenticated=False,
             oidc_configured=oidc_configured,
+            example=settings.is_example,
             passkey_login=passkey_login,
             guest=GuestSummary(name=guest["name"], email=guest["email"])
             if guest
@@ -455,6 +526,7 @@ async def auth_status(
         )
 
     people = PersonRepository(db)
+    visitor = example.visitor_of(request.session)
     return AuthStatus(
         authenticated=True,
         oidc_configured=oidc_configured,
@@ -463,4 +535,71 @@ async def auth_status(
         relations=await people.relation_names(person.id),
         passkey_login=passkey_login,
         passkey_session=is_passkey_session(request.session),
+        example=settings.is_example,
+        example_visitor=(visitor or {}).get("name") if settings.is_example else None,
     )
+
+
+# -- looking as an example person (only in an example instance) ----------------
+
+
+def _visitor(request: Request, settings: Settings) -> dict:
+    """The visitor behind this session, or 404: outside an example instance
+    these routes do not exist."""
+    visitor = example.visitor_of(request.session) if settings.is_example else None
+    if visitor is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    return visitor
+
+
+@router.get("/example-persons", response_model=list[ExamplePerson])
+async def example_persons(
+    request: Request,
+    _person: CurrentPerson,
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> list[ExamplePerson]:
+    """The example persons a visitor can look as."""
+    _visitor(request, settings)
+    people = PersonRepository(db)
+    return [
+        ExamplePerson(
+            id=person.id,
+            name=person.name,
+            functions=await people.active_function_ids(person.id),
+        )
+        for person in await people.active_with_email()
+    ]
+
+
+@router.post("/example-person", response_model=AuthStatus)
+async def choose_example_person(
+    choice: ExamplePersonChoice,
+    request: Request,
+    _person: CurrentPerson,
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> AuthStatus:
+    """Look as another example person, for the rest of this session.
+
+    Only a visitor of an example instance can do this, and only among the
+    example persons. What the visitor then does is recorded as done by that
+    example person; this event ties the two together.
+    """
+    visitor = _visitor(request, settings)
+    person = await PersonRepository(db).get(choice.person_id)
+    if person is None or not person.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Deze voorbeeldpersoon bestaat niet of is niet actief.",
+        )
+    request.session["person_id"] = str(person.id)
+    stream.append(
+        db,
+        "login.switched",
+        subject=(LOGIN_SUBJECT, uuid4()),
+        person_id=person.id,
+        payload={"email": visitor.get("email", ""), "as": str(person.id)},
+    )
+    await db.commit()
+    return await auth_status(request, db, settings)

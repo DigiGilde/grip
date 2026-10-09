@@ -20,4 +20,5 @@ async def get_instance(
     return InstanceInfo(
         name=settings.INSTANCE_NAME,
         base_uri=settings.INSTANCE_BASE_URI.rstrip("/"),
+        example=settings.is_example,
     )

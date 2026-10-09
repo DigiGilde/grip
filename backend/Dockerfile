@@ -21,6 +21,26 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 
 
+# The Rijkshuisstijl files a document may use: the Rijkslint with the coat of
+# arms, and the typeface. They come from the design system package, at the
+# version the frontend uses (frontend/package.json; a test keeps the two
+# equal). They are in the image so that an organisation that may carry them
+# can point LETTERHEAD_LOGO_PATH and DOCUMENT_FONT_DIR here; nothing uses them
+# until those settings are set. Their terms are in huisstijl/NOTICES.md: the
+# logo and the typeface are for the Rijksoverheid and those working on its
+# behalf only.
+FROM node:22-slim AS huisstijl
+ARG NLDD_DESIGN_SYSTEM_VERSION=0.8.96
+WORKDIR /pkg
+RUN npm pack "@nldd/design-system@${NLDD_DESIGN_SYSTEM_VERSION}" --silent \
+    && tar -xzf nldd-design-system-*.tgz \
+    && mkdir -p /huisstijl/fonts \
+    && cp package/dist/favicon.svg /huisstijl/rijkslogo.svg \
+    && cp package/dist/fonts/RijksSansWeb-Regular.woff2 \
+          package/dist/fonts/RijksSansWeb-Italic.woff2 /huisstijl/fonts/ \
+    && cp package/NOTICES.md /huisstijl/NOTICES.md
+
+
 FROM python:3.13-slim
 
 # uv is only needed for the reload setup in docker-compose; the entrypoint
@@ -39,6 +59,7 @@ RUN useradd --create-home --uid 1001 appuser
 WORKDIR /app
 
 COPY --from=builder --chown=appuser:appuser /app /app
+COPY --from=huisstijl --chown=appuser:appuser /huisstijl /app/huisstijl
 
 USER 1001
 

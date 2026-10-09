@@ -66,17 +66,52 @@ def test_issuer_derived_from_zad_variables():
     assert s.OIDC_ISSUER == "https://idp.example/realms/grip"
 
 
-def test_urls_and_cookies_derived_from_public_host():
-    s = _settings(
-        OIDC_ISSUER="https://idp.example/realms/x",
-        SESSION_SECRET_KEY="s" * 40,
-        PUBLIC_HOST="https://component-2.grip.example",
+def _deployed(public_host: str) -> Settings:
+    return _settings(
+        OIDC_ISSUER="https://kc.example/realms/x",
+        SESSION_SECRET_KEY="a-real-secret-of-sufficient-length",
+        PUBLIC_HOST=public_host,
     )
-    assert s.BACKEND_URL == "https://component-2.grip.example"
+
+
+def test_one_address_for_all_components() -> None:
+    """The platform sends / to the frontend and /api to the backend."""
+    s = _deployed("https://grip.example")
     assert s.FRONTEND_URL == "https://grip.example"
-    assert s.SESSION_COOKIE_DOMAIN == ".grip.example"
+    assert s.BACKEND_URL == "https://grip.example"
+    assert s.SESSION_COOKIE_DOMAIN == ""
     assert s.SESSION_COOKIE_SECURE is True
     assert s.CORS_ORIGINS == ["https://grip.example"]
+    assert s.PASSKEY_RP_ID == "grip.example"
+
+
+def test_an_address_per_component_with_a_dot() -> None:
+    s = _deployed("https://component-2.grip.example")
+    assert s.FRONTEND_URL == "https://grip.example"
+    # The browser only ever uses the frontend's address.
+    assert s.BACKEND_URL == "https://grip.example"
+    assert s.SESSION_COOKIE_DOMAIN == ""
+
+
+def test_an_address_per_component_with_a_dash_never_shares_cookies() -> None:
+    """On a domain shared with other projects a parent-domain cookie would
+    hand the session to every one of them."""
+    s = _deployed("https://component-2-main-grip.rijksapp.example")
+    assert s.FRONTEND_URL == "https://component-1-main-grip.rijksapp.example"
+    assert s.BACKEND_URL == "https://component-1-main-grip.rijksapp.example"
+    assert s.SESSION_COOKIE_DOMAIN == ""
+
+
+def test_explicit_addresses_win() -> None:
+    s = _settings(
+        OIDC_ISSUER="https://kc.example/realms/x",
+        SESSION_SECRET_KEY="a-real-secret-of-sufficient-length",
+        PUBLIC_HOST="https://component-2.grip.example",
+        FRONTEND_URL="https://grip.organisatie.example",
+        BACKEND_URL="https://grip.organisatie.example",
+    )
+    assert s.FRONTEND_URL == "https://grip.organisatie.example"
+    assert s.PASSKEY_ORIGIN == "https://grip.organisatie.example"
 
 
 def test_local_defaults_use_grip_ports():

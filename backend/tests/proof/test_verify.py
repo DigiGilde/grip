@@ -511,3 +511,11 @@ def test_the_page_says_what_is_proven_and_what_is_not(provider, instance_key):
     statement = parse_statement(b64url_decode(risky["verklaring"]["jws"].split(".")[1]))
     statement["wie"]["naam"] = "<script>x</script>"
     assert "<script>" not in render_page(statement, [])
+
+
+def test_a_statement_from_an_example_instance_says_so(provider, instance_key):
+    plain = verify_bundle(_bundle(provider, instance_key)).statement
+    assert "voorbeeld" not in plain["instantie"]
+    assert "geen echt document" not in render_page(plain, [])
+    marked = {**plain, "instantie": {**plain["instantie"], "voorbeeld": True}}
+    assert "Voorbeeld, geen echt document" in render_page(marked, [])

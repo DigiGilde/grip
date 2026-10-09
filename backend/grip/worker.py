@@ -58,6 +58,11 @@ async def main() -> None:
         loops.append(run_push_loop(async_session, settings))
     else:
         logger.info("PUSH_VAPID_PRIVATE_KEY is not set: no notifications are sent")
+    # An example instance goes back to its starting state every night.
+    if settings.is_example and settings.EXAMPLE_RESET_HOUR.strip():
+        from grip.core.example import run_reset_loop
+
+        loops.append(run_reset_loop(async_session, settings))
     if not loops:
         logger.info("Nothing to run: federation, the task loop and mail are off")
         return

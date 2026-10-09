@@ -28,6 +28,22 @@ class Settings(BaseSettings):
     INSTANCE_KEY: str = "lokaal"
     PARENT_INSTANCE_URI: str = ""
 
+    # What kind of instance this is. Empty: an instance for real work, which
+    # starts empty. "voorbeeld": an instance that holds only the fictional
+    # example data, for showing grip and for trying a deployment. It loads the
+    # example data by itself on an empty database, lets a visitor who logs in
+    # look as one of the example persons, marks every page and document as an
+    # example, and never talks to another system. An example instance is
+    # thrown away, never promoted: see grip.core.example and ADR 0050.
+    INSTANCE_MODE: str = ""
+    # Who may enter an example instance: comma-separated mail domains
+    # ("voorbeeld.example") or whole addresses. Empty: nobody. The address
+    # must be one the identity provider vouches for.
+    EXAMPLE_VISITORS: str = ""
+    # The hour (0 to 23, on the instance's calendar) at which an example
+    # instance goes back to its starting state every night. Empty: never.
+    EXAMPLE_RESET_HOUR: str = "3"
+
     # The organisation as it signs its documents. A quote is sent by the
     # organisation, not by the software instance: this name stands on the
     # quote as the sender. Empty falls back to INSTANCE_NAME.
@@ -354,6 +370,61 @@ class Settings(BaseSettings):
         return self
 
     @property
+    def is_example(self) -> bool:
+        """An instance that holds only the fictional example data."""
+        return self.INSTANCE_MODE.strip().lower() == "voorbeeld"
+
+    @property
+    def example_visitors(self) -> list[str]:
+        return [
+            part.strip().lower()
+            for part in self.EXAMPLE_VISITORS.split(",")
+            if part.strip()
+        ]
+
+    @model_validator(mode="after")
+    def _validate_instance_mode(self) -> "Settings":
+        """An example instance never talks to another system and never
+        looks like the real thing."""
+        mode = self.INSTANCE_MODE.strip().lower()
+        if mode not in ("", "normaal", "voorbeeld"):
+            raise ValueError(
+                "INSTANCE_MODE kent alleen 'voorbeeld' of leeg; "
+                f"'{self.INSTANCE_MODE}' is onbekend."
+            )
+        if mode != "voorbeeld":
+            return self
+        linked = [
+            name
+            for name, on in (
+                ("FEDERATION_INBOUND_ENABLED", self.FEDERATION_INBOUND_ENABLED),
+                ("FEDERATION_OUTBOUND_ENABLED", self.FEDERATION_OUTBOUND_ENABLED),
+                ("WIES_BASE_URL", bool(self.WIES_BASE_URL)),
+                ("GRIP_EXPORT_KEY", bool(self.GRIP_EXPORT_KEY)),
+                ("EVENTS_FEED_KEY", bool(self.EVENTS_FEED_KEY)),
+                # Real people never get a record in an example instance.
+                ("BOOTSTRAP_BEHEERDER_EMAILS", bool(self.BOOTSTRAP_BEHEERDER_EMAILS)),
+            )
+            if on
+        ]
+        if linked:
+            raise ValueError(
+                "Een voorbeeldinstantie (INSTANCE_MODE=voorbeeld) wisselt niets "
+                "uit met andere systemen. Haal weg: " + ", ".join(linked) + "."
+            )
+        hour = self.EXAMPLE_RESET_HOUR.strip()
+        if hour and not (hour.isdigit() and 0 <= int(hour) <= 23):
+            raise ValueError("EXAMPLE_RESET_HOUR is een heel uur van 0 tot en met 23.")
+        # A platform may hand these to every component. In an example
+        # instance they are never used: no mail to anybody, no notifications,
+        # and no document that carries the Rijkslogo.
+        self.SMTP_HOST = ""
+        self.PUSH_VAPID_PRIVATE_KEY = ""
+        self.LETTERHEAD_LOGO_PATH = ""
+        self.DOCUMENT_FONT_DIR = ""
+        return self
+
+    @property
     def is_local_development(self) -> bool:
         """Running on a developer's machine: no login and not deployed."""
         return bool(self.DEV_NO_AUTH) and not self.PUBLIC_HOST
@@ -397,23 +468,42 @@ class Settings(BaseSettings):
     def _derive_urls_and_cookies(self) -> "Settings":
         """Derive URLs and cookie settings from PUBLIC_HOST when not set.
 
-        On ZAD the frontend is component-1 and the backend component-2 of
-        one project, on sibling hostnames. The session and CSRF cookies are
-        therefore set on the shared parent domain.
+        A browser reaches grip on ONE address: the frontend's. The frontend
+        calls /api/ on that same address, and either the platform sends
+        /api/ to the backend (one address, a path per component) or the
+        frontend container passes it on. FRONTEND_URL and BACKEND_URL are
+        therefore the same public address when deployed, and the session and
+        CSRF cookies belong to that host alone.
+
+        PUBLIC_HOST is what the platform says about THIS component:
+
+        - one address for all components (``https://grip.example``): that
+          address;
+        - an address per component, with a dot
+          (``https://component-2.grip.example``): the frontend is on the
+          address without the component part;
+        - an address per component, with a dash
+          (``https://component-2-main-grip.example``): the frontend is
+          ``component-1-...`` on the same domain.
+
+        The cookies never get a parent domain: on a platform domain shared
+        with other projects that would hand the session to every one of them.
         """
         if self.PUBLIC_HOST:
             parsed = urlparse(self.PUBLIC_HOST)
             hostname = parsed.hostname or ""
+            scheme = parsed.scheme or "https"
 
-            if not self.BACKEND_URL:
-                self.BACKEND_URL = self.PUBLIC_HOST.rstrip("/")
             if not self.FRONTEND_URL:
-                for prefix in ("component-2.", "component-2-"):
-                    if hostname.startswith(prefix):
-                        self.FRONTEND_URL = f"https://{hostname[len(prefix) :]}"
-                        break
-            if not self.SESSION_COOKIE_DOMAIN and "." in hostname:
-                self.SESSION_COOKIE_DOMAIN = f".{hostname.split('.', 1)[1]}"
+                if hostname.startswith("component-2."):
+                    self.FRONTEND_URL = f"{scheme}://{hostname[len('component-2.') :]}"
+                elif hostname.startswith("component-2-"):
+                    rest = hostname[len("component-2-") :]
+                    self.FRONTEND_URL = f"{scheme}://component-1-{rest}"
+                else:
+                    self.FRONTEND_URL = self.PUBLIC_HOST.rstrip("/")
+            if not self.BACKEND_URL:
+                self.BACKEND_URL = self.FRONTEND_URL.rstrip("/")
             if parsed.scheme == "https":
                 self.SESSION_COOKIE_SECURE = True
 

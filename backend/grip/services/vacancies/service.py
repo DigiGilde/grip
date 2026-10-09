@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from grip.calc import Month
 from grip.core import clock
 from grip.core.audit import CREATE, UPDATE, record_audit
+from grip.core.config import get_settings
 from grip.models.assignment import Assignment, BudgetLine
 from grip.models.person import Person
 from grip.models.vacancy import (
@@ -1384,7 +1385,9 @@ async def build_request_form(db: AsyncSession, vacancy_id: UUID) -> GeneratedFor
     values = form_values(vacancy, motivation=motivation.body if motivation else None)
     try:
         mapping = forms.parse_mapping(template.mapping)
-        content = forms.fill_form(template.content, mapping, values)
+        content = forms.fill_form(
+            template.content, mapping, values, example=get_settings().is_example
+        )
     except (forms.FormMappingError, forms.FormTemplateError) as exc:
         raise _wrap(exc) from exc
     open_sources = tuple(sorted({rule.source for rule in mapping.fields} - set(values)))

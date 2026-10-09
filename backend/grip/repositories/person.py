@@ -71,6 +71,15 @@ class PersonRepository:
         ).one()
         return [name for name in checks if getattr(row, name)]
 
+    async def active_with_email(self) -> list[Person]:
+        """Active people who could log in: those with an address, by name."""
+        result = await self.db.execute(
+            select(Person)
+            .where(Person.is_active.is_(True), Person.email.is_not(None))
+            .order_by(Person.name)
+        )
+        return list(result.scalars())
+
     async def first_active_with_function(self, role_id: str) -> Person | None:
         day = clock.today()
         result = await self.db.execute(

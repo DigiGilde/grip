@@ -218,3 +218,16 @@ def test_a_cleared_form_holds_no_trace_of_what_was_filled_in():
         assert "Voorbeeld" not in _stream(blank, name)
         assert "team" not in _stream(blank, name)
     forms.check_template(blank, forms.parse_mapping(MAPPING))
+
+
+def test_a_form_filled_in_an_example_instance_says_so_on_every_page():
+    mapping = forms.parse_mapping(MAPPING)
+    marked = PdfReader(
+        io.BytesIO(forms.fill_form(_form(), mapping, VALUES, example=True))
+    )
+    for page in marked.pages:
+        assert "Voorbeeld, geen echt document" in page.extract_text()
+    # Still a form that can be filled in further.
+    assert marked.get_fields()
+    plain = PdfReader(io.BytesIO(forms.fill_form(_form(), mapping, VALUES)))
+    assert "geen echt document" not in plain.pages[0].extract_text()
