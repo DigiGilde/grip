@@ -20,7 +20,10 @@ async def test_everyone_reads_which_cards_there_are_but_not_the_amounts(
         card = body["items"][0]
         assert card["year"] == 2026 and card["status"] == "active"
         assert {b["category"] for b in card["rate_bands"]} >= {"D"}
-        assert {"scale": 14, "category": "D"} in card["scale_bands"]
+        assert {"scale": 14, "category": "D"} in [
+            {"scale": band["scale"], "category": band["category"]}
+            for band in card["scale_bands"]
+        ]
         assert "monthly_rate_cents" not in resp.text
         assert "1800000" not in resp.text
         one = await client.get(f"/api/rates/cards/{card['id']}")
@@ -99,7 +102,10 @@ async def test_new_year_is_a_draft_copy(client, world, as_person):
     card = resp.json()
     assert card["status"] == "draft"
     assert len(card["rate_bands"]) == 5
-    assert {"scale": 14, "category": "D"} in card["scale_bands"]
+    assert {"scale": 14, "category": "D"} in [
+        {"scale": band["scale"], "category": band["category"]}
+        for band in card["scale_bands"]
+    ]
 
     resp = await client.put(
         "/api/rates/cards/2027/bands/D", json={"monthly_rate_cents": 1890000}

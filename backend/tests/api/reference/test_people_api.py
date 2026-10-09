@@ -7,6 +7,7 @@ from tests.api.reference.conftest import JUNE, by_id
 
 ROSTER = {
     "id",
+    "version",
     "name",
     "email",
     "is_active",

@@ -228,7 +228,10 @@ async def test_create_with_increase_through_the_api(
     assert card["status"] == "draft"
     rates = {b["category"]: b["monthly_rate_cents"] for b in card["rate_bands"]}
     assert rates["D"] == 1890000 and rates["A"] == 945000
-    assert {"scale": 14, "category": "D"} in card["scale_bands"]
+    assert {"scale": 14, "category": "D"} in [
+        {"scale": band["scale"], "category": band["category"]}
+        for band in card["scale_bands"]
+    ]
 
     # The rates of the draft stay editable per category.
     resp = await client.put(
