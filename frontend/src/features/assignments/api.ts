@@ -3,10 +3,13 @@
  * are absent from a response, not null, so most fields are optional here.
  */
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from '@/api/client';
+import { ifMatch } from '@/ui/stale';
 import type { Phase } from './labels';
 
 export interface AssignmentSummary {
   id: string;
+  /** Counts the changes of the assignment; sent back with a save. */
+  version?: number;
   uri: string;
   name: string;
   kind: string;
@@ -96,6 +99,8 @@ export interface PersonOption {
 
 export interface BudgetLine {
   id: string;
+  /** Counts the changes of the line; sent back with a save. */
+  version?: number;
   assignment_id: string;
   description: string;
   /** The free text that tells the line apart; the form edits this. */
@@ -201,6 +206,7 @@ export const assignmentKeys = {
   budget: (id: string) => ['assignments', 'budget', id] as const,
   organisations: ['organisations'] as const,
   personOptions: ['person-options'] as const,
+  judgeOptions: ['person-options', 'judging'] as const,
 };
 
 export const fetchAssignments = () => apiGet<AssignmentList>('/api/assignments');
@@ -210,8 +216,9 @@ export const fetchAssignment = (id: string) => apiGet<AssignmentDetail>(`/api/as
 export const createAssignment = (input: AssignmentInput) =>
   apiPost<AssignmentDetail>('/api/assignments', input);
 
-export const updateAssignment = (id: string, input: AssignmentInput) =>
-  apiPatch<AssignmentDetail>(`/api/assignments/${id}`, input);
+/** `version` is the version of the assignment the form started from. */
+export const updateAssignment = (id: string, input: AssignmentInput, version?: number) =>
+  apiPatch<AssignmentDetail>(`/api/assignments/${id}`, input, ifMatch(id, version));
 
 /** `reason` is the note of a verbal agreement, required for that step. */
 export const transitionAssignment = (id: string, target: string, reason?: string) =>
@@ -235,13 +242,18 @@ export const createOrganisation = (name: string) =>
 export const fetchPersonOptions = () =>
   apiGet<{ items: PersonOption[] }>('/api/person-options').then((body) => body.items);
 
+/** Who can be asked to advise, approve or review something internal. */
+export const fetchJudgeOptions = () =>
+  apiGet<{ items: PersonOption[] }>('/api/person-options?oordeel=true').then((body) => body.items);
+
 export const fetchBudget = (id: string) => apiGet<Budget>(`/api/assignments/${id}/budget`);
 
 export const addBudgetLine = (id: string, input: BudgetLineInput) =>
   apiPost<Budget>(`/api/assignments/${id}/budget-lines`, input);
 
-export const updateBudgetLine = (lineId: string, input: BudgetLineInput) =>
-  apiPatch<Budget>(`/api/budget-lines/${lineId}`, input);
+/** `version` is the version of the line the form started from. */
+export const updateBudgetLine = (lineId: string, input: BudgetLineInput, version?: number) =>
+  apiPatch<Budget>(`/api/budget-lines/${lineId}`, input, ifMatch(lineId, version));
 
 export const deleteBudgetLine = (lineId: string) =>
   apiDelete<Budget>(`/api/budget-lines/${lineId}`);

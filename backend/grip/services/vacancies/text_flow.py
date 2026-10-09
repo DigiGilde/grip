@@ -52,6 +52,7 @@ from grip.models.vacancy_text_flow import (
     VacancyTextVerdict,
 )
 from grip.repositories.vacancy import VacancyRepository
+from grip.services import internal_judges
 from grip.services.errors import DomainError, DomainValidationError, NotFoundError
 from grip.services.llm import ChatClient, get_chat_client
 from grip.services.vacancies import library
@@ -238,9 +239,11 @@ async def default_reviewers(
     candidates = [decision.person_id if decision else None]
     if kind == TextKind.motivation.value:
         candidates.append(vacancy.addressee_id)
-    return [
+    wanted_ids = [
         person_id for person_id in dict.fromkeys(candidates) if person_id is not None
     ]
+    outside = await internal_judges.client_side_only(db, wanted_ids)
+    return [person_id for person_id in wanted_ids if person_id not in outside]
 
 
 # --- writing ------------------------------------------------------------------
@@ -360,6 +363,7 @@ async def offer_for_review(
         )
     repo = VacancyRepository(db)
     for person_id in ids:
+        await internal_judges.require_internal(db, person_id)
         if await repo.active_person(person_id) is None:
             raise DomainValidationError(
                 "Een beoordelaar heeft een account in grip nodig. Kies iemand "

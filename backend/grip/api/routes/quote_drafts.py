@@ -73,6 +73,8 @@ class SectionIn(BaseModel):
     body: str | None = None
     heading: str | None = None
     included: bool | None = None
+    # Give up the own text and follow the organisation's standard text again.
+    follow_standard: bool = False
     # The ``version`` of the section the writer started from.
     version: int | None = None
 
@@ -278,6 +280,7 @@ async def save_quote_section(
             body=body.body,
             heading=body.heading,
             included=body.included,
+            follow_standard=body.follow_standard,
             expected_version=body.version,
         )
     except quote_drafts.DraftConflictError as exc:

@@ -7,12 +7,13 @@ import { TakeOverButton } from '@/features/tasks/TakeOver';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { useInstance } from '@/layout/useInstance';
 import { formatPeriod } from '@/lib/format';
+import { formatDate } from '@/lib/format';
 import { PATHS } from '@/paths';
 import { courseAction, type Course } from '@/ui/course';
 import { LoadError, Loading, Quiet, SectionHeading, Stack, ThingHead } from '@/ui/layout';
 import { PrimaryTakenContext } from '@/ui/primary';
 import { CourseBar, CourseNow } from '@/ui/Workflow';
-import { VACANCY_KEYS, fetchVacancy, type Vacancy } from './api';
+import { VACANCY_KEYS, fetchVacancy, fetchVacancyHire, hireKey, type Vacancy } from './api';
 import { HireSheet } from './HireSheets';
 import { useVacancyOptions } from './hooks';
 import {
@@ -153,6 +154,30 @@ interface WholeHeadProps {
   onSheet: (sheet: SharedSheet) => void;
 }
 
+/**
+ * How a filled vacancy ended: who starts, and when. The name is there only
+ * for who may read staffing; without it the date alone.
+ */
+function Filled({ vacancy }: { vacancy: Vacancy }) {
+  const filled = vacancy.status === 'filled';
+  const hire = useQuery({
+    queryKey: hireKey(vacancy.id),
+    queryFn: () => fetchVacancyHire(vacancy.id),
+    enabled: filled,
+  });
+  const found = hire.data?.hire;
+  if (!filled || !found) return null;
+  const started = found.stage !== 'prospective';
+  const when = `${started ? 'is gestart' : 'start'} op ${formatDate(found.start_date)}`;
+  return (
+    <nldd-text size="md">
+      {found.person_name
+        ? `Vervuld: ${found.person_name} ${when}.`
+        : `Vervuld: de collega ${when}.`}
+    </nldd-text>
+  );
+}
+
 /** The head for who sees the whole vacancy: what is next, its course and its tabs. */
 function WholeHead({ vacancy, current, instanceName, course, step, onSheet }: WholeHeadProps) {
   const navigate = useNavigate();
@@ -184,6 +209,7 @@ function WholeHead({ vacancy, current, instanceName, course, step, onSheet }: Wh
       }}
     >
       {course && <CourseNow course={course} tasksHref={vacancyTabPath(vacancy.id, 'tasks')} />}
+      <Filled vacancy={vacancy} />
       <TakeOverButton course={course} />
       {course && !course.ended && (
         <CourseBar

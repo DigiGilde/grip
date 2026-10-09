@@ -24,6 +24,8 @@ SIGNAL = DataClass.RATE_MISMATCH_SIGNAL
 
 class BudgetLineOut(BaseModel):
     id: Annotated[UUID, in_class(A)]
+    # Counts the changes of the line; a form sends it back with its save.
+    version: Annotated[int, in_class(A)] = 1
     assignment_id: Annotated[UUID, in_class(A)]
     # The name of the line as it is shown: the role plus the detail.
     description: Annotated[str, in_class(A)]

@@ -40,6 +40,8 @@ class AssignmentPermissionsOut(BaseModel):
 
 class AssignmentSummaryOut(BaseModel):
     id: Annotated[UUID, in_class(A)]
+    # Counts the changes of the record; a form sends it back with its save.
+    version: Annotated[int, in_class(A)] = 1
     uri: Annotated[str, in_class(A)]
     name: Annotated[str, in_class(A)]
     kind: Annotated[str, in_class(A)]

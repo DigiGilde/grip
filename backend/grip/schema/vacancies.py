@@ -143,6 +143,8 @@ class VacancySummaryOut(BaseModel):
 
 class VacancyOut(BaseModel):
     id: Annotated[UUID, PUBLIC]
+    # Sent back with a save, so a change on top of someone else's is refused.
+    version: Annotated[int, NO_NAMES] = 1
     function_title: Annotated[str, PUBLIC]
     fgr_function_name: Annotated[str | None, PUBLIC] = None
     scale: Annotated[int | None, PUBLIC] = None

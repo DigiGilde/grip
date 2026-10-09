@@ -463,6 +463,13 @@ export function MonthClosePage() {
         month={started ? month : null}
         closes={data?.may_close ?? false}
         reopen={reopening}
+        earlierOpen={
+          data?.periods
+            .flatMap((period) => period.months)
+            .filter((item) => month !== null && item.month < month && item.state === 'to_close')
+            .map((item) => item.month)
+            .sort()[0] ?? null
+        }
         delivered={
           data?.periods.some((period) =>
             period.months.some(

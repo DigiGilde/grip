@@ -35,6 +35,7 @@ from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from grip.core.database import Base
+from grip.models._columns import Versioned
 
 
 class VacancyType(enum.StrEnum):
@@ -146,7 +147,7 @@ class FormTemplate(Base):
     )
 
 
-class Vacancy(Base):
+class Vacancy(Versioned, Base):
     """An open role that has to be filled."""
 
     __tablename__ = "vacancy"

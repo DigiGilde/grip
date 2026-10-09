@@ -358,7 +358,25 @@
       "wait": "Je wacht op {wie}, die de {tekst} voor {functie} schrijft. Jij hoeft nu niets te doen.",
       "action": "Schrijf de {tekst}",
       "why": "De vacature voor {functie} heeft een {tekst} nodig en die is nog niet vastgesteld.",
-      "destination": "vacancy.text.write"
+      "destination": "vacancy.text.write",
+      "situations": {
+        "text_agreed": {
+          "title": "Stel de {tekst} vast",
+          "awaited": "De vaststelling van de {tekst}",
+          "do": "De {tekst} voor {functie} is beoordeeld en akkoord. Stel haar vast.",
+          "wait": "De {tekst} voor {functie} is akkoord. Je wacht op {wie}, die haar vaststelt. Jij hoeft nu niets te doen.",
+          "action": "Stel de {tekst} vast",
+          "destination": "vacancy.text"
+        },
+        "text_ready": {
+          "title": "Leg de {tekst} voor of stel haar vast",
+          "awaited": "De {tekst}",
+          "do": "De {tekst} voor {functie} is geschreven. Vraag om een oordeel, of stel haar vast.",
+          "wait": "De {tekst} voor {functie} is geschreven. Je wacht op {wie}, die haar voorlegt of vaststelt. Jij hoeft nu niets te doen.",
+          "action": "Vraag om een oordeel",
+          "destination": "vacancy.text"
+        }
+      }
     },
     "teksten.beoordelen": {
       "title": "Beoordeel de {tekst}",

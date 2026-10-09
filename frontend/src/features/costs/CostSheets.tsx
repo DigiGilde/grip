@@ -7,7 +7,9 @@ import { formatDate } from '@/lib/format';
 import { Button, DateField, FileField, SelectField, TextField } from '@/features/team/ui/controls';
 import { centsToEuroInput, eurosToCents, percentInput } from '@/features/team/ui/money';
 import { ConfirmDialog } from '@/features/team/ui/overlays';
+import { ConflictPanel } from '@/ui/ConflictPanel';
 import { FormSheet, Quiet, Stack } from '@/ui/layout';
+import { staleConflictOf, type StaleConflict } from '@/ui/stale';
 import {
   ATTACHMENT_ACCEPT,
   ATTACHMENT_HELP,
@@ -16,6 +18,7 @@ import {
   addInvoiceLine,
   attachmentUrl,
   createCostItem,
+  fetchCostItem,
   fetchCoverageOptions,
   formatBytes,
   removeAttachment,
@@ -44,6 +47,10 @@ function useSheetForm<T, F>(target: T | null, initial: (target: T) => F) {
   const [form, setForm] = useState<F | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // A save that was refused because a colleague saved first: the conflict
+  // with the record as it stands now, and the version to save on top of.
+  const [theirs, setTheirs] = useState<{ conflict: StaleConflict; record: CostItem } | null>(null);
+  const [base, setBase] = useState<number | undefined>(undefined);
   if (target !== previous) {
     setPrevious(target);
     if (target !== null) {
@@ -51,10 +58,35 @@ function useSheetForm<T, F>(target: T | null, initial: (target: T) => F) {
       setForm(initial(target));
       setError(null);
       setBusy(false);
+      setTheirs(null);
+      setBase(undefined);
     }
   }
   const patch = (change: Partial<F>) => setForm((old) => (old ? { ...old, ...change } : old));
-  return { shown, form, patch, error, setError, busy, setBusy };
+  /** Whether a failed save was a conflict; then the record is fetched again. */
+  const caught = async (failure: unknown, itemId: string): Promise<boolean> => {
+    const conflict = staleConflictOf(failure);
+    if (conflict === null) return false;
+    const record = await fetchCostItem(itemId, null).catch(() => null);
+    if (record === null) return false;
+    setTheirs({ conflict, record });
+    setError(null);
+    return true;
+  };
+  return {
+    shown,
+    form,
+    patch,
+    error,
+    setError,
+    busy,
+    setBusy,
+    theirs,
+    clearTheirs: () => setTheirs(null),
+    base,
+    setBase,
+    caught,
+  };
 }
 
 function useRefreshCosts() {
@@ -81,7 +113,19 @@ export function ItemSheet({ target, onClose, onCreated }: ItemSheetProps) {
   const item = sheet.shown?.item ?? null;
   const form = sheet.form ?? { description: '', budgeted: '' };
 
-  async function submit() {
+  const describeItem = (values: { description: string; budgeted: string }) => [
+    { label: 'Omschrijving', value: values.description },
+    { label: 'Begroot', value: values.budgeted },
+  ];
+  const theirItem = sheet.theirs?.record ?? null;
+  const theirForm = theirItem
+    ? {
+        description: theirItem.description,
+        budgeted: centsToEuroInput(theirItem.budgeted_cents),
+      }
+    : null;
+
+  async function submit(onTopOf: number | undefined = sheet.base ?? item?.version) {
     // The budget of a new cost item may follow later; an empty field is zero.
     const cents = !item && form.budgeted.trim() === '' ? 0 : eurosToCents(form.budgeted);
     if (!form.description.trim() || cents === null || cents < 0) {
@@ -95,11 +139,15 @@ export function ItemSheet({ target, onClose, onCreated }: ItemSheetProps) {
     sheet.setBusy(true);
     try {
       const body = { description: form.description.trim(), budgeted_cents: cents };
-      const saved = item ? await updateCostItem(item.id, body) : await createCostItem(body);
+      const saved = item
+        ? await updateCostItem(item.id, body, onTopOf)
+        : await createCostItem(body);
       await refresh();
+      sheet.clearTheirs();
       onClose();
       if (!item) onCreated?.(saved);
     } catch (caught) {
+      if (item && (await sheet.caught(caught, item.id))) return;
       sheet.setError(errorMessage(caught));
     } finally {
       sheet.setBusy(false);
@@ -116,6 +164,23 @@ export function ItemSheet({ target, onClose, onCreated }: ItemSheetProps) {
       busy={sheet.busy}
       error={sheet.error}
     >
+      {sheet.theirs && theirItem && theirForm ? (
+        <ConflictPanel
+          conflict={sheet.theirs.conflict}
+          theirs={describeItem(theirForm)}
+          mine={describeItem(form)}
+          onKeepMine={() => {
+            sheet.setBase(theirItem.version);
+            void submit(theirItem.version);
+          }}
+          onTakeTheirs={() => {
+            sheet.patch(theirForm);
+            sheet.setBase(theirItem.version);
+            sheet.clearTheirs();
+          }}
+          busy={sheet.busy}
+        />
+      ) : null}
       <TextField
         label="Omschrijving"
         {...(item ? {} : { supportingLabel: 'Bijvoorbeeld een hostingcontract' })}
@@ -204,7 +269,28 @@ export function InvoiceSheet({ item, target, onClose }: InvoiceSheetProps) {
   const form = sheet.form;
   const [removing, setRemoving] = useState<Attachment | null>(null);
 
-  async function submit() {
+  const describeInvoice = (
+    values: Pick<InvoiceFields, 'kind' | 'amount' | 'reference' | 'description' | 'period'>,
+  ) => [
+    { label: 'Soort', value: values.kind === 'actual' ? 'Ontvangen' : 'Verwacht' },
+    { label: 'Bedrag', value: values.amount },
+    { label: 'Kenmerk', value: values.reference },
+    { label: 'Omschrijving', value: values.description },
+    { label: 'Periode', value: values.period },
+  ];
+  const theirLine =
+    sheet.theirs?.record.invoice_lines.find((candidate) => candidate.id === line?.id) ?? null;
+  const theirInvoice = theirLine
+    ? {
+        kind: theirLine.kind,
+        amount: centsToEuroInput(theirLine.amount_cents),
+        reference: theirLine.reference ?? '',
+        description: theirLine.description ?? '',
+        period: theirLine.period ?? '',
+      }
+    : null;
+
+  async function submit(onTopOf?: number) {
     if (!form) return;
     const input = invoiceInput(form);
     if (input === null) {
@@ -214,8 +300,10 @@ export function InvoiceSheet({ item, target, onClose }: InvoiceSheetProps) {
     sheet.setBusy(true);
     try {
       const lineId = line
-        ? (await updateInvoiceLine(item.id, line.id, input), line.id)
+        ? (await updateInvoiceLine(item.id, line.id, input, onTopOf ?? sheet.base ?? line.version),
+          line.id)
         : (await addInvoiceLine(item.id, input)).created_invoice_line_id;
+      sheet.clearTheirs();
       const failures = await uploadAll(item.id, lineId, form.files);
       await refresh();
       if (failures.length === 0) {
@@ -228,6 +316,7 @@ export function InvoiceSheet({ item, target, onClose }: InvoiceSheetProps) {
         );
       }
     } catch (caught) {
+      if (line && (await sheet.caught(caught, item.id))) return;
       sheet.setError(errorMessage(caught));
     } finally {
       sheet.setBusy(false);
@@ -255,6 +344,23 @@ export function InvoiceSheet({ item, target, onClose }: InvoiceSheetProps) {
         busy={sheet.busy}
         error={sheet.error}
       >
+        {sheet.theirs && theirLine && theirInvoice && form ? (
+          <ConflictPanel
+            conflict={sheet.theirs.conflict}
+            theirs={describeInvoice(theirInvoice)}
+            mine={describeInvoice(form)}
+            onKeepMine={() => {
+              sheet.setBase(theirLine.version);
+              void submit(theirLine.version);
+            }}
+            onTakeTheirs={() => {
+              sheet.patch(theirInvoice);
+              sheet.setBase(theirLine.version);
+              sheet.clearTheirs();
+            }}
+            busy={sheet.busy}
+          />
+        ) : null}
         <SelectField
           label="Soort"
           value={form?.kind ?? 'actual'}
@@ -468,11 +574,18 @@ export function CoverageSheet({ item, target, onClose }: CoverageSheetProps) {
           value={form.lineId}
           onChange={(lineId) => sheet.patch({ lineId })}
           emptyLabel="Kies een begrotingsregel"
-          options={lines.map((line) => ({
-            value: line.budget_line_id,
-            label: line.description,
-            group: line.assignment_name,
-          }))}
+          // Lines with a fixed amount come first within an assignment; a
+          // personnel line is named as one, since it is another kind of cover.
+          options={[...lines]
+            .sort((a, b) => Number(a.kind === 'personnel') - Number(b.kind === 'personnel'))
+            .map((line) => ({
+              value: line.budget_line_id,
+              label:
+                line.kind === 'personnel'
+                  ? `${line.description} (personeelsregel)`
+                  : line.description,
+              group: line.assignment_name,
+            }))}
         />
       )}
       <PercentField

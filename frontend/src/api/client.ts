@@ -125,9 +125,18 @@ async function handleResponse<T>(response: Response): Promise<T> {
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
-async function request<T>(method: string, url: string, data?: unknown): Promise<T> {
+/** Extra request headers, such as the version a save started from. */
+export type RequestHeaders = Record<string, string>;
+
+async function request<T>(
+  method: string,
+  url: string,
+  data?: unknown,
+  extra?: RequestHeaders,
+): Promise<T> {
   const headers: Record<string, string> = {
     Accept: 'application/json, application/problem+json',
+    ...extra,
   };
   if (data !== undefined) headers['Content-Type'] = 'application/json';
   if (MUTATING.has(method)) headers[CSRF_HEADER] = getCsrfToken();
@@ -145,18 +154,18 @@ export function apiGet<T>(path: string, params?: QueryParams): Promise<T> {
   return request<T>('GET', buildUrl(path, params));
 }
 
-export function apiPost<T>(path: string, data?: unknown): Promise<T> {
-  return request<T>('POST', path, data);
+export function apiPost<T>(path: string, data?: unknown, headers?: RequestHeaders): Promise<T> {
+  return request<T>('POST', path, data, headers);
 }
 
-export function apiPut<T>(path: string, data?: unknown): Promise<T> {
-  return request<T>('PUT', path, data);
+export function apiPut<T>(path: string, data?: unknown, headers?: RequestHeaders): Promise<T> {
+  return request<T>('PUT', path, data, headers);
 }
 
-export function apiPatch<T>(path: string, data?: unknown): Promise<T> {
-  return request<T>('PATCH', path, data);
+export function apiPatch<T>(path: string, data?: unknown, headers?: RequestHeaders): Promise<T> {
+  return request<T>('PATCH', path, data, headers);
 }
 
-export function apiDelete<T = void>(path: string): Promise<T> {
-  return request<T>('DELETE', path);
+export function apiDelete<T = void>(path: string, headers?: RequestHeaders): Promise<T> {
+  return request<T>('DELETE', path, undefined, headers);
 }

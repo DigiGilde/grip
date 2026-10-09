@@ -4,6 +4,7 @@ import { errorMessage } from '@/api/client';
 import {
   assignmentKeys,
   createAssignment,
+  fetchAssignment,
   updateAssignment,
   type AssignmentDetail,
   type AssignmentInput,
@@ -12,6 +13,8 @@ import { assignmentInput, initialState, type FormState } from './assignmentForm'
 import { KIND_LABELS } from './labels';
 import { OrganisationPicker } from '@/features/organisations';
 import { DateInput, FormSheet, SelectInput, TextInput } from './ui';
+import { ConflictPanel } from '@/ui/ConflictPanel';
+import { useStaleRecord } from '@/ui/stale';
 
 interface Props {
   open: boolean;
@@ -37,9 +40,17 @@ export function AssignmentFormSheet({ open, session, assignment, onClose, onSave
   // The sheet stays mounted while closed, so a new opening resets the form
   // here instead of by remounting.
   const [seenSession, setSeenSession] = useState(session);
+  // The version this form started from; a save on an older one is refused
+  // and the form then shows what stands there now.
+  const [onTopOf, setOnTopOf] = useState(assignment?.version);
+  const stale = useStaleRecord<AssignmentDetail>(async () =>
+    assignment ? fetchAssignment(assignment.id) : null,
+  );
   if (seenSession !== session) {
     setSeenSession(session);
     setForm(initialState(assignment));
+    setOnTopOf(assignment?.version);
+    stale.clear();
     setProblem(null);
   }
   // A message about a field goes once the reader changes something.
@@ -51,35 +62,67 @@ export function AssignmentFormSheet({ open, session, assignment, onClose, onSave
   const external = form.kind === 'external';
 
   const save = useMutation({
-    mutationFn: (input: AssignmentInput) =>
-      assignment ? updateAssignment(assignment.id, input) : createAssignment(input),
+    mutationFn: ({ input, version }: { input: AssignmentInput; version?: number }) =>
+      assignment ? updateAssignment(assignment.id, input, version) : createAssignment(input),
     onSuccess: (saved) => {
       void queryClient.invalidateQueries({ queryKey: assignmentKeys.all });
       setProblem(null);
+      stale.clear();
       onSaved(saved);
     },
-    onError: (error) => setProblem(errorMessage(error)),
+    onError: async (error) => {
+      if (await stale.caught(error)) {
+        setProblem(null);
+        return;
+      }
+      setProblem(errorMessage(error));
+    },
   });
 
-  const submit = () => {
+  const submit = (version: number | undefined = onTopOf) => {
     const input = assignmentInput(form, creating);
     if (typeof input === 'string') {
       setProblem(input);
       return;
     }
-    save.mutate(input);
+    setOnTopOf(version);
+    save.mutate({ input, version });
   };
+
+  const describe = (values: FormState) => [
+    { label: 'Naam', value: values.name },
+    { label: 'Soort', value: KIND_LABELS[values.kind] ?? values.kind },
+    { label: 'Contactpersoon', value: values.clientContact },
+    { label: 'Begindatum', value: values.startDate },
+    { label: 'Einddatum', value: values.endDate },
+    { label: 'Notities', value: values.notes },
+  ];
 
   return (
     <FormSheet
       open={open}
       title={assignment ? `${assignment.name} bewerken` : 'Nieuwe opdracht'}
       submitText={creating ? 'Maak opdracht' : 'Bewaar'}
-      onSubmit={submit}
+      onSubmit={() => submit()}
       onClose={onClose}
       busy={save.isPending}
       error={problem}
     >
+      {stale.theirs ? (
+        <ConflictPanel
+          conflict={stale.theirs.conflict}
+          theirs={describe(initialState(stale.theirs.record))}
+          mine={describe(form)}
+          onKeepMine={() => submit(stale.theirs?.record.version)}
+          onTakeTheirs={() => {
+            if (!stale.theirs) return;
+            setForm(initialState(stale.theirs.record));
+            setOnTopOf(stale.theirs.record.version);
+            stale.clear();
+          }}
+          busy={save.isPending}
+        />
+      ) : null}
       <TextInput label="Naam" value={form.name} onChange={(name) => set({ name })} required />
       <SelectInput
         label="Soort"

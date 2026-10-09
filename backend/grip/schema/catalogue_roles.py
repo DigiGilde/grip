@@ -9,6 +9,8 @@ from pydantic import BaseModel, Field
 
 class CatalogueRoleOut(BaseModel):
     id: UUID
+    # Sent back with a save, so a change on top of someone else's is refused.
+    version: int = 1
     name: str
     description: str | None
     # wies | manual

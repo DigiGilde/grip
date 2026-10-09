@@ -17,14 +17,14 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from grip.core.database import Base
-from grip.models._columns import created_at, updated_at, uuid_pk
+from grip.models._columns import Versioned, created_at, updated_at, uuid_pk
 
 ROLE_SOURCE_WIES = "wies"
 ROLE_SOURCE_MANUAL = "manual"
 ROLE_SOURCES = (ROLE_SOURCE_WIES, ROLE_SOURCE_MANUAL)
 
 
-class CatalogueRole(Base):
+class CatalogueRole(Versioned, Base):
     """A role people are staffed in: "Developer", "Product owner".
 
     The catalogue is what a personnel budget line picks its role from, so the

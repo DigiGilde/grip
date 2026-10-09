@@ -38,10 +38,9 @@ from grip.core.config import Settings, get_settings
 from grip.core.database import get_db
 from grip.federation.corpus import CorpusClient
 from grip.models.assignment import Assignment
-from grip.models.person import Person
 from grip.models.vacancy import TextKind, TextSource, Vacancy, VacancyStatus
 from grip.repositories.vacancy import VacancyRepository
-from grip.services import context_fetch, instance_settings
+from grip.services import context_fetch, instance_settings, internal_judges
 from grip.services.errors import DomainValidationError, NotFoundError
 from grip.services.llm import LlmNotConfiguredError, LlmResponseError, get_chat_client
 from grip.services.llm.client import (
@@ -488,16 +487,10 @@ async def _text_work_response(
     is_open = vacancy.status in (VacancyStatus.open.value, VacancyStatus.filled.value)
     reviewer_options: list[ReviewerOptionOut] = []
     if can_edit and has_names:
-        people = await db.execute(
-            Person.__table__.select()
-            .with_only_columns(Person.id, Person.name)
-            .where(Person.is_active.is_(True), Person.email.is_not(None))
-            .order_by(Person.name)
-        )
         reviewer_options = [
-            ReviewerOptionOut(id=row.id, name=row.name)
-            for row in people
-            if row.id != viewer_id
+            ReviewerOptionOut(id=person_id, name=name)
+            for person_id, name in await internal_judges.judge_options(db)
+            if person_id != viewer_id
         ]
     provider = active_provider(settings)
     value = VacancyTextWorkOut(

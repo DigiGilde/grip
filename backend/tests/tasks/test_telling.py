@@ -331,3 +331,17 @@ async def test_what_a_person_must_do_now_can_be_read_for_a_notification(
         ("uitvoering.starten", "Zet de opdracht in uitvoering"),
     ]
     assert items[0].href and items[0].href.startswith("/opdrachten/")
+
+
+def test_a_written_text_is_offered_or_settled_on_the_tab_not_in_the_editor() -> None:
+    """A complete draft and an agreed text have their own sentence and lead to
+    the Tekst tab; writing leads into the editor."""
+    guide = telling.guidance().templates["teksten.schrijven"]
+    assert guide.destination == "vacancy.text.write"
+    ready = guide.in_situation("text_ready")
+    assert ready.title == "Leg de {tekst} voor of stel haar vast"
+    assert ready.action == "Vraag om een oordeel"
+    assert ready.destination == "vacancy.text"
+    agreed = guide.in_situation("text_agreed")
+    assert agreed.action == "Stel de {tekst} vast"
+    assert agreed.destination == "vacancy.text"

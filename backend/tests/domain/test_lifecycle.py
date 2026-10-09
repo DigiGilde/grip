@@ -165,3 +165,10 @@ def test_unknown_event_type_is_refused():
 
     with pytest.raises(ValueError):
         events.register_handler("quote.unknown", handler)
+
+
+async def test_an_internal_assignment_is_offered_no_step_towards_a_client(
+    make_assignment,
+) -> None:
+    assignment = await make_assignment(kind="internal", client_organisation_id=None)
+    assert assignments.allowed_transitions(assignment) == {"accepted", "cancelled"}

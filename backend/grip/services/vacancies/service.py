@@ -37,7 +37,7 @@ from grip.models.vacancy import (
     VacancyType,
 )
 from grip.repositories.vacancy import FormTemplateRepository, VacancyRepository
-from grip.services import events
+from grip.services import events, internal_judges, stale
 from grip.services import function_framework as framework
 from grip.services.errors import DomainError, DomainValidationError, NotFoundError
 from grip.services.llm import ChatClient, get_chat_client
@@ -285,6 +285,7 @@ async def _apply_request_details(
     if "addressee_id" in values:
         addressee_id = values.pop("addressee_id")
         if addressee_id is not None:
+            await internal_judges.require_internal(db, addressee_id)
             person = await db.get(Person, addressee_id)
             if person is None or not person.is_active:
                 raise NotFoundError("Persoon", addressee_id)
@@ -341,6 +342,7 @@ async def update_vacancy(
     the request is fixed: the details that went on the form no longer change.
     """
     vacancy = await _get(db, vacancy_id)
+    await stale.check(db, vacancy, "deze vacature")
     unknown = set(changes) - set(_EDITABLE)
     if unknown:
         raise DomainValidationError(
@@ -803,6 +805,9 @@ async def record_decision(
         raise DomainValidationError(
             "Advies en akkoord kunnen pas na de aanvraag worden vastgelegd."
         )
+
+    # Advice and approval come from inside the own organisation.
+    await internal_judges.require_internal(db, person_id)
 
     # Advice and approval are someone else's than the requester's.
     if (

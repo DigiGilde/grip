@@ -23,7 +23,7 @@ from grip.models.rates import (
     ScaleBand,
 )
 from grip.repositories.domain import PersonDetailRepository, RateRepository
-from grip.services import events
+from grip.services import events, stale
 from grip.services.errors import (
     ClosedYearError,
     DomainValidationError,
@@ -531,6 +531,7 @@ async def update_card(
     """Rename a card or change its end date. The start date is its identity
     in time and does not change; start a new card instead."""
     card = await get_card(session, key)
+    await stale.check(session, card, "deze tarievenkaart")
     if card.status == "closed" and not allow_closed_year:
         raise ClosedYearError(card.valid_from.year, card.name)
     old = card_audit(card)
@@ -573,6 +574,28 @@ async def _changeable_card(
     return card, []
 
 
+async def _corrections_before(session: AsyncSession, card: RateCard) -> Any:
+    """What is still to deliver before a change on a card that prices; None
+    for a draft, which prices nothing."""
+    if card.status == "draft":
+        return None
+    # Imported here: that module prices, and pricing reads this one.
+    from grip.services import price_changes
+
+    return await price_changes.pending_corrections(session)
+
+
+async def _corrections_after(
+    session: AsyncSession, pending: Any, cause: str, actor: Person | None
+) -> None:
+    """A delivered month that costs something else now gets its correction."""
+    if pending is None:
+        return
+    from grip.services import price_changes
+
+    await price_changes.emit_new_corrections(session, pending, cause=cause, actor=actor)
+
+
 async def set_rate_band(
     session: AsyncSession,
     key: CardKey,
@@ -588,6 +611,7 @@ async def set_rate_band(
     if monthly_rate_cents < 0:
         raise DomainValidationError("Een maandtarief kan niet negatief zijn.")
     card, closed = await _changeable_card(session, key, allow_closed_year)
+    pending = await _corrections_before(session, card)
     band = next((b for b in card.rate_bands if b.category == category), None)
     old = None
     if band is None:
@@ -598,6 +622,7 @@ async def set_rate_band(
         )
         session.add(band)
     else:
+        await stale.check(session, band, "dit tarief", trail=f"{card.id}/{category}")
         old = {"monthly_rate_cents": band.monthly_rate_cents}
         band.monthly_rate_cents = monthly_rate_cents
     await session.flush()
@@ -613,6 +638,12 @@ async def set_rate_band(
             "card": card.name,
             **({"closed_year_override": closed} if closed else {}),
         },
+    )
+    await _corrections_after(
+        session,
+        pending,
+        f"tarief van categorie {category} op '{card.name}' gewijzigd",
+        actor,
     )
     return band
 
@@ -630,6 +661,7 @@ async def set_scale_band(
     if category not in RATE_CATEGORIES:
         raise DomainValidationError(f"Onbekende tariefcategorie: {category}")
     card, closed = await _changeable_card(session, key, allow_closed_year)
+    pending = await _corrections_before(session, card)
     band = next((b for b in card.scale_bands if b.scale == scale), None)
     old = None
     if band is None:
@@ -651,6 +683,12 @@ async def set_scale_band(
             "card": card.name,
             **({"closed_year_override": closed} if closed else {}),
         },
+    )
+    await _corrections_after(
+        session,
+        pending,
+        f"categorie van schaal {scale} op '{card.name}' gewijzigd",
+        actor,
     )
     return band
 

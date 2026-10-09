@@ -506,6 +506,7 @@ async def _vacancy_response(
     candidate = await service.candidate_of(db, vacancy)
     out = VacancyOut(
         id=vacancy.id,
+        version=vacancy.version,
         function_title=vacancy.function_title,
         fgr_function_name=vacancy.fgr_function_name,
         scale=vacancy.scale,

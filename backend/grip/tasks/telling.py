@@ -196,7 +196,9 @@ class Guide:
             wait=override.get("wait", self.wait),
             action=override.get("action", self.action),
             why=self.why,
-            destination=self.destination,
+            # A situation may lead elsewhere: a text that is written is
+            # offered or settled on the tab, not in the editor.
+            destination=override.get("destination", self.destination),
             then=self.then,
         )
 
@@ -237,9 +239,13 @@ def parse_guidance(data: dict[str, Any]) -> Guidance:
         for situation, override in situations.items():
             if situation not in SITUATIONS:
                 raise fail(f"onbekende stand '{situation}'")
-            if set(override) - _SITUATION_FIELDS:
+            if set(override) - _SITUATION_FIELDS - {"destination"}:
                 raise fail(f"stand '{situation}' kan dit niet vervangen")
-            texts.extend(override.values())
+            if override.get("destination", raw["destination"]) not in destinations:
+                raise fail(f"stand '{situation}': onbekende bestemming")
+            texts.extend(
+                value for name, value in override.items() if name != "destination"
+            )
         for text in texts:
             unknown = _names_in(text) - VARIABLES
             if unknown:
@@ -585,6 +591,8 @@ def work_href(task: Task) -> str | None:
     guide = guidance().templates.get(task.template_key or "")
     if guide is None:
         return task.link
+    # The situation the facts gave the task may lead somewhere else.
+    guide = guide.in_situation(task.situation)
     values = {
         "assignment_id": str(task.assignment_id or ""),
         "vacancy_id": str(task.vacancy_id or ""),

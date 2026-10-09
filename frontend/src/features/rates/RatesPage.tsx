@@ -1,3 +1,4 @@
+import { staleConflictOf } from '@/ui/stale';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
@@ -140,13 +141,24 @@ export function RatesPage() {
       setEditing(null);
       setFormError(null);
       setPageError(null);
-      await queryClient.invalidateQueries({ queryKey: ['rates'] });
+      // The preview of settling belongs to the sheet that just closed: it is
+      // not asked again for a card that is settled by now.
+      queryClient.removeQueries({ queryKey: ['rates', 'activation'] });
+      await queryClient.invalidateQueries({
+        predicate: (query) => query.queryKey[0] === 'rates' && query.queryKey[1] !== 'activation',
+      });
     },
   });
   const submit = (run: () => Promise<unknown>, onDone?: () => void) =>
     save.mutate(run, {
       onSuccess: onDone,
-      onError: (error) => setFormError(errorMessage(error)),
+      onError: (error) => {
+        // A save on top of a colleague's change: the sentence says who and
+        // when; the table behind the form is read again so it shows what
+        // stands there now.
+        if (staleConflictOf(error)) void query.refetch();
+        setFormError(errorMessage(error));
+      },
     });
   const open = (next: Editing) => {
     setFormError(null);
@@ -405,7 +417,18 @@ export function RatesPage() {
         onInvalid={setFormError}
         onClose={() => setEditing(null)}
         onSave={(category, cents) =>
-          card && submit(() => setRateBand(card.id, category, cents, confirmClosed))
+          card &&
+          submit(() =>
+            setRateBand(
+              card.id,
+              category,
+              cents,
+              confirmClosed,
+              // The rate as the form found it: a save on top of a colleague's
+              // change is refused with who changed it and when.
+              card.rate_bands.find((band) => band.category === category),
+            ),
+          )
         }
       />
       <ScaleSheet
@@ -431,6 +454,7 @@ export function RatesPage() {
               target.id,
               changes,
               target.status === 'closed' && unlockedId === target.id,
+              target.version,
             ),
           )
         }

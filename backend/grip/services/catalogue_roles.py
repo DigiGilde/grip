@@ -35,6 +35,7 @@ from grip.models.catalogue_role import (
 )
 from grip.models.person import Person
 from grip.models.vacancy_text_flow import VacancyTextTemplate
+from grip.services import stale
 from grip.services.errors import DomainValidationError, NotFoundError
 
 _ACCENTED = "áàâäãåéèêëíìîïóòôöõúùûüçñ"
@@ -245,6 +246,7 @@ async def update_role(
     already has is refused: those two are to be merged.
     """
     role = await get_role(db, role_id)
+    await stale.check(db, role, "deze rol")
     allowed = {"name", "description", "is_active", "needs_review"}
     refused = sorted(set(changes) - allowed)
     if refused:

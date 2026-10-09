@@ -309,3 +309,27 @@ async def test_two_changes_before_delivery_are_one_correction_with_both_causes(
         for task in track["tasks"]
         if task["headline"] == TITLE
     ] == [TITLE]
+
+
+async def test_a_rate_changed_on_a_settled_card_is_a_difference_too(
+    act_as, world, db_session
+):
+    """A rate that changes on the card that priced a delivered period leaves
+    a correction, like a card that takes effect does."""
+    client = act_as(world.manager)
+    await _delivered_quarter(client, world)
+    assert await _rows(db_session, world) == []
+    card = await rates.get_card(db_session, 2026)
+    for band in list(card.rate_bands):
+        await rates.set_rate_band(
+            db_session,
+            2026,
+            band.category,
+            band.monthly_rate_cents + 100_00,
+            actor=world.beheerder,
+        )
+    await db_session.flush()
+    [row] = await _rows(db_session, world)
+    assert row.amount_cents > 0
+    assert "Tarieven 2026" in str(row.causes)
+    assert (await _quarter(client, world))["correction"] is True

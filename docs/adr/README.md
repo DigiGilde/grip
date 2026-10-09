@@ -52,6 +52,7 @@ Een besluit dat anderen bindt staat hier als ADR: genummerd, met context, beslui
 | [0046](0046-een-klok-de-dag-van-de-instantie.md) | Eén klok: een datum is de dag van de instantie | aanvaard |
 | [0047](0047-een-naverrekening-is-een-opgeslagen-verschil-per-factuurperiode.md) | Een naverrekening is een opgeslagen verschil per factuurperiode | aanvaard |
 | [0048](0048-een-stap-overnemen-geeft-geen-recht.md) | Een stap overnemen geeft geen recht, en wie anders moet beslissen blijft dat doen | aanvaard |
+| [0049](0049-een-verouderde-opslag-wordt-geweigerd.md) | Een opslag op een verouderde versie wordt geweigerd, op een manier voor elk formulier | aanvaard |
 
 ## Welke besluiten later zijn bijgesteld
 

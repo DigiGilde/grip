@@ -8,6 +8,7 @@ import {
   getCsrfToken,
   type ProblemDetails,
 } from '@/api/client';
+import { ifMatch } from '@/ui/stale';
 
 /** A document attached to an invoice line: the received invoice itself. */
 export interface Attachment {
@@ -21,6 +22,8 @@ export interface Attachment {
 
 export interface InvoiceLine {
   id: string;
+  /** Counts the changes of the record; sent back with a save. */
+  version?: number;
   reference: string | null;
   description: string | null;
   kind: 'actual' | 'estimate';
@@ -41,6 +44,8 @@ export interface Coverage {
 
 export interface CostItem {
   id: string;
+  /** Counts the changes of the record; sent back with a save. */
+  version?: number;
   description: string;
   budgeted_cents: number;
   forecast_cents: number;
@@ -99,11 +104,13 @@ export function createCostItem(body: {
   return apiPost<CostItem>('/api/costs', body);
 }
 
+/** `version` is the version of the cost item the form started from. */
 export function updateCostItem(
   id: string,
   body: { description: string; budgeted_cents: number },
+  version?: number,
 ): Promise<CostItem> {
-  return apiPatch<CostItem>(`/api/costs/${id}`, body);
+  return apiPatch<CostItem>(`/api/costs/${id}`, body, ifMatch(id, version));
 }
 
 export interface InvoiceLineInput {
@@ -122,12 +129,18 @@ export function addInvoiceLine(
   return apiPost(`/api/costs/${id}/invoice-lines`, body);
 }
 
+/** `version` is the version of the invoice the form started from. */
 export function updateInvoiceLine(
   id: string,
   lineId: string,
   body: InvoiceLineInput,
+  version?: number,
 ): Promise<CostItem> {
-  return apiPatch<CostItem>(`/api/costs/${id}/invoice-lines/${lineId}`, body);
+  return apiPatch<CostItem>(
+    `/api/costs/${id}/invoice-lines/${lineId}`,
+    body,
+    ifMatch(lineId, version),
+  );
 }
 
 /** Deletes the line and every file attached to it. */

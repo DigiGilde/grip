@@ -292,6 +292,22 @@ describe('activating a draft', () => {
 });
 
 describe('the sentences about what changes', () => {
+  it('says how many of the repriced assignments have a signed quote', () => {
+    const sentences = impactSentences(
+      {
+        ...NO_IMPACT,
+        budget_lines_changed: 3,
+        budget_difference_cents: 2000000,
+        signed_assignments_changed: 2,
+        signed_difference_cents: 1458000,
+      },
+      '2099-07-15',
+    );
+    expect(sentences[1]).toMatch(
+      /^Daaronder 2 opdrachten met een getekende offerte: de begroting komt daar samen €\s14\.580 hoger uit dan wat is getekend\.$/,
+    );
+  });
+
   it('names the naverrekening for months already delivered', () => {
     const sentences = impactSentences(
       {

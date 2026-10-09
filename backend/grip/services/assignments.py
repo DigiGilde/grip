@@ -33,7 +33,7 @@ from grip.models.month_close import MonthCloseLine
 from grip.models.organisation import Organisation
 from grip.models.person import Person
 from grip.models.rates import RATE_CATEGORIES
-from grip.services import events, periods
+from grip.services import events, periods, stale
 from grip.services.errors import (
     DomainValidationError,
     IllegalTransitionError,
@@ -67,6 +67,8 @@ TRANSITIONS: dict[str, frozenset[str]] = {
 # An internal assignment has no client to quote to: it goes straight from
 # draft to accepted.
 _INTERNAL_EXTRA: dict[str, frozenset[str]] = {"draft": frozenset({"accepted"})}
+# What only exists with a client; an internal assignment never takes these.
+_CLIENT_STEPS = frozenset({"requested", "quoted", "verbally_agreed", "rejected"})
 
 _ASSIGNMENT_FIELDS = (
     "uri",
@@ -157,7 +159,10 @@ def is_shared_with(assignment: Assignment, instance_uri: str | None) -> bool:
 def allowed_transitions(assignment: Assignment) -> frozenset[str]:
     allowed = TRANSITIONS[assignment.status]
     if assignment.kind == "internal":
-        allowed = allowed | _INTERNAL_EXTRA.get(assignment.status, frozenset())
+        # No client: nothing to request from or to quote to.
+        allowed = (allowed - _CLIENT_STEPS) | _INTERNAL_EXTRA.get(
+            assignment.status, frozenset()
+        )
     return allowed
 
 
@@ -307,6 +312,7 @@ async def update_assignment(
             f"Deze velden zijn niet te wijzigen: {', '.join(sorted(unknown))}"
         )
     assignment = await get_assignment(session, assignment_id)
+    await stale.check(session, assignment, "deze opdracht")
     if "kind" in changes and changes["kind"] not in ASSIGNMENT_KINDS:
         raise DomainValidationError(f"Onbekend soort opdracht: {changes['kind']}")
     if "context_refs" in changes:
@@ -900,6 +906,7 @@ async def update_budget_line(
             f"Deze velden zijn niet te wijzigen: {', '.join(sorted(unknown))}"
         )
     line = await get_budget_line(session, line_id)
+    await stale.check(session, line, "deze begrotingsregel")
     before = {f: getattr(line, f) for f in _LINE_FIELDS}
     if line.kind == "personnel" and {"period_source", "start_date", "end_date"} & set(
         changes
@@ -967,6 +974,7 @@ async def delete_budget_line(
     allow_closed_year: bool = False,
 ) -> None:
     line = await get_budget_line(session, line_id)
+    await stale.check(session, line, "deze begrotingsregel")
     result = await session.execute(
         select(Allocation.id).where(Allocation.budget_line_id == line_id).limit(1)
     )
@@ -1089,6 +1097,7 @@ async def update_allocation(
     line again.
     """
     allocation = await get_allocation(session, allocation_id)
+    await stale.check(session, allocation, "deze inzet")
     line = await get_budget_line(session, allocation.budget_line_id)
     new_source = allocation.period_source
     new_start = start_date or allocation.start_date
@@ -1143,6 +1152,7 @@ async def delete_allocation(
     allow_closed_year: bool = False,
 ) -> None:
     allocation = await get_allocation(session, allocation_id)
+    await stale.check(session, allocation, "deze inzet")
     line = await get_budget_line(session, allocation.budget_line_id)
     closed = await ensure_years_open(
         session,

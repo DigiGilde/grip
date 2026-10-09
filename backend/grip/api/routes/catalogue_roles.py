@@ -33,6 +33,7 @@ def _out(row: RoleRow) -> CatalogueRoleOut:
     role = row.role
     return CatalogueRoleOut(
         id=role.id,
+        version=role.version,
         name=role.name,
         description=role.description,
         source=role.source,

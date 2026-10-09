@@ -31,12 +31,14 @@ function SyncState({ status }: { status: RoleSyncStatus }) {
   const run = status.last_run;
   if (!status.wies_configured || !run) return null;
   if (run.status === 'failed') {
+    // A state, not an alarm: the list is as it was, and fetching again is
+    // the one thing to do about it.
     return (
-      <nldd-banner
-        variant="critical"
-        text={`Ophalen op ${formatDate(run.finished_at)} is mislukt`}
-        supporting-text={run.error ?? 'Er is niets gewijzigd.'}
-      />
+      <Quiet>
+        De rollen uit Wies zijn op {formatDate(run.finished_at)} niet opgehaald
+        {run.error ? ` (${run.error})` : ''}. De lijst is ongewijzigd. Haal de rollen opnieuw op als
+        Wies weer bereikbaar is.
+      </Quiet>
     );
   }
   return (
@@ -64,7 +66,7 @@ function RoleForm({ role, onDone }: RoleSheetProps) {
       const body = { name: name.trim(), description: description.trim() || null };
       if (!role) return createRole(body);
       // Saving a role is also how the beheerder says it has been looked at.
-      return updateRole(role.id, { ...body, is_active: active, needs_review: false });
+      return updateRole(role.id, { ...body, is_active: active, needs_review: false }, role.version);
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: roleKeys.all });

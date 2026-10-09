@@ -4,9 +4,12 @@
  * a manager also gets amounts and categories.
  */
 import { apiDelete, apiGet, apiPatch, apiPost } from '@/api/client';
+import { ifMatch } from '@/ui/stale';
 
 export interface Allocation {
   id: string;
+  /** Counts the changes of the inzet; sent back with a save. */
+  version?: number;
   person_id: string;
   person_name: string;
   assignment_id?: string;
@@ -86,8 +89,9 @@ export const fetchAllocationOptionsOf = (assignmentId: string) =>
 export const addAllocation = (input: AllocationInput) =>
   apiPost<Allocation>('/api/allocations', input);
 
-export const updateAllocation = (id: string, input: AllocationInput) =>
-  apiPatch<Allocation>(`/api/allocations/${id}`, input);
+/** `version` is the version of the inzet the form started from. */
+export const updateAllocation = (id: string, input: AllocationInput, version?: number) =>
+  apiPatch<Allocation>(`/api/allocations/${id}`, input, ifMatch(id, version));
 
 export const deleteAllocation = (id: string) => apiDelete(`/api/allocations/${id}`);
 

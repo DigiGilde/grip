@@ -28,7 +28,7 @@ export function EditSheet({ vacancy, options, open, onClose }: EditSheetProps) {
   const [problem, setProblem] = useState<string | null>(null);
   const change = useVacancyChange(
     vacancy.id,
-    (body: Parameters<typeof updateVacancy>[1]) => updateVacancy(vacancy.id, body),
+    (body: Parameters<typeof updateVacancy>[1]) => updateVacancy(vacancy.id, body, vacancy.version),
     onClose,
   );
 

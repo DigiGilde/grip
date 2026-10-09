@@ -65,7 +65,9 @@ async def _out(
     versions = [_document(document, names) for document in standing.versions]
     return {
         "available": await service.has_active_form_template(db),
-        "may_make": bool(
+        # A vacancy that is filled, withdrawn or rejected gets no new form.
+        "may_make": vacancy.status not in request_forms.CLOSED
+        and bool(
             await decide(
                 decider, subject, Action.EDIT, _resource(vacancy, assignment_id)
             )

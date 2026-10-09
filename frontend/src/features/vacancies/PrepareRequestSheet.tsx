@@ -1,13 +1,19 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { assignmentKeys, fetchPersonOptions } from '@/features/assignments/api';
+import { assignmentKeys, fetchJudgeOptions } from '@/features/assignments/api';
 import {
   FRAMEWORK_KEYS,
   fetchFunctionFramework,
   groupChoices,
 } from '@/features/function-framework/api';
 import { FunctionGroupPicker } from '@/features/function-framework/FunctionGroupPicker';
-import { updateVacancy, type ContractType, type Vacancy, type VacancyOptions, type VacancyUpdate } from './api';
+import {
+  updateVacancy,
+  type ContractType,
+  type Vacancy,
+  type VacancyOptions,
+  type VacancyUpdate,
+} from './api';
 import { parseScale, useVacancyChange } from './hooks';
 import { budgetLineWarning } from './labels';
 import { CheckboxInput, Note, SelectInput, TextInput } from './ui';
@@ -35,8 +41,8 @@ export function PrepareRequestSheet({ vacancy, options, open, onClose }: Prepare
     enabled: open,
   });
   const people = useQuery({
-    queryKey: assignmentKeys.personOptions,
-    queryFn: fetchPersonOptions,
+    queryKey: assignmentKeys.judgeOptions,
+    queryFn: fetchJudgeOptions,
     enabled: open,
   });
   const choices = groupChoices(framework.data);
@@ -63,7 +69,7 @@ export function PrepareRequestSheet({ vacancy, options, open, onClose }: Prepare
   const [problem, setProblem] = useState<string | null>(null);
   const change = useVacancyChange(
     vacancy.id,
-    (body: VacancyUpdate) => updateVacancy(vacancy.id, body),
+    (body: VacancyUpdate) => updateVacancy(vacancy.id, body, vacancy.version),
     onClose,
   );
 
@@ -71,8 +77,7 @@ export function PrepareRequestSheet({ vacancy, options, open, onClose }: Prepare
   const groupScales = group?.scales ?? [];
   const freeScale = !group || deviates;
   const keepsAccount = addresseeId === '' && vacancy.addressee_has_account === true;
-  const typedAddressee =
-    addresseeId === NOT_LISTED || (!people.isPending && accounts.length === 0);
+  const typedAddressee = addresseeId === NOT_LISTED || (!people.isPending && accounts.length === 0);
   const scaleNumber = parseScale(scale);
   const warning = budgetLineWarning(scaleNumber ?? null, vacancy.budget_line_scales);
 

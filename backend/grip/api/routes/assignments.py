@@ -28,6 +28,7 @@ from grip.schema.assignments import (
 )
 from grip.services import assignment_views as views
 from grip.services import assignments as service
+from grip.services import internal_judges
 from grip.services.phase import Phase
 
 router = APIRouter(tags=["assignments"])
@@ -57,6 +58,7 @@ def _summary_fields(
         elif budgeted_cents is not None:
             pipeline_cents, pipeline_source = budgeted_cents, "budget"
     return {
+        "version": a.version,
         "id": a.id,
         "uri": a.uri,
         "name": a.name,
@@ -189,10 +191,26 @@ async def create_assignment(
 
 
 @router.get("/person-options", response_model=None)
-async def list_person_options(access: RequestAccess, db: DbSession) -> dict[str, Any]:
-    """Names to pick from when naming a manager or staffing a line."""
+async def list_person_options(
+    access: RequestAccess,
+    db: DbSession,
+    judging: bool = Query(default=False, alias="oordeel"),
+) -> dict[str, Any]:
+    """Names to pick from when naming a manager or staffing a line.
+
+    With ``oordeel`` the list is who can be asked to advise, approve or
+    review something internal: people with an account who are not in grip
+    for a client-side right only.
+    """
     await access.require(Action.READ, Resource.person(), DataClass.STAFFING_ROSTER)
     permitted = frozenset({DataClass.STAFFING_ROSTER})
+    if judging:
+        return {
+            "items": [
+                build_response(PersonOptionOut(id=person_id, name=name), permitted)
+                for person_id, name in await internal_judges.judge_options(db)
+            ]
+        }
     return {
         "items": [
             build_response(

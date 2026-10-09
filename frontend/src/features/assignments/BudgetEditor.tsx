@@ -35,6 +35,7 @@ import {
   type LineField,
   type LineForm,
   type ParentPeriod,
+  describeLine,
 } from './budgetForm';
 import { rateCauseText } from './financeText';
 import { PeriodChoice } from './PeriodChoice';
@@ -58,7 +59,9 @@ import {
   SelectInput,
   TextInput,
 } from './ui';
+import { ConflictPanel } from '@/ui/ConflictPanel';
 import { LoadError } from '@/ui/layout';
+import { useStaleRecord } from '@/ui/stale';
 
 function LineSheet({
   assignmentId,
@@ -91,9 +94,17 @@ function LineSheet({
   // The period of an assignment that has none yet: asked in this form and
   // saved with the line, by whoever may change the assignment.
   const [assignmentPeriod, setAssignmentPeriod] = useState({ start: '', end: '' });
+  // The version of the line this form started from; the server refuses a
+  // save on an older one and the form then shows what stands there now.
+  const [onTopOf, setOnTopOf] = useState(line?.version);
+  const stale = useStaleRecord<BudgetLine>(async () =>
+    (await fetchBudget(assignmentId)).lines.find((item) => item.id === line?.id),
+  );
   const [seenSession, setSeenSession] = useState(session);
   if (seenSession !== session) {
     setSeenSession(session);
+    setOnTopOf(line?.version);
+    stale.clear();
     setForm(lineForm(line, parent));
     setAssignmentPeriod({ start: '', end: '' });
     setProblem(null);
@@ -201,7 +212,7 @@ function LineSheet({
   });
 
   const save = useMutation({
-    mutationFn: async (input: BudgetLineInput) => {
+    mutationFn: async ({ input, version }: { input: BudgetLineInput; version?: number }) => {
       // The assignment gets its period first; the line then follows it.
       if (asksAssignmentPeriod) {
         const saved = await updateAssignment(assignmentId, {
@@ -210,15 +221,24 @@ function LineSheet({
         });
         queryClient.setQueryData(assignmentKeys.detail(assignmentId), saved);
       }
-      return line ? updateBudgetLine(line.id, input) : addBudgetLine(assignmentId, input);
+      return line ? updateBudgetLine(line.id, input, version) : addBudgetLine(assignmentId, input);
     },
     onSuccess: (budget: Budget) => {
       queryClient.setQueryData(assignmentKeys.budget(assignmentId), budget);
       void queryClient.invalidateQueries({ queryKey: ['overview'] });
       setProblem(null);
+      stale.clear();
       onClose();
     },
-    onError: (error) => setProblem(errorMessage(error)),
+    onError: async (error) => {
+      // Someone saved this line in the meantime: nothing was written and
+      // the form keeps what was filled in until the person chooses.
+      if (await stale.caught(error)) {
+        setProblem(null);
+        return;
+      }
+      setProblem(errorMessage(error));
+    },
   });
 
   const submit = () => {
@@ -244,7 +264,26 @@ function LineSheet({
       setProblem(input);
       return;
     }
-    save.mutate(input);
+    save.mutate({ input, version: onTopOf });
+  };
+
+  // The two ways on after a refused save.
+  const keepMine = () => {
+    if (!stale.theirs) return;
+    const input = lineInput(form, false, stale.theirs.record);
+    if (typeof input === 'string') {
+      setProblem(input);
+      return;
+    }
+    const version = stale.theirs.record.version;
+    setOnTopOf(version);
+    save.mutate({ input, version });
+  };
+  const takeTheirs = () => {
+    if (!stale.theirs) return;
+    setForm(lineForm(stale.theirs.record, parent));
+    setOnTopOf(stale.theirs.record.version);
+    stale.clear();
   };
 
   // "Schaal 12 en 13 (categorie C), € 15.000 per maand", for who may see it.
@@ -315,6 +354,16 @@ function LineSheet({
       busy={save.isPending}
       error={problem}
     >
+      {stale.theirs ? (
+        <ConflictPanel
+          conflict={stale.theirs.conflict}
+          theirs={describeLine(lineForm(stale.theirs.record, parent))}
+          mine={describeLine(form)}
+          onKeepMine={keepMine}
+          onTakeTheirs={takeTheirs}
+          busy={save.isPending}
+        />
+      ) : null}
       {!line && (
         <SelectInput
           label="Soort regel"

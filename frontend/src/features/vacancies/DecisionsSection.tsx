@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { assignmentKeys, fetchPersonOptions } from '@/features/assignments/api';
+import { assignmentKeys, fetchJudgeOptions } from '@/features/assignments/api';
 import { formatDate } from '@/lib/format';
 import {
   recordDecision,
@@ -86,8 +86,8 @@ function DecisionSheet({
   // starts at the picker.
   const [personId, setPersonId] = useState(existing && !existing.has_account ? NO_ACCOUNT : '');
   const people = useQuery({
-    queryKey: assignmentKeys.personOptions,
-    queryFn: fetchPersonOptions,
+    queryKey: assignmentKeys.judgeOptions,
+    queryFn: fetchJudgeOptions,
     enabled: open && !namesFixed,
   });
   const accounts = people.data ?? [];

@@ -15,13 +15,13 @@ from sqlalchemy.dialects.postgresql import UUID, ExcludeConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from grip.core.database import Base
-from grip.models._columns import created_at, updated_at, uuid_pk
+from grip.models._columns import Versioned, created_at, updated_at, uuid_pk
 
 RATE_CARD_STATUSES = ("draft", "active", "closed")
 RATE_CATEGORIES = ("A", "B", "C", "D", "E")
 
 
-class RateCard(Base):
+class RateCard(Versioned, Base):
     """The rates and the scale mapping valid for a period (tarievenkaart).
 
     A card is valid from a date and to a date, or open-ended. Any date:
@@ -84,7 +84,7 @@ class RateCard(Base):
         )
 
 
-class RateBand(Base):
+class RateBand(Versioned, Base):
     """Monthly rate per FTE for one category on one card."""
 
     __tablename__ = "rate_band"
@@ -106,7 +106,7 @@ class RateBand(Base):
     rate_card: Mapped[RateCard] = relationship(back_populates="rate_bands")
 
 
-class ScaleBand(Base):
+class ScaleBand(Versioned, Base):
     """Which category a scale bills in, on one card."""
 
     __tablename__ = "scale_band"

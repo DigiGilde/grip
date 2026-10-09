@@ -147,6 +147,9 @@ SUBJECT_FACTS: dict[str, frozenset[str]] = {
             # For the course of a text.
             "text_written",
             "text_judged",
+            # For the sentence of the writer's task: what the next move is.
+            "text_agreed",
+            "text_ready",
         }
     ),
     "text_review": frozenset({"verdict_given"}),

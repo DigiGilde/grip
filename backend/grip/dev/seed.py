@@ -106,7 +106,9 @@ DRAFT_YEAR = 2028
 class ExamplePerson:
     key: str
     name: str
-    scale: int
+    # None for someone who is in grip for a client-side right only: such a
+    # person is not staffed and has no rate.
+    scale: int | None
     manager: str | None = None
     functions: tuple[str, ...] = ()
     target_pct: int | None = None
@@ -132,9 +134,16 @@ PEOPLE: tuple[ExamplePerson, ...] = (
         14,
         target_pct=50,
     ),
+    # Approves requests for vacancies; holds no right in grip of her own.
+    ExamplePerson(
+        "dana.directie",
+        "Dana Directie",
+        16,
+        note="directeur; geeft akkoord op vacatures",
+    ),
     ExamplePerson("lars.lezer", "Lars Lezer", 11, functions=(LEZER,)),
-    ExamplePerson("anouk.aanvraag", "Anouk Aanvraag", 12, functions=(AANVRAGER,)),
-    ExamplePerson("tess.teken", "Tess Teken", 15, functions=(TEKENBEVOEGDE,)),
+    ExamplePerson("anouk.aanvraag", "Anouk Aanvraag", None, functions=(AANVRAGER,)),
+    ExamplePerson("tess.teken", "Tess Teken", None, functions=(TEKENBEVOEGDE,)),
     ExamplePerson(
         "priya.product",
         "Priya Product",
@@ -300,7 +309,7 @@ async def _person_details(db: AsyncSession, result: SeedResult, actor: Person) -
             await rates.set_person_scale(
                 db, person.id, date(2026, 7, 1), 12, actor=actor
             )
-        else:
+        elif example.scale is not None:
             await rates.set_person_scale(
                 db, person.id, date(2025, 1, 1), example.scale, actor=actor
             )
@@ -850,7 +859,9 @@ async def seed(
     result.counts["coverages"] = 3
 
     # -- Vacancies --------------------------------------------------------------
-    tess = result.people["tess.teken"]
+    # Who a request is addressed to and who approves it: a director of the own
+    # organisation, never someone who is in grip for a client-side right.
+    approver = result.people["dana.directie"]
 
     async def decide(
         vacancy_id: UUID, kind: str, name: str, day: date, **kwargs
@@ -881,7 +892,7 @@ async def seed(
         contract_type="temporary_before_permanent",
         fgr_function_name="Senior Medewerker ICT (fictief)",
         scale=11,
-        addressee_name=tess.name,
+        addressee_name=approver.name,
     )
     await motivate(
         open_role.id,
@@ -904,7 +915,7 @@ async def seed(
         date(2026, 9, 4),
     )
     await decide(
-        open_role.id, "approval", tess.name, date(2026, 9, 8), person_id=tess.id
+        open_role.id, "approval", approver.name, date(2026, 9, 8), person_id=approver.id
     )
     vacancy_text = await vacancies.add_text(
         db,
@@ -937,7 +948,7 @@ async def seed(
         contract_type="temporary_project",
         fgr_function_name="Adviseur (fictief)",
         scale=11,
-        addressee_name=tess.name,
+        addressee_name=approver.name,
     )
     await motivate(
         pending.id,
@@ -967,7 +978,7 @@ async def seed(
         budget_line_id=alfa_design.id,
         fgr_function_name="Medewerker Ontwerp (fictief)",
         scale=12,
-        addressee_name=tess.name,
+        addressee_name=approver.name,
     )
 
     # 4. A ready candidate: approved, and never opened (separate procedure).
@@ -979,7 +990,7 @@ async def seed(
         contract_type="temporary_before_permanent",
         fgr_function_name="Coordinerend Adviseur (fictief)",
         scale=14,
-        addressee_name=tess.name,
+        addressee_name=approver.name,
     )
     await motivate(
         ready.id,
@@ -1000,7 +1011,9 @@ async def seed(
         "Adviseur concern control (fictief)",
         date(2026, 9, 17),
     )
-    await decide(ready.id, "approval", tess.name, date(2026, 9, 22), person_id=tess.id)
+    await decide(
+        ready.id, "approval", approver.name, date(2026, 9, 22), person_id=approver.id
+    )
     result.counts["vacancies"] = 4
 
     result.counts.update(

@@ -1,10 +1,15 @@
 import { apiGet, apiPatch, apiPost, apiPut } from '@/api/client';
+import { ifMatch } from '@/ui/stale';
 
 export type CardStatus = 'draft' | 'active' | 'closed';
 export const CATEGORIES = ['A', 'B', 'C', 'D', 'E'] as const;
 export type Category = (typeof CATEGORIES)[number];
 
 export interface RateBand {
+  /** Absent for a rate that was never set. */
+  id?: string | null;
+  /** Counts the changes of the rate; sent back with a save. */
+  version?: number;
   category: string;
   /** Absent for a reader who may not read the amounts of the price list. */
   monthly_rate_cents?: number;
@@ -18,6 +23,8 @@ export interface ScaleBand {
 /** A rate card holds for a period: from a date, and to a date or open-ended. */
 export interface RateCard {
   id: string;
+  /** Counts the changes of the card; sent back with a save. */
+  version?: number;
   name: string;
   valid_from: string;
   valid_to: string | null;
@@ -97,6 +104,9 @@ export interface PriceImpact {
   correction_cents: number;
   unpriced_months: number;
   reaches_into_the_past: boolean;
+  /** Among the repriced: assignments with a signed quote. */
+  signed_assignments_changed?: number;
+  signed_difference_cents?: number;
   assignments: AssignmentImpact[];
 }
 
@@ -167,15 +177,21 @@ export function createRateCard(card: NewCard): Promise<RateCard> {
   });
 }
 
+/** `version` is the version of the card the form started from. */
 export function updateRateCard(
   id: string,
   changes: { name?: string; valid_to?: string | null },
   confirmClosed = false,
+  version?: number,
 ): Promise<RateCard> {
-  return apiPatch<RateCard>(`/api/rates/cards/${id}`, {
-    ...changes,
-    confirm_closed_year: confirmClosed,
-  });
+  return apiPatch<RateCard>(
+    `/api/rates/cards/${id}`,
+    {
+      ...changes,
+      confirm_closed_year: confirmClosed,
+    },
+    ifMatch(id, version),
+  );
 }
 
 /** What activating a draft does, before it is done. */
@@ -199,11 +215,17 @@ export function setRateBand(
   category: string,
   monthlyRateCents: number,
   confirmClosed = false,
+  /** The rate as the form found it: its id and version, when it existed. */
+  from?: { id?: string | null; version?: number },
 ): Promise<RateCard> {
-  return apiPut<RateCard>(`/api/rates/cards/${id}/bands/${category}`, {
-    monthly_rate_cents: monthlyRateCents,
-    confirm_closed_year: confirmClosed,
-  });
+  return apiPut<RateCard>(
+    `/api/rates/cards/${id}/bands/${category}`,
+    {
+      monthly_rate_cents: monthlyRateCents,
+      confirm_closed_year: confirmClosed,
+    },
+    ifMatch(from?.id, from?.version),
+  );
 }
 
 export function setScaleBand(

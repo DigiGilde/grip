@@ -39,6 +39,7 @@ from grip.calc import Month
 from grip.models.assignment import Allocation, Assignment, BudgetLine
 from grip.models.month_close import BillingExport
 from grip.models.person import Person
+from grip.models.quote import Quote
 from grip.services import outgoing_invoices
 from grip.services.pricing import (
     DEFAULT_OPTIONS,
@@ -107,6 +108,10 @@ class PriceImpact:
     allocations_changed: int
     # Months that can no longer be priced after the change (a gap).
     unpriced_months: int
+    # Among the repriced: assignments with a signed quote, and what their
+    # budget moves away from what was signed.
+    signed_assignments_changed: int = 0
+    signed_difference_cents: int = 0
 
     @property
     def open_difference_cents(self) -> int:
@@ -288,8 +293,26 @@ async def preview(
         for i in line_ids
         if _differs(before.budget_lines.get(i), after.budget_lines.get(i))
     ]
+    signed: dict[UUID, int] = {}
+    if lines_changed:
+        rows = await session.execute(
+            select(BudgetLine.id, BudgetLine.assignment_id).where(
+                BudgetLine.id.in_(lines_changed),
+                BudgetLine.assignment_id.in_(
+                    select(Quote.assignment_id).where(Quote.status == "accepted")
+                ),
+            )
+        )
+        for line_id, assignment_id in rows:
+            signed[assignment_id] = (
+                signed.get(assignment_id, 0)
+                + (after.budget_lines.get(line_id) or 0)
+                - (before.budget_lines.get(line_id) or 0)
+            )
     allocation_ids = set(before.allocations) | set(after.allocations)
     return PriceImpact(
+        signed_assignments_changed=len(signed),
+        signed_difference_cents=sum(signed.values()),
         assignments=tuple(assignments),
         budget_lines_changed=len(lines_changed),
         budget_difference_cents=sum(

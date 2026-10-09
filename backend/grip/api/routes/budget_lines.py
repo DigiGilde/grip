@@ -63,6 +63,7 @@ def _line_out(
     budgeted = sum(view.budgeted_by_year.values()) if not view.pricing_error else None
     return BudgetLineOut(
         id=line.id,
+        version=line.version,
         assignment_id=line.assignment_id,
         description=line.description,
         detail=line.detail,

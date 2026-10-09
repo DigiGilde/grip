@@ -863,3 +863,90 @@ async def test_a_quote_made_under_the_old_term_keeps_its_bytes_after_the_switch(
     await _write(act_as, world, "inleiding", "Een nieuwe tekst.")
     new = await db_session.get(Quote, (await _issue(act_as, world))["id"])
     assert b'"valt_onder"' in new.canonical and b'"onderdeel_van"' not in new.canonical
+
+
+async def _set_blocks(db_session, world, body: str) -> None:
+    changed = [dict(block) for block in BLOCKS]
+    changed[2]["body"] = body
+    await instance_settings.set_values(
+        db_session, {quote_sender.TEXT_BLOCKS.key: changed}, actor=world.beheerder
+    )
+
+
+async def test_a_section_nobody_wrote_follows_a_changed_standard_text(
+    act_as, configured, db_session
+):
+    """The draft exists and another section was written; the standard section
+    was never touched. The organisation then changes its text."""
+    world = configured
+    await _write(act_as, world, "inleiding", "Een inleiding.")
+    await _set_blocks(db_session, world, "1. Facturatie per maand.")
+
+    draft = (
+        await act_as(world.manager).get(
+            f"/api/assignments/{world.assignment.id}/quote-draft"
+        )
+    ).json()
+    section = next(s for s in draft["sections"] if s["key"] == "voorwaarden")
+    assert section["body"] == "1. Facturatie per maand."
+    assert section["origin"] == "standard"
+    assert section["standard_changed"] is False
+
+    # And the quote that is made carries the text of now.
+    issued = await _issue(act_as, world)
+    quote = await db_session.get(Quote, issued["id"])
+    bodies = [s["body"] for s in quote.snapshot["letter"]["sections"]]
+    assert "1. Facturatie per maand." in bodies
+
+
+async def test_a_written_section_keeps_its_text_and_says_the_standard_changed(
+    act_as, configured, db_session
+):
+    world = configured
+    client = act_as(world.manager)
+    url = f"/api/assignments/{world.assignment.id}/quote-draft"
+    await _write(act_as, world, "voorwaarden", "Eigen voorwaarden voor deze klant.")
+    before = next(
+        s
+        for s in (await client.get(url)).json()["sections"]
+        if s["key"] == "voorwaarden"
+    )
+    assert before["origin"] == "written" and before["standard_changed"] is False
+
+    await _set_blocks(db_session, world, "1. Facturatie per maand.")
+    after = next(
+        s
+        for s in (await client.get(url)).json()["sections"]
+        if s["key"] == "voorwaarden"
+    )
+    assert after["body"] == "Eigen voorwaarden voor deze klant."
+    assert after["standard_changed"] is True
+
+    # Taking the new text over makes the section follow the organisation again.
+    taken = await client.put(
+        f"{url}/sections/voorwaarden",
+        json={"follow_standard": True, "version": after["version"]},
+    )
+    assert taken.status_code == 200, taken.text
+    section = next(s for s in taken.json()["sections"] if s["key"] == "voorwaarden")
+    assert section["body"] == "1. Facturatie per maand."
+    assert section["origin"] == "standard"
+    assert section["standard_changed"] is False
+
+    await _set_blocks(db_session, world, "1. Facturatie per halfjaar.")
+    again = next(
+        s
+        for s in (await client.get(url)).json()["sections"]
+        if s["key"] == "voorwaarden"
+    )
+    assert again["body"] == "1. Facturatie per halfjaar."
+
+
+async def test_a_section_without_standard_text_cannot_follow_one(act_as, configured):
+    world = configured
+    refused = await act_as(world.manager).put(
+        f"/api/assignments/{world.assignment.id}/quote-draft/sections/inleiding",
+        json={"follow_standard": True},
+    )
+    assert refused.status_code == 422
+    assert "geen standaardtekst" in refused.text

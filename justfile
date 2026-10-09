@@ -267,6 +267,12 @@ brand:
 vacancy-forms-retention:
     cd backend && uv run python -m grip.services.vacancies.request_forms
 
+# Bring an example database from before the rule on who judges something internal
+# in line with today's seed (a director approves vacancies; client-side people have
+# no inzetschaal). Idempotent; only touches persons in the example domain.
+fix-internal-judges:
+    cd backend && uv run python -m grip.dev.fix_internal_judges
+
 # Store the naverrekeningen that stand open (once, after migration 0036_billing_correction)
 billing-corrections-sync:
     cd backend && uv run python -m grip.services.billing_corrections

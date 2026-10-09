@@ -430,6 +430,9 @@ function Coverages({ item, onOpen }: CoveragesProps) {
         )}
         <nldd-inline-dialog slot="empty" text="Nog geen begrotingsregel dekt deze kostenpost" />
       </nldd-table>
+      {options.isSuccess && !mayAdd && !anyEditable && uncovered && (
+        <Quiet>De eigenaar of manager van een opdracht legt de dekking vast.</Quiet>
+      )}
       {mayAdd && (uncovered || item.coverages.length === 0) && (
         <nldd-button-group>
           <Button

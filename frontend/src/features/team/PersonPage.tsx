@@ -220,6 +220,8 @@ interface ScreenProps {
 }
 
 function PersonScreen({ person, day, mayManage }: ScreenProps) {
+  const { state } = useAuth();
+  const isSelf = state.status === 'authenticated' && state.person.id === person.id;
   const [open, setOpen] = useState<Open>(null);
   const close = () => setOpen(null);
   const year = Number(day.slice(0, 4));
@@ -335,6 +337,7 @@ function PersonScreen({ person, day, mayManage }: ScreenProps) {
             <RightsSection
               person={person}
               mayManage={mayManage}
+              isSelf={isSelf}
               onRevoke={(grant) => direct.run(() => setFunction(person.id, grant.function, false))}
             />
           ) : null}
@@ -843,10 +846,13 @@ function grantLine(grant: FunctionGrant): string {
 function RightsSection({
   person,
   mayManage,
+  isSelf,
   onRevoke,
 }: {
   person: Person;
   mayManage: boolean;
+  /** The reader looks at their own rights: revoking one is not undone by themselves. */
+  isSelf: boolean;
   onRevoke: (grant: FunctionGrant) => void;
 }) {
   const grants = person.function_grants ?? [];
@@ -894,11 +900,20 @@ function RightsSection({
                           {
                             text: 'Trek in',
                             destructive: true,
-                            confirm: {
-                              text: `Het recht ${label} van ${person.name} intrekken?`,
-                              supportingText: `${person.name} kan daarna niet meer wat dit recht toestaat. De intrekking komt met jouw naam in de auditlog.`,
-                              confirmText: 'Trek in',
-                            },
+                            confirm: isSelf
+                              ? {
+                                  text: `Je eigen recht ${label} intrekken?`,
+                                  supportingText:
+                                    grant.function === 'beheerder'
+                                      ? 'Je kunt daarna zelf geen rechten meer toekennen. Alleen een andere beheerder kan je dit recht teruggeven.'
+                                      : 'Je kunt daarna niet meer wat dit recht toestaat. Een beheerder kan het je teruggeven.',
+                                  confirmText: 'Trek mijn recht in',
+                                }
+                              : {
+                                  text: `Het recht ${label} van ${person.name} intrekken?`,
+                                  supportingText: `${person.name} kan daarna niet meer wat dit recht toestaat. De intrekking komt met jouw naam in de auditlog.`,
+                                  confirmText: 'Trek in',
+                                },
                             onSelect: () => onRevoke(grant),
                           },
                         ]

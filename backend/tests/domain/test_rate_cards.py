@@ -316,3 +316,25 @@ async def test_a_card_after_a_draft_builds_on_that_draft(
     )
     rate = {b.category: b.monthly_rate_cents for b in second.rate_bands}
     assert rate == {b.category: b.monthly_rate_cents for b in first.rate_bands}
+
+
+async def test_preview_counts_the_assignments_with_a_signed_quote(
+    db_session, rate_cards, beheerder, make_person, make_assignment, add_personnel_line
+):
+    assignment, *_ = await _staffed(
+        db_session, beheerder, make_person, make_assignment, add_personnel_line
+    )
+    card = await _new_card(db_session, beheerder)
+    card_id = card.id
+
+    *_, unsigned = await rates.activation_preview(db_session, card_id)
+    assert unsigned.signed_assignments_changed == 0
+    assert unsigned.signed_difference_cents == 0
+
+    quote = await quotes.issue_quote(db_session, assignment.id, actor=beheerder)
+    quote.status = "accepted"
+    await db_session.flush()
+
+    *_, signed = await rates.activation_preview(db_session, card_id)
+    assert signed.signed_assignments_changed == 1
+    assert signed.signed_difference_cents == signed.budget_difference_cents != 0

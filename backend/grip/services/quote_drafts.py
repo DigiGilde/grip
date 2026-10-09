@@ -148,6 +148,12 @@ def _section_from_block(
         "origin": "standard" if body else "empty",
         "generated": None,
         "settled": True,
+        # The organisation's text this section was filled from. A section
+        # nobody wrote in follows the organisation's text as it is now; one a
+        # person wrote keeps it, so the page can say the standard text has
+        # changed since.
+        "template": block["body"],
+        "standard_changed": False,
     }
 
 
@@ -261,24 +267,40 @@ async def _bring_up_to_date(
     }
     used: set[str] = set()
 
+    templates = content.setdefault("templates", {})
     for field_name in ("opening", "closing"):
         template = letter[field_name]
-        if template and _follows(template, content.get(field_name) or ""):
+        # The text follows the organisation's as long as it is still what it
+        # was filled from: the template of then when the draft kept it, the
+        # template of now for a draft from before it did.
+        was = templates.get(field_name, template)
+        if template and was and _follows(was, content.get(field_name) or ""):
             content[field_name] = quote_sender.fill_placeholders(template, values)
+            templates[field_name] = template
             used.update(_PLACEHOLDER.findall(template))
     for section in content["sections"]:
+        section["standard_changed"] = False
         block = blocks.get(section["key"])
-        if (
-            block is None
-            or section.get("origin") != "standard"
-            or section.get("custom")
-        ):
+        if block is None or section.get("custom"):
             continue
-        if not _follows(block["body"], section["body"]):
+        origin = section.get("origin")
+        untouched = origin == "standard" or (
+            origin == "empty" and not section.get("version")
+        )
+        if untouched:
+            # Nobody wrote here: the section is the organisation's text of now.
+            section["body"] = quote_sender.fill_placeholders(block["body"], values)
+            section["origin"] = "standard" if section["body"] else "empty"
+            section["template"] = block["body"]
+            if section["included"]:
+                used.update(_PLACEHOLDER.findall(block["body"]))
             continue
-        section["body"] = quote_sender.fill_placeholders(block["body"], values)
-        if section["included"]:
-            used.update(_PLACEHOLDER.findall(block["body"]))
+        # A person wrote here. Their text stays; the page says when the
+        # organisation's text is no longer the one they started from.
+        was = section.get("template")
+        section["standard_changed"] = bool(
+            block["body"] and was is not None and was != block["body"]
+        )
 
     missing: list[str] = []
     for name in sorted(used):
@@ -495,9 +517,13 @@ async def save_section(
     body: str | None = None,
     heading: str | None = None,
     included: bool | None = None,
+    follow_standard: bool = False,
     expected_version: int | None = None,
 ) -> dict[str, Any]:
     """A person saves a section: the text is settled from here on.
+
+    With ``follow_standard`` the section gives up its own text and follows
+    the organisation's again, as it is now and as it changes later.
 
     This is the step that makes a drafted text the writer's own. A text that
     a model drafted keeps saying so, with ``settled`` true.
@@ -522,6 +548,26 @@ async def save_section(
                 "niet worden weggelaten."
             )
         section["included"] = bool(included)
+    if follow_standard:
+        blocks = {
+            block["key"]: block for block in await quote_sender.current_blocks(session)
+        }
+        block = blocks.get(key)
+        if block is None or section.get("custom") or not block["body"]:
+            raise DomainValidationError(
+                f"Voor het onderdeel '{section['heading']}' heeft de organisatie "
+                "geen standaardtekst."
+            )
+        values = await _placeholder_values(
+            session, assignment, await quote_sender.current_sender(session)
+        )
+        section["body"] = quote_sender.fill_placeholders(block["body"], values)
+        section["origin"] = "standard"
+        section["generated"] = None
+        section["template"] = block["body"]
+        section["standard_changed"] = False
+        section["settled"] = True
+        body = None
     if body is not None:
         text = _prose(body, f"Onderdeel '{section['heading']}'")
         if text != section["body"] and section["origin"] != "generated":

@@ -2,6 +2,8 @@ import { apiGet, apiPatch, apiPost } from '@/api/client';
 
 export interface CatalogueRole {
   id: string;
+  /** Sent back with a save, so a change on top of someone else's is refused. */
+  version?: number;
   name: string;
   description: string | null;
   source: 'wies' | 'manual';
@@ -66,8 +68,17 @@ export function createRole(body: {
   return apiPost<CatalogueRole>('/api/catalogue-roles', body);
 }
 
-export function updateRole(id: string, changes: RoleChanges): Promise<CatalogueRole> {
-  return apiPatch<CatalogueRole>(`/api/catalogue-roles/${id}`, changes);
+/** `version` is the one the form started from; the server refuses a save on an older one. */
+export function updateRole(
+  id: string,
+  changes: RoleChanges,
+  version?: number,
+): Promise<CatalogueRole> {
+  return apiPatch<CatalogueRole>(
+    `/api/catalogue-roles/${id}`,
+    changes,
+    version === undefined ? undefined : { 'If-Match': `"${id}:${version}"` },
+  );
 }
 
 /** Merges `id` into `intoId`: its budget lines move and the role disappears. */

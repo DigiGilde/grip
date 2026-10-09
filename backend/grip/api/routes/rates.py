@@ -81,7 +81,12 @@ def _key(ref: str) -> rates.CardKey:
 def _bands(card: RateCard) -> tuple[list[RateBandOut], list[ScaleBandOut]]:
     return (
         [
-            RateBandOut(category=b.category, monthly_rate_cents=b.monthly_rate_cents)
+            RateBandOut(
+                id=b.id,
+                version=b.version,
+                category=b.category,
+                monthly_rate_cents=b.monthly_rate_cents,
+            )
             for b in sorted(card.rate_bands, key=lambda b: b.category)
         ],
         [
@@ -95,6 +100,7 @@ def _card_out(card: RateCard) -> RateCardOut:
     rate_bands, scale_bands = _bands(card)
     return RateCardOut(
         id=card.id,
+        version=card.version,
         name=card.name,
         valid_from=card.valid_from,
         valid_to=card.valid_to,
@@ -116,6 +122,8 @@ def _impact_out(impact: price_changes.PriceImpact) -> PriceImpactOut:
         correction_cents=impact.correction_cents,
         unpriced_months=impact.unpriced_months,
         reaches_into_the_past=impact.reaches_into_the_past,
+        signed_assignments_changed=impact.signed_assignments_changed,
+        signed_difference_cents=impact.signed_difference_cents,
         assignments=[
             AssignmentImpactOut(
                 assignment_id=a.assignment_id,

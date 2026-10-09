@@ -25,6 +25,8 @@ Rounding = Literal["euro", "ten", "fifty"]
 
 
 class RateBandOut(BaseModel):
+    id: Annotated[UUID | None, _MASTER] = None
+    version: Annotated[int, _MASTER] = 1
     category: Annotated[str, _MASTER]
     monthly_rate_cents: Annotated[int, _AMOUNT]
 
@@ -36,6 +38,8 @@ class ScaleBandOut(BaseModel):
 
 class RateCardOut(BaseModel):
     id: Annotated[UUID, _MASTER]
+    # Counts the changes of the record; a form sends it back with its save.
+    version: Annotated[int, _MASTER] = 1
     # "Tarieven 2026", "Tarieven vanaf 15 juli 2026".
     name: Annotated[str, _MASTER]
     valid_from: Annotated[date, _MASTER]
@@ -164,6 +168,10 @@ class PriceImpactOut(BaseModel):
     # Months that can no longer be priced after the change.
     unpriced_months: Annotated[int, _MASTER]
     reaches_into_the_past: Annotated[bool, _MASTER]
+    # Among the repriced: assignments with a signed quote, and how far
+    # their budget moves from what was signed.
+    signed_assignments_changed: Annotated[int, _MASTER] = 0
+    signed_difference_cents: Annotated[int, _MASTER] = 0
     assignments: Annotated[list[AssignmentImpactOut], nested()]
 
 

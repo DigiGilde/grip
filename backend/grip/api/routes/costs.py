@@ -130,6 +130,7 @@ async def _item_out(
     item = overview.item
     value = CostItemOut(
         id=item.id,
+        version=item.version,
         description=item.description,
         budgeted_cents=item.budgeted_cents,
         forecast_cents=overview.forecast_cents,
@@ -144,6 +145,7 @@ async def _item_out(
         invoice_lines=[
             InvoiceLineOut(
                 id=line.id,
+                version=line.version,
                 reference=line.reference,
                 description=line.description,
                 kind=line.kind,

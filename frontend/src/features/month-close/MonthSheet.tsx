@@ -202,6 +202,8 @@ interface MonthSheetProps {
   closes?: boolean;
   /** Opened to reopen the month: the sheet starts at that question. */
   reopen?: boolean;
+  /** The earliest month before this one that is still open, YYYY-MM. */
+  earlierOpen?: string | null;
   onClose: () => void;
 }
 
@@ -216,6 +218,7 @@ export function MonthSheet({
   delivered,
   closes,
   reopen = false,
+  earlierOpen = null,
   onClose,
 }: MonthSheetProps) {
   const queryClient = useQueryClient();
@@ -347,6 +350,9 @@ export function MonthSheet({
         ) : (
           <Quiet>Werkte iemand meer of minder, pas dan het percentage aan.</Quiet>
         )}
+        {earlierOpen ? (
+          <Quiet>De eerdere maand {formatMonth(earlierOpen)} is nog open.</Quiet>
+        ) : null}
       </FormSheet>
     );
   }

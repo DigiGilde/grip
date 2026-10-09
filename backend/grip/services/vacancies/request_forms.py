@@ -163,6 +163,11 @@ async def make(
 ) -> StoredDocument:
     """Fill the form once and keep it. With a kept form that still fits the
     vacancy nothing new is made."""
+    if vacancy.status in CLOSED:
+        raise DomainValidationError(
+            "Deze vacature is afgerond. Er wordt geen aanvraagformulier meer "
+            "voor gemaakt."
+        )
     missing = await service.request_missing(db, vacancy)
     if missing:
         raise DomainValidationError(

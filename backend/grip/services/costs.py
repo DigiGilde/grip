@@ -14,6 +14,7 @@ from grip.models.assignment import BudgetLine
 from grip.models.cost import INVOICE_LINE_KINDS, CostCoverage, CostItem, InvoiceLine
 from grip.models.person import Person
 from grip.repositories.domain import CostRepository
+from grip.services import stale
 from grip.services.errors import DomainValidationError, NotFoundError
 from grip.services.guards import audit_fields
 
@@ -79,6 +80,7 @@ async def update_cost_item(
     budgeted_cents: int | None = None,
 ) -> CostItem:
     item = await get_cost_item(session, cost_item_id)
+    await stale.check(session, item, "deze kostenpost")
     old = audit_fields(item, _ITEM_FIELDS)
     if description is not None:
         item.description = description
@@ -190,6 +192,7 @@ async def set_coverage(
         )
         session.add(current)
     else:
+        await stale.check(session, current, "deze dekking")
         old = audit_fields(current, _COVERAGE_FIELDS)
         current.pct = pct
     await session.flush()

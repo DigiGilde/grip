@@ -27,6 +27,7 @@ class AttachmentOut(BaseModel):
 
 class InvoiceLineOut(BaseModel):
     id: Annotated[UUID, _FIN]
+    version: Annotated[int, _FIN] = 1
     reference: Annotated[str | None, _FIN]
     description: Annotated[str | None, _FIN]
     kind: Annotated[str, _FIN]
@@ -47,6 +48,8 @@ class CoverageOut(BaseModel):
 
 class CostItemOut(BaseModel):
     id: Annotated[UUID, _FIN]
+    # Counts the changes of the record; a form sends it back with its save.
+    version: Annotated[int, _FIN] = 1
     description: Annotated[str, _FIN]
     budgeted_cents: Annotated[int, _FIN]
     # R6: realised plus estimated invoice lines.

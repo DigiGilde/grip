@@ -158,6 +158,7 @@ _DOMAIN_TITLES: dict[str, str] = {
     "MonthClosedError": "Maand is afgesloten",
     "QuoteAlreadyDecidedError": "Offerte is al afgehandeld",
     "QuoteHashMismatchError": "Hash komt niet overeen",
+    "StaleWriteError": "Intussen gewijzigd",
 }
 
 
@@ -170,6 +171,9 @@ async def _domain_exception_handler(_request: Request, exc: Exception) -> JSONRe
     body = problem_body(status_code, str(exc), code=name)
     if name in _DOMAIN_TITLES:
         body["title"] = _DOMAIN_TITLES[name]
+    # An error can carry members for the client next to the sentence, such as
+    # who changed a record in the meantime.
+    body.update(getattr(exc, "problem_extra", None) or {})
     return JSONResponse(body, status_code=status_code, media_type=PROBLEM_MEDIA_TYPE)
 
 

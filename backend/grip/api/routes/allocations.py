@@ -65,6 +65,7 @@ async def _row(
     mismatch = view.mismatch
     model = AllocationOut(
         id=allocation.id,
+        version=allocation.version,
         person_id=allocation.person_id,
         person_name=view.person_name,
         assignment_id=view.assignment_id,

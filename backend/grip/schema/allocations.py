@@ -23,6 +23,8 @@ SIGNAL = DataClass.RATE_MISMATCH_SIGNAL
 
 class AllocationOut(BaseModel):
     id: Annotated[UUID, in_class(ROSTER)]
+    # Counts the changes of the record; a form sends it back with its save.
+    version: Annotated[int, in_class(ROSTER)] = 1
     person_id: Annotated[UUID, in_class(ROSTER)]
     person_name: Annotated[str, in_class(ROSTER)]
     assignment_id: Annotated[UUID, in_class(A)]

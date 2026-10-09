@@ -30,7 +30,7 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
 
 from grip.core.database import Base
-from grip.models._columns import created_at, updated_at, uuid_pk
+from grip.models._columns import Versioned, created_at, updated_at, uuid_pk
 
 if TYPE_CHECKING:
     from grip.models.catalogue_role import CatalogueRole
@@ -55,7 +55,7 @@ ROLE_MANAGER = "manager"
 BUDGET_LINE_KINDS = ("personnel", "fixed")
 
 
-class Assignment(Base):
+class Assignment(Versioned, Base):
     """An opdracht: the unit a quote is made for."""
 
     __tablename__ = "assignment"
@@ -174,7 +174,7 @@ class AssignmentRole(Base):
     assignment: Mapped[Assignment] = relationship(back_populates="roles")
 
 
-class BudgetLine(Base):
+class BudgetLine(Versioned, Base):
     """One line of an assignment's budget: a role (personnel) or a fixed post."""
 
     __tablename__ = "budget_line"
@@ -431,7 +431,7 @@ def _resolve_roles(session: Session, lines: list["BudgetLine"]) -> None:
             line.role = entry.name
 
 
-class Allocation(Base):
+class Allocation(Versioned, Base):
     """Inzet: a person on a personnel budget line, for a period, at an FTE
     percentage."""
 

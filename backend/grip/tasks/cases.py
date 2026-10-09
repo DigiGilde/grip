@@ -788,6 +788,11 @@ async def _vacancy_text_subjects(
                         ),
                         "text_judged": state
                         in (text_flow.STATE_AGREED, text_flow.STATE_SETTLED),
+                        # The reviewers agreed: only settling is left.
+                        "text_agreed": state == text_flow.STATE_AGREED,
+                        # A complete draft: offer it for review, or settle it.
+                        "text_ready": state == text_flow.STATE_DRAFT
+                        and not work.open_passages,
                     },
                     variables={"tekst": word},
                     person_id=work.writer_id,

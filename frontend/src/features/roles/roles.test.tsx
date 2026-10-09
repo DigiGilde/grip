@@ -314,9 +314,10 @@ describe('RolesAdminPage', () => {
       roles: 4,
       needs_review: 0,
     });
-    expect(
-      container.querySelector('nldd-banner[variant="critical"]')?.getAttribute('supporting-text'),
-    ).toBe('Wies is niet bereikbaar.');
+    // A state the beheerder can act on, said quietly: no standing alarm.
+    expect(container.querySelector('nldd-banner[variant="critical"]')).toBeNull();
+    expect(container.textContent).toContain('niet opgehaald (Wies is niet bereikbaar.)');
+    expect(container.textContent).toContain('Haal de rollen opnieuw op');
   });
 
   it('opens a role to rename, switch off and merge', async () => {

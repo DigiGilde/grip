@@ -15,12 +15,12 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from grip.core.database import Base
-from grip.models._columns import created_at, updated_at, uuid_pk
+from grip.models._columns import Versioned, created_at, updated_at, uuid_pk
 
 INVOICE_LINE_KINDS = ("actual", "estimate")
 
 
-class CostItem(Base):
+class CostItem(Versioned, Base):
     """External costs, for example a hosting contract.
 
     A cost item does not belong to one assignment: its coverage can be spread
@@ -53,7 +53,7 @@ class CostItem(Base):
     )
 
 
-class InvoiceLine(Base):
+class InvoiceLine(Versioned, Base):
     """An amount on a cost item, realised or estimated (purchase side)."""
 
     __tablename__ = "invoice_line"
@@ -78,7 +78,7 @@ class InvoiceLine(Base):
     cost_item: Mapped[CostItem] = relationship(back_populates="invoice_lines")
 
 
-class CostCoverage(Base):
+class CostCoverage(Versioned, Base):
     """Which budget line covers which share of a cost item."""
 
     __tablename__ = "cost_coverage"

@@ -101,6 +101,8 @@ export interface VacancySummary {
 
 export interface Vacancy {
   id: string;
+  /** Sent back with a save, so a change on top of someone else's is refused. */
+  version?: number;
   function_title: string;
   fgr_function_name?: string | null;
   scale?: number | null;
@@ -265,8 +267,13 @@ export const fetchRequestFormStatus = (id: string) =>
   apiGet<RequestFormStatus>(`${BASE}/${id}/request-form/status`);
 
 export const createVacancy = (body: VacancyCreate) => apiPost<Vacancy>(BASE, body).then(whole);
-export const updateVacancy = (id: string, body: VacancyUpdate) =>
-  apiPatch<Vacancy>(`${BASE}/${id}`, body).then(whole);
+/** `version` is the one the form started from; the server refuses a save on an older one. */
+export const updateVacancy = (id: string, body: VacancyUpdate, version?: number) =>
+  apiPatch<Vacancy>(
+    `${BASE}/${id}`,
+    body,
+    version === undefined ? undefined : { 'If-Match': `"${id}:${version}"` },
+  ).then(whole);
 export const submitVacancy = (id: string, requestedOn?: string) =>
   apiPost<Vacancy>(`${BASE}/${id}/submit`, requestedOn ? { requested_on: requestedOn } : {}).then(
     whole,

@@ -183,3 +183,27 @@ export function intendedText(line: BudgetLine): string {
   }
   return parts.join(', ');
 }
+
+/** A line's form in words, to lay two versions of it side by side. */
+export function describeLine(form: LineForm): { label: string; value: string }[] {
+  const personnel = form.kind === 'personnel';
+  return [
+    { label: 'Omschrijving', value: form.description },
+    ...(personnel
+      ? [
+          { label: 'Rol', value: form.role },
+          { label: 'Omvang in FTE', value: form.fte },
+          { label: 'Schaal en tarief', value: form.category },
+          {
+            label: 'Periode',
+            value: form.ownPeriod
+              ? `${form.startDate} t/m ${form.endDate}`
+              : 'Loopt mee met de opdracht',
+          },
+        ]
+      : [
+          { label: 'Bedrag', value: form.amount },
+          { label: 'Jaar', value: form.year },
+        ]),
+  ];
+}

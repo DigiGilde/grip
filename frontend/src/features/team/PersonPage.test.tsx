@@ -87,15 +87,17 @@ function mock({ person, kpi, loginBound, roles, impact, outgoing, board }: Mock)
   return calls;
 }
 
-async function renderPerson(options: Mock, functions: string[] = []) {
+async function renderPerson(options: Mock, functions: string[] = [], asSelf = false) {
   const calls = mock(options);
+  // The viewer is someone else than the person on the page, unless asked.
+  const viewer = asSelf ? { ...TEST_PERSON, id: 'p-1' } : { ...TEST_PERSON, id: 'p-viewer' };
   const view = renderApp(
     <Routes>
       <Route path="/team/:personId" element={<PersonPage />} />
     </Routes>,
     {
       path: '/team/p-1?peildatum=2026-06-01',
-      auth: { status: 'authenticated', person: TEST_PERSON, functions },
+      auth: { status: 'authenticated', person: viewer, functions },
     },
   );
   await waitFor(() => expect(view.container.querySelector('nldd-tag')).not.toBeNull());
@@ -447,6 +449,16 @@ describe('what the beheerder can do', () => {
     const rights = texts(container, 'nldd-table nldd-text-cell');
     expect(rights).toContain('Planner');
     expect(rights).toContain('Sinds 1 mrt 2026, toegekend door Bea Beheerder');
+  });
+
+  it('asks a pointed question when the reader revokes their own right', async () => {
+    const { container } = await renderPerson({ person: FULL }, ['beheerder'], true);
+    choose(container, 'Trek in');
+    const dialog = [...document.body.querySelectorAll('nldd-modal-dialog')].find((el) =>
+      el.getAttribute('text')?.includes('intrekken'),
+    ) as HTMLElement;
+    expect(dialog.getAttribute('text')).toBe('Je eigen recht Planner intrekken?');
+    expect(button(dialog, 'Trek mijn recht in')).toBeDefined();
   });
 
   it('revokes a right from its row, only after a confirmation', async () => {

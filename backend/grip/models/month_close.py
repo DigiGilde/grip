@@ -19,10 +19,10 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from grip.core.database import Base
-from grip.models._columns import created_at, uuid_pk
+from grip.models._columns import Versioned, created_at, uuid_pk
 
 
-class MonthClose(Base):
+class MonthClose(Versioned, Base):
     """The established actual inzet of one month of one assignment.
 
     Reopening keeps the row and marks it; a new close is a new row. At most

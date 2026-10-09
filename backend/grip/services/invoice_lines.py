@@ -17,7 +17,7 @@ from grip.core.audit import CREATE, DELETE, UPDATE, record_audit
 from grip.models.cost import INVOICE_LINE_KINDS, InvoiceLine
 from grip.models.person import Person
 from grip.models.stored_document import StoredDocument
-from grip.services import stored_documents
+from grip.services import stale, stored_documents
 from grip.services.errors import DomainValidationError, NotFoundError
 from grip.services.guards import audit_fields
 from grip.services.stored_documents import RECEIVED_INVOICE
@@ -60,6 +60,7 @@ async def update_invoice_line(
     if unknown:
         raise DomainValidationError(f"Onbekende velden: {sorted(unknown)}")
     line = await get_invoice_line(session, cost_item_id, invoice_line_id)
+    await stale.check(session, line, "deze factuur")
     old = audit_fields(line, _AUDIT_FIELDS)
     if "kind" in changes:
         if changes["kind"] not in INVOICE_LINE_KINDS:

@@ -35,6 +35,12 @@ export function impactSentences(impact: PriceImpact, from: string): string[] {
         `${count(impact.budget_lines_changed, 'begrotingsregel krijgt', 'begrotingsregels krijgen')} vanaf ${date} een ander begroot bedrag, samen ${higherLower(impact.budget_difference_cents)}.`,
       );
     }
+    const signed = impact.signed_assignments_changed ?? 0;
+    if (signed > 0) {
+      sentences.push(
+        `Daaronder ${count(signed, 'opdracht', 'opdrachten')} met een getekende offerte: de begroting komt daar samen ${higherLower(impact.signed_difference_cents ?? 0)} uit dan wat is getekend.`,
+      );
+    }
     if (impact.allocations_changed > 0) {
       sentences.push(
         `${count(impact.allocations_changed, 'inzet krijgt', 'inzetten krijgen')} vanaf ${date} een ander bedrag. In de maanden die nog open zijn is dat samen ${higherLower(impact.open_difference_cents)}.`,

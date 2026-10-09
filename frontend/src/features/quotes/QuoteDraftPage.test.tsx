@@ -290,6 +290,42 @@ describe('QuoteDraftPage', () => {
     ).toBe(true);
   });
 
+  it('says when the standard text changed under a written section, and takes the new one over', async () => {
+    const written = {
+      ...DRAFT,
+      sections: [
+        section({ body: 'Eigen tekst.', origin: 'written', standard_changed: true }),
+        ...DRAFT.sections.slice(1),
+      ],
+    };
+    const followed = {
+      ...DRAFT,
+      sections: [
+        section({ body: 'De tekst van de organisatie.', origin: 'standard' }),
+        ...DRAFT.sections.slice(1),
+      ],
+    };
+    const { container, calls } = renderPage(
+      {
+        '/api/assignments/a-1/quote-draft': written,
+        'PUT /api/assignments/a-1/quote-draft/sections/inleiding': followed,
+      },
+      '/opdrachten/a-1/offerte/schrijven?onderdeel=inleiding',
+    );
+    await loaded(container);
+    await waitFor(() =>
+      expect(container.textContent).toContain(
+        'De standaardtekst van de organisatie is gewijzigd sinds je dit schreef.',
+      ),
+    );
+    clickButton(container, 'Neem de nieuwe tekst over');
+    await waitFor(() => expect(calls.some((call) => call.method === 'PUT')).toBe(true));
+    expect(calls.find((call) => call.method === 'PUT')?.body).toEqual({
+      follow_standard: true,
+      version: 3,
+    });
+  });
+
   it('puts back a text that was typed and never saved', async () => {
     localStorage.setItem(
       'grip.offertetekst.a-1.inleiding',

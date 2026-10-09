@@ -5,11 +5,14 @@ import { decimalToInput, parseDecimal } from '@/features/assignments/money';
 import { PeriodChoice } from '@/features/assignments/PeriodChoice';
 import { FormSheet, SelectInput, TextInput } from '@/features/assignments/ui';
 import { formatFte, formatMonth, formatPeriod } from '@/lib/format';
+import { ConflictPanel } from '@/ui/ConflictPanel';
 import { RowMenu } from '@/ui/RowActions';
+import { useStaleRecord } from '@/ui/stale';
 import {
   addAllocation,
   allocationKeys,
   deleteAllocation,
+  fetchAllocations,
   fetchAllocationOptions,
   fetchAllocationOptionsOf,
   previewAllocationLoad,
@@ -89,10 +92,20 @@ export function AllocationSheet({
   const queryClient = useQueryClient();
   const [form, setForm] = useState<FormState>(() => initial(allocation, preset));
   const [problem, setProblem] = useState<string | null>(null);
+  // The version this form started from; a save on an older one is refused
+  // and the form then shows what stands there now.
+  const [onTopOf, setOnTopOf] = useState(allocation?.version);
+  const stale = useStaleRecord<Allocation>(async () => {
+    if (!allocation) return null;
+    const list = await fetchAllocations((allocation.start_date ?? '').slice(0, 4));
+    return list.items.find((item) => item.id === allocation.id);
+  });
   const [seenSession, setSeenSession] = useState(session);
   if (seenSession !== session) {
     setSeenSession(session);
     setForm(initial(allocation, preset));
+    setOnTopOf(allocation?.version);
+    stale.clear();
     setProblem(null);
   }
   const set = (patch: Partial<FormState>) => setForm((current) => ({ ...current, ...patch }));
@@ -173,9 +186,9 @@ export function AllocationSheet({
   });
 
   const save = useMutation({
-    mutationFn: (pct: string) =>
+    mutationFn: ({ pct, version }: { pct: string; version?: number }) =>
       allocation
-        ? updateAllocation(allocation.id, { ...period, fte_pct: pct })
+        ? updateAllocation(allocation.id, { ...period, fte_pct: pct }, version)
         : addAllocation({
             budget_line_id: form.lineId,
             person_id: form.personId,
@@ -186,14 +199,38 @@ export function AllocationSheet({
       void queryClient.invalidateQueries({ queryKey: allocationKeys.all });
       void queryClient.invalidateQueries({ queryKey: ['overview'] });
       setProblem(null);
+      stale.clear();
       onClose();
     },
     // A closed month comes back as a conflict with a sentence that says
-    // which month and what to do; show it as it is.
-    onError: (error) => setProblem(errorMessage(error)),
+    // which month and what to do; show it as it is. A save on top of a
+    // colleague's change shows both versions instead.
+    onError: async (error) => {
+      if (await stale.caught(error)) {
+        setProblem(null);
+        return;
+      }
+      setProblem(errorMessage(error));
+    },
   });
 
-  const submit = () => {
+  const describe = (values: FormState) => [
+    {
+      label: 'Periode',
+      value: values.ownPeriod
+        ? `${values.startDate} t/m ${values.endDate}`
+        : 'Loopt mee met de regel',
+    },
+    { label: 'Inzet in procenten', value: values.pct },
+  ];
+  const takeTheirs = () => {
+    if (!stale.theirs) return;
+    setForm(initial(stale.theirs.record));
+    setOnTopOf(stale.theirs.record.version);
+    stale.clear();
+  };
+
+  const submit = (version: number | undefined = onTopOf) => {
     if (!allocation && (!form.personId || !form.lineId)) {
       setProblem('Kies een persoon en een begrotingsregel.');
       return;
@@ -207,7 +244,8 @@ export function AllocationSheet({
       setProblem('Het percentage ligt boven 0 en is hoogstens 100.');
       return;
     }
-    save.mutate(pct);
+    setOnTopOf(version);
+    save.mutate({ pct, version });
   };
 
   const title = allocation ? `Inzet van ${allocation.person_name} bewerken` : 'Nieuwe inzet';
@@ -217,11 +255,21 @@ export function AllocationSheet({
       open={open}
       title={title}
       submitText={overLoad ? 'Bewaar boven 100%' : 'Bewaar'}
-      onSubmit={submit}
+      onSubmit={() => submit()}
       onClose={onClose}
       busy={save.isPending || remove.isPending}
       error={problem ?? (options.isError ? errorMessage(options.error) : null)}
     >
+      {stale.theirs ? (
+        <ConflictPanel
+          conflict={stale.theirs.conflict}
+          theirs={describe(initial(stale.theirs.record))}
+          mine={describe(form)}
+          onKeepMine={() => submit(stale.theirs?.record.version)}
+          onTakeTheirs={takeTheirs}
+          busy={save.isPending}
+        />
+      ) : null}
       {!allocation && (
         <>
           <SelectInput

@@ -14,6 +14,7 @@ from grip.core.session_store import DatabaseSessionStore, run_cleanup_loop
 from grip.middleware.auth_required import AuthRequiredMiddleware
 from grip.middleware.csrf import CSRFMiddleware
 from grip.middleware.event_context import EventContextMiddleware
+from grip.middleware.expected_version import ExpectedVersionMiddleware
 from grip.middleware.proxy_headers import TrustedProxyMiddleware
 from grip.middleware.security_headers import SecurityHeadersMiddleware
 from grip.middleware.session import ServerSideSessionMiddleware
@@ -110,6 +111,7 @@ def create_app() -> FastAPI:
     # hides the response and the frontend only sees "Failed to fetch".
     # Innermost: a fresh event context (correlation id, actor) per request.
     app.add_middleware(EventContextMiddleware)
+    app.add_middleware(ExpectedVersionMiddleware)
     app.add_middleware(GZipMiddleware, minimum_size=500)
     app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(
@@ -131,7 +133,7 @@ def create_app() -> FastAPI:
         allow_origins=settings.CORS_ORIGINS,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["Content-Type", "X-CSRF-Token"],
+        allow_headers=["Content-Type", "X-CSRF-Token", "If-Match"],
     )
     app.add_middleware(TrustedProxyMiddleware, trusted_proxies=settings.TRUSTED_PROXIES)
 

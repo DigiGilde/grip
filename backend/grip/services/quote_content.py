@@ -60,6 +60,8 @@ INTERNAL_COLUMNS = frozenset(
         "period_source",
         "created_at",
         "updated_at",
+        # Counts the changes of the row; says nothing a quote needs.
+        "version",
     }
 )
 

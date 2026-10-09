@@ -107,6 +107,21 @@ export function SectionEditor({
     },
   });
 
+  // The organisation's standard text changed after this section was written:
+  // taking it over drops the own text and follows the organisation again.
+  const follow = useMutation({
+    mutationFn: () =>
+      saveSection(assignmentId, section.key, {
+        follow_standard: true,
+        ...(version === undefined ? {} : { version }),
+      }),
+    onSuccess: (draft) => {
+      settle(draft);
+      onSaved?.(draft);
+    },
+    onError: (failure) => setProblem(errorMessage(failure)),
+  });
+
   const propose = useMutation({
     mutationFn: () => draftSection(assignmentId, section.key),
     onSuccess: settle,
@@ -167,6 +182,18 @@ export function SectionEditor({
           Dit is een voorstel van het taalmodel. Lees het na, pas het aan en bewaar het: pas dan
           telt het mee.
         </nldd-text>
+      ) : null}
+      {section.standard_changed ? (
+        <Stack gap="close">
+          <Quiet>De standaardtekst van de organisatie is gewijzigd sinds je dit schreef.</Quiet>
+          <nldd-button-group>
+            <Button
+              text="Neem de nieuwe tekst over"
+              disabled={follow.isPending}
+              onClick={() => follow.mutate()}
+            />
+          </nldd-button-group>
+        </Stack>
       ) : null}
       {unsettled && section.generated?.context === 'unreachable' ? (
         <Quiet>Opgesteld zonder de context uit het corpus: dat was niet bereikbaar.</Quiet>

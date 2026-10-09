@@ -32,6 +32,12 @@ export interface DraftSection {
   version?: number;
   changed_by?: string | null;
   changed_at?: string | null;
+  /**
+   * The organisation changed its standard text for this section after a
+   * person wrote their own here. The own text stays until they take the new
+   * one over.
+   */
+  standard_changed?: boolean;
   /** What the organisation allows for this section in a quote. */
   optional?: boolean;
   removable?: boolean;
@@ -92,7 +98,14 @@ export function saveLetter(
 export function saveSection(
   assignmentId: string,
   key: string,
-  input: { body?: string; heading?: string; included?: boolean; version?: number },
+  input: {
+    body?: string;
+    heading?: string;
+    included?: boolean;
+    /** Give up the own text and follow the organisation's standard text again. */
+    follow_standard?: boolean;
+    version?: number;
+  },
 ): Promise<QuoteDraft> {
   return apiPut(`${base(assignmentId)}/sections/${key}`, input);
 }
