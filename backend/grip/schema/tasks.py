@@ -35,6 +35,8 @@ class ChecklistItemOut(BaseModel):
 
 class TaskOut(BaseModel):
     id: Annotated[UUID, A]
+    # Counts what people changed; a form sends it back with its save.
+    version: Annotated[int, A] = 1
     case_kind: Annotated[str, A]
     assignment_id: Annotated[UUID | None, A] = None
     assignment_name: Annotated[str | None, A] = None

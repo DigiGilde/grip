@@ -1,8 +1,10 @@
 /** The Functiegebouw Rijk: function families, groups and their scales. */
 import { apiGet, apiPatch, apiPost } from '@/api/client';
+import type { RequestHeaders } from '@/api/client';
 
 export interface FunctionGroup {
   id: string;
+  version?: number;
   family_id: string;
   name: string;
   scales: number[];
@@ -64,8 +66,11 @@ export const fetchFunctionFramework = (includeEnded = false) =>
 export const reloadFunctionFramework = () => apiPost<ReloadResult>(`${BASE}/reload`);
 export const createFunctionGroup = (input: FunctionGroupInput) =>
   apiPost<FunctionGroup>(`${BASE}/groups`, input);
-export const updateFunctionGroup = (id: string, input: Partial<FunctionGroupInput>) =>
-  apiPatch<FunctionGroup>(`${BASE}/groups/${id}`, input);
+export const updateFunctionGroup = (
+  id: string,
+  input: Partial<FunctionGroupInput>,
+  headers?: RequestHeaders,
+) => apiPatch<FunctionGroup>(`${BASE}/groups/${id}`, input, headers);
 export const createFunctionFamily = (name: string) =>
   apiPost<FunctionFamily>(`${BASE}/families`, { name });
 

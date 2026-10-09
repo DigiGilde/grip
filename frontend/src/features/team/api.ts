@@ -2,6 +2,7 @@ import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from '@/api/client';
 import { formatDate } from '@/lib/format';
 import type { PriceImpact } from '@/features/rates/api';
 import { todayIso } from '@/lib/today';
+import type { RequestHeaders } from '@/api/client';
 
 /**
  * A person as the asker may see them. Every group of fields below is present
@@ -9,6 +10,8 @@ import { todayIso } from '@/lib/today';
  */
 export interface Person {
   id: string;
+  /** Counts what people changed; a form sends it back with its save. */
+  version?: number;
   name: string;
   /** Null for a prospective colleague: the address comes later, from Wies. */
   email: string | null;
@@ -80,6 +83,8 @@ export interface Kpi {
   person_name: string;
   year: number;
   target_pct: string | null;
+  /** Counts the changes of the target; null when none is set. */
+  target_version?: number | null;
   target_cents: number | null;
   realised_cents: number | null;
   forecast_cents: number | null;
@@ -182,15 +187,17 @@ export function createPerson(body: {
 export function updatePerson(
   id: string,
   body: Partial<{ name: string; email: string; manager_id: string | null; is_active: boolean }>,
+  headers?: RequestHeaders,
 ): Promise<Person> {
-  return apiPatch<Person>(`/api/people/${id}`, body);
+  return apiPatch<Person>(`/api/people/${id}`, body, headers);
 }
 
 export function addScale(
   id: string,
   body: { valid_from: string; billing_scale: number },
+  headers?: RequestHeaders,
 ): Promise<Person> {
-  return apiPost<Person>(`/api/people/${id}/scales`, body);
+  return apiPost<Person>(`/api/people/${id}/scales`, body, headers);
 }
 
 export function addHire(
@@ -202,8 +209,9 @@ export function addHire(
     valid_to: string | null;
     contract_reference: string | null;
   },
+  headers?: RequestHeaders,
 ): Promise<Person> {
-  return apiPost<Person>(`/api/people/${id}/hires`, body);
+  return apiPost<Person>(`/api/people/${id}/hires`, body, headers);
 }
 
 export function removeHire(id: string, hireId: string): Promise<void> {
@@ -231,8 +239,16 @@ export function fetchKpi(year: number): Promise<KpiList> {
   return apiGet<KpiList>('/api/kpi', { year });
 }
 
-export function setKpiTarget(personId: string, year: number, targetPct: string): Promise<Kpi> {
-  return apiPut<Kpi>(`/api/kpi/${personId}/${year}`, { target_pct: targetPct });
+/** The name of a person's target for a year in a save (see `@/ui/stale`). */
+export const targetKey = (personId: string, year: number) => `target:${personId}:${year}`;
+
+export function setKpiTarget(
+  personId: string,
+  year: number,
+  targetPct: string,
+  headers?: RequestHeaders,
+): Promise<Kpi> {
+  return apiPut<Kpi>(`/api/kpi/${personId}/${year}`, { target_pct: targetPct }, headers);
 }
 
 /** Today as an ISO date on the instance's calendar. */
@@ -310,8 +326,12 @@ export function fetchPersonRoles(id: string): Promise<{ items: PersonRole[] }> {
 }
 
 /** Make the roles of a person exactly this set; what is not listed is taken away. */
-export function setPersonRoles(id: string, roleIds: string[]): Promise<{ items: PersonRole[] }> {
-  return apiPut<{ items: PersonRole[] }>(`/api/people/${id}/roles`, { role_ids: roleIds });
+export function setPersonRoles(
+  id: string,
+  roleIds: string[],
+  headers?: RequestHeaders,
+): Promise<{ items: PersonRole[] }> {
+  return apiPut<{ items: PersonRole[] }>(`/api/people/${id}/roles`, { role_ids: roleIds }, headers);
 }
 
 export const ROLE_SOURCE_LABELS: Record<PersonRole['source'], string> = {

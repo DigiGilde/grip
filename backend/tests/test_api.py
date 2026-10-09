@@ -29,6 +29,8 @@ async def test_status_without_any_person(client):
         "guest": None,
         "passkey_login": False,
         "passkey_session": False,
+        "example": False,
+        "example_visitor": None,
     }
 
 
@@ -106,13 +108,14 @@ async def test_ended_function_does_not_count(client, create_person, db_session):
     assert (await client.get("/api/auth/status")).json()["functions"] == []
 
 
-async def test_instance_is_public_and_returns_only_name_and_base_uri(client):
+async def test_instance_is_public_and_returns_only_name_base_uri_and_kind(client):
     """The login page shows the instance name, so no person is needed."""
     resp = await client.get("/api/instance")
     assert resp.status_code == 200
     assert resp.json() == {
         "name": "Grip (lokaal)",
         "base_uri": "http://localhost:8010",
+        "example": False,
     }
 
 

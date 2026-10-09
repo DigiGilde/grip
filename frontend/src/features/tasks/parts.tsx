@@ -181,7 +181,7 @@ export function TaskSheet({ taskId, onClose }: TaskSheetProps) {
     onError: (failure) => setError(errorMessage(failure)),
   });
   const finish = useMutation({
-    mutationFn: () => setTaskStatus(shownId ?? '', 'done'),
+    mutationFn: () => setTaskStatus(shownId ?? '', 'done', query.data?.version),
     onSuccess: () => {
       void refresh();
       onClose();

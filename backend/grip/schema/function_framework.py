@@ -15,6 +15,8 @@ LISTS = in_class(DataClass.MASTER_DATA)
 
 class FunctionGroupOut(BaseModel):
     id: Annotated[UUID, LISTS]
+    # Counts what people changed; a form sends it back with its save.
+    version: Annotated[int, LISTS] = 1
     family_id: Annotated[UUID, LISTS]
     name: Annotated[str, LISTS]
     scales: Annotated[list[int], LISTS]
@@ -29,6 +31,7 @@ class FunctionGroupOut(BaseModel):
 
 class FunctionFamilyOut(BaseModel):
     id: Annotated[UUID, LISTS]
+    version: Annotated[int, LISTS] = 1
     name: Annotated[str, LISTS]
     source: Annotated[str, LISTS]
     source_url: Annotated[str | None, LISTS] = None

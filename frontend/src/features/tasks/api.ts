@@ -5,6 +5,7 @@
  */
 import { apiGet, apiPatch, apiPost } from '@/api/client';
 import { withLists } from '@/lib/absent';
+import { ifMatch } from '@/ui/stale';
 
 export type CaseKind = 'assignment' | 'vacancy';
 export type TaskStatus = 'todo' | 'doing' | 'waiting' | 'done' | 'obsolete';
@@ -23,6 +24,8 @@ export interface ChecklistItem {
 
 export interface Task {
   id: string;
+  /** Counts what people changed about the task; sent back with a change. */
+  version?: number;
   case_kind: CaseKind;
   assignment_id?: string | null;
   /** Present when the reader may see the assignment. */
@@ -156,7 +159,7 @@ export async function fetchCaseTasks(kind: CaseKind, id: string): Promise<CaseTa
 }
 
 export const createTask = (task: NewTask) => apiPost<Task>(BASE, task);
-export const setTaskStatus = (id: string, status: TaskStatus) =>
-  apiPatch<Task>(`${BASE}/${id}`, { status });
+export const setTaskStatus = (id: string, status: TaskStatus, version?: number) =>
+  apiPatch<Task>(`${BASE}/${id}`, { status }, ifMatch(id, version));
 export const addTaskNote = (id: string, body: string) =>
   apiPost<Task>(`${BASE}/${id}/notes`, { body });

@@ -42,7 +42,7 @@ from grip.models.vacancy_text_flow import (
     VacancyTextSharedSection,
     VacancyTextTemplate,
 )
-from grip.services import catalogue_roles, instance_settings, quote_sender
+from grip.services import catalogue_roles, instance_settings, quote_sender, stale
 from grip.services.errors import DomainValidationError, NotFoundError
 
 _DATA = Path(__file__).resolve().parents[2] / "data" / "vacancy_texts"
@@ -526,6 +526,8 @@ async def update_shared_section(
     section = await db.get(VacancyTextSharedSection, key)
     if section is None:
         raise NotFoundError("Gedeeld onderdeel", key)
+    await stale.check(db, section, "dit gedeelde onderdeel", key=f"shared:{key}")
+    stale.touch(section)
     if not body.strip() or len(body) > MAX_BODY or len(heading) > 200:
         raise DomainValidationError("Het onderdeel heeft een kop en tekst nodig.")
     old = {"heading": section.heading, "body": section.body}
@@ -610,6 +612,8 @@ async def save_template(
         action, old = CREATE, None
     else:
         template = await get_template(db, template_id)
+        await stale.check(db, template, "deze standaardtekst")
+        stale.touch(template)
         if clash is not None and clash.id != template.id:
             raise DomainValidationError(
                 f"Er is al een standaardtekst voor '{clash.role_name}'."

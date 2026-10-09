@@ -33,6 +33,8 @@ export interface InvoiceLine {
 }
 
 export interface Coverage {
+  id?: string;
+  version?: number;
   budget_line_id: string;
   budget_line_description: string;
   assignment_id: string;
@@ -205,8 +207,18 @@ export function formatBytes(bytes: number): string {
   return `${(kb / 1024).toLocaleString('nl-NL', { maximumFractionDigits: 1 })} MB`;
 }
 
-export function setCoverage(id: string, budgetLineId: string, pct: string): Promise<CostItem> {
-  return apiPut<CostItem>(`/api/costs/${id}/coverage/${budgetLineId}`, { pct });
+/** `from` is the coverage as the form found it, when it existed. */
+export function setCoverage(
+  id: string,
+  budgetLineId: string,
+  pct: string,
+  from?: { id?: string; version?: number },
+): Promise<CostItem> {
+  return apiPut<CostItem>(
+    `/api/costs/${id}/coverage/${budgetLineId}`,
+    { pct },
+    ifMatch(from?.id, from?.version),
+  );
 }
 
 export function removeCoverage(id: string, budgetLineId: string): Promise<void> {

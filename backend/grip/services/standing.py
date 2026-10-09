@@ -40,6 +40,7 @@ from grip.models.person_standing import (
     StandingSource,
 )
 from grip.repositories.person import normalize_email
+from grip.services import stale
 from grip.services.errors import DomainValidationError, NotFoundError
 
 IDENTITY_GRIP = "grip"
@@ -191,6 +192,10 @@ async def set_start_date(
         raise DomainValidationError(
             "Alleen van een aanstaande collega kan de startdatum worden gewijzigd."
         )
+    person = await session.get(Person, person_id)
+    if person is not None:
+        await stale.check(session, person, "de gegevens van deze persoon")
+        stale.touch(person)
     old = row.start_date
     row.start_date = start_date
     await session.flush()

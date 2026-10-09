@@ -237,6 +237,7 @@ def _invoice_out(view: outgoing_invoices.InvoiceView) -> OutgoingInvoiceOut:
     invoice = view.invoice
     return OutgoingInvoiceOut(
         id=invoice.id,
+        version=invoice.version,
         invoice_number=invoice.invoice_number,
         invoice_date=invoice.invoice_date,
         amount_cents=invoice.amount_cents,

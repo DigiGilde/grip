@@ -1,3 +1,4 @@
+import { useStaleForm } from '@/ui/useStaleForm';
 import { ExternalLink, IconCell } from '@/ui/Icon';
 import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -63,28 +64,39 @@ function GroupSheet({ families, group, open, onClose }: GroupSheetProps) {
   const [scales, setScales] = useState(group ? group.scales.join(', ') : '');
   const [validTo, setValidTo] = useState(group?.valid_to ?? '');
   const [problem, setProblem] = useState<string | null>(null);
-  const save = useMutation({
-    mutationFn: (input: {
-      family_id: string;
-      name: string;
-      scales: number[];
-      valid_to: string | null;
-    }) =>
+  const [failure, setFailure] = useState<string | null>(null);
+  const save = useStaleForm({
+    recordKey: group?.id,
+    version: group?.version,
+    restart: open ? (group?.id ?? 'new') : null,
+    save: (
+      input: {
+        family_id: string;
+        name: string;
+        scales: number[];
+        valid_to: string | null;
+      },
+      headers,
+    ) =>
       group
-        ? updateFunctionGroup(group.id, input)
+        ? updateFunctionGroup(group.id, input, headers)
         : createFunctionGroup({
             family_id: input.family_id,
             name: input.name,
             scales: input.scales,
           }),
-    onSuccess: () => {
+    refresh: () => queryClient.invalidateQueries({ queryKey: ['function-framework'] }),
+    onSaved: () => {
       void queryClient.invalidateQueries({ queryKey: ['function-framework'] });
       onClose();
     },
+    onError: setFailure,
+    onTakeTheirs: onClose,
   });
 
   function submit() {
     setProblem(null);
+    setFailure(null);
     const parsed = parseScales(scales);
     if (!name.trim()) return setProblem('Vul de naam van de functiegroep in.');
     if (!familyId) return setProblem('Kies de functiefamilie.');
@@ -93,7 +105,7 @@ function GroupSheet({ families, group, open, onClose }: GroupSheetProps) {
         'Vul de schalen in als getallen van 1 tot en met 19, bijvoorbeeld 11, 12, 13.',
       );
     }
-    save.mutate({
+    save.run({
       family_id: familyId,
       name: name.trim(),
       scales: parsed,
@@ -108,9 +120,10 @@ function GroupSheet({ families, group, open, onClose }: GroupSheetProps) {
       submitText="Bewaar"
       onSubmit={submit}
       onClose={onClose}
-      busy={save.isPending}
-      error={problem ?? (save.isError ? errorMessage(save.error) : null)}
+      busy={save.busy}
+      error={problem ?? failure}
     >
+      {save.panel}
       <SelectInput
         label="Functiefamilie"
         value={familyId}

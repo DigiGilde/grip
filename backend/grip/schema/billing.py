@@ -89,6 +89,8 @@ class OutgoingInvoiceOut(BaseModel):
     """The recorded fact that an invoice was sent."""
 
     id: Annotated[UUID, B]
+    # Counts what people changed; a form sends it back with its save.
+    version: Annotated[int, B] = 1
     invoice_number: Annotated[str, B]
     invoice_date: Annotated[date, B]
     # The amount on the invoice.
@@ -161,6 +163,8 @@ class WithdrawInvoiceIn(BaseModel):
 class BillingTermsOut(BaseModel):
     """How the assignment is billed, as a term of the agreement."""
 
+    # Counts the changes of the terms; null while the assignment has none.
+    version: Annotated[int | None, A] = None
     # month | quarter
     rhythm: Annotated[str, A]
     # True when the assignment follows the instance and has no terms of its own.

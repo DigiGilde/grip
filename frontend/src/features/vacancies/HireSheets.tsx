@@ -1,3 +1,4 @@
+import { ifMatch } from '@/ui/stale';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
@@ -136,7 +137,7 @@ export function RecruitmentRefSheet({
   const change = useHireChange(
     vacancy.id,
     (body: { reference: string; url: string | null; system: string | null }) =>
-      setRecruitmentRef(vacancy.id, body),
+      setRecruitmentRef(vacancy.id, body, ifMatch(vacancy.id, vacancy.version)),
     onClose,
   );
   return (
@@ -178,7 +179,12 @@ export function RecruitmentRefSheet({
 export function RemoveRecruitmentRef({ vacancy }: { vacancy: Vacancy }) {
   const change = useHireChange(
     vacancy.id,
-    () => setRecruitmentRef(vacancy.id, { reference: '', url: null, system: null }),
+    () =>
+      setRecruitmentRef(
+        vacancy.id,
+        { reference: '', url: null, system: null },
+        ifMatch(vacancy.id, vacancy.version),
+      ),
     () => undefined,
   );
   return (

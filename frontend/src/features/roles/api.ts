@@ -1,3 +1,4 @@
+import type { RequestHeaders } from '@/api/client';
 import { apiGet, apiPatch, apiPost } from '@/api/client';
 
 export interface CatalogueRole {
@@ -68,17 +69,13 @@ export function createRole(body: {
   return apiPost<CatalogueRole>('/api/catalogue-roles', body);
 }
 
-/** `version` is the one the form started from; the server refuses a save on an older one. */
+/** `headers` name the version the form started from; the server refuses a save on an older one. */
 export function updateRole(
   id: string,
   changes: RoleChanges,
-  version?: number,
+  headers?: RequestHeaders,
 ): Promise<CatalogueRole> {
-  return apiPatch<CatalogueRole>(
-    `/api/catalogue-roles/${id}`,
-    changes,
-    version === undefined ? undefined : { 'If-Match': `"${id}:${version}"` },
-  );
+  return apiPatch<CatalogueRole>(`/api/catalogue-roles/${id}`, changes, headers);
 }
 
 /** Merges `id` into `intoId`: its budget lines move and the role disappears. */

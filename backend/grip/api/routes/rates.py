@@ -90,7 +90,7 @@ def _bands(card: RateCard) -> tuple[list[RateBandOut], list[ScaleBandOut]]:
             for b in sorted(card.rate_bands, key=lambda b: b.category)
         ],
         [
-            ScaleBandOut(scale=b.scale, category=b.category)
+            ScaleBandOut(id=b.id, version=b.version, scale=b.scale, category=b.category)
             for b in sorted(card.scale_bands, key=lambda b: b.scale)
         ],
     )

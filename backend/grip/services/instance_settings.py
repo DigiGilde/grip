@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from grip.core.audit import UPDATE, record_audit
 from grip.models.instance_setting import InstanceSetting
 from grip.models.person import Person
+from grip.services import stale
 from grip.services.errors import DomainValidationError
 
 Check = Callable[[Any], Any]
@@ -91,6 +92,18 @@ async def get_all(db: AsyncSession) -> dict[str, Any]:
     }
 
 
+# What a form calls the settings in ``If-Match``: they are saved together, so
+# they count as one thing.
+SETTINGS_KEY = "instance-settings"
+
+
+async def version(db: AsyncSession) -> int:
+    """The version of the settings as a whole: it goes up with every change
+    of any of them."""
+    rows = (await db.execute(select(InstanceSetting.version))).scalars().all()
+    return len(rows) + sum(rows)
+
+
 async def set_values(
     db: AsyncSession, values: dict[str, Any], *, actor: Person | None
 ) -> dict[str, Any]:
@@ -99,6 +112,9 @@ async def set_values(
     if unknown:
         raise DomainValidationError(f"Onbekende instelling: {', '.join(unknown)}")
     checked = {key: _declared[key].check(value) for key, value in values.items()}
+    await stale.check_value(
+        db, SETTINGS_KEY, await version(db), "de instellingen", trail="instance"
+    )
     old: dict[str, Any] = {}
     new: dict[str, Any] = {}
     for key, value in checked.items():
@@ -117,6 +133,7 @@ async def set_values(
         else:
             row.value = value
             row.updated_by_id = actor.id if actor is not None else None
+            stale.touch(row)
         old[key], new[key] = before, value
     await db.flush()
     if new:

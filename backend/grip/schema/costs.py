@@ -37,6 +37,9 @@ class InvoiceLineOut(BaseModel):
 
 
 class CoverageOut(BaseModel):
+    id: Annotated[UUID, _FIN]
+    # Counts the changes of the record; a form sends it back with its save.
+    version: Annotated[int, _FIN] = 1
     budget_line_id: Annotated[UUID, _FIN]
     budget_line_description: Annotated[str, _FIN]
     assignment_id: Annotated[UUID, _FIN]

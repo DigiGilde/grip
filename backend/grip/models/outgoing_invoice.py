@@ -15,12 +15,12 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from grip.core.database import Base
-from grip.models._columns import created_at, updated_at, uuid_pk
+from grip.models._columns import EditCounted, created_at, updated_at, uuid_pk
 
 INVOICE_SOURCES = ("manual", "financial_system")
 
 
-class OutgoingInvoice(Base):
+class OutgoingInvoice(EditCounted, Base):
     """The recorded fact that an invoice was sent to the client.
 
     Grip sends no invoices and cannot see one being sent. Someone records

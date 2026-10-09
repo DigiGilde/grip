@@ -15,6 +15,7 @@ import {
   scalePreviewKey,
   setFunction,
   setKpiTarget,
+  targetKey,
   setPersonRoles,
   updatePerson,
   type Kpi,
@@ -41,7 +42,7 @@ export function HireForm({
   day: string;
   onDone: () => void;
 }) {
-  const save = useSave(onDone);
+  const save = useSave(onDone, { key: person.id, version: person.version });
   const [supplier, setSupplier] = useState('');
   const [cost, setCost] = useState('');
   const [from, setFrom] = useState(day);
@@ -52,20 +53,25 @@ export function HireForm({
       submitText="Leg inhuur vast"
       submitting={save.pending}
       error={save.error}
+      conflict={save.conflict}
       onSubmit={() => {
         const cents = eurosToCents(cost);
         if (!supplier.trim() || !from || cents === null || cents < 0) {
           save.setError('Vul een leverancier, een ingangsdatum en een kostprijs in euro in.');
           return;
         }
-        save.run(() =>
-          addHire(person.id, {
-            supplier,
-            cost_monthly_rate_cents: cents,
-            valid_from: from,
-            valid_to: to || null,
-            contract_reference: reference || null,
-          }),
+        save.run((headers) =>
+          addHire(
+            person.id,
+            {
+              supplier,
+              cost_monthly_rate_cents: cents,
+              valid_from: from,
+              valid_to: to || null,
+              contract_reference: reference || null,
+            },
+            headers,
+          ),
         );
       }}
     >
@@ -105,7 +111,7 @@ export function ScaleForm({
   day: string;
   onDone: () => void;
 }) {
-  const save = useSave(onDone);
+  const save = useSave(onDone, { key: person.id, version: person.version });
   const [from, setFrom] = useState(day);
   const [scale, setScale] = useState('');
   const number = /^\d+$/.test(scale.trim()) ? Number.parseInt(scale, 10) : null;
@@ -126,12 +132,15 @@ export function ScaleForm({
       submitText="Leg schaal vast"
       submitting={save.pending}
       error={save.error}
+      conflict={save.conflict}
       onSubmit={() => {
         if (!valid || number === null) {
           save.setError('Vul een begindatum en een schaal van 1 tot en met 30 in.');
           return;
         }
-        save.run(() => addScale(person.id, { valid_from: from, billing_scale: number }));
+        save.run((headers) =>
+          addScale(person.id, { valid_from: from, billing_scale: number }, headers),
+        );
       }}
     >
       <DateField label="Vanaf" value={from} onChange={setFrom} required />
@@ -173,7 +182,7 @@ export function RolesForm({
   roles: PersonRole[];
   onDone: () => void;
 }) {
-  const save = useSave(onDone);
+  const save = useSave(onDone, { key: person.id, version: person.version });
   const [kept, setKept] = useState<{ id: string; name: string; source?: PersonRole['source'] }[]>(
     roles.map((role) => ({
       id: role.role_id,
@@ -188,7 +197,8 @@ export function RolesForm({
       submitText="Bewaar rollen"
       submitting={save.pending}
       error={save.error}
-      onSubmit={() => save.run(() => setPersonRoles(person.id, ids))}
+      conflict={save.conflict}
+      onSubmit={() => save.run((headers) => setPersonRoles(person.id, ids, headers))}
     >
       {kept.map((role) => (
         <CheckboxField
@@ -231,7 +241,10 @@ export function TargetForm({
   kpi: Kpi | null;
   onDone: () => void;
 }) {
-  const save = useSave(onDone);
+  const save = useSave(onDone, {
+    key: targetKey(person.id, year),
+    version: kpi?.target_version,
+  });
   const [value, setValue] = useState(
     kpi?.target_pct ? String(Number(kpi.target_pct)).replace('.', ',') : '',
   );
@@ -240,13 +253,14 @@ export function TargetForm({
       submitText="Bewaar target"
       submitting={save.pending}
       error={save.error}
+      conflict={save.conflict}
       onSubmit={() => {
         const pct = percentInput(value);
         if (pct === null || Number(pct) > 100) {
           save.setError('Vul een percentage van 0 tot en met 100 in.');
           return;
         }
-        save.run(() => setKpiTarget(person.id, year, pct));
+        save.run((headers) => setKpiTarget(person.id, year, pct, headers));
       }}
     >
       <TextField
@@ -277,6 +291,7 @@ export function GrantForm({ person, onDone }: { person: Person; onDone: () => vo
         submitText="Ken toe"
         submitting={save.pending}
         error={save.error}
+        conflict={save.conflict}
         onSubmit={() => {
           if (!right) {
             save.setError('Kies het recht dat je wilt toekennen.');
@@ -325,7 +340,7 @@ export function GrantForm({ person, onDone }: { person: Person; onDone: () => vo
 
 /** Name and address: who this is. */
 export function IdentityForm({ person, onDone }: { person: Person; onDone: () => void }) {
-  const save = useSave(onDone);
+  const save = useSave(onDone, { key: person.id, version: person.version });
   const [name, setName] = useState(person.name);
   const [email, setEmail] = useState(person.email ?? '');
   return (
@@ -333,18 +348,23 @@ export function IdentityForm({ person, onDone }: { person: Person; onDone: () =>
       submitText="Bewaar gegevens"
       submitting={save.pending}
       error={save.error}
+      conflict={save.conflict}
       onSubmit={() => {
         const address = email.trim();
         if (!name.trim() || (address !== '' && !address.includes('@'))) {
           save.setError('Vul een naam en een geldig e-mailadres in.');
           return;
         }
-        save.run(() =>
-          updatePerson(person.id, {
-            name,
-            // An empty address is left out: a prospective colleague has none yet.
-            ...(address ? { email: address } : {}),
-          }),
+        save.run((headers) =>
+          updatePerson(
+            person.id,
+            {
+              name,
+              // An empty address is left out: a prospective colleague has none yet.
+              ...(address ? { email: address } : {}),
+            },
+            headers,
+          ),
         );
       }}
     >
@@ -377,7 +397,7 @@ export function ManagerForm({
   day: string;
   onDone: () => void;
 }) {
-  const save = useSave(onDone);
+  const save = useSave(onDone, { key: person.id, version: person.version });
   const people = useQuery({
     queryKey: peopleKey(day, false),
     queryFn: () => fetchPeople(day, false),
@@ -388,7 +408,10 @@ export function ManagerForm({
       submitText="Bewaar leidinggevende"
       submitting={save.pending}
       error={save.error}
-      onSubmit={() => save.run(() => updatePerson(person.id, { manager_id: managerId || null }))}
+      conflict={save.conflict}
+      onSubmit={() =>
+        save.run((headers) => updatePerson(person.id, { manager_id: managerId || null }, headers))
+      }
     >
       <SelectField
         label="Leidinggevende"

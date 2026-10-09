@@ -6,9 +6,10 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from grip.core.database import Base
+from grip.models._columns import EditCounted
 
 
-class Person(Base):
+class Person(EditCounted, Base):
     """Someone who can log in to this instance or be staffed on an opdracht.
 
     Access is pre-provisioned: a login only succeeds for an active Person.

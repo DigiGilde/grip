@@ -71,6 +71,8 @@ class PeerUpdate(BaseModel):
 
 class PeerOut(BaseModel):
     id: Annotated[UUID, in_class(M)]
+    # Counts what people changed; a form sends it back with its save.
+    version: Annotated[int, in_class(M)] = 1
     peer_id: Annotated[str, in_class(M)]
     name: Annotated[str, in_class(M)]
     organisation_tooi_uri: Annotated[str, in_class(M)]

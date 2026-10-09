@@ -4,6 +4,7 @@
  */
 import { apiGet, apiPatch, apiPost } from '@/api/client';
 import { withLists } from '@/lib/absent';
+import type { RequestHeaders } from '@/api/client';
 
 export interface MonthState {
   month: string;
@@ -193,6 +194,7 @@ export interface MonthBilling {
 /** The recorded fact that an invoice was sent. */
 export interface OutgoingInvoice {
   id: string;
+  version?: number;
   invoice_number: string;
   invoice_date: string;
   amount_cents: number;
@@ -257,8 +259,13 @@ export function recordInvoice(assignmentId: string, input: InvoiceInput): Promis
 export function correctInvoice(
   invoiceId: string,
   input: Omit<InvoiceInput, 'export_ids'>,
+  headers?: RequestHeaders,
 ): Promise<BillingStatus> {
-  return apiPatch(`/api/outgoing-invoices/${invoiceId}`, { ...input, note: input.note ?? '' });
+  return apiPatch(
+    `/api/outgoing-invoices/${invoiceId}`,
+    { ...input, note: input.note ?? '' },
+    headers,
+  );
 }
 
 export function withdrawInvoice(invoiceId: string, reason: string): Promise<BillingStatus> {

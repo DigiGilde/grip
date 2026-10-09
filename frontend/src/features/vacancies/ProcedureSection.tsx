@@ -64,9 +64,10 @@ function StepSheet({
   const [problem, setProblem] = useState<string | null>(null);
   const change = useVacancyChange(
     vacancy.id,
-    (body: { started_on: string; ended_on: string | null; note: string | null }) =>
-      setOpeningStep(vacancy.id, step.kind as OpeningStep, body),
+    (body: { started_on: string; ended_on: string | null; note: string | null }, headers) =>
+      setOpeningStep(vacancy.id, step.kind as OpeningStep, body, headers),
     onClose,
+    { version: vacancy.version, restart: step.kind },
   );
   const minimum = step.minimum_working_days;
 
@@ -86,6 +87,7 @@ function StepSheet({
       busy={change.busy}
       error={problem ?? change.error}
     >
+      {change.panel}
       <DateInput label="Begindatum" value={start} onChange={setStart} required />
       <DateInput
         label="Einddatum"
@@ -187,7 +189,10 @@ export function ProcedureSection({ vacancy }: { vacancy: Vacancy }) {
 
   return (
     <Stack gap="group">
-      <nldd-table accessible-label="Stappen van de procedure" columns="minmax(240px,2fr) minmax(200px,1fr)">
+      <nldd-table
+        accessible-label="Stappen van de procedure"
+        columns="minmax(240px,2fr) minmax(200px,1fr)"
+      >
         <nldd-table-row slot="header">
           <nldd-text-cell text="Stap" />
           <nldd-text-cell text="Wanneer" />

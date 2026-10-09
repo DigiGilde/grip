@@ -40,6 +40,7 @@ from grip.services import (
     month_close,
     month_overview,
     outgoing_invoices,
+    stale,
     stored_documents,
 )
 from grip.services.assignments import get_assignment
@@ -125,6 +126,8 @@ class Terms:
     rhythm_is_default: bool
     details: dict[str, str]
     names_on_specification: bool
+    # Of the stored terms; None while the assignment follows the instance.
+    version: int | None = None
 
     @property
     def missing_details(self) -> tuple[str, ...]:
@@ -166,6 +169,7 @@ async def terms_of(session: AsyncSession, assignment_id: UUID) -> Terms:
         rhythm_is_default=False,
         details={k: str(v) for k, v in (row.details or {}).items() if v},
         names_on_specification=row.names_on_specification,
+        version=row.version,
     )
 
 
@@ -211,6 +215,15 @@ async def set_terms(
     if row is None:
         row = BillingTerms(assignment_id=assignment_id, rhythm=new_rhythm)
         session.add(row)
+    else:
+        await stale.check(
+            session,
+            row,
+            "de afspraken over factureren",
+            key=f"terms:{assignment_id}",
+            trail=assignment_id,
+        )
+        stale.touch(row)
     row.rhythm = new_rhythm
     row.details = new_details
     row.names_on_specification = new_names

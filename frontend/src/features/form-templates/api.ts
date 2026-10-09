@@ -1,5 +1,6 @@
 /** Form templates and the language model configuration. Beheerder only. */
 import { ApiError, apiGet, apiPost, apiPut, getCsrfToken, type ProblemDetails } from '@/api/client';
+import type { RequestHeaders } from '@/api/client';
 
 export interface FormTemplate {
   id: string;
@@ -138,6 +139,8 @@ export interface FieldSource {
 
 export interface TemplateDetail {
   id: string;
+  /** Counts the changes of the mapping; a sheet sends it back with its save. */
+  version?: number;
   name: string;
   file_name: string;
   is_active: boolean;
@@ -153,7 +156,8 @@ export const setTemplateField = (
   id: string,
   name: string,
   change: { source: string | null; equals?: string | boolean | null },
-) => apiPut<TemplateDetail>(`${BASE}/${id}/fields/${encodeURIComponent(name)}`, change);
+  headers?: RequestHeaders,
+) => apiPut<TemplateDetail>(`${BASE}/${id}/fields/${encodeURIComponent(name)}`, change, headers);
 
 export const templateFileUrl = (id: string) => `${BASE}/${id}/file`;
 

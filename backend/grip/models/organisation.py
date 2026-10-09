@@ -16,14 +16,14 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from grip.core.database import Base
-from grip.models._columns import created_at, updated_at, uuid_pk
+from grip.models._columns import EditCounted, created_at, updated_at, uuid_pk
 
 SOURCE_REGISTRY = "registry"
 SOURCE_MANUAL = "manual"
 ORGANISATION_SOURCES = (SOURCE_REGISTRY, SOURCE_MANUAL)
 
 
-class Organisation(Base):
+class Organisation(EditCounted, Base):
     """A counterparty: the client or contractor of an assignment.
 
     Two kinds of rows live here.

@@ -44,3 +44,19 @@ class Versioned:
     @declared_attr.directive
     def __mapper_args__(cls) -> dict[str, object]:  # noqa: N805
         return {"version_id_col": cls.version}
+
+
+class EditCounted:
+    """A record that both people and the system write to: it counts only what
+    people change.
+
+    A login, a sync or the task engine updates such a row all the time; if
+    every update raised the version, a person's form would be stale before
+    they finished typing. So ``version`` goes up only when a service that
+    carries a person's edit says so (``grip.services.stale.touch``). The
+    check itself is the same as for ``Versioned``.
+    """
+
+    version: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=1, server_default=text("1")
+    )

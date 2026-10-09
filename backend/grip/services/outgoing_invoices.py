@@ -42,7 +42,7 @@ from grip.models.outgoing_invoice import (
     OutgoingInvoiceDelivery,
 )
 from grip.models.person import Person
-from grip.services import events
+from grip.services import events, stale
 from grip.services.assignments import get_assignment
 from grip.services.errors import DomainValidationError, NotFoundError
 from grip.services.phase import allows_billing
@@ -726,6 +726,8 @@ async def correct_invoice(
         raise DomainValidationError(
             "Deze factuur is ingetrokken en kan niet meer worden gewijzigd."
         )
+    await stale.check(session, invoice, "deze factuur")
+    stale.touch(invoice)
     current_ids = [d.billing_export_id for d in invoice.deliveries]
     before = _snapshot(invoice, current_ids)
 

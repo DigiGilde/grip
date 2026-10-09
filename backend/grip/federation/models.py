@@ -66,6 +66,12 @@ class Peer(Base):
     __table_args__ = (CheckConstraint(_in_list("role", PEER_ROLES), name="role_valid"),)
 
     id: Mapped[uuid.UUID] = _uuid_pk()
+    # Counts what a person changed, so a save on an older version is refused
+    # (grip.services.stale). The same column as the EditCounted mixin of the
+    # domain models, written out here: this module must not import them.
+    version: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=1, server_default=text("1")
+    )
     # The peer id the inway passes on: the serial number in the certificate.
     peer_id: Mapped[str] = mapped_column(String(64), unique=True)
     name: Mapped[str] = mapped_column(String(200))

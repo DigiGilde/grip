@@ -47,6 +47,7 @@ from grip.models.organisation import (
     OrganisationSyncRun,
 )
 from grip.models.person import Person
+from grip.services import stale
 from grip.services.errors import DomainValidationError, NotFoundError
 
 PATH_SEPARATOR = " > "
@@ -474,6 +475,8 @@ async def update_organisation(
     """
     organisation = await get_organisation(db, organisation_id)
     allowed = {"instance_uri"}
+    await stale.check(db, organisation, "deze organisatie")
+    stale.touch(organisation)
     if organisation.source == SOURCE_MANUAL:
         allowed |= {"name", "end_date"}
     refused = sorted(set(changes) - allowed)

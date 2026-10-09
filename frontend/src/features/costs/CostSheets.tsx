@@ -542,7 +542,12 @@ export function CoverageSheet({ item, target, onClose }: CoverageSheetProps) {
     }
     sheet.setBusy(true);
     try {
-      await setCoverage(item.id, form.lineId, value);
+      await setCoverage(
+        item.id,
+        form.lineId,
+        value,
+        item.coverages.find((coverage) => coverage.budget_line_id === form.lineId),
+      );
       await refresh();
       onClose();
     } catch (caught) {

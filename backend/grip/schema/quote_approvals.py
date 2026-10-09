@@ -126,6 +126,9 @@ class InstanceSettingsOut(BaseModel):
     items: Annotated[list[InstanceSettingOut], nested()] = Field(default_factory=list)
     # What the next quote will be called, with the prefix as it is now.
     next_quote_reference: Annotated[str | None, M] = None
+    # The settings are saved together: the version of the set, to send back
+    # with a save (grip.services.stale).
+    settings_version: Annotated[int, M] = 1
 
 
 class InstanceSettingsIn(BaseModel):

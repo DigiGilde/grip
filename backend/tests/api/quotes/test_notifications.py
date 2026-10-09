@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import uuid
 from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
@@ -399,7 +400,6 @@ async def test_nothing_on_the_wire_names_a_person_a_client_or_an_amount(
         *names,
         *[e for e in emails if e],
         world.assignment.name,
-        "172",
         "euro",
         "Bel",
         "Te duur",
@@ -412,6 +412,8 @@ async def test_nothing_on_the_wire_names_a_person_a_client_or_an_amount(
         said = json.dumps(payload) + json.dumps(headers)
         for word in forbidden:
             assert word not in said, word
+        # The amount as an amount: "172" may well be part of an id.
+        assert not re.search(r"172[.,]?800", said), said
 
 
 # --- not noise --------------------------------------------------------------------

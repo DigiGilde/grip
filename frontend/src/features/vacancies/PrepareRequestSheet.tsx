@@ -69,8 +69,9 @@ export function PrepareRequestSheet({ vacancy, options, open, onClose }: Prepare
   const [problem, setProblem] = useState<string | null>(null);
   const change = useVacancyChange(
     vacancy.id,
-    (body: VacancyUpdate) => updateVacancy(vacancy.id, body, vacancy.version),
+    (body: VacancyUpdate, headers) => updateVacancy(vacancy.id, body, headers),
     onClose,
+    { version: vacancy.version, restart: open },
   );
 
   const group = notListed ? undefined : choices.find((choice) => choice.id === groupId);
@@ -133,6 +134,7 @@ export function PrepareRequestSheet({ vacancy, options, open, onClose }: Prepare
       busy={change.busy}
       error={problem ?? change.error}
     >
+      {change.panel}
       {!notListed && (
         <FunctionGroupPicker
           label="FGR-functienaam"

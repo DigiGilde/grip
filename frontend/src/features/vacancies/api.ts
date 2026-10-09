@@ -5,6 +5,7 @@
  */
 import { apiGet, apiPatch, apiPost, apiPut } from '@/api/client';
 import { withLists } from '@/lib/absent';
+import type { RequestHeaders } from '@/api/client';
 
 export type VacancyStatus =
   'draft' | 'requested' | 'approved' | 'rejected' | 'open' | 'filled' | 'withdrawn';
@@ -267,24 +268,25 @@ export const fetchRequestFormStatus = (id: string) =>
   apiGet<RequestFormStatus>(`${BASE}/${id}/request-form/status`);
 
 export const createVacancy = (body: VacancyCreate) => apiPost<Vacancy>(BASE, body).then(whole);
-/** `version` is the one the form started from; the server refuses a save on an older one. */
-export const updateVacancy = (id: string, body: VacancyUpdate, version?: number) =>
-  apiPatch<Vacancy>(
-    `${BASE}/${id}`,
-    body,
-    version === undefined ? undefined : { 'If-Match': `"${id}:${version}"` },
-  ).then(whole);
+/** `headers` name the version the form started from; the server refuses a save on an older one. */
+export const updateVacancy = (id: string, body: VacancyUpdate, headers?: RequestHeaders) =>
+  apiPatch<Vacancy>(`${BASE}/${id}`, body, headers).then(whole);
 export const submitVacancy = (id: string, requestedOn?: string) =>
   apiPost<Vacancy>(`${BASE}/${id}/submit`, requestedOn ? { requested_on: requestedOn } : {}).then(
     whole,
   );
-export const recordDecision = (id: string, kind: DecisionKind, body: DecisionInput) =>
-  apiPut<Vacancy>(`${BASE}/${id}/decisions/${kind}`, body).then(whole);
+export const recordDecision = (
+  id: string,
+  kind: DecisionKind,
+  body: DecisionInput,
+  headers?: RequestHeaders,
+) => apiPut<Vacancy>(`${BASE}/${id}/decisions/${kind}`, body, headers).then(whole);
 export const setOpeningStep = (
   id: string,
   kind: OpeningStep,
   body: { started_on: string; ended_on?: string | null; note?: string | null },
-) => apiPut<Vacancy>(`${BASE}/${id}/steps/${kind}`, body).then(whole);
+  headers?: RequestHeaders,
+) => apiPut<Vacancy>(`${BASE}/${id}/steps/${kind}`, body, headers).then(whole);
 export const publishVacancy = (id: string, channels: Channel[], openedOn?: string) =>
   apiPost<Vacancy>(`${BASE}/${id}/publish`, {
     channels,
@@ -371,8 +373,11 @@ export const DEFAULT_RECRUITMENT_SYSTEM = 'Emply';
 export const hireKey = (id: string) => ['vacancies', 'hire', id] as const;
 
 export const fetchVacancyHire = (id: string) => apiGet<VacancyHire>(`${BASE}/${id}/hire`);
-export const setRecruitmentRef = (id: string, body: RecruitmentRefInput) =>
-  apiPut<VacancyHire>(`${BASE}/${id}/recruitment-ref`, body);
+export const setRecruitmentRef = (
+  id: string,
+  body: RecruitmentRefInput,
+  headers?: RequestHeaders,
+) => apiPut<VacancyHire>(`${BASE}/${id}/recruitment-ref`, body, headers);
 export const recordHire = (id: string, body: HireInput) =>
   apiPost<VacancyHire>(`${BASE}/${id}/hire`, body);
 export const withdrawHire = (id: string, reason: string) =>

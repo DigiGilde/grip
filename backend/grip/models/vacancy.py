@@ -35,7 +35,7 @@ from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from grip.core.database import Base
-from grip.models._columns import Versioned
+from grip.models._columns import EditCounted, Versioned
 
 
 class VacancyType(enum.StrEnum):
@@ -109,7 +109,7 @@ def _uuid_pk() -> Mapped[uuid.UUID]:
     )
 
 
-class FormTemplate(Base):
+class FormTemplate(EditCounted, Base):
     """The blank request form of this instance, with its field mapping.
 
     Every organisation has its own form, so the file is uploaded per instance

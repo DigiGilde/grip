@@ -40,6 +40,7 @@ from grip.schema.peers import (
     PeerOut,
     PeerUpdate,
 )
+from grip.services import stale
 from grip.services.errors import DomainValidationError, NotFoundError
 
 router = APIRouter(prefix="/peers", tags=["peers"])
@@ -65,6 +66,7 @@ async def _require_beheerder(access: RequestAccess) -> None:
 def _out(peer: Peer) -> dict[str, Any]:
     return {
         "id": peer.id,
+        "version": peer.version,
         "peer_id": peer.peer_id,
         "name": peer.name,
         "organisation_tooi_uri": peer.organisation_tooi_uri or "",
@@ -149,6 +151,8 @@ async def update_peer(
     stays, because messages refer to it."""
     await _require_beheerder(access)
     peer = await _get(db, peer_row_id)
+    await stale.check(db, peer, "deze koppeling")
+    stale.touch(peer)
     old = _audit_values(peer)
     for name, value in body.model_dump(exclude_unset=True).items():
         if value is not None:

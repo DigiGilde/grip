@@ -63,6 +63,7 @@ async def _kpi_out(db: AsyncSession, person: Person, year: int) -> KpiOut:
         person_name=person.name,
         year=year,
         target_pct=overview.target_pct,
+        target_version=await rates.target_version(db, person.id, year),
         target_cents=overview.target_cents,
         realised_cents=overview.realised_cents,
         forecast_cents=overview.forecast_cents,

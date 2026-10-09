@@ -44,6 +44,7 @@ def _out(hit: OrganisationHit) -> OrganisationOut:
     o = hit.organisation
     return OrganisationOut(
         id=o.id,
+        version=o.version,
         name=o.name,
         label=o.display_name,
         abbreviation=o.abbreviation,

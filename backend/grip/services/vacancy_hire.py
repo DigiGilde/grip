@@ -29,7 +29,7 @@ from grip.models.vacancy_hire import (
     VacancyHire,
     VacancyRecruitmentRef,
 )
-from grip.services import assignments, rates, standing
+from grip.services import assignments, rates, stale, standing
 from grip.services.errors import DomainValidationError, NotFoundError
 from grip.services.vacancies import service as vacancy_service
 
@@ -69,8 +69,11 @@ async def set_recruitment_ref(
     actor: Person | None,
 ) -> VacancyRecruitmentRef | None:
     """Store or clear where this vacancy lives in the recruitment system."""
-    if await db.get(Vacancy, vacancy_id) is None:
+    vacancy = await db.get(Vacancy, vacancy_id)
+    if vacancy is None:
         raise NotFoundError("Vacature", vacancy_id)
+    await stale.check(db, vacancy, "deze vacature")
+    stale.touch(vacancy)
     reference = reference.strip()
     row = await db.get(VacancyRecruitmentRef, vacancy_id)
     old = (

@@ -71,6 +71,7 @@ async def _visible(decider: Decider, subject: Subject, assignment_id: UUID) -> R
 
 def _terms_out(terms: billing_deliveries.Terms) -> BillingTermsOut:
     return BillingTermsOut(
+        version=terms.version,
         rhythm=terms.rhythm,
         rhythm_is_default=terms.rhythm_is_default,
         details=terms.details,

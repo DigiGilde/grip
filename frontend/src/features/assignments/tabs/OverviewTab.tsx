@@ -88,7 +88,7 @@ function Roles({ assignment }: { assignment: AssignmentDetail }) {
     enabled: adding.open,
   });
   const add = useAssignmentMutation(
-    () => setAssignmentRole(assignment.id, personId, role),
+    () => setAssignmentRole(assignment.id, personId, role, assignment.version),
     setProblem,
   );
   const remove = useAssignmentMutation(

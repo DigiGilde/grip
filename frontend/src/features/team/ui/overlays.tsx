@@ -1,3 +1,5 @@
+import { ConflictPanel } from '@/ui/ConflictPanel';
+import type { StaleConflict } from '@/ui/stale';
 import { useId, useLayoutEffect, useRef, type FormEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { orUndef, useNlddEvent } from '@/components/nldd/events';
@@ -72,6 +74,12 @@ interface FormProps {
   submitText: string;
   submitting?: boolean;
   error?: string | null;
+  /** A save that was refused because someone changed the record in between. */
+  conflict?: {
+    conflict: StaleConflict;
+    keepMine: () => void;
+    takeTheirs: () => void;
+  } | null;
   children: ReactNode;
 }
 
@@ -79,7 +87,7 @@ interface FormProps {
  * A form with its one action under the last field. The native form is our
  * own child, so React keeps control of the fields and Enter submits.
  */
-export function Form({ onSubmit, submitText, submitting, error, children }: FormProps) {
+export function Form({ onSubmit, submitText, submitting, error, conflict, children }: FormProps) {
   const formRef = useRef<HTMLFormElement>(null);
   // The message goes once the reader changes a field; see useFormMessage.
   const message = useFormMessage(formRef, error);
@@ -92,6 +100,14 @@ export function Form({ onSubmit, submitText, submitting, error, children }: Form
     <nldd-form>
       <form ref={formRef} onSubmit={handleSubmit} noValidate>
         {message.shown ? <nldd-banner variant="critical" text={message.shown} /> : null}
+        {conflict ? (
+          <ConflictPanel
+            conflict={conflict.conflict}
+            onKeepMine={conflict.keepMine}
+            onTakeTheirs={conflict.takeTheirs}
+            busy={submitting}
+          />
+        ) : null}
         {children}
         <nldd-form-actions>
           <nldd-button-group>

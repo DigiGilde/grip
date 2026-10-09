@@ -25,7 +25,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from grip.core.database import Base
-from grip.models._columns import created_at, updated_at, uuid_pk
+from grip.models._columns import EditCounted, created_at, updated_at, uuid_pk
 
 TASK_STATUSES = ("todo", "doing", "waiting", "done", "obsolete")
 OPEN_STATUSES = ("todo", "doing", "waiting")
@@ -38,7 +38,7 @@ def _in(column: str, values: tuple[str, ...]) -> str:
     return f"{column} IN ({quoted})"
 
 
-class Task(Base):
+class Task(EditCounted, Base):
     """One piece of work on a case."""
 
     __tablename__ = "task"

@@ -4,6 +4,8 @@ import { errorMessage } from '@/api/client';
 import { centsToInput, parseEuroToCents } from '@/features/assignments/money';
 import { Button, SelectInput, TextInput } from '@/features/assignments/ui';
 import { useInstance } from '@/layout/useInstance';
+import { ConflictPanel } from '@/ui/ConflictPanel';
+import { SETTINGS_KEY, useStaleChoice } from '@/ui/stale';
 import { formatEuro } from '@/lib/format';
 import {
   Facts,
@@ -70,16 +72,42 @@ export function QuoteSettingsPage() {
   const [nextAllowSelf, setNextAllowSelf] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // The settings are saved together, so they share one version. A sheet
+  // saves on the version it was opened on.
+  const stale = useStaleChoice(
+    SETTINGS_KEY,
+    query.data?.settings_version,
+    () => queryClient.invalidateQueries({ queryKey: approvalKeys.settings }),
+    open || prefixOpen,
+  );
+  const [sent, setSent] = useState<Record<string, unknown>>({});
   const save = useMutation({
-    mutationFn: saveInstanceSettings,
+    mutationFn: ({ values, onTop }: { values: Record<string, unknown>; onTop?: boolean }) =>
+      saveInstanceSettings(values, onTop ? stale.latestHeaders : stale.headers),
+    onMutate: ({ values }) => setSent(values),
     onSuccess: async (saved) => {
+      stale.saved(saved.settings_version);
       queryClient.setQueryData(approvalKeys.settings, saved);
       setOpen(false);
       setPrefixOpen(false);
       await queryClient.invalidateQueries({ queryKey: ['quotes'] });
     },
-    onError: (failure) => setError(errorMessage(failure)),
+    onError: async (failure) => {
+      if (!(await stale.caught(failure))) setError(errorMessage(failure));
+    },
   });
+  const conflictPanel = stale.conflict ? (
+    <ConflictPanel
+      conflict={stale.conflict}
+      busy={save.isPending}
+      onKeepMine={() => save.mutate({ values: sent, onTop: true })}
+      onTakeTheirs={() => {
+        stale.clear();
+        setOpen(false);
+        setPrefixOpen(false);
+      }}
+    />
+  ) : null;
 
   const edit = () => {
     setNextMode(mode);
@@ -136,7 +164,7 @@ export function QuoteSettingsPage() {
               <CheckboxInput
                 label="Mail de tekenlink aan wie wordt uitgenodigd om te tekenen"
                 checked={Boolean(mailSetting.value)}
-                onChange={(checked) => save.mutate({ [SETTING_MAIL_LINK]: checked })}
+                onChange={(checked) => save.mutate({ values: { [SETTING_MAIL_LINK]: checked } })}
               />
             </FormFields>
             <Quiet>Werkt alleen als deze omgeving e-mail kan versturen.</Quiet>
@@ -182,9 +210,10 @@ export function QuoteSettingsPage() {
             return;
           }
           setError(null);
-          save.mutate({ [SETTING_REFERENCE_PREFIX]: value });
+          save.mutate({ values: { [SETTING_REFERENCE_PREFIX]: value } });
         }}
       >
+        {conflictPanel}
         <nldd-text>
           Geldt voor offertes die je hierna maakt. Het kenmerk van een bestaande offerte verandert
           niet, en de nummering loopt door.
@@ -219,9 +248,10 @@ export function QuoteSettingsPage() {
             values[SETTING_THRESHOLD] = cents;
           }
           setError(null);
-          save.mutate(values);
+          save.mutate({ values });
         }}
       >
+        {conflictPanel}
         <SelectInput
           label="Een offerte intern goedkeuren voor ze wordt aangeboden"
           value={nextMode}

@@ -32,6 +32,9 @@ from grip.services.pricing import (
 
 @dataclass(frozen=True)
 class CoverageLine:
+    # The coverage record itself and its version, for a save on top of it.
+    id: UUID
+    version: int
     budget_line_id: UUID
     budget_line_description: str
     assignment_id: UUID
@@ -178,6 +181,8 @@ async def cost_item_overviews(
                 uploader_names=uploader_names,
                 coverages=tuple(
                     CoverageLine(
+                        id=coverage.id,
+                        version=coverage.version,
                         budget_line_id=line.id,
                         budget_line_description=line.description,
                         assignment_id=assignment.id,

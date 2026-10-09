@@ -31,6 +31,7 @@ from dataclasses import dataclass
 from datetime import date
 from uuid import UUID
 
+from sqlalchemy import inspect as sa_inspect
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -256,6 +257,11 @@ async def preview(
     finally:
         _previewing.reset(token)
         await savepoint.rollback()
+    # The rollback expires what the change touched. Read those again here, so
+    # a caller that still holds one does not trip over it.
+    for obj in list(session.identity_map.values()):
+        if sa_inspect(obj).expired:
+            await session.refresh(obj)
 
     changed: dict[UUID, list[Month]] = {}
     for key in set(before.months) | set(after.months):

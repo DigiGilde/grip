@@ -23,6 +23,7 @@ from grip.models.person import Person
 from grip.models.person_details import Hire, PersonScale
 from grip.models.role import BEHEERDER, FUNCTIONS, PersonRole
 from grip.repositories.person import normalize_email
+from grip.services import stale
 from grip.services.errors import DomainValidationError, NotFoundError
 from grip.services.guards import audit_fields
 from grip.services.pricing import load_rate_book, to_calc_scale
@@ -153,6 +154,8 @@ async def update_person(
         raise DomainValidationError(f"Onbekende velden: {sorted(unknown)}")
     person = await get_person(session, person_id)
     old = audit_fields(person, _PERSON_FIELDS)
+    await stale.check(session, person, "de gegevens van deze persoon")
+    stale.touch(person)
 
     if "name" in changes:
         name = str(changes["name"]).strip()

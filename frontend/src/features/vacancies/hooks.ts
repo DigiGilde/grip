@@ -1,3 +1,7 @@
+import { createElement, useState } from 'react';
+import type { RequestHeaders } from '@/api/client';
+import { ConflictPanel } from '@/ui/ConflictPanel';
+import { useStaleChoice } from '@/ui/stale';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
 import { VACANCY_KEYS, fetchVacancyOptions, type Vacancy } from './api';
@@ -18,13 +22,33 @@ export function useVacancyOptions() {
  */
 export function useVacancyChange<Input>(
   vacancyId: string,
-  change: (input: Input) => Promise<Vacancy>,
+  change: (input: Input, headers?: RequestHeaders) => Promise<Vacancy>,
   onDone?: () => void,
+  /**
+   * For the save of a sheet: the version of the vacancy as the page holds it
+   * now, and what the sheet belongs to (whether it is open). The save then
+   * goes out on the version the sheet was opened on, and one that is refused
+   * because a colleague changed the vacancy in between ends in `panel`.
+   */
+  record?: { version: number | undefined; restart?: unknown },
 ) {
   const queryClient = useQueryClient();
+  const stale = useStaleChoice(
+    record ? vacancyId : null,
+    record?.version,
+    () => queryClient.invalidateQueries({ queryKey: VACANCY_KEYS.detail(vacancyId) }),
+    record?.restart ?? null,
+  );
+  const [failure, setFailure] = useState<string | null>(null);
   const mutation = useMutation({
-    mutationFn: change,
+    mutationFn: ({ input, onTop }: { input: Input; onTop: boolean }) =>
+      change(input, onTop ? stale.latestHeaders : stale.headers),
+    onMutate: () => setFailure(null),
+    onError: async (error) => {
+      if (!(await stale.caught(error))) setFailure(errorMessage(error));
+    },
     onSuccess: (vacancy) => {
+      stale.saved(vacancy.version);
       queryClient.setQueryData(VACANCY_KEYS.detail(vacancyId), vacancy);
       void queryClient.invalidateQueries({ queryKey: VACANCY_KEYS.list });
       void queryClient.invalidateQueries({ queryKey: VACANCY_KEYS.openRoles });
@@ -34,10 +58,29 @@ export function useVacancyChange<Input>(
     },
   });
   return {
-    run: mutation.mutate,
+    run: (input: Input) => mutation.mutate({ input, onTop: false }),
     busy: mutation.isPending,
-    error: mutation.isError ? errorMessage(mutation.error) : null,
-    reset: mutation.reset,
+    error: failure,
+    reset: () => {
+      setFailure(null);
+      stale.clear();
+      mutation.reset();
+    },
+    /** Who changed the vacancy in between, with the two ways on; null when nobody did. */
+    panel: stale.conflict
+      ? createElement(ConflictPanel, {
+          conflict: stale.conflict,
+          busy: mutation.isPending,
+          onKeepMine: () => {
+            const sent = mutation.variables;
+            if (sent) mutation.mutate({ input: sent.input, onTop: true });
+          },
+          onTakeTheirs: () => {
+            stale.clear();
+            onDone?.();
+          },
+        })
+      : null,
   };
 }
 

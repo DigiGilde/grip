@@ -8,7 +8,8 @@ import { goesToWork, workHref } from './telling';
 function useMoveTask() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, status }: { id: string; status: TaskStatus }) => setTaskStatus(id, status),
+    mutationFn: ({ id, status, version }: { id: string; status: TaskStatus; version?: number }) =>
+      setTaskStatus(id, status, version),
     onSettled: () => queryClient.invalidateQueries({ queryKey: TASK_KEYS.all }),
   });
 }
@@ -24,7 +25,7 @@ export function useTaskActions(onOpen: (id: string) => void): (task: Task) => Ro
       ...(href && !goesToWork(task) ? [{ text: 'Ga naar de plek van het werk', href }] : []),
       ...movesOf(task).map((item) => ({
         text: item.text,
-        onSelect: () => move.mutate({ id: task.id, status: item.status }),
+        onSelect: () => move.mutate({ id: task.id, status: item.status, version: task.version }),
       })),
     ];
   };

@@ -15,9 +15,10 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from grip.core.database import Base
+from grip.models._columns import EditCounted
 
 
-class InstanceSetting(Base):
+class InstanceSetting(EditCounted, Base):
     """One setting: a key and its JSON value. A key that has no row has its default."""
 
     __tablename__ = "instance_setting"

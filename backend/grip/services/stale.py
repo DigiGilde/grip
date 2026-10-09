@@ -21,8 +21,10 @@ from contextvars import ContextVar
 from datetime import datetime
 from typing import Any
 
+from sqlalchemy import inspect as sa_inspect
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import flag_modified
 
 from grip.core import clock
 from grip.models.person import Person
@@ -103,15 +105,52 @@ async def last_change(
 
 
 async def check(
-    session: AsyncSession, row: Any, what: str, *, trail: Any = None
+    session: AsyncSession,
+    row: Any,
+    what: str,
+    *,
+    trail: Any = None,
+    key: Any = None,
 ) -> None:
     """Refuse the change when the request started from an older version of
     this record. ``what`` names the record in the sentence: "deze
     begrotingsregel". ``trail`` is the record its changes are written under
-    in the event stream, when that is not the record itself."""
+    in the event stream, when that is not the record itself. ``key`` is what
+    the form calls the record when that is not its ``id`` (a setting is
+    known by its key)."""
     expected = _expected.get()
-    if expected is None or expected[0] != str(row.id):
+    name = str(key if key is not None else row.id)
+    if expected is None or expected[0] != name:
         return
     if expected[1] != row.version:
-        by, at = await last_change(session, trail or row.id)
+        by, at = await last_change(session, trail or name)
         raise StaleWriteError(what, by, at)
+
+
+async def check_value(
+    session: AsyncSession, key: str, version: int, what: str, *, trail: Any = None
+) -> None:
+    """The same refusal for something that is not one row: a set of settings
+    counts as one thing with one version."""
+    expected = _expected.get()
+    if expected is None or expected[0] != key:
+        return
+    if expected[1] != version:
+        by, at = await last_change(session, trail or key)
+        raise StaleWriteError(what, by, at)
+
+
+def touch(row: Any) -> None:
+    """A person changed this record: the next save from an older version is
+    stale. For a record that counts every update itself (``Versioned``) this
+    makes sure the row is written even when the change is in a row beside
+    it; for one that counts only people's edits (``EditCounted``) it is the
+    count."""
+    mapper = sa_inspect(type(row))
+    if mapper.version_id_col is not None:
+        if "updated_at" in mapper.column_attrs:
+            row.updated_at = clock.now()
+        else:
+            flag_modified(row, mapper.version_id_col.key)
+        return
+    row.version = (row.version or 1) + 1

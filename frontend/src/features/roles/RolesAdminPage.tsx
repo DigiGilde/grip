@@ -1,3 +1,4 @@
+import { useStaleForm } from '@/ui/useStaleForm';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
@@ -61,33 +62,38 @@ function RoleForm({ role, onDone }: RoleSheetProps) {
   const [active, setActive] = useState(role?.is_active ?? true);
   const [error, setError] = useState<string | null>(null);
 
-  const save = useMutation({
-    mutationFn: () => {
+  const save = useStaleForm({
+    recordKey: role?.id,
+    version: role?.version,
+    save: (_: void, headers) => {
       const body = { name: name.trim(), description: description.trim() || null };
       if (!role) return createRole(body);
       // Saving a role is also how the beheerder says it has been looked at.
-      return updateRole(role.id, { ...body, is_active: active, needs_review: false }, role.version);
+      return updateRole(role.id, { ...body, is_active: active, needs_review: false }, headers);
     },
-    onSuccess: async () => {
+    refresh: () => queryClient.invalidateQueries({ queryKey: roleKeys.all }),
+    onSaved: async () => {
       await queryClient.invalidateQueries({ queryKey: roleKeys.all });
       onDone();
     },
-    onError: (err) => setError(errorMessage(err)),
+    onError: setError,
+    onTakeTheirs: onDone,
   });
 
   return (
     <Form
       submitText={role ? 'Bewaar' : 'Voeg toe'}
-      submitting={save.isPending}
+      submitting={save.busy}
       error={error}
       onSubmit={() => {
         if (!name.trim()) {
           setError('Geef de rol een naam.');
           return;
         }
-        save.mutate();
+        save.run();
       }}
     >
+      {save.panel}
       <TextField
         label="Naam"
         supportingLabel={

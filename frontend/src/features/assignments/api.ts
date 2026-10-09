@@ -227,8 +227,12 @@ export const transitionAssignment = (id: string, target: string, reason?: string
     ...(reason ? { reason } : {}),
   });
 
-export const setAssignmentRole = (id: string, personId: string, role: string) =>
-  apiPut<AssignmentDetail>(`/api/assignments/${id}/roles/${personId}`, { role });
+export const setAssignmentRole = (id: string, personId: string, role: string, version?: number) =>
+  apiPut<AssignmentDetail>(
+    `/api/assignments/${id}/roles/${personId}`,
+    { role },
+    ifMatch(id, version),
+  );
 
 export const removeAssignmentRole = (id: string, personId: string) =>
   apiDelete<AssignmentDetail | { removed: true }>(`/api/assignments/${id}/roles/${personId}`);

@@ -432,11 +432,12 @@ async def approver_quote_document(
 
 
 def _settings_out(
-    values: dict[str, Any], next_reference: str | None = None
+    values: dict[str, Any], next_reference: str | None = None, version: int = 1
 ) -> InstanceSettingsOut:
     declared = instance_settings.declared()
     return InstanceSettingsOut(
         next_quote_reference=next_reference,
+        settings_version=version,
         items=[
             InstanceSettingOut(
                 key=key,
@@ -460,6 +461,7 @@ async def get_instance_settings(
     return _settings_out(
         await instance_settings.get_all(db),
         await quote_reference.upcoming_reference(db, clock.today().year),
+        await instance_settings.version(db),
     )
 
 
@@ -475,5 +477,7 @@ async def set_instance_settings(
     await require(decider, subject, Action.MANAGE_USERS, Resource.instance())
     values = await instance_settings.set_values(db, body.values, actor=person)
     return _settings_out(
-        values, await quote_reference.upcoming_reference(db, clock.today().year)
+        values,
+        await quote_reference.upcoming_reference(db, clock.today().year),
+        await instance_settings.version(db),
     )

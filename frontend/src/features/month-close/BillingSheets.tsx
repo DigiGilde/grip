@@ -6,10 +6,13 @@ import { DateInput, SelectInput, TextInput } from '@/features/assignments/ui';
 import { CheckboxInput } from '@/features/quotes/ui';
 import { formatEuro } from '@/lib/format';
 import { Facts, FormSheet, Quiet, Stack } from '@/ui/layout';
+import { ifMatch } from '@/ui/stale';
+import { useStaleForm } from '@/ui/useStaleForm';
 import {
   deliverPeriod,
   recordPeriodInvoice,
   saveTerms,
+  termsKey,
   type BillingDetails,
   type BillingOverview,
   type BillingPeriod,
@@ -95,32 +98,42 @@ export function TermsSheet({ overview, open, onClose }: TermsSheetProps) {
     }
   }
   const delivered = overview.periods.some((period) => (period.deliveries ?? []).length > 0);
-  const save = useMutation({
-    mutationFn: () =>
-      saveTerms(overview.assignment_id, {
-        ...(delivered ? {} : { rhythm }),
-        details,
-        names_on_specification: names,
-      }),
-    onSuccess: async () => {
+  const save = useStaleForm({
+    recordKey: termsKey(overview.assignment_id),
+    version: overview.terms.version,
+    restart: open,
+    save: (_: void, headers) =>
+      saveTerms(
+        overview.assignment_id,
+        {
+          ...(delivered ? {} : { rhythm }),
+          details,
+          names_on_specification: names,
+        },
+        headers,
+      ),
+    refresh,
+    onSaved: async () => {
       await refresh();
       onClose();
     },
-    onError: (failure) => setError(errorMessage(failure)),
+    onError: setError,
+    onTakeTheirs: onClose,
   });
   return (
     <FormSheet
       open={open}
       title="Factuurafspraken"
       submitText="Bewaar"
-      busy={save.isPending}
+      busy={save.busy}
       error={error}
       onClose={onClose}
       onSubmit={() => {
         setError(null);
-        save.mutate();
+        save.run();
       }}
     >
+      {save.panel}
       <SelectInput
         label="Factureren"
         value={rhythm}
@@ -182,7 +195,13 @@ export function DeliverSheet({ overview, period, onClose }: DeliverSheetProps) {
   const deliver = useMutation({
     mutationFn: async () => {
       if (!shown) return;
-      if (asked) await saveTerms(overview.assignment_id, { details });
+      if (asked) {
+        await saveTerms(
+          overview.assignment_id,
+          { details },
+          ifMatch(termsKey(overview.assignment_id), overview.terms.version),
+        );
+      }
       await deliverPeriod(overview.assignment_id, shown.key, via);
     },
     onSuccess: async () => {

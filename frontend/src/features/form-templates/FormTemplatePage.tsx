@@ -1,8 +1,8 @@
+import { useStaleForm } from '@/ui/useStaleForm';
 import { DocumentLink } from '@/ui/Icon';
 import { useRef, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
-import { errorMessage } from '@/api/client';
 import { VACANCY_KEYS, fetchVacancies } from '@/features/vacancies/api';
 import { SelectInput } from '@/features/vacancies/ui';
 import { useInstance } from '@/layout/useInstance';
@@ -51,14 +51,20 @@ function FieldSheet({ detail, field, onClose }: FieldSheetProps) {
   const [source, setSource] = useState(field?.source ?? NOTHING);
   const [choice, setChoice] = useState(field?.equals === undefined ? '' : String(field?.equals));
   const [error, setError] = useState<string | null>(null);
-  const save = useMutation({
-    mutationFn: (change: { source: string | null; equals?: string | boolean | null }) =>
-      setTemplateField(detail.id, field?.name ?? '', change),
-    onSuccess: (saved) => {
+  // The mapping is one record: a field is saved on the mapping as the sheet found it.
+  const save = useStaleForm({
+    recordKey: detail.id,
+    version: detail.version,
+    restart: field?.name ?? null,
+    save: (change: { source: string | null; equals?: string | boolean | null }, headers) =>
+      setTemplateField(detail.id, field?.name ?? '', change, headers),
+    refresh: () => queryClient.invalidateQueries({ queryKey: templateKey(detail.id) }),
+    onSaved: (saved) => {
       queryClient.setQueryData(templateKey(detail.id), saved);
       onClose();
     },
-    onError: (failure) => setError(errorMessage(failure)),
+    onError: setError,
+    onTakeTheirs: onClose,
   });
   const options = field ? sourcesFor(field, detail.sources) : [];
   const chosen = options.find((item) => item.key === source);
@@ -66,7 +72,7 @@ function FieldSheet({ detail, field, onClose }: FieldSheetProps) {
 
   const submit = () => {
     if (source === NOTHING || gone) {
-      save.mutate({ source: null });
+      save.run({ source: null });
       return;
     }
     if (chosen && chosen.choices.length > 0) {
@@ -75,10 +81,10 @@ function FieldSheet({ detail, field, onClose }: FieldSheetProps) {
         setError('Kies bij welke waarde het vakje wordt aangevinkt.');
         return;
       }
-      save.mutate({ source, equals: picked.value });
+      save.run({ source, equals: picked.value });
       return;
     }
-    save.mutate({ source });
+    save.run({ source });
   };
 
   return (
@@ -86,11 +92,12 @@ function FieldSheet({ detail, field, onClose }: FieldSheetProps) {
       open={field !== null}
       title={field ? `${fieldName(field)} koppelen` : 'Veld koppelen'}
       submitText={gone ? 'Haal de koppeling weg' : 'Bewaar'}
-      busy={save.isPending}
+      busy={save.busy}
       error={error}
       onClose={onClose}
       onSubmit={submit}
     >
+      {save.panel}
       {gone ? (
         <nldd-text>
           Dit veld staat in de koppeling, maar niet meer in het formulier. Er wordt niets mee

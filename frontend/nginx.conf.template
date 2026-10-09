@@ -68,6 +68,7 @@ http {
             try_files $uri =404;
         }
         location = /manifest.webmanifest {
+            default_type application/manifest+json;
             add_header Cache-Control "no-cache";
             add_header X-Content-Type-Options "nosniff" always;
             try_files $uri =404;

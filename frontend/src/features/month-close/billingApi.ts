@@ -4,6 +4,7 @@
  * right to see the money of the assignment.
  */
 import { apiGet, apiPost, apiPut } from '@/api/client';
+import type { RequestHeaders } from '@/api/client';
 
 export type Rhythm = 'month' | 'quarter';
 export type PeriodState = 'running' | 'to_close' | 'ready' | 'delivered' | 'invoiced';
@@ -24,6 +25,8 @@ export type DetailKey = (typeof DETAIL_KEYS)[number];
 export type BillingDetails = Partial<Record<DetailKey, string>>;
 
 export interface BillingTerms {
+  /** Counts the changes of the terms; null while the assignment has none. */
+  version?: number | null;
   rhythm: Rhythm;
   rhythm_is_default: boolean;
   details?: BillingDetails;
@@ -164,8 +167,15 @@ export interface TermsInput {
   names_on_specification?: boolean;
 }
 
-export function saveTerms(assignmentId: string, input: TermsInput): Promise<BillingOverview> {
-  return apiPut(`/api/assignments/${assignmentId}/billing/terms`, input);
+/** The name of an assignment's billing terms in a save (see `@/ui/stale`). */
+export const termsKey = (assignmentId: string) => `terms:${assignmentId}`;
+
+export function saveTerms(
+  assignmentId: string,
+  input: TermsInput,
+  headers?: RequestHeaders,
+): Promise<BillingOverview> {
+  return apiPut(`/api/assignments/${assignmentId}/billing/terms`, input, headers);
 }
 
 export function deliverPeriod(

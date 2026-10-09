@@ -56,6 +56,8 @@ class FunctionGrantOut(BaseModel):
 
 class PersonOut(BaseModel):
     id: Annotated[UUID, _ROSTER]
+    # Counts what people changed; a form sends it back with its save.
+    version: Annotated[int, _ROSTER] = 1
     name: Annotated[str, _ROSTER]
     # Null for a prospective colleague: the address comes later, from Wies.
     email: Annotated[str | None, _ROSTER]

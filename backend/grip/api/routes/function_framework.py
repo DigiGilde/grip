@@ -41,6 +41,7 @@ _ALL = frozenset({DataClass.MASTER_DATA})
 def _group_out(group: FunctionGroup) -> FunctionGroupOut:
     return FunctionGroupOut(
         id=group.id,
+        version=group.version,
         family_id=group.family_id,
         name=group.name,
         scales=list(group.scales),
@@ -57,6 +58,7 @@ def _family_out(
 ) -> FunctionFamilyOut:
     return FunctionFamilyOut(
         id=family.id,
+        version=family.version,
         name=family.name,
         source=family.source,
         source_url=family.source_url,

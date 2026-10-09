@@ -32,6 +32,8 @@ class RateBandOut(BaseModel):
 
 
 class ScaleBandOut(BaseModel):
+    id: Annotated[UUID | None, _MASTER] = None
+    version: Annotated[int, _MASTER] = 1
     scale: Annotated[int, _MASTER]
     category: Annotated[str, _MASTER]
 

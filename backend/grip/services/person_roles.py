@@ -25,6 +25,7 @@ from grip.models.catalogue_role import (
     PersonCatalogueRole,
 )
 from grip.models.person import Person
+from grip.services import stale
 from grip.services.errors import DomainValidationError, NotFoundError
 
 ADD_ROLE = "add_role"
@@ -124,8 +125,11 @@ async def set_person_roles(
     source. A role that is taken away is removed whatever its source; when
     Wies still has it, the next reconciliation proposes it again.
     """
-    if await db.get(Person, person_id) is None:
+    person = await db.get(Person, person_id)
+    if person is None:
         raise NotFoundError("Persoon", person_id)
+    await stale.check(db, person, "de gegevens van deze persoon")
+    stale.touch(person)
     wanted = list(dict.fromkeys(role_ids))
     if wanted:
         known = set(

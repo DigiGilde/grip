@@ -25,7 +25,7 @@ from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from grip.core.database import Base
-from grip.models._columns import created_at, updated_at, uuid_pk
+from grip.models._columns import EditCounted, created_at, updated_at, uuid_pk
 
 SOURCE_REFERENCE = "reference"
 SOURCE_MANUAL = "manual"
@@ -33,7 +33,7 @@ MIN_SCALE = 1
 MAX_SCALE = 19
 
 
-class FunctionFamily(Base):
+class FunctionFamily(EditCounted, Base):
     __tablename__ = "function_family"
     __table_args__ = (
         CheckConstraint("source IN ('reference', 'manual')", name="source_valid"),
@@ -64,7 +64,7 @@ class FunctionFamily(Base):
     )
 
 
-class FunctionGroup(Base):
+class FunctionGroup(EditCounted, Base):
     __tablename__ = "function_group"
     __table_args__ = (
         CheckConstraint("source IN ('reference', 'manual')", name="source_valid"),

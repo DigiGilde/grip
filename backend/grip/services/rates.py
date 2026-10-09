@@ -298,6 +298,7 @@ async def set_rate_card_status(
             f"Onbekende status voor een tarievenkaart: {status}"
         )
     card = await get_card(session, key)
+    await stale.check(session, card, "deze tarievenkaart")
     if card.status == status:
         return card
     if _STATUS_ORDER[status] < _STATUS_ORDER[card.status]:
@@ -669,6 +670,7 @@ async def set_scale_band(
         session.add(band)
     else:
         old = {"category": band.category}
+        await stale.check(session, band, "deze indeling", trail=f"{card.id}/{scale}")
         band.category = category
     await session.flush()
     record_audit(
@@ -749,8 +751,11 @@ async def set_person_scale(
     """
     if valid_to is not None and valid_to < valid_from:
         raise DomainValidationError("De einddatum ligt voor de begindatum.")
-    if await session.get(Person, person_id) is None:
+    person = await session.get(Person, person_id)
+    if person is None:
         raise NotFoundError("Persoon", person_id)
+    await stale.check(session, person, "de gegevens van deze persoon")
+    stale.touch(person)
     closed = await ensure_years_open(
         session,
         years_between(valid_from, valid_to or valid_from),
@@ -897,6 +902,18 @@ async def scale_change_preview(
     )
 
 
+def target_key(person_id: UUID, year: int) -> str:
+    """The name of a person's target for a year in a save (grip.services.stale)."""
+    return f"target:{person_id}:{year}"
+
+
+async def target_version(
+    session: AsyncSession, person_id: UUID, year: int
+) -> int | None:
+    target = await PersonDetailRepository(session).target(person_id, year)
+    return target.version if target is not None else None
+
+
 async def set_billability_target(
     session: AsyncSession,
     person_id: UUID,
@@ -918,6 +935,14 @@ async def set_billability_target(
         session.add(target)
     else:
         old = {"target_pct": str(target.target_pct)}
+        await stale.check(
+            session,
+            target,
+            "dit target",
+            key=target_key(person_id, year),
+            trail=target.id,
+        )
+        stale.touch(target)
         target.target_pct = target_pct
     await session.flush()
     record_audit(
@@ -953,8 +978,11 @@ async def add_hire(
         raise DomainValidationError("De einddatum ligt voor de begindatum.")
     if cost_monthly_rate_cents < 0:
         raise DomainValidationError("Een kostprijs kan niet negatief zijn.")
-    if await session.get(Person, person_id) is None:
+    person = await session.get(Person, person_id)
+    if person is None:
         raise NotFoundError("Persoon", person_id)
+    await stale.check(session, person, "de gegevens van deze persoon")
+    stale.touch(person)
     hire = Hire(
         person_id=person_id,
         supplier=supplier,

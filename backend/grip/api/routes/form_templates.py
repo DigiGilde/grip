@@ -74,6 +74,7 @@ def _template_out(template: FormTemplate, names: dict[UUID, str]) -> FormTemplat
     fields = template.mapping.get("fields") or []
     return FormTemplateOut(
         id=template.id,
+        version=template.version,
         name=template.name,
         file_name=template.file_name,
         is_active=template.is_active,
@@ -253,6 +254,7 @@ class FieldMappingIn(BaseModel):
 def _detail(template: FormTemplate) -> dict[str, Any]:
     return {
         "id": str(template.id),
+        "version": template.version,
         "name": template.name,
         "file_name": template.file_name,
         "is_active": template.is_active,

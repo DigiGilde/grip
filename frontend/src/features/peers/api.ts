@@ -1,9 +1,11 @@
 import { apiGet, apiPatch, apiPost } from '@/api/client';
+import type { RequestHeaders } from '@/api/client';
 
 export type PeerRole = 'counterpart' | 'parent' | 'child' | 'corpus';
 
 export interface Peer {
   id: string;
+  version?: number;
   /** The FSC peer id: the serial number in the certificate of the peer. */
   peer_id: string;
   name: string;
@@ -60,8 +62,12 @@ export function createPeer(body: PeerInput): Promise<Peer> {
   return apiPost<Peer>('/api/peers', body);
 }
 
-export function updatePeer(id: string, body: Partial<Omit<PeerInput, 'peer_id'>>): Promise<Peer> {
-  return apiPatch<Peer>(`/api/peers/${id}`, body);
+export function updatePeer(
+  id: string,
+  body: Partial<Omit<PeerInput, 'peer_id'>>,
+  headers?: RequestHeaders,
+): Promise<Peer> {
+  return apiPatch<Peer>(`/api/peers/${id}`, body, headers);
 }
 
 export function testConnection(id: string): Promise<ConnectionTest> {

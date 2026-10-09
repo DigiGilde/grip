@@ -1,3 +1,4 @@
+import { useStaleForm } from '@/ui/useStaleForm';
 import { RowActions, ROW_ACTIONS_COLUMN } from '@/ui/RowActions';
 import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -209,6 +210,25 @@ export function Invoices({ assignmentId, status, recordFor, onRecordDone }: Invo
   const withdrawn = invoices.filter((invoice) => invoice.withdrawn_at);
   const correcting = dialog?.kind === 'correct' ? dialog.invoice : null;
   const withdrawing = dialog?.kind === 'withdraw' ? dialog.invoice : null;
+  // A correction is saved on the invoice as the sheet found it.
+  const correction = useStaleForm({
+    recordKey: correcting?.id,
+    version: invoices.find((invoice) => invoice.id === correcting?.id)?.version,
+    restart: correcting?.id ?? null,
+    save: (input: NonNullable<ReturnType<typeof fields>>, headers) =>
+      correctInvoice(correcting?.id ?? '', input, headers),
+    refresh: () => queryClient.invalidateQueries({ queryKey: billingKey(assignmentId) }),
+    onSaved: async (updated) => {
+      queryClient.setQueryData(billingKey(assignmentId), updated);
+      setFormError(null);
+      close();
+      await queryClient.invalidateQueries({ queryKey: ['assignments'] });
+      await queryClient.invalidateQueries({ queryKey: ['reports'] });
+      await queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+    onError: setFormError,
+    onTakeTheirs: close,
+  });
 
   return (
     <>
@@ -361,16 +381,17 @@ export function Invoices({ assignmentId, status, recordFor, onRecordDone }: Invo
         open={dialog?.kind === 'correct'}
         title="Factuur corrigeren"
         submitText="Bewaar correctie"
-        busy={run.isPending}
+        busy={correction.busy}
         error={dialog?.kind === 'correct' ? formError : null}
         onClose={close}
         onSubmit={() => {
           if (!correcting) return;
           const input = fields();
           if (!input) return;
-          run.mutate(() => correctInvoice(correcting.id, input));
+          correction.run(input);
         }}
       >
+        {correction.panel}
         <nldd-text>
           De oude en de nieuwe waarden komen in de auditlog te staan, met jouw naam.
         </nldd-text>

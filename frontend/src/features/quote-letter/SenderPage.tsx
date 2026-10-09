@@ -6,6 +6,8 @@ import { errorMessage } from '@/api/client';
 import { Button, TextInput } from '@/features/assignments/ui';
 import { CheckboxInput } from '@/features/quotes/ui';
 import { useInstance } from '@/layout/useInstance';
+import { ConflictPanel } from '@/ui/ConflictPanel';
+import { SETTINGS_KEY, useStaleChoice } from '@/ui/stale';
 import { OpenCell, OpenRow, ROW_ACTIONS_COLUMN, RowActions, type RowAction } from '@/ui/RowActions';
 import {
   type Fact,
@@ -90,11 +92,39 @@ export function SenderPage() {
     queryClient.setQueryData(senderKeys.all, saved);
     setOpen(null);
   };
+  // The sender and the texts are settings of the instance: saved together,
+  // one version. A sheet saves on the version it was opened on.
+  const stale = useStaleChoice(
+    SETTINGS_KEY,
+    data?.settings_version,
+    () => queryClient.invalidateQueries({ queryKey: senderKeys.all }),
+    open,
+  );
+  type Change = Parameters<typeof saveQuoteSender>[0];
+  const [sent, setSent] = useState<Change>({});
   const save = useMutation({
-    mutationFn: saveQuoteSender,
-    onSuccess: done,
-    onError: (failure) => setError(errorMessage(failure)),
+    mutationFn: ({ change, onTop }: { change: Change; onTop?: boolean }) =>
+      saveQuoteSender(change, onTop ? stale.latestHeaders : stale.headers),
+    onMutate: ({ change }) => setSent(change),
+    onSuccess: (saved) => {
+      stale.saved(saved.settings_version);
+      done(saved);
+    },
+    onError: async (failure) => {
+      if (!(await stale.caught(failure))) setError(errorMessage(failure));
+    },
   });
+  const conflictPanel = stale.conflict ? (
+    <ConflictPanel
+      conflict={stale.conflict}
+      busy={save.isPending}
+      onKeepMine={() => save.mutate({ change: sent, onTop: true })}
+      onTakeTheirs={() => {
+        stale.clear();
+        setOpen(null);
+      }}
+    />
+  ) : null;
   const profile = useMutation({
     mutationFn: applyProfile,
     onSuccess: done,
@@ -112,7 +142,7 @@ export function SenderPage() {
     setOpen(next);
   };
 
-  const saveBlocks = (blocks: TextBlock[]) => save.mutate({ text_blocks: blocks });
+  const saveBlocks = (blocks: TextBlock[]) => save.mutate({ change: { text_blocks: blocks } });
   const submitBlock = () => {
     if (!data || open?.kind !== 'block') return;
     if (!block.heading.trim()) {
@@ -306,7 +336,7 @@ export function SenderPage() {
               <CheckboxInput
                 label="Vermeld in de offerte dat een taalmodel is gebruikt bij het opstellen"
                 checked={data.ai_disclosure}
-                onChange={(checked) => save.mutate({ ai_disclosure: checked })}
+                onChange={(checked) => save.mutate({ change: { ai_disclosure: checked } })}
               />
             </FormFields>
           </Section>
@@ -320,8 +350,9 @@ export function SenderPage() {
         busy={save.isPending}
         error={open?.kind === 'organisation' ? error : null}
         onClose={() => setOpen(null)}
-        onSubmit={() => sender && save.mutate({ sender })}
+        onSubmit={() => sender && save.mutate({ change: { sender } })}
       >
+        {conflictPanel}
         <nldd-text>
           Geldt voor offertes die je hierna maakt. Een offerte die al is gemaakt verandert niet.
         </nldd-text>
@@ -375,8 +406,9 @@ export function SenderPage() {
         busy={save.isPending}
         error={open?.kind === 'people' ? error : null}
         onClose={() => setOpen(null)}
-        onSubmit={() => sender && save.mutate({ sender })}
+        onSubmit={() => sender && save.mutate({ change: { sender } })}
       >
+        {conflictPanel}
         <TextInput
           label="Naam contactpersoon"
           value={sender?.contact.name ?? ''}
@@ -445,6 +477,7 @@ export function SenderPage() {
         onClose={() => setOpen(null)}
         onSubmit={submitBlock}
       >
+        {conflictPanel}
         <TextInput
           label="Kop"
           value={block.heading}
@@ -504,8 +537,9 @@ export function SenderPage() {
         error={open?.kind === 'letter' ? error : null}
         size="wide"
         onClose={() => setOpen(null)}
-        onSubmit={() => letter && save.mutate({ letter })}
+        onSubmit={() => letter && save.mutate({ change: { letter } })}
       >
+        {conflictPanel}
         <TextInput
           label="Opening"
           hint="De eerste zin na de aanhef."

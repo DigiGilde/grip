@@ -17,7 +17,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from grip.core.database import Base
-from grip.models._columns import created_at, updated_at, uuid_pk
+from grip.models._columns import EditCounted, created_at, updated_at, uuid_pk
 
 
 class PersonScale(Base):
@@ -45,7 +45,7 @@ class PersonScale(Base):
     created_at: Mapped[datetime] = created_at()
 
 
-class BillabilityTarget(Base):
+class BillabilityTarget(EditCounted, Base):
     """Share of a person's year that must be billable."""
 
     __tablename__ = "billability_target"

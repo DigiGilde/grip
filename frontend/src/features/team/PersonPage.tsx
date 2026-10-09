@@ -1,3 +1,4 @@
+import { ifMatch } from '@/ui/stale';
 import { documentTitle } from '@/brand/names';
 import { iconOf } from '@/ui/icons';
 import { useEffect, useRef, useState } from 'react';
@@ -267,7 +268,10 @@ function PersonScreen({ person, day, mayManage }: ScreenProps) {
   });
   const choose = (event: PersonEvent) => {
     direct.setError(null);
-    if (event === 'return') direct.run(() => updatePerson(person.id, { is_active: true }));
+    if (event === 'return')
+      direct.run(() =>
+        updatePerson(person.id, { is_active: true }, ifMatch(person.id, person.version)),
+      );
     else setOpen(event);
   };
   const removedHire = typeof open === 'object' && open ? open.removeHire : null;
@@ -412,7 +416,11 @@ function PersonScreen({ person, day, mayManage }: ScreenProps) {
             }
             confirmText="Maak inactief"
             onClose={close}
-            onConfirm={() => direct.run(() => updatePerson(person.id, { is_active: false }))}
+            onConfirm={() =>
+              direct.run(() =>
+                updatePerson(person.id, { is_active: false }, ifMatch(person.id, person.version)),
+              )
+            }
           />
           <ConfirmDialog
             open={open === 'unbind'}

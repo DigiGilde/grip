@@ -659,7 +659,9 @@ async def set_assignment_role(
     """
     if role not in (ROLE_OWNER, ROLE_MANAGER):
         raise DomainValidationError(f"Onbekende rol op een opdracht: {role}")
-    await get_assignment(session, assignment_id)
+    assignment = await get_assignment(session, assignment_id)
+    await stale.check(session, assignment, "deze opdracht")
+    stale.touch(assignment)
     if await session.get(Person, person_id) is None:
         raise NotFoundError("Persoon", person_id)
     result = await session.execute(

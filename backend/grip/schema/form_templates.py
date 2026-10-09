@@ -17,6 +17,8 @@ class FormTemplateOut(BaseModel):
     """A stored blank form, without its file contents."""
 
     id: Annotated[UUID, LISTS]
+    # Counts what people changed; a form sends it back with its save.
+    version: Annotated[int, LISTS] = 1
     name: Annotated[str, LISTS]
     file_name: Annotated[str, LISTS]
     is_active: Annotated[bool, LISTS]

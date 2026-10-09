@@ -126,6 +126,7 @@ async def _person_out(
         margin = result[2] if result is not None else None
     return PersonOut(
         id=person.id,
+        version=person.version,
         name=person.name,
         email=person.email,
         is_active=person.is_active,

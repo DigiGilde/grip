@@ -1,5 +1,5 @@
+import type { RequestHeaders } from '@/api/client';
 import { apiGet, apiPatch, apiPost, apiPut } from '@/api/client';
-import { ifMatch } from '@/ui/stale';
 
 export type CardStatus = 'draft' | 'active' | 'closed';
 export const CATEGORIES = ['A', 'B', 'C', 'D', 'E'] as const;
@@ -16,6 +16,8 @@ export interface RateBand {
 }
 
 export interface ScaleBand {
+  id?: string | null;
+  version?: number;
   scale: number;
   category: string;
 }
@@ -177,12 +179,12 @@ export function createRateCard(card: NewCard): Promise<RateCard> {
   });
 }
 
-/** `version` is the version of the card the form started from. */
+/** `headers` name the version of the card the form started from (see `@/ui/stale`). */
 export function updateRateCard(
   id: string,
   changes: { name?: string; valid_to?: string | null },
   confirmClosed = false,
-  version?: number,
+  headers?: RequestHeaders,
 ): Promise<RateCard> {
   return apiPatch<RateCard>(
     `/api/rates/cards/${id}`,
@@ -190,7 +192,7 @@ export function updateRateCard(
       ...changes,
       confirm_closed_year: confirmClosed,
     },
-    ifMatch(id, version),
+    headers,
   );
 }
 
@@ -215,8 +217,8 @@ export function setRateBand(
   category: string,
   monthlyRateCents: number,
   confirmClosed = false,
-  /** The rate as the form found it: its id and version, when it existed. */
-  from?: { id?: string | null; version?: number },
+  /** Of the rate as the form found it, when it existed. */
+  headers?: RequestHeaders,
 ): Promise<RateCard> {
   return apiPut<RateCard>(
     `/api/rates/cards/${id}/bands/${category}`,
@@ -224,7 +226,7 @@ export function setRateBand(
       monthly_rate_cents: monthlyRateCents,
       confirm_closed_year: confirmClosed,
     },
-    ifMatch(from?.id, from?.version),
+    headers,
   );
 }
 
@@ -233,11 +235,13 @@ export function setScaleBand(
   scale: number,
   category: string,
   confirmClosed = false,
+  headers?: RequestHeaders,
 ): Promise<RateCard> {
-  return apiPut<RateCard>(`/api/rates/cards/${id}/scales/${scale}`, {
-    category,
-    confirm_closed_year: confirmClosed,
-  });
+  return apiPut<RateCard>(
+    `/api/rates/cards/${id}/scales/${scale}`,
+    { category, confirm_closed_year: confirmClosed },
+    headers,
+  );
 }
 
 export const STATUS_LABELS: Record<CardStatus, string> = {

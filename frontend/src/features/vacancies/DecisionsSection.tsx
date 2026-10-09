@@ -103,8 +103,9 @@ function DecisionSheet({
   const [problem, setProblem] = useState<string | null>(null);
   const change = useVacancyChange(
     vacancy.id,
-    (body: DecisionInput) => recordDecision(vacancy.id, state.kind, body),
+    (body: DecisionInput, headers) => recordDecision(vacancy.id, state.kind, body, headers),
     onClose,
+    { version: vacancy.version, restart: state.kind },
   );
 
   function submit() {
@@ -136,6 +137,7 @@ function DecisionSheet({
       busy={change.busy}
       error={problem ?? change.error}
     >
+      {change.panel}
       {namesFixed ? (
         <Note>Je legt dit vast als {existing?.person_name}.</Note>
       ) : (

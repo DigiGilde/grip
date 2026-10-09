@@ -1014,12 +1014,14 @@ async def _library_out(db: AsyncSession, *, may_manage: bool) -> dict[str, Any]:
             for name, meaning in library.PLACEHOLDERS.items()
         ],
         "settings": await instance_settings.get(db, library.TEXT_SETTINGS.key),
+        "settings_version": await instance_settings.version(db),
         "shared_sections": [
             {
                 "key": section.key,
                 "heading": section.heading,
                 "body": section.body,
                 "used_by": usage.get(section.key, []),
+                "version": section.version,
                 "changed_at": section.changed_at,
                 "changed_by_name": people.get(section.changed_by_id)
                 if may_manage
@@ -1030,6 +1032,7 @@ async def _library_out(db: AsyncSession, *, may_manage: bool) -> dict[str, Any]:
         "templates": [
             {
                 "id": template.id,
+                "version": template.version,
                 "role_name": template.role_name,
                 "aliases": template.aliases,
                 "scale_min": template.scale_min,

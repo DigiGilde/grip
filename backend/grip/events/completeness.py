@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from sqlalchemy import event as sa_event
+from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
@@ -117,6 +118,17 @@ def _note(session: Session, table: str | None) -> None:
         session.info.setdefault(_CHANGED, []).append(table)
 
 
+# A record counts its changes so a save on an older version can be refused
+# (grip.services.stale). The count going up, with the moment of it, is not a
+# change of the record's content: the event belongs to what changed beside it.
+_COUNTERS = frozenset({"version", "updated_at"})
+
+
+def _only_counted(obj: Any) -> bool:
+    changed = {attr.key for attr in sa_inspect(obj).attrs if attr.history.has_changes()}
+    return bool(changed) and changed <= _COUNTERS
+
+
 @sa_event.listens_for(Session, "after_flush")
 def _after_flush(session: Session, flush_context: Any) -> None:
     for obj in session.new:
@@ -124,7 +136,7 @@ def _after_flush(session: Session, flush_context: Any) -> None:
     for obj in session.deleted:
         _note(session, getattr(obj, "__tablename__", None))
     for obj in session.dirty:
-        if session.is_modified(obj):
+        if session.is_modified(obj) and not _only_counted(obj):
             _note(session, getattr(obj, "__tablename__", None))
 
 

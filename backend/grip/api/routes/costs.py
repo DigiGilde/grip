@@ -118,6 +118,8 @@ async def _item_out(
             continue
         coverages.append(
             CoverageOut(
+                id=line.id,
+                version=line.version,
                 budget_line_id=line.budget_line_id,
                 budget_line_description=line.budget_line_description,
                 assignment_id=line.assignment_id,

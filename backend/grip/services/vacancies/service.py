@@ -657,6 +657,8 @@ async def set_step(
     """Record a step of the procedure, or change its dates."""
     kind = StepKind(kind)
     vacancy = await _get(db, vacancy_id)
+    await stale.check(db, vacancy, "deze vacature")
+    stale.touch(vacancy)
     others = {
         StepKind(step.kind): StepDates(step.started_on, step.ended_on)
         for step in vacancy.steps
@@ -802,6 +804,8 @@ async def record_decision(
     if not person_name.strip():
         raise DomainValidationError("Vul in wie adviseert of akkoord geeft.")
     vacancy = await _get(db, vacancy_id)
+    await stale.check(db, vacancy, "deze vacature")
+    stale.touch(vacancy)
     if vacancy.status == VacancyStatus.draft.value:
         raise DomainValidationError(
             "Advies en akkoord kunnen pas na de aanvraag worden vastgelegd."

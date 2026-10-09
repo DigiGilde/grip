@@ -1,5 +1,7 @@
-import { staleConflictOf } from '@/ui/stale';
-import { useState } from 'react';
+import type { RequestHeaders } from '@/api/client';
+import { ConflictPanel } from '@/ui/ConflictPanel';
+import { useStaleChoice } from '@/ui/stale';
+import { useRef, useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
 import { formatDate, formatEuro } from '@/lib/format';
@@ -152,14 +154,52 @@ export function RatesPage() {
   const submit = (run: () => Promise<unknown>, onDone?: () => void) =>
     save.mutate(run, {
       onSuccess: onDone,
-      onError: (error) => {
-        // A save on top of a colleague's change: the sentence says who and
-        // when; the table behind the form is read again so it shows what
-        // stands there now.
-        if (staleConflictOf(error)) void query.refetch();
-        setFormError(errorMessage(error));
+      onError: (error) => setFormError(errorMessage(error)),
+    });
+  // The record a form is open on, as the page holds it now. The form saves
+  // on the version it was opened on; a save on top of a colleague's change
+  // is refused, the table behind the form is read again, and the form shows
+  // who changed it and when with the two ways on.
+  const record =
+    editing?.kind === 'band'
+      ? card?.rate_bands.find((band) => band.category === editing.category)
+      : editing?.kind === 'scale'
+        ? card?.scale_bands.find((band) => band.scale === editing.scale)
+        : editing?.kind === 'details'
+          ? cards.find((item) => item.id === editing.card.id)
+          : undefined;
+  const stale = useStaleChoice(
+    record?.id,
+    record?.version,
+    () => query.refetch(),
+    editing === null
+      ? null
+      : `${editing.kind}:${'category' in editing ? editing.category : ''}:${'scale' in editing ? editing.scale : ''}:${'card' in editing ? editing.card.id : ''}`,
+  );
+  const lastSave = useRef<((headers?: RequestHeaders) => Promise<unknown>) | null>(null);
+  const saveOn = (run: (headers?: RequestHeaders) => Promise<unknown>, onTop = false) => {
+    lastSave.current = run;
+    save.mutate(() => run(onTop ? stale.latestHeaders : stale.headers), {
+      onSuccess: () => stale.saved(),
+      onError: async (error) => {
+        if (await stale.caught(error)) setFormError(null);
+        else setFormError(errorMessage(error));
       },
     });
+  };
+  const conflictPanel = stale.conflict ? (
+    <ConflictPanel
+      conflict={stale.conflict}
+      busy={save.isPending}
+      onKeepMine={() => {
+        if (lastSave.current) saveOn(lastSave.current, true);
+      }}
+      onTakeTheirs={() => {
+        stale.clear();
+        setEditing(null);
+      }}
+    />
+  ) : null;
   const open = (next: Editing) => {
     setFormError(null);
     setEditing(next);
@@ -416,19 +456,9 @@ export function RatesPage() {
         error={formError}
         onInvalid={setFormError}
         onClose={() => setEditing(null)}
+        panel={conflictPanel}
         onSave={(category, cents) =>
-          card &&
-          submit(() =>
-            setRateBand(
-              card.id,
-              category,
-              cents,
-              confirmClosed,
-              // The rate as the form found it: a save on top of a colleague's
-              // change is refused with who changed it and when.
-              card.rate_bands.find((band) => band.category === category),
-            ),
-          )
+          card && saveOn((headers) => setRateBand(card.id, category, cents, confirmClosed, headers))
         }
       />
       <ScaleSheet
@@ -438,8 +468,10 @@ export function RatesPage() {
         error={formError}
         onInvalid={setFormError}
         onClose={() => setEditing(null)}
+        panel={conflictPanel}
         onSave={(scale, category) =>
-          card && submit(() => setScaleBand(card.id, scale, category, confirmClosed))
+          card &&
+          saveOn((headers) => setScaleBand(card.id, scale, category, confirmClosed, headers))
         }
       />
       <DetailsSheet
@@ -448,13 +480,14 @@ export function RatesPage() {
         error={formError}
         onInvalid={setFormError}
         onClose={() => setEditing(null)}
+        panel={conflictPanel}
         onSave={(target, changes) =>
-          submit(() =>
+          saveOn((headers) =>
             updateRateCard(
               target.id,
               changes,
               target.status === 'closed' && unlockedId === target.id,
-              target.version,
+              headers,
             ),
           )
         }
@@ -503,6 +536,8 @@ export function RatesPage() {
 interface SheetCommon {
   busy: boolean;
   error: string | null;
+  /** A save that was refused because a colleague changed the record. */
+  panel?: ReactNode;
   onClose: () => void;
   onInvalid: (message: string) => void;
 }
@@ -782,6 +817,7 @@ function BandForm({
   cardName,
   busy,
   error,
+  panel,
   onClose,
   onInvalid,
   onSave,
@@ -804,6 +840,7 @@ function BandForm({
         onSave(editing.category, cents);
       }}
     >
+      {panel}
       <TextField
         label="Maandtarief per FTE"
         supportingLabel="In euro"
@@ -835,6 +872,7 @@ function ScaleForm({
   cardName,
   busy,
   error,
+  panel,
   onClose,
   onInvalid,
   onSave,
@@ -862,6 +900,7 @@ function ScaleForm({
         onSave(number, category);
       }}
     >
+      {panel}
       {editing.scale === null ? (
         <TextField label="Schaal" value={scale} onChange={setScale} keyboard="numeric" required />
       ) : null}
@@ -892,6 +931,7 @@ function DetailsForm({
   card,
   busy,
   error,
+  panel,
   onClose,
   onInvalid,
   onSave,
@@ -918,6 +958,7 @@ function DetailsForm({
         onSave(card, { name: name.trim(), valid_to: validTo || null });
       }}
     >
+      {panel}
       <TextField label="Naam" value={name} onChange={setName} required />
       <DateField
         label="Geldig tot en met"

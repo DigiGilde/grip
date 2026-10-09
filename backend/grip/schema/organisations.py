@@ -13,6 +13,8 @@ A = DataClass.ASSIGNMENT_BASIC
 
 class OrganisationOut(BaseModel):
     id: Annotated[UUID, in_class(A)]
+    # Counts what people changed; a form sends it back with its save.
+    version: Annotated[int, in_class(A)] = 1
     # The name as the source gives it.
     name: Annotated[str, in_class(A)]
     # The name to show ("Ministerie van ..." for a ministry).

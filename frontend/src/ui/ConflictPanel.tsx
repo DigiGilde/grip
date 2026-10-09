@@ -8,10 +8,13 @@ import type { ConflictValue, StaleConflict } from '@/ui/stale';
 
 interface ConflictPanelProps {
   conflict: StaleConflict;
-  /** What stands in the record now, in the words of the form. */
-  theirs: readonly ConflictValue[];
+  /**
+   * What stands in the record now, in the words of the form. Left out by a
+   * form that does not compare field by field: the page behind it shows it.
+   */
+  theirs?: readonly ConflictValue[];
   /** What the person filled in. */
-  mine: readonly ConflictValue[];
+  mine?: readonly ConflictValue[];
   /** Save the own values on top of what stands there now. */
   onKeepMine: () => void;
   /** Drop the own values and continue from what stands there now. */
@@ -32,8 +35,8 @@ export function ConflictPanel({
   onTakeTheirs,
   busy = false,
 }: ConflictPanelProps) {
-  const own = new Map(mine.map((item) => [item.label, item.value]));
-  const differing = theirs.filter((item) => (own.get(item.label) ?? '') !== item.value);
+  const own = new Map((mine ?? []).map((item) => [item.label, item.value]));
+  const differing = (theirs ?? []).filter((item) => (own.get(item.label) ?? '') !== item.value);
   return (
     <div data-conflict>
       <Stack gap="related">
@@ -61,9 +64,9 @@ export function ConflictPanel({
               </nldd-table-row>
             ))}
           </nldd-table>
-        ) : (
+        ) : theirs ? (
           <Quiet>Wat er nu staat is gelijk aan wat jij invulde.</Quiet>
-        )}
+        ) : null}
         <nldd-button-group>
           <Button text="Bewaar mijn wijziging" disabled={busy} onClick={onKeepMine} />
           <Button text="Neem de andere over" disabled={busy} onClick={onTakeTheirs} />

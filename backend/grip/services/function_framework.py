@@ -34,6 +34,7 @@ from grip.models.function_framework import (
 )
 from grip.models.person import Person
 from grip.models.rates import RateCard, ScaleBand
+from grip.services import stale
 from grip.services.errors import DomainError, DomainValidationError, NotFoundError
 
 REFERENCE_FILE = (
@@ -213,6 +214,8 @@ async def update_family(
 ) -> FunctionFamily:
     family = await get_family(db, family_id)
     unknown = set(changes) - {"name", "valid_to"}
+    await stale.check(db, family, "deze functiefamilie")
+    stale.touch(family)
     if unknown:
         raise DomainValidationError(
             "Van een functiefamilie zijn alleen de naam en de einddatum te wijzigen."
@@ -281,6 +284,8 @@ async def update_group(
     """Correct a group. A vacancy that already printed the old name keeps it."""
     group = await get_group(db, group_id)
     unknown = set(changes) - {"name", "scales", "family_id", "valid_to"}
+    await stale.check(db, group, "deze functiegroep")
+    stale.touch(group)
     if unknown:
         raise DomainValidationError(
             "Van een functiegroep zijn de naam, de schalen, de familie en de "

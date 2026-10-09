@@ -1,4 +1,5 @@
 import { apiGet, apiPatch, apiPost } from '@/api/client';
+import type { RequestHeaders } from '@/api/client';
 
 export interface SenderContact {
   name: string;
@@ -54,6 +55,8 @@ export interface QuoteSender {
   drafting_available: boolean;
   profiles: string[];
   placeholders: string[];
+  /** The settings are saved together: the version of the set. */
+  settings_version?: number;
 }
 
 export const senderKeys = { all: ['quote-sender'] as const };
@@ -62,7 +65,8 @@ export const fetchQuoteSender = () => apiGet<QuoteSender>('/api/quote-sender');
 
 export const saveQuoteSender = (
   change: Partial<Pick<QuoteSender, 'sender' | 'text_blocks' | 'letter' | 'ai_disclosure'>>,
-) => apiPatch<QuoteSender>('/api/quote-sender', change);
+  headers?: RequestHeaders,
+) => apiPatch<QuoteSender>('/api/quote-sender', change, headers);
 
 export const applyProfile = (name: string) =>
   apiPost<QuoteSender>(`/api/quote-sender/profiles/${encodeURIComponent(name)}`);

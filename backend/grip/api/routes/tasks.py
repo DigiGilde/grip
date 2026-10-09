@@ -39,6 +39,7 @@ from grip.schema.tasks import (
     TaskUpdateIn,
     TrackOut,
 )
+from grip.services import stale
 from grip.services.errors import NotFoundError
 from grip.tasks import catalogue, course, engine, service
 from grip.tasks.access import TaskAccess
@@ -60,6 +61,7 @@ def _out(view: TaskView) -> TaskOut:
     task = view.task
     told = view.telling
     return TaskOut(
+        version=task.version,
         headline=told.headline if told else task.title,
         doer_title=told.title if told else task.title,
         instruction=told.instruction if told else "",
@@ -503,6 +505,9 @@ async def update_task(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Deze taak is niet van jou en je beheert de zaak niet",
         )
+    # One check for the whole request: the parts below each change the task.
+    await stale.check(db, task, "deze taak")
+    stale.touch(task)
     fields = body.model_fields_set
     if not fields:
         raise HTTPException(

@@ -93,4 +93,5 @@ De code is Engels, de schermen en deze documentatie zijn Nederlands. Welke coden
 | [organisaties.md](organisaties.md) | Het register van overheidsorganisaties |
 | [wies.md](wies.md) | De koppeling met Wies |
 | [lokaal.md](lokaal.md) | De lokale omgeving en wat ermee is aangetoond |
+| [uitrol-zad.md](uitrol-zad.md) | Uitrollen op ZAD: eerst een voorbeeldinstantie, dan een echte |
 | [import-grist.md](import-grist.md) | De import uit het Grist-document |

@@ -35,7 +35,7 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from grip.core.database import Base
-from grip.models._columns import created_at, updated_at, uuid_pk
+from grip.models._columns import EditCounted, created_at, updated_at, uuid_pk
 
 ORIGIN_EXAMPLE = "example"
 ORIGIN_DERIVED = "derived"
@@ -58,7 +58,7 @@ def _person_fk(*, ondelete: str = "SET NULL") -> Mapped[uuid.UUID | None]:
     )
 
 
-class VacancyTextSharedSection(Base):
+class VacancyTextSharedSection(EditCounted, Base):
     """A section every standard text shares: what we offer, how to apply."""
 
     __tablename__ = "vacancy_text_shared_section"
@@ -78,7 +78,7 @@ class VacancyTextSharedSection(Base):
     updated_at: Mapped[datetime] = updated_at()
 
 
-class VacancyTextTemplate(Base):
+class VacancyTextTemplate(EditCounted, Base):
     """The standard vacancy text of a role."""
 
     __tablename__ = "vacancy_text_template"

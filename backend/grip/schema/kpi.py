@@ -20,6 +20,8 @@ class KpiOut(BaseModel):
     year: Annotated[int, _KPI]
     # Null when no target is set for the year.
     target_pct: Annotated[Decimal | None, _KPI]
+    # Counts the changes of the target; null when none is set.
+    target_version: Annotated[int | None, _KPI] = None
     target_cents: Annotated[int | None, _KPI]
     # Closed months with the established inzet.
     realised_cents: Annotated[int | None, _KPI]

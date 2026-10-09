@@ -28,8 +28,10 @@ export function EditSheet({ vacancy, options, open, onClose }: EditSheetProps) {
   const [problem, setProblem] = useState<string | null>(null);
   const change = useVacancyChange(
     vacancy.id,
-    (body: Parameters<typeof updateVacancy>[1]) => updateVacancy(vacancy.id, body, vacancy.version),
+    (body: Parameters<typeof updateVacancy>[1], headers) =>
+      updateVacancy(vacancy.id, body, headers),
     onClose,
+    { version: vacancy.version, restart: open },
   );
 
   function submit() {
@@ -58,6 +60,7 @@ export function EditSheet({ vacancy, options, open, onClose }: EditSheetProps) {
       busy={change.busy}
       error={problem ?? change.error}
     >
+      {change.panel}
       <TextInput label="Functie" value={title} onChange={setTitle} required />
       <TextInput label="Aantal fte" value={fte} onChange={setFte} keyboard="decimal" required />
       <DateInput label="Begindatum" value={start} onChange={setStart} optional />

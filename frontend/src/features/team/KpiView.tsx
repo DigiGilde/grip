@@ -3,7 +3,8 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
 import { formatEuro, formatPercent } from '@/lib/format';
-import { fetchKpi, kpiKey, setKpiTarget, type Kpi } from './api';
+import { useStaleChoice } from '@/ui/stale';
+import { fetchKpi, kpiKey, setKpiTarget, targetKey, type Kpi } from './api';
 import { Button, TextField } from './ui/controls';
 import { percentInput } from './ui/money';
 import { Form, Sheet } from './ui/overlays';
@@ -125,26 +126,44 @@ function TargetForm({ row, onSaved }: { row: Kpi; onSaved: () => void }) {
   const queryClient = useQueryClient();
   const [value, setValue] = useState(row.target_pct === null ? '' : String(Number(row.target_pct)));
   const [error, setError] = useState<string | null>(null);
+  const stale = useStaleChoice(targetKey(row.person_id, row.year), row.target_version, () =>
+    queryClient.invalidateQueries({ queryKey: ['team', 'kpi'] }),
+  );
+  const [sent, setSent] = useState('');
   const save = useMutation({
-    mutationFn: (pct: string) => setKpiTarget(row.person_id, row.year, pct),
+    mutationFn: ({ pct, onTop }: { pct: string; onTop?: boolean }) =>
+      setKpiTarget(row.person_id, row.year, pct, onTop ? stale.latestHeaders : stale.headers),
     onSuccess: async () => {
+      stale.saved();
       await queryClient.invalidateQueries({ queryKey: ['team', 'kpi'] });
       onSaved();
     },
-    onError: (err) => setError(errorMessage(err)),
+    onError: async (err) => {
+      if (!(await stale.caught(err))) setError(errorMessage(err));
+    },
   });
   return (
     <Form
       submitText="Bewaar target"
       submitting={save.isPending}
       error={error}
+      conflict={
+        stale.conflict
+          ? {
+              conflict: stale.conflict,
+              keepMine: () => save.mutate({ pct: sent, onTop: true }),
+              takeTheirs: onSaved,
+            }
+          : null
+      }
       onSubmit={() => {
         const pct = percentInput(value);
         if (pct === null || Number(pct) > 100) {
           setError('Vul een percentage van 0 tot en met 100 in.');
           return;
         }
-        save.mutate(pct);
+        setSent(pct);
+        save.mutate({ pct });
       }}
     >
       <TextField

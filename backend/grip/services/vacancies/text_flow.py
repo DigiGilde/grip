@@ -52,7 +52,7 @@ from grip.models.vacancy_text_flow import (
     VacancyTextVerdict,
 )
 from grip.repositories.vacancy import VacancyRepository
-from grip.services import internal_judges
+from grip.services import internal_judges, stale
 from grip.services.errors import DomainError, DomainValidationError, NotFoundError
 from grip.services.llm import ChatClient, get_chat_client
 from grip.services.vacancies import library
@@ -876,6 +876,8 @@ async def set_publication(
     published_on: date | None = None,
 ) -> VacancyPublication:
     """Record where the published vacancy can be read."""
+    await stale.check(db, vacancy, "deze vacature")
+    stale.touch(vacancy)
     if place not in PLACES:
         raise DomainValidationError("Kies waar de vacature staat.")
     url = url.strip()

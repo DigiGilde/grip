@@ -1,3 +1,6 @@
+import type { RequestHeaders } from '@/api/client';
+import { ConflictPanel } from '@/ui/ConflictPanel';
+import { SETTINGS_KEY, useStaleChoice } from '@/ui/stale';
 import { VACANCY_SECTION_MARKS } from '@/ui/text/marks';
 import { TextEditor } from '@/ui/TextEditor';
 import { useState } from 'react';
@@ -39,19 +42,63 @@ import {
 import { Button, TextInput } from './ui';
 import { useAdminBack } from '@/layout/useAdminBack';
 
-function useLibraryChange<Input>(change: (input: Input) => Promise<Library>, onDone?: () => void) {
+/** One click that changes the library: no form, so nothing to compare. */
+function useLibraryAction<Input>(change: (input: Input) => Promise<Library>) {
   const queryClient = useQueryClient();
   const mutation = useMutation({
     mutationFn: change,
-    onSuccess: (library) => {
-      queryClient.setQueryData(LIBRARY_KEY, library);
-      onDone?.();
-    },
+    onSuccess: (library) => queryClient.setQueryData(LIBRARY_KEY, library),
   });
   return {
     run: mutation.mutate,
     busy: mutation.isPending,
     error: mutation.isError ? errorMessage(mutation.error) : null,
+  };
+}
+
+/**
+ * One change of the library. With `record` it is the save of a sheet on that
+ * record: it goes out on the version the sheet was opened on, and a save that
+ * is refused because someone changed the record in between ends in `panel`.
+ */
+function useLibraryChange(
+  change: (headers?: RequestHeaders) => Promise<Library>,
+  onDone?: () => void,
+  record?: { key: string; version: number | undefined },
+) {
+  const queryClient = useQueryClient();
+  const stale = useStaleChoice(record?.key, record?.version, () =>
+    queryClient.invalidateQueries({ queryKey: LIBRARY_KEY }),
+  );
+  const [error, setError] = useState<string | null>(null);
+  const mutation = useMutation({
+    mutationFn: (onTop: boolean) => change(onTop ? stale.latestHeaders : stale.headers),
+    onSuccess: (library) => {
+      setError(null);
+      stale.saved();
+      queryClient.setQueryData(LIBRARY_KEY, library);
+      onDone?.();
+    },
+    onError: async (failure) => {
+      if (await stale.caught(failure)) setError(null);
+      else setError(errorMessage(failure));
+    },
+  });
+  return {
+    run: () => mutation.mutate(false),
+    busy: mutation.isPending,
+    error,
+    panel: stale.conflict ? (
+      <ConflictPanel
+        conflict={stale.conflict}
+        busy={mutation.isPending}
+        onKeepMine={() => mutation.mutate(true)}
+        onTakeTheirs={() => {
+          stale.clear();
+          onDone?.();
+        }}
+      />
+    ) : null,
   };
 }
 
@@ -98,20 +145,24 @@ function TemplateSheet({
   );
   const [problem, setProblem] = useState<string | null>(null);
   const shared = new Map(library.shared_sections.map((section) => [section.key, section]));
-  const change = useLibraryChange(() => {
-    const body = {
-      role_name: role.trim(),
-      aliases: aliases
-        .split(',')
-        .map((alias) => alias.trim())
-        .filter(Boolean),
-      scale_min: parseScale(low),
-      scale_max: parseScale(high),
-      function_group: group.trim() || null,
-      sections: sections.filter((section) => section.shared || section.body?.trim()),
-    };
-    return template ? changeTemplate(template.id, body) : addTemplate(body);
-  }, onClose);
+  const change = useLibraryChange(
+    (headers) => {
+      const body = {
+        role_name: role.trim(),
+        aliases: aliases
+          .split(',')
+          .map((alias) => alias.trim())
+          .filter(Boolean),
+        scale_min: parseScale(low),
+        scale_max: parseScale(high),
+        function_group: group.trim() || null,
+        sections: sections.filter((section) => section.shared || section.body?.trim()),
+      };
+      return template ? changeTemplate(template.id, body, headers) : addTemplate(body);
+    },
+    onClose,
+    template ? { key: template.id, version: template.version } : undefined,
+  );
 
   return (
     <FormSheet
@@ -122,12 +173,13 @@ function TemplateSheet({
       onSubmit={() => {
         setProblem(null);
         if (!role.trim()) return setProblem('Geef de rol waarvoor de tekst is.');
-        change.run(undefined);
+        change.run();
       }}
       onClose={onClose}
       busy={change.busy}
       error={problem ?? change.error}
     >
+      {change.panel}
       <TextInput label="Rol" value={role} onChange={setRole} required />
       <TextInput
         label="Andere namen voor deze rol"
@@ -183,8 +235,9 @@ function SharedSheet({ section, onClose }: { section: SharedSection; onClose: ()
   const [heading, setHeading] = useState(section.heading);
   const [body, setBody] = useState(section.body);
   const change = useLibraryChange(
-    () => changeSharedSection(section.key, heading.trim(), body.trim()),
+    (headers) => changeSharedSection(section.key, heading.trim(), body.trim(), headers),
     onClose,
+    { key: `shared:${section.key}`, version: section.version },
   );
   return (
     <FormSheet
@@ -192,11 +245,12 @@ function SharedSheet({ section, onClose }: { section: SharedSection; onClose: ()
       size="wide"
       title={`Gedeeld onderdeel: ${section.heading}`}
       submitText="Bewaar voor alle rollen"
-      onSubmit={() => change.run(undefined)}
+      onSubmit={() => change.run()}
       onClose={onClose}
       busy={change.busy}
       error={change.error}
     >
+      {change.panel}
       <TextInput label="Kop" value={heading} onChange={setHeading} required />
       <TextEditor
         label="Tekst"
@@ -214,9 +268,21 @@ function SharedSheet({ section, onClose }: { section: SharedSection; onClose: ()
   );
 }
 
-function SettingsSheet({ settings, onClose }: { settings: TextSettings; onClose: () => void }) {
+function SettingsSheet({
+  settings,
+  version,
+  onClose,
+}: {
+  settings: TextSettings;
+  /** Of the settings of the instance, which are saved together. */
+  version: number | undefined;
+  onClose: () => void;
+}) {
   const [values, setValues] = useState(settings);
-  const change = useLibraryChange(() => changeTextSettings(values), onClose);
+  const change = useLibraryChange((headers) => changeTextSettings(values, headers), onClose, {
+    key: SETTINGS_KEY,
+    version,
+  });
   const field = (name: keyof TextSettings) => (value: string) =>
     setValues((current) => ({ ...current, [name]: value }));
   return (
@@ -224,11 +290,12 @@ function SettingsSheet({ settings, onClose }: { settings: TextSettings; onClose:
       open
       title="Wat de teksten invullen"
       submitText="Bewaar"
-      onSubmit={() => change.run(undefined)}
+      onSubmit={() => change.run()}
       onClose={onClose}
       busy={change.busy}
       error={change.error}
     >
+      {change.panel}
       <TextInput
         label="Naam van het onderdeel"
         hint="Zoals het in een zin staat, bijvoorbeeld met het lidwoord erbij."
@@ -301,8 +368,8 @@ export function StandardTextsPage() {
   const library = useQuery({ queryKey: LIBRARY_KEY, queryFn: fetchLibrary, retry: false });
   const [sheet, setSheet] = useState<Sheet | null>(null);
   const [opened, setOpened] = useState(0);
-  const read = useLibraryChange((id: string) => markTemplateRead(id));
-  const active = useLibraryChange((input: { id: string; on: boolean }) =>
+  const read = useLibraryAction((id: string) => markTemplateRead(id));
+  const active = useLibraryAction((input: { id: string; on: boolean }) =>
     setTemplateActive(input.id, input.on),
   );
   const open = (next: Sheet) => {
@@ -498,7 +565,12 @@ export function StandardTextsPage() {
               <SharedSheet key={opened} section={sheet.section} onClose={close} />
             )}
             {sheet?.kind === 'settings' && (
-              <SettingsSheet key={opened} settings={data.settings} onClose={close} />
+              <SettingsSheet
+                key={opened}
+                settings={data.settings}
+                version={data.settings_version}
+                onClose={close}
+              />
             )}
             {sheet?.kind === 'preview' && (
               <PreviewSheet key={opened} template={sheet.template} onClose={close} />

@@ -20,6 +20,7 @@ from grip.core.config import get_settings
 from grip.models.person import Person
 from grip.models.vacancy import FormTemplate, TextKind
 from grip.repositories.vacancy import FormTemplateRepository, VacancyRepository
+from grip.services import stale
 from grip.services.errors import DomainValidationError, NotFoundError
 from grip.services.vacancies import form as forms
 from grip.services.vacancies import service
@@ -240,6 +241,8 @@ async def set_field(
 ) -> FormTemplate:
     """Say what fills one field, or that nothing does (``source`` None)."""
     template = await get_template(db, template_id)
+    await stale.check(db, template, "de koppeling van dit formulier")
+    stale.touch(template)
     fields = {field.name: field for field in forms.inspect_form(template.content)}
     rules = [dict(raw) for raw in template.mapping.get("fields", [])]
     before = next((raw for raw in rules if raw.get("name") == name), None)

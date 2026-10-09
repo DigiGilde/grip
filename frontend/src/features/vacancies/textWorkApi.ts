@@ -5,6 +5,7 @@
  */
 import { apiDelete, apiGet, apiPost, apiPut } from '@/api/client';
 import type { TextKind } from './api';
+import type { RequestHeaders } from '@/api/client';
 
 export type TextState = 'none' | 'draft' | 'in_review' | 'returned' | 'agreed' | 'settled';
 export type ActionKey =
@@ -194,12 +195,13 @@ export const setPublication = (
   place: Publication['place'],
   url: string,
   publishedOn: string,
+  headers?: RequestHeaders,
 ) =>
-  apiPut<VacancyTextWork>(`${base(id)}/publications`, {
-    place,
-    url,
-    published_on: publishedOn || null,
-  }).then(whole);
+  apiPut<VacancyTextWork>(
+    `${base(id)}/publications`,
+    { place, url, published_on: publishedOn || null },
+    headers,
+  ).then(whole);
 export const removePublication = (id: string, publicationId: string) =>
   apiDelete<VacancyTextWork>(`${base(id)}/publications/${publicationId}`).then(whole);
 
@@ -227,6 +229,7 @@ export interface TemplateSection {
 
 export interface StandardTemplate {
   id: string;
+  version?: number;
   role_name: string;
   aliases: string[];
   scale_min: number | null;
@@ -243,6 +246,7 @@ export interface StandardTemplate {
 
 export interface SharedSection {
   key: string;
+  version?: number;
   heading: string;
   body: string;
   used_by: string[];
@@ -261,6 +265,8 @@ export interface Library {
   may_manage: boolean;
   placeholders: { name: string; meaning: string }[];
   settings: TextSettings;
+  /** Of the settings of the instance, which are saved together. */
+  settings_version?: number;
   shared_sections: SharedSection[];
   templates: StandardTemplate[];
 }
@@ -280,15 +286,19 @@ const LIB = '/api/vacancy-texts';
 
 export const fetchLibrary = () => apiGet<Library>(LIB);
 export const addTemplate = (body: TemplateInput) => apiPost<Library>(`${LIB}/templates`, body);
-export const changeTemplate = (id: string, body: TemplateInput) =>
-  apiPut<Library>(`${LIB}/templates/${id}`, body);
+export const changeTemplate = (id: string, body: TemplateInput, headers?: RequestHeaders) =>
+  apiPut<Library>(`${LIB}/templates/${id}`, body, headers);
 export const markTemplateRead = (id: string) => apiPost<Library>(`${LIB}/templates/${id}/read`);
 export const setTemplateActive = (id: string, isActive: boolean) =>
   apiPost<Library>(`${LIB}/templates/${id}/active`, { is_active: isActive });
-export const changeSharedSection = (key: string, heading: string, body: string) =>
-  apiPut<Library>(`${LIB}/shared/${key}`, { heading, body });
-export const changeTextSettings = (settings: TextSettings) =>
-  apiPut<Library>(`${LIB}/settings`, settings);
+export const changeSharedSection = (
+  key: string,
+  heading: string,
+  body: string,
+  headers?: RequestHeaders,
+) => apiPut<Library>(`${LIB}/shared/${key}`, { heading, body }, headers);
+export const changeTextSettings = (settings: TextSettings, headers?: RequestHeaders) =>
+  apiPut<Library>(`${LIB}/settings`, settings, headers);
 export const previewTemplate = (id: string) =>
   apiPost<{ text: string; missing: string[] }>(`${LIB}/templates/${id}/preview`, {});
 

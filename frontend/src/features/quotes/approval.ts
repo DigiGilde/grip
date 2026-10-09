@@ -7,6 +7,7 @@ import { apiGet, apiPatch, apiPost } from '@/api/client';
 import { PATHS } from '@/paths';
 import type { QuoteContent } from './api';
 import { formatDateTime } from './format';
+import type { RequestHeaders } from '@/api/client';
 
 export type ApprovalStatus = 'none' | 'requested' | 'approved' | 'sent_back' | 'withdrawn';
 
@@ -137,14 +138,19 @@ export interface InstanceSettings {
   items: InstanceSetting[];
   /** What the next quote will be called, with the prefix as it is now. */
   next_quote_reference?: string | null;
+  /** The settings are saved together: the version of the set. */
+  settings_version?: number;
 }
 
 export function fetchInstanceSettings(): Promise<InstanceSettings> {
   return apiGet('/api/instance-settings');
 }
 
-export function saveInstanceSettings(values: Record<string, unknown>): Promise<InstanceSettings> {
-  return apiPatch('/api/instance-settings', { values });
+export function saveInstanceSettings(
+  values: Record<string, unknown>,
+  headers?: RequestHeaders,
+): Promise<InstanceSettings> {
+  return apiPatch('/api/instance-settings', { values }, headers);
 }
 
 /** Where someone with the right decides on one quote. */

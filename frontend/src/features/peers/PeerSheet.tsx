@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
+import { useStaleForm } from '@/ui/useStaleForm';
 import { formatDate } from '@/lib/format';
 import { Button, SelectField, SwitchField, TextField } from '@/features/team/ui/controls';
 import { Form, Sheet } from '@/features/team/ui/overlays';
@@ -67,30 +68,34 @@ function PeerForm({ peer, services, onSaved }: PeerFormProps) {
   const [active, setActive] = useState(peer?.is_active ?? true);
   const [error, setError] = useState<string | null>(null);
 
-  const save = useMutation({
-    mutationFn: (body: PeerInput) => {
+  const save = useStaleForm({
+    recordKey: peer?.id,
+    version: peer?.version,
+    save: (body: PeerInput, headers) => {
       if (!peer) return createPeer(body);
       const { peer_id: _unchangeable, ...changes } = body;
-      return updatePeer(peer.id, changes);
+      return updatePeer(peer.id, changes, headers);
     },
-    onSuccess: async () => {
+    refresh: () => queryClient.invalidateQueries({ queryKey: PEERS_KEY }),
+    onSaved: async () => {
       await queryClient.invalidateQueries({ queryKey: PEERS_KEY });
       onSaved();
     },
-    onError: (err) => setError(errorMessage(err)),
+    onError: setError,
+    onTakeTheirs: onSaved,
   });
 
   return (
     <Form
       submitText={peer ? 'Bewaar wijzigingen' : 'Voeg toe'}
-      submitting={save.isPending}
+      submitting={save.busy}
       error={error}
       onSubmit={() => {
         if (!peerId.trim() || !name.trim() || !/^https?:\/\//.test(baseUri.trim())) {
           setError('Vul een peer-id, een naam en een basis-URI die met http begint in.');
           return;
         }
-        save.mutate({
+        save.run({
           peer_id: peerId.trim(),
           name: name.trim(),
           organisation_tooi_uri: tooiUri.trim(),
@@ -102,6 +107,7 @@ function PeerForm({ peer, services, onSaved }: PeerFormProps) {
         });
       }}
     >
+      {save.panel}
       {peer ? null : (
         <TextField
           label="Kenmerk in FSC (peer-id)"

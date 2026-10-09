@@ -504,6 +504,8 @@ async def _sender_out(db: AsyncSession) -> dict[str, Any]:
             await instance_settings.get(db, quote_sender.AI_DISCLOSURE.key)
         ),
         "drafting_available": is_llm_configured(),
+        # The settings are saved together: one version for the set.
+        "settings_version": await instance_settings.version(db),
         "profiles": quote_sender.profile_names(),
         "placeholders": sorted(
             quote_sender.placeholders(quote_sender.EMPTY_SENDER, year=2000)

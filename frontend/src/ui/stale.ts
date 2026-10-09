@@ -20,6 +20,12 @@ export function ifMatch(
   return { 'If-Match': `"${id}:${version}"` };
 }
 
+/**
+ * The settings of the instance are saved together and share one version:
+ * this is their name in a save.
+ */
+export const SETTINGS_KEY = 'instance-settings';
+
 export interface StaleConflict {
   /** The server's sentence: who changed it and when. */
   message: string;
@@ -79,4 +85,63 @@ export function useStaleRecord<R>(refetch: () => Promise<R | null | undefined>) 
   };
   const clear = useCallback(() => setTheirs(null), []);
   return { theirs, caught, clear };
+}
+
+/**
+ * The conflict state of a form that does not compare field by field.
+ *
+ * `current` is the version of the record as the page holds it now. The form
+ * saves on `version`: the one it was opened on. After a refused save the page
+ * is refreshed (`refresh`), and the person chooses: save on top of what
+ * stands there now (`latestHeaders`), or let go of the own input. `key` is
+ * the name of the record in a save: its id, or the key the server gives.
+ *
+ * `restart` names what the form belongs to (the record, or whether the sheet
+ * is open): when it changes, the form starts from the current version again.
+ */
+export function useStaleChoice(
+  key: string | null | undefined,
+  current: number | null | undefined,
+  refresh: () => Promise<unknown>,
+  restart: unknown = null,
+) {
+  const [opened, setOpened] = useState(current);
+  const [conflict, setConflict] = useState<StaleConflict | null>(null);
+  const [seen, setSeen] = useState(restart);
+  // After a save that went through, the form continues on what it wrote:
+  // the version the page holds once it has read the record again.
+  const [follow, setFollow] = useState(false);
+  if (seen !== restart) {
+    setSeen(restart);
+    setFollow(false);
+    setOpened(current);
+    setConflict(null);
+  } else if (follow && opened !== current) {
+    setFollow(false);
+    setOpened(current);
+  }
+  const caught = async (failure: unknown): Promise<boolean> => {
+    const found = staleConflictOf(failure);
+    if (found === null) return false;
+    await refresh().catch(() => undefined);
+    setConflict(found);
+    return true;
+  };
+  /** After a save that went through: the form continues on what it wrote. */
+  const saved = useCallback((next?: number | null) => {
+    setConflict(null);
+    if (next !== null && next !== undefined) setOpened(next);
+    else setFollow(true);
+  }, []);
+  const clear = useCallback(() => setConflict(null), []);
+  return {
+    /** For the save of the form as it was opened. */
+    headers: ifMatch(key, opened),
+    /** For a save on top of what stands there now. */
+    latestHeaders: ifMatch(key, current),
+    conflict,
+    caught,
+    saved,
+    clear,
+  };
 }
