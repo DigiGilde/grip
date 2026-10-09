@@ -9,10 +9,11 @@ Dit bestand volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/). De v
 
 ### Toegevoegd in grip-opdrachtverkeer
 
-- `POST /kostenposten` (`sendCostItem`): een organisatie meldt een kostenpost aan bij de organisatie die de uitgave doet, met omschrijving, begroot bedrag, de verwachte factuurregels en eventueel de opdracht waaronder het werk valt. Een kostenpost heeft een URI, `{basis}/id/kostenpost/{uuid}`.
-- `PUT /kostenposten/{kostenpostId}/factuurregels` (`sendCostItemLines`): de uitvoerder stuurt bij elke wijziging de volledige lijst factuurregels van de kostenpost terug, met een `volgnummer` dat per kostenpost oploopt. De aanmelder vervangt haar regels door de lijst en negeert een lager volgnummer.
-- Schema's `kostenpost`, `factuurregels` en `factuurregel`; de soort van een factuurregel is `ontvangen` of `verwacht`.
-- `x-grip-caller: executor`: de uitvoerder van die kostenpost. De aanmelder is altijd de aanroepende peer; `organisatie` in een aanmelding is informatief, en de `kostenpost_uri` valt onder de basis-URI van de aanmelder.
+- Een gegeven heeft een eigenaar; een andere instantie bewaart een verwijzing en haalt de inhoud bij de eigenaar op.
+- `POST /kostenpostverzoeken` (`requestCostItem`): een organisatie vraagt de organisatie die de uitgave doet om een kostenpost aan te maken, met omschrijving, verwacht bedrag en eventueel periode en opdracht. Idempotent op de `verwijzing_uri`; een volgend verzoek met een hoger `volgnummer` vraagt om een wijziging van omschrijving en bedrag.
+- `GET /kostenposten?verwijzingUri=...` (`getCostItems`): de vrager haalt omschrijving, verwacht bedrag en factuurregels op bij een of meer verwijzingen, in een verzoek. Een verwijzing zonder kostenpost die de vrager mag lezen komt terug met `aangemaakt` op `false`.
+- Schema's `kostenpostverzoek`, `kostenposten`, `kostenpost` en `factuurregel`; de soort van een factuurregel is `ontvangen` of `verwacht`.
+- `x-grip-caller: requester`: de organisatie die de kostenpost vroeg. De vrager is altijd de aanroepende peer; `organisatie` in een verzoek is informatief, en de `verwijzing_uri` valt onder de basis-URI van de vrager.
 
 - Offerte: `kenmerk`, `uw_kenmerk`, `afzender` en `brief` in de momentopname. De brief is de tekst bij de bedragen en hoort bij de inhoud waarover de hash wordt berekend.
 - Offerteregel: `schalen` bij een personeelsregel, `jaar` bij een vast bedrag, en `maandtarieven_per_periode` voor een tarief dat binnen een kalenderjaar wijzigt. `maandtarieven_per_jaar` geldt voor een tarief dat alleen op 1 januari wijzigt.

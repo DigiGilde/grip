@@ -5,6 +5,7 @@
     "uri": "@id",
     "type": "@type",
     "aangeboden_op": "kv:aangeboden_op",
+    "aangemaakt": "kv:aangemaakt",
     "aanhef": "kv:aanhef",
     "aantal": "kv:aantal",
     "aanvraag_id": "kv:aanvraag_id",
@@ -92,10 +93,7 @@
     "kid": "kv:kid",
     "kop": "kv:kop",
     "kostendekking": "kv:kostendekking",
-    "kostenpost_uri": {
-      "@id": "kv:kostenpost_uri",
-      "@type": "@id"
-    },
+    "kostenposten": "kv:kostenposten",
     "kty": "kv:kty",
     "label_nl": "kv:label_nl",
     "maand": "kv:maand",
@@ -194,6 +192,10 @@
     "valuta": "kv:valuta",
     "van": {
       "@id": "kv:van",
+      "@type": "@id"
+    },
+    "verwijzing_uri": {
+      "@id": "kv:verwijzing_uri",
       "@type": "@id"
     },
     "verzonden_op": "kv:verzonden_op",
