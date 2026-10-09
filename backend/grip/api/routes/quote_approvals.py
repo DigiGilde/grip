@@ -136,7 +136,6 @@ async def approval_state(
     own_request = subject.person_id in await quote_approval.second_person_excluded(
         db, current, quote
     )
-    allow_self = False
     names = await quote_views.person_names(
         db,
         {
@@ -161,7 +160,7 @@ async def approval_state(
             and is_open
             and current is not None
             and current.status == APPROVAL_REQUESTED
-            and (not own_request or allow_self)
+            and not own_request
         ),
         may_withdraw=is_open
         and current is not None
@@ -337,7 +336,6 @@ async def waiting_approvals(
 ) -> dict[str, Any]:
     """Quotes that wait for the reader's approval, across assignments."""
     await _require_approver(decider, subject)
-    allow_self = bool(await instance_settings.get(db, quote_approval.ALLOW_SELF.key))
     rows = await quote_approval.waiting(db)
     names = await quote_views.person_names(
         db, {a.requested_by_id for a, _ in rows if a.requested_by_id is not None}
@@ -365,7 +363,7 @@ async def waiting_approvals(
             request_note=approval.request_note,
             total_cents=quote.total_cents,
             snapshot_hash=quote.snapshot_hash,
-            may_decide=not own or allow_self,
+            may_decide=True,
         )
         items.append(await _filtered(decider, subject, resource, value))
     return WaitingApprovalsOut().model_dump() | {"items": items}

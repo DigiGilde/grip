@@ -11,6 +11,10 @@ from grip.services.terms import PENDING_CONTRACT_TERMS
 # Contract terms that are the same in code: from standards, technical, or
 # already domain vocabulary on both sides.
 SAME_ON_BOTH_SIDES = {
+    # In the letter of a quote and the publications of a vacancy.
+    "opening",
+    "url",
+    "website",
     "id",
     "uri",
     "type",

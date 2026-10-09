@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { assignmentKeys, fetchPersonOptions } from '@/features/assignments/api';
 import { formatDate } from '@/lib/format';
@@ -12,7 +12,15 @@ import {
 import { todayIso, useVacancyChange } from './hooks';
 import { Button, DateInput, Note, SelectInput, TextInput } from './ui';
 import { FormSheet, Stack } from '@/ui/layout';
+import { useArrival } from '@/ui/arrival';
 import { OpenCell, OpenRow, ROW_ACTIONS_COLUMN, RowActions } from '@/ui/RowActions';
+
+/** What the button says that names who gives an advice or the approval. */
+const NAME_TEXT: Record<DecisionKind, string> = {
+  hr_advice: 'Noem de HR-adviseur',
+  control_advice: 'Noem de controller',
+  approval: 'Noem wie akkoord geeft',
+};
 
 const KINDS: { kind: DecisionKind; label: string; who: string }[] = [
   { kind: 'hr_advice', label: 'Advies HR', who: 'HR-adviseur' },
@@ -195,6 +203,27 @@ export function DecisionsSection({ vacancy }: { vacancy: Vacancy }) {
   })?.kind;
 
   const first = KINDS.find((entry) => entry.kind === firstToRecord);
+  // Nothing to record yet, but someone must be named: the first advice or
+  // approval without a name, for who may name.
+  const toName =
+    waiting && !first && vacancy.permissions.can_edit
+      ? KINDS.find(({ kind }) => !vacancy.decisions.some((entry) => entry.kind === kind))
+      : undefined;
+  // The head of the vacancy, a task or a link can ask for one of the three:
+  // its panel opens on arrival, to record when the reader may, else to name.
+  const [wanted, arrived] = useArrival('besluit');
+  const [handled, setHandled] = useState<string | null>(null);
+  if (wanted !== null && handled !== wanted) {
+    setHandled(wanted);
+    const found = KINDS.find((entry) => entry.kind === wanted);
+    if (found && requested) {
+      if (canRecord(vacancy, found.kind)) show(found.kind, true);
+      else if (vacancy.permissions.can_edit) show(found.kind, false);
+    }
+  }
+  useEffect(() => {
+    if (wanted !== null) arrived();
+  }, [wanted, arrived]);
 
   return (
     <Stack gap="group">
@@ -204,6 +233,15 @@ export function DecisionsSection({ vacancy }: { vacancy: Vacancy }) {
             text={`Leg ${first.label.charAt(0).toLowerCase()}${first.label.slice(1)} vast`}
             appearance="primary"
             onClick={() => show(first.kind, true)}
+          />
+        </nldd-button-group>
+      )}
+      {toName && (
+        <nldd-button-group>
+          <Button
+            text={NAME_TEXT[toName.kind]}
+            appearance="primary"
+            onClick={() => show(toName.kind, false)}
           />
         </nldd-button-group>
       )}

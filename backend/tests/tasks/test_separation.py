@@ -180,3 +180,82 @@ async def test_who_made_the_quote_does_not_accept_it_as_the_client(
     await db_session.flush()
     with pytest.raises(DomainValidationError, match="zelf maakte"):
         await accept_received_quote(db_session, quote.id, actor=people.owner)
+
+
+async def test_who_asked_and_holds_the_right_reads_that_someone_else_decides(
+    as_person, build, people, create_person, db_session
+):
+    """The sentence follows the rule of the action: she is not told to judge
+    her own quote, and it is not in her list."""
+    both = await create_person(
+        "beide@example.org", name="Bo Beide", functions=["offertegoedkeurder"]
+    )
+    assignment = await build.assignment(status="quoted", owner=both)
+    await build.line(assignment)
+    quote = await build.quote(assignment)
+    quote.issued_by_id = both.id
+    await instance_settings.set_values(
+        db_session, {quote_approval.MODE.key: quote_approval.MODE_ALWAYS}, actor=None
+    )
+    await build.approval(quote, by=both)
+    await db_session.flush()
+
+    found = (await _course(as_person(both), "assignment", assignment.id))["course"]
+    told = found["next"]
+    assert told["mine"] is False
+    assert told["action_text"] is None
+    assert "Je wacht op" in told["sentence"]
+    assert "Beoordeel" not in told["sentence"]
+    mine = (await as_person(both).get("/api/tasks/mine")).json()["items"]
+    assert not [t for t in mine if t["headline"].startswith("Beoordeel")]
+    waiting = (await as_person(both).get("/api/quote-approvals/waiting")).json()
+    assert waiting["items"] == []
+    # The other holder of the right has it.
+    theirs = (await as_person(people.approver).get("/api/tasks/mine")).json()["items"]
+    assert [t for t in theirs if t["headline"].startswith("Beoordeel")]
+
+
+async def test_when_nobody_else_can_approve_she_reads_who_grants_the_right(
+    as_person, build, create_person, db_session
+):
+    only = await create_person(
+        "enige@example.org", name="Eline Enige", functions=["offertegoedkeurder"]
+    )
+    assignment = await build.assignment(status="quoted", owner=only)
+    await build.line(assignment)
+    quote = await build.quote(assignment)
+    quote.issued_by_id = only.id
+    await instance_settings.set_values(
+        db_session, {quote_approval.MODE.key: quote_approval.MODE_ALWAYS}, actor=None
+    )
+    await db_session.flush()
+
+    # Before asking: the only holder made the quote, so nobody can approve.
+    found = (await _course(as_person(only), "assignment", assignment.id))["course"]
+    assert "Een beheerder geeft dat recht bij Team" in found["next"]["sentence"]
+
+    await build.approval(quote, by=only)
+    await db_session.flush()
+    found = (await _course(as_person(only), "assignment", assignment.id))["course"]
+    # What stands in the way is what the head shows instead of "je wacht".
+    blocked = found["next"]["blocked"]
+    assert found["next"]["mine"] is False
+    assert "Niemand anders kan deze offerte goedkeuren" in blocked
+    assert "Een beheerder geeft een collega het recht" in blocked
+
+
+async def test_the_owner_does_not_wait_for_a_planner_to_staff_her_own_assignment(
+    as_person, build, people
+):
+    assignment = await build.assignment(status="in_progress", owner=people.owner)
+    await build.line(assignment)
+    owner = as_person(people.owner)
+    mine = (await owner.get("/api/tasks/mine")).json()["items"]
+    staffing = [t for t in mine if "rol" in t["headline"].lower()]
+    assert staffing and staffing[0]["needs_me"] is True
+    assert staffing[0]["work_href"].endswith("/bemensing")
+    # A reader with no right to staff still waits for whoever can.
+    found = (await _course(as_person(people.reader), "assignment", assignment.id))[
+        "course"
+    ]
+    assert found["next"]["mine"] is False

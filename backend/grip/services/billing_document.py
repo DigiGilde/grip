@@ -58,6 +58,20 @@ _EXTRA_STYLE = """
   /* The closing lines never stand alone on a next page. */
   p.note, .colophon { break-before: avoid; }
   .colophon { break-inside: avoid; }
+  /* A quarter with a handful of roles fits one page: by spacing, at the same
+     type size. Aan, Datum and Kenmerk share one line; the rows of the
+     specification stand closer; the closing lines follow sooner. */
+  dl.letter { grid-template-columns: auto max-content auto max-content auto 1fr;
+    gap: 1mm 3mm; margin: 0 0 5mm; }
+  dl.letter dd { margin-right: 6mm; }
+  h1 { margin-bottom: 4mm; }
+  .amount-due { margin-bottom: 5mm; padding: 2mm 0; }
+  .columns { margin-bottom: 3mm; }
+  dl.facts { grid-template-columns: 34mm 1fr; }
+  h2 { margin-top: 5mm; }
+  table.lines th, table.lines td { padding-top: 0.8mm; padding-bottom: 0.8mm; }
+  table.lines tr.month-head th { padding-top: 2mm; }
+  .colophon { margin-top: 4mm; }
 """
 
 _DETAIL_ROWS = (
@@ -151,7 +165,7 @@ def _lines_table(content: dict[str, Any]) -> str:
         f'<td class="num">{format_euro(content["total_cents"])}</td></tr>'
     )
     return (
-        "<table>\n<thead><tr>"
+        '<table class="lines">\n<thead><tr>'
         + header
         + "</tr></thead>\n<tbody>\n"
         + "\n".join(body)

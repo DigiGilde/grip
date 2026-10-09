@@ -778,3 +778,88 @@ async def test_a_quote_is_not_made_while_the_letter_would_print_an_empty_sender(
     issued = await _issue(act_as, world)
     quote = await db_session.get(Quote, issued["id"])
     assert "Carla Contact" in quote.snapshot["letter"]["closing"]
+
+
+# --- a quote from before the contract settled a term ----------------------------------
+
+
+async def test_a_quote_made_under_the_old_term_keeps_its_bytes_after_the_switch(
+    act_as, configured, db_session, monkeypatch
+):
+    """The contract renamed one term of the letter (onderdeel_van became
+    valt_onder). A quote that exists was hashed with the old one: nothing may
+    put it through the new mapping again."""
+    import base64
+
+    from grip.proof import verify
+    from grip.proof.bundle import build_bundle
+    from grip.services.canonical import hash_of
+
+    world = configured
+    await _write(act_as, world, "inleiding", "Een tekst.")
+
+    # Make the quote as grip did before the switch.
+    monkeypatch.setitem(terms.PROPERTIES, "part_of", "onderdeel_van")
+    old_back = dict(terms._PROPERTIES_BACK)
+    monkeypatch.setitem(terms._PROPERTIES_BACK, "onderdeel_van", "part_of")
+    monkeypatch.delitem(terms._PROPERTIES_BACK, "valt_onder")
+    issued = await _issue(act_as, world)
+    quote = await db_session.get(Quote, issued["id"])
+    canonical = bytes(quote.canonical)
+    fingerprint = quote.snapshot_hash
+    assert b'"onderdeel_van"' in canonical and b'"valt_onder"' not in canonical
+    client = act_as(world.manager)
+    document = await client.get(f"/api/quotes/{issued['id']}/document")
+    file_hash = document.headers["x-document-sha256"]
+
+    # The switch: today's mapping.
+    monkeypatch.undo()
+    assert terms._PROPERTIES_BACK == old_back
+    assert terms.PROPERTIES["part_of"] == "valt_onder"
+    db_session.expire(quote)
+    quote = await db_session.get(Quote, issued["id"])
+
+    # The bytes and the fingerprint are what they were.
+    assert bytes(quote.canonical) == canonical
+    assert quote.snapshot_hash == fingerprint == hash_of(canonical)
+    # Read for a screen, the old term is still understood.
+    assert quote.snapshot["letter"]["sender_details"]["part_of"] == [
+        "Voorbeeldministerie"
+    ]
+    # Sent to another instance, it goes as it was issued: not translated again.
+    assert quote.contract_snapshot["brief"]["afzendergegevens"]["onderdeel_van"] == [
+        "Voorbeeldministerie"
+    ]
+    assert hash_of(__import__("rfc8785").dumps(quote.contract_snapshot)) == fingerprint
+    # The kept file is served as it was.
+    again = await act_as(world.manager).get(f"/api/quotes/{issued['id']}/document")
+    assert again.content == document.content
+    assert again.headers["x-document-sha256"] == file_hash
+    detail = (await act_as(world.manager).get(f"/api/quotes/{issued['id']}")).json()
+    assert detail["snapshot_hash"] == fingerprint
+
+    # A proof bundle carries those bytes, and the check outside grip agrees.
+    bundle = build_bundle(
+        quote_canonical=bytes(quote.canonical),
+        quote_fingerprint=quote.snapshot_hash,
+        quote_reference=quote.reference,
+        quote_uri=quote.uri,
+        document=again.content,
+        document_sha256=file_hash,
+        statement_jws="",
+        statement_hash="",
+        id_token=None,
+        idp_jwks=None,
+        idp_discovery=None,
+        instance_name="Voorbeeld",
+        instance_base_uri="https://grip.voorbeeld.example",
+        instance_jwks={"keys": []},
+    )
+    assert base64.b64decode(bundle["offerte"]["canoniek_b64"]) == canonical
+    report = verify.Report()
+    assert verify._check_quote(bundle, report) == fingerprint
+
+    # A quote made now uses the term of the contract.
+    await _write(act_as, world, "inleiding", "Een nieuwe tekst.")
+    new = await db_session.get(Quote, (await _issue(act_as, world))["id"])
+    assert b'"valt_onder"' in new.canonical and b'"onderdeel_van"' not in new.canonical

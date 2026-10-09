@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError, errorMessage } from '@/api/client';
@@ -9,6 +9,7 @@ import { VACANCY_KEYS, type TextKind, type Vacancy } from './api';
 import { todayIso } from './hooks';
 import { TEXT_KIND_LABELS } from './labels';
 import { useCaseCourse } from '@/features/tasks/course';
+import { useArrival } from '@/ui/arrival';
 import { courseLine } from '@/ui/course';
 import { TailoredSheet } from './TailoredSheet';
 import { vacancyTextWritePath } from './paths';
@@ -716,6 +717,28 @@ export function TextWork({ vacancy }: { vacancy: Vacancy }) {
   const whoseOf = (kind: TextKind) =>
     courseLine(parts.find((part) => part.subject === 'text' && part.subject_key === kind))?.who ||
     undefined;
+  const navigate = useNavigate();
+  // The head of the vacancy, a task or a link can ask to write one of the
+  // texts: the vacancy text opens its page, the motivation its sheet.
+  const [wanted, arrived] = useArrival('schrijf');
+  const [handled, setHandled] = useState<string | null>(null);
+  const asked = query.data?.texts.find((text) => text.kind === wanted && text.may_write);
+  if (asked && asked.kind !== 'vacancy_text' && handled !== wanted) {
+    const latest = asked.versions[asked.versions.length - 1];
+    setHandled(wanted);
+    setOpened((count) => count + 1);
+    setSheet({
+      kind: 'write',
+      text: asked.kind,
+      start: latest?.body ?? '',
+      basedOn: latest?.id ?? null,
+    });
+  }
+  const toPage = asked?.kind === 'vacancy_text';
+  useEffect(() => {
+    if (toPage) navigate(vacancyTextWritePath(vacancy.id), { replace: true });
+    else if (wanted !== null && query.isSuccess) arrived();
+  }, [toPage, wanted, query.isSuccess, arrived, navigate, vacancy.id]);
   if (query.isPending) return <Loading />;
   if (query.isError) return <LoadError error={query.error} retry={() => void query.refetch()} />;
   const data = query.data;

@@ -447,7 +447,14 @@ describe('MonthClosePage', () => {
   });
 
   it('tells who closes months where the way back is', async () => {
-    const closed = { ...OPEN_MONTH, month: '2026-02', closed: true, closable: false };
+    // The detail of a closed month says may_close false; the tab knows who closes.
+    const closed = {
+      ...OPEN_MONTH,
+      month: '2026-02',
+      closed: true,
+      closable: false,
+      may_close: false,
+    };
     renderTab(
       { ...OVERVIEW, periods: [Q1] },
       { '/api/assignments/a-1/months/2026-02': closed },

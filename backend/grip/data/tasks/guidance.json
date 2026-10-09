@@ -15,7 +15,11 @@
     "vacancy.decisions": "/vacatures/{vacancy_id}/advies",
     "vacancy.text": "/vacatures/{vacancy_id}/tekst",
     "vacancy.procedure": "/vacatures/{vacancy_id}/procedure",
-    "vacancy.fulfilment": "/vacatures/{vacancy_id}/vervulling"
+    "vacancy.fulfilment": "/vacatures/{vacancy_id}/vervulling",
+    "vacancy.text.write": "/vacatures/{vacancy_id}/tekst?schrijf={repeat_key}",
+    "vacancy.decision.hr": "/vacatures/{vacancy_id}/advies?besluit=hr_advice",
+    "vacancy.decision.control": "/vacatures/{vacancy_id}/advies?besluit=control_advice",
+    "vacancy.decision.approval": "/vacatures/{vacancy_id}/advies?besluit=approval"
   },
   "templates": {
     "offerte.aanvraag_uitwerken": {
@@ -217,7 +221,8 @@
       "situations": {
         "incomplete": {
           "do": "De aanvraag voor {functie} is nog niet compleet. Vul aan wat ontbreekt; daarna vraag je de vacature aan.",
-          "action": "Bereid aanvraag voor"
+          "action": "Bereid aanvraag voor",
+          "title": "Maak de aanvraag compleet"
         }
       }
     },
@@ -229,7 +234,7 @@
       "action": "Leg het advies vast",
       "why": "De vacature voor {functie} is op {ingediend_op} aangevraagd door {aanvrager}.",
       "then": "Na beide adviezen volgt het akkoord.",
-      "destination": "vacancy.decisions",
+      "destination": "vacancy.decision.hr",
       "situations": {
         "unnamed": {
           "title": "Noem wie het advies van HR geeft",
@@ -258,7 +263,7 @@
       "action": "Leg het advies vast",
       "why": "De vacature voor {functie} is op {ingediend_op} aangevraagd door {aanvrager}.",
       "then": "Na beide adviezen volgt het akkoord.",
-      "destination": "vacancy.decisions",
+      "destination": "vacancy.decision.control",
       "situations": {
         "unnamed": {
           "title": "Noem wie het advies van concern control geeft",
@@ -287,7 +292,7 @@
       "action": "Leg het akkoord vast",
       "why": "Beide adviezen op de vacature voor {functie} zijn vastgelegd.",
       "then": "Na het akkoord kan de vacature worden opengesteld of vervuld.",
-      "destination": "vacancy.decisions",
+      "destination": "vacancy.decision.approval",
       "situations": {
         "unnamed": {
           "title": "Noem wie het akkoord geeft",
@@ -353,7 +358,7 @@
       "wait": "Je wacht op {wie}, die de {tekst} voor {functie} schrijft. Jij hoeft nu niets te doen.",
       "action": "Schrijf de {tekst}",
       "why": "De vacature voor {functie} heeft een {tekst} nodig en die is nog niet vastgesteld.",
-      "destination": "vacancy.text"
+      "destination": "vacancy.text.write"
     },
     "teksten.beoordelen": {
       "title": "Beoordeel de {tekst}",
@@ -372,7 +377,7 @@
       "wait": "Je wacht op {wie}, die de opmerkingen op de {tekst} verwerkt. Jij hoeft nu niets te doen.",
       "action": "Verwerk de opmerkingen",
       "why": "Een beoordelaar gaf opmerkingen op de {tekst} voor {functie}.",
-      "destination": "vacancy.text"
+      "destination": "vacancy.text.write"
     },
     "werving.link_vastleggen": {
       "title": "Leg de link naar de gepubliceerde vacature vast",

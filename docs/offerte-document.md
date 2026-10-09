@@ -104,3 +104,20 @@ De lijst is in de code gesloten (`SectionInput` in `grip/services/quote_drafting
 
 Een concept telt niet tot iemand het onderdeel opslaat. Bij de offerte wordt per onderdeel bewaard hoe de tekst tot stand kwam. Of dat in de brief staat, kiest de organisatie onder Beheer. De Europese AI-verordening vraagt bij tekst die een taalmodel maakt een vermelding wanneer die tekst wordt gepubliceerd om het publiek te informeren over zaken van algemeen belang, en zondert tekst uit die een mens heeft beoordeeld en waarvoor iemand de redactionele verantwoordelijkheid draagt (artikel 50, vierde lid). Een offerte is geen publicatie voor het publiek en wordt door een persoon vastgesteld. Wat de handreiking van de Rijksoverheid voor generatieve AI hierover zegt, is voor dit besluit niet nagelezen; leg de keuze voor aan wie binnen de organisatie over het gebruik van AI gaat.
 
+## Het contract kent de brief
+
+Het koppelvlak `grip-opdrachtverkeer` beschrijft `brief` in de `momentopname` van een offerte en `publicaties` op een vacature. Grip heeft het contract overgenomen (`just sync-contract`) en gebruikt de termen van het contract.
+
+Een term is daarbij veranderd. Waar de afzender onderdeel van is, heet in het contract `valt_onder`: een eigenschap mag niet de naam van een type uit de woordenlijst dragen, en `onderdeel_van` is een type relatie. Een offerte die voor de overstap is gemaakt, houdt haar bytes en haar echtheidskenmerk; daarin staat nog `onderdeel_van`. Grip leest die term nog en schrijft hem nooit meer. Zo'n offerte gaat ongewijzigd naar een andere instantie: het contract laat eigenschappen toe die het niet noemt, en het kenmerk is over de bytes berekend.
+
+### Wat een ander systeem moet doen om te volgen
+
+Voor een systeem dat het contract ook implementeert, zoals Bouwmeester op de eigen branch:
+
+1. Neem het contract over op dezelfde commit als grip (zie `backend/grip/federation/contract/CONTRACT_VERSION.json`).
+2. Niets is verplicht geworden: `brief`, `publicaties` en de velden `kenmerk`, `uw_kenmerk`, `afzender`, `schalen`, `jaar` en `maandtarieven_per_periode` zijn optioneel. Een implementatie die ze niet kent, blijft voldoen.
+3. Wie een offerte toont, toont `brief` als die er is: de onderdelen in volgorde, met de tabel van regels in het onderdeel met `met_kosten`. De tekst is platte tekst met de tekens uit de tabel hierboven, geen HTML.
+4. Reken het echtheidskenmerk altijd over de ontvangen bytes, nooit over een opnieuw opgebouwde vorm. Een offerte van voor de overstap bevat `onderdeel_van` in plaats van `valt_onder`; lees beide.
+5. Wie vacatures toont, toont per `publicaties` de plek (`intern`, `rijksbreed`, `extern`) met de link. Een adres begint met `https://`.
+6. Laat de contracttests draaien: de gegenereerde beschrijving tegen het contract, en de voorbeelden uit `examples/valid` en `examples/invalid` tegen de schema's.
+

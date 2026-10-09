@@ -161,15 +161,15 @@ async def test_the_doer_hears_what_to_do_and_where(as_person, world):
     assert "waits_on" not in task or task["waits_on"] is None
 
 
-async def test_the_owner_sees_what_others_must_do_on_the_assignment(as_person, world):
+async def test_who_may_staff_does_not_wait_for_a_planner(as_person, world):
+    """Staffing is the planner's work and that of whoever may staff the
+    assignment: the owner is not told to wait for what she may do herself."""
     body = await mine(as_person(world.owner))
-    waited = by_headline(body, "awaited")["De invulling van de rol Ontwerper"]
-    assert waited.get("needs_me", False) is False
-    assert waited["instruction"].startswith("Je wacht op een planner")
-    assert waited["instruction"].endswith("Jij hoeft nu niets te doen.")
-    assert waited.get("action_text") is None
-    assert waited["waits_on"] == "een planner"
-    # It is the planner's to do, in the planner's own words.
+    own_task = by_headline(body)["Vul de rol Ontwerper in"]
+    assert own_task["needs_me"] is True
+    assert own_task["action_text"]
+    assert "De invulling van de rol Ontwerper" not in by_headline(body, "awaited")
+    # It is the planner's to do too, in the same words.
     planner = by_headline(await mine(as_person(world.planner)))
     assert planner["Vul de rol Ontwerper in"]["needs_me"] is True
     # Nothing of the owner's own list is repeated under what is waited for.
@@ -179,7 +179,7 @@ async def test_the_owner_sees_what_others_must_do_on_the_assignment(as_person, w
 
 async def test_the_badge_counts_only_what_needs_me(as_person, world):
     owner = (await as_person(world.owner).get("/api/tasks/count")).json()
-    assert owner["to_do"] == 1
+    assert owner["to_do"] == 2
     # The requester has two advices to wait for, and nothing else to do on
     # them than naming who gives them.
     requester = await mine(as_person(world.requester))
@@ -195,7 +195,10 @@ async def test_advice_nobody_is_named_for_asks_the_requester_to_name_someone(
     task = tasks["Noem wie het advies van concern control geeft"]
     assert task["needs_me"] is True
     assert task["action_text"] == "Noem iemand"
-    assert task["work_href"] == f"/vacatures/{world.vacancy.id}/advies"
+    # Not only to the tab: the address asks it to open this advice.
+    assert task["work_href"] == (
+        f"/vacatures/{world.vacancy.id}/advies?besluit=control_advice"
+    )
     assert "door jou" in task["why"]
 
 
@@ -226,7 +229,9 @@ async def test_advice_from_someone_without_an_account_waits_on_a_beheerder(
     assert task.get("action_text") is None
 
 
-async def test_a_role_nobody_holds_says_who_can_fix_that(as_person, world, db_session):
+async def test_a_role_nobody_holds_says_who_can_fix_that(
+    as_person, world, db_session, create_person
+):
     # Take the right away from every planner.
     from sqlalchemy import delete
 
@@ -234,8 +239,21 @@ async def test_a_role_nobody_holds_says_who_can_fix_that(as_person, world, db_se
 
     await db_session.execute(delete(PersonRole).where(PersonRole.role_id == "planner"))
     await db_session.flush()
-    body = await mine(as_person(world.owner))
-    waited = by_headline(body, "awaited")["De invulling van de rol Ontwerper"]
+    # The owner may staff herself and is not blocked; who cannot reads who
+    # can fix it.
+    from sqlalchemy import select
+
+    from grip.models.assignment import Assignment
+
+    lezer = await create_person("lezer@example.org", functions=["lezer"])
+    assignment_id = (await db_session.scalars(select(Assignment.id))).first()
+    found = await as_person(lezer).get(f"/api/tasks/cases/assignment/{assignment_id}")
+    waited = next(
+        task
+        for track in found.json()["tracks"]
+        for task in track["tasks"]
+        if task["headline"] == "De invulling van de rol Ontwerper"
+    )
     assert waited["blocked"].startswith("Niemand heeft het recht Planner")
     assert "beheerder" in waited["blocked"]
 
@@ -243,7 +261,8 @@ async def test_a_role_nobody_holds_says_who_can_fix_that(as_person, world, db_se
 async def test_a_request_that_misses_something_lists_what(as_person, world, build):
     draft = await build.vacancy(requester=world.requester, title="Ontwerper")
     tasks = by_headline(await mine(as_person(world.requester)))
-    task = tasks["Vraag de vacature aan"]
+    # While something is missing the task says so, as the head does.
+    task = tasks["Maak de aanvraag compleet"]
     assert task["action_text"] == "Bereid aanvraag voor"
     assert task["work_href"] == f"/vacatures/{draft.id}"
     assert [item["text"] for item in task["checklist"]] == [
@@ -290,7 +309,8 @@ async def test_what_a_person_must_do_now_can_be_read_for_a_notification(
     items = await service.to_do_of(
         db_session, TaskAccess(db_session, decider, owner), today=date.today()
     )
-    assert [(item.kind, item.headline) for item in items] == [
-        ("uitvoering.starten", "Zet de opdracht in uitvoering")
+    assert sorted((item.kind, item.headline) for item in items) == [
+        ("bemensing.rol_invullen", "Vul de rol Ontwerper in"),
+        ("uitvoering.starten", "Zet de opdracht in uitvoering"),
     ]
     assert items[0].href and items[0].href.startswith("/opdrachten/")

@@ -179,7 +179,7 @@ describe('ApprovalPage', () => {
     });
     await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
     expect(texts(container, 'nldd-button').filter((text) => text !== 'Details')).toEqual([]);
-    expect(container.textContent).toContain('een andere collega beslist');
+    expect(container.textContent).toContain('Een andere collega met dit recht beslist');
   });
 
   it('says nothing about a quote the reader may not approve', async () => {

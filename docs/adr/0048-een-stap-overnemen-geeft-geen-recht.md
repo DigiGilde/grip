@@ -27,6 +27,8 @@ Bij het herstel bleek dat de handelingen zelf de scheiding ook niet overal afdwo
 
 **Voor de overige stappen** geldt: een stap van een recht in grip (planner, tekenbevoegde, interne goedkeurder) neemt alleen over wie dat recht heeft. Een stap van de eigenaar, een manager of de maker neemt alleen over wie de opdracht zelf mag wijzigen; mogen bemensen is niet genoeg. Een stap op een vacature neemt alleen over wie de vacature mag bewerken. Een stap die op iemand buiten grip wacht, is niet over te nemen.
 
+**Wie aan zet is volgt dezelfde regels.** De zin in de kop en de lijst Taken zeggen niet tegen iemand dat zij moet doen wat de handeling haar weigert: wie de offerte maakte of de goedkeuring vroeg en zelf het recht interne goedkeurder heeft, leest dat een ander beslist, en als er geen ander is, wie het recht kan toekennen. Omgekeerd wacht niemand op een ander voor wat zij zelf mag: een rol invullen is ook de zet van wie de opdracht mag bemensen (de eigenaar of een manager), niet alleen van een planner. Dat is geen overnemen; de stap is dan gewoon ook van haar.
+
 ## Gevolgen
 
 - Het overnemen blijft zichtbaar en terug te draaien: de taak zegt van wie ze is overgenomen en de oorspronkelijke eigenaar kan haar terugnemen.

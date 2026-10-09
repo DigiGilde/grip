@@ -131,19 +131,25 @@ describe('QuoteDraftPage', () => {
       'Standaardtekst',
     ]);
     expect(container.querySelector('nldd-text-editor')).toBeNull();
-    // One primary action, not available yet, with the reason next to it as a way in.
-    expect(texts(container, 'nldd-button[appearance="primary"]')).toEqual(['Maak offerte']);
+    // One accent: the first section still to write. Making the quote is not
+    // available yet and does not carry it.
+    expect(texts(container, 'nldd-button[appearance="primary"]')).toEqual(['Schrijf']);
     expect(
-      container.querySelector('nldd-button[appearance="primary"]')?.hasAttribute('disabled'),
-    ).toBe(true);
+      container
+        .querySelector('nldd-button[appearance="primary"]')
+        ?.getAttribute('accessible-label'),
+    ).toBe('Schrijf Inleiding');
+    const make = container.querySelector('nldd-button[text="Maak offerte"]');
+    expect(make?.hasAttribute('disabled')).toBe(true);
+    expect(make?.getAttribute('appearance')).not.toBe('primary');
     // The reason stands above the button, and names where to begin; the row
     // of that section is the one that offers to write.
     expect(container.textContent).toContain('Nog één onderdeel te schrijven: Inleiding.');
     expect(container.querySelector('[data-problems]')).toBeNull();
     const rowButtons = [...container.querySelectorAll('[data-section] nldd-button')];
-    // Every action is a real button; none is bare text.
+    // Every action is a real button; the one of the section to write leads.
     expect(rowButtons.map((el) => el.getAttribute('appearance'))).toEqual([
-      'secondary',
+      'primary',
       'secondary',
       'secondary',
     ]);
@@ -280,7 +286,7 @@ describe('QuoteDraftPage', () => {
     );
     expect(row?.querySelector('nldd-link')).toBeNull();
     expect(
-      container.querySelector('nldd-button[appearance="primary"]')?.hasAttribute('disabled'),
+      container.querySelector('nldd-button[text="Maak offerte"]')?.hasAttribute('disabled'),
     ).toBe(true);
   });
 
@@ -481,7 +487,7 @@ describe('QuoteDraftPage', () => {
     expect(texts(container, '[data-section="inleiding"] nldd-button')).toContain('Stel vast');
     // Still in the way of the quote.
     expect(
-      container.querySelector('nldd-button[appearance="primary"]')?.hasAttribute('disabled'),
+      container.querySelector('nldd-button[text="Maak offerte"]')?.hasAttribute('disabled'),
     ).toBe(true);
   });
 

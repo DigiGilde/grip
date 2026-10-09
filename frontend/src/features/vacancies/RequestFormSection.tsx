@@ -1,5 +1,5 @@
 import { DocumentLink } from '@/ui/Icon';
-import { useState } from 'react';
+import { useContext, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
 import { formatDate } from '@/lib/format';
@@ -14,6 +14,7 @@ import {
   type KeptForm,
   type RequestForms,
 } from './requestForms';
+import { VacancyShellContext } from './shell';
 import { Button, FileInput } from './ui';
 
 function madeLine(form: KeptForm): string {
@@ -46,6 +47,8 @@ function FormRow({ vacancyId, form, text }: { vacancyId: string; form: KeptForm;
  * blank form in use.
  */
 export function RequestFormSection({ vacancyId }: { vacancyId: string }) {
+  // Outside the shell of a vacancy there is no head to share the accent with.
+  const shell = useContext(VacancyShellContext);
   const queryClient = useQueryClient();
   const forms = useQuery({
     queryKey: requestFormsKey(vacancyId),
@@ -119,7 +122,12 @@ export function RequestFormSection({ vacancyId }: { vacancyId: string }) {
           {missing.length === 0 && (current === null || outOfDate) ? (
             <Button
               text={current === null ? 'Maak aanvraagformulier' : 'Maak opnieuw'}
-              appearance="secondary"
+              // The step of the vacancy is done here: this button is it.
+              appearance={
+                shell && !shell.headerPrimary && shell.nextTask === 'werving.formulier_maken'
+                  ? 'primary'
+                  : 'secondary'
+              }
               loading={make.isPending}
               onClick={() => make.mutate()}
             />

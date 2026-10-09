@@ -1,0 +1,35 @@
+{
+  "id": "7b8c9d0e-0000-4000-8000-000000000007",
+  "uri": "https://grip.opdrachtnemer.example/id/vacature/7b8c9d0e-0000-4000-8000-000000000007",
+  "organisatie": {
+    "tooi_uri": "https://identifier.overheid.nl/tooi/id/oorg/oorg00000",
+    "naam": "Voorbeelddienst",
+    "eenheid_kenmerk": "voorbeeldgilde",
+    "instantie_uri": "https://grip.opdrachtnemer.example"
+  },
+  "opdracht_uri": null,
+  "rol": "Developer",
+  "omschrijving": "Fictief profiel.",
+  "tariefcategorie": "C",
+  "fte": "1.0",
+  "periode": {
+    "begindatum": "2026-07-01",
+    "einddatum": "2027-06-30"
+  },
+  "status": "open",
+  "contact_email": "vacatures@opdrachtnemer.example",
+  "reageren_voor": "2026-06-15",
+  "gepubliceerd_op": "2026-05-25T08:00:00+02:00",
+  "publicaties": [
+    {
+      "plek": "intern",
+      "url": "https://vacatures.voorbeelddienst.example/intern/123",
+      "gepubliceerd_op": "2026-07-06"
+    },
+    {
+      "plek": "rijksbreed",
+      "url": "https://vacatures.voorbeeld.example/rijk/123",
+      "gepubliceerd_op": "2026-07-13"
+    }
+  ]
+}

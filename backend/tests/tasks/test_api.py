@@ -93,9 +93,14 @@ def test_every_field_has_a_data_class():
 
 async def test_my_tasks_are_the_ones_for_my_role(as_person, world):
     owner = (await as_person(world.owner).get("/api/tasks/mine")).json()
-    assert titles(owner) == {"Zet de opdracht in uitvoering"}
-    assert owner["counts"] == {"open": 1, "to_do": 1, "overdue": 0}
-    task = owner["items"][0]
+    # Staffing her own assignment is hers to do as well as a planner's.
+    assert titles(owner) == {"Zet de opdracht in uitvoering", "Vul de rol Ontwerper in"}
+    assert owner["counts"] == {"open": 2, "to_do": 2, "overdue": 0}
+    task = next(
+        item
+        for item in owner["items"]
+        if item["title"] == "Zet de opdracht in uitvoering"
+    )
     assert task["is_mine"] is True
     assert task["case_label"] == "Opdracht Alfa 2026"
     assert task["assignee_label"] == "Eigenaar van de opdracht"
@@ -121,7 +126,7 @@ async def test_my_tasks_are_the_ones_for_my_role(as_person, world):
 
 async def test_the_badge_counts_what_is_mine(as_person, world):
     response = await as_person(world.owner).get("/api/tasks/count")
-    assert response.json() == {"open": 1, "to_do": 1, "overdue": 0}
+    assert response.json() == {"open": 2, "to_do": 2, "overdue": 0}
     outsider = await as_person(world.outsider).get("/api/tasks/count")
     assert outsider.json()["open"] == 0
 

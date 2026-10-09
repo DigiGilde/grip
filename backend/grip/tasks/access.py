@@ -240,6 +240,16 @@ class TaskAccess:
         if task.assignee_person_id is not None:
             return task.assignee_person_id == person_id
         role = task.assignee_role
+        if role == "planner" and task.assignment_id is not None:
+            # Staffing is the planner's work, and also that of whoever may
+            # staff this assignment: its owner or a manager does not wait
+            # for a planner to do what she may do herself.
+            if role in self.subject.functions:
+                return True
+            resource = Resource.assignment(task.assignment_id)
+            return await self._may(
+                Action.READ, resource, DataClass.ASSIGNMENT_BASIC
+            ) and await self._may(Action.EDIT, resource, DataClass.STAFFING)
         if role in catalogue.FUNCTION_ROLES:
             if role not in self.subject.functions:
                 return False

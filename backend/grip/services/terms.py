@@ -86,7 +86,6 @@ PROPERTIES: dict[str, str] = {
     "month": "maand",
     "monthly_rate": "maandtarief",
     "monthly_rates_per_year": "maandtarieven_per_jaar",
-    # Pending in the contract; see PENDING_CONTRACT_TERMS.
     "monthly_rate_periods": "maandtarieven_per_periode",
     "name": "naam",
     "namespace": "naamruimte",
@@ -134,22 +133,7 @@ PROPERTIES: dict[str, str] = {
     "valid_until": "geldig_tot_en_met",
     "validity": "geldigheid",
     "year": "jaar",
-}
-
-# Terms grip already writes that the contract does not describe yet. They
-# are translated like the others, so the canonical form of a quote is Dutch
-# throughout. The contract's schemas allow properties they do not name, so
-# such a quote validates. Move a term to PROPERTIES once the contract repo
-# has it; the test that compares PROPERTIES with the vendored schemas then
-# covers it.
-#
-# Waiting for the contract (offerte.schema.json, in ``momentopname``):
-#   kenmerk      string, the reference of the quote, e.g. "DG-2026-0007"
-#   uw_kenmerk   string, optional, the client's own reference
-#   afzender     string, the organisation that sends the quote
-#   schalen      array of integers on a personnel line: the scales that the
-#                tariefcategorie of the line covers in the year it starts
-PENDING_PROPERTIES: dict[str, str] = {
+    # A quote: its reference, sender and scales.
     "reference": "kenmerk",
     "client_reference": "uw_kenmerk",
     "sender": "afzender",
@@ -167,16 +151,19 @@ PENDING_PROPERTIES: dict[str, str] = {
     "with_costs": "met_kosten",
     "numbered": "genummerd",
     "sender_details": "afzendergegevens",
-    "part_of": "onderdeel_van",
+    "part_of": "valt_onder",
     "unit": "eenheid",
     "visiting_address": "bezoekadres",
     "postal_address": "postadres",
     "signatures": "ondertekening",
     "on_behalf_of": "namens",
     "billing_annex": "bijlage_factuurinformatie",
+    # Where a vacancy can be read by anyone.
+    "publications": "publicaties",
+    "place": "plek",
 }
 
-_ALL_PROPERTIES: dict[str, str] = {**PROPERTIES, **PENDING_PROPERTIES}
+_ALL_PROPERTIES: dict[str, str] = PROPERTIES
 
 # Per code name of a property: code value to contract value of its code list.
 VALUES: dict[str, dict[str, str]] = {
@@ -204,6 +191,11 @@ VALUES: dict[str, dict[str, str]] = {
         "open": "open",
         "filled": "ingevuld",
         "withdrawn": "ingetrokken",
+    },
+    "place": {
+        "internal": "intern",
+        "government_wide": "rijksbreed",
+        "external": "extern",
     },
     "basis": {
         "actual_allocation": "werkelijke_inzet",
@@ -268,6 +260,14 @@ SCHEMAS: dict[str, str] = {
 OPAQUE: frozenset[str] = frozenset({"type_details", "keys"})
 
 _PROPERTIES_BACK = {term: name for name, term in _ALL_PROPERTIES.items()}
+
+# Terms that only occur in content frozen before the contract settled them.
+# A quote keeps the bytes it was issued with (ADR 0020), so its old term is
+# still read; nothing is ever written with it again.
+#   onderdeel_van: what an organisation is part of, in the sender's details
+#   of a quote as a letter. The contract names it valt_onder, because a
+#   property may not carry the name of a vocabulary type.
+_READ_ONLY_TERMS: dict[str, str] = {"onderdeel_van": "part_of"}
 _VALUES_BACK = {
     name: {term: value for value, term in values.items()}
     for name, values in VALUES.items()
@@ -282,15 +282,10 @@ assert not set(_PROPERTIES_BACK) & set(_ALL_PROPERTIES), (
 )
 
 
-# Terms grip already uses that the contract (grip-opdrachtverkeer) does not
-# describe yet. The contract lets a receiver ignore what it does not know,
-# so a message that carries one of them is still valid. An entry leaves this
-# set when the contract has the term.
-#
-# - maandtarieven_per_periode: on an offerteregel, when the monthly rate
-#   changes inside a calendar year (a rate card can start on any day): a
-#   list of {begindatum, einddatum, maandtarief}.
-PENDING_CONTRACT_TERMS = frozenset({"maandtarieven_per_periode"})
+# Terms grip uses that the contract does not describe yet. Empty: the
+# contract has every term. A term grip needs ahead of the contract goes here
+# (and into PROPERTIES), so the test that compares the two says so.
+PENDING_CONTRACT_TERMS: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True)
@@ -321,7 +316,7 @@ def _backward(value: Any, key: str | None) -> Any:
     if isinstance(value, dict):
         result = {}
         for term, item in value.items():
-            name = _PROPERTIES_BACK.get(term, term)
+            name = _PROPERTIES_BACK.get(term) or _READ_ONLY_TERMS.get(term, term)
             result[name] = item if name in OPAQUE else _backward(item, name)
         return result
     if isinstance(value, list):

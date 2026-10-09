@@ -91,7 +91,10 @@ function nextStep(
     course?.next?.task_key === 'werving.aanvraag_voorbereiden' &&
     !sheet &&
     (course.next.missing ?? []).length > 0;
-  const href = onlyMotivation ? `${action.href.replace(/\/$/, '')}/tekst` : action.href;
+  // Not only to the tab: the address asks it to open the writing at once.
+  const href = onlyMotivation
+    ? `${action.href.replace(/\/$/, '')}/tekst?schrijf=motivation`
+    : action.href;
   const there = href.split('?')[0]?.replace(/\/$/, '');
   if (!sheet && there === here) return null;
   return { text: onlyMotivation ? 'Schrijf de motivatie' : action.text, sheet, href };
@@ -263,6 +266,7 @@ export function VacancyLayout() {
             options: options.data,
             openSheet: setSheet,
             headerPrimary: step !== null,
+            nextTask: course?.next?.mine ? (course.next.task_key ?? null) : null,
           }}
         >
           <PrimaryTakenContext.Provider value={step !== null}>

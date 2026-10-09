@@ -19,6 +19,11 @@ export interface VacancyShell {
    * page. A tab gives its own next step the accent only when it does not.
    */
   headerPrimary: boolean;
+  /**
+   * The kind of work that is the reader's next step, when it is her move.
+   * The tab where that step is done gives its button the accent.
+   */
+  nextTask: string | null;
 }
 
 export const VacancyShellContext = createContext<VacancyShell | null>(null);

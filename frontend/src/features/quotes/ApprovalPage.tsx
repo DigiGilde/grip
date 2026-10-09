@@ -204,7 +204,10 @@ export function ApprovalPage() {
               </Stack>
             ) : null}
             {waiting && !approval.may_decide_approval ? (
-              <Quiet>Je vroeg deze goedkeuring zelf; een andere collega beslist.</Quiet>
+              <Quiet>
+                Je kunt je eigen offerte niet goedkeuren: wie de offerte maakte of de goedkeuring
+                vroeg, beslist er niet zelf over. Een andere collega met dit recht beslist.
+              </Quiet>
             ) : null}
           </>
         ) : null}

@@ -257,6 +257,13 @@ async def _mine_condition(access: TaskAccess) -> Any:
             & (Task.assignee_role == "manager")
             & Task.assignment_id.in_(list(roles))
         )
+        # Staffing her own assignment is also the owner's or a manager's to
+        # do; ``is_for_reader`` confirms it with the access model.
+        conditions.append(
+            by_role
+            & (Task.assignee_role == "planner")
+            & Task.assignment_id.in_(list(roles))
+        )
     return or_(*conditions)
 
 
@@ -272,7 +279,10 @@ async def my_tasks(
         .options(selectinload(Task.notes))
     )
     tasks = sorted(rows.all(), key=_sort_key)
-    return await _views(db, access, tasks, today=today)
+    # The query finds by role; whose a task really is, the access model says
+    # (not hers who asked for the approval she could otherwise give).
+    views = await _views(db, access, tasks, today=today)
+    return [view for view in views if view.is_mine]
 
 
 def counts_of(views: list[TaskView]) -> dict[str, int]:

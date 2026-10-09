@@ -19,6 +19,7 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip.core import clock
@@ -30,6 +31,7 @@ from grip.federation.bridge.organisations import (
 )
 from grip.models.assignment import Assignment
 from grip.models.quote import Quote
+from grip.models.vacancy_text_flow import VacancyPublication
 from grip.repositories.domain import AssignmentRepository
 from grip.repositories.vacancy import VacancyRepository
 from grip.services.assignments import is_shared_with, mint_uri
@@ -276,6 +278,25 @@ async def vacancy_published(db: AsyncSession, payload: dict[str, Any]) -> Built:
         "status": vacancy.status,
         "published_at": published_at.isoformat(),
     }
+    # Where anyone can read the vacancy: the public addresses recorded for
+    # it. The reference in the recruitment system is not one of them.
+    publications = (
+        await db.execute(
+            select(VacancyPublication)
+            .where(VacancyPublication.vacancy_id == vacancy.id)
+            .order_by(VacancyPublication.published_on, VacancyPublication.place)
+        )
+    ).scalars()
+    listed = [
+        {
+            "place": publication.place,
+            "url": publication.url,
+            "published_at": publication.published_on.isoformat(),
+        }
+        for publication in publications
+    ]
+    if listed:
+        message["publications"] = listed
     return {"message": message}
 
 

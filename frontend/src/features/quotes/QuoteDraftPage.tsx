@@ -83,6 +83,7 @@ function SectionBlock({
   mayDraft,
   isAdmin,
   costs,
+  next,
   problem,
   onToggle,
   onChanged,
@@ -113,6 +114,9 @@ function SectionBlock({
                 text={verb}
                 accessibleLabel={`${verb} ${section.heading}`}
                 size="sm"
+                // The first section still to write is the one thing to do
+                // now: it carries the accent until every section is written.
+                appearance={next && !open && mayEdit ? 'primary' : 'secondary'}
                 onClick={onToggle}
               />
             </nldd-cell>
@@ -468,7 +472,9 @@ export function QuoteDraftPage() {
                 ) : mayEdit ? (
                   <Button
                     text="Maak offerte"
-                    appearance="primary"
+                    // The accent only once it can be done; until then it is
+                    // on the first section to write.
+                    appearance={canMake ? 'primary' : 'secondary'}
                     disabled={!canMake}
                     onClick={() => {
                       setError(null);

@@ -440,6 +440,7 @@ export function MonthClosePage() {
       <MonthSheet
         assignmentId={assignmentId}
         month={started ? month : null}
+        closes={data?.may_close ?? false}
         delivered={
           data?.periods.some((period) =>
             period.months.some(

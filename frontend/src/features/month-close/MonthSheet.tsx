@@ -198,6 +198,8 @@ interface MonthSheetProps {
   month: string | null;
   /** The month was handed to the financial administration already. */
   delivered?: boolean;
+  /** The reader closes the months of this assignment. */
+  closes?: boolean;
   onClose: () => void;
 }
 
@@ -206,7 +208,7 @@ interface MonthSheetProps {
  * what was worked? A closed month shows what was settled, and lets who may
  * reopen it.
  */
-export function MonthSheet({ assignmentId, month, delivered, onClose }: MonthSheetProps) {
+export function MonthSheet({ assignmentId, month, delivered, closes, onClose }: MonthSheetProps) {
   const queryClient = useQueryClient();
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
@@ -412,7 +414,7 @@ export function MonthSheet({ assignmentId, month, delivered, onClose }: MonthShe
             }}
           />
         </nldd-button-group>
-      ) : data?.closed && data.may_close ? (
+      ) : data?.closed && (closes || data.may_close) ? (
         // Who closes months looks here for a way back: say where it is.
         <Quiet>
           Een afgesloten maand heropent alleen een beheerder. Verandert er daarna iets aan een

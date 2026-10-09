@@ -167,9 +167,9 @@ paths:
       operationId: listAssignmentsByNode
       tags: [Corpus]
       summary: Opdrachten die naar een node verwijzen
-      description: Geeft de opdrachten waarvan `context_uris` deze node-URI bevat. Bedoeld voor een corpus-systeem dat opdrachten alleen-lezen bij een node toont. Alleen kerngegevens; geen bedragen en geen namen.
+      description: Geeft de opdrachten waarvan `context_uris` deze node-URI bevat. Bedoeld voor een corpus-systeem dat opdrachten alleen-lezen bij een node toont. Kerngegevens en, in `besteding`, de fase met de totalen begroot en besteed. Geen regels van de begroting en geen namen.
       x-grip-caller: corpus
-      x-grip-data-class: [A]
+      x-grip-data-class: [A, B]
       parameters:
         - name: nodeUri
           in: query

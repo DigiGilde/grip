@@ -165,3 +165,44 @@ def test_a_request_without_differences_says_nothing_about_them() -> None:
         "Naverrekening januari" not in html
         and "komt bovenop factuurverzoek" not in html
     )
+
+
+def test_a_quarter_with_three_roles_fits_one_page() -> None:
+    """Three months of three roles, with subtotals, the total and the closing
+    lines: one page, at the type size the document always has."""
+    from grip.services.quote_document import (
+        DocumentEngineError,
+        _find_homebrew_libraries,
+    )
+
+    _find_homebrew_libraries()
+    try:
+        from weasyprint import HTML
+    except (OSError, ImportError) as exc:  # pragma: no cover - no engine here
+        import pytest
+
+        pytest.skip(f"geen pdf-motor: {DocumentEngineError.__name__} ({exc})")
+
+    def role(month: str, label: str, name: str, amount: int) -> dict:
+        return {**_line(month, label, amount), "description": name}
+
+    months = [
+        ("2026-01", "januari 2026"),
+        ("2026-02", "februari 2026"),
+        ("2026-03", "maart 2026"),
+    ]
+    lines = [
+        role(month, label, name, amount)
+        for month, label in months
+        for name, amount in (
+            ("Developer", 1250000),
+            ("Ontwerper", 900000),
+            ("Productmanager", 1440000),
+        )
+    ]
+    content = _content(lines)
+    content["delivered_by_name"] = "Voorbeeld Een"
+    html = render_html(content, Letterhead())
+    assert len(HTML(string=html).render().pages) == 1
+    # By spacing, not by a smaller letter.
+    assert "font-size: 8.5pt" in html
