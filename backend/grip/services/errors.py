@@ -47,11 +47,21 @@ class ClosedYearError(DomainError):
 ClosedCardError = ClosedYearError
 
 
+def _month_in_words(month: str) -> str:
+    """ "2026-01" as a person reads it: "januari 2026". Anything else as given."""
+    from grip.services.reports.labels import MONTH_NAMES
+
+    year, _, number = month.partition("-")
+    if year.isdigit() and number.isdigit() and 1 <= int(number) <= 12:
+        return f"{MONTH_NAMES[int(number) - 1]} {year}"
+    return month
+
+
 class MonthClosedError(DomainError):
     def __init__(self, month: str) -> None:
         super().__init__(
-            f"De maand {month} is afgesloten voor deze opdracht. Heropen de maand "
-            "om de inzet te wijzigen."
+            f"De maand {_month_in_words(month)} is afgesloten voor deze opdracht. "
+            "Heropen de maand om de inzet te wijzigen."
         )
         self.month = month
 

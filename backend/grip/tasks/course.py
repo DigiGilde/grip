@@ -216,7 +216,7 @@ def _next(
         return (
             NextView(
                 mine=first.is_mine,
-                part=ACTS if first.is_mine else WAITS if first.can_change else WATCHES,
+                part=ACTS if first.is_mine else WAITS if first.has_part else WATCHES,
                 headline=task.title,
                 sentence=task.title,
                 who=None if first.is_mine else first.assignee_label,
@@ -231,9 +231,9 @@ def _next(
             more_waiting,
         )
     mine = told.needs_me
-    # Whoever may change the task runs the case or is the one it is for:
-    # that reader waits for the step. Anyone else only looks on.
-    part = ACTS if mine else WAITS if first.can_change or first.is_mine else WATCHES
+    # Whoever runs the case, or is the one the task is for, waits for the
+    # step. Anyone else only looks on, also when they may change the case.
+    part = ACTS if mine else WAITS if first.has_part else WATCHES
     who = None if mine else (told.waits_on or first.assignee_label)
     sentence = told.instruction
     if part == WATCHES:

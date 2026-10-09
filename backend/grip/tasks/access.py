@@ -28,7 +28,7 @@ from grip.access.quote_approval import quote_resource
 from grip.access.vacancies import vacancy_resource
 from grip.models.assignment import AssignmentRole, BudgetLine
 from grip.models.task import Task
-from grip.models.vacancy import Vacancy
+from grip.models.vacancy import Vacancy, VacancyText
 from grip.tasks import catalogue
 from grip.tasks.plan import Template, current_plan, plan_for
 
@@ -84,6 +84,7 @@ class TaskAccess:
         self._assignments: dict[UUID, CaseRights] = {}
         self._vacancies: dict[UUID, CaseRights] = {}
         self._roles: dict[UUID, str] | None = None
+        self._runs_vacancy: dict[UUID, bool] = {}
 
     async def _may(
         self, action: Action, resource: Resource, data_class: DataClass | None = None
@@ -231,6 +232,36 @@ class TaskAccess:
         return await self._may(
             Action.READ, resource, DataClass.ASSIGNMENT_BASIC
         ) and await self._may(Action.EDIT, resource, DataClass.ASSIGNMENT_BASIC)
+
+    async def has_part_in(self, task: Task) -> bool:
+        """Whether the reader runs the case of this task with others.
+
+        Being allowed to change a vacancy is not the same as having a part
+        in it: a beheerder may change every vacancy, and someone asked to
+        review a text may read it. Its requester and whoever wrote one of
+        its texts run it; anyone else looks on.
+        """
+        if task.case_kind != "vacancy":
+            return (await self.of_task(task)).edit
+        person_id = self.subject.person_id
+        if person_id is None or task.vacancy_id is None:
+            return False
+        if task.vacancy_id not in self._runs_vacancy:
+            requester = await self._db.scalar(
+                select(Vacancy.requester_id).where(Vacancy.id == task.vacancy_id)
+            )
+            wrote = await self._db.scalar(
+                select(VacancyText.id)
+                .where(
+                    VacancyText.vacancy_id == task.vacancy_id,
+                    VacancyText.created_by_id == person_id,
+                )
+                .limit(1)
+            )
+            self._runs_vacancy[task.vacancy_id] = (
+                requester == person_id or wrote is not None
+            )
+        return self._runs_vacancy[task.vacancy_id]
 
     async def is_for_reader(self, task: Task) -> bool:
         """Whether this task is the reader's to do."""

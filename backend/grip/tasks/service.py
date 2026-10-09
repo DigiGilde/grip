@@ -57,6 +57,9 @@ class TaskView:
     completed_by_name: str | None
     is_mine: bool
     can_change: bool
+    # The reader runs the case with others: its owner or a manager, the
+    # requester or a writer of a vacancy. Not whoever may merely change it.
+    has_part: bool
     # The reader holds what the step asks for and may do it for the one at
     # move; never a step where someone else must decide.
     can_take_over: bool
@@ -208,6 +211,7 @@ async def _views(
                 else None,
                 is_mine=mine,
                 can_change=can_change,
+                has_part=task.is_open and (mine or await access.has_part_in(task)),
                 can_take_over=not mine and await access.may_take_over(task),
                 can_complete=can_change and not fact_only,
                 closes_by_fact=fact_only,

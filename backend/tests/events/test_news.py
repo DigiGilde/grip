@@ -226,6 +226,36 @@ async def test_the_feed_never_shows_a_value_or_what_cannot_be_opened(
     assert seen > 5
 
 
+async def test_news_about_you_names_a_closed_assignment_without_a_link(
+    client, as_person, world, db_session
+):
+    """News about the reader can name an assignment they cannot open: their
+    own inzet that has not started, or one that is over. The name is theirs
+    to know; a link to it would lead nowhere, so there is none."""
+    _add(
+        db_session,
+        world,
+        "allocation",
+        actor=world.owner,
+        person=world.outsider,
+        new={"fte_pct": "50"},
+    )
+    await db_session.flush()
+
+    closed = await _feed(client, as_person, world.outsider)
+    item = next(item for item in closed["items"] if "ingezet" in item["text"])
+    assert world.assignment.name in item["text"]
+    assert not any(part.get("href") for part in item["parts"])
+
+    # Whoever can open the assignment keeps the link.
+    opened = await _feed(client, as_person, world.beheerder)
+    item = next(item for item in opened["items"] if "ingezet" in item["text"])
+    assert any(
+        (part.get("href") or "").startswith(f"/opdrachten/{world.assignment.id}")
+        for part in item["parts"]
+    )
+
+
 async def test_someone_who_may_not_know_who_gets_no_name(db_session, world, day):
     """The sentence about a person is built from what the reader may see."""
     decider = LocalDecider(

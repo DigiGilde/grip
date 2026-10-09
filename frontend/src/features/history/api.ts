@@ -31,6 +31,9 @@ export interface HistoryEvent {
   person_id?: string | null;
   person_name?: string | null;
   changes: EventChange[];
+  /** What happened and what changed, in the words of the server. */
+  title?: string | null;
+  lines?: string[] | null;
   details_visible: boolean;
   payload?: Record<string, unknown> | null;
   note?: string | null;

@@ -89,7 +89,7 @@
     "offerte.na_terugsturen_opnieuw_maken": {
       "title": "Maak een nieuwe offerte",
       "awaited": "Een nieuwe offerte",
-      "do": "Offerte {kenmerk} is bij de interne goedkeuring teruggestuurd. Pas de begroting van {opdracht} aan en maak daarna een nieuwe offerte.",
+      "do": "Offerte {kenmerk} is bij de interne goedkeuring teruggestuurd.{reden_terugsturen} Verwerk dat in de begroting of de tekst van {opdracht} en maak daarna een nieuwe offerte.",
       "wait": "Je wacht op {wie}, die na het terugsturen van offerte {kenmerk} een nieuwe offerte maakt. Jij hoeft nu niets te doen.",
       "action": "Pas de begroting aan",
       "why": "Offerte {kenmerk} is teruggestuurd bij de interne goedkeuring.",

@@ -441,6 +441,7 @@ async def test_a_quote_sent_back_internally_puts_the_course_back_at_the_quote(
     asked = await build.approval(quote, by=people.owner)
     asked.status = "sent_back"
     asked.decided_at = NOW
+    asked.decision_note = "De inleiding noemt het verkeerde jaar."
     await db_session.flush()
 
     found = (await _course(as_person(people.owner), "assignment", assignment.id))[
@@ -450,6 +451,11 @@ async def test_a_quote_sent_back_internally_puts_the_course_back_at_the_quote(
     assert found["current_label"] == "Offerte"
     assert found["next"]["task_key"] == "offerte.na_terugsturen_opnieuw_maken"
     assert "teruggestuurd" in found["next"]["sentence"]
+    # What the reviewer wrote is what the maker must act on.
+    assert (
+        'De reden: "De inleiding noemt het verkeerde jaar".'
+        in found["next"]["sentence"]
+    )
     headlines = await _task_headlines(
         as_person(people.owner), "assignment", assignment.id
     )
@@ -746,3 +752,68 @@ async def test_the_person_whose_move_it_is_can_be_notified_of_the_same_thing(
     to_do = await service.to_do_of(db_session, access, today=date.today())
     assert found["next"]["headline"] in {item.headline for item in to_do}
     assert NOW is not None
+
+
+async def test_on_a_vacancy_who_may_change_it_is_not_who_runs_it(
+    as_person, build, people, create_person
+):
+    """A beheerder may change every vacancy and a reviewer may read the text
+    she judges; neither runs the vacancy. They are told who is at move, and
+    the reviewer acts only on her own review."""
+    requester = await create_person(
+        "vraag@example.org", name="Vera Vraag", functions=["planner"]
+    )
+    # A reviewer who can open the vacancy by a function of her own.
+    reviewer = await create_person(
+        "oordeel@example.org", name="Olga Oordeel", functions=["planner"]
+    )
+    onlooker = await create_person(
+        "beheer@example.org", name="Bas Beheer", functions=["beheerder"]
+    )
+    vacancy = await build.vacancy(status="draft", requester=requester)
+
+    acts = (await _course(as_person(requester), "vacancy", vacancy.id))["course"]
+    assert acts["next"]["part"] == "acts"
+
+    watches = (await _course(as_person(onlooker), "vacancy", vacancy.id))["course"]
+    assert watches["next"]["part"] == "watches"
+    assert watches["next"]["sentence"].startswith("Vera Vraag is aan zet")
+    assert "wacht" not in watches["next"]["sentence"].lower()
+    assert watches["next"]["due_on"] is None
+
+    client = as_person(requester)
+    saved = await client.post(
+        f"/api/vacancies/{vacancy.id}/text-work/versions",
+        json={"kind": "vacancy_text", "body": "## Dit ga je doen\n\nBouwen."},
+    )
+    assert saved.status_code == 201, saved.text
+    asked = await client.post(
+        f"/api/vacancies/{vacancy.id}/text-work/reviews",
+        json={"kind": "vacancy_text", "reviewer_ids": [str(reviewer.id)]},
+    )
+    assert asked.status_code == 201, asked.text
+
+    def text_part(found: dict, part: str) -> list[dict]:
+        return [
+            view["next"]
+            for view in found["parts"]
+            if view["next"] and view["next"]["part"] == part
+        ]
+
+    seen = await _course(as_person(reviewer), "vacancy", vacancy.id)
+    # Her verdict is asked: that is hers to do. The rest she looks on at.
+    assert text_part(seen, "acts"), seen["parts"]
+    assert not text_part(seen, "waits")
+    assert seen["course"]["next"]["part"] == "watches"
+    assert "wacht" not in seen["course"]["next"]["sentence"].lower()
+
+    waiting = await _course(as_person(requester), "vacancy", vacancy.id)
+    # The writer waits for the verdict she asked for: her own text.
+    assert [told["sentence"] for told in text_part(waiting, "waits")] != []
+    assert all(
+        told["sentence"].startswith("Je wacht op")
+        for told in text_part(waiting, "waits")
+    )
+    looking = await _course(as_person(onlooker), "vacancy", vacancy.id)
+    assert not text_part(looking, "waits")
+    assert not text_part(looking, "acts")

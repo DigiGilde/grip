@@ -29,7 +29,7 @@ from grip.models.vacancy_hire import (
     VacancyHire,
     VacancyRecruitmentRef,
 )
-from grip.services import assignments, standing
+from grip.services import assignments, rates, standing
 from grip.services.errors import DomainValidationError, NotFoundError
 from grip.services.vacancies import service as vacancy_service
 
@@ -182,6 +182,15 @@ async def record_hire(
             source_ref=f"{ref.system}:{ref.reference}" if ref else None,
             source_url=ref.url if ref else None,
         )
+        # A new colleague has no inzetschaal yet, and inzet without one cannot
+        # be priced: the assignment's figures would read "niet bekend" from
+        # the day of the hire. The scale of the vacancy is the scale this
+        # person is hired at; it holds from the start date until someone
+        # records another.
+        if vacancy.scale is not None:
+            await rates.set_person_scale(
+                db, person.id, start_date, vacancy.scale, actor=actor
+            )
 
     hire = VacancyHire(
         vacancy_id=vacancy_id,

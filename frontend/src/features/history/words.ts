@@ -156,6 +156,8 @@ function changeText(change: EventChange): string | null {
 
 /** What happened, in one line. Names the person when the reader may know. */
 export function headline(event: HistoryEvent): string {
+  // The server words every kind and value; its sentence wins over ours.
+  if (event.title) return event.title;
   const sentence = TYPE_SENTENCES[event.type];
   const person = event.person_name;
   if (sentence) {
@@ -178,6 +180,11 @@ export function headline(event: HistoryEvent): string {
  */
 export function detail(event: HistoryEvent): string {
   if (event.erased) return 'De waarden zijn gewist';
+  if (Array.isArray(event.lines)) {
+    const lines = [...event.lines];
+    if (event.note && !lines.includes(event.note)) lines.push(event.note);
+    return lines.join(' · ');
+  }
   const from = event.changes.find((change) => change.field === 'valid_from');
   const parts = event.changes
     .filter((change) => change.field !== 'valid_from' || event.subject_kind !== 'person_scale')

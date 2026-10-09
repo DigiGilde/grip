@@ -1,82 +1,91 @@
 # Rondgang door de hele interface
 
-Bijgewerkt op 9 oktober 2026 na ronde vijf, op commit `fc04762` van de werkbranch. Vijf rondes in een eigen kopie met een echte browser, als de voorbeeldpersonen. Ronde vijf deed alleen wat ronde vier niet haalde, en is zelf ook niet compleet; wat niet is gedaan staat erbij.
+Bijgewerkt op 9 oktober 2026 na ronde zes, op commit `5bd1c57` van de werkbranch plus de herstellingen van die ronde, die nog niet zijn vastgelegd. Zes rondes in een eigen kopie met een echte browser, als de voorbeeldpersonen. Ronde zes liep in twee delen (A en B, onderaan dit document) en herstelde wat klein en duidelijk was.
 
 ## Waar het product staat
 
-De ergste fout van ronde vier is weg: met een bewaard aanvraagformulier en drie genoemde adviseurs werken Taken en de kop van de vacature voor iedereen (R407). De vacature loopt nu door tot en met advies, akkoord en "Stel open", met een adviseur buiten grip. Functiescheiding houdt stand op het scherm en op de server: niemand keurt zijn eigen offerte goed, neemt een stap over waar een ander over beslist, of legt als aanvrager zijn eigen advies vast. Geen pagina schuift zijwaarts op 390 breed of geeft een fout bij herladen. Niet gelopen, in geen enkele ronde: de vacaturetekst door beoordeling in rondes tot vervuld, een nieuwe tarievenkaart, een passkey, meldingen, twee tabbladen tegelijk, de terugknop, en de kant van de opdrachtgever.
+Alle negen reizen zijn nu minstens één keer tot het eind gelopen, de vacature tot en met vervuld. Van de 93 bevindingen uit ronde een tot en met vijf zijn er 68 hersteld en door een latere ronde bevestigd. Mail, een passkey, twee tabbladen en het bewijs van een akkoord zijn voor het eerst echt gezien en werken. Wat overblijft is een rij ruwe randen, drie vragen die een besluit vragen (A612, A608, B611), en alles wat twee gekoppelde instanties of een echte login-dienst nodig heeft.
 
-## Hoe ver elke reis kwam (ronde vier en vijf samen)
+## Hoe ver elke reis kwam (alle rondes samen)
 
 | Reis | Stand |
 |---|---|
-| 1. Opdracht winnen | Voltooid in ronde vier, met interne goedkeuring door een ander en tekenen met bewijs. Niet: mail, een node uit het corpus |
-| 2. Van gedachten veranderen | Afwijzing en afsluiten zonder opdracht gelopen in ronde vier. Niet: de nieuwe offerte na een afwijzing maken en aanbieden |
-| Interne opdracht | Voltooid in ronde vier |
-| 3. Bemensen | Ronde vijf: vanaf het bord Inzet iemand ingezet die al vol zat; de melding "Boven 100%" komt pas na het bewaren (H006). Niet: inkorten, beëindigen, verwijderen, promotie midden in een maand opnieuw |
-| 4. Werven | Ronde vijf: van voorbereiden tot en met advies (ook van iemand buiten grip, vastgelegd door de beheerder), akkoord, en de kop "Stel open"; de standaardtekst genomen en de tekstpagina geopend. Niet: de tekst invullen en door beoordeling in twee rondes, vaststellen, publiceren met link, vervullen, de variant met een kandidaat |
-| 5. Uitvoeren en factureren | Voltooid in ronde vier tot en met de factuur van een naverrekening. Ronde vijf: ook als beheerder geen actie gevonden om een maand te heropenen (R403) |
-| 6. Kosten en tarieven | Ronde vijf, deels: kostenpost gemaakt, factuur boven de begroting ("€ 1.000, Overschrijding"), de eigenaar kan dekking vastleggen. Niet: bijlage, dekking over twee opdrachten met restant, een nieuwe tarievenkaart |
-| 7. De dag van de beheerder | Deels: instelling voor goedkeuring, rechten, een nieuwe persoon (ronde vier), advies vastleggen voor iemand buiten grip. Niet: eigenaar overdragen, organisaties, tekstblokken, standaardteksten, formulier met voorbeeld, Activiteit, Meldingen, passkey |
-| 8. Alle anderen | Start en "Wat is er gebeurd" als tien personen; elk adres herladen als eigenaar; diepe links zonder recht. Niet: terugknop, twee tabbladen op één onderdeel, de kant van de opdrachtgever |
-| 9. Smal en licht | Ronde vijf: 28 adressen als eigenaar op 390 breed en in het lichte thema: geen zijwaarts schuiven, geen fout, niets dat blijft laden. Gemeten, niet elk beeld bekeken |
+| 1. Opdracht winnen | Voltooid, met interne goedkeuring door een ander (ook met een passkey), een tekenlink per mail, tekenen als gast en een bewijs dat te controleren is. Niet: een node uit het echte corpus |
+| 2. Van gedachten veranderen | Afwijzing, afsluiten zonder opdracht, intern terugsturen met reden en een nieuwe offerte daarna. Niet: de nieuwe offerte na een afwijzing door de opdrachtgever aanbieden |
+| Interne opdracht | Voltooid; de open rol staat in de kop met een knop |
+| 3. Bemensen | Inzetten boven 100 procent met waarschuwing vooraf, inkorten, verwijderen, de weigering in een afgesloten maand, een promotie midden in een maand. Niet: het bord Inzet volledig met de hand, "Open een vacature voor deze rol" |
+| 4. Werven | Voltooid tot en met vervuld, met beoordeling van de tekst in twee rondes, en de variant met een bekende kandidaat. De formulieren voor beoordelen en opmerkingen alleen via de API |
+| 5. Uitvoeren en factureren | Voltooid tot en met een naverrekening, en een aangeleverde maand heropenen met reden en opnieuw aanleveren |
+| 6. Kosten en tarieven | Kostenpost met facturen, bijlage en dekking over twee opdrachten; een nieuwe tarievenkaart midden in het jaar met voorvertoning en gevolg. Open vraag: A612 |
+| 7. De dag van de beheerder | Opdracht, persoon, elk recht, manager worden op andermans opdracht, tekstblokken, Activiteit, "Bekijk als", passkey. Niet: standaardteksten van vacatures, het formulier met voorbeeld, Meldingen, organisaties ophalen |
+| 8. Alle anderen | Start, Taken en "Wat is er gebeurd" als twaalf personen; koude links zonder recht; twee tabbladen op één onderdeel; herladen midden in een tekst. Niet: de terugknop na elk formulier, de kant van de opdrachtgever voorbij het aanvraagformulier |
+| 9. Smal en licht | Ronde vijf: 28 adressen op 390 breed en in het lichte thema zonder zijwaarts schuiven of fout. In ronde zes alleen het bord Inzet op 390 breed bekeken |
 
 ## Telling over alle rondes
 
-93 bevindingen: 77 uit ronde een tot en met drie, 12 uit ronde vier, 4 uit ronde vijf.
+117 bevindingen: 77 uit ronde een tot en met drie, 12 uit ronde vier, 4 uit ronde vijf, 24 uit ronde zes (13 in deel A, 11 in deel B). Geteld per nummer, uit de tabellen in dit document.
 
 | Stand | Aantal | Welke |
 |---|---|---|
-| Hersteld en door een tweede ronde bevestigd | 44 | ronde vier: F001, F004, F006, F009, F010, F012, F014, F015, F016, F017, F018, F019, F020, F021, F023, F024, F025, F026, F028, F030, F031, F033, F034, F036, F037, F042, G003, G007, G016; ronde vijf: F027, F032, F035, G001, G004, H004, H005, T205, R401, R405, R406, R407, R408, R409, R412 |
-| Hersteld, deels bevestigd | 3 | F011, F029, R410 |
-| Als hersteld gemeld of open, nagelopen en nog niet goed | 3 | F003, H006, R403 |
-| Als hersteld gemeld, nog door niemand nagelopen | 25 | G002, G005, G006, G008, G009, G010, G011, G012, G013, G014, G015, T202, H001, H002, H003, H007, H008, H009, H010, H011, H012, F041, R402, R404, R411 |
+| Hersteld en door een latere ronde bevestigd | 68 | ronde vier: F001, F004, F006, F009, F010, F012, F014, F015, F016, F017, F018, F019, F020, F021, F023, F024, F025, F026, F028, F030, F031, F033, F034, F036, F037, F042, G003, G007, G016; ronde vijf: F027, F032, F035, G001, G004, H004, H005, T205, R401, R405, R406, R407, R408, R409, R412; ronde zes: F003, F011, F029, G002, G005, G006, G010, G011, G013, T202, H002, H006, H007, H008, H009, H011, H012, R402, R403, R404, R410, R501, R503, R504 |
+| Hersteld, deels bevestigd of hier niet te beoordelen | 3 | G009, H010, R411 |
+| Als hersteld gemeld, nog door niemand nagelopen | 7 | G008, H001, G012, G014, G015, H003, F041 |
+| Open, opnieuw gezien | 1 | R502 |
 | Open, niet opnieuw bekeken | 14 | F002, F005, F007, F008, F013, F022, F038, F039, F040, T201, T203, T204, T206, T207 |
-| Nieuw in ronde vijf, open | 4 | R501, R502, R503, R504 |
+| Ronde zes, hersteld en nagelopen door wie herstelde | 9 | A601, A604, A607, A610, A611, B601, B602, B603, B604 |
+| Ronde zes, open | 15 | A602, A603, A605, A606, A608, A609, A612, A613, B605, B606, B607, B608, B609, B610, B611 |
 
 ## Functiescheiding, op het scherm en op de server
 
 | Handeling | Antwoord van de server | Zin |
 |---|---|---|
 | De maker en aanvrager keurt zijn eigen offerte goed (direct besluit) | 422 | "Je kunt een offerte waarvoor je zelf goedkeuring vroeg niet zelf goedkeuren. Iemand anders met dit recht beslist." |
-| Dezelfde, via de bewijsstap | 201 bij het aanmaken, daarna geweigerd bij terugkeer (`besluit_fout=geweigerd`); de goedkeuring blijft "gevraagd" | op de pagina: "Je kunt je eigen offerte niet goedkeuren: wie de offerte maakte of de goedkeuring vroeg, beslist niet" (R504: weigering komt laat) |
+| Dezelfde, via de bewijsstap | 422 bij het aanmaken | dezelfde zin |
 | "Neem deze stap over" op de goedkeurstap door de maker | 403 | "Deze stap kun je niet overnemen: je hebt het recht niet dat hij vraagt, of hij is van wie erover beslist." |
-| De goedkeurtaak aan jezelf geven door de maker | 200, zonder gevolg: hij krijgt de taak niet en de pagina biedt geen besluit | geen zin (R503) |
+| De goedkeurtaak aan jezelf geven door de maker | 422 | "Deze stap is van wie erover beslist ..." |
 | De maker geeft akkoord als opdrachtgever in dezelfde instantie | 404 | "Niet gevonden" (er is geen ontvangen offerte) |
-| De aanvrager van een vacature legt zelf het akkoord vast | 403 | "Je hebt hier geen toegang toe" |
-| De aanvrager van een vacature legt zelf een advies vast | 403 | "Je hebt hier geen toegang toe" |
+| De aanvrager van een vacature legt zelf het akkoord of een advies vast | 403 | "Je hebt hier geen toegang toe" |
+| De schrijver van een vacaturetekst beoordeelt haar eigen tekst | geweigerd | gezien in deel A |
 | Een planner neemt een stap van een ander over | 403 | "Deze stap kun je niet overnemen: ..." |
+| De eigenaar heropent een aangeleverde maand | 403 | alleen de beheerder, met een reden |
 
-Op het scherm: de aanvrager leest "Je wacht op een interne goedkeurder van offertes. Jij hoeft nu niets te doen" en heeft geen knoppen om te beslissen.
+## Toegang, nagelopen met `just check-access`
+
+78 adressen als zeven lezers op de eigen kopie, 546 pagina's: geen knop die de server zou weigeren, geen bedrag bij wie geen geld mag lezen, geen geweigerd verzoek. Eén pagina liep bij de eerste gang vast op tijd terwijl de tests tegelijk draaiden; opnieuw gelopen zonder bevinding.
+
+| Lezer | Inhoud | Leeg | Geen toegang | Niet gevonden | Actie | Lek | Fout |
+|---|---|---|---|---|---|---|---|
+| Beheerder | 64 | 7 | 1 | 6 | 0 | 0 | 0 |
+| Eigenaar | 23 | 6 | 12 | 37 | 0 | 0 | 0 |
+| Planner en manager | 41 | 8 | 20 | 9 | 0 | 0 | 0 |
+| Alleen planner | 39 | 8 | 21 | 10 | 0 | 0 | 0 |
+| Lezer | 45 | 9 | 17 | 7 | 0 | 0 | 0 |
+| Teamlid | 14 | 6 | 13 | 45 | 0 | 0 | 0 |
+| Aanvrager | 10 | 9 | 13 | 46 | 0 | 0 | 0 |
+
+De lezer "zonder rechten" bestaat niet in deze kopie en is niet nagelopen.
 
 ## De tien dingen die nu het meest tellen
 
-1. **De reis van een vacature is nog nooit tot het eind gelopen.** Tekst beoordelen in rondes, vaststellen, publiceren en vervullen zijn alleen door tests gedekt.
-2. **Vijfentwintig herstelmeldingen heeft nog niemand met de hand nagelopen**, vooral rond tarievenkaarten (G005, G013 tot en met G015), de ene klok (G008), het teruggestuurde verzoek (G009, G010) en de heropende maand (G011).
-3. **Een maand heropenen na aanlevering: geen actie voor te vinden**, ook niet als beheerder (R403). Of het bestaat en waar, weet ik niet.
-4. **De waarschuwing bij dubbel boeken komt pas na het bewaren** (H006), voor zover ik zag.
-5. **De beheerder die het advies van iemand buiten grip moet vastleggen, leest "Je wacht"** en krijgt geen knop (R501).
-6. **Een tekenbevoegde van een opdrachtgever leest intern nieuws over vacatures** in "Wat is er gebeurd" (R502).
-7. **De kop van een lege opdracht toont nog vier keer € 0** (F003).
-8. **Twee weigeringen bij functiescheiding zijn slordig**: een taak aan jezelf geven antwoordt 200 zonder gevolg (R503), en de bewijsstap wordt eerst aangemaakt en pas aan het eind geweigerd (R504). Het besluit zelf wordt in beide gevallen niet genomen.
-9. **De schrijfpagina van de offerte heeft mogelijk nog geen accent** (R411): ik vond er geen hoofdknop, maar heb het niet op beeld bekeken.
+1. **Volgt de begroting van een getekende opdracht een nieuwe tarievenkaart?** Nu wel: na het vaststellen van een kaart meldt Financieel "De begroting is € 14.580 hoger dan de getekende offerte" zonder dat iemand de begroting wijzigde (A612). Dit is een besluit, geen fout.
+2. **Mag een maand worden afgesloten terwijl een eerdere nog open is?** De server staat het toe (B611). Ook een besluit.
+3. **Mag een kostenpost gedekt worden door een personeelsregel?** De keuzelijst biedt het aan (A608). Ook een besluit.
+4. **Een gewijzigd tekstblok bereikt geen concept dat al bestond**, ook niet als niemand dat onderdeel aanraakte (B608). Een eigenaar met een open concept krijgt de oude tekst in de offerte.
+5. **Een tekenbevoegde van een opdrachtgever leest intern nieuws over vacatures** (R502), al twee rondes.
+6. **Twee mensen op één begrotingsregel: de laatste wint, zonder melding** (B610). Teksten weigeren een verouderde opslag wel.
+7. **De vervulde vacature heeft geen slotzin en biedt nog een actie die niets doet** (A606); de tab Tekst met een concept heeft drie gelijke knoppen (A603).
+8. **De beoordelaar kiezen uit iedereen in de instantie**, ook de tekenbevoegde van een opdrachtgever (A602).
+9. **Zeven herstelmeldingen heeft nog niemand met de hand nagelopen**: de twee rond middernacht (G008, H001), de naverrekening als pdf (G012), het gat tussen tarievenkaarten (G014, G015), de deels open rol (H003) en de lopende vacature in "Nieuwe vacature" (F041).
 10. **Open sinds ronde een en niet opnieuw bekeken**: één rollenlijst (F008), de node kiezen (F022), en een handvol ruwe randen.
-
-## Nagerekend in ronde vijf
-
-Alleen: een kostenpost van € 10.000 met een factuur van € 11.000 geeft "Afwijking € 1.000, Overschrijding". De ketens van ronde vier (begroting tot tekenpagina, kwartaal tot factuurverzoek, naverrekening) zijn niet opnieuw gerekend; een promotie midden in een maand en de dekking over twee opdrachten ook niet.
-
-## De ochtend erna
-
-Als tien personen de startpagina en "Wat is er gebeurd" geopend, zonder fout en zonder bedrag in de feed. De goedkeurder ziet "Beoordeel offerte"; eigenaren zien hun maanden; de lezer ziet dat het verwacht totaal € 145.000 boven de begroting komt na de dubbele boeking; teamleden lezen "Je bent ingezet op ...". Niet passend: de tekenbevoegde leest nieuws over vacatures (R502). Een zuivere planner is deze ronde niet aangemaakt.
 
 ## Wat niet te testen was, en wat dat openlaat
 
-- **Een echte login-dienst**: opnieuw inloggen bij een besluit is niet gezien; onbekend of de terugkeer goed gaat en wat een verlopen sessie doet.
-- **Mail en meldingen**: geen postvanger of achtergrondproces gestart (het script deelt poorten en een containernaam); onbekend of een tekenlink aankomt.
-- **Een telefoon, een geïnstalleerde app, een passkey**: niet geprobeerd, ook niet met een virtuele sleutel.
-- **Twee gekoppelde instanties en het echte corpus**: de kant van de opdrachtgever en de context in een concept zijn niet gezien.
-- **Terugknop en twee tabbladen tegelijk**: niet gedaan; het gedrag bij een botsing op één tekst is alleen door tests gedekt.
+- **Een echte login-dienst**: opnieuw inloggen bij een besluit is niet gezien; de passkey is alleen met een virtuele sleutel in de browser geprobeerd, niet op een telefoon of een echt apparaat.
+- **Twee gekoppelde instanties**: een aanvraag versturen en ontvangen, de ontvangen offerte, akkoord als opdrachtgever, inzage in het budget. Alleen door de twee testbestanden met twee instanties gedekt, en die slagen.
+- **Het echte corpus en het echte organisatieregister**: niet aangeroepen.
+- **Middernacht**: wat rond de wisseling van de dag speelt is alleen door tests met een klok gedekt.
+- **De terugknop na elk formulier, en herladen met een open formulier**: maar op een paar plekken gedaan.
+- **Meldingen op het scherm, de standaardteksten van vacatures, het aanvraagformulier met voorbeeld en bronnen**: niet gelopen in ronde zes.
 
 ## Ronde vijf: nieuwe bevindingen
 
@@ -550,3 +559,101 @@ Wat werkte en zo moet blijven: een recht dat om half één 's nachts is toegeken
 
 Niet gedaan: tekenen als iemand zonder persoon in grip (de ontwikkelmodus kent geen gast; de uitgenodigde is als persoon toegevoegd), opnieuw inloggen bij een echte inlogdienst na de passkey, en een passkey op een echt apparaat.
 
+## Ronde zes, deel A
+
+Gelopen op 9 oktober 2026 op commit `5bd1c57`, op een eigen kopie met een echte browser en, waar een formulier tegenwerkte, rechtstreeks via de API (dat staat er per reis bij). Deel A deed drie reizen: de rest van werven, kosten en tarieven, en bemensen met de hand.
+
+| Reis | Hoe ver |
+|---|---|
+| 4. Werven, vanaf de tekst | Standaardtekst genomen en de open plekken ingevuld in de editor (browser); een tekst op maat opgesteld (9,7 seconden, met de context uit het corpus); om een oordeel gevraagd, opmerking op een onderdeel, terug met opmerkingen, beantwoord, nieuwe versie, een verouderde opslag geweigerd (409), tweede ronde, akkoord, vastgesteld; de schrijver kan haar eigen tekst niet beoordelen (API). Link naar de gepubliceerde vacature (alleen https), verwijzing naar het wervingssysteem, vervuld met een nieuwe collega die op de rol en het bord staat (API, schermen bekeken). De variant met een bekende kandidaat vanaf een ingevulde rol, tot en met vervuld; openstellen wordt geweigerd (API). Niet: de formulieren voor beoordelen en opmerkingen in de browser |
+| 6. Kosten en tarieven | Kostenpost met twee verwachte facturen, een ontvangen factuur met bijlage, dekking over twee opdrachten met een restant, dekking boven 100 procent geweigerd, "Verdeel het restant" geopend met 20 ingevuld (API en schermen bekeken). Tarievenkaart vanaf 1 juli met 5 procent op tientallen, de voorvertoning gelezen in de browser, vastgesteld (API), het gevolg bekeken op Financieel, de afsluittab en de persoonspagina. Niet: een factuur boven het verwachte bedrag apart, de volgorde van de lijst beoordeeld |
+| 3. Bemensen | Vanaf de tab Bemensing een nieuwe inzet voor iemand die vol zit: de waarschuwing staat er voor het bewaren, de knop wordt "Bewaar boven 100%" (browser). Inplannen, inkorten, verwijderen, en de weigering in een afgesloten maand (API). Een promotie per de 16e: voorvertoning, opgeslagen, de oorzaak staat op Financieel bij de regel. Niet: het bord Inzet met de hand, vanuit een maandcel, "Open een vacature voor deze rol" |
+
+Twee ketens van bedragen, nagerekend:
+
+- Kostenpost: begroot € 20.000; ontvangen € 6.500 plus verwacht € 10.000 is € 16.500 verwacht totaal; ruimte € 3.500; dekking 50 procent (€ 8.250) en 30 procent (€ 4.950) is € 13.200; ongedekt 20 procent is € 3.300. Op de opdracht komt de helft van de ontvangen factuur, € 3.250, bij het gerealiseerde: € 73.450 werd € 76.700.
+- Herprijsde maanden: categorie B ging per 1 juli van € 12.500 naar € 13.130, C van € 15.000 naar € 15.750. Twee aangeleverde maanden van een halve inzet in C: 2 keer € 375 is € 750 naverrekening, gelijk in de voorvertoning, de taak, Financieel ("€ 750 nog aan te leveren") en de afsluittab (afgesloten € 15.750, aangeleverd € 15.000). Promotie per 16 september van B naar C: september 15 dagen tegen elk tarief is € 14.440, oktober € 15.750; verwacht totaal van de regel € 162.950, gelijk op Financieel en op de persoonspagina.
+
+| Id | Ernst | Reis, stap, wie | Wat er gebeurde | Verwacht | Stand |
+|---|---|---|---|---|---|
+| A601 | Verwarrend | reis 4, vacaturetekst schrijven; aanvrager | "Ga naar de volgende" sloeg na elke ingevulde plek de volgende over (er werd geteld hoe vaak er was gedrukt, terwijl de lijst korter werd): zeven invullingen kwamen op verkeerde plekken terecht | de eerstvolgende open plek na de cursor | Hersteld: `ui/text/openPlaces.ts` met test, gebruikt in `ui/TextEditor.tsx`; opnieuw gelopen: drie invullingen op volgorde, geen open plek overgeslagen |
+| A602 | Ruw | reis 4, "Vraag om een oordeel"; aanvrager | de lijst met beoordelaars toont iedereen in de instantie, ook de aanvrager en de tekenbevoegde van een opdrachtgever; geen voorkeur | alleen collega's die de vacature mogen lezen, de waarschijnlijke beoordelaar bovenaan | Open |
+| A603 | Ruw | reis 4, tab Tekst met een concept; aanvrager | drie gelijke knoppen ("Vraag om een oordeel", "Schrijf verder", "Stel een tekst op maat op") zonder accent; de regel erboven zegt nog "Jij: schrijf de vacaturetekst" terwijl de tekst af is | de volgende stap als accent en in de zin | Open |
+| A604 | Verwarrend | reis 4, kop van een vacature; een beheerder die geen deel heeft, en de beoordelaar van de tekst | leest "Je wacht op <aanvrager>, die ... Jij hoeft nu niets te doen"; de beoordelaar van de vacaturetekst leest dat zij wacht op het schrijven van de motivatie | wie meekijkt leest wie aan zet is, zonder "je wacht" (zoals T202 bij opdrachten) | Hersteld in deel B: `tasks/access.py`, `tasks/course.py`, test; opnieuw gelopen |
+| A605 | Ruw | reis 4, link naar de gepubliceerde vacature; aanvrager | een link voor "rijksbreed" is vast te leggen terwijl de procedure die stap nog weigert; de kop toont dan "Bekijk de vacature op Werken voor Nederland" | de plekken volgen de stappen die gezet zijn | Open |
+| A606 | Ruw | reis 4, vervulde vacature; aanvrager | na het vervullen heeft de kop geen zin meer (wie, per wanneer) en de tab Aanvraag biedt nog "Maak aanvraagformulier" | een slotzin "Vervuld: <naam> start op <datum>", geen actie die niets meer doet | Open |
+| A607 | Ruw | reis 6, dekking boven 100 procent; manager | de weigering zei "komt op 110.00 procent" | "110 procent" | Hersteld: `services/costs.py`, test |
+| A608 | Ruw | reis 6, dekking kiezen; manager | dekking en "Verdeel het restant" bieden ook personeelsregels aan (een kostenpost gedekt door de regel "Productmanager") | alleen regels met een vast bedrag, of zeggen dat het mag | Open; vraag aan de opdrachtgever van grip |
+| A609 | Ruw | reis 6, kostenpost als beheerder die haar maakte | ziet de dekking zonder actie en heeft zelf geen regels om uit te kiezen | een regel die zegt wie de dekking vastlegt | Open; niet nagekeken of die regel er staat |
+| A610 | Verwarrend | reis 4 en 6, vervullen met een nieuwe collega; aanvrager, daarna eigenaar | een nieuwe collega die bij het vervullen meteen wordt ingezet had geen inzetschaal; Financieel van de opdracht zei daarna "1 regel kon niet worden berekend" en "Gerealiseerde inzet: niet bekend" | de nieuwe collega krijgt de schaal van de vacature vanaf de startdatum | Hersteld: `services/vacancy_hire.py`, test. Aanname: de schaal van de vacature is de inzetschaal bij aanvang |
+| A611 | Ruw | reis 3, inzet wijzigen of verwijderen in een afgesloten maand; eigenaar, planner | de weigering zei "De maand 2026-01 is afgesloten" | "De maand januari 2026 is afgesloten" | Hersteld: `services/errors.py`, test |
+| A612 | Verwarrend | reis 6, een tarievenkaart vaststellen; beheerder, daarna eigenaar | een nieuwe kaart herprijst ook de begroting van een opdracht met een getekende offerte; Financieel meldt daarna "De begroting is € 14.580 hoger dan de getekende offerte" zonder dat iemand de begroting wijzigde | een besluit: volgt de begroting van een getekende opdracht de tarieven, of staat ze vast op de tarieven van de offerte | Open; vraag aan de opdrachtgever van grip. De voorvertoning noemt wel dat begrotingsregels een ander bedrag krijgen |
+| A613 | Ruw | reis 6, nieuwe tarievenkaart; beheerder | een kaart die voor een latere kaart begint krijgt van de server geen einddatum als die niet wordt meegegeven; pas het vaststellen weigert, met een duidelijke zin | de server stelt de dag voor de volgende kaart voor, zoals het formulier doet | Open; klein, het formulier vangt het af |
+
+Wat goed was en zo moet blijven: de voorvertoning van een tarievenkaart leest als gewone zinnen en noemt de naverrekening per maand; een verouderde opslag van een tekst wordt geweigerd met de naam van wie intussen opsloeg; een vacature voor een bekende kandidaat heeft een korter verloop zonder openstellen; de kostenpost toont het ongedekte deel in beeld en in de tabel met hetzelfde bedrag.
+
+## Ronde zes, deel B
+
+Gelopen op 9 oktober 2026 op commit `5bd1c57`, op een eigen kopie met een echte browser, een eigen postvanger en het achtergrondproces; waar een formulier tegenwerkte rechtstreeks via de API (dat staat erbij). Deel B deed de controle van eerdere herstellingen, de dag van de beheerder, de randen, de kant van de opdrachtgever voor zover één instantie dat toelaat, en de ochtend erna.
+
+| Deel | Hoe ver |
+|---|---|
+| Controle van herstellingen | 26 nagelopen, zie de tabel hieronder. Niet: wat een moment rond middernacht vraagt (G008, H001), de naverrekening als pdf (G012), het gat tussen tarievenkaarten (G014, G015), de deels open rol (H003), de lopende vacature in "Nieuwe vacature" (F041) |
+| 7. De dag van de beheerder | Een opdracht gemaakt via het scherm; een persoon toegevoegd (API, het formulier geopend); elk recht toegekend en ingetrokken, ook "Interne goedkeurder van offertes" (API); zichzelf manager gemaakt van de opdracht van een ander en de regel in Activiteit gelezen; een tekstblok gewijzigd: het pdf van een bestaande offerte blijft byte voor byte gelijk, een nieuw concept neemt de tekst over; instelling voor goedkeuring; Activiteit bekeken; "Bekijk als" een ander en terug (browser); een passkey vastgelegd met een virtuele sleutel en daarmee de offerte van een ander goedgekeurd, met bewijs "Bevestigd met Passkey" (browser); een maand heropend met reden en opnieuw aangeleverd. Niet: standaardteksten van vacatures, het formulier met voorbeeld en bronnen, het voorvoegsel van het kenmerk, Meldingen op beeld, een passkey intrekken, organisaties ophalen (overgeslagen: niet zeker dat de bron alleen-lezen is) |
+| Mail | Voor het eerst gezien: de mail met de tekenlink komt aan, met afzender, antwoordadres, een link op het eigen adres en de uitleg "Zo controleert u dit bericht"; de kaart toont "Gemaild op 9 okt 2026" |
+| Tekenen en bewijs | Als uitgenodigde gast getekend via het scherm; het bewijs gedownload en gecontroleerd: geldig, met drie bewezen en vier niet bewezen punten; één teken gewijzigd: ongeldig, met twee gewone zinnen. Een ander die de link opent leest "Deze offerte staat niet voor je klaar". Verlopen en ingetrokken: de server geeft 404, vernieuwen opent hem weer (API; het scherm daarbij niet bekeken) |
+| Randen | Offerte schrijven: bewaren sluit het onderdeel en opent het volgende lege; herladen midden in een onderdeel zet de niet bewaarde tekst terug en zegt dat; hetzelfde onderdeel in twee tabbladen: het tweede leest wie het intussen wijzigde, dat er niets is overschreven, en kiest tussen "Bewaar mijn tekst" en "Neem de andere tekst over". Terugknop na een taaklink die een formulier opent: terug naar Taken, vooruit opent het formulier niet opnieuw. Koude links als lezer zonder recht: Beheer, vacaturetekst, goedkeuren en een persoon geven een eigen zin; een onbekend adres zegt "Pagina niet gevonden". Een maand tweemaal afsluiten wordt geweigerd. Niet: herladen met een open formulier (het script kreeg het formulier niet open), de terugknop na elk formulier |
+| Kant van de opdrachtgever | De aanvrager ziet Start, Taken, Vacatures en Aanvragen; het formulier "Offerte aanvragen" zegt dat het verkeer met andere organisaties uitstaat en heeft geen opdrachtnemer om te kiezen. Verder is er in één instantie niets te lopen: versturen, ontvangen, de ontvangen offerte en akkoord als opdrachtgever vragen twee gekoppelde instanties |
+| De ochtend erna | Feed en Taken gelezen als twaalf personen, met een nieuwe zuivere planner. Geen bedrag in de feed. De planner krijgt de open rollen als taak en nieuws over nieuwe opdrachten; de aanvrager heeft niets; teamleden lezen "Je bent ingezet op ...". Elke link in elke feed geopend als die lezer: vijf openden niet (B604, hersteld). De tekenbevoegde leest nog steeds nieuws over vacatures (R502) |
+
+De vraag over de feed, met bewijs: een leidinggevende leest dat haar medewerker is ingezet op een opdracht die zij zelf niet kan openen, en een teamlid leest over zijn eigen inzet op een opdracht die is afgerond. Het nieuws is van hen en de naam van de opdracht mogen zij weten; de link gaf "Niet gevonden". Nu staat de naam er zonder link voor wie de opdracht niet kan openen, en met link voor wie dat wel kan.
+
+Nagerekend: na heropenen van februari en opnieuw aanleveren is afgesloten € 105.200 gelijk aan aangeleverd € 105.200; het tweede verzoek zegt dat het februari uit het eerste vervangt (€ 32.900) en dat het verschil € 500 is.
+
+| Id | Ernst | Reis, stap, wie | Wat er gebeurde | Verwacht | Stand |
+|---|---|---|---|---|---|
+| B601 | Verwarrend | interne goedkeuring, na terugsturen; maker | de kop zei "Pas de begroting aan en maak daarna een nieuwe offerte" zonder de reden van de beoordelaar, ook als de reden over de tekst ging | de reden in de zin, en niet alleen de begroting als uitweg | Hersteld: de zin noemt de reden en zegt "Verwerk dat in de begroting of de tekst"; `tasks/telling.py`, `data/tasks/guidance.json`, test; opnieuw gelopen. De knop heet nog "Pas de begroting aan" |
+| B602 | Ruw | reis 5, aanleveren zonder factuurgegevens; eigenaar | "het factuuradres en postcode en plaats ontbreekt" | "ontbreken" bij meer dan één | Hersteld: `services/billing_deliveries.py`, test |
+| B603 | Verwarrend | Beheer, Activiteit; beheerder | het scherm maakte zijn eigen zinnen uit de ruwe velden: "Status draft", en regels als "Gegevens toegevoegd: Totaal € 33.400" voor een soort zonder naam, terwijl de server elke regel al in woorden meegeeft | de woorden van de server | Hersteld: het scherm neemt de zin en de regels van de server; `features/history/words.ts`, test; opnieuw bekeken |
+| B604 | Verwarrend | "Wat is er gebeurd"; leidinggevende, teamlid | vijf links naar een opdracht die de lezer niet kan openen | de naam zonder link | Hersteld: `events/news.py`, test; opnieuw gelopen |
+| B605 | Ruw | interne opdracht; eigenaar | de server noemt bij een interne opdracht ook "offerte gemaakt" en "aangevraagd" als toegestane overgang | alleen wat een interne opdracht kan worden | Open; alleen in het antwoord van de API gezien, niet op het scherm |
+| B606 | Ruw | reis 3, formulier van een inzet; planner | "Verwijder de inzet" zit achter een los menu met drie punten onderaan het formulier; de waarschuwing boven 100 procent eindigt met "De knop zegt wat je bewaart", een zin over de interface | de actie waar je haar zoekt; een waarschuwing die alleen over de inzet gaat | Open; gebied van deel A |
+| B607 | Ruw | Team, voorstellen uit Wies; beheerder | de pagina toont blijvend "Ophalen op 8 okt 2026 is mislukt, Wies gaf status 403" | een zin die zegt wat de beheerder kan doen, of niets als er niets te doen is | Open; gebied van deel A |
+| B608 | Verwarrend | Beheer, tekstblokken van de offerte; beheerder, daarna eigenaar | een gewijzigd tekstblok komt in een nieuw concept, niet in een concept dat al bestond en waarvan niemand dat onderdeel had aangeraakt | een onderdeel dat niemand wijzigde volgt het blok, zoals de code zelf belooft | Open; niet uitgezocht of dit zo bedoeld is |
+| B609 | Ruw | rechten; beheerder | een beheerder kan zijn eigen recht als beheerder intrekken zonder vraag zolang er een tweede is; daarna kan alleen die ander het teruggeven | een bevestiging, of alleen een ander kan het | Open; via de API gedaan, het scherm niet bekeken |
+| B610 | Ruw | begrotingsregel in twee tabbladen; eigenaar | de laatste die bewaart wint, zonder melding; onderdelen van een offerte en vacatureteksten weigeren een verouderde opslag wel | dezelfde weigering | Open |
+| B611 | Verwarrend | reis 5, maand afsluiten; eigenaar | mei is af te sluiten terwijl april nog open is | een besluit: mag dat, en zo ja, zegt het scherm het | Open; via de API gedaan; vraag aan de opdrachtgever van grip |
+
+### Ronde zes: controle van eerdere bevindingen
+
+| Nr | Uitkomst op 9 oktober 2026 (5bd1c57) |
+|---|---|
+| G002 | bevestigd: een verouderde offerte biedt "Details" en "Maak nieuwe offerte", geen "Bied aan" |
+| G005, G013 | bevestigd: een nieuwe kaart stelt de dag na de laatste kaart voor, welke stand die ook heeft |
+| G006 | bevestigd: geen lege kop "Contactpersoon"; maken wordt geweigerd met wat de afzender nog mist |
+| G009 | deels: de geschiedenis van het verzoek heeft wie, wanneer en waarom (API); de zin op de kaart niet op beeld gezien |
+| G010 | bevestigd: na terugsturen zegt de kop niet meer "Vraag die aan" (zie B601 voor de zin die er nu staat) |
+| G011 | bevestigd, zie nagerekend |
+| T202 | bevestigd: wie meekijkt op een opdracht leest "... is aan zet"; voor een vacature gold dat nog niet (A604, hersteld in deze ronde) |
+| H002 | bevestigd: een passage herschrijven geeft in ruim drie seconden een tekst terug |
+| H004 | de weigering van de server opnieuw bevestigd (maker en planner 403); de knop niet opnieuw op beeld |
+| H006 | bevestigd: vanuit een maandcel staat de waarschuwing er voor het bewaren, met "Bewaar boven 100%" |
+| H007 | bevestigd, maar verstopt (B606) |
+| H008 | bevestigd: de kaart houdt "Intern goedgekeurd op ... door ..." na het aanbieden |
+| H009 | bevestigd op beeld: het bord opent op 390 breed met de lopende maand naast de namen |
+| H010 | niet te beoordelen in deze kopie: de voorbeeldpersonen met alleen een recht hebben hier ook een schaal |
+| H011 | bevestigd: geen geweigerd verzoek aan het corpus voor een lezer |
+| H012 | bevestigd: de controle met een naam met een spatie vindt de persoon |
+| F003 | bevestigd: een nieuwe opdracht toont geen nullen en zegt "Maak de begroting" |
+| F011 | bevestigd: bewaren sluit het onderdeel, meldt het en opent het volgende lege |
+| F029 | bevestigd: het factuurverzoek van een kwartaal met drie rollen is één pagina |
+| R402 | bevestigd: "Vul de rol in" met knop bij een interne opdracht |
+| R403 | bevestigd: "Heropen <maand>" in het menu van de periode voor de beheerder; de eigenaar wordt geweigerd; een reden is verplicht |
+| R404 | bevestigd: de lijst zegt "Jij: maak de aanvraag compleet" |
+| R410 | bevestigd: "De volgende offerte heet ..." |
+| R411 | deels: bij lege onderdelen is "Maak offerte" gedimd; het accent op "Schrijf" niet op beeld beoordeeld |
+| R501 | bevestigd: de beheerder leest "Leg het advies vast ..." met knop |
+| R502 | nog open: de tekenbevoegde leest nieuws over vacatures |
+| R503, R504 | bevestigd: 422 met de zin, de bewijsstap wordt bij het aanmaken geweigerd |
+| A604 | hersteld in deze ronde: op een vacature is wie haar mag wijzigen niet vanzelf wie haar loopt. De aanvrager en wie een tekst schreef wachten; een beheerder zonder deel en een beoordelaar lezen "... is aan zet"; de beoordelaar is alleen aan zet voor haar eigen oordeel. `tasks/access.py`, `tasks/service.py`, `tasks/course.py`, test met de drie standen voor de vacature en de tekst; opnieuw gelopen als beheerder, lezer en planner |
+| G008, H001, G012, G014, G015, H003, F041 | niet nagelopen |

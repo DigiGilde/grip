@@ -34,7 +34,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip.access.relations import RelationSource
-from grip.access.types import Subject
+from grip.access.types import DataClass, Resource, ResourceKind, Subject
 from grip.core import clock
 from grip.events.reading import EventAccess
 from grip.models.assignment import Assignment
@@ -606,6 +606,10 @@ class _Raw:
     count: int = 1
     # The reader is the person this is about.
     about_reader: bool = False
+    # The reader may open the page of the object. News about the reader or
+    # someone they lead can name an assignment that stays closed to them:
+    # the name is theirs to know, a link to it would lead nowhere.
+    openable: bool = True
 
     @property
     def target(self) -> UUID | None:
@@ -914,7 +918,7 @@ def _sentence(
         return (Part(text, href),) if href else (Part(text),)
     before, _, after = text.partition("{object}")
     href = None
-    if object_name and raw.object_kind and raw.object_id:
+    if object_name and raw.object_kind and raw.object_id and raw.openable:
         href = _HREFS[raw.object_kind].format(id=raw.object_id)
         if rule.tab and raw.object_kind != "person":
             href += f"/{rule.tab}"
@@ -988,6 +992,16 @@ async def _names(
 
 
 # -- the feed ------------------------------------------------------------------------
+
+
+async def _openable(
+    access: EventAccess, object_kind: str | None, object_id: UUID | None
+) -> bool:
+    """Whether the reader can open the assignment a piece of news names."""
+    if object_kind != "assignment" or object_id is None:
+        return True
+    resource = Resource(ResourceKind.ASSIGNMENT, id=object_id, assignment_id=object_id)
+    return await access.may(resource, DataClass.ASSIGNMENT_BASIC)
 
 
 async def seen_seq(db: AsyncSession, person_id: UUID) -> int | None:
@@ -1074,6 +1088,7 @@ async def read(
                 seqs=[event.seq],
                 actors={(event.actor_kind, event.actor_person_id)},
                 about_reader=event.person_id == subject.person_id,
+                openable=await _openable(access, object_kind, object_id),
             )
         )
 

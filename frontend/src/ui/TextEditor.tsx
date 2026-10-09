@@ -15,6 +15,7 @@
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react';
 import { orUndef, useNlddEvent } from '@/components/nldd/events';
 import { openPlaces, toStored, type TextMarks } from './text/marks';
+import { OPEN_PLACE, nextOpenPlace } from './text/openPlaces';
 
 if (import.meta.env.MODE !== 'test') void import('./text/register');
 
@@ -46,7 +47,7 @@ interface EditorElement extends HTMLElement {
   focus(): void;
   getSelection?(): { start: number; end: number; quote: string; empty: boolean };
   view?: {
-    state: { doc: { toString(): string } };
+    state: { doc: { toString(): string }; selection: { main: { head: number } } };
     dispatch(spec: { selection: { anchor: number; head: number }; scrollIntoView: boolean }): void;
   };
 }
@@ -104,8 +105,6 @@ function ToolButton({
   );
 }
 
-const OPEN_PLACE = /\[vul aan:[^\]\n]*\]/g;
-
 export function TextEditor({
   label,
   value,
@@ -125,7 +124,6 @@ export function TextEditor({
   // What this component last handed up. A value that differs came from
   // outside (a reload, a conflict) and replaces what the editor holds.
   const handedUp = useRef(value);
-  const nextPlace = useRef(0);
 
   useEffect(() => {
     const el = editor.current;
@@ -186,6 +184,23 @@ export function TextEditor({
       selection: { anchor: match.index, head: match.index + match[0].length },
       scrollIntoView: true,
     });
+    el.focus();
+  }
+
+  // The next place after the caret: a place that was just filled is gone
+  // from the list, so a counter of presses would skip the one after it.
+  function goToNext() {
+    const el = editor.current;
+    const view = el?.view;
+    if (!el || !view) return;
+    const text = view.state.doc.toString();
+    const { head } = view.state.selection.main;
+    const here = [...text.matchAll(OPEN_PLACE)].find(
+      (match) => match.index <= head && head <= match.index + match[0].length,
+    );
+    const place = nextOpenPlace(text, here ? here.index + here[0].length : head);
+    if (!place) return;
+    view.dispatch({ selection: { anchor: place.start, head: place.end }, scrollIntoView: true });
     el.focus();
   }
 
@@ -257,12 +272,7 @@ export function TextEditor({
                   ? 'Nog 1 plek in te vullen'
                   : `Nog ${open.length} plekken in te vullen`}
               </nldd-text>
-              <OpenPlaceButton
-                onPress={() => {
-                  goTo(nextPlace.current);
-                  nextPlace.current = (nextPlace.current + 1) % open.length;
-                }}
-              />
+              <OpenPlaceButton onPress={goToNext} />
             </>
           ) : null}
         </nldd-container>

@@ -70,6 +70,8 @@ VARIABLES = frozenset(
         # A rejected quote: " op 8 okt 2026" and " De reden: ...", or nothing.
         "afgewezen_op",
         "reden_afwijzing",
+        # A quote sent back internally: " De reden: ...", or nothing.
+        "reden_terugsturen",
         # A correction after delivery: the difference and why it arose.
         "bedrag",
         "oorzaak",
@@ -843,6 +845,15 @@ def _values(
             reason = " ".join(rejection.reason.split()).rstrip(".")
             values["reden_afwijzing"] = f' De reden: "{reason}".'
     approval = context.approvals.get(task.repeat_key or "")
+    if (
+        approval is not None
+        and approval.status == "sent_back"
+        and approval.decision_note
+        and may_name
+    ):
+        # Why the reviewer sent it back is what the maker must act on.
+        note = " ".join(approval.decision_note.split()).rstrip(".")
+        values["reden_terugsturen"] = f' De reden: "{note}".'
     if approval is not None:
         values["gevraagd_op"] = day(clock.local_date(approval.requested_at))
         asker = (

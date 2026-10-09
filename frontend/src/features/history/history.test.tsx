@@ -88,6 +88,20 @@ describe('an event in words', () => {
     expect(actor(event({ actor_kind: 'peer', actor_name: null }))).toBe('Andere instantie');
   });
 
+  it('takes the sentence and the lines of the server over its own', () => {
+    const made = event({
+      type: 'assignment.created',
+      subject_kind: 'assignment',
+      title: 'Opdracht toegevoegd',
+      lines: ['Naam Opdracht Voorbeeld', 'Status In voorbereiding'],
+      changes: [{ field: 'status', visible: true, old: null, new: 'draft' }],
+    });
+    expect(headline(made)).toBe('Opdracht toegevoegd');
+    // Never the code value the stream holds.
+    expect(detail(made)).toBe('Naam Opdracht Voorbeeld · Status In voorbereiding');
+    expect(detail(made)).not.toContain('draft');
+  });
+
   it('says that values were erased', () => {
     expect(detail(event({ erased: true }))).toBe('De waarden zijn gewist');
   });

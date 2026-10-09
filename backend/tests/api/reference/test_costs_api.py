@@ -213,7 +213,8 @@ async def test_service_message_when_shares_exceed_hundred(
         f"/api/costs/{item.id}/coverage/{world.alfa_line.id}", json={"pct": "60"}
     )
     assert resp.status_code == 422
-    assert "meer dan 100 kan niet" in resp.json()["detail"]
+    # Written as a person writes a percentage: 110, not 110.00.
+    assert "komt op 110 procent; meer dan 100 kan niet" in resp.json()["detail"]
 
 
 async def test_coverage_needs_edit_rights_on_the_assignment_of_the_line(

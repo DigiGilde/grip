@@ -17,6 +17,13 @@ from grip.repositories.domain import CostRepository
 from grip.services.errors import DomainValidationError, NotFoundError
 from grip.services.guards import audit_fields
 
+
+def _plain_pct(value: Decimal) -> str:
+    """A percentage as a person writes it: 110, or 62,5; never 110.00."""
+    text = format(value.normalize(), "f")
+    return text.replace(".", ",")
+
+
 _ITEM_FIELDS = ("description", "budgeted_cents")
 _INVOICE_FIELDS = (
     "cost_item_id",
@@ -173,8 +180,8 @@ async def set_coverage(
     )
     if others + pct > Decimal(100):
         raise DomainValidationError(
-            f"De dekking van deze kostenpost komt op {others + pct} procent; "
-            "meer dan 100 kan niet."
+            "De dekking van deze kostenpost komt op "
+            f"{_plain_pct(others + pct)} procent; meer dan 100 kan niet."
         )
     old = None
     if current is None:

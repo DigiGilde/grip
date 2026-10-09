@@ -193,6 +193,8 @@ async def test_without_an_invoice_address_nothing_is_delivered(act_as, world):
     response = await _deliver(client, world, "2026-Q1")
     assert response.status_code == 422
     assert "factuuradres" in response.text
+    # Several things are missing: the sentence says so in the plural.
+    assert " ontbreken. " in response.json()["detail"]
     assert _period(await _overview(client, world), "2026-Q1")["state"] == "ready"
 
 

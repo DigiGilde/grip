@@ -11,6 +11,7 @@ from sqlalchemy import select
 from grip.access import unclassified_fields
 from grip.models.assignment import Allocation
 from grip.models.person import Person
+from grip.models.person_details import PersonScale
 from grip.models.person_standing import ColleagueProposal, PersonStanding
 from grip.models.vacancy import Vacancy
 from grip.schema import vacancy_hire as schemas
@@ -133,6 +134,41 @@ async def test_hire_can_plan_the_person_at_once(
     allocation = await db_session.get(Allocation, hire["allocation_id"])
     assert str(allocation.person_id) == hire["person_id"]
     assert hire["proposed_allocation"] is None
+
+
+async def test_a_new_colleague_starts_at_the_scale_of_the_vacancy(
+    client, db_session, act_as, manager, beheerder, budget_line
+):
+    """Inzet without an inzetschaal cannot be priced, so a hire must not
+    leave the new colleague without one: the vacancy's scale holds from the
+    start date. Someone grip already knows keeps the scale they have."""
+    vacancy = await _approved(client, act_as, manager, beheerder, budget_line)
+    scale = (await db_session.get(Vacancy, vacancy["id"])).scale
+    assert scale is not None
+
+    response = await client.post(
+        f"{BASE}/{vacancy['id']}/hire",
+        json={
+            "name": "Nova Nieuw",
+            "start_date": "2027-03-01",
+            "create_allocation": True,
+        },
+    )
+    assert response.status_code == 201, response.text
+
+    person_id = response.json()["hire"]["person_id"]
+    scales = (
+        (
+            await db_session.execute(
+                select(PersonScale).where(PersonScale.person_id == person_id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert [(row.valid_from.isoformat(), row.billing_scale) for row in scales] == [
+        ("2027-03-01", scale)
+    ]
 
 
 async def test_hire_of_someone_grip_already_knows(

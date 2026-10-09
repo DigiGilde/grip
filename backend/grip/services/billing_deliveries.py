@@ -1075,9 +1075,10 @@ async def deliver(
         )
     if state.terms.missing_details:
         missing = _join([DETAIL_LABELS[key] for key in state.terms.missing_details])
+        verb = "ontbreekt" if len(state.terms.missing_details) == 1 else "ontbreken"
         raise DomainValidationError(
             "De financiële administratie kan hier geen factuur van maken: "
-            f"{missing} ontbreekt. Vul de factuurgegevens van de opdrachtgever in."
+            f"{missing} {verb}. Vul de factuurgegevens van de opdrachtgever in."
         )
     mailable, recipient = await can_mail(session)
     if via == VIA_MAIL and not mailable:

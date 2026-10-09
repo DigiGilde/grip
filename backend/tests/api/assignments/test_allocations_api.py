@@ -143,7 +143,8 @@ async def test_closed_month_refuses_a_shifted_period(world, as_person, db_sessio
     body = response.json()
     assert body["code"] == "MonthClosedError"
     assert body["title"] == "Maand is afgesloten"
-    assert "afgesloten" in body["detail"]
+    # The month in words, not as a code.
+    assert "De maand januari 2026 is afgesloten" in body["detail"]
 
 
 async def test_options(world, as_person):
