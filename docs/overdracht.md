@@ -74,3 +74,45 @@ Het geheugen van de assistent hoort bij de map waarin de repo staat. Zet de inho
 ## Wat er nog loopt
 
 Controleer voor het overstappen dat de werkmap schoon is (`git status`) en dat `golf-5` gepusht is. Werk dat nog niet is vastgelegd, bestaat alleen op de oude machine.
+
+## Zo begin je de nieuwe sessie
+
+Geef de assistent op de nieuwe machine dit als eerste bericht:
+
+> Lees docs/overdracht.md, docs/openstaand.md en docs/rondgang.md. We gaan verder met de eerste uitrol naar ZAD volgens docs/uitrol-zad.md.
+
+## Waar het werk staat
+
+Stand bij het overstappen, 9 oktober 2026, branch `golf-5`.
+
+Bij de laatste commit waren de schermtests groen (832), net als de servertests voor toegang, domein, de API en de uitrolbestanden (899), en de migraties liepen op een lege database tot en met de nieuwste. De hele servertest was op die commit nog niet afgerond. Draai haar als eerste:
+
+```
+cd backend
+uv run pytest -q --deselect tests/federation/test_two_instances.py --deselect tests/api/client/test_two_instances_api.py
+uv run pytest -q tests/federation/test_two_instances.py tests/api/client/test_two_instances_api.py
+```
+
+De twee bestanden met twee instanties gebruiken vaste databases en draaien daarom apart.
+
+## Wat nog moet gebeuren voor de eerste uitrol
+
+1. De hele servertest groen op de laatste commit.
+2. De lokale opstelling met Keycloak nalopen (`just local-up`): inloggen, uitloggen, de sessie na een herstart, twee hostnamen achter een proxy, en de voorbeeldmodus met een echte login. Dit is nog niet gedaan.
+3. `golf-5` naar `main` in de grip-repo. Een push naar `main` bouwt de images.
+4. Op het platform een project aanmaken, eerst voor een voorbeeldinstantie; de stappen staan in [uitrol-zad.md](uitrol-zad.md).
+5. Het project en de sleutel in GitHub zetten. Draai dit zelf, zodat de sleutel nergens in een gesprek komt:
+
+```
+gh variable set ZAD_PROJECT_ID --repo DigiGilde/grip --body "<project-id>"
+gh secret set ZAD_API_KEY --repo DigiGilde/grip
+```
+
+## Wat op een antwoord van een mens wacht
+
+Alles staat in [openstaand.md](openstaand.md). Wat de uitrol of de eerste gebruikers raakt:
+
+- Twee eenmalige commando's op de eigen voorbeelddatabase, nog niet gedraaid: `just fix-internal-judges` (de akkoordgever van de voorbeeldvacatures) en het samenvoegen van de losse rol "po" met Product owner.
+- Het clientgeheim van de ontwikkelclient voor de eerste echte login via SSO Rijk; daarna `just sso-check`.
+- Drie beslissingen: of een getekende opdracht een nieuwe tarievenkaart volgt, of een maand mag worden afgesloten terwijl een eerdere open is, en of een kostenpost door een personeelsregel gedekt mag worden.
+- Het merk: richting a of b.
