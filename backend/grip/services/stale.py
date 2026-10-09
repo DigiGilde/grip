@@ -33,6 +33,22 @@ from grip.services.errors import DomainError
 
 HEADER = "if-match"
 
+# Short month names, as the screens write a date.
+_MONTHS = (
+    "jan",
+    "feb",
+    "mrt",
+    "apr",
+    "mei",
+    "jun",
+    "jul",
+    "aug",
+    "sep",
+    "okt",
+    "nov",
+    "dec",
+)
+
 _expected: ContextVar[tuple[str, int] | None] = ContextVar(
     "expected_version", default=None
 )
@@ -48,7 +64,10 @@ class StaleWriteError(DomainError):
         when = ""
         if at is not None:
             local = at.astimezone(clock.zone())
-            when = f" op {local.strftime('%d-%m-%Y')} om {local.strftime('%H:%M')}"
+            when = (
+                f" op {local.day} {_MONTHS[local.month - 1]} {local.year}"
+                f" om {local.strftime('%H:%M')}"
+            )
         super().__init__(
             f"{who} heeft {what} intussen gewijzigd{when}. Er is niets overschreven."
         )

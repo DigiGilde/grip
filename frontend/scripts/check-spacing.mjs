@@ -23,6 +23,7 @@
  *     [--persons "Bente Beheer,Lotte Leiding"] [--widths 1280,390]
  *     [--only /beheer] [--json out.json] [--shots dir] [--verbose]
  *     [--click "Nieuwe opdracht"]   press this button first, to measure an open sheet
+ *     [--scheme light]             look in the light theme instead of the dark one
  *
  * --shots saves a picture of every page next to the findings. Look at them:
  * the measure finds gaps and overlaps, the eye finds what reads badly.
@@ -44,6 +45,8 @@ const args = Object.fromEntries(
 
 const BASE = String(args.base ?? 'http://spacing.localhost:5183').replace(/\/$/, '');
 const PERSONS = String(args.persons ?? 'Bente Beheer,Lotte Leiding').split(',');
+// The theme the pages are looked at in: 'dark' (default) or 'light'.
+const SCHEME = args.scheme === 'light' ? 'light' : 'dark';
 const WIDTHS = String(args.widths ?? '1280,390')
   .split(',')
   .map(Number);
@@ -94,8 +97,12 @@ async function api(pathname, personId) {
   return Array.isArray(body) ? body : (body.items ?? body);
 }
 
-/** Every route with real ids from the example data. */
-async function routes() {
+/**
+ * Every route with real ids from the example data. The assignments are the
+ * ones this person sees, so an owner is shown an assignment and not the page
+ * for one that is not theirs.
+ */
+async function routes(personId) {
   const paths = literal('paths.ts', 'PATHS');
   const assignmentTabs = Object.values(
     literal('features/assignments/paths.ts', 'ASSIGNMENT_TAB_SEGMENTS'),
@@ -103,7 +110,8 @@ async function routes() {
   const vacancyTabs = Object.values(literal('features/vacancies/paths.ts', 'VACANCY_TAB_SEGMENTS'));
   const topics = Object.keys(literal('features/reports/topics.ts', 'TOPICS'));
 
-  const assignments = (await api('/api/assignments')) ?? [];
+  const own = (await api('/api/assignments', personId)) ?? [];
+  const assignments = own.length > 0 ? own : ((await api('/api/assignments')) ?? []);
   const perPhase = [...new Map(assignments.map((a) => [a.phase, a])).values()];
   const vacancy = ((await api('/api/vacancies')) ?? [])[0];
   const person = ((await api('/api/people')) ?? []).find((p) => p.is_active !== false);
@@ -504,16 +512,16 @@ async function main() {
   const persons = PERSONS.map((name) => people.find((p) => p.name === name.trim())).filter(Boolean);
   if (persons.length === 0)
     throw new Error(`No example person found at ${BASE}; are the servers running?`);
-  const list = await routes();
 
   if (SHOTS) mkdirSync(SHOTS, { recursive: true });
   const browser = await chromium.launch({ executablePath: browserPath(), headless: true });
   const results = [];
   for (const person of persons) {
+    const list = await routes(person.id);
     for (const width of WIDTHS) {
       const context = await browser.newContext({
         viewport: { width, height: 1400 },
-        colorScheme: 'dark',
+        colorScheme: SCHEME,
       });
       await context.addCookies([{ name: DEV_PERSON_COOKIE, value: person.id, url: BASE }]);
       const page = await context.newPage();

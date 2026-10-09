@@ -539,6 +539,9 @@ function DeploymentSection({ person, row, months, currentMonth, loading }: Deplo
                 : []),
               ...(bars.some((bar) => bar.tentative) ? (['tentative'] as const) : []),
               ...((row.over_months ?? []).length > 0 ? (['over'] as const) : []),
+              ...(bars.some((bar) => bar.category_mismatch === true)
+                ? (['mismatch'] as const)
+                : []),
             ]}
           />
           <nldd-table

@@ -327,7 +327,7 @@ export function AllocationSheet({
           variant="warning"
           size="sm"
           text={overLoad}
-          supporting-text="Dat mag, als je het zo bedoelt. De knop zegt wat je bewaart."
+          supporting-text="Dat mag, als je het zo bedoelt."
         />
       )}
       {loadUnknown && (

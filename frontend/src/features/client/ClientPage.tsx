@@ -4,10 +4,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { STATUS_COLORS, statusLabel } from '@/features/assignments/labels';
 import { assignmentPath } from '@/features/assignments/paths';
 import { Button } from '@/features/assignments/ui';
-import { EmptyNotice, LoadError, Loading } from '@/ui/layout';
+import { EmptyNotice, LoadError, Loading, TabNav } from '@/ui/layout';
 import { QUOTE_STATUS_COLORS, QUOTE_STATUS_LABELS } from '@/features/quotes/api';
 import { formatDateTime } from '@/features/quotes/format';
-import { Segments } from '@/features/team/ui/controls';
 import { useInstance } from '@/layout/useInstance';
 import { useRouterLinks } from '@/layout/useRouterLinks';
 import { formatEuro, formatPeriod } from '@/lib/format';
@@ -231,7 +230,6 @@ function parseView(value: string | null): ClientView {
  */
 export function ClientPage() {
   const instance = useInstance();
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const view = parseView(searchParams.get('weergave'));
   const ref = useRef<HTMLDivElement>(null);
@@ -241,11 +239,14 @@ export function ClientPage() {
     <nldd-simple-section>
       <PageHeading text="Aanvragen" instanceName={instance?.name} />
       <nldd-container gap="16">
-        <Segments
-          label="Weergave"
-          value={view}
-          onChange={(next) => navigate(clientPath(parseView(next)), { replace: true })}
-          options={CLIENT_VIEWS.map((value) => ({ value, label: VIEW_LABELS[value] }))}
+        <TabNav
+          label="Weergave van Aanvragen"
+          current={view}
+          items={CLIENT_VIEWS.map((value) => ({
+            key: value,
+            text: VIEW_LABELS[value],
+            href: clientPath(value),
+          }))}
         />
         <div ref={ref}>
           {view === 'uitgezet' ? <SentRequests /> : null}

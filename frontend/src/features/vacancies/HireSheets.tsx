@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
 import { assignmentKeys, fetchPersonOptions } from '@/features/assignments/api';
 import { FormSheet } from '@/ui/layout';
+import { useStaleForm } from '@/ui/useStaleForm';
 import {
   DEFAULT_RECRUITMENT_SYSTEM,
   VACANCY_KEYS,
@@ -134,28 +135,41 @@ export function RecruitmentRefSheet({
   const [system, setSystem] = useState(current?.system ?? DEFAULT_RECRUITMENT_SYSTEM);
   const [reference, setReference] = useState(current?.reference ?? '');
   const [url, setUrl] = useState(current?.url ?? '');
-  const change = useHireChange(
-    vacancy.id,
-    (body: { reference: string; url: string | null; system: string | null }) =>
-      setRecruitmentRef(vacancy.id, body, ifMatch(vacancy.id, vacancy.version)),
-    onClose,
-  );
+  const queryClient = useQueryClient();
+  const [problem, setProblem] = useState<string | null>(null);
+  const change = useStaleForm({
+    recordKey: vacancy.id,
+    version: vacancy.version,
+    restart: open,
+    save: (body: { reference: string; url: string | null; system: string | null }, headers) =>
+      setRecruitmentRef(vacancy.id, body, headers),
+    refresh: () => queryClient.invalidateQueries({ queryKey: VACANCY_KEYS.detail(vacancy.id) }),
+    onSaved: (result) => {
+      queryClient.setQueryData(hireKey(vacancy.id), result);
+      void queryClient.invalidateQueries({ queryKey: VACANCY_KEYS.detail(vacancy.id) });
+      onClose();
+    },
+    onError: setProblem,
+    onTakeTheirs: onClose,
+  });
   return (
     <FormSheet
       open={open}
       title="Verwijzing naar het wervingssysteem"
       submitText="Bewaar"
-      onSubmit={() =>
+      onSubmit={() => {
+        setProblem(null);
         change.run({
           reference: reference.trim(),
           url: url.trim() || null,
           system: system.trim() || null,
-        })
-      }
+        });
+      }}
       onClose={onClose}
       busy={change.busy}
-      error={change.error}
+      error={problem}
     >
+      {change.panel}
       <TextInput label="Systeem" value={system} onChange={setSystem} />
       <TextInput
         label="Kenmerk van de vacature"

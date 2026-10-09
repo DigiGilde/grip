@@ -36,29 +36,35 @@ Twee mensen kunnen hetzelfde gegeven tegelijk open hebben. Bij een begrotingsreg
 
 **De test `tests/test_stale_save_guard.py` laat de build falen** als een route met PATCH of PUT niet op de lijst van beschermde routes staat en ook niet op de lijst van uitzonderingen met een reden.
 
-| Soort gegeven | Beschermd | Hoe |
-|---|---|---|
-| Opdracht, rollen op een opdracht | ja | `Versioned` op de opdracht |
-| Begrotingsregel, inzet | ja | `Versioned` |
-| Kostenpost, factuurregel, dekking | ja | `Versioned` |
-| Rol in de catalogus | ja | `Versioned` |
-| Tarievenkaart, tarief, schaal naar categorie | ja | `Versioned` |
-| Vacature: aanvraag, rol, besluit, stap, publicatie, verwijzing naar werving | ja | `Versioned` op de vacature |
-| Persoon: gegevens, leidinggevende, schaal, inhuur, rollen, startdatum | ja | `EditCounted` op de persoon |
-| Target van een persoon | ja | `EditCounted`, naam `target:` |
-| Taak: status en overdracht | ja | `EditCounted` |
-| Organisatie | ja | `EditCounted` |
-| Peer | ja | eigen kolom, zelfde werking |
-| Uitgaande factuur (correctie) | ja | `EditCounted` |
-| Afspraken over factureren | ja | `EditCounted`, naam `terms:` |
-| Functiefamilie, functiegroep | ja | `EditCounted` |
-| Koppeling van een aanvraagformulier | ja | `EditCounted` op het formulier |
-| Standaardtekst, gedeeld tekstonderdeel | ja | `EditCounted` |
-| Instellingen: afzender, tekstblokken, offertes, vacatureteksten | ja | één geheel, `instance-settings` |
-| Concept van een offerte | eigen versie | per onderdeel in het verzoek zelf |
-| Maandafsluiting | nee | een tweede afsluiting wordt al geweigerd |
-| Notitie bij een taak | nee | een notitie komt erbij en vervangt niets |
-| Eigen voorkeur voor meldingen | nee | niemand anders wijzigt haar |
-| Een recht toekennen | nee | het resultaat is gelijk, wie het ook doet |
+De stand per soort gegeven dat een mens wijzigt, nagelopen op 9 oktober 2026. De server controleert in de service; elk antwoord draagt `version`. "Paneel" is het conflictpaneel met de twee keuzes; "zin" is alleen de melding van de server, bij een handeling van één klik waar niets ingevuld verloren gaat.
 
-De server controleert zodra een formulier de versie meestuurt. Het blad voor de link naar een gepubliceerde vacature stuurt haar nog niet mee.
+| Soort gegeven | Server | Hoe | Scherm stuurt versie | Bij een weigering |
+|---|---|---|---|---|
+| Opdracht | ja | `Versioned` | ja | paneel, per veld |
+| Eigenaar en managers van een opdracht | ja | `Versioned` op de opdracht | ja | zin |
+| Begrotingsregel | ja | `Versioned` | ja | paneel, per veld |
+| Inzet | ja | `Versioned` | ja | paneel, per veld |
+| Kostenpost, factuurregel, dekking | ja | `Versioned` | ja | paneel, per veld |
+| Rol in de catalogus | ja | `Versioned` | ja | paneel |
+| Tarievenkaart, tarief, schaal naar categorie | ja | `Versioned` | ja | paneel |
+| Vacature: aanvraag, rol, besluit, stap | ja | `Versioned` op de vacature | ja | paneel |
+| Vacature: link naar de publicatie, verwijzing naar werving | ja | `Versioned` op de vacature | ja | paneel |
+| Persoon: gegevens, leidinggevende, schaal, inhuur, rollen, startdatum | ja | `EditCounted` op de persoon | ja | paneel |
+| Persoon: in of uit dienst zetten | ja | `EditCounted` op de persoon | ja | zin |
+| Target van een persoon | ja | `EditCounted`, naam `target:` | ja | paneel |
+| Taak: status en overdracht | ja | `EditCounted` | ja | zin |
+| Organisatie | ja | `EditCounted` | geen scherm dat wijzigt | n.v.t. |
+| Peer | ja | eigen kolom, zelfde werking | ja | paneel |
+| Uitgaande factuur (correctie) | ja | `EditCounted` | ja | paneel |
+| Afspraken over factureren | ja | `EditCounted`, naam `terms:` | ja | paneel |
+| Functiefamilie, functiegroep | ja | `EditCounted` | ja | paneel |
+| Koppeling van een aanvraagformulier | ja | `EditCounted` op het formulier | ja | paneel |
+| Standaardtekst, gedeeld tekstonderdeel | ja | `EditCounted` | ja | paneel |
+| Instellingen: afzender, tekstblokken, offertes, vacatureteksten | ja | één geheel, `instance-settings` | ja | paneel |
+| Concept van een offerte | eigen versie | per onderdeel in het verzoek zelf | ja | eigen melding per onderdeel |
+| Maandafsluiting | nee | een tweede afsluiting wordt al geweigerd | n.v.t. | n.v.t. |
+| Notitie bij een taak | nee | een notitie komt erbij en vervangt niets | n.v.t. | n.v.t. |
+| Eigen voorkeur voor meldingen | nee | niemand anders wijzigt haar | n.v.t. | n.v.t. |
+| Een recht toekennen | nee | het resultaat is gelijk, wie het ook doet | n.v.t. | n.v.t. |
+
+De server controleert zodra een formulier de versie meestuurt; zonder versie is er geen controle. Het paneel is in de browser gezien op de begrotingsregel; de andere formulieren gebruiken dezelfde onderdelen (`useStaleRecord`, `useStaleForm`, `ConflictPanel`) en zijn op de code nagelopen.

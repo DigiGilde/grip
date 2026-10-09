@@ -17,6 +17,7 @@ import {
   Page,
   Quiet,
   Stack,
+  useNarrow,
 } from '@/ui/layout';
 import {
   FRAMEWORK_KEYS,
@@ -215,16 +216,21 @@ function FamilyRow({ family, open, onToggle }: FamilyRowProps) {
   const ref = useRef<HTMLElement>(null);
   useNlddEvent(ref, 'click', onToggle);
   const count = family.groups.length;
+  // On a phone the count goes under the name: beside it a long name breaks mid-word.
+  const narrow = useNarrow();
+  const groups = count === 1 ? '1 functiegroep' : `${count} functiegroepen`;
   return (
     <nldd-list-item ref={ref} button expanded={orUndef(open)}>
       <IconCell concept="open" {...DISCLOSURE} />
       <nldd-spacer-cell size="8" />
-      <nldd-text-cell text={family.name} />
-      <nldd-text-cell
-        width="fit-content"
-        color="secondary"
-        text={count === 1 ? '1 functiegroep' : `${count} functiegroepen`}
-      />
+      {narrow ? (
+        <nldd-text-cell text={family.name} supporting-text={groups} />
+      ) : (
+        <>
+          <nldd-text-cell text={family.name} />
+          <nldd-text-cell width="fit-content" color="secondary" text={groups} />
+        </>
+      )}
     </nldd-list-item>
   );
 }

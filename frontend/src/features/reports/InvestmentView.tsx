@@ -167,6 +167,7 @@ function TimeReading({ time }: { time: InvestmentTime }) {
       <nldd-table
         accessible-label="Vrije capaciteit in de komende maanden"
         columns={`minmax(130px,1fr) 100px${valued ? ' 150px' : ''}`}
+        sm-columns={`minmax(0,1fr) 80px${valued ? ' 110px' : ''}`}
       >
         <nldd-table-row slot="header">
           <nldd-text-cell text="Maand" />

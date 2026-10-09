@@ -192,6 +192,7 @@ export function ProcedureSection({ vacancy }: { vacancy: Vacancy }) {
       <nldd-table
         accessible-label="Stappen van de procedure"
         columns="minmax(240px,2fr) minmax(200px,1fr)"
+        sm-columns="minmax(0,1.3fr) minmax(0,1fr)"
       >
         <nldd-table-row slot="header">
           <nldd-text-cell text="Stap" />

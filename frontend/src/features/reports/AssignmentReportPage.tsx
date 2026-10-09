@@ -108,11 +108,12 @@ function AgreedBlock({ report }: { report: AssignmentReport }) {
         <nldd-table
           accessible-label="De offerte waarop akkoord is gegeven"
           columns="minmax(220px,2fr) minmax(200px,1fr) 90px 150px"
+          sm-columns="minmax(0,1fr) minmax(0,1fr) 100px"
         >
           <nldd-table-row slot="header">
             <nldd-text-cell text="Omschrijving" />
             <nldd-text-cell text="Periode" />
-            <nldd-text-cell text="FTE" horizontal-alignment="right" />
+            <nldd-text-cell text="FTE" horizontal-alignment="right" hide-below="md" />
             <nldd-text-cell text="Bedrag" horizontal-alignment="right" />
           </nldd-table-row>
           {(agreed.lines ?? []).map((line, index) => (
@@ -124,7 +125,7 @@ function AgreedBlock({ report }: { report: AssignmentReport }) {
                   : {})}
               />
               <nldd-text-cell text={formatPeriod(line.start_date, line.end_date)} />
-              <NumberCell text={formatFte(line.fte)} />
+              <NumberCell text={formatFte(line.fte)} hideBelow="md" />
               <MoneyCell cents={line.amount_cents} />
             </nldd-table-row>
           ))}
@@ -133,14 +134,14 @@ function AgreedBlock({ report }: { report: AssignmentReport }) {
               <nldd-table-row key={subtotal.year}>
                 <nldd-text-cell text={`Subtotaal ${subtotal.year}`} />
                 <nldd-text-cell />
-                <nldd-text-cell />
+                <nldd-text-cell hide-below="md" />
                 <MoneyCell cents={subtotal.amount_cents} />
               </nldd-table-row>
             ))}
           <nldd-table-row>
             <nldd-text-cell text="**Totaal afgesproken**" />
             <nldd-text-cell />
-            <nldd-text-cell />
+            <nldd-text-cell hide-below="md" />
             <MoneyCell cents={agreed.total_cents} bold />
           </nldd-table-row>
         </nldd-table>

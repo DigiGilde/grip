@@ -119,15 +119,19 @@ export function NumberCell({
   text,
   note,
   muted,
+  hideBelow,
 }: {
   text: string;
   note?: string;
   muted?: boolean;
+  /** Leave the cell out below this width, with the column's header. */
+  hideBelow?: 'md';
 }) {
   return (
     <nldd-text-cell
       text={text}
       horizontal-alignment="right"
+      {...(hideBelow ? { 'hide-below': hideBelow } : {})}
       {...(note ? { 'supporting-text': note } : {})}
       {...(muted ? { color: 'secondary' } : {})}
     />

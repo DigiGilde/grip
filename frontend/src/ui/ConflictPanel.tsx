@@ -54,7 +54,7 @@ export function ConflictPanel({
             <nldd-table-row slot="header">
               <nldd-text-cell text="Veld" />
               <nldd-text-cell text="Staat er nu" />
-              <nldd-text-cell text="Jouw invoer" />
+              <nldd-text-cell text="In jouw formulier" />
             </nldd-table-row>
             {differing.map((item) => (
               <nldd-table-row key={item.label}>
@@ -66,6 +66,11 @@ export function ConflictPanel({
           </nldd-table>
         ) : theirs ? (
           <Quiet>Wat er nu staat is gelijk aan wat jij invulde.</Quiet>
+        ) : null}
+        {differing.length > 0 ? (
+          <Quiet>
+            Bewaar je jouw wijziging, dan komt in deze velden wat in jouw formulier staat.
+          </Quiet>
         ) : null}
         <nldd-button-group>
           <Button text="Bewaar mijn wijziging" disabled={busy} onClick={onKeepMine} />

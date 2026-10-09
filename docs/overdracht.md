@@ -112,7 +112,7 @@ gh secret set ZAD_API_KEY --repo DigiGilde/grip
 
 Alles staat in [openstaand.md](openstaand.md). Wat de uitrol of de eerste gebruikers raakt:
 
-- Twee eenmalige commando's op de eigen voorbeelddatabase, nog niet gedraaid: `just fix-internal-judges` (de akkoordgever van de voorbeeldvacatures) en het samenvoegen van de losse rol "po" met Product owner.
+- Twee eenmalige commando's op de eigen voorbeelddatabase, nog niet gedraaid: `just fix-internal-judges` (de akkoordgever van de voorbeeldvacatures) en `just fix-role-po` (de losse rol "po" wordt Product owner).
 - Het clientgeheim van de ontwikkelclient voor de eerste echte login via SSO Rijk; daarna `just sso-check`.
 - Drie beslissingen: of een getekende opdracht een nieuwe tarievenkaart volgt, of een maand mag worden afgesloten terwijl een eerdere open is, en of een kostenpost door een personeelsregel gedekt mag worden.
 - Het merk: richting a of b.

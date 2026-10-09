@@ -10,6 +10,7 @@ import { todayIso } from './hooks';
 import { TEXT_KIND_LABELS } from './labels';
 import { useCaseCourse } from '@/features/tasks/course';
 import { useArrival } from '@/ui/arrival';
+import { useStaleForm } from '@/ui/useStaleForm';
 import { courseLine } from '@/ui/course';
 import { TailoredSheet } from './TailoredSheet';
 import { vacancyTextWritePath } from './paths';
@@ -323,16 +324,27 @@ function RemarkSheet({
   );
 }
 
-function PublicationSheet({ vacancyId, onClose }: { vacancyId: string; onClose: () => void }) {
+function PublicationSheet({ vacancy, onClose }: { vacancy: Vacancy; onClose: () => void }) {
+  const queryClient = useQueryClient();
   const [place, setPlace] = useState<Publication['place']>('government_wide');
   const [url, setUrl] = useState('');
   const [day, setDay] = useState(todayIso());
   const [problem, setProblem] = useState<string | null>(null);
-  const change = useWorkChange(
-    vacancyId,
-    () => setPublication(vacancyId, place, url.trim(), day),
-    onClose,
-  );
+  const change = useStaleForm({
+    recordKey: vacancy.id,
+    version: vacancy.version,
+    save: (_input: undefined, headers) =>
+      setPublication(vacancy.id, place, url.trim(), day, headers),
+    refresh: () => queryClient.invalidateQueries({ queryKey: VACANCY_KEYS.detail(vacancy.id) }),
+    onSaved: (work) => {
+      queryClient.setQueryData(TEXT_WORK_KEY(vacancy.id), work);
+      void queryClient.invalidateQueries({ queryKey: VACANCY_KEYS.detail(vacancy.id) });
+      void queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      onClose();
+    },
+    onError: setProblem,
+    onTakeTheirs: onClose,
+  });
   return (
     <FormSheet
       open
@@ -347,8 +359,9 @@ function PublicationSheet({ vacancyId, onClose }: { vacancyId: string; onClose: 
       }}
       onClose={onClose}
       busy={change.busy}
-      error={problem ?? change.error}
+      error={problem}
     >
+      {change.panel}
       <SelectInput
         label="Waar staat de vacature"
         value={place}
@@ -815,7 +828,7 @@ export function TextWork({ vacancy }: { vacancy: Vacancy }) {
         />
       )}
       {sheet?.kind === 'publication' && (
-        <PublicationSheet key={opened} vacancyId={vacancy.id} onClose={close} />
+        <PublicationSheet key={opened} vacancy={vacancy} onClose={close} />
       )}
     </Stack>
   );

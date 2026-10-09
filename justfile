@@ -273,6 +273,10 @@ vacancy-forms-retention:
 fix-internal-judges:
     cd backend && uv run python -m grip.dev.fix_internal_judges
 
+# Make the role typed in as "po" the role Product owner, on an existing database (can be repeated)
+fix-role-po:
+    cd backend && uv run python -m grip.dev.fix_role_po
+
 # Store the naverrekeningen that stand open (once, after migration 0036_billing_correction)
 billing-corrections-sync:
     cd backend && uv run python -m grip.services.billing_corrections

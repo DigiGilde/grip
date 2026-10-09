@@ -1,6 +1,6 @@
 # Rondgang door de hele interface
 
-Bijgewerkt op 9 oktober 2026 na ronde zes, op commit `5bd1c57` van de werkbranch plus de herstellingen van die ronde, die nog niet zijn vastgelegd. Zes rondes in een eigen kopie met een echte browser, als de voorbeeldpersonen. Ronde zes liep in twee delen (A en B, onderaan dit document) en herstelde wat klein en duidelijk was.
+Bijgewerkt op 9 oktober 2026 na ronde zes, op commit `5bd1c57` van de werkbranch plus de herstellingen van die ronde, die nog niet zijn vastgelegd. Zes rondes in een eigen kopie met een echte browser, als de voorbeeldpersonen. Ronde zes liep in twee delen (A en B, onderaan dit document) en herstelde wat klein en duidelijk was. Ronde zeven en acht liepen na wat nog open of niet nagelopen stond; de telling hieronder is na ronde acht opnieuw gemaakt.
 
 ## Waar het product staat
 
@@ -27,13 +27,13 @@ Alle negen reizen zijn nu minstens één keer tot het eind gelopen, de vacature 
 
 | Stand | Aantal | Welke |
 |---|---|---|
-| Hersteld en door een latere ronde bevestigd | 68 | ronde vier: F001, F004, F006, F009, F010, F012, F014, F015, F016, F017, F018, F019, F020, F021, F023, F024, F025, F026, F028, F030, F031, F033, F034, F036, F037, F042, G003, G007, G016; ronde vijf: F027, F032, F035, G001, G004, H004, H005, T205, R401, R405, R406, R407, R408, R409, R412; ronde zes: F003, F011, F029, G002, G005, G006, G010, G011, G013, T202, H002, H006, H007, H008, H009, H011, H012, R402, R403, R404, R410, R501, R503, R504 |
-| Hersteld, deels bevestigd of hier niet te beoordelen | 3 | G009, H010, R411 |
-| Als hersteld gemeld, nog door niemand nagelopen | 7 | G008, H001, G012, G014, G015, H003, F041 |
-| Open, opnieuw gezien | 1 | R502 |
-| Open, niet opnieuw bekeken | 14 | F002, F005, F007, F008, F013, F022, F038, F039, F040, T201, T203, T204, T206, T207 |
-| Ronde zes, hersteld en nagelopen door wie herstelde | 9 | A601, A604, A607, A610, A611, B601, B602, B603, B604 |
-| Ronde zes, open | 15 | A602, A603, A605, A606, A608, A609, A612, A613, B605, B606, B607, B608, B609, B610, B611 |
+| Hersteld en door een latere ronde bevestigd | 86 | ronde vier: F001, F004, F006, F009, F010, F012, F014, F015, F016, F017, F018, F019, F020, F021, F023, F024, F025, F026, F028, F030, F031, F033, F034, F036, F037, F042, G003, G007, G016; ronde vijf: F027, F032, F035, G001, G004, H004, H005, T205, R401, R405, R406, R407, R408, R409, R412; ronde zes: F003, F011, F029, G002, G005, G006, G010, G011, G013, T202, H002, H006, H007, H008, H009, H011, H012, R402, R403, R404, R410, R501, R503, R504; nagelopen op 9 oktober 2026: G012, G014, G015, F041, F002, F005, F007, F008, F013, F039, F040, T201, T203, T204, T206, T207, H010, R502 |
+| Hersteld, deels bevestigd of hier niet te beoordelen | 3 | G009, R411, H003 |
+| Als hersteld gemeld, nog door niemand nagelopen | 2 | G008, H001 (beide over middernacht) |
+| Vervallen | 1 | F038 |
+| Open, niet opnieuw bekeken | 1 | F022 (het corpus is in deze opstelling niet bereikbaar) |
+| Ronde zes, hersteld | 18 | A601, A602, A603, A604, A606, A607, A609, A610, A611, B601, B602, B603, B604, B605, B607, B608, B609, B610 |
+| Ronde zes, open | 6 | A605, A608, A612, A613, B606, B611; A608, A612 en B611 wachten op een besluit |
 
 ## Functiescheiding, op het scherm en op de server
 
@@ -684,3 +684,23 @@ Op 9 oktober 2026, op een eigen kopie met een echte browser en de API, na de her
 | T206 | Bevestigd op beeld voor de beheerder; niet bekeken als lezer zonder Beheer |
 | T207 | Bevestigd op beeld: "Context (optioneel)" zonder uitleg |
 | Verouderde opslag | Een vacature en een rol in de catalogus tellen hun wijzigingen; een opslag op een oudere stand wordt geweigerd met wie en wanneer. Persoon, taak, organisatie en koppeling nog niet |
+
+## Ronde acht: wat nog niet was nagelopen
+
+Op 9 oktober 2026, op een eigen kopie van de voorbeelddatabase met een echte browser, na de herstellingen van deze ronde. De telling bovenaan is opnieuw gemaakt door de nummers te tellen.
+
+| Nr | Stand |
+|---|---|
+| G012, G014, G015 | Bevestigd op 9 okt: staan in hun eigen rij als in de browser gelopen |
+| F041 | Bevestigd op 9 okt, in de browser: "Nieuwe vacature" noemt de rollen waarvoor al een vacature loopt |
+| F008 | Bevestigd op 9 okt, in de browser: "PO" in het rolveld van een begrotingsregel biedt Product owner aan. De losse rol "po" in een bestaande database wordt Product owner met `just fix-role-po` |
+| F039 | Bevestigd op 9 okt, in de browser: de balk zegt alleen percentage en opdracht, het signaal is een teken. Hersteld: de legenda op de persoonspagina noemt het teken nu ook |
+| T204 | Bevestigd op 9 okt, in de browser: "Organisatie toevoegen" opent een paneel |
+| T206 | Bevestigd op 9 okt, in de browser: wie geen beheerder is leest "Terug naar Start" |
+| H003 | Niet op beeld: de acht tests in `tests/vacancies/test_open_stretch.py` zijn groen |
+| F022 | Niet nagelopen: het corpus is in deze opstelling niet bereikbaar |
+| A609, B609, B610 | Bevestigd op 9 okt, in de browser: de zin over wie de dekking vastlegt, de vraag bij je eigen recht intrekken, en het paneel bij een begrotingsregel die een ander intussen wijzigde |
+| A608, B611 | Wat is voorbereid is gezien: de keuzelijst voor dekking per opdracht met vaste bedragen eerst en de personeelsregel bij naam; de regel over de eerdere open maand bij afsluiten. Het besluit staat open |
+| B606 | Deels hersteld: de waarschuwing boven 100 procent gaat alleen nog over de inzet. "Verwijder de inzet" staat nog achter het menu |
+| A605, A613 | Open, niet gewijzigd |
+| Smal en licht | Elke pagina op 390 breed en in het lichte thema, als eigenaar en als beheerder (156 metingen per reeks). Hersteld op 390: de weergaven van Aanvragen zijn een keuzelijst in plaats van afgekapte knoppen; in het Functiegebouw staat het aantal onder de naam; de tabel van de procedure en de tabellen in de rapportage passen. `check-spacing` kiest per persoon een opdracht die zij ziet en kent `--scheme light` |
