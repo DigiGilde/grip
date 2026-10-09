@@ -215,3 +215,12 @@ export function occurringLegend<R, B>(groups: readonly TimelineGroup<R, B>[]): L
   };
   return (Object.keys(has) as LegendKind[]).filter((kind) => has[kind]);
 }
+
+/**
+ * How far the board scrolls when it opens, so the current month is the first
+ * one beside the names. On a narrow screen only a few months fit; the ones
+ * before today are history and the one that runs must be in view.
+ */
+export function openingScroll(monthLeft: number, nameWidth: number, maxScroll: number): number {
+  return Math.max(0, Math.min(maxScroll, monthLeft - nameWidth));
+}

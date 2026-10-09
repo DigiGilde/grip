@@ -581,6 +581,29 @@ describe('QuotePage', () => {
     expect(primaries(container)).toEqual([]);
   });
 
+  it('keeps who approved on the card after the quote is offered', async () => {
+    const offered = await renderTab({
+      quotes: [QUOTE],
+      offers: [LINK_OFFER],
+      approval: {
+        ...APPROVAL,
+        status: 'approved',
+        may_offer: true,
+        blocked_message: null,
+        current: {
+          id: 'r-1',
+          status: 'approved',
+          requested_at: '2026-02-02T09:30:00Z',
+          decided_at: '2026-02-03T11:00:00Z',
+          decided_by_name: 'Collega Goedkeurder',
+        },
+      },
+    });
+    expect(offered.textContent).toMatch(
+      /Intern goedgekeurd op 3 feb 2026.*door Collega Goedkeurder/,
+    );
+  });
+
   it('offers as before once the quote is approved, and shows no step where none is required', async () => {
     const approved = await renderTab({
       quotes: [QUOTE],

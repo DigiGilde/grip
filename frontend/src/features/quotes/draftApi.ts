@@ -146,11 +146,24 @@ export function draftPreviewUrl(assignmentId: string): string {
   return `${base(assignmentId)}/preview`;
 }
 
-export function quoteDraftPath(assignmentId: string, sectionKey?: string): string {
+/**
+ * The address of the writing page. `fresh` says the reader chose to make a
+ * new quote: without it the page shows the quote that already lies there.
+ */
+export function quoteDraftPath(
+  assignmentId: string,
+  sectionKey?: string,
+  options: { fresh?: boolean } = {},
+): string {
   const path = PATHS.assignmentQuoteDraft.replace(':assignmentId', assignmentId);
-  return sectionKey ? `${path}?${SECTION_PARAM}=${encodeURIComponent(sectionKey)}` : path;
+  const query = new URLSearchParams();
+  if (options.fresh) query.set(FRESH_PARAM, '1');
+  if (sectionKey) query.set(SECTION_PARAM, sectionKey);
+  const text = query.toString();
+  return text ? `${path}?${text}` : path;
 }
 
+export const FRESH_PARAM = 'nieuw';
 export const SECTION_PARAM = 'onderdeel';
 
 // --- words ---------------------------------------------------------------------

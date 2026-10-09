@@ -93,3 +93,30 @@ class LineChoiceOut(BaseModel):
 class AllocationOptionsOut(BaseModel):
     people: Annotated[list[PersonChoiceOut], nested()]
     lines: Annotated[list[LineChoiceOut], nested()]
+
+
+class AllocationLoadIn(BaseModel):
+    """An inzet as it would be saved, to ask what it does to the person's load."""
+
+    # The inzet being changed; its person and line then follow from it.
+    allocation_id: UUID | None = None
+    budget_line_id: UUID | None = None
+    person_id: UUID | None = None
+    period_source: Literal["line", "own"] | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+    fte_pct: Decimal = Field(gt=0, le=100)
+
+
+class OverMonthOut(BaseModel):
+    # First day of the month.
+    month: Annotated[date, in_class(C)]
+    current_pct: Annotated[Decimal, in_class(C)]
+    new_pct: Annotated[Decimal, in_class(C)]
+
+
+class AllocationLoadOut(BaseModel):
+    """The months in which the person would be above 100 percent."""
+
+    person_name: Annotated[str, in_class(ROSTER)]
+    over_months: Annotated[list[OverMonthOut], nested()] = Field(default_factory=list)

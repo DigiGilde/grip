@@ -23,8 +23,10 @@ import {
   Stack,
   StateNotice,
 } from '@/ui/layout';
-import { fetchQuotePreview, issueQuote, quoteKeys } from './api';
+import { fetchQuotePreview, fetchQuotes, issueQuote, quoteKeys, type QuoteSummary } from './api';
+import { formatDate, formatEuro } from '@/lib/format';
 import {
+  FRESH_PARAM,
   SECTION_PARAM,
   conflictOf,
   draftKeys,
@@ -192,6 +194,17 @@ function daysFromToday(days: number): string {
   return addDays(todayIso(), days);
 }
 
+const quoteName = (quote: QuoteSummary) =>
+  quote.reference ? `offerte ${quote.reference}` : 'de vorige offerte';
+
+/** "Offerte DG-2026-0007 van € 12.000 is gemaakt op 3 feb 2026 en getekend." */
+function madeQuoteText(quote: QuoteSummary): string {
+  const name = quote.reference ? `Offerte ${quote.reference}` : 'De offerte';
+  const amount = quote.total_cents !== undefined ? ` van ${formatEuro(quote.total_cents)}` : '';
+  const signed = quote.status === 'accepted' ? ' en getekend' : '';
+  return `${name}${amount} is gemaakt op ${formatDate(quote.issued_at)}${signed}.`;
+}
+
 /**
  * Preparing a quote as the letter it is. The sections stand in the order of
  * the document; a person writes the ones that are theirs, sees the standard
@@ -227,6 +240,23 @@ export function QuoteDraftPage() {
     queryFn: () => fetchQuotePreview(assignmentId),
     retry: false,
   });
+  // A quote that already lies there: the page then shows that one, and a
+  // new draft starts only when the reader chose "Maak een nieuwe offerte".
+  const made = useQuery({
+    queryKey: quoteKeys.list(assignmentId),
+    queryFn: () => fetchQuotes(assignmentId),
+    retry: false,
+  });
+  const standingQuote =
+    made.data?.quotes.find((quote) => quote.status === 'issued' || quote.status === 'accepted') ??
+    null;
+  const fresh = params.get(FRESH_PARAM) === '1';
+  const showsMade = standingQuote !== null && !fresh;
+  const startFresh = () => {
+    const next = new URLSearchParams(params);
+    next.set(FRESH_PARAM, '1');
+    setParams(next, { replace: true });
+  };
   const draft = query.data;
   const setDraft = (next: QuoteDraft) => {
     queryClient.setQueryData(draftKeys.draft(assignmentId), next);
@@ -380,7 +410,18 @@ export function QuoteDraftPage() {
         {draft ? (
           <>
             <Stack gap="related">
-              <nldd-text>{standing}</nldd-text>
+              {showsMade ? (
+                <nldd-text data-made-quote>
+                  {madeQuoteText(standingQuote)} Een nieuwe offerte vervangt haar.
+                </nldd-text>
+              ) : (
+                <nldd-text>{standing}</nldd-text>
+              )}
+              {!showsMade && standingQuote ? (
+                <nldd-text size="sm" color="secondary">
+                  Deze offerte vervangt {quoteName(standingQuote)} zodra je haar maakt.
+                </nldd-text>
+              ) : null}
               {savedHeading ? (
                 <nldd-text size="sm" color="secondary" role="status" data-saved>
                   {savedHeading} is bewaard.
@@ -413,7 +454,18 @@ export function QuoteDraftPage() {
                 </nldd-list>
               ) : null}
               <nldd-container layout="wrap" gap="16" vertical-alignment="center">
-                {mayEdit ? (
+                {showsMade ? (
+                  <>
+                    <nldd-link
+                      href={assignmentTabPath(assignmentId, 'quote')}
+                      text="Terug naar de offerte"
+                      size="md"
+                    />
+                    {mayEdit ? (
+                      <Button text="Maak een nieuwe offerte" onClick={startFresh} />
+                    ) : null}
+                  </>
+                ) : mayEdit ? (
                   <Button
                     text="Maak offerte"
                     appearance="primary"
@@ -424,11 +476,13 @@ export function QuoteDraftPage() {
                     }}
                   />
                 ) : null}
-                <DocumentLink
-                  href={draftPreviewUrl(assignmentId)}
-                  text="Bekijk voorbeeld (pdf)"
-                  newTab
-                />
+                {showsMade ? null : (
+                  <DocumentLink
+                    href={draftPreviewUrl(assignmentId)}
+                    text="Bekijk voorbeeld (pdf)"
+                    newTab
+                  />
+                )}
               </nldd-container>
             </Stack>
 
@@ -442,7 +496,8 @@ export function QuoteDraftPage() {
                     position={keys.indexOf(section.key)}
                     count={sections.length}
                     open={openKey === section.key}
-                    mayEdit={mayEdit}
+                    // The text of a made quote is read here, not changed.
+                    mayEdit={mayEdit && !showsMade}
                     mayDraft={draft.drafting_available}
                     isAdmin={isAdmin}
                     costs={costs}
@@ -490,7 +545,7 @@ export function QuoteDraftPage() {
                   />
                 ))}
               </Stack>
-              {mayEdit ? (
+              {mayEdit && !showsMade ? (
                 <nldd-button-group>
                   <Button
                     text="Voeg een onderdeel toe"
@@ -520,7 +575,7 @@ export function QuoteDraftPage() {
                   },
                 ]}
               />
-              {mayEdit ? (
+              {mayEdit && !showsMade ? (
                 <nldd-button-group>
                   <Button text="Wijzig" size="sm" onClick={editLetter} />
                 </nldd-button-group>

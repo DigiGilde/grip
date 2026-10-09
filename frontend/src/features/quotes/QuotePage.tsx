@@ -164,7 +164,8 @@ export function QuotePage() {
     else if (action.kind === 'upload') open('upload');
     else if (action.kind === 'reject') open('reject');
     else if (action.kind === 'request-approval') open('approval');
-    else if (action.kind === 'new-quote') navigate(quoteDraftPath(assignmentId));
+    else if (action.kind === 'new-quote')
+      navigate(quoteDraftPath(assignmentId, undefined, { fresh: true }));
     else if (action.kind === 'review') navigate(approvalPath(current.id));
     else if (action.kind === 'grant-right') navigate(PATHS.team);
     else if (action.kind === 'withdraw-approval') act(() => withdrawApproval(current.id));

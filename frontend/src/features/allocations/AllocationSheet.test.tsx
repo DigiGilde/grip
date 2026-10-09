@@ -62,4 +62,41 @@ describe('AllocationSheet', () => {
     expect(allText(sheet)).not.toContain('Loopt mee');
     expect(allText(sheet)).not.toContain('looptijd');
   });
+
+  it('says before saving that the person ends up above 100 percent, and lets an inzet be removed', async () => {
+    mockApi({
+      '/api/allocations/load-preview': {
+        person_name: 'Voorbeeld Een',
+        over_months: [{ month: '2026-10-01', current_pct: '80.0', new_pct: '180.0' }],
+      },
+    });
+    const allocation = {
+      id: 'al1',
+      person_id: 'p1',
+      person_name: 'Voorbeeld Een',
+      budget_line_id: 'l1',
+      period_source: 'line',
+      start_date: '2026-10-01',
+      end_date: '2026-10-29',
+      fte_pct: '100.00',
+    } as unknown as Parameters<typeof AllocationSheet>[0]['allocation'];
+    renderApp(
+      <AllocationSheet open session={1} allocation={allocation} onClose={() => undefined} />,
+    );
+    const sheet = document.querySelector('nldd-sheet') as HTMLElement;
+    await waitFor(() =>
+      expect(
+        sheet.querySelector(
+          'nldd-banner[text="Voorbeeld Een komt boven 100% in oktober 2026 (180%)"]',
+        ),
+      ).not.toBeNull(),
+    );
+    // Proceeding is a deliberate act: the button says what is saved.
+    expect(sheet.querySelector('nldd-button[type="submit"]')).toHaveAttribute(
+      'text',
+      'Bewaar boven 100%',
+    );
+    const remove = sheet.querySelector('nldd-menu-item[text="Verwijder de inzet"]');
+    expect(remove).toHaveAttribute('destructive');
+  });
 });

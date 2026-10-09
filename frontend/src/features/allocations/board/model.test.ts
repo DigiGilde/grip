@@ -126,7 +126,9 @@ describe('the total of a month', () => {
     expect(totalState(over!, MONTHS[3]!, '2026-04-01')).toBe('over');
     expect(totalState(room!, MONTHS[5]!, '2026-04-01')).toBe('room');
     expect(totalState(idle!, MONTHS[6]!, '2026-04-01')).toBe('room');
-    expect(totalState({ ...past!, available: false }, MONTHS[0]!, '2026-04-01')).toBe('unavailable');
+    expect(totalState({ ...past!, available: false }, MONTHS[0]!, '2026-04-01')).toBe(
+      'unavailable',
+    );
     expect(totalState(null, MONTHS[0]!, '2026-04-01')).toBe('none');
   });
 

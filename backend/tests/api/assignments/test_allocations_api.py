@@ -149,6 +149,9 @@ async def test_closed_month_refuses_a_shifted_period(world, as_person, db_sessio
 async def test_options(world, as_person):
     planner = (await as_person(world.planner).get("/api/allocations/options")).json()
     assert {p["name"] for p in planner["people"]} >= {"Lot Lid", "Cas Collega"}
+    # Someone who only holds a right is a person, but not one to plan.
+    assert "Lex Lezer" not in {p["name"] for p in planner["people"]}
+    assert world.lezer.name == "Lex Lezer"
     assert [ln["description"] for ln in planner["lines"]] == ["Productmanager"]
     assert Decimal(planner["lines"][0]["fte"]) == Decimal("0.800")
 
@@ -180,3 +183,47 @@ async def test_inzet_on_a_potential_assignment_is_tentative(
         )
     body = (await client.get("/api/allocations?year=2026")).json()
     assert not any(item["tentative"] for item in body["items"])
+
+
+async def test_the_load_of_a_person_is_told_before_an_inzet_is_saved(world, as_person):
+    """Above 100 percent is allowed, but said first: the months and what the
+    person ends up at. Asking saves nothing."""
+    client = as_person(world.planner)
+    existing = world.member_allocation
+    wanted = {
+        "budget_line_id": str(world.line.id),
+        "person_id": str(world.member.id),
+        "start_date": "2026-03-01",
+        "end_date": "2026-04-30",
+        "fte_pct": "100",
+    }
+    before = (await client.get("/api/allocations")).json()["items"]
+    answer = await client.post("/api/allocations/load-preview", json=wanted)
+    assert answer.status_code == 200
+    body = answer.json()
+    assert body["person_name"] == "Lot Lid"
+    assert [m["month"] for m in body["over_months"]] == ["2026-03-01", "2026-04-01"]
+    first = body["over_months"][0]
+    assert Decimal(first["current_pct"]) == Decimal(existing.fte_pct)
+    assert Decimal(first["new_pct"]) == Decimal(existing.fte_pct) + 100
+    assert (await client.get("/api/allocations")).json()["items"] == before
+
+    # Within 100 percent there is nothing to say.
+    room = 100 - Decimal(existing.fte_pct)
+    quiet = await client.post(
+        "/api/allocations/load-preview", json={**wanted, "fte_pct": str(room)}
+    )
+    assert quiet.json()["over_months"] == []
+
+    # Changing an inzet: its own share makes room for the new percentage.
+    changed = await client.post(
+        "/api/allocations/load-preview",
+        json={"allocation_id": str(existing.id), "fte_pct": "100"},
+    )
+    assert changed.json()["over_months"] == []
+
+    # Who may not plan this person here learns nothing about their load.
+    refused = await as_person(world.outsider).post(
+        "/api/allocations/load-preview", json=wanted
+    )
+    assert refused.status_code in (403, 404)

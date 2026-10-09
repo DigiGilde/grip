@@ -359,6 +359,37 @@ async def person_options(session: AsyncSession) -> list[PersonOption]:
     return [PersonOption(row[0], row[1], row[2]) for row in rows]
 
 
+async def deployable_person_options(
+    session: AsyncSession, *, today: date | None = None
+) -> list[PersonOption]:
+    """Who can be planned: in employment or hired, now or from a later date.
+
+    That is a person with an inzetschaal or a hire that has not ended, or who
+    is a colleague or comes into employment. Someone who only holds a right
+    (a requester or a signatory of the client) is a person but no inzet.
+    """
+    from grip.core import clock
+    from grip.models.person_details import Hire, PersonScale
+    from grip.models.person_standing import PersonStanding, Stage
+
+    day = today or clock.today()
+    scaled = select(PersonScale.person_id).where(
+        (PersonScale.valid_to.is_(None)) | (PersonScale.valid_to >= day)
+    )
+    hired = select(Hire.person_id).where(
+        (Hire.valid_to.is_(None)) | (Hire.valid_to >= day)
+    )
+    employed = select(PersonStanding.person_id).where(
+        PersonStanding.stage.in_([Stage.prospective.value, Stage.colleague.value])
+    )
+    keep = {
+        row[0]
+        for query in (scaled, hired, employed)
+        for row in await session.execute(query)
+    }
+    return [p for p in await person_options(session) if p.person_id in keep]
+
+
 async def direct_report_ids(session: AsyncSession, person_id: UUID) -> set[UUID]:
     rows = await session.execute(
         select(Person.id).where(Person.manager_id == person_id)

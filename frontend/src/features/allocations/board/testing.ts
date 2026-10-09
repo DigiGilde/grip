@@ -51,10 +51,10 @@ export function board(overrides: Partial<Board> = {}): Board {
         person_name: 'Voorbeeld Een',
         manager_id: 'm1',
         manager_name: 'Voorbeeld Leiding',
-        cells: cells([80, 80, 80, 110, 110, 80, 0, 0, 0, 0, 0, 0], [
-          { established: true },
-          { established: true },
-        ]),
+        cells: cells(
+          [80, 80, 80, 110, 110, 80, 0, 0, 0, 0, 0, 0],
+          [{ established: true }, { established: true }],
+        ),
         now_pct: '110',
         room_from: '2026-06-01',
         idle_from: '2026-07-01',

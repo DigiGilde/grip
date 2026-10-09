@@ -1,19 +1,23 @@
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
 import { decimalToInput, parseDecimal } from '@/features/assignments/money';
 import { PeriodChoice } from '@/features/assignments/PeriodChoice';
 import { FormSheet, SelectInput, TextInput } from '@/features/assignments/ui';
 import { formatFte, formatMonth, formatPeriod } from '@/lib/format';
+import { RowMenu } from '@/ui/RowActions';
 import {
   addAllocation,
   allocationKeys,
+  deleteAllocation,
   fetchAllocationOptions,
   fetchAllocationOptionsOf,
+  previewAllocationLoad,
   updateAllocation,
   type Allocation,
   type LineChoice,
 } from './api';
+import { overLoadText } from './load';
 
 interface Props {
   open: boolean;
@@ -120,6 +124,44 @@ export function AllocationSheet({
     ? { period_source: 'own' as const, start_date: form.startDate, end_date: form.endDate }
     : { period_source: 'line' as const };
 
+  // What the inzet does to the person's load, asked while the form is
+  // filled in: planning above 100 percent is allowed, but never unseen.
+  const wantedPct = parseDecimal(form.pct);
+  const pctValid = wantedPct !== null && Number(wantedPct) > 0 && Number(wantedPct) <= 100;
+  const loadInput = {
+    ...(allocation
+      ? { allocation_id: allocation.id }
+      : { budget_line_id: form.lineId, person_id: form.personId }),
+    ...period,
+    fte_pct: wantedPct ?? '',
+  };
+  const load = useQuery({
+    // A key of its own: refreshing the inzet after a save or a removal must
+    // not ask again about an inzet that is gone.
+    queryKey: ['allocation-load', loadInput],
+    queryFn: () => previewAllocationLoad(loadInput),
+    enabled:
+      open &&
+      pctValid &&
+      (Boolean(allocation) || (form.personId !== '' && form.lineId !== '')) &&
+      (!form.ownPeriod || (form.startDate !== '' && form.endDate !== '')),
+    retry: false,
+    placeholderData: keepPreviousData,
+  });
+  const overLoad = pctValid ? overLoadText(load.data) : null;
+
+  const remove = useMutation({
+    mutationFn: () => deleteAllocation((allocation as Allocation).id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: allocationKeys.all });
+      void queryClient.invalidateQueries({ queryKey: ['overview'] });
+      setProblem(null);
+      onClose();
+    },
+    // The server refuses for a month that is closed, and says so.
+    onError: (error) => setProblem(errorMessage(error)),
+  });
+
   const save = useMutation({
     mutationFn: (pct: string) =>
       allocation
@@ -164,10 +206,10 @@ export function AllocationSheet({
     <FormSheet
       open={open}
       title={title}
-      submitText="Bewaar"
+      submitText={overLoad ? 'Bewaar boven 100%' : 'Bewaar'}
       onSubmit={submit}
       onClose={onClose}
-      busy={save.isPending}
+      busy={save.isPending || remove.isPending}
       error={problem ?? (options.isError ? errorMessage(options.error) : null)}
     >
       {!allocation && (
@@ -222,6 +264,35 @@ export function AllocationSheet({
         onChange={(pct) => set({ pct })}
         required
       />
+      {overLoad && (
+        <nldd-banner
+          variant="warning"
+          size="sm"
+          text={overLoad}
+          supporting-text="Dat mag, als je het zo bedoelt. De knop zegt wat je bewaart."
+        />
+      )}
+      {allocation && (
+        <div>
+          <RowMenu
+            name={`de inzet van ${allocation.person_name}`}
+            size="md"
+            actions={[
+              {
+                text: 'Verwijder de inzet',
+                destructive: true,
+                confirm: {
+                  text: `De inzet van ${allocation.person_name} verwijderen?`,
+                  supportingText:
+                    'De inzet verdwijnt uit de planning en uit de prognose. Is de inzet alleen eerder afgelopen, wijzig dan de einddatum.',
+                  confirmText: 'Verwijder',
+                },
+                onSelect: () => remove.mutate(),
+              },
+            ]}
+          />
+        </div>
+      )}
     </FormSheet>
   );
 }

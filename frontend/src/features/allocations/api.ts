@@ -90,3 +90,20 @@ export const updateAllocation = (id: string, input: AllocationInput) =>
   apiPatch<Allocation>(`/api/allocations/${id}`, input);
 
 export const deleteAllocation = (id: string) => apiDelete(`/api/allocations/${id}`);
+
+/** A month in which the person would be above 100 percent, with this inzet. */
+export interface OverMonth {
+  /** First day of the month. */
+  month: string;
+  current_pct: string;
+  new_pct: string;
+}
+
+export interface AllocationLoad {
+  person_name: string;
+  over_months: OverMonth[];
+}
+
+/** What the inzet would do to the person's load; nothing is saved by asking. */
+export const previewAllocationLoad = (input: AllocationInput & { allocation_id?: string }) =>
+  apiPost<AllocationLoad>('/api/allocations/load-preview', input);

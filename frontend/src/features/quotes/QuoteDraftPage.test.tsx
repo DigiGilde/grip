@@ -601,4 +601,42 @@ describe('helpers of the draft', () => {
     expect(newSectionKey('Inleiding', ['inleiding'])).toBe('inleiding-2');
     expect(newSectionKey('???', [])).toBe('onderdeel');
   });
+
+  it('shows the quote that is already made and starts a new one only on request', async () => {
+    const quotes = {
+      may_manage: true,
+      quotes: [
+        {
+          id: 'q-1',
+          uri: 'https://grip.example/id/offerte/q-1',
+          reference: 'VG-2026-0007',
+          assignment_id: 'a-1',
+          status: 'issued',
+          issued_at: '2026-02-03T10:00:00Z',
+          issued_by_name: 'Voorbeeld Een',
+          total_cents: 1200000,
+        },
+      ],
+    };
+    const { container } = renderPage({ '/api/assignments/a-1/quotes': quotes });
+    await waitFor(() => expect(container.querySelector('[data-made-quote]')).not.toBeNull());
+    const made = container.querySelector('[data-made-quote]')?.textContent ?? '';
+    expect(made.replace(/\u00a0|\u202f/g, ' ')).toContain(
+      'Offerte VG-2026-0007 van € 12.000 is gemaakt op 3 feb 2026.',
+    );
+    expect(made).toContain('Een nieuwe offerte vervangt haar.');
+    // Not "Maak offerte" as if nothing was made: back to the tab, or a new one on purpose.
+    expect(container.querySelector('nldd-button[text="Maak offerte"]')).toBeNull();
+    expect(container.querySelector('nldd-link[text="Terug naar de offerte"]')).toHaveAttribute(
+      'href',
+      '/opdrachten/a-1/offerte',
+    );
+    container
+      .querySelector('nldd-button[text="Maak een nieuwe offerte"]')
+      ?.dispatchEvent(new Event('click'));
+    await waitFor(() =>
+      expect(container.querySelector('nldd-button[text="Maak offerte"]')).not.toBeNull(),
+    );
+    expect(container.textContent).toContain('Deze offerte vervangt offerte VG-2026-0007');
+  });
 });

@@ -97,6 +97,12 @@ const OWN_PAGES = [/^\/beveiliging/, /^\/meldingen/, /^\/bewijs-controleren/, /^
 // the published vacancy), so a scale counts only outside the vacancy pages.
 const MONEY = /€\s?\d|\bcategorie [A-E]\b/i;
 const SCALE = /\bschaal \d/i;
+// The rate page shows every reader which scales fall under which category:
+// the structure of the rate card, no amount and nothing about a person
+// (docs/toegang.md, "De tarievenkaart heeft twee lagen"). There only an
+// amount is a leak; the names of categories and scales are what the page is.
+const AMOUNT = /€\s?\d/;
+const RATE_STRUCTURE_PAGES = [/^\/beheer\/tarieven/, /^\/tarieven/];
 
 const src = path.resolve(import.meta.dirname, '../src');
 
@@ -395,9 +401,11 @@ async function main() {
           route.personId === person.id || OWN_PAGES.some((own) => own.test(route.url));
         const clientPage = route.url.startsWith('/aanvragen') && person.kind === 'aanvrager';
         if (!READS_MONEY.has(person.kind) && !ownPage && !clientPage) {
-          const hit =
-            found.text.match(MONEY) ??
-            (route.url.startsWith('/vacatures') ? null : found.text.match(SCALE));
+          const structure = RATE_STRUCTURE_PAGES.some((page) => page.test(route.url));
+          const hit = structure
+            ? found.text.match(AMOUNT)
+            : (found.text.match(MONEY) ??
+              (route.url.startsWith('/vacatures') ? null : found.text.match(SCALE)));
           if (hit) {
             const at = found.text.indexOf(hit[0]);
             result.findings.push({

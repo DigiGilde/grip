@@ -15,6 +15,7 @@ import {
   type TimelineBar,
   type TimelineGroup,
   type TimelineRow,
+  openingScroll,
 } from './layout';
 import { Icon } from '@/ui/Icon';
 import './timeline.css';
@@ -236,6 +237,22 @@ export function Timeline<R, B>({
   const focusRow = Math.min(focus[0], Math.max(0, rows.length - 1));
   const focusColumn = Math.min(focus[1], Math.max(0, months.length - 1));
   const nowIndex = months.findIndex((month) => monthKey(month) === monthKey(currentMonth));
+  // Open on the current month: once per period shown, not on every render,
+  // so the reader's own scrolling is left alone.
+  const firstMonth = months[0] ?? '';
+  useLayoutEffect(() => {
+    const box = scrollRef.current;
+    if (!box || nowIndex < 0) return;
+    const heads = box.querySelectorAll<HTMLElement>('thead th');
+    const name = heads[0];
+    const now = heads[nowIndex + 1];
+    if (!name || !now) return;
+    box.scrollLeft = openingScroll(
+      now.offsetLeft,
+      name.offsetWidth,
+      box.scrollWidth - box.clientWidth,
+    );
+  }, [firstMonth, nowIndex]);
   const closed = new Set(closedMonths.map(monthKey));
   // The position of every row in the whole grid, across the groups.
   const indexOf = new Map(rows.map((row, position) => [row.key, position] as const));

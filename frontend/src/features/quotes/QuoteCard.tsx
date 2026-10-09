@@ -281,7 +281,12 @@ export function QuoteCard({
   // The card says what happened with the approval (asked, given, sent back);
   // that it is needed and what to do is said once, in the head of the assignment.
   const decided = ['requested', 'approved', 'sent_back'].includes(approval?.status ?? '');
-  const approvalText = open && offers.length === 0 && decided ? approvalLine(approval) : null;
+  // Who approved stays with the quote, also once it is offered or signed; a
+  // request that waits or was sent back only matters before the offer.
+  const approvalText =
+    decided && (approval?.status === 'approved' || (open && offers.length === 0))
+      ? approvalLine(approval)
+      : null;
   // Nothing about approval shows for a quote that does not need it.
   const required = approval?.approval_required === true;
   const noApprover = blocked && approval?.approver_available === false;

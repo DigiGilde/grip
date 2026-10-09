@@ -19,9 +19,12 @@ from grip.core import clock
 from grip.core.auth import CurrentPerson
 from grip.schema.allocations import (
     AllocationCreate,
+    AllocationLoadIn,
+    AllocationLoadOut,
     AllocationOut,
     AllocationUpdate,
     LineChoiceOut,
+    OverMonthOut,
     PersonChoiceOut,
 )
 from grip.schema.board import (
@@ -30,9 +33,9 @@ from grip.schema.board import (
     BoardOpenRoleOut,
     BoardPersonOut,
 )
+from grip.services import allocation_load, staffing_board
 from grip.services import assignment_views as views
 from grip.services import assignments as service
-from grip.services import staffing_board
 
 router = APIRouter(prefix="/allocations", tags=["allocations"])
 
@@ -335,7 +338,7 @@ async def allocation_options(
     return {
         "people": [
             build_response(PersonChoiceOut(id=p.person_id, name=p.name), {ROSTER})
-            for p in await views.person_options(db)
+            for p in await views.deployable_person_options(db)
         ],
         "lines": line_items,
     }
@@ -366,6 +369,62 @@ async def add_allocation(
     access.forget()
     row = await _row(await views.allocation_view(db, allocation.id), access)
     return row or {}
+
+
+@router.post("/load-preview", response_model=None)
+async def allocation_load_preview(
+    body: AllocationLoadIn, access: RequestAccess, db: DbSession
+) -> dict[str, Any]:
+    """Where an inzet would take the person above 100 percent. Saves nothing.
+
+    For who may save that inzet: after saving, the board shows the same.
+    """
+    replaces = None
+    if body.allocation_id is not None:
+        view = await _require_edit(body.allocation_id, access, db)
+        replaces = view.allocation
+        line = await service.get_budget_line(db, replaces.budget_line_id)
+        person_id = replaces.person_id
+    else:
+        if body.budget_line_id is None or body.person_id is None:
+            raise HTTPException(
+                status_code=422, detail="Kies een persoon en een begrotingsregel."
+            )
+        line = await service.get_budget_line(db, body.budget_line_id)
+        person_id = body.person_id
+        await access.require(
+            Action.EDIT, Resource.allocation(line.assignment_id, person_id), C
+        )
+    start, end = allocation_load.period_of(
+        line, body.period_source, body.start_date, body.end_date
+    )
+    person_name = await allocation_load.person_name(db, person_id)
+    over = (
+        await allocation_load.over_months(
+            db,
+            person_id=person_id,
+            start=start,
+            end=end,
+            fte_pct=body.fte_pct,
+            replaces=replaces,
+        )
+        if start and end and end >= start
+        else []
+    )
+    return build_response(
+        AllocationLoadOut(
+            person_name=person_name,
+            over_months=[
+                OverMonthOut(
+                    month=item.month.first_day,
+                    current_pct=item.current_pct,
+                    new_pct=item.new_pct,
+                )
+                for item in over
+            ],
+        ),
+        {ROSTER, C},
+    )
 
 
 async def _require_edit(
