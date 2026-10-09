@@ -14,9 +14,10 @@ info:
     TOOI-URI.
 
     **Aanroeper.** De aanroeper is een FSC-peer. De ontvanger leidt de relatie af uit het peer-id:
-    opdrachtgever of opdrachtnemer van die opdracht, moederinstantie, of corpus. Elke operatie
-    noemt in `x-grip-caller` welke relatie vereist is. Een opdracht waar de aanroeper geen relatie
-    mee heeft geeft 404.
+    opdrachtgever of opdrachtnemer van die opdracht, uitvoerder van die kostenpost,
+    moederinstantie, of corpus. Elke operatie noemt in `x-grip-caller` welke relatie vereist is.
+    Een opdracht of kostenpost waar de aanroeper geen relatie mee heeft geeft 404. Wie de afzender
+    is volgt altijd uit het peer-id, nooit uit een veld in het bericht.
 
     **Gegevensklassen.** Elke operatie noemt in `x-grip-data-class` de klassen die het bericht of
     antwoord bevat: A opdracht-basis, B opdracht-financieel, C bemensing, D persoon-tarief,
@@ -359,6 +360,10 @@ paths:
 
         Een volgende aanmelding met dezelfde `kostenpost_uri` en een nieuw `id` werkt de omschrijving
         bij; de factuurregels en de dekking bij de uitvoerder blijven staan.
+
+        De aanmelder is de aanroepende peer. De `kostenpost_uri` moet onder de basis-URI van die peer
+        vallen (`{basis}/id/kostenpost/{uuid}`); anders weigert de ontvanger met 403. Een kostenpost
+        met die URI kan dus alleen door dezelfde peer worden bijgewerkt.
       x-grip-caller: peer
       x-grip-data-class: [B]
       requestBody:
@@ -383,7 +388,11 @@ paths:
         vervangt al haar factuurregels op die kostenpost door deze lijst en beheert ze daarna niet
         meer zelf. Een stand met een lager `volgnummer` dan de laatst verwerkte wordt ontvangen en
         genegeerd.
-      x-grip-caller: peer
+
+        Alleen de uitvoerder van de kostenpost mag de stand sturen. De `kostenpost_uri` is een URI van
+        de ontvangende instantie en hoort bij `{kostenpostId}`. Een kostenpost die de ontvanger niet
+        heeft aangemeld bij de aanroepende peer geeft 404.
+      x-grip-caller: executor
       x-grip-data-class: [B]
       parameters:
         - { $ref: "#/components/parameters/kostenpostId" }

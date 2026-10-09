@@ -12,11 +12,11 @@
     "kostenpost_uri": {
       "type": "string",
       "format": "uri",
-      "description": "URI van de kostenpost bij de aanmelder, `{basis}/id/kostenpost/{uuid}`. Identificeert de kostenpost over berichten heen: een tweede aanmelding met dezelfde URI werkt de kostenpost bij."
+      "description": "URI van de kostenpost bij de aanmelder, `{basis}/id/kostenpost/{uuid}`, met de basis-URI van de instantie van de aanmelder. Identificeert de kostenpost over berichten heen: een tweede aanmelding met dezelfde URI werkt de kostenpost bij."
     },
     "organisatie": {
       "$ref": "organisatie-ref.schema.json",
-      "description": "De organisatie die de kostenpost aanmeldt; de afzender."
+      "description": "Informatief: de organisatie die de kostenpost aanmeldt, zoals de afzender zichzelf noemt. De ontvanger bepaalt de aanmelder uit de aanroepende peer, nooit uit dit veld. Noemt `instantie_uri` een andere instantie dan de afzender, dan weigert de ontvanger het bericht met 403."
     },
     "omschrijving": {
       "type": "string",
