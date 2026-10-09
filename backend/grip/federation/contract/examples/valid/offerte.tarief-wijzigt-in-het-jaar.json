@@ -1,0 +1,95 @@
+{
+  "id": "6b1f0c1e-3a55-4f0e-9a51-2f6f6f0d7a11",
+  "uri": "https://grip.opdrachtnemer.example/id/offerte/6b1f0c1e-3a55-4f0e-9a51-2f6f6f0d7a11",
+  "opdracht_uri": "https://grip.opdrachtnemer.example/id/opdracht/dddddddd-0000-4000-8000-000000000001",
+  "aanvraag_id": null,
+  "opdrachtnemer": {
+    "tooi_uri": "https://identifier.overheid.nl/tooi/id/oorg/oorg00000",
+    "naam": "Voorbeelddienst",
+    "eenheid_kenmerk": "voorbeeldgilde",
+    "instantie_uri": "https://grip.opdrachtnemer.example"
+  },
+  "opdrachtgever": {
+    "tooi_uri": "https://identifier.overheid.nl/tooi/id/ministerie/mnre0000",
+    "naam": "Voorbeeldministerie",
+    "eenheid_kenmerk": "directie-voorbeeld",
+    "instantie_uri": "https://grip.opdrachtgever.example"
+  },
+  "bovenliggende_opdracht_uri": null,
+  "momentopname": {
+    "naam": "Voorstel Delta",
+    "context_uris": [],
+    "regels": [
+      {
+        "positie": 1,
+        "omschrijving": "Productmanager",
+        "soort": "personeel",
+        "rol": "Productmanager",
+        "fte": "1",
+        "tariefcategorie": "C",
+        "periode": {
+          "begindatum": "2026-04-01",
+          "einddatum": "2026-09-30"
+        },
+        "bedrag": {
+          "bedrag_centen": 9225000,
+          "valuta": "EUR"
+        },
+        "schalen": [
+          12,
+          13
+        ],
+        "maandtarieven_per_periode": [
+          {
+            "begindatum": "2026-04-01",
+            "einddatum": "2026-06-30",
+            "maandtarief": {
+              "bedrag_centen": 1500000,
+              "valuta": "EUR"
+            }
+          },
+          {
+            "begindatum": "2026-07-01",
+            "einddatum": "2026-09-30",
+            "maandtarief": {
+              "bedrag_centen": 1575000,
+              "valuta": "EUR"
+            }
+          }
+        ]
+      },
+      {
+        "positie": 2,
+        "omschrijving": "Licenties",
+        "soort": "vast",
+        "jaar": 2026,
+        "bedrag": {
+          "bedrag_centen": 600000,
+          "valuta": "EUR"
+        }
+      }
+    ],
+    "subtotalen_per_jaar": [
+      {
+        "jaar": 2026,
+        "bedrag": {
+          "bedrag_centen": 9825000,
+          "valuta": "EUR"
+        }
+      }
+    ],
+    "totaal": {
+      "bedrag_centen": 9825000,
+      "valuta": "EUR"
+    },
+    "geldig_tot_en_met": "2026-06-30",
+    "voorwaarden": "Fictieve voorwaarden.",
+    "kenmerk": "VG-2026-0007",
+    "uw_kenmerk": "VM/2026/118",
+    "afzender": "Voorbeeldgilde"
+  },
+  "momentopname_hash": "7edbff3027fcf850099a06abee1d56d9f9ba376b901ade6136de3020e7d3756e",
+  "hash_algoritme": "sha-256",
+  "canonicalisatie": "RFC8785",
+  "uitgegeven_op": "2026-06-01T10:00:00+02:00"
+}

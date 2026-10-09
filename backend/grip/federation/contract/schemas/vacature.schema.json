@@ -86,6 +86,39 @@
       "type": "string",
       "format": "date-time",
       "description": "Moment van uitzetten. Met tijdzone (RFC 3339)."
+    },
+    "publicaties": {
+      "type": "array",
+      "description": "Waar de vacature voor iedereen te lezen is. Leeg of afwezig zolang ze nergens is gepubliceerd.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "plek": {
+            "type": "string",
+            "enum": [
+              "intern",
+              "rijksbreed",
+              "extern"
+            ],
+            "description": "Waar de vacature is gepubliceerd: binnen de eigen organisatie, rijksbreed of op de externe arbeidsmarkt."
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "pattern": "^https://",
+            "description": "Het openbare adres van de gepubliceerde vacature."
+          },
+          "gepubliceerd_op": {
+            "type": "string",
+            "format": "date",
+            "description": "De dag waarop de vacature op deze plek is gepubliceerd."
+          }
+        },
+        "required": [
+          "plek",
+          "url"
+        ]
+      }
     }
   },
   "required": [

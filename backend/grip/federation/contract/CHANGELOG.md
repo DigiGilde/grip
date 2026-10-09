@@ -5,6 +5,12 @@ Dit bestand volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/). De v
 
 ## [Unreleased]
 
+### Toegevoegd in grip-opdrachtverkeer
+
+- Offerte: `kenmerk`, `uw_kenmerk`, `afzender` en `brief` in de momentopname. De brief is de tekst bij de bedragen en hoort bij de inhoud waarover de hash wordt berekend.
+- Offerteregel: `schalen` bij een personeelsregel, `jaar` bij een vast bedrag, en `maandtarieven_per_periode` voor een tarief dat binnen een kalenderjaar wijzigt. `maandtarieven_per_jaar` geldt voor een tarief dat alleen op 1 januari wijzigt.
+- Vacature: `publicaties`, de openbare adressen waar de vacature te lezen is.
+
 ### Verduidelijkt in grip-opdrachtverkeer
 
 - `GET /opdrachten` zei "geen bedragen" en gegevensklasse A, terwijl het antwoord voor een corpus-systeem `besteding` bevat. De omschrijving en de gegevensklasse (A en B) volgen nu het schema.
