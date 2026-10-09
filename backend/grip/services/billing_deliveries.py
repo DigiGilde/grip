@@ -40,6 +40,7 @@ from grip.services import (
     month_close,
     month_overview,
     outgoing_invoices,
+    read_cache,
     stale,
     stored_documents,
 )
@@ -398,7 +399,46 @@ async def overview(
     session: AsyncSession, assignment_id: UUID, *, today: date | None = None
 ) -> Overview:
     """Where every billing period of the assignment stands, and what is next."""
-    today = today or clock.today()
+    found = await overviews(session, [assignment_id], today=today)
+    return found[assignment_id]
+
+
+async def overviews(
+    session: AsyncSession,
+    assignment_ids: Iterable[UUID],
+    *,
+    today: date | None = None,
+) -> dict[UUID, Overview]:
+    """``overview`` of several assignments.
+
+    The day counts only by its month: a month can be closed from the first
+    day after it, and runs from its first day. So what was worked out holds
+    until the data of the assignment changes or the month turns.
+    """
+    day = today or clock.today()
+    ids = list(dict.fromkeys(assignment_ids))
+
+    async def compute(missing: list[UUID]) -> dict[UUID, Overview]:
+        # What every period builds on, read together.
+        await outgoing_invoices.month_billings(session, missing)
+        return {
+            assignment_id: await _overview(session, assignment_id, day)
+            for assignment_id in missing
+        }
+
+    return await read_cache.remember_many(
+        session,
+        "billing_overview",
+        ids,
+        (day.year, day.month),
+        compute,
+        ignore=read_cache.COST_KINDS,
+    )
+
+
+async def _overview(
+    session: AsyncSession, assignment_id: UUID, today: date
+) -> Overview:
     assignment = await get_assignment(session, assignment_id)
     terms = await terms_of(session, assignment_id)
     billable = allows_billing(assignment.status)
@@ -1331,11 +1371,16 @@ async def across(
 ) -> list[AssignmentBilling]:
     """The billing state of several assignments, for the page over all of them."""
     result = []
-    for assignment_id in dict.fromkeys(assignment_ids):
+    ids = list(dict.fromkeys(assignment_ids))
+    billable = [
+        assignment_id
+        for assignment_id in ids
+        if allows_billing((await get_assignment(session, assignment_id)).status)
+    ]
+    states = await overviews(session, billable, today=today)
+    for assignment_id in billable:
         assignment = await get_assignment(session, assignment_id)
-        if not allows_billing(assignment.status):
-            continue
-        state = await overview(session, assignment_id, today=today)
+        state = states[assignment_id]
         client = (
             await session.get(Organisation, assignment.client_organisation_id)
             if assignment.client_organisation_id

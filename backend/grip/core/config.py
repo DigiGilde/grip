@@ -123,6 +123,10 @@ class Settings(BaseSettings):
     # /api/ route would be open, so the app refuses to start in that state
     # unless this is set. Local development only.
     DEV_NO_AUTH: bool = False
+    # Add a Server-Timing header with the statements and time each request
+    # cost (`just check-speed`). Counts only together with DEV_NO_AUTH, so a
+    # deployed instance never shows it.
+    DEV_SPEED_TIMING: bool = False
     # Accept an identity provider over plain http. Local development only (a
     # Keycloak in a container); refused in a deployed environment.
     OIDC_ALLOW_INSECURE_HTTP: bool = False
@@ -314,6 +318,17 @@ class Settings(BaseSettings):
                 "SESSION_SECRET_KEY must be set to a secure random value "
                 "when OIDC is configured. Do not use the default."
             )
+        # A deployed instance signs its session cookie and encrypts its
+        # sessions with this value: a short or well-known one is a way in.
+        if (self.PUBLIC_HOST and self.OIDC_ISSUER) and (
+            len(self.SESSION_SECRET_KEY) < 32
+            or self.SESSION_SECRET_KEY.startswith("lokale-omgeving")
+        ):
+            raise ValueError(
+                "SESSION_SECRET_KEY is te kort of een bekende waarde. Een "
+                "uitgerolde instantie heeft een eigen willekeurige waarde van "
+                "minstens 32 tekens nodig, bijvoorbeeld uit: openssl rand -hex 32"
+            )
         return self
 
     @model_validator(mode="after")
@@ -327,6 +342,12 @@ class Settings(BaseSettings):
 
         Runs after _derive_oidc_issuer so a ZAD-derived issuer counts.
         """
+        if self.DEBUG and self.PUBLIC_HOST:
+            raise ValueError(
+                "DEBUG mag niet aan staan in een gedeployde omgeving "
+                "(PUBLIC_HOST is gezet): een fout zou dan zijn hele "
+                "achtergrond aan de bezoeker tonen."
+            )
         if self.DEV_NO_AUTH and self.PUBLIC_HOST:
             raise ValueError(
                 "DEV_NO_AUTH mag niet aan staan in een gedeployde omgeving "

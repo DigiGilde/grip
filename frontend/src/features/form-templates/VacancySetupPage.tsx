@@ -7,7 +7,13 @@ import { ApiError, errorMessage } from '@/api/client';
 import { formatDate } from '@/lib/format';
 import { useInstance } from '@/layout/useInstance';
 import { PATHS } from '@/paths';
-import { OpenCell, OpenRow, ROW_ACTIONS_COLUMN, RowActions } from '@/ui/RowActions';
+import {
+  OpenCell,
+  OpenRow,
+  ROW_ACTIONS_COLUMN,
+  RowActions,
+  RowActionsHeader,
+} from '@/ui/RowActions';
 import { VACANCY_KEYS } from '@/features/vacancies/api';
 import {
   Button,
@@ -251,7 +257,7 @@ function Templates() {
           <nldd-table-row slot="header">
             <nldd-text-cell text="Formulier" />
             <nldd-text-cell text="Stand" />
-            <nldd-cell />
+            <RowActionsHeader />
           </nldd-table-row>
           {[...(inUse ? [inUse] : []), ...earlier].map((template) => (
             <OpenRow key={template.id} onOpen={() => open(template)}>

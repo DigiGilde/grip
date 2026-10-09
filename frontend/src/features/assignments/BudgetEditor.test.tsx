@@ -141,7 +141,12 @@ describe('budget line sheet', () => {
     const { container } = renderEditor();
     await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
     expect(container.querySelector('nldd-button[text="Bewerk"]')).toBeNull();
-    expect(allText(container)).not.toContain('Acties');
+    // No "Acties" header is shown; the one a screen reader gets is hidden from sight.
+    const actionHeaders = [...container.querySelectorAll('nldd-table-row[slot="header"] *')].filter(
+      (el) => el.childElementCount === 0 && el.textContent === 'Acties',
+    );
+    expect(actionHeaders.map((el) => el.className)).toEqual(['grip-visually-hidden']);
+    expect(container.querySelector('[text="Acties"]')).toBeNull();
     // The role is said once: the name, then the facts.
     const name = container.querySelector('nldd-table nldd-link');
     expect(name?.getAttribute('text')).toBe('Productmanager');

@@ -87,7 +87,7 @@ export function AccountMenu({ placement, compact }: AccountMenuProps) {
 
   if (compact) {
     return (
-      <nldd-icon-button icon="person-circle" text={name} expandable>
+      <nldd-icon-button icon="person-circle" text={name} expandable data-account-menu>
         {menu}
       </nldd-icon-button>
     );
@@ -102,6 +102,7 @@ export function AccountMenu({ placement, compact }: AccountMenuProps) {
       max-width="280px"
       single-line
       expandable
+      data-account-menu
     >
       {menu}
     </nldd-button>

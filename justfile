@@ -65,6 +65,12 @@ reset-db:
 seed *ARGS:
     cd backend && uv run python -m grip.dev.seed {{ ARGS }}
 
+# Fictional data at the size of a real organisation (150 people, 400
+# assignments over four years), to measure speed with `just check-speed`.
+# Takes several minutes; use a database of its own (DATABASE_URL).
+seed-scale *ARGS:
+    cd backend && uv run python -m grip.dev.seed_scale {{ ARGS }}
+
 # `just seed --extend` adds the corpus peers and the context of the example
 # assignments to data that was seeded earlier; a fresh seed includes them.
 # The dev backend reaches the stand-in as its outway: start the backend with
@@ -277,6 +283,11 @@ fix-internal-judges:
 fix-role-po:
     cd backend && uv run python -m grip.dev.fix_role_po
 
+# Turn open places an earlier version wrote for a known fact ("[vul aan: de schaal van de vacature]")
+# back into that fact, in draft vacancy texts and standard texts. Idempotent; --check only counts.
+fix-open-places *ARGS:
+    cd backend && uv run python -m grip.dev.fix_open_places {{ARGS}}
+
 # Store the naverrekeningen that stand open (once, after migration 0036_billing_correction)
 billing-corrections-sync:
     cd backend && uv run python -m grip.services.billing_corrections
@@ -290,6 +301,20 @@ check-spacing *ARGS:
 [positional-arguments]
 check-access *ARGS:
     cd frontend && node scripts/check-access.mjs "$@"
+
+# Run axe-core on every page in a real browser, as three kinds of reader, wide
+# and narrow, dark and light; `--open` also opens forms and menus. Needs
+# running servers and a host name of your own in --base. See
+# docs/toegankelijkheid.md for what a machine cannot find.
+[positional-arguments]
+check-a11y *ARGS:
+    cd frontend && node scripts/check-a11y.mjs "$@"
+
+# Measure how fast every page is for every kind of reader, against the budget
+# (servers must be running on a database of real size; see docs/snelheid.md)
+[positional-arguments]
+check-speed *ARGS:
+    cd frontend && node scripts/check-speed.mjs "$@"
 
 # First login through the real SSO Rijk: starts grip against deploy/local/.env.sso
 # and shows, masked, what the provider sent and what grip did with it

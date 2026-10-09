@@ -373,3 +373,115 @@ def parse_sections(answer: str) -> list[tuple[str, str]]:
         elif line.strip():
             result.append(("Inleiding", [line]))
     return [(heading, "\n".join(body).strip()) for heading, body in result]
+
+
+# --- one passage of a vacancy text ---------------------------------------------
+
+# Bump when the passage prompt changes; recorded with every proposal.
+PASSAGE_PROMPT_VERSION = "vacature-passage-2026-10-1"
+
+MAX_PASSAGE_TEXT = 12000
+# Where the passage comes, in the text that goes along.
+PASSAGE_MARK = "<<HIER>>"
+
+
+@dataclass(frozen=True)
+class PassageInput:
+    """Everything a proposal for one open place may be based on."""
+
+    role: str
+    # What the open place asks for: "beschrijf in twee of drie zinnen ...".
+    asked: str
+    # The vacancy text as it stands, with the place marked.
+    text: str
+    scale_band: str | None = None
+    fte: Decimal | None = None
+    contract_type: ContractType | None = None
+    assignment_name: str | None = None
+    unit_name: str | None = None
+    context: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not self.role or not self.role.strip():
+            raise DraftInputError("Een voorstel heeft minstens de rol nodig.")
+        if not self.asked.strip() or PASSAGE_MARK not in self.text:
+            raise DraftInputError("Deze plek staat niet meer in de tekst.")
+        if len(self.text) > MAX_PASSAGE_TEXT:
+            raise DraftInputError("De tekst is te lang voor een voorstel.")
+
+    def free_text(self) -> list[str]:
+        """Every piece of text a person typed, for the name check."""
+        parts = [
+            self.role,
+            self.asked,
+            self.text,
+            self.assignment_name,
+            self.unit_name,
+            *self.context,
+        ]
+        return [part for part in parts if part]
+
+
+ALLOWED_PASSAGE_FIELDS: frozenset[str] = frozenset(f.name for f in fields(PassageInput))
+
+
+def build_passage_prompt(passage: PassageInput) -> tuple[str, str]:
+    """The system and user message for one passage of a vacancy text.
+
+    The answer is the passage alone, as running text, so it can stand in the
+    place it was asked for.
+    """
+    facts: list[tuple[str, str]] = [("Rol", passage.role.strip())]
+    if passage.unit_name:
+        facts.append(("Onderdeel", passage.unit_name.strip()))
+    if passage.scale_band:
+        facts.append(("Schaal", passage.scale_band))
+    if passage.fte is not None:
+        facts.append(("Omvang (fte)", _format_fte(passage.fte)))
+    if passage.contract_type is not None:
+        facts.append(
+            ("Soort contract", CONTRACT_LABELS[ContractType(passage.contract_type)])
+        )
+    if passage.assignment_name:
+        facts.append(("Opdracht", passage.assignment_name.strip()))
+    lines = [
+        "In de vacaturetekst hieronder staat één plek open, gemarkeerd met "
+        f"{PASSAGE_MARK}. Schrijf alleen de tekst voor die plek.",
+        "",
+        "<gevraagd>",
+        passage.asked.strip(),
+        "</gevraagd>",
+        "",
+        "Geef alleen de passage terug: lopende tekst die past in de zin of "
+        "alinea eromheen, zonder kop, zonder lijst, zonder aanhalingstekens "
+        "en zonder toelichting. Noem de interne naam van de opdracht niet; "
+        "beschrijf het team of product in gewone woorden.",
+        "",
+        "<gegevens>",
+        *(f"{label}: {value}" for label, value in facts),
+        "</gegevens>",
+    ]
+    if passage.context:
+        lines += ["", CONTEXT_INSTRUCTION, "", "<beleidscontext>"]
+        lines.extend(line.rstrip() for line in passage.context)
+        lines.append("</beleidscontext>")
+    lines += ["", "<vacaturetekst>", passage.text.strip(), "</vacaturetekst>"]
+    return _TAILORED_SYSTEM, "\n".join(lines)
+
+
+def clean_passage(answer: str) -> str:
+    """The model's answer as text for one place: no heading, no list, no
+    open place of its own, on one line per paragraph."""
+    kept = []
+    for line in answer.strip().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        kept.append(line.lstrip("-*• ").strip())
+    text = " ".join(kept).strip().strip('"“”').strip()
+    if not text or "[vul aan" in text or PASSAGE_MARK in text:
+        raise DraftInputError(
+            "Het taalmodel gaf geen bruikbaar voorstel. Schrijf de passage "
+            "zelf of probeer het opnieuw."
+        )
+    return text

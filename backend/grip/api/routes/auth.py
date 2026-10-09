@@ -253,6 +253,11 @@ async def callback(
         name=name,
     )
     person = match.person
+    # An example instance holds no real people. Whoever logs in is a visitor
+    # from its list, also when an example person happens to carry the same
+    # address (a visitor acting as the beheerder can add one).
+    if settings.is_example:
+        person = None
 
     session = request.session
     # Validated again on the way out: the session is not a trusted source

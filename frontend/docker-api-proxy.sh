@@ -21,6 +21,10 @@ location /api/ {
     proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto \$grip_forwarded_proto;
     proxy_set_header X-Forwarded-Host \$grip_forwarded_host;
+    # The backend sets the security headers of its own answers (a closed
+    # content policy among them). A header set here keeps the ones meant for
+    # pages from being added on top.
+    add_header X-Content-Type-Options "nosniff" always;
 }
 CONF
     echo "grip: /api/ is passed on to ${BACKEND_URL}"
@@ -28,8 +32,45 @@ else
     cat > "$OUT" <<'CONF'
 location /api/ {
     default_type application/problem+json;
+    add_header X-Content-Type-Options "nosniff" always;
     return 502 '{"title":"De API is hier niet bereikbaar","detail":"Dit adres stuurt /api/ niet door. Zet BACKEND_URL op de frontend, of laat het platform /api/ naar de backend sturen.","status":502}';
 }
 CONF
     echo "grip: BACKEND_URL is empty, /api/ is not passed on by this container"
 fi
+
+# Where someone reports a vulnerability (RFC 9116). SECURITY_TXT_URL is the
+# security.txt of the organisation that runs this instance; this address
+# sends the reader on to it, so one file is kept up to date. Without it the
+# address answers 404 and not the front page.
+SECURITY_OUT=/tmp/grip-security.conf
+case "${SECURITY_TXT_URL:-}" in
+    https://*)
+        case "$SECURITY_TXT_URL" in
+            *[\'\"\;\{\}\ \$\\]*)
+                echo "grip: SECURITY_TXT_URL has characters that do not belong in an address" >&2
+                exit 64
+                ;;
+        esac
+        cat > "$SECURITY_OUT" <<CONF
+location = /.well-known/security.txt {
+    add_header X-Content-Type-Options "nosniff" always;
+    return 302 ${SECURITY_TXT_URL};
+}
+CONF
+        echo "grip: /.well-known/security.txt points to ${SECURITY_TXT_URL}"
+        ;;
+    "")
+        cat > "$SECURITY_OUT" <<'CONF'
+location = /.well-known/security.txt {
+    add_header X-Content-Type-Options "nosniff" always;
+    return 404;
+}
+CONF
+        echo "grip: SECURITY_TXT_URL is empty, there is no security.txt"
+        ;;
+    *)
+        echo "grip: SECURITY_TXT_URL must be an https address" >&2
+        exit 64
+        ;;
+esac

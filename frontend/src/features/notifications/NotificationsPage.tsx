@@ -5,7 +5,7 @@ import { Button, TextInput } from '@/features/assignments/ui';
 import { CheckboxInput } from '@/features/quotes/ui';
 import { useInstance } from '@/layout/useInstance';
 import { formatDate } from '@/lib/format';
-import { ROW_ACTIONS_COLUMN, RowActions } from '@/ui/RowActions';
+import { ROW_ACTIONS_COLUMN, RowActions, RowActionsHeader } from '@/ui/RowActions';
 import {
   EmptyNotice,
   ErrorNotice,
@@ -182,7 +182,7 @@ export function NotificationsPage() {
                   <nldd-table-row slot="header">
                     <nldd-text-cell text="Apparaat" />
                     <nldd-text-cell text="Gebruik" hide-below="md" />
-                    <nldd-text-cell />
+                    <RowActionsHeader />
                   </nldd-table-row>
                   {data.devices.map((device) => (
                     <nldd-table-row key={device.id}>

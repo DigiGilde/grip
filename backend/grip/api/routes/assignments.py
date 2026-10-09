@@ -141,25 +141,33 @@ async def list_assignments(
         rows = await views.assignment_rows(
             db, status=status_filter, only_ids=await access.own_assignment_ids()
         )
-    items = []
+    readable = []
     for row in rows:
         permitted = await access.classes(
             Resource.assignment(row.assignment.id), _SUMMARY_CLASSES
         )
-        if A not in permitted:
-            continue
-        budgeted: int | None = None
-        if (
-            B in permitted
+        if A in permitted:
+            readable.append((row, permitted))
+    # A potential assignment without a quote shows its budget instead.
+    budgeted = await views.budgeted_totals(
+        db,
+        [
+            row.assignment.id
+            for row, permitted in readable
+            if B in permitted
             and row.phase is Phase.POTENTIAL
             and row.latest_quote_cents is None
-        ):
-            budgeted = await views.budgeted_total(db, row.assignment.id)
-        items.append(
-            build_response(
-                AssignmentSummaryOut(**_summary_fields(row, budgeted)), permitted
-            )
+        ],
+    )
+    items = [
+        build_response(
+            AssignmentSummaryOut(
+                **_summary_fields(row, budgeted.get(row.assignment.id))
+            ),
+            permitted,
         )
+        for row, permitted in readable
+    ]
     return {
         "items": items,
         "can_create": await access.may(Action.CREATE_ASSIGNMENT, Resource.assignment()),

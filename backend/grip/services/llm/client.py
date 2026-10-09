@@ -16,6 +16,7 @@ from typing import Protocol
 from openai import AsyncOpenAI
 
 from grip.core.config import Settings, get_settings
+from grip.core.rate_limit import KeyedLimiter, caller_key
 from grip.services.llm.vlam_endpoint import resolve_vlam_base_url
 
 
@@ -36,6 +37,39 @@ class LlmResponseError(RuntimeError):
     """The model answered, but not with usable text."""
 
 
+class LlmBusyError(LlmResponseError):
+    """Someone asked the model more often than one person reasonably does."""
+
+
+# The model costs money and time per call, and nothing else in grip does. One
+# person gets a generous number of drafts per hour, and the instance as a
+# whole a ceiling, so that one session cannot spend the budget of all. In
+# memory and per process, like the other limits (grip.core.rate_limit).
+CALLS_PER_PERSON_PER_HOUR = 40
+CALLS_PER_INSTANCE_PER_HOUR = 400
+_per_person = KeyedLimiter(limit=CALLS_PER_PERSON_PER_HOUR, window=3600)
+_per_instance = KeyedLimiter(limit=CALLS_PER_INSTANCE_PER_HOUR, window=3600)
+
+
+def count_call() -> None:
+    """Count one call to the model, or refuse it with ``LlmBusyError``."""
+    if not _per_person.allow(caller_key()):
+        raise LlmBusyError(
+            "Je hebt het taalmodel het afgelopen uur vaak gebruikt. "
+            "Probeer het later opnieuw."
+        )
+    if not _per_instance.allow("instance"):
+        raise LlmBusyError(
+            "Het taalmodel is het afgelopen uur veel gebruikt. "
+            "Probeer het later opnieuw."
+        )
+
+
+def reset_call_counts() -> None:
+    _per_person.reset()
+    _per_instance.reset()
+
+
 class ChatClient(Protocol):
     """What drafting needs from a language model."""
 
@@ -53,7 +87,11 @@ class VlamClient:
     provider = "vlam"
 
     def __init__(self, *, api_key: str, base_url: str, model_id: str) -> None:
-        self._client = AsyncOpenAI(api_key=api_key, base_url=base_url)
+        # A call that hangs holds a request open; two minutes is ample for
+        # a draft, and one retry is enough for a hiccup.
+        self._client = AsyncOpenAI(
+            api_key=api_key, base_url=base_url, timeout=120.0, max_retries=1
+        )
         self._model_id = model_id
 
     @property
@@ -61,6 +99,7 @@ class VlamClient:
         return self._model_id
 
     async def complete(self, *, system: str, user: str, max_tokens: int = 1500) -> str:
+        count_call()
         response = await self._client.chat.completions.create(
             model=self._model_id,
             max_tokens=max_tokens,

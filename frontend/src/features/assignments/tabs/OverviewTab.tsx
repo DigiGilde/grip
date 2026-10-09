@@ -1,7 +1,13 @@
 import { fetchAssignmentFinance, financeKeys } from '../financeApi';
 import { signalText } from '../financeText';
 import { Facts as FactList, Quiet, Section, Stack } from '@/ui/layout';
-import { ROW_ACTIONS_COLUMN, RowActions, RowMenu, type RowAction } from '@/ui/RowActions';
+import {
+  ROW_ACTIONS_COLUMN,
+  RowActions,
+  RowMenu,
+  type RowAction,
+  RowActionsHeader,
+} from '@/ui/RowActions';
 import { useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
@@ -109,7 +115,7 @@ function Roles({ assignment }: { assignment: AssignmentDetail }) {
           <nldd-table-row slot="header">
             <nldd-text-cell text="Naam" />
             <nldd-text-cell text="Rol" />
-            {canEdit && <nldd-text-cell />}
+            {canEdit && <RowActionsHeader />}
           </nldd-table-row>
           {assignment.roles.map((holder) => (
             <nldd-table-row key={holder.person_id}>

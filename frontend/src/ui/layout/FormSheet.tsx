@@ -13,9 +13,10 @@
  *   - One primary action. "Annuleer" sits in the title bar, away from it.
  */
 import { PrimaryTakenContext } from '@/ui/primary';
-import { useId, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { orUndef, useNlddEvent } from '@/components/nldd/events';
+import { announce, prepareAnnouncer } from '@/ui/announce';
 import { useFormMessage } from './formMessage';
 
 if (import.meta.env.MODE !== 'test') void import('./register');
@@ -85,14 +86,35 @@ export function FormSheet({
   const barRef = useRef<HTMLElement>(null);
   const formRef = useRef<HTMLElement>(null);
   const titleId = useId();
-  useNlddEvent(sheetRef, 'close', onClose);
-  useNlddEvent(barRef, 'dismiss', onClose);
+  // Whether the form was sent since the sheet opened: a sheet that closes
+  // after that has saved, one that is dismissed has not.
+  const sent = useRef(false);
+  const dismiss = () => {
+    sent.current = false;
+    onClose();
+  };
+  useNlddEvent(sheetRef, 'close', dismiss);
+  useNlddEvent(barRef, 'dismiss', dismiss);
   const message = useFormMessage(sheetRef, error);
   useNlddEvent(formRef, 'submit', (event) => {
     event.preventDefault();
     message.submitted();
-    if (!busy && !submitDisabled) onSubmit();
+    if (!busy && !submitDisabled) {
+      sent.current = true;
+      onSubmit();
+    }
   });
+  useEffect(() => {
+    if (open) {
+      sent.current = false;
+      prepareAnnouncer();
+      return;
+    }
+    if (!sent.current) return;
+    sent.current = false;
+    // Focus goes back to the button that opened the sheet; this says the rest.
+    announce(`${title}: opgeslagen`);
+  }, [open, title]);
   const shownError = message.shown;
 
   return createPortal(

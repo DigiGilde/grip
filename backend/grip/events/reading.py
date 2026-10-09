@@ -10,7 +10,7 @@ total is given.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -152,6 +152,42 @@ class EventAccess:
                 )
             self._vacancies[vacancy_id] = resource
         return self._vacancies[vacancy_id]
+
+    async def prepare(self, events: Iterable[StreamEvent]) -> None:
+        """Read the vacancies a list of events is about, all at once."""
+        wanted = {
+            event.case_id
+            for event in events
+            if event.case_kind == CASE_VACANCY and event.case_id is not None
+        } - set(self._vacancies)
+        if not wanted:
+            return
+        found = (
+            await self._db.scalars(
+                select(Vacancy)
+                .where(Vacancy.id.in_(wanted))
+                .options(selectinload(Vacancy.decisions))
+            )
+        ).all()
+        line_ids = {v.budget_line_id for v in found if v.budget_line_id is not None}
+        assignment_of: dict[UUID, UUID] = {}
+        if line_ids:
+            rows = await self._db.execute(
+                select(BudgetLine.id, BudgetLine.assignment_id).where(
+                    BudgetLine.id.in_(line_ids)
+                )
+            )
+            assignment_of = {row[0]: row[1] for row in rows}
+        for vacancy_id in wanted:
+            self._vacancies[vacancy_id] = None
+        for vacancy in found:
+            self._vacancies[vacancy.id] = vacancy_resource(
+                vacancy.id,
+                assignment_id=assignment_of.get(vacancy.budget_line_id)
+                if vacancy.budget_line_id is not None
+                else None,
+                named={d.kind: d.person_id for d in vacancy.decisions},
+            )
 
     async def resource_of(self, event: StreamEvent) -> Resource | None:
         """What the access model is asked about; None when nothing can be."""

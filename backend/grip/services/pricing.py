@@ -16,13 +16,14 @@ from datetime import date, timedelta
 from decimal import Decimal
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip import calc
 from grip.calc import AmountSource, CoverageBasis, Month, PartialMonths
 from grip.models.assignment import Allocation, BudgetLine
 from grip.models.cost import CostCoverage, CostItem, InvoiceLine
-from grip.models.person_details import PersonScale
+from grip.models.person_details import BillabilityTarget, PersonScale
 from grip.models.rates import RateCard
 from grip.repositories.domain import (
     AssignmentRepository,
@@ -31,6 +32,7 @@ from grip.repositories.domain import (
     PersonDetailRepository,
     RateRepository,
 )
+from grip.services import read_cache
 from grip.services.errors import NotFoundError
 from grip.services.quote_content import QuoteLineSource
 
@@ -275,6 +277,89 @@ async def load_inputs_for_lines(
         coverages=tuple(to_calc_coverage(c) for c in coverages),
         actuals=await _load_actuals(session, [a.id for a in allocations]),
     )
+
+
+def split_by_assignment(inputs: CalcInputs) -> dict[str, CalcInputs]:
+    """The inputs of several assignments, taken apart per assignment.
+
+    Each part holds what ``load_inputs_for_lines`` gives for the lines of
+    that one assignment, in the same order. The rate book is shared.
+    """
+    assignment_of_line = {line.id: line.assignment_id for line in inputs.lines}
+    lines: dict[str, list[calc.BudgetLine]] = {}
+    for line in inputs.lines:
+        lines.setdefault(line.assignment_id, []).append(line)
+    allocations: dict[str, list[calc.Allocation]] = {}
+    for allocation in inputs.allocations:
+        allocations.setdefault(
+            assignment_of_line[allocation.budget_line_id], []
+        ).append(allocation)
+    coverages: dict[str, list[calc.CostCoverage]] = {}
+    for coverage in inputs.coverages:
+        coverages.setdefault(assignment_of_line[coverage.budget_line_id], []).append(
+            coverage
+        )
+    assignment_of_allocation = {
+        allocation.id: assignment_id
+        for assignment_id, own in allocations.items()
+        for allocation in own
+    }
+    actuals: dict[str, dict[tuple[str, Month], Decimal]] = {}
+    for key, pct in inputs.actuals.items():
+        actuals.setdefault(assignment_of_allocation[key[0]], {})[key] = pct
+
+    parts: dict[str, CalcInputs] = {}
+    for assignment_id, own_lines in lines.items():
+        own_allocations = allocations.get(assignment_id, [])
+        own_coverages = coverages.get(assignment_id, [])
+        item_ids = {coverage.cost_item_id for coverage in own_coverages}
+        person_ids = {allocation.person_id for allocation in own_allocations}
+        parts[assignment_id] = CalcInputs(
+            rates=inputs.rates,
+            scales=tuple(s for s in inputs.scales if s.person_id in person_ids),
+            lines=tuple(own_lines),
+            allocations=tuple(own_allocations),
+            cost_items=tuple(i for i in inputs.cost_items if i.id in item_ids),
+            invoice_lines=tuple(
+                i for i in inputs.invoice_lines if i.cost_item_id in item_ids
+            ),
+            coverages=tuple(own_coverages),
+            actuals=actuals.get(assignment_id, {}),
+        )
+    return parts
+
+
+def no_inputs(rates: calc.RateBook) -> CalcInputs:
+    """The inputs of an assignment without budget lines."""
+    return CalcInputs(
+        rates=rates,
+        scales=(),
+        lines=(),
+        allocations=(),
+        cost_items=(),
+        invoice_lines=(),
+        coverages=(),
+    )
+
+
+async def load_inputs_by_assignment(
+    session: AsyncSession,
+    assignment_ids: Iterable[UUID],
+    *,
+    options: PricingOptions = DEFAULT_OPTIONS,
+    lines: Iterable[BudgetLine] | None = None,
+) -> dict[UUID, CalcInputs]:
+    """The inputs of several assignments, read together and given per assignment.
+
+    ``lines`` are the budget lines of those assignments when the caller
+    already has them.
+    """
+    ids = list(dict.fromkeys(assignment_ids))
+    if lines is None:
+        lines = await AssignmentRepository(session).budget_lines(ids)
+    inputs = await load_inputs_for_lines(session, lines, options=options)
+    parts = split_by_assignment(inputs)
+    return {i: parts.get(str(i)) or no_inputs(inputs.rates) for i in ids}
 
 
 async def load_inputs_for_assignment(
@@ -603,24 +688,19 @@ async def cost_item_coverage(
     )
 
 
-async def kpi_overview(
-    session: AsyncSession,
+def _kpi_overview(
     person_id: UUID,
     year: int,
-    *,
-    options: PricingOptions = DEFAULT_OPTIONS,
+    allocations: Iterable[calc.Allocation],
+    scales: tuple[calc.PersonScale, ...],
+    rates: calc.RateBook,
+    actuals: dict[tuple[str, Month], Decimal],
+    target_pct: Decimal | None,
+    options: PricingOptions,
 ) -> KpiOverview:
-    """R12 and R13 for one person and year (data class F)."""
-    details = PersonDetailRepository(session)
-    allocations = await AssignmentRepository(session).allocations_of_person(person_id)
-    calc_allocations = tuple(to_calc_allocation(a) for a in allocations)
-    scales = tuple(to_calc_scale(s) for s in await details.scales([person_id]))
-    rates = await load_rate_book(session, include_draft=options.include_draft)
-    actuals = await _load_actuals(session, [a.id for a in allocations])
-
     realised = 0
     forecast = 0
-    for allocation in calc_allocations:
+    for allocation in allocations:
         for amount in calc.allocation_months(
             allocation,
             rates,
@@ -635,12 +715,11 @@ async def kpi_overview(
             else:
                 forecast += amount.cents
 
-    target = await details.target(person_id, year)
     target_cents = None
-    if target is not None:
+    if target_pct is not None:
         target_cents = calc.kpi_target(
             calc.BillabilityTarget(
-                person_id=str(person_id), year=year, target_pct=target.target_pct
+                person_id=str(person_id), year=year, target_pct=target_pct
             ),
             rates,
             scales,
@@ -651,5 +730,100 @@ async def kpi_overview(
         realised_cents=realised,
         forecast_cents=forecast,
         target_cents=target_cents,
-        target_pct=target.target_pct if target is not None else None,
+        target_pct=target_pct,
     )
+
+
+async def kpi_overview(
+    session: AsyncSession,
+    person_id: UUID,
+    year: int,
+    *,
+    options: PricingOptions = DEFAULT_OPTIONS,
+) -> KpiOverview:
+    """R12 and R13 for one person and year (data class F)."""
+    details = PersonDetailRepository(session)
+    allocations = await AssignmentRepository(session).allocations_of_person(person_id)
+    scales = tuple(to_calc_scale(s) for s in await details.scales([person_id]))
+    rates = await load_rate_book(session, include_draft=options.include_draft)
+    actuals = await _load_actuals(session, [a.id for a in allocations])
+    target = await details.target(person_id, year)
+    return _kpi_overview(
+        person_id,
+        year,
+        tuple(to_calc_allocation(a) for a in allocations),
+        scales,
+        rates,
+        actuals,
+        target.target_pct if target is not None else None,
+        options,
+    )
+
+
+async def kpi_overviews(
+    session: AsyncSession,
+    person_ids: Iterable[UUID],
+    year: int,
+    *,
+    options: PricingOptions = DEFAULT_OPTIONS,
+) -> dict[UUID, KpiOverview | None]:
+    """``kpi_overview`` for several persons, from what they share read once.
+
+    None for a person whose amounts cannot be derived (no billing scale, no
+    rate card for a month).
+    """
+    ids = list(dict.fromkeys(person_ids))
+    if not ids:
+        return {}
+    return await read_cache.remember_all(
+        session,
+        "kpi_overviews",
+        (tuple(ids), year, options),
+        lambda: _kpi_overviews(session, ids, year, options),
+    )
+
+
+async def _kpi_overviews(
+    session: AsyncSession, ids: list[UUID], year: int, options: PricingOptions
+) -> dict[UUID, KpiOverview | None]:
+    rows = await session.execute(
+        select(Allocation)
+        .where(Allocation.person_id.in_(ids))
+        .order_by(Allocation.start_date, Allocation.id)
+    )
+    allocations_of: dict[UUID, list[Allocation]] = {i: [] for i in ids}
+    for allocation in rows.scalars():
+        allocations_of[allocation.person_id].append(allocation)
+    scales_of: dict[UUID, list[calc.PersonScale]] = {i: [] for i in ids}
+    for scale in await PersonDetailRepository(session).scales(ids):
+        scales_of[scale.person_id].append(to_calc_scale(scale))
+    rates = await load_rate_book(session, include_draft=options.include_draft)
+    actuals = await _load_actuals(
+        session, [a.id for own in allocations_of.values() for a in own]
+    )
+    targets = {
+        row[0]: row[1]
+        for row in await session.execute(
+            select(BillabilityTarget.person_id, BillabilityTarget.target_pct).where(
+                BillabilityTarget.person_id.in_(ids), BillabilityTarget.year == year
+            )
+        )
+    }
+    found: dict[UUID, KpiOverview | None] = {}
+    for person_id in ids:
+        own = allocations_of[person_id]
+        own_ids = {str(a.id) for a in own}
+        try:
+            found[person_id] = _kpi_overview(
+                person_id,
+                year,
+                tuple(to_calc_allocation(a) for a in own),
+                tuple(scales_of[person_id]),
+                rates,
+                {key: pct for key, pct in actuals.items() if key[0] in own_ids},
+                targets.get(person_id),
+                options,
+            )
+        except calc.CalcError:
+            found[person_id] = None
+    return found

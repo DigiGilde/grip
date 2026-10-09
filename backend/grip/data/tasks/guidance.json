@@ -331,7 +331,13 @@
       "action": "Vervul",
       "why": "De vacature voor {functie} is klaar om te vervullen.",
       "then": "Daarna komt de nieuwe collega in Wies en krijgt die een account.",
-      "destination": "vacancy.fulfilment"
+      "destination": "vacancy.fulfilment",
+      "situations": {
+        "known_candidate": {
+          "title": "Leg vast wanneer {kandidaat} start",
+          "do": "De vacature voor {functie} kan worden vervuld. Leg vast dat {kandidaat} start, en per wanneer."
+        }
+      }
     },
     "werving.collega_voorstellen": {
       "title": "Stel de nieuwe collega voor aan Wies",

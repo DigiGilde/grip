@@ -55,9 +55,18 @@ from grip.services import (
 )
 from grip.services.assignments import get_assignment
 from grip.services.errors import DomainValidationError, NotFoundError
-from grip.services.phase import allows_month_close
+from grip.services.phase import allows_billing, allows_month_close
 
 router = APIRouter(tags=["billing"])
+
+# The periods the page over all assignments lists.
+_ACROSS_STATES = frozenset(
+    {
+        billing_deliveries.TO_CLOSE,
+        billing_deliveries.READY,
+        billing_deliveries.DELIVERED,
+    }
+)
 
 A = DataClass.ASSIGNMENT_BASIC
 B = DataClass.ASSIGNMENT_FINANCIAL
@@ -182,23 +191,29 @@ async def _overview_value(
     subject: Subject,
     resource: Resource,
     assignment_id: UUID,
+    row: assignment_views.AssignmentRow | None = None,
 ) -> BillingOverviewOut:
-    assignment = await get_assignment(db, assignment_id)
+    """``row`` is for a list that already read the assignment and its client."""
+    assignment = row.assignment if row else await get_assignment(db, assignment_id)
     try:
         state = await billing_deliveries.overview(db, assignment_id)
     except calc.CalcError as exc:
         raise DomainValidationError(quote_views.describe_calc_error(exc)) from exc
-    client = (
-        await db.get(Organisation, assignment.client_organisation_id)
-        if assignment.client_organisation_id
-        else None
-    )
+    if row is not None:
+        client_name = row.client_name
+    else:
+        client = (
+            await db.get(Organisation, assignment.client_organisation_id)
+            if assignment.client_organisation_id
+            else None
+        )
+        client_name = client.name if client is not None else None
     may_edit = bool(await decide(decider, subject, Action.EDIT, resource, B))
     upcoming = state.upcoming
     return BillingOverviewOut(
         assignment_id=assignment.id,
         assignment_name=assignment.name,
-        client_name=client.name if client is not None else None,
+        client_name=client_name,
         closing_started=allows_month_close(assignment.status),
         billable=state.billable,
         may_close=bool(await decide(decider, subject, Action.CLOSE_MONTH, resource)),
@@ -466,19 +481,42 @@ async def billing_across(
     # Whether the reader may see the money of any assignment at all: an empty
     # list for who may not is "not for you", not "everything is done".
     reads_money = False
+    readable = []
     for row in rows:
         resource = Resource.assignment(row.assignment.id)
         permitted = await access.classes(resource, classes)
-        if B not in permitted:
+        if B in permitted:
+            readable.append((row, resource, permitted))
+    reads_money = bool(readable)
+    try:
+        # Read together what the rows share; a row that cannot be priced is
+        # found again below, on its own.
+        await billing_deliveries.overviews(
+            db,
+            [
+                row.assignment.id
+                for row, _, _ in readable
+                if allows_billing(row.assignment.status)
+            ],
+        )
+    except calc.CalcError:
+        pass
+    for row, resource, permitted in readable:
+        if not allows_billing(row.assignment.status):
             continue
-        reads_money = True
         try:
             value = await _overview_value(
-                db, decider, access.subject, resource, row.assignment.id
+                db, decider, access.subject, resource, row.assignment.id, row
             )
         except DomainValidationError:
             continue
         if not value.billable:
+            continue
+        # This page is about what still asks for something: a period to
+        # close, to deliver or to invoice. Years of periods that are done,
+        # and the one that still runs, are on the page of the assignment.
+        value.periods = [p for p in value.periods if p.state in _ACROSS_STATES]
+        if not value.periods:
             continue
         items.append(build_response(value, permitted))
     mailable, _ = await billing_deliveries.can_mail(db)

@@ -54,6 +54,7 @@ Een besluit dat anderen bindt staat hier als ADR: genummerd, met context, beslui
 | [0048](0048-een-stap-overnemen-geeft-geen-recht.md) | Een stap overnemen geeft geen recht, en wie anders moet beslissen blijft dat doen | aanvaard |
 | [0049](0049-een-verouderde-opslag-wordt-geweigerd.md) | Een opslag op een verouderde versie wordt geweigerd, op een manier voor elk formulier | aanvaard |
 | [0050](0050-een-voorbeeldinstantie-is-een-eigen-soort-instantie.md) | Een voorbeeldinstantie is een eigen soort instantie | aanvaard |
+| [0051](0051-wat-berekend-is-wordt-onthouden-tot-er-iets-verandert.md) | Wat berekend is wordt onthouden tot er iets verandert | aanvaard |
 
 ## Welke besluiten later zijn bijgesteld
 

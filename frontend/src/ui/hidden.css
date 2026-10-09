@@ -1,0 +1,16 @@
+/* Read out, not shown: a name or a message that only a screen reader needs. */
+.grip-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* In a table cell it stays in the flow: taken out of it, it would hang
+   outside a table that scrolls sideways and widen the page. */
+nldd-cell > .grip-visually-hidden {
+  position: static;
+  display: block;
+}

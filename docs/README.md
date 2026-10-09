@@ -10,7 +10,8 @@ Grip legt vast hoe een organisatie binnen de Rijksoverheid een opdracht uitvoert
 | De stand | [plan.md](plan.md), [openstaand.md](openstaand.md), [rondgang.md](rondgang.md) | Wat er gebouwd is, wat op iemand wacht, en wat een rondgang door de schermen opleverde |
 | Per onderwerp | de overige pagina's in deze map | Een onderwerp per pagina: taken, werkstromen, bewijs, aanmelden, meldingen, teksten |
 | Besluiten | [adr/](adr/README.md) | Elk besluit dat anderen bindt, met context, besluit en gevolgen |
-| Schermen | [ontwerp.md](ontwerp.md), [merk.md](merk.md), [hierarchie/](hierarchie/) | De regels voor een scherm, het merk, en de doorloop op visuele hiërarchie met beelden voor en na |
+| Schermen | [ontwerp.md](ontwerp.md), [merk.md](merk.md), [hierarchie/](hierarchie/), [toegankelijkheid.md](toegankelijkheid.md) | De regels voor een scherm, het merk, de doorloop op visuele hiërarchie met beelden voor en na, en wat er aan toegankelijkheid is getest met het concept van de verklaring |
+| Snelheid | [snelheid.md](snelheid.md) | Meten op een database van ware grootte (`just seed-scale`, `just check-speed`), het budget en wat er nog boven zit |
 
 De code is Engels, de schermen en deze documentatie zijn Nederlands. Welke codenaam bij welk woord op het scherm hoort staat in de begrippenlijst van [domein.md](domein.md).
 
@@ -41,6 +42,7 @@ De code is Engels, de schermen en deze documentatie zijn Nederlands. Welke coden
 
 **Je gaat over beveiliging of privacy**
 
+0. [beveiliging.md](beveiliging.md): wat een doorlichting als aanvaller vond, wat is hersteld, wat open staat en wat de organisatie en het platform zelf moeten regelen.
 1. [toegang.md](toegang.md): gegevensklassen, de matrix en hoe ze wordt afgedwongen en getest.
 2. [gebeurtenissen.md](gebeurtenissen.md): het logboek, de keten tegen ongemerkt wijzigen, inzage, bewaren en wissen, en de verhouding tot Logboek Dataverwerkingen.
 3. [sso-rijk.md](sso-rijk.md): aanmelden, wat grip uit een aanmelding leest en wanneer het weigert.

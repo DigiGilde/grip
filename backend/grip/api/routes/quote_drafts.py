@@ -26,6 +26,7 @@ from grip.core import clock
 from grip.core.auth import CurrentPerson
 from grip.core.config import Settings, get_settings
 from grip.core.database import get_db
+from grip.core.rate_limit import PersonLimiter, caller_key
 from grip.federation.corpus import CorpusClient
 from grip.models.assignment import Assignment
 from grip.services import (
@@ -413,6 +414,18 @@ async def rewrite_quote_passage(
     return {"text": text}
 
 
+# Making the document is the costliest thing a request can ask for, and one
+# document is made at a time. A person looking at their draft asks for it a
+# few times a minute; more than this is not someone reading.
+_preview_limiter = PersonLimiter(
+    limit=20,
+    window=60,
+    detail=(
+        "Je hebt het voorbeeld vaak opgevraagd. Probeer het over een minuut opnieuw."
+    ),
+)
+
+
 @router.get("/assignments/{assignment_id}/quote-draft/preview")
 async def preview_quote_document(
     assignment_id: UUID,
@@ -426,6 +439,7 @@ async def preview_quote_document(
     will get. It has no reference and no fingerprint: it is not a quote.
     """
     assignment, _ = await _readable(db, decider, subject, assignment_id)
+    _preview_limiter.check(caller_key())
     frozen = await quote_drafts.frozen_letter(db, assignment, strict=False)
     if frozen is not None:
         letter = frozen.letter

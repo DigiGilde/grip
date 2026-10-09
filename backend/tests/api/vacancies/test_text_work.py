@@ -156,9 +156,11 @@ async def test_standard_text_lands_as_a_draft_with_its_origin(
         "Uit de standaardtekst Software engineer, versie "
     )
     assert "## Dit ga je doen" in version["body"]
-    assert "Salaris in schaal 12" in version["body"]
+    # The draft names a fact by key and reads with its value.
+    assert "Salaris in schaal {schaal}" in version["body"]
+    assert "Salaris in schaal 12" in version["text"]
     # 0.8 fte of a 36 hour week.
-    assert "29 uur per week" in version["body"]
+    assert "29 uur per week" in version["text"]
     # What the vacancy could not supply is named, and blocks settling.
     assert any("reageren kan" in passage for passage in work["open_passages"])
     assert work["may_settle"] is False

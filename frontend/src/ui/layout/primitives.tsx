@@ -208,8 +208,20 @@ export function Section({ title, description, level = 2, children }: SectionProp
 }
 
 /** A section heading on its own, for a screen that lays out its section itself. */
-export function SectionHeading({ text, level = 2 }: { text: string; level?: 2 | 3 }) {
-  return <nldd-title size={level === 2 ? 4 : 5} text={text} heading-level={level} />;
+export function SectionHeading({
+  text,
+  level = 2,
+  size,
+}: {
+  text: string;
+  level?: 2 | 3;
+  /**
+   * How large it is drawn, when that differs from its level: in a sheet the
+   * title is the only level above, so a small heading there is still level 2.
+   */
+  size?: 4 | 5;
+}) {
+  return <nldd-title size={size ?? (level === 2 ? 4 : 5)} text={text} heading-level={level} />;
 }
 
 export interface Fact {

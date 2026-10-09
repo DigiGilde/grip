@@ -673,10 +673,9 @@ async def acceptance_document(
     return Response(
         content=document.content,
         media_type=document.content_type,
-        headers={
-            "Content-Disposition": f'attachment; filename="{document.filename}"',
-            "Cache-Control": "private, no-store",
-        },
+        # A file someone uploaded: saved, never shown in the page, and with
+        # a name that survives letters outside ASCII.
+        headers=stored_documents.download_headers(document),
     )
 
 

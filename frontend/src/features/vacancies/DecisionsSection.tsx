@@ -13,7 +13,13 @@ import { todayIso, useVacancyChange } from './hooks';
 import { Button, DateInput, Note, SelectInput, TextInput } from './ui';
 import { FormSheet, Stack } from '@/ui/layout';
 import { useArrival } from '@/ui/arrival';
-import { OpenCell, OpenRow, ROW_ACTIONS_COLUMN, RowActions } from '@/ui/RowActions';
+import {
+  OpenCell,
+  OpenRow,
+  ROW_ACTIONS_COLUMN,
+  RowActions,
+  RowActionsHeader,
+} from '@/ui/RowActions';
 
 /** What the button says that names who gives an advice or the approval. */
 const NAME_TEXT: Record<DecisionKind, string> = {
@@ -256,7 +262,7 @@ export function DecisionsSection({ vacancy }: { vacancy: Vacancy }) {
           <nldd-text-cell text="Onderdeel" />
           <nldd-text-cell text="Besluit" />
           <nldd-text-cell text="Door" hide-below="md" />
-          <nldd-cell />
+          <RowActionsHeader />
         </nldd-table-row>
         {KINDS.map(({ kind, label, who }) => {
           const decision = vacancy.decisions.find((entry) => entry.kind === kind);

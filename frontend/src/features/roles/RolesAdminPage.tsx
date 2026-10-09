@@ -7,7 +7,7 @@ import { formatDate } from '@/lib/format';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { ActionBar } from '@/ui/ActionBar';
 import { Page, Quiet } from '@/ui/layout';
-import { OpenCell, OpenRow } from '@/ui/RowActions';
+import { OpenCell, OpenRow, RowActionsHeader } from '@/ui/RowActions';
 import { Button, SwitchField, TextField } from '@/features/team/ui/controls';
 import { ConfirmDialog, Form, Sheet } from '@/features/team/ui/overlays';
 import { EmptyRows, QueryState } from '@/features/team/ui/states';
@@ -279,7 +279,7 @@ export function RolesAdminPage() {
                 <nldd-text-cell text="Rol" />
                 {mixedSource ? <nldd-text-cell text="Herkomst" hide-below="md" /> : null}
                 <nldd-text-cell text="Gebruik" hide-below="md" />
-                <nldd-cell />
+                <RowActionsHeader />
               </nldd-table-row>
               {ordered.map((role) => (
                 <OpenRow key={role.id} onOpen={() => setOpenId(role.id)}>

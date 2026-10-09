@@ -56,6 +56,12 @@ class PasskeyRefusedError(Exception):
 
 
 def configured(settings: Settings) -> bool:
+    # Never in an example instance: a visitor acts through an example
+    # person, and a passkey registered for that person would let the visitor
+    # come back without the list of visitors and without their own login
+    # next to what they do.
+    if settings.is_example:
+        return False
     return bool(settings.PASSKEY_RP_ID and settings.PASSKEY_ORIGIN)
 
 

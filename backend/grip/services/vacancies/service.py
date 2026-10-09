@@ -1030,6 +1030,24 @@ async def establish_text(
         raise NotFoundError("Tekst", text_id)
     if text.is_established:
         return text
+    if text.kind == TextKind.vacancy_text.value:
+        # Settling freezes the facts the draft names by key.
+        from grip.services.vacancies import library, text_flow
+
+        vacancy = await db.get(Vacancy, text.vacancy_id)
+        facts = await library.facts_for(db, vacancy) if vacancy else {}
+        unknown = [
+            fact.instruction
+            for name, fact in facts.items()
+            if fact.value is None and f"{{{name}}}" in text.body
+        ]
+        if unknown:
+            raise DomainValidationError(
+                "In de vacaturetekst staat nog iets om in te vullen: "
+                + ", ".join(unknown[:3])
+                + "."
+            )
+        text_flow.freeze(text, facts)
     text.established_by_id = actor.id
     text.established_at = _now()
     await db.flush()

@@ -1,7 +1,13 @@
 import { useNavigate } from 'react-router-dom';
 import { PATHS } from '@/paths';
 import { ActionBar, type ActionBarAction } from '@/ui/ActionBar';
-import { OpenCell, OpenRow, ROW_ACTIONS_COLUMN, RowActions } from '@/ui/RowActions';
+import {
+  OpenCell,
+  OpenRow,
+  ROW_ACTIONS_COLUMN,
+  RowActions,
+  RowActionsHeader,
+} from '@/ui/RowActions';
 import { useState } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
@@ -663,7 +669,7 @@ export function BudgetEditor({ assignmentId, actions = [] }: BudgetEditorProps) 
           <nldd-table-row slot="header">
             <nldd-text-cell text="Regel" />
             {showMoney && <nldd-text-cell text="Begroot" horizontal-alignment="right" />}
-            {canEdit && <nldd-text-cell />}
+            {canEdit && <RowActionsHeader />}
           </nldd-table-row>
           {lines.map((line) => (
             <OpenRow key={line.id} {...(canEdit ? { onOpen: () => openSheet(line) } : {})}>

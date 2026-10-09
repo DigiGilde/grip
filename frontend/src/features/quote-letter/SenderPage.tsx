@@ -8,7 +8,14 @@ import { CheckboxInput } from '@/features/quotes/ui';
 import { useInstance } from '@/layout/useInstance';
 import { ConflictPanel } from '@/ui/ConflictPanel';
 import { SETTINGS_KEY, useStaleChoice } from '@/ui/stale';
-import { OpenCell, OpenRow, ROW_ACTIONS_COLUMN, RowActions, type RowAction } from '@/ui/RowActions';
+import {
+  OpenCell,
+  OpenRow,
+  ROW_ACTIONS_COLUMN,
+  RowActions,
+  type RowAction,
+  RowActionsHeader,
+} from '@/ui/RowActions';
 import {
   type Fact,
   Facts,
@@ -269,7 +276,7 @@ export function SenderPage() {
                 <nldd-text-cell text="Onderdeel" />
                 <nldd-text-cell text="Tekst" hide-below="md" />
                 <nldd-text-cell text="In een nieuwe offerte" hide-below="md" />
-                <nldd-cell />
+                <RowActionsHeader />
               </nldd-table-row>
               {data.text_blocks.map((item, index) => {
                 const edit = () => start({ kind: 'block', index });

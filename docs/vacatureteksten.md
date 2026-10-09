@@ -79,7 +79,7 @@ Een afgeleide tekst is geschreven vanuit de gedeelde opbouw en het dichtstbijzij
 Een standaardtekst bestaat uit onderdelen. Een onderdeel heeft een kop en een tekst van alinea's, lijsten (een streepje per regel) en nadruk (tussen sterretjes). Meer kan er niet in.
 
 - **Gedeelde onderdelen** staan één keer in de bibliotheek. Elke standaardtekst verwijst ernaar. Wie "Dit bieden we nog meer" wijzigt, wijzigt het voor elke rol.
-- **Invulplekken** staan tussen accolades: `{functie}`, `{schaal}`, `{uren}`, `{contract}`, `{standplaats}`, `{organisatie}`, `{eenheid}`, `{website}`, `{contact}`, `{sluitingsdatum}`, `{opdracht}`. De vacature en de instellingen vullen ze. Wat niet te vullen is, blijft staan als `[vul aan: ...]`. Een tekst met zo'n plek kan niet worden vastgesteld.
+- **Invulplekken** staan tussen accolades: `{functie}`, `{schaal}`, `{uren}`, `{contract}`, `{standplaats}`, `{organisatie}`, `{eenheid}`, `{website}`, `{contact}`, `{sluitingsdatum}`, `{opdracht}`. Ook `{fte}`, `{startdatum}` en `{einddatum}` bestaan. De vacature en de instellingen vullen ze; zie "Gegevens en open plekken". Een tekst met een open plek kan niet worden vastgesteld.
 - **Meegeleverd.** De teksten staan in `backend/grip/data/vacancy_texts/`. Bij het starten laadt grip het profiel uit `VACANCY_TEXT_PROFILE`. Laden voegt toe wat ontbreekt en werkt bij wat niemand heeft gewijzigd. Een tekst die een mens heeft aangepast blijft staan.
 - **Beheer.** Onder Vacatures, Standaardteksten: per rol de stand (uit de voorbeelden, afgeleid, aangepast door wie en wanneer), wijzigen per onderdeel, een gedeeld onderdeel in één keer wijzigen met de rollen waarin het staat, een tekst bekijken zoals een vacature hem krijgt, en een tekst kopiëren naar een nieuwe rol.
 - **Gedeeld met de offerte.** De naam van de organisatie komt uit de afzender onder Beheer, dezelfde die op een offerte staat. De tekst over het onderdeel in een vacature is een eigen gedeeld onderdeel, omdat een vacature een andere lezer heeft dan een offerte.
@@ -92,6 +92,23 @@ Op het tabblad Tekst van een vacature zijn er twee ingangen.
 2. **Stel een tekst op maat op.** Het taalmodel schrijft de onderdelen van de rol opnieuw voor deze vacature, met de standaardtekst als voorbeeld. De gedeelde onderdelen worden daarna ingevoegd uit de bibliotheek en niet door het model geschreven.
 
 In beide gevallen is het resultaat een concept. Een mens leest het, past het aan en stelt het vast. Alleen een vastgestelde tekst gaat grip uit.
+
+### Gegevens en open plekken
+
+Een open plek in een tekst is een van twee dingen.
+
+- **Een gegeven** dat grip kent of gaat kennen: de functie, de schaal, de omvang, het type contract, de start- en einddatum (van de aanvraag), de standplaats, de naam van het onderdeel, de website en het contact (bij Standaardteksten) en de naam van de organisatie (van de afzender). Een concept bewaart de sleutel (`{schaal}`) en niet de waarde. De tekst volgt de vacature dus: wie de schaal later invult of wijzigt, ziet dat in het concept zonder iets te doen. In de editor staat de waarde er als een vast stukje dat je niet overtypt; wie eroverheen gaat, leest waar het vandaan komt ("Uit de aanvraag: Schaal").
+- **Proza** dat alleen een mens kan schrijven: `[vul aan: beschrijf in twee of drie zinnen ...]`.
+
+Een gegeven dat nog niet bekend is, leest als de plek waar je het invult ("Vul de schaal in op de aanvraag"), met een link daarheen, en houdt het vaststellen tegen. "Ga naar de volgende" loopt langs het proza en de onbekende gegevens, niet langs wat al gevuld is. Bij een plek voor proza stelt "Stel voor" alleen die passage op, met de beleidscontext van de opdracht en de gegevens van de vacature; je neemt het voorstel over of niet. Zonder taalmodel is die knop er niet. Dat een model een passage voorstelde staat in het logboek van de vacature; de bewaarde versie is van de schrijver.
+
+**Vaststellen bevriest.** De waarden worden uitgeschreven in de tekst, en de rij bewaart het concept met sleutels en de waarden van dat moment. Wijzigt daarna een gegeven, dan zegt het tabblad Tekst wat de vastgestelde tekst noemt en wat de vacature nu heeft. Wie de tekst aanpast, begint weer vanuit het concept met sleutels, zodat de nieuwe waarde er vanzelf staat.
+
+Afgeleide woorden horen bij het gegeven. `{uren}` is de omvang maal de volle werkweek van 36 uur, afgerond op hele uren: 0,2 fte leest als "7 uur per week". De werkweek is een vaste waarde in de code, geen instelling. `{contract}` is een zin per type contract. `{sluitingsdatum}` is geen gegeven: een vacature heeft daar geen veld voor, dus blijft het een plek die de schrijver invult. `{opdracht}` ook niet: de interne naam van een opdracht gaat niet naar buiten.
+
+Teksten van voor deze opzet hebben een onbekend gegeven als letterlijke open plek gekregen (`[vul aan: de schaal van de vacature]`). `just fix-open-places` zet die terug naar de sleutel, in concepten en in de standaardteksten; met `--check` telt het alleen. Het raakt alleen de zinnen die grip toen zelf schreef, laat vastgestelde teksten en alles wat iemand typte met rust, en kan vaker draaien. Het laden van de bibliotheek doet hetzelfde voor de standaardteksten.
+
+Een vacature voor een gerede of beoogde kandidaat wordt niet opengesteld en heeft geen vacaturetekst nodig. Het tabblad zegt dat in een regel, met de keuze "Schrijf toch een vacaturetekst"; daarna hoort de tekst bij het verloop van die vacature, met de taken die erbij horen.
 
 ### Wat er naar het taalmodel gaat
 

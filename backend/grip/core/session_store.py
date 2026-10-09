@@ -47,6 +47,10 @@ def _derive_fernet_key(secret: str) -> bytes:
     return base64.urlsafe_b64encode(raw)
 
 
+# How long a session without a login is kept.
+ANONYMOUS_TTL_SECONDS = 12 * 3600
+
+
 class SessionStore(ABC):
     """Abstract base class for session stores."""
 
@@ -114,7 +118,11 @@ class DatabaseSessionStore(SessionStore):
         from grip.models.http_session import HttpSession
 
         async with self._session_factory() as db:
-            expires_at = datetime.now(UTC) + timedelta(seconds=self._ttl)
+            # A session nobody logged in with holds a CSRF token and nothing
+            # else. Anyone can make those without end, so they go sooner.
+            anonymous = set(data) <= {"csrf_token"}
+            ttl = min(self._ttl, ANONYMOUS_TTL_SECONDS) if anonymous else self._ttl
+            expires_at = datetime.now(UTC) + timedelta(seconds=ttl)
             data_json = json.dumps(data)
             if self._fernet:
                 data_json = self._fernet.encrypt(data_json.encode()).decode()

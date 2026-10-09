@@ -9,13 +9,17 @@
  * and brings whatever is typed or pasted back to those (see ./text/marks).
  * A person never has to type a mark.
  *
- * Passages a standard text leaves open, "[vul aan: ...]", are counted next to
- * the toolbar with a way to step to the next one.
+ * Passages a standard text leaves open, "[vul aan: ...]", are tinted and
+ * counted next to the toolbar with a way to step to the next one. A fact the
+ * text names by key ("{schaal}") shows as its value and is not typed over; one
+ * that is not known yet counts as open (see ./text/facts).
  */
-import { useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react';
+import { useEffect, useImperativeHandle, useRef, useState, type ReactNode, type Ref } from 'react';
+import type { EditorView } from '@codemirror/view';
 import { orUndef, useNlddEvent } from '@/components/nldd/events';
-import { openPlaces, toStored, type TextMarks } from './text/marks';
-import { OPEN_PLACE, nextOpenPlace } from './text/openPlaces';
+import { Button } from './Button';
+import { nextPlaceToFill, placesToFill, type PlaceToFill, type TextFact } from './text/facts';
+import { toStored, type TextMarks } from './text/marks';
 
 if (import.meta.env.MODE !== 'test') void import('./text/register');
 
@@ -38,13 +42,13 @@ const NOTHING: ActiveFormats = {
 /** The part of nldd-text-editor this component talks to. */
 interface EditorElement extends HTMLElement {
   value: string;
-  annotatable?: boolean;
-  annotations?: { id: string; start: number; end: number }[];
+  updateComplete?: Promise<unknown>;
   toggleBold(): void;
   toggleItalic(): void;
   toggleHeading(level: number): void;
   setList(type: 'none' | 'bullet' | 'ordered'): void;
   focus(): void;
+  replaceRange?(from: number, to: number, text: string): void;
   getSelection?(): { start: number; end: number; quote: string; empty: boolean };
   view?: {
     state: { doc: { toString(): string }; selection: { main: { head: number } } };
@@ -57,6 +61,8 @@ export interface TextEditorHandle {
   goToOpenPlace(index: number): void;
   /** What is selected now, in offsets of the text; null without a selection. */
   selection(): { start: number; end: number; text: string } | null;
+  /** Writes `text` in the place of an open place; false when that place is gone. */
+  fillPlace(place: PlaceToFill, text: string): boolean;
   focus(): void;
 }
 
@@ -77,8 +83,17 @@ interface TextEditorProps {
   disabled?: boolean;
   /** Count the passages "[vul aan: ...]" and offer to step through them. */
   showOpenPlaces?: boolean;
+  /** What the text can name by key; each shows as its value. */
+  facts?: readonly TextFact[];
+  /** Ask for a proposal for a passage still to write; without it nothing is offered. */
+  onPropose?: (place: PlaceToFill) => void;
+  proposing?: boolean;
+  /** A proposal that waits for an answer, shown above the text. */
+  proposal?: ReactNode;
   ref?: Ref<TextEditorHandle>;
 }
+
+const NO_FACTS: readonly TextFact[] = [];
 
 function ToolButton({
   text,
@@ -117,6 +132,10 @@ export function TextEditor({
   rows = 8,
   disabled,
   showOpenPlaces,
+  facts = NO_FACTS,
+  onPropose,
+  proposing,
+  proposal,
   ref,
 }: TextEditorProps) {
   const editor = useRef<EditorElement>(null);
@@ -134,24 +153,28 @@ export function TextEditor({
     }
   }, [value]);
 
-  // The passages still to fill are tinted in the text. The editor carries a
-  // mark along while the text around it changes, so the set is only handed
-  // over again when a passage is filled in or a new one appears.
-  const placesKey = showOpenPlaces
-    ? openPlaces(value)
-        .map((place) => place.what)
-        .join('\u0000')
-    : '';
+  // Open places are tinted and facts drawn as their value, by an extension
+  // to the editor's view. It is handed the facts again when one changes.
+  const factsKey = facts.map((fact) => `${fact.key}=${fact.value ?? ''}`).join('\u0000');
+  const latestFacts = useRef(facts);
+  useEffect(() => {
+    latestFacts.current = facts;
+  });
   useEffect(() => {
     const el = editor.current;
     if (!el || !showOpenPlaces) return;
-    el.annotatable = true;
-    el.annotations = openPlaces(el.value ?? '').map((place, index) => ({
-      id: `open-${index}`,
-      start: place.start,
-      end: place.end,
-    }));
-  }, [placesKey, showOpenPlaces]);
+    let gone = false;
+    void (async () => {
+      await el.updateComplete;
+      const view = el.view as unknown as EditorView | undefined;
+      if (gone || !view) return;
+      const { showPlaces } = await import('./text/factPlaces');
+      if (!gone) showPlaces(view, latestFacts.current);
+    })();
+    return () => {
+      gone = true;
+    };
+  }, [factsKey, showOpenPlaces]);
 
   useNlddEvent(editor, 'input', (event) => {
     const detail = (event as CustomEvent<{ value?: string }>).detail;
@@ -173,35 +196,52 @@ export function TextEditor({
     if (formats) setActive(formats);
   });
 
-  function goTo(index: number) {
+  function select(place: { start: number; end: number }) {
     const el = editor.current;
-    const view = el?.view;
-    if (!el || !view) return;
-    const matches = [...view.state.doc.toString().matchAll(OPEN_PLACE)];
-    const match = matches[index % Math.max(matches.length, 1)];
-    if (!match) return;
-    view.dispatch({
-      selection: { anchor: match.index, head: match.index + match[0].length },
+    if (!el?.view) return;
+    el.view.dispatch({
+      selection: { anchor: place.start, head: place.end },
       scrollIntoView: true,
     });
     el.focus();
   }
 
+  function goTo(index: number) {
+    const text = editor.current?.view?.state.doc.toString();
+    if (text === undefined) return;
+    const all = placesToFill(text, facts);
+    const place = all[index % Math.max(all.length, 1)];
+    if (place) select(place);
+  }
+
   // The next place after the caret: a place that was just filled is gone
   // from the list, so a counter of presses would skip the one after it.
-  function goToNext() {
-    const el = editor.current;
-    const view = el?.view;
-    if (!el || !view) return;
+  function next(only?: PlaceToFill['kind']): PlaceToFill | null {
+    const view = editor.current?.view;
+    if (!view) return null;
     const text = view.state.doc.toString();
     const { head } = view.state.selection.main;
-    const here = [...text.matchAll(OPEN_PLACE)].find(
-      (match) => match.index <= head && head <= match.index + match[0].length,
-    );
-    const place = nextOpenPlace(text, here ? here.index + here[0].length : head);
+    const all = placesToFill(text, facts);
+    const here = all.find((place) => place.start <= head && head <= place.end);
+    if (only) {
+      // The place the caret is on, or the first of that kind after it.
+      if (here?.kind === only) return here;
+      const wanted = all.filter((place) => place.kind === only);
+      return wanted.find((place) => place.start >= head) ?? wanted[0] ?? null;
+    }
+    return nextPlaceToFill(text, facts, here ? here.end : head);
+  }
+
+  function goToNext() {
+    const place = next();
+    if (place) select(place);
+  }
+
+  function propose() {
+    const place = next('prose');
     if (!place) return;
-    view.dispatch({ selection: { anchor: place.start, head: place.end }, scrollIntoView: true });
-    el.focus();
+    select(place);
+    onPropose?.(place);
   }
 
   useImperativeHandle(ref, () => ({
@@ -211,10 +251,22 @@ export function TextEditor({
       if (!picked || picked.empty) return null;
       return { start: picked.start, end: picked.end, text: picked.quote };
     },
+    fillPlace: (place, text) => {
+      const el = editor.current;
+      const doc = el?.view?.state.doc.toString();
+      if (!el || doc === undefined || typeof el.replaceRange !== 'function') return false;
+      // The text may have moved since the proposal was asked for.
+      const at =
+        doc.slice(place.start, place.end) === place.text ? place.start : doc.indexOf(place.text);
+      if (at < 0) return false;
+      el.replaceRange(at, at + place.text.length, text);
+      return true;
+    },
     focus: () => editor.current?.focus(),
   }));
 
-  const open = showOpenPlaces ? openPlaces(value) : [];
+  const open = showOpenPlaces ? placesToFill(value, facts) : [];
+  const canPropose = Boolean(onPropose) && open.some((place) => place.kind === 'prose');
   function press(command: (el: EditorElement) => void) {
     const el = editor.current;
     if (el && typeof el.toggleBold === 'function') command(el);
@@ -272,10 +324,14 @@ export function TextEditor({
                   ? 'Nog 1 plek in te vullen'
                   : `Nog ${open.length} plekken in te vullen`}
               </nldd-text>
-              <OpenPlaceButton onPress={goToNext} />
+              {canPropose ? (
+                <Button size="sm" text="Stel voor" loading={proposing} onClick={propose} />
+              ) : null}
+              <Button size="sm" text="Ga naar de volgende" onClick={goToNext} />
             </>
           ) : null}
         </nldd-container>
+        {proposal}
         <nldd-text-editor
           ref={editor}
           appearance="input-field"
@@ -288,10 +344,4 @@ export function TextEditor({
       </nldd-container>
     </nldd-form-field>
   );
-}
-
-function OpenPlaceButton({ onPress }: { onPress: () => void }) {
-  const ref = useRef<HTMLElement>(null);
-  useNlddEvent(ref, 'click', onPress);
-  return <nldd-button ref={ref} size="sm" appearance="secondary" text="Ga naar de volgende" />;
 }

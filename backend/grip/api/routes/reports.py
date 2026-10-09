@@ -604,11 +604,15 @@ async def _billability_block(
     persons: list[dict[str, Any]] = []
     target = realised = forecast = 0
     with_target = below_target = 0
+    readable: list[tuple[UUID, str, Any]] = []
     for person_id, person_name in await steering.kpi_person_ids(db, year):
         classes = await access.classes(Resource.person(person_id), _KPI_CLASSES)
-        if F not in classes:
-            continue
-        row = await steering.kpi_row(db, person_id, person_name, year)
+        if F in classes:
+            readable.append((person_id, person_name, classes))
+    rows = await steering.kpi_rows(
+        db, [(person_id, name) for person_id, name, _ in readable], year
+    )
+    for (person_id, person_name, classes), row in zip(readable, rows, strict=True):
         overview = row.overview
         if overview is not None:
             target += overview.target_cents or 0

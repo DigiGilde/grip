@@ -6,7 +6,7 @@ import { Button } from '@/features/team/ui/controls';
 import { useInstance } from '@/layout/useInstance';
 import { formatDate } from '@/lib/format';
 import { ActionBar } from '@/ui/ActionBar';
-import { ROW_ACTIONS_COLUMN, RowActions } from '@/ui/RowActions';
+import { ROW_ACTIONS_COLUMN, RowActions, RowActionsHeader } from '@/ui/RowActions';
 import {
   EmptyNotice,
   ErrorNotice,
@@ -136,7 +136,7 @@ export function SecurityPage() {
                       <nldd-table-row slot="header">
                         <nldd-text-cell text="Passkey" />
                         <nldd-text-cell text="Gebruik" hide-below="md" />
-                        <nldd-text-cell />
+                        <RowActionsHeader />
                       </nldd-table-row>
                       {list.items.map((passkey) => (
                         <nldd-table-row key={passkey.id}>

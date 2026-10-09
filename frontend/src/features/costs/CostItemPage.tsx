@@ -10,7 +10,13 @@ import { assignmentTabPath } from '@/features/assignments/paths';
 import { Figures, type Figure } from '@/features/reports/ui';
 import { Button } from '@/features/team/ui/controls';
 import { ActionBar } from '@/ui/ActionBar';
-import { OpenCell, OpenRow, ROW_ACTIONS_COLUMN, RowActions } from '@/ui/RowActions';
+import {
+  OpenCell,
+  OpenRow,
+  ROW_ACTIONS_COLUMN,
+  RowActions,
+  RowActionsHeader,
+} from '@/ui/RowActions';
 import {
   ErrorNotice,
   LoadError,
@@ -242,7 +248,7 @@ function Invoices({ item, onOpen }: InvoicesProps) {
           <nldd-text-cell text="Factuur" />
           <nldd-text-cell text="Bijlage" hide-below="md" />
           <nldd-text-cell text="Bedrag" horizontal-alignment="right" />
-          {item.may_edit && <nldd-text-cell />}
+          {item.may_edit && <RowActionsHeader />}
         </nldd-table-row>
         {lines.map((line) => {
           const name = lineLabel(line);
@@ -342,7 +348,7 @@ function Coverages({ item, onOpen }: CoveragesProps) {
         <nldd-table-row slot="header">
           <nldd-text-cell text="Opdracht en begrotingsregel" />
           <nldd-text-cell text="Bedrag" horizontal-alignment="right" />
-          {anyEditable && <nldd-text-cell />}
+          {anyEditable && <RowActionsHeader />}
         </nldd-table-row>
         {item.coverages.map((coverage, index) => {
           const finance = assignmentTabPath(coverage.assignment_id, 'finance');

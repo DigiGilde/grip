@@ -22,7 +22,7 @@ Dutch sentence, written here so the wording lives in one place.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -702,6 +702,37 @@ class _Relevance:
             self._vacancies[vacancy_id] = requester == me or bool(named)
         return self._vacancies[vacancy_id]
 
+    async def prepare(self, events: Iterable[StreamEvent]) -> None:
+        """Read for every vacancy in a list of events whether the reader
+        asked for it or is named in it, all at once."""
+        me = self._subject.person_id
+        wanted = {
+            event.case_id
+            for event in events
+            if event.case_kind == CASE_VACANCY and event.case_id is not None
+        } - set(self._vacancies)
+        if not wanted:
+            return
+        mine = {
+            row[0]
+            for row in await self._db.execute(
+                select(Vacancy.id).where(
+                    Vacancy.id.in_(wanted), Vacancy.requester_id == me
+                )
+            )
+        }
+        mine |= {
+            row[0]
+            for row in await self._db.execute(
+                select(VacancyDecision.vacancy_id).where(
+                    VacancyDecision.vacancy_id.in_(wanted),
+                    VacancyDecision.person_id == me,
+                )
+            )
+        }
+        for vacancy_id in wanted:
+            self._vacancies[vacancy_id] = vacancy_id in mine
+
     async def _person(self, person_id: UUID) -> bool:
         if person_id not in self._persons:
             me = self._subject.person_id
@@ -1055,6 +1086,8 @@ async def read(
     rows = (await db.scalars(query)).all()[:SCAN_LIMIT]
 
     relevance = _Relevance(db, relations, subject)
+    await relevance.prepare(rows)
+    await access.prepare(rows)
     raws: list[_Raw] = []
     for event in rows:
         rule = rule_for(event)

@@ -6,6 +6,7 @@
 import { apiDelete, apiGet, apiPost, apiPut } from '@/api/client';
 import type { TextKind } from './api';
 import type { RequestHeaders } from '@/api/client';
+import type { TextFact } from '@/ui/text/facts';
 
 export type TextState = 'none' | 'draft' | 'in_review' | 'returned' | 'agreed' | 'settled';
 export type ActionKey =
@@ -14,7 +15,10 @@ export type ActionKey =
 export interface WorkVersion {
   id: string;
   number: number;
+  /** The text to write on from: a fact of the vacancy stands in it by key. */
   body: string;
+  /** The text as it reads: settled as it was frozen, a draft with the facts of now. */
+  text: string;
   source: 'human' | 'model' | 'template';
   origin?: string | null;
   created_at: string;
@@ -80,6 +84,10 @@ export interface TextWork {
   with_whom?: string | null;
   revising: boolean;
   open_passages: string[];
+  /** What a vacancy text can name by key, with the value for this vacancy. */
+  facts: TextFact[];
+  /** Facts that read differently now than in the settled text. */
+  changed_facts: { key: string; label: string; settled: string; current?: string | null }[];
   action: { key: ActionKey; text: string };
   may_write: boolean;
   may_remark: boolean;
@@ -115,6 +123,9 @@ export interface VacancyTextWork {
    */
   context?: 'used' | 'none' | 'unreachable';
   reviewer_options?: { id: string; name: string }[];
+  /** The vacancy is not opened to applicants, so it has no vacancy text. */
+  vacancy_text_skipped?: boolean;
+  may_want_text?: boolean;
 }
 
 const base = (id: string) => `/api/vacancies/${id}`;
@@ -128,7 +139,12 @@ function whole(work: VacancyTextWork): VacancyTextWork {
     texts: (work.texts ?? []).map((text) => ({
       ...text,
       open_passages: text.open_passages ?? [],
-      versions: text.versions ?? [],
+      facts: text.facts ?? [],
+      changed_facts: text.changed_facts ?? [],
+      versions: (text.versions ?? []).map((version) => ({
+        ...version,
+        text: version.text ?? version.body,
+      })),
       rounds: (text.rounds ?? []).map((round) => ({ ...round, verdicts: round.verdicts ?? [] })),
       remarks: (text.remarks ?? []).map((remark) => ({
         ...remark,
@@ -153,6 +169,15 @@ export const draftTailored = (id: string, instruction: string) =>
   apiPost<VacancyTextWork>(`${base(id)}/text-work/tailored`, {
     instruction: instruction.trim() || null,
   }).then(whole);
+/** A proposal for one open place of the vacancy text; nothing is stored. */
+export const proposePassage = (id: string, body: string, place: string) =>
+  apiPost<{ proposal: string; context?: 'used' | 'none' | 'unreachable' }>(
+    `${base(id)}/text-work/passage`,
+    { body, place },
+  );
+/** Write a vacancy text for a vacancy that needs none by its kind. */
+export const wantVacancyText = (id: string) =>
+  apiPost<VacancyTextWork>(`${base(id)}/text-work/wanted`).then(whole);
 export const offerForReview = (id: string, kind: TextKind, reviewerIds: string[], note: string) =>
   apiPost<VacancyTextWork>(`${base(id)}/text-work/reviews`, {
     kind,

@@ -75,6 +75,8 @@ VARIABLES = frozenset(
         # A correction after delivery: the difference and why it arose.
         "bedrag",
         "oorzaak",
+        # Who a vacancy for a known candidate is for.
+        "kandidaat",
     }
 )
 # What stands in for a name the reader may not see or grip does not have.
@@ -85,6 +87,7 @@ _STAND_INS = {
     "functie": "deze functie",
     "aanvrager": "de aanvrager",
     "wie": "een ander",
+    "kandidaat": "de kandidaat",
     "rol": "deze rol",
     "tekst": "tekst",
     "maand": "de maand",
@@ -110,7 +113,16 @@ _FACT_SITUATIONS = frozenset().union(
     *catalogue.CASE_FACTS.values(), *catalogue.SUBJECT_FACTS.values()
 )
 SITUATIONS = (
-    frozenset({"unnamed", "unnamed_recorder", "named_outside", "incomplete"})
+    frozenset(
+        {
+            "unnamed",
+            "unnamed_recorder",
+            "named_outside",
+            "incomplete",
+            # The vacancy is for someone who is already known.
+            "known_candidate",
+        }
+    )
     | _FACT_SITUATIONS
 )
 _REQUIRED = ("title", "awaited", "do", "wait", "action", "why", "destination")
@@ -359,6 +371,8 @@ class _Context:
     lines: dict[str, BudgetLine] = field(default_factory=dict)
     # Vacancies whose motivation for the request is settled.
     motivated: set[UUID] = field(default_factory=set)
+    # Who a vacancy for a known candidate is for, by vacancy.
+    candidates: dict[UUID, str] = field(default_factory=dict)
     # Rights in grip that nobody holds today.
     unheld: set[str] = field(default_factory=set)
     # Approval requests on which nobody but the maker or asker could decide.
@@ -389,6 +403,24 @@ async def _load_context(
             )
         ).all()
         context.vacancies = {vacancy.id: vacancy for vacancy in vacancies}
+        known = [
+            vacancy
+            for vacancy in vacancies
+            if vacancy.vacancy_type in vacancy_service.KNOWN_CANDIDATE_TYPES
+            and vacancy.budget_line_id is not None
+        ]
+        if known:
+            rows = await db.execute(
+                select(BudgetLine.id, Person.name)
+                .join(Person, Person.id == BudgetLine.intended_person_id)
+                .where(BudgetLine.id.in_({v.budget_line_id for v in known}))
+            )
+            by_line = {row[0]: row[1] for row in rows}
+            context.candidates = {
+                vacancy.id: by_line[vacancy.budget_line_id]
+                for vacancy in known
+                if vacancy.budget_line_id in by_line
+            }
         context.motivated = set(
             await db.scalars(
                 select(VacancyText.vacancy_id).where(
@@ -703,6 +735,17 @@ async def _tell_one(access: TaskAccess, view: TaskView, context: _Context) -> Te
             situation = "incomplete"
         else:
             checklist = []
+    elif (
+        template is not None
+        and template.key == "werving.vervullen"
+        and vacancy is not None
+        and vacancy.vacancy_type in vacancy_service.KNOWN_CANDIDATE_TYPES
+    ):
+        # Nobody is chosen here: the candidate is known, only the start is not.
+        situation = "known_candidate"
+        name = context.candidates.get(vacancy.id)
+        if name and may_name:
+            values["kandidaat"] = name
 
     # No situation of the kinds above: the one the facts gave the task.
     if situation is None:

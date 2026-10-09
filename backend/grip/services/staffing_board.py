@@ -152,12 +152,7 @@ async def board(
     current = _first(Month.of(today or clock.today()))
 
     occupancy = {row.person_id: row for row in await steering.occupancy(session, span)}
-    allocations = [
-        view
-        for view in await views.allocation_views(session)
-        if view.allocation.start_date <= last_day
-        and view.allocation.end_date >= first_day
-    ]
+    allocations = await views.allocation_views(session, period=(first_day, last_day))
     statuses = await views.assignment_statuses(
         session, {view.assignment_id for view in allocations}
     )

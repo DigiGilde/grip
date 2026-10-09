@@ -49,10 +49,6 @@ from grip.tasks.service import TaskView
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 _CLASSES = frozenset({DataClass.ASSIGNMENT_BASIC})
-# The badge in the navigation is asked for on every page: it may be this
-# many seconds behind. Lists always look first.
-_COUNT_MAX_AGE_SECONDS = 15
-
 # Domain events make the next reader look again at once.
 register_task_handlers()
 
@@ -117,14 +113,13 @@ def _out(view: TaskView) -> TaskOut:
     )
 
 
-async def _look(
-    db: AsyncSession, settings: Settings, *, max_age: int = 0
-) -> engine.Outcome | None:
-    return await engine.ensure_fresh(
+async def _look(db: AsyncSession, settings: Settings) -> engine.Outcome | None:
+    """Bring the tasks up to date, unless nothing changed since the last look."""
+    return await engine.ensure_current(
         db,
         today=clock.today(),
         instance_base_uri=settings.INSTANCE_BASE_URI,
-        max_age_seconds=max_age,
+        max_idle_seconds=settings.TASKS_EVALUATE_INTERVAL_SECONDS or 300,
     )
 
 
@@ -168,7 +163,7 @@ async def count_my_tasks(
     settings: Settings = Depends(get_settings),
 ) -> dict[str, Any]:
     """How many tasks wait for me: the badge in the navigation."""
-    await _look(db, settings, max_age=_COUNT_MAX_AGE_SECONDS)
+    await _look(db, settings)
     access = _access(db, decider, subject)
     counts = await service.my_counts(db, access, today=clock.today())
     return build_response(TaskCountsOut(**counts), _CLASSES)

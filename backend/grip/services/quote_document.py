@@ -876,6 +876,44 @@ def _find_homebrew_libraries() -> None:
     ctypes.util.find_library = find_library
 
 
+class ResourceRefusedError(ValueError):
+    """A document asked for something it has no business loading."""
+
+
+def document_resource_allowed(url: str) -> bool:
+    """Whether a document may load this address while it is made.
+
+    A document of grip refers to two things only: the ribbon, embedded as a
+    ``data:`` address, and the typeface, a ``.woff2`` file on the server.
+    """
+    lowered = url.strip().lower()
+    if lowered.startswith("data:"):
+        return True
+    return lowered.startswith("file:") and lowered.split("?")[0].endswith(".woff2")
+
+
+def document_url_fetcher() -> Any:
+    """What the renderer may load while it makes a document: nothing remote.
+
+    Every text a person wrote is escaped before it reaches the renderer, so
+    no other address than the two of ``document_resource_allowed`` should
+    ever come by. If one does, it is refused here instead of fetched. That
+    keeps a text in a quote from making the server call an internal address
+    or read a file.
+    """
+    from weasyprint.urls import URLFetcher
+
+    class DocumentFetcher(URLFetcher):  # type: ignore[misc]
+        def fetch(self, url: str, headers: Any = None) -> Any:
+            if not document_resource_allowed(url):
+                raise ResourceRefusedError(
+                    "A document loads nothing from outside itself."
+                )
+            return super().fetch(url, headers)
+
+    return DocumentFetcher(allowed_protocols=("data", "file"), allow_redirects=False)
+
+
 def render_quote_pdf(snapshot: dict[str, Any], context: QuoteDocumentContext) -> bytes:
     """The quote as a tagged PDF (PDF/UA), from the same template as the page.
 
@@ -895,7 +933,9 @@ def render_quote_pdf(snapshot: dict[str, Any], context: QuoteDocumentContext) ->
         previous = os.environ.get("SOURCE_DATE_EPOCH")
         os.environ["SOURCE_DATE_EPOCH"] = str(int(context.issued_at.timestamp()))
         try:
-            pdf: bytes = HTML(string=html, base_url=None).write_pdf(
+            pdf: bytes = HTML(
+                string=html, base_url=None, url_fetcher=document_url_fetcher()
+            ).write_pdf(
                 pdf_variant="pdf/ua-1",
                 pdf_identifier=context.snapshot_hash.encode("ascii")[:32],
             )

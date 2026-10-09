@@ -10,7 +10,14 @@ import { formatDate } from '@/lib/format';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { useInstance } from '@/layout/useInstance';
 import { ActionBar } from '@/ui/ActionBar';
-import { OpenCell, OpenRow, ROW_ACTIONS_COLUMN, RowActions, type RowAction } from '@/ui/RowActions';
+import {
+  OpenCell,
+  OpenRow,
+  ROW_ACTIONS_COLUMN,
+  RowActions,
+  type RowAction,
+  RowActionsHeader,
+} from '@/ui/RowActions';
 import {
   ErrorNotice,
   Facts,
@@ -436,7 +443,7 @@ export function StandardTextsPage() {
                   <nldd-text-cell text="Rol" />
                   <nldd-text-cell text="Schaal" hide-below="md" />
                   <nldd-text-cell text="Stand" hide-below="md" />
-                  <nldd-cell />
+                  <RowActionsHeader />
                 </nldd-table-row>
                 {data.templates.map((template) => {
                   const actions: RowAction[] = [

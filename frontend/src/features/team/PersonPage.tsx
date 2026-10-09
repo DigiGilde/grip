@@ -26,7 +26,7 @@ import {
   Stack,
   NotFound,
 } from '@/ui/layout';
-import { ROW_ACTIONS_COLUMN, RowActions } from '@/ui/RowActions';
+import { ROW_ACTIONS_COLUMN, RowActions, RowActionsHeader } from '@/ui/RowActions';
 import { Timeline } from '@/ui/timeline/Timeline';
 import { barsInColumn } from '@/ui/timeline/layout';
 import {
@@ -792,7 +792,7 @@ function HireSection({
           {withCost ? (
             <nldd-text-cell text="Kostprijs per FTE per maand" horizontal-alignment="right" />
           ) : null}
-          {mayManage ? <nldd-cell /> : null}
+          {mayManage ? <RowActionsHeader /> : null}
         </nldd-table-row>
         {hires.map((hire) => (
           <nldd-table-row key={hire.id ?? hire.valid_from}>
@@ -880,7 +880,7 @@ function RightsSection({
         <nldd-table-row slot="header">
           <nldd-text-cell text="Recht" />
           <nldd-text-cell text="Toegekend" />
-          {mayManage ? <nldd-cell /> : null}
+          {mayManage ? <RowActionsHeader /> : null}
         </nldd-table-row>
         {grants.map((grant) => {
           const sole = grant.function === 'beheerder' && person.is_sole_beheerder === true;

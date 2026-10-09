@@ -9,7 +9,13 @@ import { courseLine } from '@/ui/course';
 import { formatDate, formatEuro } from '@/lib/format';
 import { useInstance } from '@/layout/useInstance';
 import { PageHeading } from '@/pages/PageHeading';
-import { OpenRow, RowActions, ROW_ACTIONS_COLUMN, type RowAction } from '@/ui/RowActions';
+import {
+  OpenRow,
+  RowActions,
+  ROW_ACTIONS_COLUMN,
+  type RowAction,
+  RowActionsHeader,
+} from '@/ui/RowActions';
 import { EmptyNotice, LoadError, Loading, Quiet, Stack } from '@/ui/layout';
 import { Invoices } from './BillingSection';
 import { billingKey, fetchBillingStatus } from './api';
@@ -391,7 +397,7 @@ export function MonthClosePage() {
                     <nldd-text-cell hide-below="md" text="Stand" />
                     <nldd-text-cell hide-below="md" text="Stap" />
                     <nldd-text-cell text="Bedrag" horizontal-alignment="right" />
-                    <nldd-cell />
+                    <RowActionsHeader />
                   </nldd-table-row>
                   {periods.map((period) => (
                     <Fragment key={period.key}>

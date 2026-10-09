@@ -3,6 +3,9 @@
 Generates a CSRF token per session and sets it as a readable cookie
 (``grip_csrf``). State-changing requests (POST, PUT, PATCH, DELETE) must
 include the token in an ``X-CSRF-Token`` header.
+
+A request without a session gets a token (and with it a stored session) only
+on the address a browser opens the application with; see ``_may_start``.
 """
 
 from __future__ import annotations
@@ -13,6 +16,8 @@ import secrets
 from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from grip.core.rate_limit import KeyedLimiter
+
 CSRF_COOKIE_NAME = "grip_csrf"
 _CSRF_HEADER = b"x-csrf-token"
 _SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "TRACE"})
@@ -22,6 +27,37 @@ _CSRF_EXEMPT_PREFIXES = (
     "/api/auth/callback",
     "/api/health/",
 )
+
+
+# The request a browser opens the application with; see ``_may_start``.
+_START_PATH = "/api/auth/status"
+
+# Sessions started without a login, per client address. Generous for an
+# office behind one address, small against a script.
+_starts = KeyedLimiter(limit=120, window=60)
+
+
+def _may_start(scope: Scope, path: str) -> bool:
+    """Whether this request without a session may get one."""
+    if path != _START_PATH:
+        return False
+    client = scope.get("client")
+    return _starts.allow(client[0] if client else "unknown")
+
+
+async def _refuse(send: Send) -> None:
+    body = json.dumps({"detail": "CSRF-token ontbreekt of is ongeldig"}).encode("utf-8")
+    await send(
+        {
+            "type": "http.response.start",
+            "status": 403,
+            "headers": [
+                (b"content-type", b"application/json"),
+                (b"content-length", str(len(body)).encode()),
+            ],
+        }
+    )
+    await send({"type": "http.response.body", "body": body})
 
 
 class CSRFMiddleware:
@@ -55,6 +91,17 @@ class CSRFMiddleware:
 
         csrf_token = session.get("csrf_token")
         if not csrf_token:
+            # A token means a stored session. One is made for someone who
+            # has a session already (a login just now), and for a browser
+            # that opens the application, which asks who is logged in first.
+            # Any other request without a session gets none: a system with a
+            # key, a probe, or someone making sessions to fill the database.
+            if method not in _SAFE_METHODS:
+                await _refuse(send)
+                return
+            if not session and not _may_start(scope, path):
+                await self.app(scope, receive, send)
+                return
             csrf_token = secrets.token_urlsafe(32)
             session["csrf_token"] = csrf_token
 
@@ -66,20 +113,7 @@ class CSRFMiddleware:
                 .strip()
             )
             if not header_token or not secrets.compare_digest(header_token, csrf_token):
-                body = json.dumps(
-                    {"detail": "CSRF-token ontbreekt of is ongeldig"}
-                ).encode("utf-8")
-                await send(
-                    {
-                        "type": "http.response.start",
-                        "status": 403,
-                        "headers": [
-                            (b"content-type", b"application/json"),
-                            (b"content-length", str(len(body)).encode()),
-                        ],
-                    }
-                )
-                await send({"type": "http.response.body", "body": body})
+                await _refuse(send)
                 return
 
         async def send_with_csrf_cookie(message: Message) -> None:

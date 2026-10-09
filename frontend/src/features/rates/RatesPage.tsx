@@ -21,7 +21,14 @@ import {
   Quiet,
   Stack,
 } from '@/ui/layout';
-import { OpenCell, OpenRow, ROW_ACTIONS_COLUMN, RowActions, type RowAction } from '@/ui/RowActions';
+import {
+  OpenCell,
+  OpenRow,
+  ROW_ACTIONS_COLUMN,
+  RowActions,
+  type RowAction,
+  RowActionsHeader,
+} from '@/ui/RowActions';
 import {
   CATEGORIES,
   RATE_CARDS_KEY,
@@ -277,7 +284,7 @@ export function RatesPage() {
               <nldd-text-cell text="Tarievenkaart" />
               <nldd-text-cell hide-below="md" text="Geldigheid" />
               <nldd-text-cell text="Stand" />
-              <nldd-cell />
+              <RowActionsHeader />
             </nldd-table-row>
             {rows.map((row) => {
               if (row.kind === 'gap') {

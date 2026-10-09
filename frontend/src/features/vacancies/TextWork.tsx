@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ApiError, errorMessage } from '@/api/client';
+import { RouterLinks } from '@/layout/RouterLinks';
 import { formatDate } from '@/lib/format';
 import { ExternalLink } from '@/ui/Icon';
 import { ErrorNotice, FormSheet, LoadError, Loading, Quiet, Section, Stack } from '@/ui/layout';
@@ -10,9 +11,11 @@ import { todayIso } from './hooks';
 import { TEXT_KIND_LABELS } from './labels';
 import { useCaseCourse } from '@/features/tasks/course';
 import { useArrival } from '@/ui/arrival';
+import { unknownFacts } from '@/ui/text/facts';
 import { useStaleForm } from '@/ui/useStaleForm';
 import { courseLine } from '@/ui/course';
 import { TailoredSheet } from './TailoredSheet';
+import { factHref } from './factHref';
 import { vacancyTextWritePath } from './paths';
 import { useVacancyShell } from './shell';
 import { StructuredText } from './StructuredText';
@@ -29,6 +32,7 @@ import {
   settleVersion,
   splitSections,
   useStandardText as startFromStandardText,
+  wantVacancyText,
   withdrawReview,
   type Publication,
   type Remark,
@@ -100,6 +104,10 @@ type Sheet =
   | { kind: 'tailored' }
   | { kind: 'remark'; text: TextKind; parent?: Remark }
   | { kind: 'publication' };
+
+/** Why a vacancy for a known candidate has no vacancy text. */
+const NOT_OPENED =
+  'Deze vacature wordt niet opengesteld: de kandidaat is bekend. Een vacaturetekst is daarom niet nodig.';
 
 function who(name: string | null | undefined, fallback = 'een collega'): string {
   return name ?? fallback;
@@ -279,7 +287,7 @@ function RemarkSheet({
   onClose: () => void;
 }) {
   const latest = work.versions[work.versions.length - 1];
-  const sections = latest ? splitSections(latest.body).filter((section) => section.heading) : [];
+  const sections = latest ? splitSections(latest.text).filter((section) => section.heading) : [];
   const [section, setSection] = useState(sheet.parent?.section ?? '');
   const [body, setBody] = useState('');
   const [problem, setProblem] = useState<string | null>(null);
@@ -535,6 +543,8 @@ function TextBlock({
     );
   }
 
+  // Facts the draft names that are filled in somewhere else.
+  const elsewhere = latest && work.may_write ? unknownFacts(latest.body, work.facts) : [];
   const error = start.error ?? settle.error ?? withdraw.error;
   const earlier = work.versions.slice(0, -1).reverse();
   return (
@@ -555,9 +565,7 @@ function TextBlock({
           geen.
         </Quiet>
       )}
-      {!work.needed && (
-        <Quiet>Deze vacature wordt niet opengesteld en heeft geen vacaturetekst nodig.</Quiet>
-      )}
+      {!work.needed && <Quiet>{NOT_OPENED}</Quiet>}
       {work.state === 'none' && isVacancyText && standard && (
         <Quiet>
           {standard.match === 'function_group'
@@ -569,7 +577,7 @@ function TextBlock({
       {isVacancyText && data.context === 'unreachable' && (
         <Quiet>Opgesteld zonder de context uit het corpus: dat was niet bereikbaar.</Quiet>
       )}
-      {latest && <StructuredText text={latest.body} />}
+      {latest && <StructuredText text={latest.text} />}
       {latest && (
         <Quiet>
           Versie {latest.number} van {formatDate(latest.created_at)}
@@ -588,6 +596,23 @@ function TextBlock({
             : `Nog ${work.open_passages.length} plekken in te vullen voor je de tekst kunt voorleggen of vaststellen`}
         </Quiet>
       )}
+      {elsewhere.length > 0 && work.state !== 'settled' && (
+        <RouterLinks>
+          <Stack gap="close">
+            {elsewhere.map((fact) => (
+              <nldd-link key={fact.key} href={factHref(vacancy.id, fact)} text={fact.instruction} />
+            ))}
+          </Stack>
+        </RouterLinks>
+      )}
+      {work.changed_facts.map((changed) => (
+        <Quiet key={changed.key}>
+          {changed.current
+            ? `${changed.label}: in de vastgestelde tekst staat ${changed.settled}, de vacature heeft nu ${changed.current}.`
+            : `${changed.label}: in de vastgestelde tekst staat ${changed.settled}, bij de vacature is dat nu niet ingevuld.`}
+          {work.may_write ? ' Pas de tekst aan om dat over te nemen.' : ''}
+        </Quiet>
+      ))}
       {work.latest_changes.length > 0 && (
         <Quiet>
           Gewijzigd in versie {latest?.number}:{' '}
@@ -656,7 +681,7 @@ function TextBlock({
                   {version.created_by_name ? `, ${version.created_by_name}` : ''}
                   {version.settled_at ? `, vastgesteld op ${formatDate(version.settled_at)}` : ''}
                 </Quiet>
-                <StructuredText text={version.body} headingLevel={4} />
+                <StructuredText text={version.text} headingLevel={4} />
               </Stack>
             ))}
         </Stack>
@@ -724,6 +749,7 @@ export function TextWork({ vacancy }: { vacancy: Vacancy }) {
   });
   const [sheet, setSheet] = useState<Sheet | null>(null);
   const [opened, setOpened] = useState(0);
+  const want = useWorkChange(vacancy.id, () => wantVacancyText(vacancy.id));
   // Each text has its own course (schrijven, beoordelen, vaststellen), from
   // the same facts as its tasks.
   const parts = useCaseCourse('vacancy', vacancy.id).data?.parts ?? [];
@@ -782,6 +808,21 @@ export function TextWork({ vacancy }: { vacancy: Vacancy }) {
           whose={whoseOf(work.kind)}
         />
       ))}
+      {data.vacancy_text_skipped && (
+        <Section title={TEXT_KIND_LABELS.vacancy_text}>
+          <Quiet>{NOT_OPENED}</Quiet>
+          {want.error && <ErrorNotice message={want.error} />}
+          {data.may_want_text && (
+            <nldd-button-group>
+              <Button
+                text="Schrijf toch een vacaturetekst"
+                loading={want.busy}
+                onClick={() => want.run(undefined)}
+              />
+            </nldd-button-group>
+          )}
+        </Section>
+      )}
       <Publications
         vacancyId={vacancy.id}
         data={data}

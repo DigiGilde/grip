@@ -25,8 +25,7 @@ from uuid import UUID, uuid4
 
 import httpx
 from authlib.integrations.starlette_client import OAuth
-from authlib.jose import JsonWebKey
-from authlib.jose import jwt as authlib_jwt
+from authlib.jose import JsonWebKey, JsonWebToken
 from authlib.jose.errors import JoseError
 from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -229,6 +228,13 @@ async def get_jwks_document(settings: Settings) -> dict[str, Any] | None:
     return document if isinstance(document, dict) else None
 
 
+# Signatures made with a private key only. A shared-secret algorithm has no
+# place next to a published key set: the "secret" would be a public key.
+_asymmetric_jwt = JsonWebToken(
+    ["RS256", "RS384", "RS512", "PS256", "PS384", "PS512", "ES256", "ES384", "ES512"]
+)
+
+
 def validate_jwt_locally(
     token: str,
     jwks: Any,
@@ -240,13 +246,16 @@ def validate_jwt_locally(
     must come from our issuer and be meant for our client.
     """
     try:
-        claims = authlib_jwt.decode(token, jwks)
+        claims = _asymmetric_jwt.decode(token, jwks)
         claims.validate()
-    except JoseError as exc:
-        logger.debug("Local JWT validation failed: %s", exc)
+    except (JoseError, KeyError, TypeError, ValueError) as exc:
+        logger.debug("Local JWT validation failed: %s", type(exc).__name__)
         return None
 
     if claims.get("iss") != settings.OIDC_ISSUER:
+        return None
+    # A token that never expires is not one a provider hands out.
+    if not isinstance(claims.get("exp"), int | float):
         return None
 
     # Keycloak puts the client id in ``azp`` for access tokens and in
@@ -695,11 +704,22 @@ async def resolve_person(
     # they do is recorded with their own login next to that person.
     visitor = session.get("example_visitor")
     if settings.is_example and isinstance(visitor, dict):
+        from grip.core import example
         from grip.events import context as event_context
+
+        # The list of visitors is read on every request: taking someone off
+        # it ends their session, not only their next login.
+        if not example.visitor_allowed(str(visitor.get("email", "")), settings):
+            session.clear()
+            return None
 
         event_context.set_visitor(f"bezoeker:{visitor.get('email', '')}")
     elif isinstance(visitor, dict):
         # Left over from an example instance: never a session for real work.
+        return None
+    elif settings.is_example:
+        # Only a visitor has a session in an example instance.
+        session.clear()
         return None
     return person
 

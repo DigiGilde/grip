@@ -31,9 +31,29 @@ http {
         ""      $http_host;
     }
 
+    # What a page of grip may load and do. Everything comes from this
+    # address: scripts, styles, fonts, pictures and the API. No script runs
+    # from the page text itself, and no other site can show grip in a frame.
+    # 'unsafe-inline' for styles only: the components of the design system
+    # and the application set styles on elements. Pictures may be data: and
+    # blob: addresses (icons in the styles, a file just chosen).
+    map "" $grip_csp {
+        default "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self'; manifest-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
+    }
+    map "" $grip_permissions {
+        default "camera=(), microphone=(), geolocation=(), payment=(), usb=()";
+    }
+
+    # Do not tell which version answers.
+    server_tokens off;
+
     server {
         listen 8080;
         server_name _;
+
+        # The largest thing grip takes in is a document of 10 MB; the backend
+        # checks each kind of body more precisely.
+        client_max_body_size 13m;
 
         root /usr/share/nginx/html;
         index index.html;
@@ -41,8 +61,13 @@ http {
         # We run behind a reverse proxy on a different port.
         absolute_redirect off;
 
+        # nginx drops these in a location that sets a header of its own,
+        # which is why every location below repeats them.
         add_header X-Content-Type-Options "nosniff" always;
         add_header Referrer-Policy "same-origin" always;
+        add_header X-Frame-Options "DENY" always;
+        add_header Content-Security-Policy $grip_csp always;
+        add_header Permissions-Policy $grip_permissions always;
 
         # The API on the same origin as the frontend: the session and CSRF
         # cookies stay first-party and no CORS configuration is needed.
@@ -52,11 +77,18 @@ http {
         # address of this container is in its TRUSTED_PROXIES setting.
         include /tmp/grip-api.conf;
 
+        # Where to report a vulnerability; written by the same script from
+        # SECURITY_TXT_URL.
+        include /tmp/grip-security.conf;
+
         # Hashed assets: immutable, cache forever.
         location /assets/ {
             expires 1y;
             add_header Cache-Control "public, immutable";
             add_header X-Content-Type-Options "nosniff" always;
+            add_header X-Frame-Options "DENY" always;
+            add_header Content-Security-Policy $grip_csp always;
+            add_header Permissions-Policy $grip_permissions always;
             try_files $uri =404;
         }
 
@@ -65,12 +97,18 @@ http {
         location = /sw.js {
             add_header Cache-Control "no-cache";
             add_header X-Content-Type-Options "nosniff" always;
+            add_header X-Frame-Options "DENY" always;
+            add_header Content-Security-Policy $grip_csp always;
+            add_header Permissions-Policy $grip_permissions always;
             try_files $uri =404;
         }
         location = /manifest.webmanifest {
             default_type application/manifest+json;
             add_header Cache-Control "no-cache";
             add_header X-Content-Type-Options "nosniff" always;
+            add_header X-Frame-Options "DENY" always;
+            add_header Content-Security-Policy $grip_csp always;
+            add_header Permissions-Policy $grip_permissions always;
             try_files $uri =404;
         }
 
@@ -79,6 +117,9 @@ http {
             try_files $uri /index.html;
             add_header Cache-Control "no-cache";
             add_header X-Content-Type-Options "nosniff" always;
+            add_header X-Frame-Options "DENY" always;
+            add_header Content-Security-Policy $grip_csp always;
+            add_header Permissions-Policy $grip_permissions always;
             add_header Referrer-Policy "same-origin" always;
         }
     }

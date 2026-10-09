@@ -401,3 +401,63 @@ def test_when_the_nightly_reset_runs():
         assert not example.reset_due(None, _real())
     with clock.at(datetime(2026, 3, 10, 12, 0, tzinfo=UTC)):
         assert not example.reset_due(None, settings)
+
+
+# -- what an attacker with a visit would try -----------------------------------
+
+
+async def test_an_example_person_with_the_visitors_address_is_still_a_visitor(
+    db_session, provider
+):
+    # A visitor acting as the beheerder can give an example person their own
+    # address. The next login is a visit all the same, with both identities.
+    settings = _example(EXAMPLE_VISITORS="voorbeeld.example")
+    await example.prepare(db_session, settings)
+    default = await example.default_person(db_session)
+    default.email = "bezoeker@voorbeeld.example"
+    await db_session.flush()
+    provider(email="bezoeker@voorbeeld.example", email_verified=True, name="Be Zoeker")
+    session: dict[str, Any] = {}
+    await auth_routes.callback(_request(session), db_session, settings)
+    assert session[example.VISITOR_SESSION_KEY]["email"] == "bezoeker@voorbeeld.example"
+
+    # Without the list the same address gets nothing.
+    session = {}
+    closed = _example(EXAMPLE_VISITORS="elders.example")
+    response = await auth_routes.callback(_request(session), db_session, closed)
+    assert response.headers["location"].endswith("login_error=geen_toegang")
+    assert session == {}
+
+
+async def test_a_visitor_taken_off_the_list_loses_the_session(db_session, provider):
+    settings = _example(EXAMPLE_VISITORS="voorbeeld.example")
+    session = await _visitor_session(db_session, settings)
+    assert await resolve_person(_request(session), db_session, settings) is not None
+    narrowed = _example(EXAMPLE_VISITORS="elders.example")
+    assert await resolve_person(_request(session), db_session, narrowed) is None
+    assert session == {}
+
+
+async def test_an_example_instance_has_no_session_without_a_visitor(
+    db_session, provider
+):
+    settings = _example(EXAMPLE_VISITORS="voorbeeld.example")
+    session = await _visitor_session(db_session, settings)
+    plain = {k: v for k, v in session.items() if k != example.VISITOR_SESSION_KEY}
+    assert await resolve_person(_request(plain), db_session, settings) is None
+
+
+def test_an_example_instance_has_no_passkeys() -> None:
+    from grip.services import passkeys
+
+    keys = {"PASSKEY_RP_ID": "grip.example", "PASSKEY_ORIGIN": "https://grip.example"}
+    assert not passkeys.configured(_example(**keys))
+    assert not passkeys.login_enabled(_example(**keys))
+    assert passkeys.configured(
+        _settings(
+            OIDC_ISSUER="https://idp.example/realms/x",
+            SESSION_SECRET_KEY="s" * 40,
+            PUBLIC_HOST="https://grip.example",
+            **keys,
+        )
+    )

@@ -42,14 +42,15 @@ from grip.models.outgoing_invoice import (
     OutgoingInvoiceDelivery,
 )
 from grip.models.person import Person
-from grip.services import events, stale
+from grip.services import events, read_cache, stale
 from grip.services.assignments import get_assignment
 from grip.services.errors import DomainValidationError, NotFoundError
 from grip.services.phase import allows_billing
 from grip.services.pricing import (
     DEFAULT_OPTIONS,
+    CalcInputs,
     PricingOptions,
-    load_inputs_for_assignment,
+    load_inputs_by_assignment,
 )
 
 NOT_DELIVERED = "not_delivered"
@@ -170,24 +171,48 @@ async def _names(session: AsyncSession, person_ids: set[UUID]) -> dict[UUID, str
 
 
 async def _exports(session: AsyncSession, assignment_id: UUID) -> list[BillingExport]:
+    return (await _exports_of(session, [assignment_id]))[assignment_id]
+
+
+async def _exports_of(
+    session: AsyncSession, assignment_ids: Iterable[UUID]
+) -> dict[UUID, list[BillingExport]]:
+    ids = list(dict.fromkeys(assignment_ids))
+    found: dict[UUID, list[BillingExport]] = {i: [] for i in ids}
+    if not ids:
+        return found
     result = await session.execute(
         select(BillingExport)
-        .where(BillingExport.assignment_id == assignment_id)
+        .where(BillingExport.assignment_id.in_(ids))
         .order_by(BillingExport.created_at, BillingExport.id)
     )
-    return list(result.scalars())
+    for export in result.scalars():
+        found[export.assignment_id].append(export)
+    return found
 
 
 async def _closes_in_force(
     session: AsyncSession, assignment_id: UUID
 ) -> dict[date, UUID]:
+    return (await _closes_in_force_of(session, [assignment_id]))[assignment_id]
+
+
+async def _closes_in_force_of(
+    session: AsyncSession, assignment_ids: Iterable[UUID]
+) -> dict[UUID, dict[date, UUID]]:
+    ids = list(dict.fromkeys(assignment_ids))
+    found: dict[UUID, dict[date, UUID]] = {i: {} for i in ids}
+    if not ids:
+        return found
     rows = await session.execute(
-        select(MonthClose.month, MonthClose.id).where(
-            MonthClose.assignment_id == assignment_id,
+        select(MonthClose.assignment_id, MonthClose.month, MonthClose.id).where(
+            MonthClose.assignment_id.in_(ids),
             MonthClose.reopened_at.is_(None),
         )
     )
-    return {row[0]: row[1] for row in rows}
+    for assignment_id, month, close_id in rows:
+        found[assignment_id][month] = close_id
+    return found
 
 
 def _current_exports(
@@ -228,17 +253,29 @@ def _corrections(
 async def _invoices_in_force(
     session: AsyncSession, assignment_id: UUID
 ) -> list[OutgoingInvoice]:
+    return (await _invoices_in_force_of(session, [assignment_id]))[assignment_id]
+
+
+async def _invoices_in_force_of(
+    session: AsyncSession, assignment_ids: Iterable[UUID]
+) -> dict[UUID, list[OutgoingInvoice]]:
+    ids = list(dict.fromkeys(assignment_ids))
+    found: dict[UUID, list[OutgoingInvoice]] = {i: [] for i in ids}
+    if not ids:
+        return found
     result = await session.execute(
         select(OutgoingInvoice)
         .where(
-            OutgoingInvoice.assignment_id == assignment_id,
+            OutgoingInvoice.assignment_id.in_(ids),
             OutgoingInvoice.withdrawn_at.is_(None),
         )
         .options(selectinload(OutgoingInvoice.deliveries))
         .order_by(OutgoingInvoice.invoice_date, OutgoingInvoice.created_at)
         .execution_options(populate_existing=True)
     )
-    return list(result.scalars())
+    for invoice in result.scalars():
+        found[invoice.assignment_id].append(invoice)
+    return found
 
 
 def spread(amount_cents: int, weights: list[int]) -> list[int]:
@@ -258,21 +295,14 @@ def spread(amount_cents: int, weights: list[int]) -> list[int]:
     return parts
 
 
-async def _deliverable(
-    session: AsyncSession,
-    assignment_id: UUID,
-    months: Iterable[date],
-    options: PricingOptions,
+def _deliverable(
+    inputs: CalcInputs | None, months: Iterable[date], options: PricingOptions
 ) -> dict[date, int | None]:
     """Per closed month what a delivery made now would hold."""
     wanted = sorted(set(months))
     if not wanted:
         return {}
-    try:
-        inputs = await load_inputs_for_assignment(
-            session, assignment_id, options=options
-        )
-    except calc.CalcError:
+    if inputs is None:
         return dict.fromkeys(wanted)
     result: dict[date, int | None] = {}
     for first_day in wanted:
@@ -295,6 +325,29 @@ async def _deliverable(
     return result
 
 
+async def _inputs_of(
+    session: AsyncSession, assignment_ids: list[UUID], options: PricingOptions
+) -> dict[UUID, CalcInputs | None]:
+    """The inputs per assignment; None where they cannot be read."""
+    try:
+        return dict(
+            await load_inputs_by_assignment(session, assignment_ids, options=options)
+        )
+    except calc.CalcError:
+        pass
+    found: dict[UUID, CalcInputs | None] = {}
+    for assignment_id in assignment_ids:
+        try:
+            found[assignment_id] = (
+                await load_inputs_by_assignment(
+                    session, [assignment_id], options=options
+                )
+            )[assignment_id]
+        except calc.CalcError:
+            found[assignment_id] = None
+    return found
+
+
 async def month_billing(
     session: AsyncSession,
     assignment_id: UUID,
@@ -306,12 +359,68 @@ async def month_billing(
     In order of month. A month that was reopened after an invoice was
     recorded on it is listed too, with ``closed`` false.
     """
-    exports = await _exports(session, assignment_id)
+    found = await month_billings(session, [assignment_id], options=options)
+    return found[assignment_id]
+
+
+async def month_billings(
+    session: AsyncSession,
+    assignment_ids: Iterable[UUID],
+    *,
+    options: PricingOptions = DEFAULT_OPTIONS,
+) -> dict[UUID, tuple[MonthBilling, ...]]:
+    """``month_billing`` of several assignments, read together."""
+    return await read_cache.remember_many(
+        session,
+        "month_billing",
+        assignment_ids,
+        options,
+        lambda missing: _month_billings(session, missing, options),
+        ignore=read_cache.COST_KINDS,
+    )
+
+
+async def _month_billings(
+    session: AsyncSession, assignment_ids: list[UUID], options: PricingOptions
+) -> dict[UUID, tuple[MonthBilling, ...]]:
+    exports_of = await _exports_of(session, assignment_ids)
+    closes_of = await _closes_in_force_of(session, assignment_ids)
+    invoices_of = await _invoices_in_force_of(session, assignment_ids)
+    with_closes = [i for i in assignment_ids if closes_of[i]]
+    inputs_of = await _inputs_of(session, with_closes, options) if with_closes else {}
+    names = await _names(
+        session,
+        {
+            export.exported_by_id
+            for exports in exports_of.values()
+            for export in exports
+            if export.exported_by_id
+        },
+    )
+    return {
+        assignment_id: _month_billing(
+            exports_of[assignment_id],
+            closes_of[assignment_id],
+            invoices_of[assignment_id],
+            inputs_of.get(assignment_id),
+            names,
+            options,
+        )
+        for assignment_id in assignment_ids
+    }
+
+
+def _month_billing(
+    exports: list[BillingExport],
+    closes: dict[date, UUID],
+    invoices: list[OutgoingInvoice],
+    inputs: CalcInputs | None,
+    names: dict[UUID, str],
+    options: PricingOptions,
+) -> tuple[MonthBilling, ...]:
     by_id = {export.id: export for export in exports}
-    closes = await _closes_in_force(session, assignment_id)
     current = _current_exports(exports, closes)
     corrections = _corrections(exports, current)
-    invoices = await _invoices_in_force(session, assignment_id)
 
     # Per month: the invoice, this month's share of its amount, and whether
     # it rests on the delivery in force.
@@ -335,10 +444,7 @@ async def month_billing(
                 in_force and (previous[2] if previous else True),
             )
 
-    deliverable = await _deliverable(session, assignment_id, closes, options)
-    names = await _names(
-        session, {e.exported_by_id for e in current.values() if e.exported_by_id}
-    )
+    deliverable = _deliverable(inputs, closes, options)
 
     result = []
     for first_day in sorted(set(closes) | set(invoiced)):
@@ -423,11 +529,13 @@ async def billing_positions(
     options: PricingOptions = DEFAULT_OPTIONS,
 ) -> dict[UUID, BillingPosition]:
     """The position of several assignments at once, keyed by assignment id."""
+    ids = list(dict.fromkeys(assignment_ids))
+    await month_billings(session, ids, options=options)
     return {
         assignment_id: await billing_position(
             session, assignment_id, year=year, options=options
         )
-        for assignment_id in dict.fromkeys(assignment_ids)
+        for assignment_id in ids
     }
 
 

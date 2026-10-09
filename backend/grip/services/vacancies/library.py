@@ -7,9 +7,11 @@ section has a heading and a body of paragraphs, lists ("- ") and emphasis
 ("*...*"); nothing else.
 
 Between braces a text names what a vacancy or a setting supplies
-(``{functie}``, ``{schaal}``). A placeholder that cannot be filled, and a
-passage a person still has to write, stay in the text as ``[vul aan: ...]``,
-and a text with such a passage cannot be settled.
+(``{functie}``, ``{schaal}``). Those are facts: a draft keeps the key, so the
+text follows the vacancy until it is settled, and settling writes the values
+out. A fact grip does not know yet is an open place that says where to fill
+it. A passage only a person can write stands in the text as
+``[vul aan: ...]``. A text with either kind of open place cannot be settled.
 
 The shipped defaults are data (``grip/data/vacancy_texts``), loaded at start.
 Loading never overwrites a text a person changed.
@@ -20,8 +22,8 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
-from decimal import Decimal
+from datetime import UTC, date, datetime
+from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -44,6 +46,7 @@ from grip.models.vacancy_text_flow import (
 )
 from grip.services import catalogue_roles, instance_settings, quote_sender, stale
 from grip.services.errors import DomainValidationError, NotFoundError
+from grip.services.quote_document import format_date
 
 _DATA = Path(__file__).resolve().parents[2] / "data" / "vacancy_texts"
 
@@ -51,7 +54,10 @@ PLACEHOLDERS: dict[str, str] = {
     "functie": "de functienaam van de vacature",
     "schaal": "de schaal van de vacature",
     "uren": "het aantal uren per week, uit de omvang in fte",
+    "fte": "de omvang in fte",
     "contract": "het soort contract",
+    "startdatum": "de datum waarop de functie begint",
+    "einddatum": "de datum waarop de functie eindigt",
     "standplaats": "de standplaats, uit de instellingen",
     "organisatie": "de naam van de organisatie, uit de afzender onder Beheer",
     "eenheid": "de naam van het onderdeel, uit de instellingen",
@@ -73,9 +79,81 @@ CONTRACT_SENTENCES: dict[str, str] = {
     ),
 }
 
+
+@dataclass(frozen=True)
+class FactKind:
+    """A fact a text can name by key: where it comes from and how it is asked."""
+
+    label: str
+    # request (the vacancy's request), settings (what the standard texts
+    # fill in) or sender (the sender under Beheer).
+    where: str
+    instruction: str
+
+
+FACT_KINDS: dict[str, FactKind] = {
+    "functie": FactKind("Functie", "request", "Vul de functie in op de aanvraag"),
+    "schaal": FactKind("Schaal", "request", "Vul de schaal in op de aanvraag"),
+    "uren": FactKind("Omvang", "request", "Vul de omvang in op de aanvraag"),
+    "fte": FactKind("Omvang", "request", "Vul de omvang in op de aanvraag"),
+    "contract": FactKind(
+        "Type contract", "request", "Kies het type contract op de aanvraag"
+    ),
+    "startdatum": FactKind(
+        "Startdatum", "request", "Vul de startdatum in op de aanvraag"
+    ),
+    "einddatum": FactKind("Einddatum", "request", "Vul de einddatum in op de aanvraag"),
+    "standplaats": FactKind(
+        "Standplaats", "settings", "Vul de standplaats in bij de standaardteksten"
+    ),
+    "eenheid": FactKind(
+        "Naam van het onderdeel",
+        "settings",
+        "Vul de naam van het onderdeel in bij de standaardteksten",
+    ),
+    "website": FactKind(
+        "Website", "settings", "Vul de website in bij de standaardteksten"
+    ),
+    "contact": FactKind(
+        "Bij wie een sollicitant terecht kan",
+        "settings",
+        "Vul bij de standaardteksten in bij wie een sollicitant terecht kan",
+    ),
+    "organisatie": FactKind(
+        "Organisatie", "sender", "Vul de naam van de organisatie in bij de afzender"
+    ),
+}
+
+SOURCE_WORDS = {
+    "request": "uit de aanvraag",
+    "settings": "uit de standaardteksten",
+    "sender": "uit de afzender",
+}
+
+
+@dataclass(frozen=True)
+class Fact:
+    """A fact as it stands for one vacancy; ``value`` is None while unknown."""
+
+    key: str
+    label: str
+    value: str | None
+    where: str
+    instruction: str
+
+    @property
+    def source(self) -> str:
+        return f"{SOURCE_WORDS[self.where]}: {self.label}"
+
+    @property
+    def open_place(self) -> str:
+        return f"[vul aan: {self.instruction}]"
+
+
 OPEN_MARK = "[vul aan"
 _PLACEHOLDER = re.compile(r"\{([a-z_]+)\}")
 _KEY = re.compile(r"^[a-z][a-z0-9_]{1,58}$")
+# The full working week of the cao Rijk, in hours.
 _FULL_WEEK = Decimal("36")
 MAX_SECTIONS = 20
 MAX_BODY = 8000
@@ -149,11 +227,80 @@ def split(text: str) -> list[tuple[str, str]]:
     return [(heading, body) for heading, body in pairs if heading or body]
 
 
-def open_passages(text: str) -> list[str]:
-    """What still has to be filled in before the text can be settled."""
-    found = [f"{{{name}}}" for name in _PLACEHOLDER.findall(text)]
+def open_passages(text: str, facts: dict[str, Fact] | None = None) -> list[str]:
+    """What still has to be filled in before the text can be settled.
+
+    With the facts of the vacancy a key that has a value is not open, and one
+    without is named by where to fill it.
+    """
+    found: list[str] = []
+    for name in _PLACEHOLDER.findall(text):
+        fact = (facts or {}).get(name)
+        if fact is None:
+            found.append(f"{{{name}}}")
+        elif fact.value is None and fact.instruction not in found:
+            found.append(fact.instruction)
     found += re.findall(r"\[vul aan[^\]]*\]", text)
     return found
+
+
+def shown(text: str, facts: dict[str, Fact]) -> str:
+    """A draft as it reads now: every fact by its value, an unknown one as an
+    open place that says where to fill it."""
+
+    def replace(match: re.Match[str]) -> str:
+        fact = facts.get(match.group(1))
+        if fact is None:
+            return match.group(0)
+        return fact.value if fact.value is not None else fact.open_place
+
+    return _PLACEHOLDER.sub(replace, text)
+
+
+def used_facts(text: str, facts: dict[str, Fact]) -> dict[str, str]:
+    """The values of the facts this text names, for the record at settling."""
+    return {
+        name: facts[name].value or ""
+        for name in dict.fromkeys(_PLACEHOLDER.findall(text))
+        if name in facts
+    }
+
+
+@dataclass(frozen=True)
+class ChangedFact:
+    key: str
+    label: str
+    settled: str
+    # None when the fact is no longer known.
+    current: str | None
+
+
+def changed_facts(
+    frozen: dict[str, Any] | None, facts: dict[str, Fact]
+) -> list[ChangedFact]:
+    """Facts that read differently now than in the settled text."""
+    result = []
+    for name, value in (frozen or {}).items():
+        fact = facts.get(name)
+        if fact is not None and fact.value != value:
+            result.append(ChangedFact(name, fact.label, str(value), fact.value))
+    return result
+
+
+def rekey(text: str) -> tuple[str, int]:
+    """Open places an earlier version wrote for a fact, back to the key.
+
+    Before a draft kept its keys, a fact that was unknown at the start was
+    written out as ``[vul aan: de schaal van de vacature]`` and stayed open
+    when the fact became known. Only the exact passages written then are
+    replaced; anything a person typed is left alone. Idempotent.
+    """
+    count = 0
+    for name in FACT_KINDS:
+        passage = f"[vul aan: {PLACEHOLDERS[name]}]"
+        count += text.count(passage)
+        text = text.replace(passage, f"{{{name}}}")
+    return text, count
 
 
 def check_sections(value: Any, shared_keys: set[str]) -> list[dict[str, Any]]:
@@ -347,8 +494,20 @@ async def neighbours(
 def _hours(fte: Decimal | None) -> str | None:
     if fte is None:
         return None
-    hours = (Decimal(fte) * _FULL_WEEK).quantize(Decimal("1"))
+    # Whole hours, as a vacancy names them: 0,2 fte of 36 hours is 7,2 and
+    # reads "7 uur per week".
+    hours = (Decimal(fte) * _FULL_WEEK).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
     return str(hours)
+
+
+def _decimal(value: Decimal | None) -> str | None:
+    if value is None:
+        return None
+    return format(Decimal(value).normalize(), "f").replace(".", ",")
+
+
+def _date(value: date | None) -> str | None:
+    return format_date(value) if value else None
 
 
 async def values_for(db: AsyncSession, vacancy: Vacancy) -> dict[str, str]:
@@ -366,7 +525,10 @@ async def values_for(db: AsyncSession, vacancy: Vacancy) -> dict[str, str]:
         "functie": vacancy.function_title,
         "schaal": str(vacancy.scale) if vacancy.scale is not None else None,
         "uren": _hours(vacancy.fte),
+        "fte": _decimal(vacancy.fte),
         "contract": CONTRACT_SENTENCES.get(vacancy.contract_type or ""),
+        "startdatum": _date(vacancy.start_date),
+        "einddatum": _date(vacancy.end_date),
         "standplaats": settings["location"],
         "organisatie": organisation,
         "eenheid": settings["unit_name"] or organisation,
@@ -387,6 +549,15 @@ async def values_for(db: AsyncSession, vacancy: Vacancy) -> dict[str, str]:
     return {name: value for name, value in values.items() if value}
 
 
+async def facts_for(db: AsyncSession, vacancy: Vacancy) -> dict[str, Fact]:
+    """Every fact a vacancy text can name, with its value for this vacancy."""
+    values = await values_for(db, vacancy)
+    return {
+        name: Fact(name, kind.label, values.get(name), kind.where, kind.instruction)
+        for name, kind in FACT_KINDS.items()
+    }
+
+
 @dataclass
 class Resolved:
     sections: list[Section]
@@ -398,13 +569,17 @@ class Resolved:
         return render(self.sections)
 
 
-def _fill(text: str, values: dict[str, str], missing: list[str]) -> str:
+def _fill(
+    text: str, values: dict[str, str], missing: list[str], *, keep_facts: bool = False
+) -> str:
     def replace(match: re.Match[str]) -> str:
         name = match.group(1)
+        if name not in values and name not in missing:
+            missing.append(name)
+        if keep_facts and name in FACT_KINDS:
+            return match.group(0)
         if name in values:
             return values[name]
-        if name not in missing:
-            missing.append(name)
         return f"[vul aan: {PLACEHOLDERS.get(name, name)}]"
 
     return _PLACEHOLDER.sub(replace, text)
@@ -416,12 +591,14 @@ def resolve(
     values: dict[str, str],
     *,
     only: str | None = None,
+    keep_facts: bool = False,
 ) -> Resolved:
     """The sections of a template with the placeholders filled.
 
     ``only`` keeps the shared sections (``"shared"``) or the role's own
     (``"own"``); a section that depends on an assignment is left out when the
-    vacancy has none.
+    vacancy has none. With ``keep_facts`` a fact stays in the text by its key,
+    as a draft stores it; what is not a fact is filled or left open as always.
     """
     resolved = Resolved(sections=[])
     for entry in template.sections:
@@ -449,8 +626,8 @@ def resolve(
         resolved.sections.append(
             Section(
                 key=key,
-                heading=_fill(heading, values, resolved.missing),
-                body=_fill(body, values, resolved.missing),
+                heading=_fill(heading, values, resolved.missing, keep_facts=keep_facts),
+                body=_fill(body, values, resolved.missing, keep_facts=keep_facts),
                 shared=is_shared,
             )
         )
@@ -485,7 +662,7 @@ async def use_standard_text(
             "verwante rol. Voeg er een toe onder Standaardteksten, of schrijf "
             "de tekst zelf."
         )
-    resolved = await resolve_for_vacancy(db, vacancy, match.template)
+    resolved = await resolve_for_vacancy(db, vacancy, match.template, keep_facts=True)
     text = VacancyText(
         vacancy_id=vacancy.id,
         kind=TextKind.vacancy_text.value,
@@ -701,6 +878,31 @@ def read_profile(name: str) -> dict[str, Any]:
     return data
 
 
+async def rekey_library(db: AsyncSession) -> int:
+    """The same for the standard texts as they are stored: an open place
+    written for a fact becomes its key again. Idempotent."""
+    count = 0
+    for section in await shared_sections(db):
+        body, places = rekey(section.body)
+        if places:
+            section.body = body
+            count += places
+    for template in await db.scalars(select(VacancyTextTemplate)):
+        sections = []
+        found = 0
+        for entry in template.sections:
+            if "body" in entry:
+                body, places = rekey(entry["body"])
+                found += places
+                entry = {**entry, "body": body}
+            sections.append(entry)
+        if found:
+            template.sections = sections
+            count += found
+    await db.flush()
+    return count
+
+
 @dataclass
 class LoadResult:
     added: int = 0
@@ -781,6 +983,8 @@ async def load_profile(db: AsyncSession, name: str) -> LoadResult:
         else:
             result.kept += 1
     await db.flush()
+
+    await rekey_library(db)
 
     # The settings start from the library when nobody set them.
     current = await instance_settings.get(db, TEXT_SETTINGS.key)

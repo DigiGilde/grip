@@ -176,6 +176,17 @@ def _classes_of(model: type[BaseModel]) -> frozenset[DataClass]:
     return _classes_cache[model]
 
 
+_field_classes_cache: dict[type[BaseModel], dict[str, DataClass | None]] = {}
+
+
+def _field_classes_of(model: type[BaseModel]) -> dict[str, DataClass | None]:
+    """``field_classes``, worked out once per schema: a list of a thousand
+    rows asks it a thousand times, and a schema does not change."""
+    if model not in _field_classes_cache:
+        _field_classes_cache[model] = field_classes(model)
+    return _field_classes_cache[model]
+
+
 def _filter_model(
     value: BaseModel, dumped: Mapping[str, Any], allowed: frozenset[DataClass]
 ) -> tuple[dict[str, Any], bool]:
@@ -186,7 +197,7 @@ def _filter_model(
     drops it instead of showing that it exists.
     """
     model = type(value)
-    classes = field_classes(model)
+    classes = _field_classes_of(model)
     result: dict[str, Any] = {}
     substance = False
     for name, data_class in classes.items():

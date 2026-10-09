@@ -18,6 +18,8 @@ import { useOnline } from '@/pwa/useOnline';
 import './shell.css';
 
 const MAIN_CONTENT_ID = 'inhoud';
+/** The name of the landmark around the application bar. */
+const BAR_LABEL = 'Navigatie en account';
 
 // `above` and `only` are read off a pane by nldd-bar-split-view, which is why
 // the package types them on the parent and not on nldd-split-view-pane. Spread
@@ -74,19 +76,21 @@ function NarrowToolbar({
   withName?: boolean;
 }) {
   return (
-    <nldd-container padding="8">
-      <nldd-toolbar label={instanceName}>
-        <nldd-toolbar-item slot="start" priority={3}>
-          <NavigationMenuButton />
-          <MainNavigationOverflow />
-        </nldd-toolbar-item>
-        <BrandTitle instanceName={rawName} markOnly={!withName} />
-        <nldd-toolbar-item slot="end" priority={2}>
-          <AccountMenu placement="bottom-end" compact />
-          <LogoutMenuItem slot="overflow" />
-        </nldd-toolbar-item>
-      </nldd-toolbar>
-    </nldd-container>
+    <section aria-label={BAR_LABEL}>
+      <nldd-container padding="8">
+        <nldd-toolbar label={instanceName}>
+          <nldd-toolbar-item slot="start" priority={3}>
+            <NavigationMenuButton />
+            <MainNavigationOverflow />
+          </nldd-toolbar-item>
+          <BrandTitle instanceName={rawName} markOnly={!withName} />
+          <nldd-toolbar-item slot="end" priority={2}>
+            <AccountMenu placement="bottom-end" compact />
+            <LogoutMenuItem slot="overflow" />
+          </nldd-toolbar-item>
+        </nldd-toolbar>
+      </nldd-container>
+    </section>
   );
 }
 
@@ -133,24 +137,29 @@ export function AppShell() {
       <nldd-app-view>
         <nldd-bar-split-view>
           <nldd-split-view-pane slot="toolbar-wide" {...FROM_LG}>
-            <nldd-container padding="8">
-              <nldd-toolbar label={instanceName}>
-                <BrandTitle instanceName={instance?.name} />
-                {/* Fluid: the menu bar gets the room that is left and puts what does not fit behind its own button. */}
-                <nldd-toolbar-item slot="start" priority={3} min-width="200px">
-                  <MainNavigation area="work" label="Hoofdnavigatie" />
-                  <MainNavigationOverflow area="work" />
-                </nldd-toolbar-item>
-                <nldd-toolbar-item slot="end" priority={1}>
-                  <MainNavigation area="settings" label="Instellingen" />
-                  <MainNavigationOverflow area="settings" />
-                </nldd-toolbar-item>
-                <nldd-toolbar-item slot="end" priority={2}>
-                  <AccountMenu placement="bottom-end" />
-                  <LogoutMenuItem slot="overflow" />
-                </nldd-toolbar-item>
-              </nldd-toolbar>
-            </nldd-container>
+            {/* A named region, so the name and the account sit inside a landmark.
+                Not a header: nldd-page already renders the banner of the
+                document, and a second one is announced twice. */}
+            <section aria-label={BAR_LABEL}>
+              <nldd-container padding="8">
+                <nldd-toolbar label={instanceName}>
+                  <BrandTitle instanceName={instance?.name} />
+                  {/* Fluid: the menu bar gets the room that is left and puts what does not fit behind its own button. */}
+                  <nldd-toolbar-item slot="start" priority={3} min-width="200px">
+                    <MainNavigation area="work" label="Hoofdnavigatie" />
+                    <MainNavigationOverflow area="work" />
+                  </nldd-toolbar-item>
+                  <nldd-toolbar-item slot="end" priority={1}>
+                    <MainNavigation area="settings" label="Instellingen" />
+                    <MainNavigationOverflow area="settings" />
+                  </nldd-toolbar-item>
+                  <nldd-toolbar-item slot="end" priority={2}>
+                    <AccountMenu placement="bottom-end" />
+                    <LogoutMenuItem slot="overflow" />
+                  </nldd-toolbar-item>
+                </nldd-toolbar>
+              </nldd-container>
+            </section>
           </nldd-split-view-pane>
 
           <nldd-split-view-pane slot="toolbar-medium" {...ONLY_MD}>

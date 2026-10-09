@@ -25,14 +25,17 @@ import {
   StateNotice,
 } from '@/ui/layout';
 import { RichText } from '@/ui/RichText';
-import { openPlaces, VACANCY_TEXT_MARKS } from '@/ui/text/marks';
+import { placesToFill, unknownFacts, type PlaceToFill } from '@/ui/text/facts';
+import { VACANCY_TEXT_MARKS } from '@/ui/text/marks';
 import { TextEditor, type TextEditorHandle } from '@/ui/TextEditor';
 import { VACANCY_KEYS, fetchVacancy } from './api';
+import { factHref } from './factHref';
 import { vacancyTabPath } from './paths';
 import { TailoredSheet } from './TailoredSheet';
 import {
   TEXT_WORK_KEY,
   fetchTextWork,
+  proposePassage,
   saveVersion,
   useStandardText as startFromStandardText,
   type VacancyTextWork,
@@ -156,13 +159,26 @@ export function VacancyTextPage() {
       takeOver(next);
     },
   });
+  // A proposal for one passage: asked for at the place, taken over or not.
+  const [proposed, setProposed] = useState<{ place: PlaceToFill; text: string } | null>(null);
+  const propose = useMutation({
+    mutationFn: (place: PlaceToFill) =>
+      proposePassage(vacancyId, body ?? '', place.text).then((answer) => ({
+        place,
+        text: answer.proposal,
+      })),
+    onMutate: () => setProposed(null),
+    onSuccess: setProposed,
+  });
+  const facts = text?.facts ?? [];
   const standard = text?.standard_text;
   const choosing =
     Boolean(standard) && !latest && !restored && !ownStart && body !== null && !body.trim();
   const conflict = save.error instanceof ApiError && save.error.status === 409;
   const moved = conflict && latest !== undefined && latest.id !== basedOn;
 
-  const places = body ? openPlaces(body) : [];
+  const places = body ? placesToFill(body, facts) : [];
+  const elsewhere = body ? unknownFacts(body, facts) : [];
   const denied = work.error instanceof ApiError && [403, 404].includes(work.error.status);
   const title = vacancy.data
     ? `Vacaturetekst voor ${vacancy.data.function_title}`
@@ -243,8 +259,53 @@ export function VacancyTextPage() {
               marks={VACANCY_TEXT_MARKS}
               rows={24}
               showOpenPlaces
+              facts={facts}
+              {...(work.data?.drafting_available
+                ? { onPropose: (place: PlaceToFill) => propose.mutate(place) }
+                : {})}
+              proposing={propose.isPending}
+              proposal={
+                <>
+                  {propose.isError && <ErrorNotice message={errorMessage(propose.error)} />}
+                  {proposed && (
+                    <Stack gap="close">
+                      <Quiet>Voorstel voor: {proposed.place.what}</Quiet>
+                      <nldd-text>{proposed.text}</nldd-text>
+                      <nldd-container layout="wrap" gap="8">
+                        <Button
+                          size="sm"
+                          text="Neem over"
+                          onClick={() => {
+                            if (!editor.current?.fillPlace(proposed.place, proposed.text)) {
+                              setProblem('Deze plek staat niet meer in de tekst.');
+                            }
+                            setProposed(null);
+                          }}
+                        />
+                        <Button size="sm" text="Neem niet over" onClick={() => setProposed(null)} />
+                      </nldd-container>
+                    </Stack>
+                  )}
+                </>
+              }
               required
             />
+            {elsewhere.length > 0 && (
+              <Stack gap="close">
+                <Quiet>
+                  {elsewhere.length === 1
+                    ? 'Dit vul je niet hier in. De tekst neemt het over zodra het er staat.'
+                    : 'Deze vul je niet hier in. De tekst neemt ze over zodra ze er staan.'}
+                </Quiet>
+                {elsewhere.map((fact) => (
+                  <nldd-link
+                    key={fact.key}
+                    href={factHref(vacancyId, fact)}
+                    text={fact.instruction}
+                  />
+                ))}
+              </Stack>
+            )}
             {places.length > 0 && (
               <Stack gap="close">
                 <nldd-button-group>
@@ -280,7 +341,7 @@ export function VacancyTextPage() {
                   Versie {latest.number} van {latest.created_by_name ?? 'een collega'}. Bewaar je
                   nu, dan komt jouw tekst als nieuwe versie daarbovenop.
                 </Quiet>
-                <RichText text={latest.body} headingLevel={3} />
+                <RichText text={latest.text} headingLevel={3} />
                 <nldd-button-group>
                   <Button
                     text="Neem de andere tekst over"

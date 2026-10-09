@@ -1,12 +1,25 @@
 import { act, render } from '@testing-library/react';
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
+import type { PlaceToFill, TextFact } from './text/facts';
 import { QUOTE_SECTION_MARKS, VACANCY_TEXT_MARKS, type TextMarks } from './text/marks';
 import { TextEditor } from './TextEditor';
 
 type Editor = HTMLElement & { value?: string };
 
-function Harness({ start, marks, places }: { start: string; marks: TextMarks; places?: boolean }) {
+function Harness({
+  start,
+  marks,
+  places,
+  facts,
+  onPropose,
+}: {
+  start: string;
+  marks: TextMarks;
+  places?: boolean;
+  facts?: TextFact[];
+  onPropose?: (place: PlaceToFill) => void;
+}) {
   const [text, setText] = useState(start);
   return (
     <>
@@ -16,6 +29,8 @@ function Harness({ start, marks, places }: { start: string; marks: TextMarks; pl
         onChange={setText}
         marks={marks}
         showOpenPlaces={places}
+        {...(facts ? { facts } : {})}
+        {...(onPropose ? { onPropose } : {})}
       />
       <output data-stored>{text}</output>
       <button onClick={() => setText('Van buiten vervangen.')}>vervang</button>
@@ -79,5 +94,47 @@ describe('TextEditor', () => {
     type(container, 'Wij zijn een klein team en doen het werk.');
     expect(container.textContent).not.toContain('in te vullen');
     expect(container.querySelector('nldd-button[text="Ga naar de volgende"]')).toBeNull();
+  });
+
+  it('counts a fact only while it is unknown, and keeps its key in the text', () => {
+    const fact = (key: string, value: string | null): TextFact => ({
+      key,
+      label: key,
+      value,
+      source: `uit de aanvraag: ${key}`,
+      where: 'request',
+      instruction: `Vul ${key} in op de aanvraag`,
+    });
+    const text = 'Schaal {schaal}, {contract}.';
+    const { container, rerender } = render(
+      <Harness
+        start={text}
+        marks={VACANCY_TEXT_MARKS}
+        places
+        facts={[fact('schaal', '12'), fact('contract', null)]}
+      />,
+    );
+    expect(container.textContent).toContain('Nog 1 plek in te vullen');
+    expect(editorOf(container).value).toBe(text);
+    rerender(
+      <Harness
+        start={text}
+        marks={VACANCY_TEXT_MARKS}
+        places
+        facts={[fact('schaal', '12'), fact('contract', 'Een jaarcontract')]}
+      />,
+    );
+    expect(container.textContent).not.toContain('in te vullen');
+  });
+
+  it('offers a proposal only for a passage to write, and only when one can be asked', () => {
+    const text = 'Wij zijn [vul aan: het team].';
+    const without = render(<Harness start={text} marks={VACANCY_TEXT_MARKS} places />);
+    expect(without.container.querySelector('nldd-button[text="Stel voor"]')).toBeNull();
+    without.unmount();
+    const { container } = render(
+      <Harness start={text} marks={VACANCY_TEXT_MARKS} places onPropose={() => undefined} />,
+    );
+    expect(container.querySelector('nldd-button[text="Stel voor"]')).not.toBeNull();
   });
 });

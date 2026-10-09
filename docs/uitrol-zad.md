@@ -143,6 +143,8 @@ De voorwaarden voor het logo en het lettertype staan in het image in `/app/huiss
 
 De frontend heeft bij één adres met twee paden geen instellingen nodig.
 
+**Op de frontend (`component-1`):** zet `SECURITY_TXT_URL` op het adres van de security.txt van de organisatie die de instantie beheert (https). `/.well-known/security.txt` verwijst daar dan naar. Zonder die waarde antwoordt het adres 404. Wat er verder voor de beveiliging geregeld moet zijn staat in [beveiliging.md](beveiliging.md).
+
 ## 4. De koppeling met GitHub
 
 De workflow rolt uit zodra de variabele `ZAD_PROJECT_ID` bestaat. Voer deze regels zelf uit; de sleutel wordt gevraagd en komt in geen logboek.

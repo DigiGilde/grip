@@ -15,8 +15,9 @@ from sqlalchemy import ColumnElement, Select, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
-from grip.access.relations import Period
+from grip.access.relations import Period, _overlaps
 from grip.access.types import AssignmentRole, PeerRole
+from grip.core import changes
 from grip.federation.models import Peer
 from grip.models.assignment import Allocation, Assignment, BudgetLine
 from grip.models.assignment import AssignmentRole as AssignmentRoleRow
@@ -40,19 +41,72 @@ class SqlRelationSource:
     def __init__(self, db: AsyncSession, *, instance_base_uri: str) -> None:
         self._db = db
         self._instance_base_uri = instance_base_uri
+        # What this request already read about a person, so a list of 400
+        # rows does not ask 400 times. Dropped as soon as the session writes.
+        self._read: dict[Any, Any] = {}
+        self._read_at: int | None = None
 
     async def _exists(self, condition: ColumnElement[bool]) -> bool:
         return bool(await self._db.scalar(select(condition)))
 
+    def _kept(self) -> dict[Any, Any] | None:
+        """What was read so far, or None when it cannot be trusted now."""
+        now = changes.generation(self._db)
+        if now is None:
+            self._read.clear()
+            return None
+        if now != self._read_at:
+            self._read.clear()
+            self._read_at = now
+        return self._read
+
+    async def _roles_of(self, person_id: UUID) -> dict[UUID, str] | None:
+        """Every assignment role of a person, read once per request."""
+        kept = self._kept()
+        if kept is None:
+            return None
+        key = ("roles", person_id)
+        if key not in kept:
+            rows = await self._db.execute(
+                select(AssignmentRoleRow.assignment_id, AssignmentRoleRow.role).where(
+                    AssignmentRoleRow.person_id == person_id
+                )
+            )
+            kept[key] = {row[0]: row[1] for row in rows}
+        return kept[key]  # type: ignore[no-any-return]
+
+    async def _allocations_of(
+        self, person_id: UUID
+    ) -> list[tuple[UUID, date, date]] | None:
+        """(assignment, start, end) of every allocation of a person."""
+        kept = self._kept()
+        if kept is None:
+            return None
+        key = ("allocations", person_id)
+        if key not in kept:
+            rows = await self._db.execute(
+                select(
+                    BudgetLine.assignment_id, Allocation.start_date, Allocation.end_date
+                )
+                .join(BudgetLine, BudgetLine.id == Allocation.budget_line_id)
+                .where(Allocation.person_id == person_id)
+            )
+            kept[key] = [(row[0], row[1], row[2]) for row in rows]
+        return kept[key]  # type: ignore[no-any-return]
+
     async def assignment_role(
         self, person_id: UUID, assignment_id: UUID
     ) -> AssignmentRole | None:
-        role = await self._db.scalar(
-            select(AssignmentRoleRow.role).where(
-                AssignmentRoleRow.person_id == person_id,
-                AssignmentRoleRow.assignment_id == assignment_id,
+        roles = await self._roles_of(person_id)
+        if roles is not None:
+            role = roles.get(assignment_id)
+        else:
+            role = await self._db.scalar(
+                select(AssignmentRoleRow.role).where(
+                    AssignmentRoleRow.person_id == person_id,
+                    AssignmentRoleRow.assignment_id == assignment_id,
+                )
             )
-        )
         return (
             AssignmentRole(role)
             if role in (AssignmentRole.OWNER, AssignmentRole.MANAGER)
@@ -72,6 +126,9 @@ class SqlRelationSource:
     async def is_member(
         self, person_id: UUID, assignment_id: UUID, today: date
     ) -> bool:
+        own = await self._allocations_of(person_id)
+        if own is not None:
+            return any(a == assignment_id and end >= today for a, _start, end in own)
         query = self._allocation_on(person_id, assignment_id).where(
             Allocation.end_date >= today
         )
@@ -80,6 +137,12 @@ class SqlRelationSource:
     async def is_allocated(
         self, person_id: UUID, assignment_id: UUID, period: Period | None
     ) -> bool:
+        own = await self._allocations_of(person_id)
+        if own is not None:
+            return any(
+                a == assignment_id and _overlaps(start, end, period)
+                for a, start, end in own
+            )
         query = self._allocation_on(person_id, assignment_id)
         if period is not None:
             query = query.where(
@@ -88,6 +151,15 @@ class SqlRelationSource:
         return await self._exists(exists(query))
 
     async def is_line_manager(self, manager_id: UUID, person_id: UUID) -> bool:
+        kept = self._kept()
+        if kept is not None:
+            key = ("reports", manager_id)
+            if key not in kept:
+                rows = await self._db.execute(
+                    select(Person.id).where(Person.manager_id == manager_id)
+                )
+                kept[key] = {row[0] for row in rows}
+            return person_id in kept[key]
         return await self._exists(
             exists(
                 select(Person.id).where(
@@ -97,6 +169,9 @@ class SqlRelationSource:
         )
 
     async def manages_any_assignment(self, person_id: UUID) -> bool:
+        roles = await self._roles_of(person_id)
+        if roles is not None:
+            return bool(roles)
         return await self._exists(
             exists(
                 select(AssignmentRoleRow.id).where(
@@ -111,6 +186,30 @@ class SqlRelationSource:
         The creator manages the item only while nothing covers it: once a
         budget line carries part of it, the managers of that assignment do.
         """
+        kept = self._kept()
+        if kept is not None:
+            key = ("cost_items", person_id)
+            if key not in kept:
+                # Every item the person manages, read once: through an own
+                # assignment that covers it, or made by the person and
+                # covered by nothing.
+                through = await self._db.execute(
+                    select(CostCoverage.cost_item_id)
+                    .join(BudgetLine, BudgetLine.id == CostCoverage.budget_line_id)
+                    .join(
+                        AssignmentRoleRow,
+                        AssignmentRoleRow.assignment_id == BudgetLine.assignment_id,
+                    )
+                    .where(AssignmentRoleRow.person_id == person_id)
+                )
+                made = await self._db.execute(
+                    select(CostItem.id).where(
+                        CostItem.created_by_id == person_id,
+                        ~exists().where(CostCoverage.cost_item_id == CostItem.id),
+                    )
+                )
+                kept[key] = {row[0] for row in through} | {row[0] for row in made}
+            return cost_item_id in kept[key]
         covered_by_own_assignment = (
             select(CostCoverage.id)
             .join(BudgetLine, BudgetLine.id == CostCoverage.budget_line_id)
@@ -139,6 +238,16 @@ class SqlRelationSource:
         # The item has to exist: an id that names nothing is not an item
         # looking for a budget, and a caller may probe with one to learn
         # whether the reader sees every item.
+        kept = self._kept()
+        if kept is not None:
+            if "uncovered_items" not in kept:
+                rows = await self._db.execute(
+                    select(CostItem.id).where(
+                        ~exists().where(CostCoverage.cost_item_id == CostItem.id)
+                    )
+                )
+                kept["uncovered_items"] = {row[0] for row in rows}
+            return cost_item_id in kept["uncovered_items"]
         uncovered = select(CostItem.id).where(
             CostItem.id == cost_item_id,
             ~exists().where(CostCoverage.cost_item_id == CostItem.id),

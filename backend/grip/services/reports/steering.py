@@ -42,7 +42,14 @@ from grip.models.person import Person
 from grip.models.person_details import BillabilityTarget, PersonScale
 from grip.models.quote import Quote
 from grip.repositories.domain import AssignmentRepository, MonthCloseRepository
-from grip.services import assignment_finance, cost_overview, pricing, staffing
+from grip.services import (
+    assignment_finance,
+    assignment_views,
+    cost_overview,
+    pricing,
+    read_cache,
+    staffing,
+)
 from grip.services.phase import Commitment, commitment_of
 from grip.services.pricing import DEFAULT_OPTIONS, PricingOptions
 from grip.services.vacancies import service as vacancies
@@ -113,6 +120,21 @@ async def turnover(
     options: PricingOptions = DEFAULT_OPTIONS,
 ) -> Turnover:
     """Inzet amounts per month of ``year``; ``assignment_ids=None`` means all."""
+    wanted = None if assignment_ids is None else frozenset(assignment_ids)
+    return await read_cache.remember_all(
+        session,
+        "turnover",
+        (year, wanted, options),
+        lambda: _turnover(session, year, wanted, options),
+    )
+
+
+async def _turnover(
+    session: AsyncSession,
+    year: int,
+    assignment_ids: frozenset[UUID] | None,
+    options: PricingOptions,
+) -> Turnover:
     assignments = await _assignments(session, assignment_ids)
     by_id = {a.id: a for a in assignments}
     lines = await AssignmentRepository(session).budget_lines(list(by_id))
@@ -192,19 +214,18 @@ async def agreed_figures(
     assignments that count in the forecast (agreed formally or verbally).
     An assignment that cannot be priced is left out, as in the turnover.
     """
-    figures: list[assignment_finance.Figures] = []
-    for assignment in await _assignments(session, assignment_ids):
-        if commitment_of(assignment.status) not in (
-            Commitment.COMMITTED,
-            Commitment.VERBAL,
-        ):
-            continue
-        data = await assignment_finance.assignment_finance(
-            session, assignment.id, year=year, options=options
-        )
-        if data.totals is not None:
-            figures.append(data.totals)
-    return assignment_finance.Figures.sum(figures)
+    agreed = [
+        assignment.id
+        for assignment in await _assignments(session, assignment_ids)
+        if commitment_of(assignment.status) in (Commitment.COMMITTED, Commitment.VERBAL)
+    ]
+    rows = await assignment_views.assignment_rows(session, only_ids=agreed)
+    found = await assignment_finance.assignment_finances(
+        session, rows, year=year, options=options
+    )
+    return assignment_finance.Figures.sum(
+        data.totals for data in found.values() if data.totals is not None
+    )
 
 
 # -- occupancy ----------------------------------------------------------------
@@ -679,6 +700,23 @@ async def kpi_row(
     except calc.CalcError:
         overview = None
     return KpiRow(person_id=person_id, person_name=person_name, overview=overview)
+
+
+async def kpi_rows(
+    session: AsyncSession,
+    people: Sequence[tuple[UUID, str]],
+    year: int,
+    *,
+    options: PricingOptions = DEFAULT_OPTIONS,
+) -> list[KpiRow]:
+    """``kpi_row`` for several persons, read together; in the order given."""
+    overviews = await pricing.kpi_overviews(
+        session, [person_id for person_id, _ in people], year, options=options
+    )
+    return [
+        KpiRow(person_id=person_id, person_name=name, overview=overviews[person_id])
+        for person_id, name in people
+    ]
 
 
 # -- open roles ---------------------------------------------------------------

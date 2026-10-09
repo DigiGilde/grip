@@ -4,7 +4,7 @@ Wat je nodig hebt om het werk aan grip op een andere machine voort te zetten. St
 
 ## Wat al op GitHub staat
 
-De repo `DigiGilde/grip`, branch `golf-5`. Daar staat al het werk aan grip zelf, met de documentatie. `main` loopt achter en wordt bijgewerkt voor de eerste uitrol.
+De repo `DigiGilde/grip`. De branches `golf-5` en `main` staan gelijk; een push naar `main` bouwt de images.
 
 ```
 git clone git@github.com:DigiGilde/grip.git
@@ -33,7 +33,7 @@ Voor de eerste uitrol en voor gewoon doorwerken aan grip zijn alleen de repo en,
 - Docker (voor Postgres en de lokale opstelling)
 - `uv` (Python), `just`, Node met `npm`
 - De systeembibliotheek pango, voor de pdf's: op macOS `brew install pango`
-- Google Chrome, voor de hulpmiddelen `just check-spacing` en `just check-access`
+- Google Chrome, voor de hulpmiddelen `just check-spacing`, `just check-access` en `just check-a11y`
 - Optioneel de Claude-CLI, als lokaal ontwikkelmodel voor de tekstfuncties
 
 ## De voorbeeldomgeving
@@ -113,7 +113,7 @@ gh secret set ZAD_API_KEY --repo DigiGilde/grip
 
 Alles staat in [openstaand.md](openstaand.md). Wat de uitrol of de eerste gebruikers raakt:
 
-- Twee eenmalige commando's op de eigen voorbeelddatabase, nog niet gedraaid: `just fix-internal-judges` (de akkoordgever van de voorbeeldvacatures) en `just fix-role-po` (de losse rol "po" wordt Product owner).
+- Eenmalige commando's voor een bestaande voorbeelddatabase van voor 9 oktober 2026: `just fix-internal-judges`, `just fix-role-po` en `just fix-open-places`. Ze zijn herhaalbaar; op een verse database zijn ze niet nodig.
 - Het clientgeheim van de ontwikkelclient voor de eerste echte login via SSO Rijk; daarna `just sso-check`.
 - Drie beslissingen: of een getekende opdracht een nieuwe tarievenkaart volgt, of een maand mag worden afgesloten terwijl een eerdere open is, en of een kostenpost door een personeelsregel gedekt mag worden.
 - Het merk: richting a of b.

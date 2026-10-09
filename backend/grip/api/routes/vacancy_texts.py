@@ -76,7 +76,11 @@ STATE_WORDS = {
 class VersionOut(BaseModel):
     id: Annotated[UUID, NO_NAMES]
     number: Annotated[int, NO_NAMES]
+    # The text to write on from: a fact of the vacancy stands in it by key.
     body: Annotated[str, NO_NAMES]
+    # The text as it reads: a settled version as it was frozen, a draft with
+    # the facts as they stand now.
+    text: Annotated[str, NO_NAMES] = ""
     # human, model or template.
     source: Annotated[str, NO_NAMES]
     # In words: "Uit de standaardtekst Software engineer, versie 2026-10-08".
@@ -149,6 +153,30 @@ class StandardTextOut(BaseModel):
     missing: Annotated[list[str], NO_NAMES] = Field(default_factory=list)
 
 
+class FactOut(BaseModel):
+    """A fact of the vacancy a text names by key."""
+
+    key: Annotated[str, NO_NAMES]
+    label: Annotated[str, NO_NAMES]
+    # None while grip does not know it.
+    value: Annotated[str | None, NO_NAMES] = None
+    # "uit de aanvraag: Schaal".
+    source: Annotated[str, NO_NAMES]
+    # request, settings or sender: where it is filled.
+    where: Annotated[str, NO_NAMES]
+    # "Vul de schaal in op de aanvraag".
+    instruction: Annotated[str, NO_NAMES]
+
+
+class ChangedFactOut(BaseModel):
+    """A fact that reads differently now than in the settled text."""
+
+    key: Annotated[str, NO_NAMES]
+    label: Annotated[str, NO_NAMES]
+    settled: Annotated[str, NO_NAMES]
+    current: Annotated[str | None, NO_NAMES] = None
+
+
 class TextWorkOut(BaseModel):
     kind: Annotated[TextKind, NO_NAMES]
     needed: Annotated[bool, NO_NAMES]
@@ -158,6 +186,10 @@ class TextWorkOut(BaseModel):
     with_whom: Annotated[str | None, NO_NAMES] = None
     revising: Annotated[bool, NO_NAMES] = False
     open_passages: Annotated[list[str], NO_NAMES] = Field(default_factory=list)
+    facts: Annotated[list[FactOut], nested()] = Field(default_factory=list)
+    changed_facts: Annotated[list[ChangedFactOut], nested()] = Field(
+        default_factory=list
+    )
     action: Annotated[ActionOut, nested()]
     may_write: Annotated[bool, NO_NAMES]
     may_remark: Annotated[bool, NO_NAMES]
@@ -200,6 +232,9 @@ class VacancyTextWorkOut(BaseModel):
     reviewer_options: Annotated[list[ReviewerOptionOut], nested()] = Field(
         default_factory=list
     )
+    # The vacancy is not opened to applicants, so it has no vacancy text.
+    vacancy_text_skipped: Annotated[bool, NO_NAMES] = False
+    may_want_text: Annotated[bool, NO_NAMES] = False
 
 
 class SaveIn(BaseModel):
@@ -232,6 +267,13 @@ class ResolveIn(BaseModel):
 
 class TailoredIn(BaseModel):
     instruction: str | None = Field(default=None, max_length=600)
+
+
+class PassageIn(BaseModel):
+    # The text as the writer has it now, saved or not.
+    body: str = Field(min_length=1, max_length=40000)
+    # The open place as it stands in it: "[vul aan: ...]".
+    place: str = Field(min_length=1, max_length=1000)
 
 
 class PublicationIn(BaseModel):
@@ -364,8 +406,12 @@ async def _text_work_response(
                 role=match.template.role_name,
                 match=match.how,
                 unread=library.status_of(match.template) == "derived_unread",
+                # What will still be open in a text started from it.
                 missing=[
-                    library.PLACEHOLDERS.get(name, name) for name in resolved.missing
+                    library.FACT_KINDS[name].instruction
+                    if name in library.FACT_KINDS
+                    else library.PLACEHOLDERS.get(name, name)
+                    for name in resolved.missing
                 ],
             )
         roots = [remark for remark in work.remarks if remark.parent_id is None]
@@ -402,7 +448,7 @@ async def _text_work_response(
                     after=change.after,
                 )
                 for change in text_flow.compare(
-                    work.versions[-2].body, work.versions[-1].body
+                    work.reading(work.versions[-2]), work.reading(work.versions[-1])
                 )
                 if change.change != "same"
             ]
@@ -415,6 +461,26 @@ async def _text_work_response(
                 with_whom=_with_whom(work, names, has_names),
                 revising=work.revising,
                 open_passages=work.open_passages,
+                facts=[
+                    FactOut(
+                        key=fact.key,
+                        label=fact.label,
+                        value=fact.value,
+                        source=fact.source,
+                        where=fact.where,
+                        instruction=fact.instruction,
+                    )
+                    for fact in work.facts.values()
+                ],
+                changed_facts=[
+                    ChangedFactOut(
+                        key=changed.key,
+                        label=changed.label,
+                        settled=changed.settled,
+                        current=changed.current,
+                    )
+                    for changed in work.changed_facts
+                ],
                 action=_action(
                     work,
                     can_edit=can_edit,
@@ -443,7 +509,8 @@ async def _text_work_response(
                     VersionOut(
                         id=version.id,
                         number=number[version.id],
-                        body=version.body,
+                        body=work.editing(version),
+                        text=work.reading(version),
                         source=version.source,
                         origin=_origin(version),
                         created_at=version.created_at,
@@ -483,6 +550,8 @@ async def _text_work_response(
             )
         )
 
+    vacancy_text = works[TextKind.vacancy_text.value]
+    skipped = not vacancy_text.needed and not vacancy_text.versions
     published = await text_flow.publications(db, vacancy.id)
     is_open = vacancy.status in (VacancyStatus.open.value, VacancyStatus.filled.value)
     reviewer_options: list[ReviewerOptionOut] = []
@@ -515,6 +584,8 @@ async def _text_work_response(
         if provider == PROVIDER_CLAUDE_CLI
         else None,
         reviewer_options=reviewer_options,
+        vacancy_text_skipped=skipped,
+        may_want_text=skipped and can_edit,
     )
     return build_response(value, permitted)
 
@@ -716,6 +787,61 @@ async def draft_tailored(
     return out
 
 
+@router.post("/vacancies/{vacancy_id}/text-work/passage", response_model=None)
+async def propose_passage(
+    vacancy_id: UUID,
+    body: PassageIn,
+    person: CurrentPerson,
+    subject: CurrentSubject,
+    decider: AccessDecider,
+    db: AsyncSession = Depends(get_db),
+    corpus: CorpusClient = Depends(node_picker.get_corpus_client),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, Any]:
+    """A proposal for one open place of the vacancy text, from the policy
+    context of the assignment and the facts of the vacancy. Nothing is
+    stored: the writer takes it over or not."""
+    vacancy, assignment_id = await _load_for_edit(db, decider, subject, vacancy_id)
+    context = await _context(db, corpus, settings, vacancy, assignment_id)
+    try:
+        proposal = await text_flow.propose_passage(
+            db,
+            vacancy,
+            actor=person,
+            body=body.body,
+            place=body.place,
+            context=context.lines,
+        )
+    except (LlmNotConfiguredError, LlmResponseError) as exc:
+        raise DomainValidationError(str(exc)) from exc
+    except OpenAIError as exc:
+        logger.warning("Proposing a passage with the language model failed: %s", exc)
+        raise DomainValidationError(
+            "Het taalmodel gaf geen antwoord. Probeer het later opnieuw, of "
+            "schrijf de passage zelf."
+        ) from exc
+    return {"proposal": proposal, "context": context.state}
+
+
+@router.post(
+    "/vacancies/{vacancy_id}/text-work/wanted",
+    response_model=None,
+    status_code=status.HTTP_201_CREATED,
+)
+async def want_text(
+    vacancy_id: UUID,
+    person: CurrentPerson,
+    subject: CurrentSubject,
+    decider: AccessDecider,
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, Any]:
+    """Write a vacancy text for a vacancy that needs none by its kind."""
+    vacancy, _ = await _load_for_edit(db, decider, subject, vacancy_id)
+    await text_flow.want_text(db, vacancy, actor=person)
+    return await _again(db, decider, subject, vacancy_id, settings)
+
+
 @router.post(
     "/vacancies/{vacancy_id}/text-work/reviews",
     response_model=None,
@@ -871,7 +997,8 @@ async def compare_versions(
         or by_id[before].kind != by_id[after].kind
     ):
         raise NotFoundError("Tekst", before)
-    changes = text_flow.compare(by_id[before].body, by_id[after].body)
+    work = (await text_flow.work_of(db, vacancy))[by_id[before].kind]
+    changes = text_flow.compare(work.reading(by_id[before]), work.reading(by_id[after]))
 
     class _Out(BaseModel):
         changes: Annotated[list[ChangeOut], nested()]

@@ -10,6 +10,7 @@ Beslissingen over wat grip moet doen.
 
 | Punt | De keuze | Waar |
 |---|---|---|
+| Gegevens in een geschreven onderdeel van een offerte | Een standaardtekst van de offerte die niemand aanpaste volgt de tariefjaren, het factuurritme en de afzender. Een onderdeel dat iemand herschreef houdt die waarden als gewone tekst vast en zegt niet dat ze verouderd zijn. Moet de offerte gegevens bij sleutel bewaren, zoals de vacaturetekst? | [vacatureteksten.md](vacatureteksten.md), "Gegevens en open plekken" |
 | Tarieven en een getekende opdracht | Na het vaststellen van een tarievenkaart volgt de begroting van een opdracht met een getekende offerte de nieuwe tarieven; het verschil met de offerte wordt getoond. Klopt dat, of houdt een getekende opdracht haar prijs? | [rondgang.md](rondgang.md), A612 |
 | Maanden op volgorde | Een maand kan worden afgesloten terwijl een eerdere nog open is. Mag dat? | [rondgang.md](rondgang.md), B611 |
 | Dekking van een kostenpost | De keuzelijst biedt ook personeelsregels aan als dekking. Hoort een kostenpost alleen door een vast bedrag gedekt te worden? | [rondgang.md](rondgang.md), A608 |
@@ -40,6 +41,7 @@ Beslissingen over wat grip moet doen.
 | De afgeleide standaardteksten | Vier teksten zijn afgeleid en niet nagelezen: Frontend developer, Productmanager, Adviseur, Lab manager | [vacatureteksten.md](vacatureteksten.md), "De rollen" |
 | Keuzes in de teksten | Bedragen of alleen de schaal, de formulering van het contract, de toon, de naam van de eenheid | [vacatureteksten.md](vacatureteksten.md), "Analyse van de voorbeelden" |
 | De sluitingsdatum | Een vacature heeft geen veld voor de datum tot wanneer reageren kan | [vacatureteksten.md](vacatureteksten.md) |
+| De volle werkweek | Een vacaturetekst rekent de uren uit met 36 uur per week, vast in de code. Moet dat een instelling zijn? | [vacatureteksten.md](vacatureteksten.md), "Gegevens en open plekken" |
 | De motivatie | Een aanvraag vraagt nu een vastgestelde aanleiding en motivatie. Klopt dat met de procedure? | [taken.md](taken.md) |
 
 ## De juristen
@@ -95,7 +97,8 @@ Voorstellen die uit het bouwen kwamen. Grip werkt er nu omheen, op een plek, met
 | Een variant van de tabbalk met een onderlijn | De tabbalk tekent het gekozen tabblad als gevuld vlak, gelijk aan de hoofdknop | [ontwerp.md](ontwerp.md), "Navigatie" |
 | Een maat en een toon op een onderdeel van de menubalk | Voor een rustige tweede balk en voor tabs | [ontwerp.md](ontwerp.md), "Navigatie" |
 | Een plek voor een badge in een onderdeel van de menubalk | Het aantal open taken naast "Taken" | ADR 0033 |
-| De annotatie in de teksteditor zonder teller | Elke gemarkeerde plek krijgt een klein cijfer dat niet uit kan | [hierarchie/b.md](hierarchie/b.md) |
+| De annotatie in de teksteditor zonder teller | Elke gemarkeerde plek krijgt een klein cijfer dat niet uit kan. Grip gebruikt de annotaties daarom niet meer en tekent open plekken en gegevens met een eigen uitbreiding op de editor | [vacatureteksten.md](vacatureteksten.md), "Gegevens en open plekken" |
+| Een vast, niet te bewerken stukje in de teksteditor met een eigen sleutel | De editor kent dit alleen voor een vermelding van een persoon. Grip tekent een gegeven (`{schaal}`) zelf als waarde | [vacatureteksten.md](vacatureteksten.md), "Gegevens en open plekken" |
 | De ingeklapte stappenbalk in gewone woorden | Op een smal scherm drukt zij "Stap 2 van 5" af; grip tekent daar een eigen zin | [werkstromen.md](werkstromen.md) |
 | Een onderdeel van de menubalk dat altijd in beeld blijft | De plek waar je bent mag niet achter "Meer" verdwijnen | ADR 0042 |
 

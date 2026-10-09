@@ -19,12 +19,17 @@ from sqlalchemy.pool import NullPool
 # opt in to the no-auth mode before the first get_settings() call below (it
 # is cached, so this must run first).
 os.environ.setdefault("DEV_NO_AUTH", "1")
+# Every read model that is remembered between requests is computed again on
+# each use and compared: a value that changed without an event that says so
+# fails the test (grip.services.read_cache).
+os.environ.setdefault("READ_CACHE", "verify")
 
 from grip.core.config import get_settings  # noqa: E402
 from grip.core.database import get_db  # noqa: E402
 from grip.core.session_store import SessionStore  # noqa: E402
 from grip.events import completeness  # noqa: E402
 from grip.middleware.csrf import CSRF_COOKIE_NAME  # noqa: E402
+from grip.middleware.csrf import _starts as _csrf_starts  # noqa: E402
 from grip.middleware.session import ServerSideSessionMiddleware  # noqa: E402
 from grip.models.person import Person  # noqa: E402
 from grip.models.role import PersonRole  # noqa: E402
@@ -168,3 +173,21 @@ def create_person(db_session: AsyncSession):
         return person
 
     return _create
+
+
+@pytest.fixture(autouse=True)
+def _nothing_remembered():
+    """What the process remembers between requests (read models, the last
+    look of the task engine) starts empty in every test."""
+    from grip.services import read_cache
+    from grip.tasks import engine
+
+    read_cache.clear()
+    engine.forget_evaluation()
+
+
+@pytest.fixture(autouse=True)
+def _fresh_session_starts():
+    """Every test opens the application anew from one address; the limit on
+    sessions without a login is not what is being tested."""
+    _csrf_starts.reset()

@@ -16,7 +16,13 @@ import { orUndef, useNlddEvent } from '@/components/nldd/events';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { formatDate } from '@/lib/format';
 import { Facts, Quiet, Stack, type Fact } from '@/ui/layout';
-import { OpenCell, OpenRow, ROW_ACTIONS_COLUMN, RowActions } from '@/ui/RowActions';
+import {
+  OpenCell,
+  OpenRow,
+  ROW_ACTIONS_COLUMN,
+  RowActions,
+  RowActionsHeader,
+} from '@/ui/RowActions';
 import { Button, TextInput } from '@/features/vacancies/ui';
 import { TASK_KEYS, addTaskNote, fetchTask, setTaskStatus, type Task } from './api';
 import { useTaskActions } from './actions';
@@ -63,7 +69,7 @@ export function TaskTable({ label, tasks, withCase = true, onOpen }: TaskTablePr
       <nldd-table-row slot="header">
         <nldd-text-cell text="Taak" />
         {withDue && <nldd-text-cell text="Vóór" />}
-        <nldd-cell />
+        <RowActionsHeader />
       </nldd-table-row>
       {tasks.map((task) => {
         const name = headlineOf(task);

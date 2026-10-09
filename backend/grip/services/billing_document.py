@@ -26,6 +26,7 @@ from grip.services.quote_document import (
     _font_faces,
     _head,
     _render_lock,
+    document_url_fetcher,
     format_date,
     format_euro,
     letterhead_from_settings,
@@ -361,7 +362,9 @@ def render_pdf(content: dict[str, Any], letterhead: Letterhead | None = None) ->
         previous = os.environ.get("SOURCE_DATE_EPOCH")
         os.environ["SOURCE_DATE_EPOCH"] = str(int(delivered.timestamp()))
         try:
-            pdf: bytes = HTML(string=html, base_url=None).write_pdf(
+            pdf: bytes = HTML(
+                string=html, base_url=None, url_fetcher=document_url_fetcher()
+            ).write_pdf(
                 pdf_variant="pdf/ua-1",
                 pdf_identifier=str(content["reference"]).encode("utf-8")[:32],
             )

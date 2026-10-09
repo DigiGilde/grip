@@ -21,10 +21,12 @@ COPY nginx.conf.template /etc/nginx/templates/nginx.conf.template
 COPY --chmod=755 docker-api-proxy.sh /docker-entrypoint.d/05-grip-api.sh
 # BACKEND_URL is empty by default: set it to the backend as this container
 # reaches it (for example http://backend:8080), or leave it empty when the
-# platform sends /api/ to the backend itself.
+# platform sends /api/ to the backend itself. SECURITY_TXT_URL is the
+# security.txt of the organisation that runs the instance.
 ENV NGINX_ENVSUBST_OUTPUT_DIR=/etc/nginx \
     NGINX_ENVSUBST_FILTER=GRIP_NOTHING_TO_SUBSTITUTE \
-    BACKEND_URL=""
+    BACKEND_URL="" \
+    SECURITY_TXT_URL=""
 
 EXPOSE 8080
 

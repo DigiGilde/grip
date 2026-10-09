@@ -18,16 +18,19 @@ never makes a second task. The engine never writes to a domain table.
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
+from sqlalchemy import event as sa_event
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip.models.task import OPEN_STATUSES, Task, TaskCase, TaskEngineRun
+from grip.services import read_cache
 from grip.services.vacancies.procedure import is_working_day
 from grip.tasks import catalogue
 from grip.tasks.cases import (
@@ -497,25 +500,60 @@ async def evaluate_all(
     return outcome
 
 
-async def ensure_fresh(
+# What this process last evaluated, and when: the state of the data (the
+# head of the event stream) and the day. Set only once the evaluation was
+# committed, so a request that fails afterwards does not count.
+_evaluated: dict[str, object] = {}
+_forgotten = 0
+
+
+def forget_evaluation() -> None:
+    """Look again at the next read, whatever was evaluated before."""
+    global _forgotten
+    _forgotten += 1
+    _evaluated.clear()
+
+
+async def ensure_current(
     db: AsyncSession,
     *,
     today: date,
     instance_base_uri: str,
-    max_age_seconds: int = 0,
+    max_idle_seconds: int = 60,
     now: datetime | None = None,
 ) -> Outcome | None:
-    """Evaluate every case unless that happened less than a moment ago."""
-    moment = now or datetime.now(UTC)
-    if max_age_seconds > 0:
-        last = await db.scalar(
-            select(TaskEngineRun.last_run_at).where(TaskEngineRun.id == 1)
-        )
-        if last is not None and (moment - last).total_seconds() < max_age_seconds:
-            return None
-    return await evaluate_all(
-        db, today=today, instance_base_uri=instance_base_uri, now=moment
+    """Evaluate every case, unless nothing changed since this process did.
+
+    Tasks follow from the facts and the day. The facts change with an event
+    in the stream, so while the head of the stream and the day are the same
+    as at the last evaluation, evaluating again changes nothing. Time passes
+    within a day too (a deadline in working days counts from a moment), so
+    an evaluation is never trusted longer than ``max_idle_seconds``.
+
+    Returns what the last evaluation found when it is still current.
+    """
+    key = (await read_cache.head_stamp(db), today)
+    last_at = _evaluated.get("at")
+    if (
+        _evaluated.get("key") == key
+        and isinstance(last_at, float)
+        and time.monotonic() - last_at < max_idle_seconds
+    ):
+        kept = _evaluated.get("outcome")
+        return kept if isinstance(kept, Outcome) else None
+    outcome = await evaluate_all(
+        db, today=today, instance_base_uri=instance_base_uri, now=now
     )
+    # The evaluation itself writes no event, so the key still holds after it.
+    remembered = Outcome(failed=list(outcome.failed))
+    asked = _forgotten
+
+    def _committed(_session: object) -> None:
+        if asked == _forgotten:
+            _evaluated.update(key=key, at=time.monotonic(), outcome=remembered)
+
+    sa_event.listen(db.sync_session, "after_commit", _committed, once=True)
+    return outcome
 
 
 async def invalidate(db: AsyncSession) -> None:

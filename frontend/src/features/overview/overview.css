@@ -29,7 +29,7 @@
    are there and the page is wide enough. */
 .grip-start {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));
   gap: 24px 48px;
   align-items: start;
 }

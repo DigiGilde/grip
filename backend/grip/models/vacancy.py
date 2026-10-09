@@ -204,6 +204,11 @@ class Vacancy(Versioned, Base):
     )
     start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # A vacancy for a known candidate is not opened and needs no vacancy
+    # text. Set when someone chose to write one anyway.
+    wants_text: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
     requester_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("person.id", ondelete="SET NULL"),
@@ -322,6 +327,11 @@ class VacancyText(Base):
     the one it was based on. That keeps the provenance: a text a person
     rewrote from a model draft still shows that a model was involved.
     Only an established version may leave grip.
+
+    A draft names the facts of the vacancy by key (``{schaal}``), so it
+    follows them. Establishing freezes them: ``body`` then holds the text as
+    it reads, ``keyed_body`` the draft it came from and ``facts`` the values
+    that were filled in.
     """
 
     __tablename__ = "vacancy_text"
@@ -346,6 +356,8 @@ class VacancyText(Base):
     )
     kind: Mapped[str] = mapped_column(String(20))
     body: Mapped[str] = mapped_column(Text)
+    keyed_body: Mapped[str | None] = mapped_column(Text, nullable=True)
+    facts: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     source: Mapped[str] = mapped_column(String(10))
     model_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     prompt_version: Mapped[str | None] = mapped_column(String(50), nullable=True)

@@ -156,7 +156,7 @@ export function NodePicker({ value, onChange, max = 50 }: NodePickerProps) {
       {/* Nothing chosen is not news: the heading comes with the first node. */}
       {value.length > 0 ? (
         <>
-          <SectionHeading text="Gekozen context" level={3} />
+          <SectionHeading text="Gekozen context" level={2} size={5} />
           <NodeCardGrid label="Gekozen context">
             {value.map((uri, index) => {
               const lookup = lookups[index];
@@ -194,7 +194,7 @@ export function NodePicker({ value, onChange, max = 50 }: NodePickerProps) {
         />
       ) : null}
 
-      <SectionHeading text="Zoek in een corpus" level={3} />
+      <SectionHeading text="Zoek in een corpus" level={2} size={5} />
       {corpora.isPending ? <Loading text="Bezig met ophalen van de corpora" /> : null}
       {corpora.isError ? (
         <LoadError error={corpora.error} retry={() => void corpora.refetch()} />
@@ -285,7 +285,7 @@ export function NodePicker({ value, onChange, max = 50 }: NodePickerProps) {
         </nldd-container>
       ) : null}
 
-      <SectionHeading text="Plak een URI" level={3} />
+      <SectionHeading text="Plak een URI" level={2} size={5} />
       {pasteError ? <nldd-banner variant="critical" size="sm" text={pasteError} /> : null}
       <TextInput
         label="Node-URI"

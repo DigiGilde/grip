@@ -1,5 +1,5 @@
 import { useStaleForm } from '@/ui/useStaleForm';
-import { RowActions, ROW_ACTIONS_COLUMN } from '@/ui/RowActions';
+import { RowActions, ROW_ACTIONS_COLUMN, RowActionsHeader } from '@/ui/RowActions';
 import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
@@ -244,7 +244,7 @@ export function Invoices({ assignmentId, status, recordFor, onRecordDone }: Invo
               <nldd-text-cell hide-below="md" text="Over" />
               <nldd-text-cell hide-below="md" text="Vergeleken met aangeleverd" />
               <nldd-text-cell text="Bedrag" horizontal-alignment="right" />
-              <nldd-cell />
+              <RowActionsHeader />
             </nldd-table-row>
             {inForce.map((invoice) => (
               <nldd-table-row key={invoice.id}>

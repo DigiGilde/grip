@@ -14,6 +14,19 @@ import { useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { orUndef, useNlddEvent } from '@/components/nldd/events';
 import { MoreButton } from './Icon';
+import './hidden.css';
+
+/**
+ * The header of the actions column. It shows nothing, by the rule above, but
+ * a screen reader that reads a table by its headers needs a word for it.
+ */
+export function RowActionsHeader() {
+  return (
+    <nldd-cell>
+      <span className="grip-visually-hidden">Acties</span>
+    </nldd-cell>
+  );
+}
 
 /** The track for the actions column in a table's `columns`. */
 export const ROW_ACTIONS_COLUMN = '48px';

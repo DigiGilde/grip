@@ -58,12 +58,17 @@ from grip.services.llm import ChatClient, get_chat_client
 from grip.services.vacancies import library
 from grip.services.vacancies.drafting import (
     MAX_STANDARD_EXAMPLES,
+    PASSAGE_MARK,
+    PASSAGE_PROMPT_VERSION,
     TAILORED_PROMPT_VERSION,
     DraftInputError,
     OutlineSection,
+    PassageInput,
     StandardExample,
     TailoredInput,
+    build_passage_prompt,
     build_tailored_prompt,
+    clean_passage,
     find_person_names,
     parse_sections,
 )
@@ -98,11 +103,12 @@ def is_needed(vacancy: Vacancy, kind: str) -> bool:
 
     The motivation goes on the request form, so every vacancy needs one. A
     vacancy text is for a vacancy that is opened; one for an intended or
-    ready candidate is not published and needs none.
+    ready candidate is not published and needs none, unless someone chose to
+    write one for it.
     """
     if kind == TextKind.motivation.value:
         return True
-    return vacancy.vacancy_type in _PUBLISHING_TYPES
+    return vacancy.vacancy_type in _PUBLISHING_TYPES or bool(vacancy.wants_text)
 
 
 # --- reading ------------------------------------------------------------------
@@ -121,6 +127,21 @@ class TextWork:
     # A settled text exists and a newer version is being written.
     revising: bool = False
     open_passages: list[str] = field(default_factory=list)
+    # The facts of the vacancy a vacancy text can name, by key.
+    facts: dict[str, library.Fact] = field(default_factory=dict)
+    # Facts that read differently now than in the settled text.
+    changed_facts: list[library.ChangedFact] = field(default_factory=list)
+
+    def reading(self, version: VacancyText) -> str:
+        """A version as it reads: a settled one as it was frozen, a draft
+        with the facts as they stand now."""
+        if version.is_established:
+            return version.body
+        return library.shown(version.body, self.facts)
+
+    def editing(self, version: VacancyText) -> str:
+        """A version as a person writes on from it: with the facts by key."""
+        return version.keyed_body or version.body
 
     @property
     def round(self) -> VacancyTextReview | None:
@@ -181,6 +202,7 @@ def _work(
     versions: list[VacancyText],
     reviews: list[VacancyTextReview],
     remarks: list[VacancyTextRemark],
+    facts: dict[str, library.Fact],
 ) -> TextWork:
     versions = sorted(versions, key=lambda version: version.created_at)
     latest = versions[-1] if versions else None
@@ -194,12 +216,16 @@ def _work(
         remarks=remarks,
         latest=latest,
         settled=settled,
+        facts=facts,
     )
     work.state = _state(latest, work.round)
     work.revising = (
         settled is not None and latest is not None and latest.id != settled.id
     )
-    work.open_passages = library.open_passages(latest.body) if latest else []
+    if latest is not None and not latest.is_established:
+        work.open_passages = library.open_passages(latest.body, facts)
+    if settled is not None:
+        work.changed_facts = library.changed_facts(settled.facts, facts)
     return work
 
 
@@ -208,6 +234,7 @@ async def work_of(db: AsyncSession, vacancy: Vacancy) -> dict[str, TextWork]:
     reviews = await _reviews(db, vacancy.id)
     remarks = await _remarks(db, vacancy.id)
     repo = VacancyRepository(db)
+    facts = await library.facts_for(db, vacancy)
     result = {}
     for kind in (TextKind.motivation.value, TextKind.vacancy_text.value):
         result[kind] = _work(
@@ -216,6 +243,8 @@ async def work_of(db: AsyncSession, vacancy: Vacancy) -> dict[str, TextWork]:
             await repo.texts(vacancy.id, kind),
             [review for review in reviews if review.kind == kind],
             [remark for remark in remarks if remark.kind == kind],
+            # Only a vacancy text names facts; a motivation is prose.
+            facts if kind == TextKind.vacancy_text.value else {},
         )
     return result
 
@@ -302,7 +331,7 @@ async def save_version(
             "formulier. Bekijk de nieuwe versie, neem over wat je wilt "
             "houden en sla opnieuw op."
         )
-    if work.latest is not None and work.latest.body.strip() == body.strip():
+    if work.latest is not None and work.editing(work.latest).strip() == body.strip():
         raise DomainValidationError("Er is niets gewijzigd.")
     text = VacancyText(
         vacancy_id=vacancy.id,
@@ -507,6 +536,7 @@ async def settle(
             + ", ".join(work.open_passages[:3])
             + "."
         )
+    freeze(text, work.facts)
     text.established_by_id = actor.id
     text.established_at = _now()
     await db.flush()
@@ -520,8 +550,20 @@ async def settle(
         established=True,
         source=text.source,
         rounds=len(work.reviews),
+        facts=text.facts or {},
     )
     return text
+
+
+def freeze(text: VacancyText, facts: dict[str, library.Fact]) -> None:
+    """Write the facts out: from here on the text says what it said when it
+    was settled, whatever changes on the vacancy afterwards."""
+    used = library.used_facts(text.body, facts)
+    if not used:
+        return
+    text.keyed_body = text.body
+    text.facts = used
+    text.body = library.shown(text.body, facts)
 
 
 # --- remarks ------------------------------------------------------------------
@@ -818,7 +860,8 @@ async def draft_tailored(
     answer = await client.complete(system=system, user=user, max_tokens=2500)
     shared = {section.key: section for section in await library.shared_sections(db)}
     values = await library.values_for(db, vacancy)
-    full = library.resolve(match.template, shared, values)
+    # The shared sections keep their facts by key, like any draft.
+    full = library.resolve(match.template, shared, values, keep_facts=True)
     text = VacancyText(
         vacancy_id=vacancy.id,
         kind=TextKind.vacancy_text.value,
@@ -846,6 +889,86 @@ async def draft_tailored(
         example=text.template_label,
     )
     return text
+
+
+# --- a proposal for one open place ---------------------------------------------
+
+
+async def propose_passage(
+    db: AsyncSession,
+    vacancy: Vacancy,
+    *,
+    actor: Person,
+    body: str,
+    place: str,
+    context: tuple[str, ...] = (),
+    client: ChatClient | None = None,
+) -> str:
+    """Ask the model for the text of one open place in the vacancy text.
+
+    ``body`` is the text as the writer has it now, ``place`` the open place
+    as it stands in it. Nothing is stored: the writer takes the proposal over
+    or not, and saves the text as their own.
+    """
+    if not place.startswith(library.OPEN_MARK) or body.count(place) < 1:
+        raise DomainValidationError("Deze plek staat niet meer in de tekst.")
+    facts = await library.facts_for(db, vacancy)
+    values = await library.values_for(db, vacancy)
+    asked = place[len(library.OPEN_MARK) :].strip(":] ").strip()
+    marked = library.shown(body.replace(place, PASSAGE_MARK, 1), facts)
+    try:
+        built = PassageInput(
+            role=vacancy.function_title,
+            asked=asked,
+            text=marked,
+            scale_band=f"schaal {vacancy.scale}" if vacancy.scale is not None else None,
+            fte=vacancy.fte,
+            contract_type=ContractType(vacancy.contract_type)
+            if vacancy.contract_type
+            else None,
+            assignment_name=values.get(library.ASSIGNMENT_NAME),
+            unit_name=values.get("eenheid"),
+            context=tuple(context),
+        )
+    except DraftInputError as exc:
+        raise DomainValidationError(str(exc)) from exc
+    names = await VacancyRepository(db).person_names()
+    if find_person_names(built, names):  # type: ignore[arg-type]
+        raise DomainValidationError(
+            "In de tekst staat de naam van een persoon. Namen gaan niet naar "
+            "het taalmodel; haal de naam weg en probeer het opnieuw."
+        )
+    client = client or get_chat_client()
+    system, user = build_passage_prompt(built)
+    answer = await client.complete(system=system, user=user, max_tokens=400)
+    try:
+        proposal = clean_passage(answer)
+    except DraftInputError as exc:
+        raise DomainValidationError(str(exc)) from exc
+    # The saved version is the writer's own; that a model proposed a passage
+    # is kept here.
+    _audit(
+        db,
+        actor,
+        UPDATE,
+        "vacancy",
+        vacancy.id,
+        vacancy.id,
+        text_passage_proposed=True,
+        model_id=client.model_id,
+        prompt_version=PASSAGE_PROMPT_VERSION,
+    )
+    return proposal
+
+
+async def want_text(db: AsyncSession, vacancy: Vacancy, *, actor: Person) -> None:
+    """Write a vacancy text for a vacancy that needs none by its kind. From
+    here on the text is part of this vacancy's course."""
+    if is_needed(vacancy, TextKind.vacancy_text.value):
+        return
+    vacancy.wants_text = True
+    await db.flush()
+    _audit(db, actor, UPDATE, "vacancy", vacancy.id, vacancy.id, wants_text=True)
 
 
 # --- where the vacancy is published -------------------------------------------

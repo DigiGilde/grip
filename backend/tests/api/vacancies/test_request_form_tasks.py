@@ -11,7 +11,7 @@ from __future__ import annotations
 import pytest
 
 from grip.services import stored_documents
-from grip.tasks import cases
+from grip.tasks import cases, engine
 from tests.api.vacancies.test_request_forms_api import _template, _vacancy
 from tests.api.vacancies.test_vacancies_api import BASE, _decide
 
@@ -146,6 +146,9 @@ async def test_one_case_with_failing_facts_does_not_take_the_others_down(
         return await real(db, vacancy)
 
     monkeypatch.setattr(cases, "_request_form_facts", failing)
+    # Nothing in the data changed, so the engine would not look again; the
+    # facts fail from here on, as after a restart with a fault in them.
+    engine.forget_evaluation()
 
     mine, course = await _read_as(client, act_as, manager, broken)
     # Everyone keeps their list; the tasks of the broken case stay as they were.

@@ -200,8 +200,8 @@ async def _targets(
     total = 0
     count = 0
     per_month = [0] * len(year_months)
-    for person_id, name in people:
-        row = await steering.kpi_row(session, person_id, name, year, options=options)
+    rows = await steering.kpi_rows(session, people, year, options=options)
+    for (person_id, _name), row in zip(people, rows, strict=True):
         target = row.overview.target_cents if row.overview is not None else None
         if target is None:
             continue

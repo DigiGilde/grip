@@ -47,7 +47,9 @@ from grip.services.pricing import (
     LineOverview,
     PricingOptions,
     load_inputs_for_lines,
+    load_rate_book,
     overview_from_inputs,
+    to_calc_line,
 )
 
 # -- calculation errors -------------------------------------------------------
@@ -540,13 +542,15 @@ async def allocation_views(
     assignment_ids: Iterable[UUID] | None = None,
     budget_line_id: UUID | None = None,
     year: int | None = None,
+    period: tuple[date, date] | None = None,
     options: PricingOptions = DEFAULT_OPTIONS,
 ) -> list[AllocationView]:
     """Allocations with their amount and R14 signal.
 
     The filters narrow the result and are combined with AND; an empty
     collection gives an empty list. Without any filter every allocation is
-    returned.
+    returned. ``period`` keeps the inzet that runs on at least one day of
+    it, so a view of a few months does not read and price years of history.
     """
     stmt = (
         select(Allocation)
@@ -565,6 +569,10 @@ async def allocation_views(
         stmt = stmt.where(BudgetLine.assignment_id.in_(ids))
     if budget_line_id is not None:
         stmt = stmt.where(Allocation.budget_line_id == budget_line_id)
+    if period is not None:
+        stmt = stmt.where(
+            Allocation.start_date <= period[1], Allocation.end_date >= period[0]
+        )
     allocations = list((await session.execute(stmt)).scalars())
     if not allocations:
         return []
@@ -689,8 +697,59 @@ async def assignment_view(
         )
         descriptions = {str(r[0]): r[1] for r in rows}
 
+    priced_lines = price_lines(assignment_id, line_list, inputs, year, options)
+    line_views = [
+        LineView(
+            line=line,
+            overview=item.overview,
+            budgeted_by_year=item.budgeted_by_year,
+            pricing_error=item.pricing_error,
+            allocations=tuple(
+                a for a in allocation_list if a.allocation.budget_line_id == line.id
+            ),
+            coverages=_coverage_views(line, inputs, descriptions, options, year),
+        )
+        for line, item in zip(line_list, priced_lines.lines, strict=True)
+    ]
+    return AssignmentView(
+        row=row,
+        year=year,
+        lines=tuple(line_views),
+        totals=priced_lines.totals,
+        budgeted_by_year=priced_lines.budgeted_by_year,
+        pricing_error=priced_lines.pricing_error,
+    )
+
+
+@dataclass(frozen=True)
+class PricedLine:
+    # None when the line could not be priced.
+    overview: LineOverview | None
+    budgeted_by_year: dict[int, int]
+    pricing_error: str | None
+
+
+@dataclass(frozen=True)
+class PricedLines:
+    """The figures of the budget lines of one assignment, without its rows."""
+
+    lines: tuple[PricedLine, ...]
+    # None when at least one line could not be priced.
+    totals: Totals | None
+    budgeted_by_year: dict[int, int]
+    pricing_error: str | None
+
+
+def price_lines(
+    assignment_id: UUID,
+    line_list: Iterable[BudgetLine],
+    inputs: CalcInputs,
+    year: int | None,
+    options: PricingOptions,
+) -> PricedLines:
+    """Budgeted, realised, forecast and coverage per budget line, in order."""
     calc_lines = {UUID(line.id): line for line in inputs.lines}
-    line_views: list[LineView] = []
+    priced_lines: list[PricedLine] = []
     first_error: str | None = None
     by_year: dict[int, int] = {}
     for line in line_list:
@@ -727,25 +786,17 @@ async def assignment_view(
         except calc.CalcError as exc:
             error = error or describe_calc_error(exc)
             first_error = first_error or error
-        line_views.append(
-            LineView(
-                line=line,
+        priced_lines.append(
+            PricedLine(
                 overview=overview,
                 budgeted_by_year=dict(sorted(line_by_year.items())),
                 pricing_error=error,
-                allocations=tuple(
-                    a for a in allocation_list if a.allocation.budget_line_id == line.id
-                ),
-                coverages=_coverage_views(line, inputs, descriptions, options, year),
             )
         )
-
-    priced = [v.overview for v in line_views if v.overview is not None]
-    return AssignmentView(
-        row=row,
-        year=year,
-        lines=tuple(line_views),
-        totals=Totals.of(priced) if len(priced) == len(line_views) else None,
+    priced = [item.overview for item in priced_lines if item.overview is not None]
+    return PricedLines(
+        lines=tuple(priced_lines),
+        totals=Totals.of(priced) if len(priced) == len(priced_lines) else None,
         budgeted_by_year=dict(sorted(by_year.items())),
         pricing_error=first_error,
     )
@@ -758,12 +809,36 @@ async def budgeted_total(
     options: PricingOptions = DEFAULT_OPTIONS,
 ) -> int | None:
     """The whole budget of an assignment; None when it cannot be priced."""
-    line_list = await AssignmentRepository(session).budget_lines([assignment_id])
-    inputs = await load_inputs_for_lines(session, line_list, options=options)
-    try:
-        return sum(
-            calc.budgeted(line, inputs.rates, partial_months=options.partial_months)
-            for line in inputs.lines
-        )
-    except calc.CalcError:
-        return None
+    found = await budgeted_totals(session, [assignment_id], options=options)
+    return found[assignment_id]
+
+
+async def budgeted_totals(
+    session: AsyncSession,
+    assignment_ids: Iterable[UUID],
+    *,
+    options: PricingOptions = DEFAULT_OPTIONS,
+) -> dict[UUID, int | None]:
+    """``budgeted_total`` of several assignments, read together.
+
+    A budget needs the lines and the rate cards and nothing else.
+    """
+    ids = list(dict.fromkeys(assignment_ids))
+    if not ids:
+        return {}
+    rates = await load_rate_book(session, include_draft=options.include_draft)
+    lines_of: dict[UUID, list[BudgetLine]] = {i: [] for i in ids}
+    for line in await AssignmentRepository(session).budget_lines(ids):
+        lines_of[line.assignment_id].append(line)
+    found: dict[UUID, int | None] = {}
+    for assignment_id in ids:
+        try:
+            found[assignment_id] = sum(
+                calc.budgeted(
+                    to_calc_line(line), rates, partial_months=options.partial_months
+                )
+                for line in lines_of[assignment_id]
+            )
+        except calc.CalcError:
+            found[assignment_id] = None
+    return found

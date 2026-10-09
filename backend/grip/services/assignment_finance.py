@@ -41,16 +41,18 @@ from grip.calc import AmountSource, InvoiceLineKind, Month
 from grip.core import clock
 from grip.models.assignment import Allocation, BudgetLine
 from grip.models.cost import CostItem
+from grip.models.month_close import MonthClose
 from grip.models.person import Person
 from grip.models.quote import Quote
-from grip.repositories.domain import AssignmentRepository, MonthCloseRepository
+from grip.repositories.domain import AssignmentRepository
 from grip.services import assignment_views as views
-from grip.services.outgoing_invoices import billing_position
+from grip.services import read_cache
+from grip.services.outgoing_invoices import BillingPosition, billing_positions
 from grip.services.pricing import (
     DEFAULT_OPTIONS,
     CalcInputs,
     PricingOptions,
-    load_inputs_for_lines,
+    load_inputs_by_assignment,
 )
 
 # A line with at least this share of its budget free is worth a look.
@@ -460,12 +462,13 @@ def _month_rows(
 
 
 def _overdue_months(
-    inputs: CalcInputs, closed: set[date], today: date
+    allocations: Iterable[calc.Allocation], closed: Iterable[date], today: date
 ) -> tuple[date, ...]:
     """Months before the current one with inzet that are not closed."""
     this_month = date(today.year, today.month, 1)
+    closed = set(closed)
     with_inzet: set[date] = set()
-    for allocation in inputs.allocations:
+    for allocation in allocations:
         month = Month.of(allocation.start_date)
         last = Month.of(allocation.end_date)
         while month <= last:
@@ -532,52 +535,116 @@ def _signals(
     return tuple(signals)
 
 
-async def _agreed(session: AsyncSession, assignment_id: UUID) -> int | None:
-    """Total of the accepted quote; the latest if there are several."""
-    result = await session.execute(
-        select(Quote.total_cents)
-        .where(Quote.assignment_id == assignment_id, Quote.status == "accepted")
-        .order_by(Quote.issued_at.desc())
-        .limit(1)
-    )
-    return result.scalar_one_or_none()
-
-
 # -- the read model -----------------------------------------------------------
 
 
-async def assignment_finance(
+@dataclass(frozen=True)
+class _LineFigures:
+    """A finance line without its database row."""
+
+    line_id: UUID
+    figures: Figures | None
+    pricing_error: str | None
+    persons: tuple[PersonAmount, ...]
+    costs: tuple[CostAmount, ...]
+
+
+@dataclass(frozen=True)
+class _Computed:
+    """What the read model computes, as plain values.
+
+    Everything in here follows from the data of the assignment and from
+    nothing else: not from the day, not from the reader. That is what makes
+    it safe to remember until the data changes (grip.services.read_cache).
+    """
+
+    lines: tuple[_LineFigures, ...]
+    totals: Figures | None
+    whole_totals: Figures | None
+    months: tuple[MonthRow, ...]
+    closed: tuple[date, ...]
+    allocations: tuple[calc.Allocation, ...]
+    agreed_cents: int | None
+
+
+async def _compute_many(
     session: AsyncSession,
-    assignment_id: UUID,
-    *,
-    year: int | None = None,
-    today: date | None = None,
-    options: PricingOptions = DEFAULT_OPTIONS,
-) -> AssignmentFinance:
-    """The financial state of an assignment, for a year or the whole period."""
-    row = await views.assignment_row(session, assignment_id)
+    lines_of: dict[UUID, list[BudgetLine]],
+    year: int | None,
+    options: PricingOptions,
+) -> dict[UUID, _Computed]:
+    """The figures of several assignments, from what they share read once."""
+    ids = list(lines_of)
     repo = AssignmentRepository(session)
-    line_list = await repo.budget_lines([assignment_id])
-    inputs = await load_inputs_for_lines(session, line_list, options=options)
-    allocations = await repo.allocations_on_lines([line.id for line in line_list])
+    all_lines = [line for assignment_id in ids for line in lines_of[assignment_id]]
+    inputs_of = await load_inputs_by_assignment(
+        session, ids, options=options, lines=all_lines
+    )
+    assignment_of_line = {line.id: line.assignment_id for line in all_lines}
+    allocations_of: dict[UUID, list[Allocation]] = {i: [] for i in ids}
+    for allocation in await repo.allocations_on_lines(list(assignment_of_line)):
+        allocations_of[assignment_of_line[allocation.budget_line_id]].append(allocation)
 
     names: dict[UUID, str] = {}
-    person_ids = {a.person_id for a in allocations}
+    person_ids = {a.person_id for own in allocations_of.values() for a in own}
     if person_ids:
         rows = await session.execute(
             select(Person.id, Person.name).where(Person.id.in_(person_ids))
         )
         names = {r[0]: r[1] for r in rows}
     descriptions: dict[str, str] = {}
-    item_ids = [UUID(item.id) for item in inputs.cost_items]
+    item_ids = {
+        UUID(item.id) for inputs in inputs_of.values() for item in inputs.cost_items
+    }
     if item_ids:
         rows = await session.execute(
             select(CostItem.id, CostItem.description).where(CostItem.id.in_(item_ids))
         )
         descriptions = {str(r[0]): r[1] for r in rows}
 
-    closed = set(await MonthCloseRepository(session).closed_months(assignment_id))
+    closed_of: dict[UUID, set[date]] = {i: set() for i in ids}
+    for assignment_id, month in await session.execute(
+        select(MonthClose.assignment_id, MonthClose.month).where(
+            MonthClose.assignment_id.in_(ids), MonthClose.reopened_at.is_(None)
+        )
+    ):
+        closed_of[assignment_id].add(month)
+    # Total of the accepted quote; the latest if there are several.
+    agreed_of: dict[UUID, int] = {}
+    for assignment_id, total_cents in await session.execute(
+        select(Quote.assignment_id, Quote.total_cents)
+        .where(Quote.assignment_id.in_(ids), Quote.status == "accepted")
+        .order_by(Quote.issued_at)
+    ):
+        agreed_of[assignment_id] = total_cents
 
+    return {
+        assignment_id: _compute(
+            lines_of[assignment_id],
+            inputs_of[assignment_id],
+            allocations_of[assignment_id],
+            names,
+            descriptions,
+            closed_of[assignment_id],
+            agreed_of.get(assignment_id),
+            year,
+            options,
+        )
+        for assignment_id in ids
+    }
+
+
+def _compute(
+    line_list: list[BudgetLine],
+    inputs: CalcInputs,
+    allocations: list[Allocation],
+    names: dict[UUID, str],
+    descriptions: dict[str, str],
+    closed: set[date],
+    agreed_cents: int | None,
+    year: int | None,
+    options: PricingOptions,
+) -> _Computed:
     def build(for_year: int | None) -> tuple[FinanceLine, ...]:
         return tuple(
             _finance_line(
@@ -594,27 +661,63 @@ async def assignment_finance(
     whole_totals = (
         Figures.sum(whole_priced) if len(whole_priced) == len(whole) else None
     )
+    return _Computed(
+        lines=tuple(
+            _LineFigures(
+                line_id=item.line.id,
+                figures=item.figures,
+                pricing_error=item.pricing_error,
+                persons=item.persons,
+                costs=item.costs,
+            )
+            for item in lines
+        ),
+        totals=totals,
+        whole_totals=whole_totals,
+        months=_month_rows(inputs, options, closed, year),
+        closed=tuple(sorted(closed)),
+        allocations=inputs.allocations,
+        agreed_cents=agreed_cents,
+    )
 
-    months = _month_rows(inputs, options, closed, year)
+
+def _assemble(
+    row: views.AssignmentRow,
+    line_list: list[BudgetLine],
+    computed: _Computed,
+    position: BillingPosition,
+    year: int | None,
+    today: date,
+) -> AssignmentFinance:
+    by_id = {line.id: line for line in line_list}
+    lines = tuple(
+        FinanceLine(
+            by_id[item.line_id],
+            item.figures,
+            item.pricing_error,
+            item.persons,
+            item.costs,
+        )
+        for item in computed.lines
+    )
+    totals, whole_totals = computed.totals, computed.whole_totals
+    months = computed.months
     in_months = sum(m.budgeted_cents for m in months)
     first_error = next((i.pricing_error for i in lines if i.pricing_error), None)
-
-    # Delivered and invoiced are facts of the whole period, like the other
-    # key figures.
-    position = await billing_position(session, assignment_id, options=options)
-
     return AssignmentFinance(
         row=row,
         year=year,
-        reference_month=max(closed) if closed else None,
+        reference_month=max(computed.closed) if computed.closed else None,
         key_figures=KeyFigures(
-            agreed_cents=await _agreed(session, assignment_id),
+            agreed_cents=computed.agreed_cents,
             budgeted_cents=whole_totals.budgeted_cents if whole_totals else None,
             expected_total_cents=whole_totals.expected_total_cents
             if whole_totals
             else None,
             realised_cents=whole_totals.realised_cents if whole_totals else None,
             realised_pct=whole_totals.realised_pct if whole_totals else None,
+            # Delivered and invoiced are facts of the whole period, like the
+            # other key figures.
             delivered_cents=position.delivered_cents,
             invoiced_cents=position.invoiced_cents,
             to_deliver_cents=position.to_deliver_cents,
@@ -626,10 +729,69 @@ async def assignment_finance(
         if totals is not None
         else 0,
         signals=_signals(
-            lines, _overdue_months(inputs, closed, today or clock.today())
+            lines, _overdue_months(computed.allocations, computed.closed, today)
         ),
         pricing_error=first_error,
     )
+
+
+async def assignment_finance(
+    session: AsyncSession,
+    assignment_id: UUID,
+    *,
+    year: int | None = None,
+    today: date | None = None,
+    options: PricingOptions = DEFAULT_OPTIONS,
+) -> AssignmentFinance:
+    """The financial state of an assignment, for a year or the whole period."""
+    row = await views.assignment_row(session, assignment_id)
+    found = await assignment_finances(
+        session, [row], year=year, today=today, options=options
+    )
+    return found[assignment_id]
+
+
+async def assignment_finances(
+    session: AsyncSession,
+    rows: Iterable[views.AssignmentRow],
+    *,
+    year: int | None = None,
+    today: date | None = None,
+    options: PricingOptions = DEFAULT_OPTIONS,
+) -> dict[UUID, AssignmentFinance]:
+    """The financial state of several assignments, for a list.
+
+    What the assignments share is read once, and only for the assignments
+    whose figures changed since they were last computed; each assignment is
+    computed the same way as on its own page.
+    """
+    rows = list(rows)
+    ids = [row.assignment.id for row in rows]
+    lines_of: dict[UUID, list[BudgetLine]] = {i: [] for i in ids}
+    for line in await AssignmentRepository(session).budget_lines(ids):
+        lines_of[line.assignment_id].append(line)
+    computed = await read_cache.remember_many(
+        session,
+        "assignment_finance",
+        ids,
+        (year, options),
+        lambda missing: _compute_many(
+            session, {i: lines_of[i] for i in missing}, year, options
+        ),
+    )
+    positions = await billing_positions(session, ids, options=options)
+    day = today or clock.today()
+    return {
+        row.assignment.id: _assemble(
+            row,
+            lines_of[row.assignment.id],
+            computed[row.assignment.id],
+            positions[row.assignment.id],
+            year,
+            day,
+        )
+        for row in rows
+    }
 
 
 # -- CSV ----------------------------------------------------------------------

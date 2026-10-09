@@ -14,8 +14,6 @@ Confirming a decision with a passkey is part of the proof routes
 from __future__ import annotations
 
 import logging
-import time
-from collections import defaultdict, deque
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -31,6 +29,7 @@ from grip.core.auth import (
 )
 from grip.core.config import Settings, get_settings
 from grip.core.database import get_db
+from grip.core.rate_limit import RateLimiter
 from grip.repositories.passkey import PasskeyRepository
 from grip.schema.passkeys import (
     AssertionIn,
@@ -53,36 +52,8 @@ _REGISTER_CHALLENGE = "passkey_register_challenge"
 _LOGIN_CHALLENGE = "passkey_login_challenge"
 
 
-class _RateLimiter:
-    """At most ``limit`` calls per client address in ``window`` seconds.
-
-    In memory, per process: enough to slow down guessing against the two
-    routes that need no session. It does not replace a limit at the edge.
-    """
-
-    def __init__(self, *, limit: int, window: float) -> None:
-        self.limit = limit
-        self.window = window
-        self._calls: dict[str, deque[float]] = defaultdict(deque)
-
-    def check(self, request: Request) -> None:
-        key = request.client.host if request.client else "unknown"
-        now = time.monotonic()
-        calls = self._calls[key]
-        while calls and now - calls[0] > self.window:
-            calls.popleft()
-        if len(calls) >= self.limit:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="Te veel pogingen. Probeer het over een minuut opnieuw.",
-            )
-        calls.append(now)
-
-    def reset(self) -> None:
-        self._calls.clear()
-
-
-login_rate_limiter = _RateLimiter(limit=20, window=60)
+# The two routes that need no session: slow down guessing against them.
+login_rate_limiter = RateLimiter(limit=20, window=60)
 
 
 def _require_configured(settings: Settings) -> None:

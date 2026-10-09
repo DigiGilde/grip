@@ -22,9 +22,15 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from grip.models.assignment import BudgetLine
+from grip.repositories.domain import AssignmentRepository
 from grip.services import assignment_views as views
-from grip.services import outgoing_invoices
-from grip.services.pricing import DEFAULT_OPTIONS, PricingOptions
+from grip.services import outgoing_invoices, read_cache
+from grip.services.pricing import (
+    DEFAULT_OPTIONS,
+    PricingOptions,
+    load_inputs_by_assignment,
+)
 from grip.services.reports.assignment_report import accepted_quote
 
 # The columns of the CSV export, in order. Stable: a new column is added at
@@ -96,6 +102,55 @@ def _in_year(row: views.AssignmentRow, year: int) -> bool:
     return (start is None or start.year <= year) and (end is None or end.year >= year)
 
 
+@dataclass(frozen=True)
+class _Figures:
+    """What the year account computes of one assignment, as plain values."""
+
+    totals: views.Totals | None
+    pricing_error: str | None
+    # The years the budget has an amount in.
+    budgeted_years: tuple[int, ...]
+    # Subtotal of the accepted quote for the year.
+    agreed_cents: int | None
+
+
+async def _figures(
+    session: AsyncSession,
+    assignment_ids: list[UUID],
+    year: int,
+    options: PricingOptions,
+) -> dict[UUID, _Figures]:
+    """The figures of several assignments, from what they share read once."""
+    lines_of: dict[UUID, list[BudgetLine]] = {i: [] for i in assignment_ids}
+    for line in await AssignmentRepository(session).budget_lines(assignment_ids):
+        lines_of[line.assignment_id].append(line)
+    inputs_of = await load_inputs_by_assignment(
+        session,
+        assignment_ids,
+        options=options,
+        lines=[line for own in lines_of.values() for line in own],
+    )
+    found: dict[UUID, _Figures] = {}
+    for assignment_id in assignment_ids:
+        priced = views.price_lines(
+            assignment_id,
+            lines_of[assignment_id],
+            inputs_of[assignment_id],
+            year,
+            options,
+        )
+        agreed = await accepted_quote(session, assignment_id)
+        found[assignment_id] = _Figures(
+            totals=priced.totals,
+            pricing_error=priced.pricing_error,
+            budgeted_years=tuple(priced.budgeted_by_year),
+            agreed_cents=dict(agreed.subtotals).get(year)
+            if agreed is not None
+            else None,
+        )
+    return found
+
+
 async def year_account(
     session: AsyncSession,
     year: int,
@@ -105,36 +160,38 @@ async def year_account(
 ) -> list[YearAccountRow]:
     """The rows of the year account; ``assignment_ids=None`` means all."""
     rows = await views.assignment_rows(session, only_ids=assignment_ids)
+    ids = [r.assignment.id for r in rows]
     positions = await outgoing_invoices.billing_positions(
-        session, [r.assignment.id for r in rows], year=year, options=options
+        session, ids, year=year, options=options
+    )
+    figures = await read_cache.remember_many(
+        session,
+        "year_account",
+        ids,
+        (year, options),
+        lambda missing: _figures(session, missing, year, options),
     )
     result: list[YearAccountRow] = []
     for row in rows:
         assignment_id = row.assignment.id
         position = positions[assignment_id]
-        view = await views.assignment_view(
-            session, assignment_id, year=year, options=options
-        )
+        view = figures[assignment_id]
         has_amounts = view.totals is not None and (
             view.totals.budgeted_cents or view.totals.used_cents
         )
         if not (
             has_amounts
-            or year in view.budgeted_by_year
+            or year in view.budgeted_years
             or position.delivered_cents
             or position.invoiced_cents
             or _in_year(row, year)
         ):
             continue
-        agreed = await accepted_quote(session, assignment_id)
-        agreed_cents = None
-        if agreed is not None:
-            agreed_cents = dict(agreed.subtotals).get(year)
         result.append(
             YearAccountRow(
                 row=row,
                 year=year,
-                agreed_cents=agreed_cents,
+                agreed_cents=view.agreed_cents,
                 totals=view.totals,
                 pricing_error=view.pricing_error,
                 delivered_cents=position.delivered_cents,

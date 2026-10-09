@@ -12,6 +12,7 @@ from grip.core.database import async_session, close_db
 from grip.core.problem import install_exception_handlers
 from grip.core.session_store import DatabaseSessionStore, run_cleanup_loop
 from grip.middleware.auth_required import AuthRequiredMiddleware
+from grip.middleware.body_limit import BodyLimitMiddleware
 from grip.middleware.csrf import CSRFMiddleware
 from grip.middleware.event_context import EventContextMiddleware
 from grip.middleware.expected_version import ExpectedVersionMiddleware
@@ -136,8 +137,8 @@ def create_app() -> FastAPI:
     # Starlette's add_middleware prepends, so the LAST one added is the
     # OUTERMOST. Request flow, outermost to innermost:
     #
-    #   TrustedProxy -> CORS -> Session -> Auth -> CSRF -> SecurityHeaders
-    #   -> GZip -> route
+    #   TrustedProxy -> CORS -> SecurityHeaders -> BodyLimit -> Session
+    #   -> Auth -> CSRF -> GZip -> route
     #
     # TrustedProxy is outermost so everything below sees the scheme, host
     # and client address the user actually used.
@@ -149,7 +150,6 @@ def create_app() -> FastAPI:
     app.add_middleware(EventContextMiddleware)
     app.add_middleware(ExpectedVersionMiddleware)
     app.add_middleware(GZipMiddleware, minimum_size=500)
-    app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(
         CSRFMiddleware,
         cookie_domain=settings.SESSION_COOKIE_DOMAIN,
@@ -164,6 +164,10 @@ def create_app() -> FastAPI:
         cookie_secure=settings.SESSION_COOKIE_SECURE,
         cookie_max_age=settings.SESSION_TTL_SECONDS,
     )
+    app.add_middleware(BodyLimitMiddleware)
+    # Outside everything that can answer by itself (a 401, a refused CSRF
+    # token, a body that is too large), so those answers carry the headers.
+    app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.CORS_ORIGINS,
@@ -172,6 +176,12 @@ def create_app() -> FastAPI:
         allow_headers=["Content-Type", "X-CSRF-Token", "If-Match"],
     )
     app.add_middleware(TrustedProxyMiddleware, trusted_proxies=settings.TRUSTED_PROXIES)
+    if settings.DEV_NO_AUTH and settings.DEV_SPEED_TIMING:
+        from grip.core.database import engine
+        from grip.middleware import speed_timing
+
+        speed_timing.watch(engine.sync_engine)
+        app.add_middleware(speed_timing.SpeedTimingMiddleware)
 
     install_exception_handlers(app)
 

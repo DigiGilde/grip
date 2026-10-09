@@ -331,7 +331,7 @@ export function QuoteCard({
         <Stack gap="close">
           <nldd-title
             size={3}
-            heading-level={3}
+            heading-level={2}
             overline={quote.reference ? `Offerte ${quote.reference}` : 'Offerte'}
             text={quote.total_cents !== undefined ? formatEuro(quote.total_cents) : 'Offerte'}
           >

@@ -367,6 +367,22 @@ class _Builder:
     def issue(self, severity: str, where: str, message: str) -> None:
         self.plan.issues.append(Issue(severity, where, message))
 
+    def _fits(
+        self, source: _Source, row: GristRow, what: str, text: str | None, limit: int
+    ) -> None:
+        """A text that grip has no room for stops the import before it writes.
+
+        Without this the database refuses the row halfway through the load,
+        with an error that names neither the table nor the row in Grist.
+        """
+        if text is not None and len(text) > limit:
+            self.issue(
+                ERROR,
+                source.where(row),
+                f"{what} is {len(text)} tekens lang; grip bewaart er hooguit "
+                f"{limit}. Kort de tekst in Grist in.",
+            )
+
     def _cell_problem(self, source: _Source, row: GristRow, field_name: str) -> bool:
         value = source.value(row, field_name)
         if isinstance(value, CellError):
@@ -709,6 +725,14 @@ class _Builder:
             name = to_text(source.value(row, "name"))
             if not name:
                 continue
+            self._fits(source, row, "De naam", name, 255)
+            self._fits(
+                source,
+                row,
+                "De contactpersoon",
+                to_text(source.value(row, "client_contact")),
+                255,
+            )
             _, name_year = assignment_year(name)
             year = name_year or self.plan.year
             if name_year is None:
@@ -805,6 +829,7 @@ class _Builder:
             year = self._assignment_years.get(assignment_row, self.plan.year)
             budgeted = to_cents(source.value(row, "budgeted"))
             description = description or "(geen omschrijving)"
+            self._fits(source, row, "De omschrijving", description, 500)
             positions[assignment_row] = positions.get(assignment_row, 0) + 1
             position = positions[assignment_row]
 
@@ -1055,6 +1080,7 @@ class _Builder:
             description = to_text(source.value(row, "description"))
             if not description:
                 continue
+            self._fits(source, row, "De omschrijving", description, 500)
             self.plan.cost_items.append(
                 PlanCostItem(
                     row.row_id,
@@ -1103,6 +1129,16 @@ class _Builder:
                             "als realisatie geladen.",
                         )
             period = to_date(source.value(row, "period"))
+            self._fits(
+                source,
+                row,
+                "De omschrijving",
+                to_text(source.value(row, "description")),
+                500,
+            )
+            self._fits(
+                source, row, "Het kenmerk", to_text(source.value(row, "reference")), 100
+            )
             self.plan.invoice_lines.append(
                 PlanInvoiceLine(
                     row_id=row.row_id,

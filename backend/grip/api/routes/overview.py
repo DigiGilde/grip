@@ -88,22 +88,30 @@ async def get_overview(
     priced: dict[Phase, list[finance.Figures]] = {phase: [] for phase in Phase}
     any_financial = False
     to_deliver = to_invoice = 0
+    # Who may read what, per row; the figures are then read for all rows
+    # that need them at once.
+    readable: list[tuple[views.AssignmentRow, frozenset[DataClass], bool]] = []
     for row in rows:
         resource = Resource.assignment(row.assignment.id)
         permitted = await access.classes(resource, _ROW_CLASSES)
         if A not in permitted:
             continue
+        # The R14 signal is also for a planner, as a fact without amounts.
+        signal = await access.may(Action.READ, resource, SIGNAL)
+        readable.append((row, frozenset(permitted), signal))
+    finances = await finance.assignment_finances(
+        db,
+        [row for row, permitted, signal in readable if B in permitted or signal],
+        year=selected,
+    )
+    for row, permitted, signal in readable:
         figures: finance.Figures | None = None
         error: str | None = None
         reference = None
         money = B in permitted
-        # The R14 signal is also for a planner, as a fact without amounts.
-        signal = await access.may(Action.READ, resource, SIGNAL)
         attention: list[AttentionOut] = []
         if money or signal:
-            data = await finance.assignment_finance(
-                db, row.assignment.id, year=selected
-            )
+            data = finances[row.assignment.id]
             attention = [
                 AttentionOut(kind=point.kind, text=point.text, tab=point.tab)
                 for point in attention_points(data)
