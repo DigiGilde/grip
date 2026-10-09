@@ -79,7 +79,7 @@ Maak een project met één uitrol (`main`) en twee onderdelen. De workflow verwa
 
 Niet lokaal te doen: of de router van het platform een pad per onderdeel kan geven, blijkt op het platform.
 
-Kan dat op het gekozen domein niet, dan is er een tweede weg, en die is lokaal gedraaid: geef `component-1` `uses-components: [component-2]` en zet op de frontend `BACKEND_URL=http://main-component-2`. De frontend geeft `/api/` dan zelf door. De browser gebruikt alleen het adres van de frontend. Geeft het platform elk onderdeel een eigen adres van de vorm `component-2-<rest>` of `component-2.<rest>`, dan leidt de backend het adres van de frontend zelf af uit `PUBLIC_HOST` en hoef je niets te zetten. Bij een andere vorm zet je op de backend `FRONTEND_URL` en `BACKEND_URL` op het adres van de frontend.
+Kan dat op het gekozen domein niet, dan is er een tweede weg, en die is lokaal gedraaid: geef `component-1` `uses-components: [component-2]` en zet op de frontend `BACKEND_URL=http://main-component-2:8080`. De frontend geeft `/api/` dan zelf door. De browser gebruikt alleen het adres van de frontend. Geeft het platform elk onderdeel een eigen adres van de vorm `component-2-<rest>` of `component-2.<rest>`, dan leidt de backend het adres van de frontend zelf af uit `PUBLIC_HOST` en hoef je niets te zetten. Bij een andere vorm zet je op de backend `FRONTEND_URL` en `BACKEND_URL` op het adres van de frontend.
 
 TLS is nodig: de cookies zijn `Secure` en een passkey werkt alleen op een beveiligd adres. Lokaal was daar een eigen certificaat voor nodig; op het platform regelt de ingress dat.
 
@@ -202,10 +202,42 @@ Niets buiten een eigen project met een eigen database. Ze gebruikt dezelfde twee
 - Het image van de frontend: start zonder `BACKEND_URL` en antwoordt dan op `/api/` met een duidelijke 502; de service worker en de startpagina worden nooit bewaard, de bestanden onder `/assets/` altijd.
 - De voorbeeldmodus vult ook goed als twee replica's tegelijk starten.
 
-## Wat pas op het platform blijkt
+## Wat op het platform bleek
 
-- De login via de Keycloak van het platform met SSO Rijk erachter: welke claims er komen, of het adres als bevestigd wordt doorgegeven, en of SSO Rijk bij een besluit zelf opnieuw om het wachtwoord vraagt. De regel `OIDC login:` in het logboek laat de eerste twee zien.
-- Het pad `/api` op de router van het platform, en de vorm van het adres per onderdeel.
-- Het ophalen van de images uit het register.
+De eerste uitrol, een voorbeeldinstantie, is gedaan op 9 oktober 2026 met `zadctl`. Wat daarbij bleek:
+
+- **De images moeten op te halen zijn.** Een openbare repo maakt de pakketten niet openbaar; dat zet je per pakket bij de instellingen van het pakket. Na het openbaar maken was een extra uitrol nodig voordat de backend opkwam.
+- **Een adres op een domein van het platform wacht op goedkeuring** van een platformbeheerder. Tot die tijd krijgt elk onderdeel een eigen clusteradres, `component-1-main-<project>.<cluster>` en `component-2-main-<project>.<cluster>`.
+- **Op de clusteradressen** bereikt de browser alleen de frontend. Zet daar `BACKEND_URL=http://main-component-2:8080`; zonder poort loopt elk verzoek naar `/api/` vast. Onderdelen binnen één uitrol mogen elkaar bereiken; `uses-components` is niet nodig.
+- **Op het goedgekeurde adres** staan beide onderdelen achter één adres: `/` naar `component-1`, `/api` naar `component-2`, zonder herschrijven. Geef de paden op bij het aanmaken van de onderdelen.
+- **Keycloak kent alleen het adres van het onderdeel waaraan de dienst hangt** als terugkeeradres. Op de clusteradressen is dat de backend, terwijl grip via de frontend terugkeert: de login geeft dan "Invalid parameter: redirect_uri". Zet het adres van de frontend in `additional_redirect_uris` van de dienst.
+- **De sleutel van de instantie** gaat als bijlage die het onderdeel als omgevingsvariabele krijgt (`FEDERATION_SIGNING_KEY`); regeleinden blijven dan heel.
+- **De gezondheidscontrole** staat per onderdeel als HTTP op poort 8080: `/` voor de frontend, `/api/health/live` en `/api/health/ready` voor de backend.
+
+De opdrachten, in volgorde, voor een nieuw project (de geheimen ontstaan in de opdracht zelf en komen in geen logboek):
+
+```sh
+zadctl project create "<naam>" --description "<waarvoor>"
+zadctl config set rollout false
+zadctl service config set postgresql-database --target project --set scope=shared
+zadctl service config set keycloak --set template=sso-only --set account-link=automatic \
+  --set 'additional_redirect_uris[0]=https://<adres>/*'
+zadctl component add component-1 --port 8080 --path / --service publish-on-web
+zadctl component add component-2 --port 8080 --path /api \
+  --service publish-on-web --service postgresql-database --service keycloak
+openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 \
+  | zadctl attachment assign instance-signing-key component-2 -f - \
+      --provide-as env-var --env-name FEDERATION_SIGNING_KEY
+zadctl env add -c component-2 --env-file <bestand met de instellingen uit stap 3>
+zadctl service config set health-check --component component-1 \
+  --set scheme=http --set port=8080 --set liveness-path=/ --set readiness-path=/
+zadctl service config set health-check --component component-2 \
+  --set scheme=http --set port=8080 --set liveness-path=/api/health/live --set readiness-path=/api/health/ready
+zadctl deployment create main -f <manifest met beide onderdelen, het subdomein en het domein>
+zadctl project refresh
+```
+
+## Wat nog niet is gebleken
+
+- De login met SSO Rijk zelf: welke claims er komen, of het adres als bevestigd wordt doorgegeven, en of SSO Rijk bij een besluit opnieuw om het wachtwoord vraagt. De regel `OIDC login:` in het logboek laat de eerste twee zien.
 - Het adresbereik voor `TRUSTED_PROXIES`.
-- Of het platform een geheim met regeleinden aanneemt (de sleutel van de instantie); anders schrijf je de regeleinden als `\n`.
