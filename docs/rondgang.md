@@ -1,5 +1,121 @@
 # Rondgang door de hele interface
 
+Bijgewerkt op 9 oktober 2026 na ronde vijf, op commit `fc04762` van de werkbranch. Vijf rondes in een eigen kopie met een echte browser, als de voorbeeldpersonen. Ronde vijf deed alleen wat ronde vier niet haalde, en is zelf ook niet compleet; wat niet is gedaan staat erbij.
+
+## Waar het product staat
+
+De ergste fout van ronde vier is weg: met een bewaard aanvraagformulier en drie genoemde adviseurs werken Taken en de kop van de vacature voor iedereen (R407). De vacature loopt nu door tot en met advies, akkoord en "Stel open", met een adviseur buiten grip. Functiescheiding houdt stand op het scherm en op de server: niemand keurt zijn eigen offerte goed, neemt een stap over waar een ander over beslist, of legt als aanvrager zijn eigen advies vast. Geen pagina schuift zijwaarts op 390 breed of geeft een fout bij herladen. Niet gelopen, in geen enkele ronde: de vacaturetekst door beoordeling in rondes tot vervuld, een nieuwe tarievenkaart, een passkey, meldingen, twee tabbladen tegelijk, de terugknop, en de kant van de opdrachtgever.
+
+## Hoe ver elke reis kwam (ronde vier en vijf samen)
+
+| Reis | Stand |
+|---|---|
+| 1. Opdracht winnen | Voltooid in ronde vier, met interne goedkeuring door een ander en tekenen met bewijs. Niet: mail, een node uit het corpus |
+| 2. Van gedachten veranderen | Afwijzing en afsluiten zonder opdracht gelopen in ronde vier. Niet: de nieuwe offerte na een afwijzing maken en aanbieden |
+| Interne opdracht | Voltooid in ronde vier |
+| 3. Bemensen | Ronde vijf: vanaf het bord Inzet iemand ingezet die al vol zat; de melding "Boven 100%" komt pas na het bewaren (H006). Niet: inkorten, beëindigen, verwijderen, promotie midden in een maand opnieuw |
+| 4. Werven | Ronde vijf: van voorbereiden tot en met advies (ook van iemand buiten grip, vastgelegd door de beheerder), akkoord, en de kop "Stel open"; de standaardtekst genomen en de tekstpagina geopend. Niet: de tekst invullen en door beoordeling in twee rondes, vaststellen, publiceren met link, vervullen, de variant met een kandidaat |
+| 5. Uitvoeren en factureren | Voltooid in ronde vier tot en met de factuur van een naverrekening. Ronde vijf: ook als beheerder geen actie gevonden om een maand te heropenen (R403) |
+| 6. Kosten en tarieven | Ronde vijf, deels: kostenpost gemaakt, factuur boven de begroting ("€ 1.000, Overschrijding"), de eigenaar kan dekking vastleggen. Niet: bijlage, dekking over twee opdrachten met restant, een nieuwe tarievenkaart |
+| 7. De dag van de beheerder | Deels: instelling voor goedkeuring, rechten, een nieuwe persoon (ronde vier), advies vastleggen voor iemand buiten grip. Niet: eigenaar overdragen, organisaties, tekstblokken, standaardteksten, formulier met voorbeeld, Activiteit, Meldingen, passkey |
+| 8. Alle anderen | Start en "Wat is er gebeurd" als tien personen; elk adres herladen als eigenaar; diepe links zonder recht. Niet: terugknop, twee tabbladen op één onderdeel, de kant van de opdrachtgever |
+| 9. Smal en licht | Ronde vijf: 28 adressen als eigenaar op 390 breed en in het lichte thema: geen zijwaarts schuiven, geen fout, niets dat blijft laden. Gemeten, niet elk beeld bekeken |
+
+## Telling over alle rondes
+
+93 bevindingen: 77 uit ronde een tot en met drie, 12 uit ronde vier, 4 uit ronde vijf.
+
+| Stand | Aantal | Welke |
+|---|---|---|
+| Hersteld en door een tweede ronde bevestigd | 44 | ronde vier: F001, F004, F006, F009, F010, F012, F014, F015, F016, F017, F018, F019, F020, F021, F023, F024, F025, F026, F028, F030, F031, F033, F034, F036, F037, F042, G003, G007, G016; ronde vijf: F027, F032, F035, G001, G004, H004, H005, T205, R401, R405, R406, R407, R408, R409, R412 |
+| Hersteld, deels bevestigd | 3 | F011, F029, R410 |
+| Als hersteld gemeld of open, nagelopen en nog niet goed | 3 | F003, H006, R403 |
+| Als hersteld gemeld, nog door niemand nagelopen | 25 | G002, G005, G006, G008, G009, G010, G011, G012, G013, G014, G015, T202, H001, H002, H003, H007, H008, H009, H010, H011, H012, F041, R402, R404, R411 |
+| Open, niet opnieuw bekeken | 14 | F002, F005, F007, F008, F013, F022, F038, F039, F040, T201, T203, T204, T206, T207 |
+| Nieuw in ronde vijf, open | 4 | R501, R502, R503, R504 |
+
+## Functiescheiding, op het scherm en op de server
+
+| Handeling | Antwoord van de server | Zin |
+|---|---|---|
+| De maker en aanvrager keurt zijn eigen offerte goed (direct besluit) | 422 | "Je kunt een offerte waarvoor je zelf goedkeuring vroeg niet zelf goedkeuren. Iemand anders met dit recht beslist." |
+| Dezelfde, via de bewijsstap | 201 bij het aanmaken, daarna geweigerd bij terugkeer (`besluit_fout=geweigerd`); de goedkeuring blijft "gevraagd" | op de pagina: "Je kunt je eigen offerte niet goedkeuren: wie de offerte maakte of de goedkeuring vroeg, beslist niet" (R504: weigering komt laat) |
+| "Neem deze stap over" op de goedkeurstap door de maker | 403 | "Deze stap kun je niet overnemen: je hebt het recht niet dat hij vraagt, of hij is van wie erover beslist." |
+| De goedkeurtaak aan jezelf geven door de maker | 200, zonder gevolg: hij krijgt de taak niet en de pagina biedt geen besluit | geen zin (R503) |
+| De maker geeft akkoord als opdrachtgever in dezelfde instantie | 404 | "Niet gevonden" (er is geen ontvangen offerte) |
+| De aanvrager van een vacature legt zelf het akkoord vast | 403 | "Je hebt hier geen toegang toe" |
+| De aanvrager van een vacature legt zelf een advies vast | 403 | "Je hebt hier geen toegang toe" |
+| Een planner neemt een stap van een ander over | 403 | "Deze stap kun je niet overnemen: ..." |
+
+Op het scherm: de aanvrager leest "Je wacht op een interne goedkeurder van offertes. Jij hoeft nu niets te doen" en heeft geen knoppen om te beslissen.
+
+## De tien dingen die nu het meest tellen
+
+1. **De reis van een vacature is nog nooit tot het eind gelopen.** Tekst beoordelen in rondes, vaststellen, publiceren en vervullen zijn alleen door tests gedekt.
+2. **Vijfentwintig herstelmeldingen heeft nog niemand met de hand nagelopen**, vooral rond tarievenkaarten (G005, G013 tot en met G015), de ene klok (G008), het teruggestuurde verzoek (G009, G010) en de heropende maand (G011).
+3. **Een maand heropenen na aanlevering: geen actie voor te vinden**, ook niet als beheerder (R403). Of het bestaat en waar, weet ik niet.
+4. **De waarschuwing bij dubbel boeken komt pas na het bewaren** (H006), voor zover ik zag.
+5. **De beheerder die het advies van iemand buiten grip moet vastleggen, leest "Je wacht"** en krijgt geen knop (R501).
+6. **Een tekenbevoegde van een opdrachtgever leest intern nieuws over vacatures** in "Wat is er gebeurd" (R502).
+7. **De kop van een lege opdracht toont nog vier keer € 0** (F003).
+8. **Twee weigeringen bij functiescheiding zijn slordig**: een taak aan jezelf geven antwoordt 200 zonder gevolg (R503), en de bewijsstap wordt eerst aangemaakt en pas aan het eind geweigerd (R504). Het besluit zelf wordt in beide gevallen niet genomen.
+9. **De schrijfpagina van de offerte heeft mogelijk nog geen accent** (R411): ik vond er geen hoofdknop, maar heb het niet op beeld bekeken.
+10. **Open sinds ronde een en niet opnieuw bekeken**: één rollenlijst (F008), de node kiezen (F022), en een handvol ruwe randen.
+
+## Nagerekend in ronde vijf
+
+Alleen: een kostenpost van € 10.000 met een factuur van € 11.000 geeft "Afwijking € 1.000, Overschrijding". De ketens van ronde vier (begroting tot tekenpagina, kwartaal tot factuurverzoek, naverrekening) zijn niet opnieuw gerekend; een promotie midden in een maand en de dekking over twee opdrachten ook niet.
+
+## De ochtend erna
+
+Als tien personen de startpagina en "Wat is er gebeurd" geopend, zonder fout en zonder bedrag in de feed. De goedkeurder ziet "Beoordeel offerte"; eigenaren zien hun maanden; de lezer ziet dat het verwacht totaal € 145.000 boven de begroting komt na de dubbele boeking; teamleden lezen "Je bent ingezet op ...". Niet passend: de tekenbevoegde leest nieuws over vacatures (R502). Een zuivere planner is deze ronde niet aangemaakt.
+
+## Wat niet te testen was, en wat dat openlaat
+
+- **Een echte login-dienst**: opnieuw inloggen bij een besluit is niet gezien; onbekend of de terugkeer goed gaat en wat een verlopen sessie doet.
+- **Mail en meldingen**: geen postvanger of achtergrondproces gestart (het script deelt poorten en een containernaam); onbekend of een tekenlink aankomt.
+- **Een telefoon, een geïnstalleerde app, een passkey**: niet geprobeerd, ook niet met een virtuele sleutel.
+- **Twee gekoppelde instanties en het echte corpus**: de kant van de opdrachtgever en de context in een concept zijn niet gezien.
+- **Terugknop en twee tabbladen tegelijk**: niet gedaan; het gedrag bij een botsing op één tekst is alleen door tests gedekt.
+
+## Ronde vijf: nieuwe bevindingen
+
+| Nr | Ernst | Waar, als wie | Wat er gebeurde | Wat je verwacht | Vermoedelijke plek |
+|---|---|---|---|---|---|
+| R501 | Verwarrend | reis 4, advies van iemand buiten grip; beheerder, de enige die het mag vastleggen | de kop van de vacature zegt ook tegen de beheerder "Je wacht op het advies ... alleen een beheerder kan het daarna vastleggen", zonder knop; vastleggen kan alleen via de rij op de tab Advies en akkoord | voor de beheerder: "Leg het advies van <naam> vast" met de knop | achterkant: werkstroomkop van de vacature |
+| R502 | Verwarrend | de ochtend erna, "Wat is er gebeurd"; tekenbevoegde van een opdrachtgever | de feed toont interne gebeurtenissen rond vacatures ("Vacature Productmanager is goedgekeurd door ...", "Vacature Developer is opengesteld ...") aan iemand die alleen tekent namens een opdrachtgever | alleen wat deze persoon aangaat: offertes die zij tekent | achterkant: grip/events/news.py (publiek van vacaturenieuws) |
+| R503 | Ruw | functiescheiding, taak overdragen; maker van de offerte | het verzoek om de goedkeurtaak aan zichzelf te geven krijgt 200 terug, terwijl er niets verandert (hij krijgt de taak niet en kan niet beslissen) | een weigering met een zin, zoals bij overnemen | achterkant: api/routes/tasks.py (PATCH) |
+| R504 | Ruw | functiescheiding, bewijsstap; maker van de offerte | de server maakt de bewijsstap voor zijn eigen goedkeuring eerst aan (201) en weigert pas aan het eind ("besluit_fout=geweigerd"); het besluit wordt niet vastgelegd | weigeren bij het aanmaken, met dezelfde zin als het directe besluit | achterkant: api/routes/proof.py (intent voor approve) |
+
+## Ronde vijf: controle van eerdere bevindingen
+
+| Nr | Uitkomst op 9 oktober 2026 (fc04762) |
+|---|---|
+| F027 | bevestigd |
+| F032 | bevestigd |
+| F035 | bevestigd |
+| G001 | bevestigd |
+| G004 | bevestigd |
+| H004 | bevestigd |
+| H005 | bevestigd |
+| T205 | bevestigd |
+| R401 | bevestigd |
+| R405 | bevestigd |
+| R406 | bevestigd |
+| R407 | bevestigd |
+| R408 | bevestigd |
+| R409 | bevestigd |
+| R412 | bevestigd |
+| F003 | nog niet goed: de kop van een lege opdracht toont nog vier keer € 0 en "Geen ruimte" |
+| H006 | nog niet goed: in het formulier "Nieuwe inzet" geen waarschuwing gezien bij 100 procent erbij voor iemand die al vol zit; pas na het bewaren staat er "Boven 100%" (gezocht op een paar formuleringen, dus niet helemaal zeker) |
+| R403 | nog niet goed: ook als beheerder geen actie gevonden om een afgesloten, aangeleverde maand te heropenen |
+| R410 | deels: de teruglink naar Beheer staat er; het voorbeeldkenmerk niet gelezen |
+| G002, G005, G006, G008, G009, G010, G011, G012, G013, G014, G015, T202, H001, H002, H003, H007, H008, H009, H010, H011, H012, F041, R402, R404, R411 | niet nagelopen |
+
+---
+
+# Stand na ronde vier (commit cf6997e)
+
 Bijgewerkt op 9 oktober 2026 na ronde vier, op commit `cf6997e` van de werkbranch. Vier rondes door een eigen kopie met een echte browser, als de voorbeeldpersonen; deze ronde vindt en beschrijft en wijzigt geen code.
 
 ## Waar het product staat
