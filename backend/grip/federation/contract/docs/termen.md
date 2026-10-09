@@ -69,6 +69,7 @@ De vertaling is omkeerbaar: elke term heeft precies een codenaam en andersom. Bi
 | `kenmerk` | `reference` |
 | `kop` | `heading` |
 | `kostendekking` | `coverage` |
+| `kostenpost_uri` | `cost_item_uri` |
 | `maand` | `month` |
 | `maandtarief` | `monthly_rate` |
 | `maandtarieven_per_jaar` | `monthly_rates_per_year` |
@@ -133,6 +134,7 @@ De vertaling is omkeerbaar: elke term heeft precies een codenaam en andersom. Bi
 | `valuta` | `currency` |
 | `van` | `from` |
 | `verzonden_op` | `sent_at` |
+| `volgnummer` | `sequence` |
 | `volledig` | `complete` |
 | `voorwaarden` | `conditions` |
 | `vorm` | `form` |
@@ -153,8 +155,10 @@ Veld `soort` (code: `kind`):
 |---|---|
 | `extern` | `external` |
 | `intern` | `internal` |
+| `ontvangen` | `actual` |
 | `personeel` | `personnel` |
 | `vast` | `fixed` |
+| `verwacht` | `estimate` |
 
 Veld `status` (code: `status`):
 
@@ -219,7 +223,10 @@ Veld `plek` (code: `place`):
 | `doorgifte-opdrachten` | `handover-assignments` |
 | `eindrapport` | `final-report` |
 | `factuurgegevens` | `billing-data` |
+| `factuurregel` | `invoice-line` |
+| `factuurregels` | `cost-item-lines` |
 | `keten` | `chain` |
+| `kostenpost` | `cost-item` |
 | `node-pagina` | `node-page` |
 | `offerte` | `quote` |
 | `ontvangstbevestiging` | `receipt` |
@@ -262,6 +269,7 @@ Veld `plek` (code: `place`):
 | Contract | Code |
 |---|---|
 | `jaar` | `year` |
+| `kostenpostId` | `costItemId` |
 | `maand` | `month` |
 | `maxDiepte` | `maxDepth` |
 | `offerteId` | `quoteId` |

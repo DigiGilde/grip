@@ -92,6 +92,10 @@
     "kid": "kv:kid",
     "kop": "kv:kop",
     "kostendekking": "kv:kostendekking",
+    "kostenpost_uri": {
+      "@id": "kv:kostenpost_uri",
+      "@type": "@id"
+    },
     "kty": "kv:kty",
     "label_nl": "kv:label_nl",
     "maand": "kv:maand",
@@ -193,6 +197,7 @@
       "@type": "@id"
     },
     "verzonden_op": "kv:verzonden_op",
+    "volgnummer": "kv:volgnummer",
     "volledig": "kv:volledig",
     "voorwaarden": "kv:voorwaarden",
     "vorm": "kv:vorm",

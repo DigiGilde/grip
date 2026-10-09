@@ -39,8 +39,8 @@ per dienst een gebundeld `openapi.json`. Dat laatste is de vorm die een implemen
 - **Namen.** De interface is Nederlands, zoals de NL GOV API Design Rules vragen: paden,
   schemanamen, velden en de waarden van codelijsten (statussen, vormen, soorten) volgen de
   begrippen van het domein: opdracht, opdrachtaanvraag, offerte, akkoord, afwijzing, voortgang,
-  uitputting, factuurgegevens, eindrapport, vacature, aanbod, doorgifte, begrotingsregel,
-  bemensing, capaciteit, corpus, woordenlijst, nodes, keten.
+  uitputting, factuurgegevens, eindrapport, vacature, aanbod, kostenpost, factuurregel,
+  doorgifte, begrotingsregel, bemensing, capaciteit, corpus, woordenlijst, nodes, keten.
 - **Wat niet vertaald is.** Termen uit standaarden en technische termen blijven zoals ze zijn:
   `id`, `uri`, `type`, `status` als veldnaam, `jws`, `kid`, `jwks`, `sha256`, de leden van een
   probleembericht (RFC 9457), de parameters voor paginering (`page`, `pageSize`), headernamen en

@@ -1,16 +1,16 @@
 openapi: 3.1.0
 info:
   title: grip-opdrachtverkeer
-  version: 1.0.0
-  summary: Het verkeer tussen grip-instanties over aanvragen, offertes, akkoord, inzage, vacatures en doorgifte.
+  version: 1.1.0
+  summary: Het verkeer tussen grip-instanties over aanvragen, offertes, akkoord, inzage, vacatures, kostenposten en doorgifte.
   description: |
     Elke grip-instantie biedt deze dienst aan achter de eigen FSC-inway, onder de dienstnaam
     `grip-opdrachtverkeer`. Een instantie kan opdrachtgever en opdrachtnemer zijn. Een opdracht is
     lokaal volledig; dit verkeer is een laag erbovenop.
 
-    **Identiteit.** Opdrachten, offertes en vacatures hebben een URI van de instantie die ze
-    aanmaakt, bijvoorbeeld `{basis}/id/opdracht/{uuid}`. De `{opdrachtId}`, `{offerteId}` en
-    `{vacatureId}` in de paden zijn de `{uuid}` uit die URI. Organisaties worden aangeduid met hun
+    **Identiteit.** Opdrachten, offertes, vacatures en kostenposten hebben een URI van de instantie
+    die ze aanmaakt, bijvoorbeeld `{basis}/id/opdracht/{uuid}`. De `{opdrachtId}`, `{offerteId}`,
+    `{vacatureId}` en `{kostenpostId}` in de paden zijn de `{uuid}` uit die URI. Organisaties worden aangeduid met hun
     TOOI-URI.
 
     **Aanroeper.** De aanroeper is een FSC-peer. De ontvanger leidt de relatie af uit het peer-id:
@@ -55,6 +55,8 @@ tags:
     description: Afsluiting van een opdracht.
   - name: Vacatures
     description: Open rollen uitzetten bij andere instanties.
+  - name: Kostenposten
+    description: Een uitgave die een andere organisatie doet en die de aanmelder in de eigen uitputting wil zien.
   - name: Doorgifte
     description: Wat een moederinstantie bij een onderdeel opvraagt.
   - name: Corpus
@@ -345,6 +347,58 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
+  /kostenposten:
+    post:
+      operationId: sendCostItem
+      tags: [Kostenposten]
+      summary: Kostenpost aanmelden
+      description: |
+        De aanmelder meldt een kostenpost aan bij de organisatie die de uitgave doet (de uitvoerder).
+        De uitvoerder legt een eigen kostenpost vast met de URI van de aanmelder als herkomst, en
+        neemt de verwachte regels over als zijn eerste verwachte factuurregels.
+
+        Een volgende aanmelding met dezelfde `kostenpost_uri` en een nieuw `id` werkt de omschrijving
+        bij; de factuurregels en de dekking bij de uitvoerder blijven staan.
+      x-grip-caller: peer
+      x-grip-data-class: [B]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "../../schemas/kostenpost.schema.json" }
+      responses:
+        "201": { $ref: "#/components/responses/Received" }
+        "200": { $ref: "#/components/responses/Duplicate" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /kostenposten/{kostenpostId}/factuurregels:
+    put:
+      operationId: sendCostItemLines
+      tags: [Kostenposten]
+      summary: Stand van de factuurregels sturen
+      description: |
+        De uitvoerder stuurt bij elke wijziging van de factuurregels van een aangemelde kostenpost de
+        volledige lijst terug. De aanroep gaat naar de instantie van de aanmelder. De aanmelder
+        vervangt al haar factuurregels op die kostenpost door deze lijst en beheert ze daarna niet
+        meer zelf. Een stand met een lager `volgnummer` dan de laatst verwerkte wordt ontvangen en
+        genegeerd.
+      x-grip-caller: peer
+      x-grip-data-class: [B]
+      parameters:
+        - { $ref: "#/components/parameters/kostenpostId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "../../schemas/factuurregels.schema.json" }
+      responses:
+        "201": { $ref: "#/components/responses/Received" }
+        "200": { $ref: "#/components/responses/Duplicate" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
   /doorgifte/opdrachten:
     get:
       operationId: getHandoverAssignments
@@ -488,6 +542,12 @@ components:
       in: path
       required: true
       description: De uuid uit de offerte-URI; gelijk aan het `id` van de offerte.
+      schema: { type: string, format: uuid }
+    kostenpostId:
+      name: kostenpostId
+      in: path
+      required: true
+      description: De uuid uit de kostenpost-URI van de aanmelder.
       schema: { type: string, format: uuid }
     maand:
       name: maand

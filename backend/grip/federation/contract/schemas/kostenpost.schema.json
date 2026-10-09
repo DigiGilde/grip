@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Aanmelding van een kostenpost",
+  "description": "Een organisatie meldt een kostenpost aan bij de organisatie die de uitgave doet (de uitvoerder). De uitvoerder legt de kostenpost vast en stuurt daarna de stand van de factuurregels terug.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Id van dit bericht. Bepaalt de idempotentie."
+    },
+    "kostenpost_uri": {
+      "type": "string",
+      "format": "uri",
+      "description": "URI van de kostenpost bij de aanmelder, `{basis}/id/kostenpost/{uuid}`. Identificeert de kostenpost over berichten heen: een tweede aanmelding met dezelfde URI werkt de kostenpost bij."
+    },
+    "organisatie": {
+      "$ref": "organisatie-ref.schema.json",
+      "description": "De organisatie die de kostenpost aanmeldt; de afzender."
+    },
+    "omschrijving": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Omschrijving van de kostenpost."
+    },
+    "begroot": {
+      "$ref": "bedrag.schema.json",
+      "description": "Het bedrag dat de aanmelder voor de kostenpost begroot."
+    },
+    "regels": {
+      "type": "array",
+      "description": "De factuurregels die de aanmelder verwacht. De uitvoerder neemt ze bij de eerste aanmelding over als verwachte regels; bij een volgende aanmelding laat hij zijn regels staan.",
+      "items": {
+        "allOf": [
+          {
+            "$ref": "factuurregel.schema.json"
+          },
+          {
+            "properties": {
+              "soort": {
+                "const": "verwacht"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "opdracht_uri": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uri",
+      "description": "URI van de opdracht waaronder de uitvoerder het werk doet, als die er is."
+    },
+    "verzonden_op": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Moment van verzenden. Met tijdzone (RFC 3339)."
+    }
+  },
+  "required": [
+    "id",
+    "kostenpost_uri",
+    "organisatie",
+    "omschrijving",
+    "begroot",
+    "regels",
+    "verzonden_op"
+  ]
+}

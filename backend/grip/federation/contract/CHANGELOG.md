@@ -5,7 +5,13 @@ Dit bestand volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/). De v
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-09
+
 ### Toegevoegd in grip-opdrachtverkeer
+
+- `POST /kostenposten` (`sendCostItem`): een organisatie meldt een kostenpost aan bij de organisatie die de uitgave doet, met omschrijving, begroot bedrag, de verwachte factuurregels en eventueel de opdracht waaronder het werk valt. Een kostenpost heeft een URI, `{basis}/id/kostenpost/{uuid}`.
+- `PUT /kostenposten/{kostenpostId}/factuurregels` (`sendCostItemLines`): de uitvoerder stuurt bij elke wijziging de volledige lijst factuurregels van de kostenpost terug, met een `volgnummer` dat per kostenpost oploopt. De aanmelder vervangt haar regels door de lijst en negeert een lager volgnummer.
+- Schema's `kostenpost`, `factuurregels` en `factuurregel`; de soort van een factuurregel is `ontvangen` of `verwacht`.
 
 - Offerte: `kenmerk`, `uw_kenmerk`, `afzender` en `brief` in de momentopname. De brief is de tekst bij de bedragen en hoort bij de inhoud waarover de hash wordt berekend.
 - Offerteregel: `schalen` bij een personeelsregel, `jaar` bij een vast bedrag, en `maandtarieven_per_periode` voor een tarief dat binnen een kalenderjaar wijzigt. `maandtarieven_per_jaar` geldt voor een tarief dat alleen op 1 januari wijzigt.
