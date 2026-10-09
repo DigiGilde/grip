@@ -264,7 +264,8 @@ describe('SigningPage', () => {
     expect(
       [...(openSheet()?.querySelectorAll('[value]') ?? [])].map((el) => el.getAttribute('value')),
     ).toContain('Het bedrag is te hoog');
-    expect(container.querySelector('[data-decision-error]')).toBeNull();
+    // The notice goes when the form opens; that render may land a tick later.
+    await waitFor(() => expect(container.querySelector('[data-decision-error]')).toBeNull());
     sessionStorage.clear();
   });
 
