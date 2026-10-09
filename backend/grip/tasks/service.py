@@ -29,6 +29,9 @@ from grip.tasks import catalogue, telling
 from grip.tasks.access import TaskAccess
 from grip.tasks.plan import Plan, current_plan, plan_for
 
+# The tasks that ask for an advice or the approval on a vacancy.
+_DECISION_TASKS = ("werving.advies_hr", "werving.advies_control", "werving.akkoord")
+
 SEPARATED = (
     "Deze stap is van wie erover beslist. Hij kan niet worden overgenomen of "
     "aan een ander gegeven."
@@ -264,6 +267,12 @@ async def _mine_condition(access: TaskAccess) -> Any:
             & (Task.assignee_role == "planner")
             & Task.assignment_id.in_(list(roles))
         )
+    if subject.functions:
+        # Advice or approval from someone without an account is recorded by
+        # whoever may record it; the telling decides whether that is her.
+        conditions.append(
+            (Task.case_kind == "vacancy") & Task.template_key.in_(_DECISION_TASKS)
+        )
     return or_(*conditions)
 
 
@@ -282,7 +291,7 @@ async def my_tasks(
     # The query finds by role; whose a task really is, the access model says
     # (not hers who asked for the approval she could otherwise give).
     views = await _views(db, access, tasks, today=today)
-    return [view for view in views if view.is_mine]
+    return [view for view in views if view.is_mine or view.needs_me]
 
 
 def counts_of(views: list[TaskView]) -> dict[str, int]:

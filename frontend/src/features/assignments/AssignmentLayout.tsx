@@ -57,9 +57,13 @@ function Figures({ assignment }: { assignment: AssignmentDetail }) {
   });
   const totals = query.data?.totals;
   if (!totals) return null;
-  // Nothing budgeted, nothing done: no row of zeros. The course says the
-  // budget is the next step.
-  if (!totals.budgeted_cents && !totals.realised_total_cents && nothingPlanned(totals)) return null;
+  // Nothing budgeted, nothing done, nothing planned: no row of zeros. The
+  // course says the budget is the next step.
+  // A new assignment has figures of zero, not absent ones: zero on all three
+  // is "nothing yet".
+  if (!totals.budgeted_cents && !totals.realised_total_cents && !totals.expected_total_cents) {
+    return null;
+  }
   const figures: KeyFigure[] = [
     { label: FIGURE_LABELS.budgeted, value: formatEuro(totals.budgeted_cents) },
     { label: FIGURE_LABELS.realised, value: formatEuro(totals.realised_total_cents) },

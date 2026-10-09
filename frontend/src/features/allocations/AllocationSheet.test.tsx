@@ -99,4 +99,62 @@ describe('AllocationSheet', () => {
     const remove = sheet.querySelector('nldd-menu-item[text="Verwijder de inzet"]');
     expect(remove).toHaveAttribute('destructive');
   });
+  it('asks about the load from a month on the board, before an end date is filled in', async () => {
+    const fetchMock = mockApi({
+      '/api/allocations/options': OPTIONS,
+      '/api/allocations/load-preview': {
+        person_name: 'Voorbeeld Een',
+        over_months: [{ month: '2026-10-01', current_pct: '80.0', new_pct: '180.0' }],
+      },
+    });
+    renderApp(
+      <AllocationSheet
+        open
+        session={1}
+        preset={{ personId: 'p1', lineId: 'l1', startDate: '2026-10-01' }}
+        onClose={() => undefined}
+      />,
+    );
+    const sheet = document.querySelector('nldd-sheet') as HTMLElement;
+    await waitFor(() => expect(options().length).toBe(3));
+    sheet
+      .querySelector('nldd-form-field[label="Inzet in procenten"] nldd-text-field')
+      ?.dispatchEvent(new CustomEvent('input', { detail: { value: '100' } }));
+    await waitFor(() =>
+      expect(
+        sheet.querySelector('nldd-banner[text^="Voorbeeld Een komt boven 100%"]'),
+      ).not.toBeNull(),
+    );
+    const asked = (fetchMock.mock.calls as unknown[][]).find((call) =>
+      String(call[0]).includes('load-preview'),
+    );
+    // Until the end of the line, as long as the form has no end date.
+    expect(JSON.parse(String((asked?.[1] as RequestInit).body))).toMatchObject({
+      person_id: 'p1',
+      budget_line_id: 'l1',
+      period_source: 'own',
+      start_date: '2026-10-01',
+      end_date: '2026-10-29',
+    });
+  });
+
+  it('says so when the check itself fails, instead of looking checked', async () => {
+    mockApi({ '/api/allocations/options': OPTIONS });
+    renderApp(
+      <AllocationSheet
+        open
+        session={1}
+        preset={{ personId: 'p1', lineId: 'l1', startDate: '2026-10-01' }}
+        onClose={() => undefined}
+      />,
+    );
+    const sheet = document.querySelector('nldd-sheet') as HTMLElement;
+    await waitFor(() => expect(options().length).toBe(3));
+    sheet
+      .querySelector('nldd-form-field[label="Inzet in procenten"] nldd-text-field')
+      ?.dispatchEvent(new CustomEvent('input', { detail: { value: '100' } }));
+    await waitFor(() =>
+      expect(sheet.querySelector('nldd-banner[text*="kon niet worden nagegaan"]')).not.toBeNull(),
+    );
+  });
 });

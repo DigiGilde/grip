@@ -225,6 +225,36 @@ describe('AssignmentLayout', () => {
     expect(allText(planner.container)).not.toContain('€');
   });
 
+  it('draws no row of zeros for an assignment with nothing budgeted, done or planned', async () => {
+    // What the server answers for an assignment that was just made: zeros, not absence.
+    const empty = {
+      ...FIGURES,
+      budgeted_cents: 0,
+      realised_cents: 0,
+      planned_cents: 0,
+      costs_realised_cents: 0,
+      costs_forecast_cents: 0,
+      costs_cents: 0,
+      expected_total_cents: 0,
+      variance_cents: 0,
+      variance_pct: '0',
+      realised_total_cents: 0,
+      realised_pct: '0',
+    };
+    const { container } = renderShell(
+      PERMISSIONS.owner,
+      '/opdrachten/a1',
+      {},
+      STAFFING,
+      finance({ totals: empty }),
+    );
+    await tabs(container);
+    await waitFor(() => expect(allText(container)).toContain('Overzicht'));
+    expect(container.querySelector('dl[aria-label^="Kerncijfers"]')).toBeNull();
+    expect(allText(container)).not.toContain('Geen ruimte');
+    expect(allText(container)).not.toContain('€ 0');
+  });
+
   it('asks for the whole period, and does not call a budget without inzet all room', async () => {
     // An assignment that lies entirely in a later year: budgeted, nothing planned yet.
     const later = {

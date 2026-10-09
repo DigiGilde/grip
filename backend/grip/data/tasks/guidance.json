@@ -248,9 +248,9 @@
           "action": "Leg het advies vast"
         },
         "named_outside": {
-          "title": "Leg het advies van HR vast",
+          "title": "Leg het advies van HR van {wie} vast",
           "do": "Het advies van HR komt van {wie}, die grip niet gebruikt. Leg het vast zodra je het hebt ontvangen.",
-          "wait": "Je wacht op het advies van HR van {wie}, die grip niet gebruikt. Vraag het zelf op; alleen een beheerder kan het daarna vastleggen.",
+          "wait": "Je wacht op het advies van HR van {wie}, die grip niet gebruikt. Vraag het zelf op; een beheerder legt het daarna vast.",
           "action": "Leg het advies vast"
         }
       }
@@ -277,9 +277,9 @@
           "action": "Leg het advies vast"
         },
         "named_outside": {
-          "title": "Leg het advies van concern control vast",
+          "title": "Leg het advies van concern control van {wie} vast",
           "do": "Het advies van concern control komt van {wie}, die grip niet gebruikt. Leg het vast zodra je het hebt ontvangen.",
-          "wait": "Je wacht op het advies van concern control van {wie}, die grip niet gebruikt. Vraag het zelf op; alleen een beheerder kan het daarna vastleggen.",
+          "wait": "Je wacht op het advies van concern control van {wie}, die grip niet gebruikt. Vraag het zelf op; een beheerder legt het daarna vast.",
           "action": "Leg het advies vast"
         }
       }
@@ -306,9 +306,9 @@
           "action": "Leg het akkoord vast"
         },
         "named_outside": {
-          "title": "Leg het akkoord vast",
+          "title": "Leg het akkoord van {wie} vast",
           "do": "Het akkoord komt van {wie}, die grip niet gebruikt. Leg het vast zodra je het hebt ontvangen.",
-          "wait": "Je wacht op het akkoord van {wie}, die grip niet gebruikt. Vraag het zelf op; alleen een beheerder kan het daarna vastleggen.",
+          "wait": "Je wacht op het akkoord van {wie}, die grip niet gebruikt. Vraag het zelf op; een beheerder legt het daarna vast.",
           "action": "Leg het akkoord vast"
         }
       }

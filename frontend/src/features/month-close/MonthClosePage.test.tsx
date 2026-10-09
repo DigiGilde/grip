@@ -446,6 +446,45 @@ describe('MonthClosePage', () => {
     );
   });
 
+  it('offers reopening each closed month from the menu of its period, for who may', async () => {
+    const closed = {
+      ...OPEN_MONTH,
+      month: '2026-02',
+      closed: true,
+      closable: false,
+      may_close: false,
+      may_reopen: true,
+    };
+    const { container } = renderTab(
+      { ...OVERVIEW, may_reopen: true, periods: [Q1] },
+      { '/api/assignments/a-1/months/2026-02': closed },
+    );
+    await waitFor(() =>
+      expect(
+        container.querySelector('nldd-menu-item[text="Heropen februari 2026"]'),
+      ).not.toBeNull(),
+    );
+    container
+      .querySelector('nldd-menu-item[text="Heropen februari 2026"]')
+      ?.dispatchEvent(new Event('select'));
+    // The sheet opens at the question itself, with the warning for a delivered month.
+    await waitFor(() =>
+      expect(
+        document.querySelector(
+          'nldd-banner[text="Deze maand is al aangeleverd aan de financiële administratie"]',
+        ),
+      ).not.toBeNull(),
+    );
+    expect(
+      document.querySelector('nldd-button[text="Heropen de maand"][type="submit"]'),
+    ).not.toBeNull();
+
+    vi.unstubAllGlobals();
+    const other = renderTab({ ...OVERVIEW, periods: [Q1] });
+    await waitFor(() => expect(other.container.querySelector('nldd-table-row')).not.toBeNull());
+    expect(other.container.querySelector('nldd-menu-item[text^="Heropen"]')).toBeNull();
+  });
+
   it('tells who closes months where the way back is', async () => {
     // The detail of a closed month says may_close false; the tab knows who closes.
     const closed = {

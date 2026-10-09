@@ -201,6 +201,7 @@ async def _overview_value(
         closing_started=allows_month_close(assignment.status),
         billable=state.billable,
         may_close=bool(await decide(decider, subject, Action.CLOSE_MONTH, resource)),
+        may_reopen=bool(await decide(decider, subject, Action.REOPEN_MONTH, resource)),
         may_deliver=may_edit,
         may_record_invoice=bool(
             await decide(decider, subject, Action.RECORD_INVOICE, resource)

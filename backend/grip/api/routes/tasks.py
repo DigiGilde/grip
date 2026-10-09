@@ -504,6 +504,11 @@ async def update_task(
             detail="Deze taak is niet van jou en je beheert de zaak niet",
         )
     fields = body.model_fields_set
+    if not fields:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Er is niets om te wijzigen.",
+        )
     if "assignee_person_id" in fields:
         await service.assign(db, task, body.assignee_person_id, actor=person)
     if "title" in fields or "due_on" in fields:

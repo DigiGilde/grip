@@ -11,7 +11,7 @@ from datetime import date, datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from grip.access import DataClass, in_class, nested
 
@@ -186,6 +186,10 @@ class TaskCreateIn(BaseModel):
 
 
 class TaskUpdateIn(BaseModel):
+    # An unknown field is refused: a change that is silently ignored would
+    # answer as if it had happened.
+    model_config = ConfigDict(extra="forbid")
+
     status: TaskStatus | None = None
     # Present and null hands the task back to the role of the plan.
     assignee_person_id: UUID | None = None

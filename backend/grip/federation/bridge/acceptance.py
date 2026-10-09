@@ -20,7 +20,7 @@ from grip.core.config import get_settings
 from grip.federation import signing, terms
 from grip.federation.bridge.organisations import own_reference
 from grip.models.person import Person
-from grip.models.quote import QuoteAcceptance, QuoteRejection
+from grip.models.quote import Quote, QuoteAcceptance, QuoteRejection
 from grip.services import quotes
 from grip.services.errors import DomainValidationError
 
@@ -33,6 +33,32 @@ def signer_of(person: Person, function: str | None = None) -> dict[str, Any]:
     if function:
         signer["function"] = function
     return signer
+
+
+def check_received_decision(
+    quote: Quote, *, actor: Person, accept: bool, quote_hash: str | None = None
+) -> None:
+    """Whether this person can decide on the received quote now, or why not.
+
+    Asked before the decision and before a proof step for it is started.
+    """
+    if quote.status != "issued":
+        raise DomainValidationError(
+            "Over deze offerte is al beslist, of zij is vervangen door een "
+            "nieuwe. Open de offerte opnieuw."
+        )
+    if quote_hash is not None and quote_hash != quote.snapshot_hash:
+        raise DomainValidationError(
+            "Dit gaat over een andere versie van de offerte dan er nu ligt. "
+            "Open de offerte opnieuw."
+        )
+    # The client's yes is someone else's than the maker's: where both sides
+    # live in one instance, who made the quote does not accept it.
+    if accept and quote.issued_by_id is not None and quote.issued_by_id == actor.id:
+        raise DomainValidationError(
+            "Je kunt een offerte die je zelf maakte niet namens de opdrachtgever "
+            "aanvaarden. Iemand anders met tekenbevoegdheid beslist."
+        )
 
 
 async def accept_received_quote(
@@ -52,13 +78,7 @@ async def accept_received_quote(
     """
     settings = get_settings()
     quote = await quotes.get_quote(db, quote_id)
-    # The client's yes is someone else's than the maker's: where both sides
-    # live in one instance, who made the quote does not accept it.
-    if quote.issued_by_id is not None and quote.issued_by_id == actor.id:
-        raise DomainValidationError(
-            "Je kunt een offerte die je zelf maakte niet namens de opdrachtgever "
-            "aanvaarden. Iemand anders met tekenbevoegdheid beslist."
-        )
+    check_received_decision(quote, actor=actor, accept=True)
     acceptance_id = uuid.uuid4()
     # With a statement of the decision (grip.proof), the time is the one in
     # the statement, so the signed message and the statement agree.

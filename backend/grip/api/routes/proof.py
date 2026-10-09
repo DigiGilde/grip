@@ -51,6 +51,7 @@ from grip.core.auth import (
 from grip.core.config import Settings, get_settings
 from grip.core.database import get_db
 from grip.federation import signing
+from grip.federation.bridge.acceptance import check_received_decision
 from grip.federation.bridge.organisations import own_reference
 from grip.models.assignment import Assignment
 from grip.models.decision_proof import DecisionEvidence, SigningIntent
@@ -61,7 +62,7 @@ from grip.proof.bundle import BUNDLE_MEDIA_TYPE, render_page
 from grip.proof.decisions import execute
 from grip.proof.statement import parse_statement
 from grip.proof.verify import verify_bundle
-from grip.services import passkeys, quote_views
+from grip.services import passkeys, quote_approval, quote_views
 from grip.services.errors import DomainError, DomainValidationError, NotFoundError
 
 logger = logging.getLogger(__name__)
@@ -252,6 +253,20 @@ async def create_decision_intent(
     if quote is None:
         raise NotFoundError("Offerte", body.quote_id)
     await _authorise_person(db, decider, subject, quote, channel)
+    # What the decision itself would refuse is refused here, with the same
+    # sentence: nobody is sent through a login for nothing.
+    if channel == "internal":
+        await quote_approval.check_decision(
+            db,
+            quote.id,
+            approve=action == "approve",
+            actor=person,
+            quote_hash=body.quote_hash,
+        )
+    else:
+        check_received_decision(
+            quote, actor=person, accept=action == "accept", quote_hash=body.quote_hash
+        )
     if action == "send_back" and not (body.note or "").strip():
         raise DomainValidationError(
             "Geef bij terugsturen aan wat er anders moet, zodat de maker verder kan."

@@ -155,6 +155,8 @@ interface PeriodRowsProps {
   expanded: boolean;
   onToggle: () => void;
   onMonth: (month: string) => void;
+  /** Open a closed month at the question whether to reopen it. */
+  onReopen: (month: string) => void;
   onDeliver: () => void;
   onInvoice: () => void;
 }
@@ -172,6 +174,7 @@ function PeriodRows({
   expanded,
   onToggle,
   onMonth,
+  onReopen,
   onDeliver,
   onInvoice,
 }: PeriodRowsProps) {
@@ -197,6 +200,15 @@ function PeriodRows({
   }
   if (delivery?.has_document) {
     actions.push({ text: 'Download als bestand (csv)', href: deliveryCsvUrl(delivery.id) });
+  }
+  // A closed month can be reopened, also after delivery, by who may: found
+  // here and in the month's own sheet, which says what it does.
+  if (overview.may_reopen) {
+    for (const month of period.months) {
+      if (month.state === 'closed') {
+        actions.push({ text: `Heropen ${month.label}`, onSelect: () => onReopen(month.month) });
+      }
+    }
   }
   const amount = periodAmount(period);
   const done = period.state === 'invoiced';
@@ -295,6 +307,8 @@ export function MonthClosePage() {
 
   const [toggled, setToggled] = useState<Record<string, boolean>>({});
   const [delivering, setDelivering] = useState<string | null>(null);
+  // The month's sheet was asked for through "Heropen" in a period's menu.
+  const [reopening, setReopening] = useState(false);
   const [invoicing, setInvoicing] = useState<string | null>(null);
   const [terms, setTerms] = useState(false);
   const [correcting, setCorrecting] = useState<string[] | null>(null);
@@ -390,7 +404,14 @@ export function MonthClosePage() {
                         onToggle={() =>
                           setToggled((now) => ({ ...now, [period.key]: !isExpanded(period.key) }))
                         }
-                        onMonth={(wanted) => setParam(MONTH_PARAM, wanted)}
+                        onMonth={(wanted) => {
+                          setReopening(false);
+                          setParam(MONTH_PARAM, wanted);
+                        }}
+                        onReopen={(wanted) => {
+                          setReopening(true);
+                          setParam(MONTH_PARAM, wanted);
+                        }}
                         onDeliver={() => setDelivering(period.key)}
                         onInvoice={() => setInvoicing(period.key)}
                       />
@@ -441,6 +462,7 @@ export function MonthClosePage() {
         assignmentId={assignmentId}
         month={started ? month : null}
         closes={data?.may_close ?? false}
+        reopen={reopening}
         delivered={
           data?.periods.some((period) =>
             period.months.some(

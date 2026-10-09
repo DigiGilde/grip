@@ -200,6 +200,8 @@ interface MonthSheetProps {
   delivered?: boolean;
   /** The reader closes the months of this assignment. */
   closes?: boolean;
+  /** Opened to reopen the month: the sheet starts at that question. */
+  reopen?: boolean;
   onClose: () => void;
 }
 
@@ -208,11 +210,18 @@ interface MonthSheetProps {
  * what was worked? A closed month shows what was settled, and lets who may
  * reopen it.
  */
-export function MonthSheet({ assignmentId, month, delivered, closes, onClose }: MonthSheetProps) {
+export function MonthSheet({
+  assignmentId,
+  month,
+  delivered,
+  closes,
+  reopen = false,
+  onClose,
+}: MonthSheetProps) {
   const queryClient = useQueryClient();
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
-  const [reopening, setReopening] = useState(false);
+  const [reopening, setReopening] = useState(reopen);
   const [reason, setReason] = useState('');
   // The sheet stays in the page while closed; it remembers its last month so
   // it does not empty while it slides away.
@@ -221,7 +230,7 @@ export function MonthSheet({ assignmentId, month, delivered, closes, onClose }: 
     setLast(month);
     setEdits({});
     setError(null);
-    setReopening(false);
+    setReopening(reopen);
     setReason('');
   }
   const shown = month ?? last;

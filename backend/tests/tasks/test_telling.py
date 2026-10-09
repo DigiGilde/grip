@@ -225,7 +225,7 @@ async def test_advice_from_someone_without_an_account_waits_on_a_beheerder(
     requester = by_headline(await mine(as_person(world.requester)))
     task = requester["Het advies van concern control"]
     assert task.get("needs_me", False) is False
-    assert "alleen een beheerder" in task["instruction"]
+    assert "een beheerder legt het daarna vast" in task["instruction"]
     assert task.get("action_text") is None
 
 
@@ -288,6 +288,23 @@ async def test_a_name_is_only_told_to_who_runs_the_case(as_person, world, build)
     # The beheerder runs every vacancy, so the name is there for them.
     control = next(task for task in told if "concern control" in task["headline"])
     assert "Iemand zonder account" in control["instruction"]
+    # The adviser has no account: who may record the advice is at move, with
+    # the name in the task, the button, and the task in her own list.
+    assert control["headline"] == (
+        "Leg het advies van concern control van Iemand zonder account vast"
+    )
+    assert control["needs_me"] is True
+    assert control["action_text"] == "Leg het advies vast"
+    assert control["work_href"].endswith("/advies?besluit=control_advice")
+    own = by_headline(await mine(as_person(world.beheerder)))
+    assert control["headline"] in own
+    course = (
+        await as_person(world.beheerder).get(
+            f"/api/tasks/cases/vacancy/{world.vacancy.id}/course"
+        )
+    ).json()["course"]
+    assert course["next"]["mine"] is True
+    assert "Je wacht" not in course["next"]["sentence"]
 
 
 async def test_what_a_person_must_do_now_can_be_read_for_a_notification(

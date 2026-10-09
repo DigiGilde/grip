@@ -369,6 +369,32 @@ async def test_who_may_read_and_who_may_deliver(act_as, world):
     assert (await outsider.get(f"{_base(world)}/billing")).status_code == 404
 
 
+async def test_only_the_beheerder_reopens_a_month_also_after_delivery(act_as, world):
+    """The tab says who may reopen, and the server holds to it: the manager
+    closes and delivers but does not reopen; the beheerder does, also a month
+    that was delivered, and the month is then delivered again once."""
+    manager = act_as(world.manager)
+    await _terms(manager, world, details=DETAILS)
+    await _close(manager, world, "2026-01", "2026-02", "2026-03")
+    assert (await _deliver(manager, world, "2026-Q1")).status_code == 201
+    assert (await _overview(manager, world))["may_reopen"] is False
+    reopen = f"{_base(world)}/months/2026-02/reopen"
+    reason = {"reason": "De inzet van februari klopte niet"}
+    assert (await act_as(world.manager).post(reopen, json=reason)).status_code == 403
+
+    beheerder = act_as(world.beheerder)
+    assert (await _overview(beheerder, world))["may_reopen"] is True
+    assert (await beheerder.post(reopen, json=reason)).status_code == 200
+
+    manager = act_as(world.manager)
+    await _close(manager, world, "2026-02")
+    assert (await _deliver(manager, world, "2026-Q1")).status_code == 201
+    quarter = _period(await _overview(manager, world), "2026-Q1")
+    # Delivered counts each month once, whatever was sent out before.
+    assert quarter["delivered_cents"] == 3 * MONTH_CENTS
+    assert len(quarter["deliveries"]) == 2
+
+
 async def test_the_rhythm_is_fixed_once_a_period_was_delivered(act_as, world):
     client = act_as(world.manager)
     await _terms(client, world, details=DETAILS)

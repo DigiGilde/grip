@@ -348,27 +348,20 @@ async def request_approval(
     return approval
 
 
-async def decide(
+async def check_decision(
     db: AsyncSession,
     quote_id: UUID,
     *,
     approve: bool,
     actor: Person,
     quote_hash: str,
-    note: str | None = None,
-    evidence_id: UUID | None = None,
-    statement_hash: str | None = None,
-    decided_at: datetime | None = None,
-) -> QuoteApproval:
-    """Approve the quote, or send it back to the maker.
+) -> tuple[Quote, QuoteApproval, bool]:
+    """Whether this person can decide on this request now, or why not.
 
-    ``evidence_id`` and ``statement_hash`` name the statement this decision
-    was made from (see ``grip.proof``), and ``decided_at`` is the time in
-    it. The hash goes into the audit row and the event.
-
-    ``quote_hash`` is the hash the approver saw: the decision is about those
-    bytes and no others. Whether ``actor`` holds the right to decide is for
-    the caller to ask the access model. The four-eyes rule is checked here.
+    Asked before the decision is made and also before a proof step for it is
+    started, so nobody is sent through a login for a decision that will be
+    refused. Returns the quote, the open request and whether the instance
+    lets the actor approve her own.
     """
     quote = await _quote(db, quote_id)
     state = await state_of(db, quote)
@@ -400,6 +393,34 @@ async def decide(
                 "Iemand anders met dit recht beslist."
             )
         self_approved = True
+    return quote, approval, self_approved
+
+
+async def decide(
+    db: AsyncSession,
+    quote_id: UUID,
+    *,
+    approve: bool,
+    actor: Person,
+    quote_hash: str,
+    note: str | None = None,
+    evidence_id: UUID | None = None,
+    statement_hash: str | None = None,
+    decided_at: datetime | None = None,
+) -> QuoteApproval:
+    """Approve the quote, or send it back to the maker.
+
+    ``evidence_id`` and ``statement_hash`` name the statement this decision
+    was made from (see ``grip.proof``), and ``decided_at`` is the time in
+    it. The hash goes into the audit row and the event.
+
+    ``quote_hash`` is the hash the approver saw: the decision is about those
+    bytes and no others. Whether ``actor`` holds the right to decide is for
+    the caller to ask the access model. The four-eyes rule is checked here.
+    """
+    quote, approval, self_approved = await check_decision(
+        db, quote_id, approve=approve, actor=actor, quote_hash=quote_hash
+    )
     note = (note or "").strip() or None
     if not approve and note is None:
         raise DomainValidationError(

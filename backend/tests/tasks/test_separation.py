@@ -259,3 +259,82 @@ async def test_the_owner_does_not_wait_for_a_planner_to_staff_her_own_assignment
         "course"
     ]
     assert found["next"]["mine"] is False
+
+
+async def test_a_refused_hand_over_answers_with_the_refusal(
+    as_person, build, people, db_session
+):
+    """Never a success that changed nothing."""
+    assignment, _ = await _approval_asked(build, people, db_session)
+    task = await _judging_task(as_person(people.approver))
+    owner = as_person(people.owner)
+
+    handed = await owner.patch(
+        f"/api/tasks/{task['id']}", json={"assignee_person_id": str(people.owner.id)}
+    )
+    assert handed.status_code == 422, handed.text
+    assert "kan niet worden overgenomen" in handed.json()["detail"]
+    # A field the server does not know is refused, not ignored.
+    unknown = await owner.patch(
+        f"/api/tasks/{task['id']}", json={"assignee_id": str(people.owner.id)}
+    )
+    assert unknown.status_code == 422, unknown.text
+    nothing = await owner.patch(f"/api/tasks/{task['id']}", json={})
+    assert nothing.status_code == 422, nothing.text
+    assert (await _judging_task(as_person(people.approver)))["needs_me"] is True
+
+
+async def test_a_proof_step_for_a_decision_that_will_be_refused_is_not_started(
+    as_person, build, people, db_session
+):
+    """Refused where it is asked for, with the sentence of the decision
+    itself: nobody is sent through a login for nothing."""
+    _, quote = await _approval_asked(build, people, db_session)
+    # Made by the one who holds the right.
+    quote.issued_by_id = people.approver.id
+    await db_session.flush()
+    approver = as_person(people.approver)
+
+    own = await approver.post(
+        "/api/proof/intents",
+        json={
+            "kind": "approve",
+            "quote_id": str(quote.id),
+            "quote_hash": quote.snapshot_hash,
+        },
+    )
+    assert own.status_code == 422, own.text
+    assert "zelf maakte" in own.json()["detail"]
+
+    # Sending back her own quote stays possible to ask for; another version
+    # of the quote than the one that lies there is refused at once.
+    stale = await approver.post(
+        "/api/proof/intents",
+        json={
+            "kind": "send_back",
+            "quote_id": str(quote.id),
+            "quote_hash": "0" * 64,
+            "note": "Het tarief klopt niet.",
+        },
+    )
+    assert stale.status_code == 422, stale.text
+    assert "andere versie" in stale.json()["detail"]
+
+
+def test_a_received_quote_that_changed_or_was_decided_is_refused_before_proof():
+    from types import SimpleNamespace
+
+    from grip.federation.bridge.acceptance import check_received_decision
+
+    actor = SimpleNamespace(id=1)
+    decided = SimpleNamespace(status="accepted", snapshot_hash="a", issued_by_id=None)
+    with pytest.raises(DomainValidationError, match="al beslist"):
+        check_received_decision(decided, actor=actor, accept=True, quote_hash="a")
+    changed = SimpleNamespace(status="issued", snapshot_hash="b", issued_by_id=None)
+    with pytest.raises(DomainValidationError, match="andere versie"):
+        check_received_decision(changed, actor=actor, accept=False, quote_hash="a")
+    own = SimpleNamespace(status="issued", snapshot_hash="a", issued_by_id=1)
+    with pytest.raises(DomainValidationError, match="zelf maakte"):
+        check_received_decision(own, actor=actor, accept=True, quote_hash="a")
+    # Rejecting her own quote as the client is no approval of it.
+    check_received_decision(own, actor=actor, accept=False, quote_hash="a")

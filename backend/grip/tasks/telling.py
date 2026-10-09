@@ -676,7 +676,9 @@ async def _tell_one(access: TaskAccess, view: TaskView, context: _Context) -> Te
             values["wie"] = role_words
         elif not has_account:
             situation = "named_outside"
-            can_act = mine and may_record
+            # The adviser has no account: whoever may record the advice is
+            # the one at move, whoever the task was first given to.
+            can_act = may_record
             values["wie"] = name if may_name else role_words
         elif not mine:
             values["wie"] = name if may_name else role_words

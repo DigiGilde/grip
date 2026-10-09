@@ -205,6 +205,20 @@ class EventAccess:
         resource = await self.resource_of(event)
         return await self.may(resource, class_from(event.existence_class))
 
+    async def may_see_case(self, event: StreamEvent) -> bool:
+        """Whether the reader may know which assignment the event belongs to.
+
+        An event about the reader themselves is theirs to know, also when it
+        happened on an assignment they cannot open; which one it was is then
+        left out, so the history never points at what stays closed to them.
+        """
+        if event.case_kind != CASE_ASSIGNMENT or event.case_id is None:
+            return True
+        resource = Resource(
+            ResourceKind.ASSIGNMENT, id=event.case_id, assignment_id=event.case_id
+        )
+        return await self.may(resource, DataClass.ASSIGNMENT_BASIC)
+
     async def may_see_person(self, event: StreamEvent) -> bool:
         """Whether the reader may know whose data the event is about."""
         if event.person_id is None:
@@ -342,6 +356,7 @@ async def read(
     assignment_names = await _assignment_names(db, assignment_ids)
     page = Page(next_before=None if exhausted else cursor)
     for event, changes, details, sees_person in shown:
+        sees_case = await access.may_see_case(event)
         page.events.append(
             EventView(
                 seq=event.seq,
@@ -355,8 +370,8 @@ async def read(
                 and not sees_person
                 and event.subject_id == str(event.person_id)
                 else event.subject_id,
-                case_kind=event.case_kind,
-                case_id=event.case_id,
+                case_kind=event.case_kind if sees_case else None,
+                case_id=event.case_id if sees_case else None,
                 actor_kind=event.actor_kind,
                 actor_person_id=event.actor_person_id,
                 actor_name=names.get(event.actor_person_id)

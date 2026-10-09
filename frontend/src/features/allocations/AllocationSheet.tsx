@@ -128,27 +128,37 @@ export function AllocationSheet({
   // filled in: planning above 100 percent is allowed, but never unseen.
   const wantedPct = parseDecimal(form.pct);
   const pctValid = wantedPct !== null && Number(wantedPct) > 0 && Number(wantedPct) <= 100;
+  // A period of its own that has a begin and no end yet (a new inzet from a
+  // month on the board) is asked about until the end of the line: the
+  // warning does not wait for the last field.
+  const askedEnd = form.endDate || lineEnd || '';
+  const askedPeriod = form.ownPeriod
+    ? { period_source: 'own' as const, start_date: form.startDate, end_date: askedEnd }
+    : { period_source: 'line' as const };
   const loadInput = {
     ...(allocation
       ? { allocation_id: allocation.id }
       : { budget_line_id: form.lineId, person_id: form.personId }),
-    ...period,
+    ...askedPeriod,
     fte_pct: wantedPct ?? '',
   };
+  const canAsk =
+    open &&
+    pctValid &&
+    (Boolean(allocation) || (form.personId !== '' && form.lineId !== '')) &&
+    (!form.ownPeriod || (form.startDate !== '' && askedEnd !== '' && askedEnd >= form.startDate));
   const load = useQuery({
     // A key of its own: refreshing the inzet after a save or a removal must
     // not ask again about an inzet that is gone.
     queryKey: ['allocation-load', loadInput],
     queryFn: () => previewAllocationLoad(loadInput),
-    enabled:
-      open &&
-      pctValid &&
-      (Boolean(allocation) || (form.personId !== '' && form.lineId !== '')) &&
-      (!form.ownPeriod || (form.startDate !== '' && form.endDate !== '')),
+    enabled: canAsk,
     retry: false,
     placeholderData: keepPreviousData,
   });
-  const overLoad = pctValid ? overLoadText(load.data) : null;
+  const overLoad = canAsk ? overLoadText(load.data) : null;
+  // The check itself can fail; saving without it must not look checked.
+  const loadUnknown = canAsk && load.isError;
 
   const remove = useMutation({
     mutationFn: () => deleteAllocation((allocation as Allocation).id),
@@ -270,6 +280,14 @@ export function AllocationSheet({
           size="sm"
           text={overLoad}
           supporting-text="Dat mag, als je het zo bedoelt. De knop zegt wat je bewaart."
+        />
+      )}
+      {loadUnknown && (
+        <nldd-banner
+          variant="warning"
+          size="sm"
+          text="Of deze persoon hiermee boven 100% komt, kon niet worden nagegaan"
+          supporting-text="Kijk na het bewaren op het bord bij de persoon."
         />
       )}
       {allocation && (

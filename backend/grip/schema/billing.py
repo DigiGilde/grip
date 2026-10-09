@@ -286,6 +286,8 @@ class BillingOverviewOut(BaseModel):
     # Whether billing data may be produced (from formal acceptance on).
     billable: Annotated[bool, A] = False
     may_close: Annotated[bool, A] = False
+    # Reopening a closed month, also after it was delivered: the beheerder.
+    may_reopen: Annotated[bool, A] = False
     may_deliver: Annotated[bool, A] = False
     may_record_invoice: Annotated[bool, A] = False
     may_edit_terms: Annotated[bool, A] = False

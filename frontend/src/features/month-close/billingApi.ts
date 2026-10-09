@@ -133,6 +133,8 @@ export interface BillingOverview {
   closing_started: boolean;
   billable: boolean;
   may_close: boolean;
+  /** Reopening a closed month, also after delivery: the beheerder. */
+  may_reopen?: boolean;
   may_deliver: boolean;
   may_record_invoice: boolean;
   may_edit_terms: boolean;
