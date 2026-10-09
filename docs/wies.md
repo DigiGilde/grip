@@ -158,7 +158,6 @@ De termijn van vier weken is een instelling. Laat de privacyfunctionaris die bev
 
 ## Wat nog ontbreekt
 
-- De schermen voor de aanname en de verwijzing naar het wervingssysteem op een vacature. De routes werken.
 - Een koppeling met het wervingssysteem. De aanname wordt met de hand vastgelegd.
 - Een vast ritme voor het opruimen na een aanname die niet doorging.
 - Vaardigheden en labels uit Wies worden gelezen en getoond bij een voorstel, maar niet opgeslagen in grip.
