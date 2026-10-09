@@ -36,6 +36,9 @@ Een besluit dat anderen bindt staat hier als ADR: genummerd, met context, beslui
 | [0030](0030-het-bestand-van-een-offerte-ligt-vast.md) | Het bestand van een offerte ligt vast | aanvaard |
 | [0031](0031-tekenlink-per-mail.md) | De tekenlink gaat per mail, via een wachtrij | aanvaard |
 | [0032](0032-een-offerte-is-een-brief-met-tekst.md) | Een offerte is een brief met tekst | aanvaard |
+| [0033](0033-hoofdnavigatie-volgt-het-werk-en-de-lezer.md) | De hoofdnavigatie volgt het werk en de lezer | aanvaard |
+| [0034](0034-vacatureteksten-uit-een-bibliotheek-en-als-werk.md) | Vacatureteksten komen uit een bibliotheek en zijn werk met een verloop | aanvaard |
+| [0035](0035-lokaal-een-ontwikkelmodel-in-plaats-van-vlam.md) | Lokaal kan een ontwikkelmodel de plaats van VLAM innemen | aanvaard |
 | [0036](0036-een-productmerk-naast-de-organisatie.md) | Een productmerk naast de organisatie | aanvaard |
 | [0037](0037-passkeys-en-een-installeerbare-applicatie.md) | Passkeys, en grip als installeerbare applicatie | aanvaard |
 | [0038](0038-een-taak-vertelt-wat-de-lezer-moet-doen.md) | Een taak vertelt wat de lezer moet doen | aanvaard |
@@ -48,3 +51,31 @@ Een besluit dat anderen bindt staat hier als ADR: genummerd, met context, beslui
 | [0045](0045-een-afgewezen-offerte-sluit-de-opdracht-niet.md) | Een afgewezen offerte sluit de opdracht niet | aanvaard |
 | [0046](0046-een-klok-de-dag-van-de-instantie.md) | Eén klok: een datum is de dag van de instantie | aanvaard |
 | [0047](0047-een-naverrekening-is-een-opgeslagen-verschil-per-factuurperiode.md) | Een naverrekening is een opgeslagen verschil per factuurperiode | aanvaard |
+| [0048](0048-een-stap-overnemen-geeft-geen-recht.md) | Een stap overnemen geeft geen recht, en wie anders moet beslissen blijft dat doen | aanvaard |
+
+## Welke besluiten later zijn bijgesteld
+
+Een besluit wordt niet herschreven. Is het later bijgesteld, dan staat onderaan het oude besluit een gedateerde alinea "Later gewijzigd" die naar het nieuwe verwijst.
+
+| Besluit | Bijgesteld door | Wat veranderde |
+|---|---|---|
+| 0009 Relaties en gegevensklassen | praktijk, zie `docs/toegang.md` | Smallere weergaven, en een eigen klasse voor de bedragen van een tarievenkaart |
+| 0010 Tekenen in drie vormen | 0029, 0037, 0048 | Bewijs van een besluit, bevestigen met een passkey, de maker tekent niet zelf |
+| 0011 Maandafsluiting | 0039, 0047 | Aanleveren per factuurperiode; een naverrekening is een opgeslagen verschil |
+| 0012 Factuurgegevens | 0039 | Een factuurverzoek per periode als bewaard document |
+| 0013 Wies zonder FSC | 0022 | Een nieuwe collega is eerst in grip bekend |
+| 0015 De outbox als naad | 0028 | Gebeurtenissen worden eerst in een stroom vastgelegd |
+| 0018 Vacatureformulier en tekst | aanvulling in 0018, 0034, 0035 | Het formulier wordt bewaard; teksten uit een bibliotheek; lokaal een ontwikkelmodel |
+| 0020 Een hash per offerte | 0030 | Ook het bestand ligt vast, met een eigen kenmerk |
+| 0023 Aangeleverd is niet gefactureerd | 0039 | Aangeleverd heeft een ontvanger en een moment |
+| 0024 Taken, feiten en het plan | 0038, 0044 | Een plan kan een eerdere versie opvolgen; een verloop per zaak uit dezelfde feiten |
+| 0025 Interne goedkeuring | 0048 | Ook de maker keurt niet goed |
+| 0026 Kenmerk en pdf | 0030, 0032 | Het bestand ligt vast; de offerte is een brief; geen losse webweergave |
+| 0027 Tarievenkaart per periode | geen | Vervangt het uitgangspunt van een kaart per kalenderjaar |
+| 0028 Stroom van gebeurtenissen | 0043 | Inzage per verzoek; een selectie als nieuws |
+| 0029 Bewijs van een akkoord | 0030, 0037 | Het bestand in de bundel; een passkey als extra bevestiging |
+| 0033 Hoofdnavigatie | 0042 | Zeven plekken en een tweede balk |
+| 0036 Productmerk | open | De keuze voor het merk is voorlopig |
+| 0038 Een taak vertelt | 0039, 0044, 0047 | Taken per factuurperiode; verloop uit dezelfde bron; een taak voor de naverrekening |
+| 0039 Afsluiten en aanleveren | 0047 | De naverrekening als opgeslagen verschil |
+| 0044 Een verloop per zaak | 0045, 0048 | Een afwijzing is een stap terug; overnemen geeft geen recht |

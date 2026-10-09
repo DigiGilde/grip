@@ -19,6 +19,7 @@ Toekennen en intrekken zijn elk een eigen handeling, nooit het gevolg van het aa
 | Lezer | Opdrachten en totalen inzien |
 | Aanvrager | Aanvragen doen als opdrachtgever |
 | Tekenbevoegde | Offertes accepteren namens de eenheid |
+| Interne goedkeurder van offertes | Een gemaakte offerte goedkeuren of terugsturen voordat ze wordt aangeboden. Alleen van belang als de instantie interne goedkeuring heeft aangezet |
 
 ### Relatie tot een object
 
@@ -48,6 +49,8 @@ Elk veld hoort bij precies een klasse.
 | F Persoon-KPI | Declarabiliteitstarget en realisatie |
 
 De salarisschaal wordt niet opgeslagen. De berekeningen hebben alleen de inzetschaal nodig.
+
+Naast de zes klassen kent de code smallere weergaven, die uit een bredere klasse volgen en nooit meer geven dan die klasse: de teamlijst zonder percentages (wat een lid ziet), aantallen per rol zonder namen (wat de moeder standaard krijgt), het signaal dat een tarief afwijkt zonder het tarief zelf (wat een planner ziet), en een open rol. Een aparte klasse zijn de bedragen van een tarievenkaart: de prijslijst van de organisatie. Zie hieronder onder "Waarom zo".
 
 ## Matrix
 
@@ -116,7 +119,7 @@ decide(subject, action, resource, data_class)
 - Functies per eenheid staan in de tabellen `role` en `person_role`, naar het patroon van Bouwmeester.
 - Relaties worden bij elke beslissing afgeleid uit de domeingegevens.
 - Antwoordschema's zijn per gegevensklasse opgebouwd. Een klasse die niet is toegestaan zit niet in het antwoord; ze wordt niet achteraf weggefilterd in de UI.
-- Wijzigingen in tarievenkaarten, schalen, begrotingsregels, inzet en dekking komen in het auditlog: wie, wanneer, oude en nieuwe waarde.
+- Elke wijziging van domeingegevens komt in de stroom van gebeurtenissen: wie, wanneer, oude en nieuwe waarde, met per veld de gegevensklasse. Wie de geschiedenis leest, ziet een gebeurtenis alleen als hij het onderwerp mag zien, en daarbinnen alleen de velden van klassen die hij mag lezen. Inzage in de klassen D, E en F wordt zelf ook vastgelegd. Zie [gebeurtenissen.md](gebeurtenissen.md).
 
 ## Testen
 
@@ -158,6 +161,12 @@ De servers moeten draaien. Geef een eigen hostnaam mee (`--base http://toegang.l
 **Kostenposten (klasse B).** Een kostenpost hoort niet bij een opdracht. De beheerder mag kostenposten aanmaken en wijzigen. Daarnaast wijzigt een kostenpost wie een opdracht beheert waarvan de begroting hem dekt; zolang nog niets hem dekt, is dat wie hem heeft aangemaakt. Een kostenpost die nog door niets wordt gedekt, zoekt een begroting: wie een opdracht beheert mag hem lezen en een eigen begrotingsregel laten dekken, en wijzigt verder niets. Zonder die regel kon een kostenpost van de beheerder door niemand worden gedekt: de beheerder wijzigt geen begroting, en geen manager wist dat de post bestond.
 
 **Eigenaar en managers van een opdracht.** Wie eigenaar of manager is, wijzigt de eigenaar of een manager van die opdracht, en de beheerder op elke opdracht, want een eigenaar kan vertrokken zijn. Het is een eigen handeling: ze geeft de beheerder geen recht om de opdracht zelf te wijzigen. Een beheerder die zichzelf manager maakt, heeft daarna de rechten van een manager, en het auditlog vermeldt dat hij zichzelf heeft aangewezen. Een opdracht houdt altijd een eigenaar.
+
+**Scheiding van taken.** Een stap waar een ander moet beslissen, blijft bij die ander. Wie een offerte maakte of om goedkeuring vroeg, keurt haar niet goed. Wie de offerte maakte, tekent er niet voor als opdrachtgever. De aanvrager van een vacature legt geen eigen advies of akkoord vast. De schrijver van een tekst is niet de enige beoordelaar. De server weigert de handeling zelf, welke rechten iemand ook heeft. Zie ADR 0048.
+
+**Een stap overnemen.** Wie een zaak leidt en niet aan zet is, kan een stap van een ander overnemen. Dat geeft nooit een recht: het kan alleen wie de handeling van die stap zelf al mag doen, en nooit bij een stap uit de vorige regel. Het overnemen is zichtbaar op de taak en terug te draaien.
+
+**Een datum is de dag van de instantie.** Of een recht vandaag geldt, of een tekenlink is verlopen, of een taak te laat is: het antwoord volgt de kalenderdag van de instantie, niet de UTC-dag (ADR 0046).
 
 **Offerte uitgeven en maand afsluiten.** Dat doet alleen de eigenaar of manager van de opdracht, ook de beheerder niet. Een afgesloten maand heropenen kan alleen de beheerder.
 

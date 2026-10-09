@@ -36,3 +36,7 @@ Toegang:
 - Een goedkeuring geldt voor een offerte, niet voor een opdracht. Een nieuwe offerte voor dezelfde opdracht heeft een eigen goedkeuring nodig.
 - Wie het bedrag van de drempel verlaagt, maakt daarmee offertes die al zijn gemaakt en nog niet zijn aangeboden alsnog goedkeuringsplichtig. Dat is bedoeld: de regel geldt op het moment van aanbieden.
 - Er is geen vervanger of mandaatregeling. Is de enige goedkeurder afwezig, dan kent de beheerder het recht aan een ander toe.
+
+## Later gewijzigd (2026-10-09)
+
+De vier-ogenregel is aangescherpt: niet alleen wie de goedkeuring vroeg, ook wie de offerte maakte kan haar niet goedkeuren. De stap is niet over te nemen door wie het werk maakte (ADR 0048). De instelling die zelf goedkeuren toestaat is gebleven.

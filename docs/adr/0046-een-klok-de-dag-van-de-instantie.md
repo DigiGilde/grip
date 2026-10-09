@@ -1,6 +1,6 @@
 # 0046 Eén klok: een datum is de dag van de instantie
 
-Status: aanvaard
+Status: aanvaard (2026-10-09)
 
 ## Context
 

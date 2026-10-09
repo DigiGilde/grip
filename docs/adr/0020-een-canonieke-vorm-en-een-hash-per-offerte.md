@@ -30,3 +30,7 @@ Een offerte heeft een canonieke vorm en een hash, overal.
 - Velden die het contract niet kent maar die in een ontvangen offerte staan, blijven in de bytes en dus in de hash. Een instantie die een nieuwere versie van het contract volgt, breekt een oudere ontvanger daarmee niet.
 - Een vaste regel in een offerte draagt het jaar waarvoor hij geldt. Het contract beschrijft dat veld nog niet op een offerteregel; het moet erbij als `jaar`.
 - Het akkoord tussen instanties is ondertekend over het bericht zoals het over de grens gaat. Die ondertekende bytes zitten in de handtekening zelf (JWS). De velden die ernaast zijn opgeslagen zijn een weergave daarvan.
+
+## Later gewijzigd (2026-10-09)
+
+De hash over de inhoud heet op het scherm het echtheidskenmerk. Daarnaast ligt sindsdien ook het pdf-bestand vast, met een eigen hash, het bestandskenmerk (ADR 0030). Een akkoord noemt beide. Het bericht tussen instanties is niet gewijzigd.

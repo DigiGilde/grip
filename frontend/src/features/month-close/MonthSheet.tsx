@@ -196,6 +196,8 @@ interface MonthSheetProps {
   assignmentId: string;
   /** YYYY-MM, or null when the sheet is closed. */
   month: string | null;
+  /** The month was handed to the financial administration already. */
+  delivered?: boolean;
   onClose: () => void;
 }
 
@@ -204,7 +206,7 @@ interface MonthSheetProps {
  * what was worked? A closed month shows what was settled, and lets who may
  * reopen it.
  */
-export function MonthSheet({ assignmentId, month, onClose }: MonthSheetProps) {
+export function MonthSheet({ assignmentId, month, delivered, onClose }: MonthSheetProps) {
   const queryClient = useQueryClient();
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
@@ -343,7 +345,7 @@ export function MonthSheet({ assignmentId, month, onClose }: MonthSheetProps) {
       <FormSheet
         open={month !== null}
         title={`Heropen ${name}`}
-        submitText="Heropen"
+        submitText="Heropen de maand"
         busy={run.isPending}
         error={error}
         onClose={onClose}
@@ -360,6 +362,14 @@ export function MonthSheet({ assignmentId, month, onClose }: MonthSheetProps) {
           Na heropenen telt deze maand weer met de geplande inzet, tot de maand opnieuw wordt
           afgesloten. De eerdere afsluiting en de reden blijven bewaard.
         </nldd-text>
+        {delivered ? (
+          <nldd-banner
+            variant="warning"
+            size="sm"
+            text="Deze maand is al aangeleverd aan de financiële administratie"
+            supporting-text="Na het opnieuw afsluiten lever je de maand opnieuw aan. Het nieuwe factuurverzoek zegt welk deel van het eerdere verzoek het vervangt."
+          />
+        ) : null}
         <TextInput label="Reden" value={reason} onChange={setReason} required multiline />
       </FormSheet>
     );
@@ -394,7 +404,7 @@ export function MonthSheet({ assignmentId, month, onClose }: MonthSheetProps) {
       {data?.may_reopen ? (
         <nldd-button-group>
           <Button
-            text="Heropen"
+            text="Heropen de maand"
             accessibleLabel={`Heropen ${name}`}
             onClick={() => {
               setError(null);
@@ -402,6 +412,12 @@ export function MonthSheet({ assignmentId, month, onClose }: MonthSheetProps) {
             }}
           />
         </nldd-button-group>
+      ) : data?.closed && data.may_close ? (
+        // Who closes months looks here for a way back: say where it is.
+        <Quiet>
+          Een afgesloten maand heropent alleen een beheerder. Verandert er daarna iets aan een
+          tarief of een schaal, dan komt het verschil vanzelf als naverrekening.
+        </Quiet>
       ) : null}
     </ViewSheet>
   );

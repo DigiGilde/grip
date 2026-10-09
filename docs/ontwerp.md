@@ -152,11 +152,20 @@ Een bewaarde tekst wordt overal getoond met `RichText` uit `@/ui/RichText`, uit 
 | Uitputting | Het deel van de begroting dat is gerealiseerd, als percentage |
 | Aangeleverd | Factuurgegevens zijn doorgegeven aan de financiële administratie |
 | Gefactureerd | Er is een factuur verstuurd en vastgelegd |
-| Potentiële opdracht | Een opdracht tot het akkoord |
+| Potentiële opdracht, Potentieel | Een opdracht tot het akkoord, ook na een afgewezen offerte. Nooit "pijplijn" |
 | Offerte maken | De begroting vastleggen als offerte. Daarna wijzigt de offerte niet meer; ze krijgt een kenmerk |
 | Aanbieden | Een gemaakte offerte naar de opdrachtgever brengen |
 | Getekend, afgewezen | De beslissing van de opdrachtgever over een aangeboden offerte |
-| Rechten in grip | Wat iemand in grip mag: beheerder, planner, lezer, aanvrager, tekenbevoegde |
+| Rechten in grip | Wat iemand in grip mag: beheerder, planner, lezer, aanvrager, tekenbevoegde, interne goedkeurder van offertes. Nooit "functie" |
+| Stel vast | Een concept definitief maken: een tarievenkaart, een maand, een tekst. Nooit "activeer" |
+| Naverrekening | Het verschil als de prijs van een aangeleverde maand verandert |
+| Factuurverzoek | Het document van een aanlevering aan de financiële administratie |
+| Echtheidskenmerk, bestandskenmerk | De code over de inhoud van een offerte, en die over haar pdf. Nooit "hash" of "vingerafdruk" |
+| Bekijk pdf | De ene link naar het document van een offerte |
+| Stand | Waar een zaak staat en wie aan zet is: "Jij: ..." of "Wacht op ..." |
+| Te doen, Wacht op anderen | De twee groepen taken |
+| Start, Taken, Opdrachten, Team, Vacatures, Financieel, Rapportage, Beheer | De plekken in de hoofdbalk. Onder Team: Mensen en Inzet. Onder Financieel: Kosten en Factureren |
+| Geschiedenis, Activiteit, Wat is er gebeurd | Wat er met een zaak gebeurde, wat er in de instantie gebeurde, en het nieuws voor de lezer |
 | Aanvraag voorbereiden, aanvragen, advies en akkoord, openstellen, vervullen | De stappen van een vacature |
 
 ## Navigatie
@@ -172,7 +181,7 @@ De hoofdbalk staat in `frontend/src/layout`; welke onderdelen er zijn, voor wie 
 | Tabs | Meerdere kanten van één ding dat je open hebt: een opdracht, een vacature. Elk tabblad heeft een eigen adres. Gebruik `TabNav` (of `ThingHead`, die hem meebrengt): gewone tekst op één regel, een haarlijn onder de rij en een lijn onder het tabblad waar je bent |
 | Overzichtspagina | Losse pagina's die bij elkaar horen maar niet over hetzelfde ding gaan: Beheer, Rapportage. De pagina zelf is het menu |
 | Tweede balk | Pagina's van één onderdeel die naast elkaar staan en waar je even vaak direct heen wilt: Mensen en Inzet onder Team, Kosten en Factureren onder Financieel. De balk staat in de schil, onder de hoofdbalk, en komt uit `views` in de routetabel. Hooguit drie pagina's; worden het er meer, dan is het een overzichtspagina. Ze is rustig: kleiner dan de hoofdbalk, tekstkleur, een dunne lijn onder de pagina waar je bent, geen gevuld vlak |
-| Link in de `ActionBar` | Eén afgeleide lijst van dezelfde gegevens, zoals "Open rollen" bij Vacatures. Hooguit één; worden het er meer, dan zijn het tabs |
+| Keuze in de `ActionBar` | Een andere weergave van dezelfde lijst, zoals "Open rollen" bij Vacatures, als keuze in de balk met een eigen adres. Een link naar een andere pagina staat er hooguit één; worden het er meer, dan zijn het tabs of hoort de pagina onder Beheer |
 
 **Tabs zijn nooit gevuld; het enige gevulde accent op een pagina is de hoofdknop.** Tabs lezen als kanten van het ding, niet als knoppen. De tabbalk van het designsysteem (`nldd-tab-bar`) is een gesegmenteerde keuze: het huidige tabblad is een gevuld vlak in de accentkleur, even hoog en even rond als de hoofdknop. Onder een hoofdknop zijn dat twee dezelfde dingen boven elkaar. Grip gebruikt daarom voor tabs de menubalk van het designsysteem, die links in een navigatiegebied tekent met een lijn onder de huidige pagina. Schrijf `nldd-tab-bar` niet in een scherm.
 
@@ -257,16 +266,14 @@ Naast de meting bewaakt een test de bron (`ui/layout/spacing.guard.test.ts`): ee
 
 ## Nog over te zetten
 
-Deze schermen gebruiken de bouwstenen nog niet. Tot ze over zijn, houdt `index.css` twee noodregels aan: een afstand tussen de kinderen van een sectie, en een afstand tussen de velden in een `div.form-fields`.
+De meeste schermen zijn bij de doorloop op visuele hiërarchie overgezet op de bouwstenen (zie `docs/hierarchie/`). Wat nog eigen onderdelen gebruikt:
 
 | Bestand | Wat er nog moet gebeuren |
 |---|---|
-| `features/assignments/ui.tsx` | `FormSheet`, `Loading`, `ErrorNotice`, `EmptyNotice` en `SectionHeading` vervangen door die uit `@/ui/layout`. De eigen `SectionHeading` staat op maat 3, de afspraak is 4. `InlineSelect` staat op een kleinere maat dan de knoppen ernaast. |
-| `features/assignments`, `features/allocations`, `features/overview` | De pagina's opbouwen met `Page` en `Section`. |
-| `features/team/ui/` | De eigen `Sheet`, `Form` en `QueryState` samenvoegen met `FormSheet` en de vaste toestanden. |
-| `features/team`, `features/rates` | De pagina's opbouwen met `Page` en `Section`. |
-| `features/vacancies/VacancyDetailPage.tsx` | Zes secties onder elkaar, ruim drie schermen hoog. Tabs, zoals de opdrachtpagina. |
-| `features/function-framework` | Zestig groepen onder elkaar. Een zoekveld erboven. |
+| `features/assignments/ui.tsx` | Geeft door naar de basis, op de eigen invoervelden (`TextInput`, `DateInput`, `SelectInput`) na; die kunnen naar `@/ui/fields`. |
+| `features/team/ui/` | De eigen `Sheet` en `Form` samenvoegen met `FormSheet`. Dat vraagt dat de toestand van elk formulier eerst uit het paneel wordt gehaald, omdat `FormSheet` zijn inhoud aangekoppeld houdt. |
+
+`index.css` houdt tot dan twee noodregels aan: een afstand tussen de kinderen van een sectie, en een afstand tussen de velden in een `div.form-fields`. Of ze weg kunnen is niet beproefd.
 
 ## Iconen
 

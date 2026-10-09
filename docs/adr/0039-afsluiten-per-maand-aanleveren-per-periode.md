@@ -56,3 +56,7 @@ Hoe onderdelen van de Rijksoverheid onderling verrekenen, is niet uit openbare b
 4. Mag de specificatie rollen noemen, of vraagt de opdrachtgever namen?
 5. Naar welk adres gaat het bericht dat er een factuurverzoek klaarstaat, en hebben de medewerkers daar een account in grip?
 6. Kan zij het factuurnummer en de datum terugmelden, zodat niemand ze hoeft over te typen?
+
+## Later gewijzigd (2026-10-09)
+
+Een wijziging achteraf is sindsdien een opgeslagen verschil per factuurperiode, met een eigen taak (ADR 0047). Een maand die na het aanleveren is heropend, wordt opnieuw volledig aangeleverd; dat verzoek vervangt het eerdere voor die maand, ook als het eerdere al gefactureerd was. Of dat laatste past bij hoe de financiële administratie werkt, is een open vraag; zie `docs/openstaand.md`.

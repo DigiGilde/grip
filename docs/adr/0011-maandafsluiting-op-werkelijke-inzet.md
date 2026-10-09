@@ -18,3 +18,7 @@ Verrekening gaat per maand op werkelijke inzet. De geplande inzet staat klaar al
 - Een afgesloten maand is vergrendeld. Wie hem mag heropenen is niet beslist.
 - De rekenregels R9 en R12 moeten beschrijven hoe vastgestelde en geplande inzet samen optellen. Dat is nog niet gedaan.
 - De prijs van een gedeeltelijke maand en een door de manager vastgesteld percentage kunnen elkaar overlappen. Dat moet bij het uitwerken van de afsluiting worden opgelost.
+
+## Later gewijzigd (2026-10-09)
+
+Vaststellen gebeurt nog steeds per maand. Aanleveren volgt sindsdien de factuurperiode van de afspraak, een maand of een kalenderkwartaal (ADR 0039). Een prijswijziging op een aangeleverde maand is een opgeslagen naverrekening (ADR 0047).

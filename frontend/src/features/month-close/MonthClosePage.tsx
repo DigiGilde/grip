@@ -440,6 +440,13 @@ export function MonthClosePage() {
       <MonthSheet
         assignmentId={assignmentId}
         month={started ? month : null}
+        delivered={
+          data?.periods.some((period) =>
+            period.months.some(
+              (item) => item.month === month && (item.delivered_cents ?? null) !== null,
+            ),
+          ) ?? false
+        }
         onClose={() => setParam(MONTH_PARAM, null)}
       />
       {data ? (

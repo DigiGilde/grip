@@ -30,3 +30,7 @@ Drie keuzes wijken af van de basisbeschrijving:
 - Elk nieuw veld moet bij een klasse worden ingedeeld, en krijgt een lektest.
 - Antwoordschema's worden per klasse opgebouwd. Dat is meer werk dan een schema per entiteit.
 - De namen die mensen in de praktijk gebruiken komen niet een op een terug in het model. De documentatie moet de vertaling geven.
+
+## Later gewijzigd (2026-10-09)
+
+De klassen A tot en met F zijn gebleven. Erbij gekomen zijn smallere weergaven die uit een bredere klasse volgen (zoals de teamlijst zonder percentages) en de klasse voor de bedragen van een tarievenkaart: de prijslijst leest alleen de beheerder, de lezer en wie een opdracht beheert. De indeling van schalen in categorieen leest iedereen. Zie `docs/toegang.md`.

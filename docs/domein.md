@@ -28,7 +28,7 @@ UI-termen zijn Nederlands; code en schema gebruiken de Engelse naam.
 | Verwacht totaal | `expected_total` | Gerealiseerd plus nog gepland plus kosten: wat de regel naar verwachting kost als alles loopt zoals gepland. Dit is het bedrag dat R9 `used` noemt |
 | Afwijking | `variance` | Begroot min verwacht totaal, in euro en als percentage van begroot. Positief is ruimte, negatief is een overschrijding |
 | Uitputting | `realised_pct` | Het deel van de begroting dat al is gerealiseerd (inzet en kosten), als percentage. Grist gebruikte het woord voor het vastgelegde bedrag; dat heet in grip verwacht totaal |
-| Investeerruimte in geld (voorlopig) | `room` | Wat de organisatie in een jaar verdient boven wat zij moet verdienen: de verwachte omzet van externe opdrachten met akkoord (gerealiseerd plus nog gepland, ook op mondeling akkoord), min de som van de declarabiliteitstargets, min ongedekte kosten, min wat interne opdrachten volgens hun begroting gebruiken. Negatief is een tekort. De pijplijn telt niet mee en staat er apart bij. De definitie is nog niet bevestigd; het scherm zegt daarom wat er geteld is |
+| Investeerruimte in geld (voorlopig) | `room` | Wat de organisatie in een jaar verdient boven wat zij moet verdienen: de verwachte omzet van externe opdrachten met akkoord (gerealiseerd plus nog gepland, ook op mondeling akkoord), min de som van de declarabiliteitstargets, min ongedekte kosten, min wat interne opdrachten volgens hun begroting gebruiken. Negatief is een tekort. Potentiële opdrachten tellen niet mee en staan er apart bij. De definitie is nog niet bevestigd; het scherm zegt daarom wat er geteld is |
 | Investeerruimte in tijd (voorlopig) | `free capacity` | De capaciteit die deze maand en de drie maanden erna niet is ingepland, in FTE en gewaardeerd tegen het inzettarief van elke persoon in die maand. Iedereen telt als voltijds, tot er een deeltijdfactor per persoon is |
 | Peildatum van de stand | `reference_month` | De laatst afgesloten maand van een opdracht. Tot en met die maand zijn bedragen werkelijk, daarna planning |
 | Aangeleverd | `delivered` | De factuurgegevens van een factuurperiode zijn als factuurverzoek aan de financiële administratie gegeven: per mail met een link, of door de opdrachtmanager zelf. Het is geen factuur |
@@ -39,7 +39,7 @@ UI-termen zijn Nederlands; code en schema gebruiken de Engelse naam.
 | Nog aan te leveren | `to_deliver` | De vastgestelde inzet van afgesloten maanden, geprijsd, min wat is aangeleverd |
 | Gefactureerd | `invoiced` | Er is een factuur verstuurd. Grip weet dat alleen doordat iemand het heeft vastgelegd; tot dan heet geen bedrag gefactureerd |
 | Nog te factureren | `to_invoice` | Aangeleverd min gefactureerd: aangeleverd, en in grip nog geen factuur vastgelegd |
-| Potentiële opdracht | `phase: potential` | Een opdracht zonder akkoord van de opdrachtgever. Haar bedragen zijn pijplijn en tellen nooit mee in het lopende werk; inzet erop is onder voorbehoud |
+| Potentiële opdracht | `phase: potential` | Een opdracht zonder akkoord van de opdrachtgever, ook als haar laatste offerte is afgewezen. Haar bedragen tellen nooit mee in het lopende werk en staan apart, onder "Potentieel" of "Potentiële opdrachten"; inzet erop is onder voorbehoud. In de code heet dat `pipeline`; op het scherm staat dat woord niet |
 | Team, medewerker | `person` | Iemand die kan worden ingezet |
 | Inzetschaal | `billing_scale` | De schaal waartegen iemand wordt gedeclareerd |
 | Categorie | `rate_category` | Tariefband A t/m E, elk voor twee schalen |
@@ -64,16 +64,26 @@ UI-termen zijn Nederlands; code en schema gebruiken de Engelse naam.
 | Interne goedkeuring | `quote_approval` | De goedkeuring van een gemaakte offerte binnen de eigen organisatie, voordat ze wordt aangeboden. Per instantie in te stellen: nooit, altijd of vanaf een bedrag. Gaat over precies de bytes van die offerte en blijft intern |
 | Terugsturen | `sent_back` | De goedkeurder keurt een offerte niet goed en zegt waarom. De offerte verandert niet; de maker maakt een nieuwe |
 | Instelling van de instantie | `instance_setting` | Een regel van de organisatie die de beheerder wijzigt, zoals wanneer interne goedkeuring nodig is |
-| Maandafsluiting | `month_close` | De vastgestelde werkelijke inzet van een maand |
+| Maandafsluiting | `month_close` | De vastgestelde werkelijke inzet van een maand. Het tabblad waar dat gebeurt heet "Afsluiten en factureren" |
+| Naverrekening | `billing_correction` | Het verschil dat ontstaat als de prijs van een al aangeleverde maand verandert, bijvoorbeeld door een promotie met terugwerkende kracht. Het wordt per factuurperiode opgeslagen, met de oorzaak, en apart aangeleverd. Zie ADR 0047 |
 | Factuurgegevens, aanlevering | `billing_export` | Wat per afgesloten maand naar de financiële administratie gaat. Een export is een aanlevering |
 | Factuur | `outgoing_invoice` | De vastlegging dat een factuur aan de opdrachtgever is verstuurd, voor een of meer aanleveringen: nummer, datum, bedrag, wie het vastlegde en de bron (met de hand of het financiële systeem) |
 | Inhuur | `hire` | Kostprijs en marge van een ingehuurde persoon |
+| Stel vast | `settle`, status `active` | Een concept definitief maken: een tarievenkaart, een maand, een tekst. Op het scherm nooit "activeer" |
 | Recht in grip | `function` | Wat iemand in grip mag bovenop de eigen relaties: beheerder, planner, lezer, aanvrager, tekenbevoegde, interne goedkeurder van offertes. De code zegt functie, het scherm zegt recht |
 | Functie | `function_title` | De functie van iemand in de organisatie of op een vacature: de functietitel. Niet het recht in grip |
 | Functiegroep | `function_group` | De groep uit het Functiegebouw Rijk waar een functie onder valt |
 | Bijlage | `stored_document` | Een bestand dat bij precies een object hoort, zoals de ontvangen factuur bij een factuurregel of de getekende offerte bij een akkoord |
 | Vacature | `vacancy` | Een open rol op een begrotingsregel, met het soort vacature, het soort contract, de stappen van de procedure en een vacaturetekst |
-| Stand van zaken | `status_overview` | Dashboard per opdracht |
+| Standaardtekst | `vacancy_text_template` | De tekst per rol waarmee een vacaturetekst begint, met gedeelde onderdelen die een keer zijn opgeslagen. Zie `docs/vacatureteksten.md` |
+| Taak | `task` | Wat iemand moet doen, ontstaan uit een feit en gesloten door een feit. Op het scherm in twee groepen: "Te doen" en "Wacht op anderen" |
+| Stand | `course` | Waar een opdracht of vacature staat, wat de volgende stap is en wie aan zet is. De kolom in een lijst heet "Stand"; de zin begint met "Jij:" of "Wacht op" |
+| Stap overnemen | `takeover` | Een stap van een ander doen als je de zaak leidt en de handeling zelf al mag. Zie ADR 0048 |
+| Geschiedenis, Activiteit | `stream_event` | Wat er met een opdracht of vacature is gebeurd (Geschiedenis, een tabblad) en wat er in de hele instantie is gebeurd (Activiteit, onder Beheer) |
+| Wat is er gebeurd | `updates` | Het nieuws voor de lezer: een selectie uit de gebeurtenissen die hem aangaan. Zie ADR 0043 |
+| Passkey | `passkey_credential` | Een sleutel op het eigen apparaat, om opnieuw in te loggen en om een besluit te bevestigen. Onder "Beveiliging" in het accountmenu |
+| Afzender | `quote.sender` | De gegevens van de organisatie op een offerte: naam, waar ze deel van is, adressen, contactpersoon en ondertekenaar. Onder Beheer |
+| Stand van zaken | `status_overview` | De startpagina: taken, aandachtspunten, wat er gebeurd is en de cijfers per opdracht. In de hoofdbalk heet ze "Start" |
 
 "Factuur" betekent in Grist een regel aan de inkoopkant, op een kostenpost. Het is geen verkoopfactuur. In grip heet die een factuurregel op een kostenpost. Wat grip richting de opdrachtgever oplevert heet factuurgegevens.
 
@@ -125,6 +135,11 @@ De salarisschaal wordt niet opgeslagen. Het kenmerk `digi_gilde` heeft voor zove
 | `quote_acceptance` | hash van de offerte, ondertekenaar, organisatie, tijdstip, vorm, handtekening of bestand | nieuw |
 | `month_close` | opdracht, maand, vastgestelde inzet per persoon, vastgesteld door | nieuw |
 | `billing_export` | periode, regels, exportrun | nieuw |
+| `billing_terms` | per opdracht: het ritme van factureren (maand of kwartaal), de factuurgegevens van de opdrachtgever, en of de specificatie namen noemt | nieuw |
+| `billing_delivery` | per factuurperiode: de aanlevering met haar factuurverzoek als bewaard document, hoe en aan wie | nieuw |
+| `billing_correction` | per factuurperiode: een openstaande naverrekening met bedrag, oorzaak en de aanlevering waarop ze volgt | nieuw |
+| `outgoing_invoice` | de vastlegging van een verstuurde factuur, op een aanlevering | nieuw |
+| `quote_draft` | per opdracht: de tekst van de offerte in wording | nieuw |
 | `vacancy` | begrotingsregel, profiel, status, kanaal (intern, federatief, werving), stappen | nieuw |
 
 Statussen van een opdracht: concept, aangevraagd, offerte gemaakt, akkoord, in uitvoering, afgerond, verantwoord. Daarnaast offerte afgewezen en geannuleerd. Een afgewezen offerte sluit de opdracht niet: ze blijft potentieel tot er een nieuwe offerte is of iemand haar afsluit zonder opdracht (ADR 0045).
@@ -146,7 +161,12 @@ Een kostenpost hoort niet bij een opdracht. De dekking kan over begrotingsregels
 | `peer` | Een andere instantie of een corpus: peer-id, organisatie, contract |
 | `federation_outbox` | Uitgaande berichten, verstuurd door een worker |
 | `federation_inbox` | Inkomende berichten, idempotent op bericht-UUID |
-| `audit_log` | Wie, wanneer, oude en nieuwe waarde |
+| `stream_event` | De stroom van gebeurtenissen: wie, wanneer, oude en nieuwe waarde, de gegevensklasse per veld en de keten van hashes. Het auditlog is een weergave hiervan (ADR 0028) |
+| `task`, `task_case` | Taken en de zaken waar ze bij horen (ADR 0024) |
+| `signing_intent`, `decision_evidence` | Het voornemen tot een besluit en het bewijs erbij (ADR 0029) |
+| `passkey_credential`, `push_subscription`, `notification_preference` | Sleutels en apparaten van een persoon, en wat die persoon gemeld wil krijgen |
+| `mail_outbox`, `push_outbox` | De wachtrijen voor mail en meldingen |
+| `instance_setting` | Een regel van de organisatie die de beheerder wijzigt |
 
 ## Rekenregels
 
@@ -215,7 +235,9 @@ Wij factureren wat het ons kost, altijd tegen het juiste tarief. De prijs van ee
 | Aangeleverd | De aanlevering blijft zoals ze was. Het verschil wordt een naverrekening om aan te leveren |
 | Gefactureerd | Hetzelfde; de naverrekening telt daarna als nog te factureren tot er een factuur op is vastgelegd |
 
-Een naverrekening is een eigen aanlevering. Haar regels verwijzen naar de maand ("Naverrekening 2026-07: Productmanager") en bevatten het verschil per inzet; een verschil kan negatief zijn. Wat voor een maand nog aan te leveren is, is altijd wat de maand nu kost min wat ervoor is aangeleverd.
+Een naverrekening wordt per factuurperiode opgeslagen op het moment dat ze ontstaat, met het bedrag, de oorzaak in woorden en de aanlevering waarop ze volgt (ADR 0047). Twee wijzigingen voor het aanleveren worden een naverrekening met beide oorzaken; een wijziging die wordt teruggedraaid, haalt haar weg. Ze wordt apart aangeleverd. Haar regels verwijzen naar de maand ("Naverrekening juli 2026: Productmanager") en bevatten het verschil per inzet; een verschil kan negatief zijn. Wie aanlevert krijgt er een taak voor.
+
+Een maand die na het aanleveren wordt heropend, is iets anders: zij wordt opnieuw volledig aangeleverd, en dat verzoek vervangt het eerdere voor die maand. Het scherm, het document en het totaal tellen de maand dan een keer.
 
 Voor het opslaan toont grip per opdracht welke afgesloten, aangeleverde en gefactureerde maanden worden geraakt en het verschil in euro. Ontstaat er een naverrekening, dan hoort de takenlaag dat (`billing_correction.arose`).
 
@@ -223,13 +245,15 @@ Een begrotingsregel houdt de categorie waarop ze is begroot. Na een promotie loo
 
 ## Schermen
 
-- **Stand van zaken**: per opdracht Begroot, Gerealiseerd, Nog gepland, Kosten, Verwacht totaal, Afwijking en Uitputting, met de peildatum van de stand en een jaarfilter. Potentiële opdrachten staan apart van lopend werk, met een eigen subtotaal. Het tabblad Financieel van een opdracht toont dezelfde cijfers per begrotingsregel, de bedragen erachter, het verloop per maand en de aandachtspunten; bemensing staat op een eigen tabblad zonder bedragen.
+- **Stand van zaken** (in de balk: Start): bovenaan de taken van de lezer, wat aandacht vraagt en wat er gebeurd is; daaronder per opdracht Begroot, Gerealiseerd, Nog gepland, Kosten, Verwacht totaal, Afwijking en Uitputting, met de peildatum van de stand en een jaarfilter. Potentiële opdrachten staan apart van lopend werk, met een eigen subtotaal. Het tabblad Financieel van een opdracht toont dezelfde cijfers per begrotingsregel, de bedragen erachter, het verloop per maand en de aandachtspunten; bemensing staat op een eigen tabblad zonder bedragen.
 - **Opdrachten** met de begrotingseditor per opdracht.
 - **Inzet**: per persoon en per begrotingsregel, met de waarschuwingen van R14.
 - **Kosten en facturen**, met de dekking per kostenpost.
-- **Tarieven**: tarievenkaarten per jaar.
+- **Tarieven**: een tijdlijn van tarievenkaarten, elk met een geldigheid.
 - **Team** en **KPI per persoon**, afgeschermd volgens [toegang.md](toegang.md).
-- **Offerte**: gegenereerd uit de begrotingsregels. Per regel omschrijving, FTE, periode, categorie, maandtarief en bedrag; subtotalen per jaar; totaal.
+- **Offerte**: een brief. De kosten komen uit de begrotingsregels (per regel omschrijving, FTE, periode, categorie, maandtarief en bedrag; subtotalen per jaar; totaal); de tekst van de onderdelen schrijft een mens, met standaardteksten van de organisatie.
+- **Afsluiten en factureren** per opdracht, en **Factureren** over alle opdrachten.
+- **Taken**, en op elke opdracht en vacature in de kop: waar ze staat, wie aan zet is en de ene volgende stap.
 
 ## Migratie vanuit Grist
 
@@ -278,4 +302,4 @@ Elke vraag heeft een voorlopige keuze. De bouwer houdt die aan tot de Grist-form
 ## Open vragen die de import niet beantwoordt
 
 - Welke vorm heeft de export van factuurgegevens? Het financiële systeem en zijn formaat zijn niet bekend.
-- Welk formaat en sjabloon krijgt de offerte? De basisbeschrijving stelt een pdf uit een HTML-sjabloon voor.
+- Hoe verrekenen onderdelen van het Rijk onderling: met een factuur of met een interne doorbelasting? Zie [openstaand.md](openstaand.md).

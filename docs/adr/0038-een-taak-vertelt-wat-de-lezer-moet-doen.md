@@ -41,3 +41,7 @@ Over hoe een taak sluit, zegt het scherm niets. Dat een taak door een feit sluit
 - Een taak lezen kost een paar zoekvragen meer: de namen en data voor de zinnen worden bij het lezen opgehaald, niet bij de taak bewaard.
 - Het veld `title` van een taak blijft de titel uit het plan. De schermen tonen `headline`.
 - Het advies van iemand zonder account kan alleen een beheerder vastleggen. De taak van de aanvrager zegt dat. Of de aanvrager dat zelf zou moeten kunnen, is een vraag over toegang en hier niet beslist.
+
+## Later gewijzigd (2026-10-09)
+
+Aanleveren en de factuur vastleggen hangen sindsdien aan een factuurperiode en niet aan een maand (ADR 0039). Een naverrekening heeft een eigen taak (ADR 0047). Het verloop van een zaak en de zin over de volgende stap komen uit dezelfde bron als de taken (ADR 0044).

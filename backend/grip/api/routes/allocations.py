@@ -40,6 +40,7 @@ from grip.services import assignments as service
 router = APIRouter(prefix="/allocations", tags=["allocations"])
 
 A = DataClass.ASSIGNMENT_BASIC
+B = DataClass.ASSIGNMENT_FINANCIAL
 C = DataClass.STAFFING
 ROSTER = DataClass.STAFFING_ROSTER
 _CLASSES = schema_classes(AllocationOut)
@@ -52,12 +53,15 @@ async def _row(
     """The allocation as this reader may see it, or None when not at all."""
     allocation = view.allocation
     about = Resource.allocation(view.assignment_id, allocation.person_id)
-    permitted = set(await access.classes(about, _CLASSES - {A}))
+    permitted = set(await access.classes(about, _CLASSES - {A, B}))
     if ROSTER not in permitted:
         return None
     # Name of the assignment and the line: class A of the assignment itself.
-    if await access.may(Action.READ, Resource.assignment(view.assignment_id), A):
-        permitted.add(A)
+    # The category the line is budgeted at: its class B.
+    of_assignment = Resource.assignment(view.assignment_id)
+    for own in (A, B):
+        if await access.may(Action.READ, of_assignment, own):
+            permitted.add(own)
     mismatch = view.mismatch
     model = AllocationOut(
         id=allocation.id,
@@ -178,13 +182,15 @@ async def get_board(
         bars: list[dict[str, Any]] = []
         for bar in person.bars:
             about = Resource.allocation(bar.assignment_id, bar.person_id)
-            permitted = set(await access.classes(about, _BAR_CLASSES - {A}))
+            permitted = set(await access.classes(about, _BAR_CLASSES - {A, B}))
             # A row is about inzet: a bar without period and percentage has
             # nothing to draw, so the roster alone does not show it here.
             if C not in permitted:
                 continue
-            if await access.may(Action.READ, Resource.assignment(bar.assignment_id), A):
-                permitted.add(A)
+            of_assignment = Resource.assignment(bar.assignment_id)
+            for own in (A, B):
+                if await access.may(Action.READ, of_assignment, own):
+                    permitted.add(own)
             bars.append(
                 build_response(
                     BoardBarOut(

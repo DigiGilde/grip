@@ -87,6 +87,17 @@ async def next_reference(session: AsyncSession, year: int) -> str:
     return format_reference(await current_prefix(session), year, number)
 
 
+async def upcoming_reference(session: AsyncSession, year: int) -> str:
+    """The reference the next quote of the year would get. Takes nothing:
+    for showing on the settings page what the prefix leads to."""
+    result = await session.execute(
+        text("SELECT last_number FROM quote_reference_counter WHERE year = :year"),
+        {"year": year},
+    )
+    last = int(result.scalar_one_or_none() or 0)
+    return format_reference(await current_prefix(session), year, last + 1)
+
+
 def file_stem(reference: str | None, fallback: str) -> str:
     """A reference as part of a file name; the fallback when there is none."""
     cleaned = re.sub(r"[^A-Za-z0-9-]+", "-", reference or "").strip("-")

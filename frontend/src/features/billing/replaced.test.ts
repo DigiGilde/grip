@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { replacedText, replacesText } from './replaced';
+import { correctionText, replacedText, replacesText } from './replaced';
 
 const again = { month_label: 'februari 2026', delivery_id: 'd2', reference: 'O-12/2026-02-2' };
 
@@ -29,5 +29,19 @@ describe('a month delivered again', () => {
     });
     expect(text).toContain('Dit verzoek vervangt februari 2026 uit factuurverzoek O-12/2026-02');
     expect(text).toContain('Het verschil is');
+  });
+
+  it('says why a difference arose and what it comes on top of', () => {
+    const text = correctionText({
+      month: '2026-03',
+      month_label: 'maart 2026',
+      amount_cents: -240_000,
+      cause: 'inzetschaal gewijzigd met ingang van 1 maart 2026',
+      follows_reference: 'O-12/2026-Q1',
+      follows_delivered_on: '2026-04-02',
+    });
+    expect(text).toContain('Naverrekening maart 2026:');
+    expect(text).toContain('Inzetschaal gewijzigd met ingang van 1 maart 2026.');
+    expect(text).toContain('Dit bedrag gaat af van factuurverzoek O-12/2026-Q1 van 2 apr 2026.');
   });
 });

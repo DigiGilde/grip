@@ -108,32 +108,47 @@ async def changed_since(
     template = await FormTemplateRepository(db).active(service.VACANCY_REQUEST_FORM)
     if template is None:
         return []
-    kept = await stored_documents.owned_document(
-        db, REQUEST_FORM, vacancy.id, document.id, with_content=True
-    )
-    fields = PdfReader(io.BytesIO(kept.content)).get_fields() or {}
-    values = await _values(db, vacancy)
     mapping = forms.parse_mapping(form_setup.usable_mapping(template))
+    values = await _values(db, vacancy)
+    # What the form held when it was made is kept with it; only a form from
+    # before that was kept is opened to read its fields.
+    have_by_field = document.made_from
+    if have_by_field is None:
+        have_by_field = await _fields_of(db, vacancy, document, mapping)
     changed: list[str] = []
     for rule in mapping.fields:
-        if rule.name not in fields:
+        if rule.name not in have_by_field:
             continue
-        value = values.get(rule.source)
-        if rule.type == "checkbox":
-            expected = rule.on_value if value == rule.equals else "/Off"
-            have = _field_text(fields[rule.name]) or "/Off"
-            if value is None:
-                expected = "/Off"
-        else:
-            expected = (
-                "" if value is None else forms.format_value(value, mapping.date_format)
-            )
-            have = _field_text(fields[rule.name])
-        if have != expected:
+        if have_by_field[rule.name] != _expected(rule, values, mapping):
             label = form_setup.source_label(rule.source)
             if label not in changed:
                 changed.append(label)
     return changed
+
+
+def _expected(rule: Any, values: dict[str, Any], mapping: Any) -> str:
+    """What a field of the form holds for these values of the vacancy."""
+    value = values.get(rule.source)
+    if rule.type == "checkbox":
+        return rule.on_value if value is not None and value == rule.equals else "/Off"
+    return "" if value is None else forms.format_value(value, mapping.date_format)
+
+
+async def _fields_of(
+    db: AsyncSession, vacancy: Vacancy, document: StoredDocument, mapping: Any
+) -> dict[str, str]:
+    """The mapped fields of a kept form as the file holds them."""
+    kept = await stored_documents.owned_document(
+        db, REQUEST_FORM, vacancy.id, document.id, with_content=True
+    )
+    fields = PdfReader(io.BytesIO(kept.content)).get_fields() or {}
+    held: dict[str, str] = {}
+    for rule in mapping.fields:
+        if rule.name not in fields:
+            continue
+        text = _field_text(fields[rule.name])
+        held[rule.name] = (text or "/Off") if rule.type == "checkbox" else text
+    return held
 
 
 async def standing(db: AsyncSession, vacancy: Vacancy) -> Standing:
@@ -171,6 +186,21 @@ async def make(
         owner_id=vacancy.id,
         uploaded=False,
     )
+    # Remember what was written in it, read back from the file once, now.
+    template = await FormTemplateRepository(db).active(service.VACANCY_REQUEST_FORM)
+    if template is not None:
+        mapping = forms.parse_mapping(form_setup.usable_mapping(template))
+        fields = PdfReader(io.BytesIO(generated.content)).get_fields() or {}
+        document.made_from = {
+            rule.name: (
+                (_field_text(fields[rule.name]) or "/Off")
+                if rule.type == "checkbox"
+                else _field_text(fields[rule.name])
+            )
+            for rule in mapping.fields
+            if rule.name in fields
+        }
+        await db.flush()
     record_audit(
         db,
         actor=actor,

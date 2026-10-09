@@ -4,7 +4,7 @@ De offerte is het stuk dat de deur uit gaat. Dit document beschrijft hoe het wor
 
 ## Wat het is
 
-- "Bekijk" toont de offerte als pagina in de browser. "Download pdf" geeft het bestand.
+- "Bekijk pdf" toont het bewaarde pdf-bestand in de browser; daar is het ook te downloaden. Er is geen losse weergave als webpagina meer: wat je bekijkt is wat de opdrachtgever krijgt.
 - Beide komen uit één sjabloon en uit de vastgelegde inhoud van de offerte. Er komt niets bij uit de actuele gegevens, en geen naam van een medewerker.
 - De pdf is een getagde pdf (PDF/UA): titel, taal Nederlands, echte tekst in leesvolgorde, kopcellen in de tabel. Lettertypen zijn ingesloten.
 - Dezelfde offerte geeft elke keer hetzelfde bestand, byte voor byte: de datum in het bestand is het moment waarop de offerte is gemaakt.

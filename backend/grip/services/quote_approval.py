@@ -178,8 +178,24 @@ async def requirement_for(db: AsyncSession, quote: Quote) -> Requirement:
     return Requirement(False)
 
 
-async def approver_available(db: AsyncSession) -> bool:
-    """Whether at least one active person holds the right to approve today."""
+async def second_person_excluded(
+    db: AsyncSession, approval: QuoteApproval | None, quote: Quote
+) -> frozenset[UUID]:
+    """Who may not decide on this request: who made the quote and who asked
+    for the approval. Nobody when the instance allows approving one's own."""
+    if await instance_settings.get(db, ALLOW_SELF.key):
+        return frozenset()
+    ids = {quote.issued_by_id, approval.requested_by_id if approval else None}
+    return frozenset(i for i in ids if i is not None)
+
+
+async def approver_available(
+    db: AsyncSession, *, excluding: frozenset[UUID] = frozenset()
+) -> bool:
+    """Whether at least one active person holds the right to approve today.
+
+    ``excluding``: the people who may not decide on the request at hand, so
+    the answer is whether someone else can."""
     # The same day a grant starts on (``team.grant_function``): the local
     # date. A UTC date lags behind it after midnight, and a right granted
     # then would not count until the UTC day turned.
@@ -193,6 +209,7 @@ async def approver_available(db: AsyncSession) -> bool:
             PersonRole.role_id == APPROVER_FUNCTION,
             PersonRole.start_date <= today,
             (PersonRole.end_date.is_(None)) | (PersonRole.end_date >= today),
+            *((Person.id.notin_(excluding),) if excluding else ()),
         )
     )
     return bool(count)
@@ -233,7 +250,11 @@ async def state_of(db: AsyncSession, quote: Quote) -> ApprovalState:
         requirement=await requirement_for(db, quote),
         current=current,
         history=tuple(history),
-        approver_available=await approver_available(db),
+        # Someone who may decide on this quote: not its maker, and not who
+        # asked, once it was asked.
+        approver_available=await approver_available(
+            db, excluding=await second_person_excluded(db, current, quote)
+        ),
         offered=await _offered(db, quote.id),
         quote_hash=quote.snapshot_hash,
     )

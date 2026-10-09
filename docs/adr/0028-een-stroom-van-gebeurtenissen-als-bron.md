@@ -38,3 +38,7 @@ Er is één duurzame stroom van gebeurtenissen. Alles wat in een instantie gebeu
 - De persoon in een gebeurtenis is een id zonder verwijzing naar de persoonstabel: het record is gehasht en verandert niet als een persoon wordt verwijderd.
 - De feed geeft bewust weinig. Een systeem dat meer wil weten, vraagt het ding zelf op en valt dan onder het toegangsmodel.
 - Niet gebouwd: abonnementen met aflevering, het doorsturen naar een logboek volgens Logboek Dataverwerkingen, en het verankeren van de keten buiten de instantie. Zie `docs/gebeurtenissen.md`.
+
+## Later gewijzigd (2026-10-09)
+
+Inzage wordt sindsdien per verzoek vastgelegd, niet per persoon: een pagina over een persoon geeft een gebeurtenis over die persoon, een lijst geeft een gebeurtenis met de klassen en het aantal personen. Het overzicht voor mensen toont standaard alleen wijzigingen. Een selectie uit de stroom is het nieuws voor de lezer (ADR 0043).

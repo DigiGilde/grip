@@ -100,7 +100,35 @@ Een akkoord legt vast: het offerte-id, de hash van de offerte, wie tekende, name
 | Tekenlink | De opdrachtnemer nodigt een e-mailadres uit. Die persoon logt met SSO Rijk in op de instantie van de opdrachtnemer en ziet alleen die ene offerte |
 | Pdf | De offerte gaat als document weg. De opdrachtmanager legt het getekende exemplaar vast |
 
-Dit is een gewone elektronische handtekening. Mandaat en bewijskracht moeten met juristen zijn afgestemd voordat de eerste echte offerte zo wordt getekend.
+Naast de inhoud ligt ook het pdf-bestand van een offerte vast: het wordt een keer opgemaakt, bij het maken, en bewaard met een eigen hash (ADR 0030). Bekijken, aanbieden, tekenen en het bewijs gebruiken dat ene bestand. De offerte is een brief: de tekst van de onderdelen hoort bij de inhoud waarover de hash gaat (ADR 0032).
+
+Bij een besluit (akkoord, afwijzing, interne goedkeuring, terugsturen) hoort een bewijs dat buiten grip te controleren is. De persoon meldt zich voor het besluit opnieuw aan, de aanmelding is aan precies dit document gebonden, en het besluit wordt een verklaring die de instantie ondertekent. Wie een passkey heeft, bevestigt daarnaast met het eigen apparaat. Wat een bundel aantoont en wat niet staat in [bewijs.md](bewijs.md); de besluiten zijn ADR 0029 en ADR 0037. Wie de offerte maakte, kan haar niet zelf goedkeuren of als opdrachtgever tekenen (ADR 0048).
+
+Welk niveau van elektronische handtekening dit is, bepaalt grip niet. Mandaat en bewijskracht moeten met juristen zijn afgestemd voordat de eerste echte offerte zo wordt getekend; de vragen staan in [bewijs.md](bewijs.md).
+
+## Hoe de delen binnen een instantie samenhangen
+
+Vier dingen dragen de rest. Wie ze kent, vindt de weg in de code.
+
+**De stroom van gebeurtenissen is de bron van wat er gebeurd is.** Elke wijziging van domeingegevens legt in dezelfde transactie een gebeurtenis vast: wat, wie, wanneer, de oude en de nieuwe waarde, en per veld de gegevensklasse. Een test laat een verzoek falen dat een domeintabel wijzigt zonder gebeurtenis. De geschiedenis van een opdracht, het overzicht voor de beheerder, het nieuws op de startpagina ("Wat is er gebeurd"), de taken en de berichten naar andere instanties lezen allemaal uit die stroom. Een keten van hashes maakt een wijziging achteraf zichtbaar. Zie [gebeurtenissen.md](gebeurtenissen.md), ADR 0028 en ADR 0043.
+
+**Feiten, taken en het verloop van een zaak komen uit een plek.** De takenlaag leidt uit de gegevens feiten af ("er is een offerte", "alle maanden van het kwartaal zijn afgesloten"). Het plan, dat als gegevens bij de code staat, zegt welke taak bij welke feiten ontstaat en door welk feit ze sluit; niemand vinkt een taak af. Uit dezelfde feiten komt het verloop van een zaak: de stappen, waar de zaak staat, wat de volgende stap is en voor wie. De kop van een opdracht of vacature, de kolom "Stand" in een lijst, de takenlijst en een melding op een apparaat kunnen elkaar daardoor niet tegenspreken. Zie [taken.md](taken.md), [werkstromen.md](werkstromen.md), ADR 0024, 0038 en 0044.
+
+**Rekenen gebeurt op een plek, en een datum is de dag van de instantie.** De rekenregels staan in een module zonder database of klok (ADR 0017). Een tarievenkaart geldt van een datum tot een datum en de prijs volgt de dag (ADR 0027). "Vandaag" is overal de kalenderdag van de instantie, standaard in de Nederlandse tijdzone; momenten worden in UTC opgeslagen (ADR 0046). Een test faalt als code een andere klok vraagt.
+
+**Elke toegangsbeslissing loopt door een functie.** Zie [toegang.md](toegang.md).
+
+Daarop rusten de onderdelen:
+
+| Onderdeel | Kern | Meer |
+|---|---|---|
+| Offerte | Een brief met tekst, een kenmerk, een bewaard bestand, interne goedkeuring waar ingesteld, aanbieden per kanaal, een bewijs bij het besluit | [offerte-document.md](offerte-document.md), [bewijs.md](bewijs.md) |
+| Afsluiten en factureren | Vaststellen per maand; aanleveren per factuurperiode van de afspraak als factuurverzoek; de factuur op de aanlevering; een prijswijziging achteraf als opgeslagen naverrekening | ADR 0039, ADR 0047 |
+| Vacatures | Aanvraag met het formulier van de organisatie, advies en akkoord, teksten uit een bibliotheek en als werk met een beoordeling | [vacatureteksten.md](vacatureteksten.md), ADR 0018, ADR 0034 |
+| Aanmelden | Via de identiteitsprovider van het platform; alleen op een bevestigd adres; een weigering heeft een reden; daarna kan een passkey | [sso-rijk.md](sso-rijk.md), [passkeys-en-installeren.md](passkeys-en-installeren.md) |
+| Berichten naar mensen | Mail via een wachtrij; meldingen op het eigen apparaat voor wat op de lezer wacht, zonder namen of bedragen | ADR 0031, [meldingen.md](meldingen.md) |
+| Taalmodel | Een servicelaag met een instelling. In productie VLAM; alleen in de lokale ontwikkelmodus kan een eigen model die plaats innemen. Er gaan geen namen en geen gegevens van de klassen D, E en F naar een model | ADR 0018, ADR 0035 |
+| Schermen | Gedeelde bouwstenen, een hoofdbalk met zeven plekken, vaste woorden, en metingen die de regels bewaken | [ontwerp.md](ontwerp.md), ADR 0042 |
 
 ## Wies
 

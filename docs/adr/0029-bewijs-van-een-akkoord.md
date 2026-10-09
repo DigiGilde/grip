@@ -27,7 +27,7 @@ Een besluit krijgt bewijs dat buiten grip is na te rekenen. Het bestaat uit vijf
 Daarnaast:
 
 - **Bevoegdheid is geen identiteit.** In de verklaring staat op welk recht of welke uitnodiging grip zich baseerde, sinds wanneer en door wie toegekend. Het mandaat zelf ligt buiten grip vast.
-- **Niet vers is niet vers.** Laat de provider iemand niet opnieuw inloggen, dan blijkt dat uit het tijdstip van aanmelden in het token. Grip legt dat vast als de zwakkere vaststelling die het is. Een instantie kan instellen dat zo'n besluit wordt geweigerd.
+- **Niet vers is niet vers.** Laat de provider iemand niet opnieuw inloggen, dan blijkt dat uit het tijdstip van aanmelden in het token. Grip legt dat vast als wat het is, in twee tijden: wanneer iemand zich aanmeldde en wanneer het besluit viel, zonder oordeel. Een instantie kan instellen dat zo'n besluit wordt geweigerd.
 - **Verwijzen, niet kopiëren.** De gebeurtenissen en de auditregel van een besluit noemen de hash van de verklaring. De verklaring zelf en het token gaan niet de stroom in en niet naar een andere instantie.
 
 ## Wat elk kanaal bewijst, en op wiens woord
@@ -64,3 +64,7 @@ Welke kwalificatie daarbij hoort, en welk niveau een afspraak tussen onderdelen 
 - De directe routes zonder opnieuw aanmelden bestaan nog. Ze maken geen verklaring.
 - Het uploaden van een pdf die iemand met een eigen certificaat heeft ondertekend, en het controleren van die handtekening, is onderzocht en niet gebouwd. Dat is de weg naar een handtekening die niet van grip of van de login afhangt.
 - De bibliotheek voor tijdstempels leest het antwoord van een van de twee geprobeerde autoriteiten niet. Voor een instantie een autoriteit instelt, moet die autoriteit zijn geprobeerd.
+
+## Later gewijzigd (2026-10-09)
+
+Wie een passkey heeft, bevestigt een besluit daarnaast met het eigen apparaat; die bevestiging is een extra, optioneel onderdeel van de bundel (ADR 0037). Het bestand van de offerte zit in de bundel (ADR 0030).

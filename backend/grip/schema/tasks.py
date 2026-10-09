@@ -95,6 +95,8 @@ class TaskListOut(BaseModel):
     # waits for. Never the reader's own.
     awaited: Annotated[list[TaskOut], nested()] = Field(default_factory=list)
     counts: Annotated[TaskCountsOut, nested()] = Field(default_factory=TaskCountsOut)
+    # For the beheerder: cases whose tasks could not be brought up to date.
+    failed_cases: Annotated[int, A] = 0
 
 
 class TrackOut(BaseModel):

@@ -22,3 +22,7 @@ Er komt geen externe ondertekendienst.
 - De tekenlink laat mensen van buiten de organisatie inloggen op een instantie. Hun toegang is beperkt tot een offerte en loopt via dezelfde beslisfunctie.
 - Bij de pdf-vorm controleert grip de handtekening niet. Het akkoord rust dan op de vastlegging door de manager.
 - Elke instantie heeft een eigen sleutel voor het ondertekenen van berichten. Beheer en rotatie daarvan zijn niet uitgewerkt.
+
+## Later gewijzigd (2026-10-09)
+
+De drie vormen zijn gebleven. Erbij gekomen is het bewijs van een besluit: de persoon meldt zich bij het besluit opnieuw aan, de aanmelding is aan het document gebonden en het besluit wordt een ondertekende verklaring die buiten grip te controleren is (ADR 0029). Wie een passkey heeft, bevestigt daarnaast met het eigen apparaat (ADR 0037). Wie de offerte maakte, kan haar niet zelf als opdrachtgever tekenen (ADR 0048). De zin over de gewone elektronische handtekening blijft staan: de kwalificatie is aan de juristen.

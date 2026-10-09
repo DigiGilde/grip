@@ -376,6 +376,7 @@ async def get_delivery(
         - sum(item["amount_cents"] for item in content["replaced_by"]),
         "replaces": content["replaces"],
         "replaced_by": content["replaced_by"],
+        "corrections": content["corrections"],
         "delivered_at": delivery.delivered_at.isoformat(),
         "delivered_by_name": content["delivered_by_name"],
         "has_document": delivery.document_ref is not None,

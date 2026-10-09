@@ -1,8 +1,158 @@
 # Rondgang door de hele interface
 
+Bijgewerkt op 9 oktober 2026 na ronde vier, op commit `cf6997e` van de werkbranch. Vier rondes door een eigen kopie met een echte browser, als de voorbeeldpersonen; deze ronde vindt en beschrijft en wijzigt geen code.
+
+## Waar het product staat
+
+De hoofdweg van een opdracht werkt van begin tot eind: begroting, offerte als brief, interne goedkeuring door een ander, aanbieden, tekenen met bewijs, uitvoeren, maanden afsluiten, een kwartaal aanleveren, de factuur vastleggen en een naverrekening tot en met haar eigen factuur. De kop van een opdracht en van een vacature zegt in één zin waar het staat, wie aan zet is en wat de knop is; de bedragen kloppen over scherm en pdf heen. Van de bevindingen uit ronde een die deze ronde zijn nagelopen is bijna alles echt hersteld. Wat nu het zwaarst weegt is één fout aan de achterkant: zodra een vacature een bewaard aanvraagformulier heeft, valt de pagina Taken voor iedereen om (R407). Daardoor is de reis van de vacature deze ronde niet verder gekomen dan het advies. Een groot deel van de bevindingen uit ronde twee en drie is deze ronde niet nagelopen; dat staat eerlijk in de telling.
+
+## Hoe ver elke reis kwam in ronde vier
+
+| Reis | Stand |
+|---|---|
+| 1. Opdracht winnen | Voltooid tot en met "Zet in uitvoering": begroting met drie soorten regels, brief met een eigen tekst, een concept van het taalmodel (10 s) en een herschreven passage (5 s), afzender aangevuld door de beheerder, interne goedkeuring gevraagd en door een ander gegeven met ontvangstbewijs, aangeboden met een tekenlink, getekend als de uitgenodigde, bewijs gecontroleerd. Niet: mail (geen postvanger), een node uit het corpus. Dat de server een eigen goedkeuring weigert is niet sluitend getest (het verzoek strandde op een ontbrekend veld); het scherm biedt de knoppen niet. "Neem deze stap over" niet gevonden |
+| 2. Van gedachten veranderen | Deels: afwijzing vastgelegd, de opdracht blijft open en de kop leidt naar een nieuwe offerte; afsluiten zonder opdracht vraagt een reden en weigert zonder. Niet: de nieuwe offerte zelf maken en aanbieden |
+| Interne opdracht | Voltooid van begin tot uitvoering, met een eigen kort verloop |
+| 3. Bemensen | Niet opnieuw gelopen; het bord Inzet niet met de hand bediend |
+| 4. Werven | Gestopt bij advies en akkoord: aanvraag voorbereid, motivatie geschreven en vastgesteld, aangevraagd, drie adviseurs genoemd waarvan één buiten grip. Daarna gaf het verloop van de vacature een serverfout (R407). Niet: de tekst door beoordeling, publiceren, vervullen, de variant met een kandidaat |
+| 5. Uitvoeren en factureren | Voltooid, inclusief een naverrekening na de factuur via aanleveren tot haar eigen factuur. Een maand heropenen: geen actie voor gevonden (R403) |
+| 6. Kosten en tarieven | Niet gelopen |
+| 7. De dag van de beheerder | Deels: afzender en personen, interne goedkeuring aangezet, rechten toegekend, een nieuwe persoon gemaakt. Niet: tarievenkaart, organisatieregister, tekstblokken, standaardteksten, formulier met voorbeeld, passkey, meldingen |
+| 8. Alle anderen | Deels: start en Taken als goedkeurder en eigenaar; 32 adressen als zuivere planner (nieuw aangemaakt), lezer, teamlid, aanvrager en persoon zonder rechten; diepe links naar tabs zonder recht. Niet: terugknop, herladen, twee tabbladen op één onderdeel, de kant van de opdrachtgever |
+| 9. Smal en licht | Alleen de acht werkstroompagina's in licht en donker voor de waas-toets; niet opnieuw alles op 390 |
+
+## Telling over alle rondes
+
+Rondes een tot en met drie: 77 bevindingen (42 uit ronde een, 16, 7 en 12 uit de rondes daarna). Ronde vier voegt er 12 toe.
+
+| Stand | Aantal | Welke |
+|---|---|---|
+| Hersteld en deze ronde bevestigd | 29 | F001, F004, F006, F009, F010, F012, F014, F015, F016, F017, F018, F019, F020, F021, F023, F024, F025, F026, F028, F030, F031, F033, F034, F036, F037, F042, G003, G007, G016 |
+| Hersteld, deels bevestigd | 4 | F011, F029, F027, F032 |
+| Als hersteld gemeld, deze ronde niet nagelopen | 23 | G001, G002, G004, G005, G006, G008, G009, G010, G011, G012, G013, G014, G015, T202, T205, H001, H002, H003, H004, H011, H012, F035, F041 |
+| Open, gezien dat het er nog is | 1 | F003 |
+| Open of zonder stand, deze ronde niet opnieuw bekeken | 20 | F002, F005, F007, F008, F013, F022, F038, F039, F040, T201, T203, T204, T206, T207, H005, H006, H007, H008, H009, H010 |
+| Nieuw in ronde vier | 12 | R407, R401, R402, R403, R406, R412, R404, R405, R408, R409, R410, R411 |
+
+Van wat als hersteld was gemeld en is nagelopen, bleek niets helemaal onjuist; twee zijn half (F011, F029).
+
+## De tien dingen die nu het meest tellen
+
+1. **Taken vallen om voor iedereen zodra een vacature een bewaard aanvraagformulier heeft** (R407). Taken, de taken op de startpagina en de kop van de vacature geven een serverfout. Dit raakt de hele instantie.
+2. **De reis van een vacature is daardoor niet tot het eind te lopen.** Beoordelen van de tekst, publiceren en vervullen zijn in geen enkele ronde met de hand gedaan.
+3. **Wie zelf goedkeurder is en goedkeuring vraagt, krijgt te horen dat zij moet beoordelen** (R401): kop en lijst zeggen het, de knoppen ontbreken terecht.
+4. **Een eigenaar leest "Je wacht op een planner. Jij hoeft nu niets te doen"**, terwijl zij de rol zelf kan invullen (R402).
+5. **Knoppen in de kop van een vacature vragen twee keer drukken** of leiden naar een tab zonder knop (R405, R406, R408).
+6. **Een maand heropenen na aanlevering kan nergens** (R403); of dat de bedoeling is, staat er niet.
+7. **Een teamlid leest de tariefcategorie van zijn begrotingsregel** in de beschrijving van zijn eigen balk op het bord (R412).
+8. **De kop van een lege opdracht toont nog vier keer € 0** (F003).
+9. **Het factuurverzoek van een kwartaal is nog twee pagina's** (F029), en het onderdeel van de offerte blijft open na bewaren (F011).
+10. **Drieëntwintig herstelmeldingen uit ronde twee en drie zijn niet door een tweede paar ogen bekeken**, waaronder het overnemen van een stap met functiescheiding (H004) en de ene klok (G008).
+
+## Waar het oog landt (waas-toets, donker en licht gelijk)
+
+| Pagina, als wie | Eerst | Dan | Dan | Is het enige gevulde accent de volgende stap? |
+|---|---|---|---|---|
+| Opdracht, eigenaar | de blauwe knop "Sluit april 2026 af" rechtsboven | de titel | de rode regel "Had klaar moeten zijn" | ja |
+| Vacature, tab Aanvraag, aanvrager | de titel | de groene vinkjes | de zin in de kop | nee: de knop van de stap is hier een gewone knop (R409) |
+| Vacature, tab Tekst, aanvrager | de blauwe knop "Maak aanvraagformulier" | de titel | het label "Vastgesteld" | ja |
+| Offerte schrijven, eigenaar | de titel | de kolom gelijke "Schrijf"-knoppen | de gedimde "Maak offerte" | nee: er is geen accent (R411) |
+| Afsluiten en factureren, eigenaar | de kaart "April 2026 is voorbij" met haar knop | de titel | de cijfers in de kop | ja |
+| Factureren, eigenaar | de titel | de zin "Er staat niets klaar" | de ene rij | er is terecht geen accent |
+| Taken, eigenaar | de rode data "Te laat" | de titel | de namen van de taken | geen gevuld accent; drie keer rood |
+| Start, eigenaar | de titel | de twee kolommen taken en aandacht | het blok "Wat is er gebeurd" | geen gevuld accent |
+
+In vijf seconden te zeggen waar het staat, wie aan zet is en wat je indrukt: ja op de opdracht, op de tekst-tab en op Afsluiten; op de vacature wel de zin maar niet de knop; op de schrijfpagina wel de zin ("Begin met Inleiding") maar niet de knop.
+
+## Nagerekend in ronde vier
+
+| Keten | Gerekend | Op scherm en pdf |
+|---|---|---|
+| Begroting, offerte, brief, tekenpagina | 0,8 × 12 × 13.125 = 126.000; 0,5 × 12 × 18.900 = 113.400; vast 6.000 (jaar 2027); samen 245.400 | begroting, kop, offertekaart, brief en tekenpagina: € 245.400; de brief noemt de tarieven van 2027 |
+| Maand aanpassen | maart: 12.500 + 6.000 (40 in plaats van 60 procent) + 14.400 = 32.900 | het paneel rekent mee: € 6.000, "De maand komt op € 32.900" |
+| Kwartaal naar factuurverzoek | 35.900 + 32.900 + 32.900 = 101.700 | tab € 101.700; pdf met subtotalen 35.900, 32.900, 32.900 en totaal € 101.700 |
+| Factuur | 101.700 aangeleverd, 101.600 gefactureerd | "€ 100 minder gefactureerd dan aangeleverd" |
+| Naverrekening | schaal 11 naar 13 per 1 februari: 2 × 2.500 = 5.000 | periode "Naverrekening € 5.000"; eigen pdf € 5.000; daarna aangeleverd € 106.700, gefactureerd € 106.600 |
+
+Niet opnieuw gerekend: een promotie midden in een maand (klopte in ronde een) en de dekking van een kostenpost.
+
+## Toegang in ronde vier
+
+Als zuivere planner, teamlid, aanvrager en persoon zonder rechten op 32 adressen: geen bedrag van een ander, in lijsten, kop, geschiedenis of feed. Tarieven tonen hun geen bedragen meer. De lezer ziet bedragen van opdrachten, zoals bedoeld. Eén punt: het teamlid leest op het bord de tariefcategorie van zijn eigen begrotingsregel (R412). Pdf's en panelen zijn niet per persoon nagelopen. Geen actie gevonden die de server daarna weigerde, buiten de serverfout van R407.
+
+## Wat hier niet te testen was
+
+- **Een echte login-dienst.** De kopie draait zonder login; opnieuw inloggen bij tekenen en goedkeuren is dus niet gezien. Onbekend blijft of de terugkeer goed gaat en wat een verlopen sessie doet.
+- **Mail en pushmeldingen.** Geen postvanger en geen achtergrondproces gestart. Onbekend of de tekenlink aankomt en leesbaar is.
+- **Een echte telefoon, een geïnstalleerde app, een passkey.**
+- **Twee gekoppelde instanties.** De kant van de opdrachtgever met een ontvangen offerte is niet gelopen.
+- **Het echte corpus.** Context kiezen en de context in een concept van het taalmodel zijn niet gezien.
+
+## Ronde vier: nieuwe bevindingen
+
+| Nr | Ernst | Waar, als wie | Wat er gebeurde | Wat je verwacht | Vermoedelijke plek |
+|---|---|---|---|---|---|
+| R407 | Kapot | reis 4, na "Maak aanvraagformulier" en het noemen van adviseurs met een account; iedereen; Taken, de startpagina en de kop van elke vacature geopend | de server antwoordt 500 op /api/tasks/mine en op het verloop van de vacature: de pagina Taken zegt "Dit laden is niet gelukt", de kop van de vacature valt weg en de taken op de startpagina ook, voor alle gebruikers van de instantie; oorzaak in het logboek: bij het vergelijken van het bewaarde formulier met de vacature wordt een gegeven lui geladen buiten de databasecontext (MissingGreenlet in services/vacancies/service.py form_values, via request_forms.changed_since, via tasks/cases._request_form_facts) | taken blijven werken; de genoemde personen worden vooraf geladen | backend grip/tasks/cases.py (_request_form_facts), services/vacancies/request_forms.py, service.py form_values |
+| R401 | Verwarrend | reis 1, interne goedkeuring; eigenaar die zelf het recht goedkeurder heeft en de goedkeuring net vroeg; kop van de opdracht en /goedkeuren bekeken | de kop zegt tegen haar "Beoordeel de offerte ... keur haar goed, of stuur haar terug" met de hoofdknop "Beoordeel de offerte", en de offerte staat in haar lijst "Wacht op mijn goedkeuring"; op de beoordeelpagina ontbreken de knoppen terecht, maar er staat niet waarom | voor de aanvrager: "Wacht op goedkeuring door een ander"; op de pagina: "Je kunt je eigen offerte niet goedkeuren" | backend: zin en zet in de werkstroomkop (wie is aan zet sluit de aanvrager uit), GET quote-approvals/waiting |
+| R402 | Verwarrend | reis 3, opdracht net in uitvoering; eigenaar; kop gelezen | "Je wacht op een planner, die de rol Productmanager invult. Jij hoeft nu niets te doen", zonder knop, terwijl de eigenaar zelf iemand kan inzetten op de tab Bemensing | "Vul de rol Productmanager in" met de knop naar Bemensing; "wacht op een planner" alleen voor wie zelf niet kan plannen | backend: werkstroomkop (wie kan de stap zetten) |
+| R403 | Verwarrend | reis 5, maand heropenen na aanlevering; eigenaar; tab Afsluiten en factureren, menu's van periode en maand nagelopen | er is geen actie om een afgesloten, aangeleverde maand te heropenen; het woord komt op de pagina niet voor | een actie bij de maand, of een zin die zegt dat corrigeren via een naverrekening gaat | features/month-close |
+| R406 | Verwarrend | reis 4, advies en akkoord; aanvrager; hoofdknop "Noem iemand" in de kop gevolgd | de knop brengt je naar de tab Advies en akkoord; daar heeft de kop geen knop meer en staat er geen actie; noemen kan alleen door op de naam van de rij ("Advies HR") te klikken, wat nergens staat | de knop opent het paneel "HR-adviseur noemen" direct, of de rij draagt de knop | features/vacancies (advies-tab, bestemming van de stap) |
+| R412 | Verwarrend | toegang, Inzet-bord; teamlid; eigen balken op het bord gelezen | de beschrijving van zijn eigen balk zegt "declareert in schaal 12 en 13 (categorie C), de regel rekent met schaal 10 en 11 (categorie B)": de tariefcategorie van de begrotingsregel, die een teamlid volgens het toegangsmodel niet ziet | voor wie geen geld ziet alleen "ander tarief dan de regel aanneemt", zonder de categorie van de regel | backend: beschrijving van een inzet met tariefverschil per lezer; features/allocations |
+| R404 | Ruw | reis 4, vacaturelijst; aanvrager; lijst naast de vacature gelezen | de kolom Stand zegt "Jij: vraag de vacature aan" terwijl de kop van die vacature zegt dat de aanvraag nog niet compleet is en eerst de motivatie vraagt | dezelfde zin als de kop | backend: stand in de lijst uit dezelfde bron als de kop |
+| R405 | Ruw | reis 4, motivatie schrijven; aanvrager; hoofdknop "Schrijf de motivatie" in de kop | de knop brengt je naar de tab Tekst, waar je dezelfde knop "Schrijf de motivatie" nog een keer moet indrukken; de kop houdt intussen zijn eigen knop met dezelfde naam | de knop in de kop opent het schrijven direct | features/vacancies (bestemming van de stap), TextWork |
+| R408 | Ruw | reis 4, advies vastleggen; genoemde adviseur; hoofdknop "Leg het advies vast" in de kop | de knop brengt je naar de tab, waar een tweede knop "Leg advies concern control vast" staat die je ook moet indrukken (zelfde patroon als R405 en R406) | één druk opent het paneel | features/vacancies (bestemming van de stap) |
+| R409 | Ruw | reis 4, tab Aanvraag van een vacature; aanvrager; kop zegt "Maak het aanvraagformulier" | op de tab waar die knop staat verdwijnt de hoofdknop uit de kop en is de knop op de tab zelf een gewone knop: de pagina heeft dan geen accent; op de andere tabs heeft de kop de blauwe knop wel | op de tab van de stap is de knop van de stap het accent | features/vacancies (headerHoldsPrimary) |
+| R410 | Ruw | reis 7, /beheer/offertes; beheerder; pagina gelezen | "Volgende offerte heet bijvoorbeeld LOKAAL-2026-0001" terwijl er al zes offertes zijn; de pagina heeft als enige beheerpagina geen "Terug naar Beheer" | het echte volgende nummer; de teruglink | features/quotes/QuoteSettingsPage.tsx |
+| R411 | Ruw | reis 1, offerte schrijven; eigenaar; pagina met lege onderdelen | geen enkel accent: "Maak offerte" is gedimd en alle "Schrijf"-knoppen zijn gelijk; de zin zegt "Begin met Inleiding" maar die knop valt niet op | "Schrijf" bij het eerste lege onderdeel als hoofdknop | features/quotes/QuoteDraftPage.tsx |
+
+## Ronde vier: controle van eerdere bevindingen
+
+| Nr | Uitkomst op 9 oktober 2026 |
+|---|---|
+| F001 | bevestigd op 9 oktober 2026 |
+| F004 | bevestigd op 9 oktober 2026 |
+| F006 | bevestigd op 9 oktober 2026 |
+| F009 | bevestigd op 9 oktober 2026 |
+| F010 | bevestigd op 9 oktober 2026 |
+| F012 | bevestigd op 9 oktober 2026 |
+| F014 | bevestigd op 9 oktober 2026 |
+| F015 | bevestigd op 9 oktober 2026 |
+| F016 | bevestigd op 9 oktober 2026 |
+| F017 | bevestigd op 9 oktober 2026 |
+| F018 | bevestigd op 9 oktober 2026 |
+| F019 | bevestigd op 9 oktober 2026 |
+| F020 | bevestigd op 9 oktober 2026 |
+| F021 | bevestigd op 9 oktober 2026 |
+| F023 | bevestigd op 9 oktober 2026 |
+| F024 | bevestigd op 9 oktober 2026 |
+| F025 | bevestigd op 9 oktober 2026 |
+| F026 | bevestigd op 9 oktober 2026 |
+| F028 | bevestigd op 9 oktober 2026 |
+| F030 | bevestigd op 9 oktober 2026 |
+| F031 | bevestigd op 9 oktober 2026 |
+| F033 | bevestigd op 9 oktober 2026 |
+| F034 | bevestigd op 9 oktober 2026 |
+| F036 | bevestigd op 9 oktober 2026 |
+| F037 | bevestigd op 9 oktober 2026 |
+| F042 | bevestigd op 9 oktober 2026 |
+| G003 | bevestigd op 9 oktober 2026 |
+| G007 | bevestigd op 9 oktober 2026 |
+| G016 | bevestigd op 9 oktober 2026 |
+| F011 | deels: de melding "Inleiding is bewaard" staat er; het onderdeel blijft open staan |
+| F029 | deels: subtotaal per maand staat er; een kwartaal met drie rollen is nog twee pagina's |
+| F027 | deels: geen eindeloos laden meer; wat de pagina de lezer daarna zegt is niet bekeken |
+| F032 | deels: geen eindeloos laden meer en geen onjuiste zin gezien; verder niet bekeken |
+| F003 | nog niet goed: nog aanwezig: de kop van een nieuwe opdracht toont vier keer € 0 en "Geen ruimte" |
+| G001, G002, G004, G005, G006, G008, G009, G010, G011, G012, G013, G014, G015, T202, T205, H001, H002, H003, H004, H011, H012, F035, F041 | als hersteld gemeld, deze ronde niet nagelopen |
+| F002, F005, F007, F008, F013, F022, F038, F039, F040, T201, T203, T204, T206, T207, H005, H006, H007, H008, H009, H010 | deze ronde niet opnieuw bekeken |
+
+---
+
+# Eerdere rondes
+
 Stand: commit `53005b7` op de werkbranch, 8 oktober 2026. Gedaan in een eigen kopie (eigen database, eigen servers), met een echte browser die klikt en typt, als de verschillende voorbeeldpersonen. Deze ronde vindt en beschrijft; er is niets aan de code gewijzigd.
 
-## Hoe ver elke reis kwam
+## Ronde een: hoe ver elke reis kwam
 
 | Reis | Stand |
 |---|---|
@@ -16,11 +166,11 @@ Stand: commit `53005b7` op de werkbranch, 8 oktober 2026. Gedaan in een eigen ko
 | 8. Alle anderen | Elke pagina geopend als planner, eigenaar, lezer, teamlid, persoon zonder rechten en aanvrager, met diepe links naar tabs die zij niet hebben. Niet gedaan: terugknop, herladen na opslaan, twee tabbladen tegelijk, de kant van de opdrachtgever |
 | 9. Smal en licht | Elke pagina op 390 breed en in het lichte thema geopend als beheerder; twaalf smalle en acht lichte pagina's bekeken. Geen pagina schuift zijwaarts |
 
-## Telling
+## Ronde een: telling
 
 42 bevindingen: 8 kapot, 19 verwarrend, 15 ruw.
 
-## De vijftien ergste
+## Ronde een: de vijftien ergste
 
 - **F009** (kapot), reis 1, vaste begrotingsregel: het jaar staat standaard op 2026 (het huidige jaar); de begroting krijgt "Subtotaal 2026 € 6.000" buiten de looptijd, zonder waarschuwing
 - **F014** (kapot), reis 1, offertebrief (pdf): Leveringsvoorwaarden punt 6 zegt "Deze offerte is gebaseerd op de tarieven van 2026"; het jaar volgt het moment van maken, niet de tarieven in de offerte

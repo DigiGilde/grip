@@ -10,6 +10,7 @@ import { ActionBar, type ActionBarFilter } from '@/ui/ActionBar';
 import {
   CardGrid,
   EmptyNotice,
+  ErrorNotice,
   LoadError,
   Loading,
   Page,
@@ -44,9 +45,30 @@ function MyTasks({ onOpen }: { onOpen: (id: string) => void }) {
   if (query.isPending) return <Loading />;
   if (query.isError) return <LoadError error={query.error} retry={() => void query.refetch()} />;
   const { toDo, waiting } = myWork(query.data.items, query.data.awaited);
-  if (toDo.length === 0 && waiting.length === 0) return <EmptyNotice text="Niets te doen" />;
+  const failed = query.data.failed_cases;
+  // Only who keeps the instance hears this: the tasks of those cases stay
+  // as they were, and the cause is in the log of the server.
+  const trouble =
+    failed > 0 ? (
+      <ErrorNotice
+        message={
+          failed === 1
+            ? 'Van 1 opdracht of vacature konden de taken niet worden bijgewerkt. De oorzaak staat in het logboek van de server.'
+            : `Van ${failed} opdrachten of vacatures konden de taken niet worden bijgewerkt. De oorzaak staat in het logboek van de server.`
+        }
+      />
+    ) : null;
+  if (toDo.length === 0 && waiting.length === 0) {
+    return (
+      <Stack gap="section">
+        {trouble}
+        <EmptyNotice text="Niets te doen" />
+      </Stack>
+    );
+  }
   return (
     <Stack gap="section">
+      {trouble}
       <Section title="Te doen">
         {toDo.length > 0 ? (
           <TaskTable label="Te doen" tasks={toDo} onOpen={onOpen} />

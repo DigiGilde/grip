@@ -17,6 +17,8 @@ never makes a second task. The engine never writes to a domain table.
 
 from __future__ import annotations
 
+import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
@@ -41,6 +43,9 @@ from grip.tasks.plan import Plan, Template, current_plan, plan_for
 _EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
 
 
+logger = logging.getLogger(__name__)
+
+
 @dataclass
 class Outcome:
     """What one run changed."""
@@ -53,6 +58,8 @@ class Outcome:
     # The facts this run read, for a caller that tells about the same cases
     # right after: reading them twice costs a priced budget per open quote.
     snapshots: list[CaseSnapshot] = field(default_factory=list)
+    # Cases whose facts could not be read: their tasks stay as they were.
+    failed: list[tuple[str, UUID]] = field(default_factory=list)
 
     def add(self, other: Outcome) -> None:
         self.created += other.created
@@ -60,6 +67,7 @@ class Outcome:
         self.obsolete += other.obsolete
         self.reopened += other.reopened
         self.cases += other.cases
+        self.failed += other.failed
 
     @property
     def changes(self) -> int:
@@ -389,6 +397,40 @@ async def _reconcile(
     return outcome
 
 
+async def _load_each_if_needed(
+    db: AsyncSession,
+    case_kind: str,
+    ids: set[UUID],
+    load: Callable[[set[UUID]], Awaitable[list[CaseSnapshot]]],
+) -> tuple[list[CaseSnapshot], list[tuple[str, UUID]]]:
+    """The facts of the cases, and the cases whose facts could not be read.
+
+    One case with facts that fail must not take the tasks of everyone down:
+    when reading them together fails, each case is read on its own, the one
+    that fails is logged and left as it was, and the rest goes on. Each
+    attempt runs in a savepoint, so a failed read leaves the session usable.
+    """
+    try:
+        async with db.begin_nested():
+            return await load(ids), []
+    except Exception:
+        logger.exception("Reading the facts of %s cases failed; one by one", case_kind)
+    cases: list[CaseSnapshot] = []
+    failed: list[tuple[str, UUID]] = []
+    for case_id in sorted(ids, key=str):
+        try:
+            async with db.begin_nested():
+                cases.extend(await load({case_id}))
+        except Exception:
+            logger.exception(
+                "The facts of %s %s could not be read; its tasks stay as they were",
+                case_kind,
+                case_id,
+            )
+            failed.append((case_kind, case_id))
+    return cases, failed
+
+
 async def evaluate_assignments(
     db: AsyncSession,
     assignment_ids: set[UUID],
@@ -398,11 +440,16 @@ async def evaluate_assignments(
     now: datetime | None = None,
 ) -> Outcome:
     await db.flush()
-    cases = await load_assignment_cases(
-        db, assignment_ids, today=today, instance_base_uri=instance_base_uri
-    )
+
+    async def load(ids: set[UUID]) -> list[CaseSnapshot]:
+        return await load_assignment_cases(
+            db, ids, today=today, instance_base_uri=instance_base_uri
+        )
+
+    cases, failed = await _load_each_if_needed(db, "assignment", assignment_ids, load)
     outcome = await _reconcile(db, cases, now=now or datetime.now(UTC))
     outcome.snapshots = cases
+    outcome.failed = failed
     return outcome
 
 
@@ -410,9 +457,14 @@ async def evaluate_vacancies(
     db: AsyncSession, vacancy_ids: set[UUID], *, now: datetime | None = None
 ) -> Outcome:
     await db.flush()
-    cases = await load_vacancy_cases(db, vacancy_ids)
+
+    async def load(ids: set[UUID]) -> list[CaseSnapshot]:
+        return await load_vacancy_cases(db, ids)
+
+    cases, failed = await _load_each_if_needed(db, "vacancy", vacancy_ids, load)
     outcome = await _reconcile(db, cases, now=now or datetime.now(UTC))
     outcome.snapshots = cases
+    outcome.failed = failed
     return outcome
 
 

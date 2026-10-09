@@ -33,3 +33,7 @@ Een offerte had als kenmerk haar URI. Dat is een adres voor systemen; een mens k
 - Het contract (`offerte.schema.json`, `momentopname`) moet `kenmerk`, `uw_kenmerk` en `afzender` kennen, en `schalen` op een personeelsregel. Tot die versie er is staan de termen in `PENDING_PROPERTIES` in `services/terms.py`.
 - Een ontvangende omgeving neemt het kenmerk over uit de inhoud en geeft geen eigen nummer uit.
 - Het image en de CI installeren pango.
+
+## Later gewijzigd (2026-10-09)
+
+De pdf wordt sindsdien een keer opgemaakt, bij het maken van de offerte, en bewaard (ADR 0030). Bekijken en downloaden geven hetzelfde bestand; de losse weergave als webpagina is vervallen. De offerte is een brief met tekst geworden (ADR 0032). De naam van de afzender en het briefhoofd zijn instellingen van de instantie in de database, met de omgevingsvariabelen als beginwaarde.

@@ -22,3 +22,7 @@ De sporen lopen tegelijk. Spoor A vervangt Grist, spoor B bouwt de federatie.
 - Is een tegenpartij onbereikbaar, dan blijven berichten in de outbox staan en werkt de applicatie door.
 - Welke gebeurtenissen "relevant" zijn moet tussen de sporen worden afgesproken en ligt vast in het contract.
 - De servicelaag is een intern koppelvlak. Wijzigingen daarin raken beide sporen.
+
+## Later gewijzigd (2026-10-09)
+
+De naad is gebleven. De gebeurtenissen die spoor A meldt worden sindsdien eerst duurzaam vastgelegd in een stroom, in dezelfde transactie als de wijziging; de outbox, de taken en de geschiedenis worden daaruit gevoed (ADR 0028).

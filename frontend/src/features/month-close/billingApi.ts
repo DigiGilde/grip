@@ -69,6 +69,16 @@ export interface ReplacedMonth {
   amount_cents: number;
 }
 
+/** A difference on a month that was delivered before (naverrekening). */
+export interface StatedCorrection {
+  month: string;
+  month_label: string;
+  amount_cents: number;
+  cause: string;
+  follows_reference: string | null;
+  follows_delivered_on: string | null;
+}
+
 /** A month this request delivers again, with the request it replaces. */
 export interface ReplacesMonth {
   month_label: string;
@@ -231,6 +241,8 @@ export interface DeliveryDetail {
   in_force_cents?: number;
   replaces?: ReplacesMonth[];
   replaced_by?: ReplacedMonth[];
+  /** The differences this request carries, with why and what they come on top of. */
+  corrections?: StatedCorrection[];
   delivered_at: string;
   delivered_by_name: string | null;
   has_document: boolean;

@@ -1,6 +1,6 @@
 # 0045 Een afgewezen offerte sluit de opdracht niet
 
-Status: aanvaard
+Status: aanvaard (2026-10-09)
 
 ## Context
 

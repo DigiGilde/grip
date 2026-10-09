@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import (
     BigInteger,
@@ -9,7 +10,7 @@ from sqlalchemy import (
     LargeBinary,
     String,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from grip.core.database import Base
@@ -52,6 +53,9 @@ class StoredDocument(Base):
     size_bytes: Mapped[int] = mapped_column(BigInteger)
     sha256: Mapped[str] = mapped_column(String(64), index=True)
     content: Mapped[bytes] = mapped_column(LargeBinary, deferred=True)
+    # For a file grip filled in itself: the value of each field as it was
+    # written, so "does this still fit" is answered without opening the file.
+    made_from: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     uploaded_by_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("person.id", ondelete="SET NULL"),

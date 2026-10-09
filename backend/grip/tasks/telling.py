@@ -39,7 +39,7 @@ from grip.models.quote import Quote, QuoteApproval, QuoteRejection
 from grip.models.role import PersonRole
 from grip.models.task import Task
 from grip.models.vacancy import Vacancy, VacancyText
-from grip.services import billing_corrections
+from grip.services import billing_corrections, quote_approval
 from grip.services.vacancies import service as vacancy_service
 from grip.tasks import catalogue
 from grip.tasks.cases import period_words
@@ -353,6 +353,8 @@ class _Context:
     motivated: set[UUID] = field(default_factory=set)
     # Rights in grip that nobody holds today.
     unheld: set[str] = field(default_factory=set)
+    # Approval requests on which nobody but the maker or asker could decide.
+    no_second: set[str] = field(default_factory=set)
 
 
 def _as_uuid(value: str | None) -> UUID | None:
@@ -480,6 +482,19 @@ async def _load_context(
             )
         ).all()
         context.approvals = {str(a.id): a for a in approvals}
+        # Requests nobody else can decide on: the only holders of the right
+        # made the quote or asked for the approval themselves.
+        for approval in approvals:
+            if approval.status != "requested":
+                continue
+            quote = await db.get(Quote, approval.quote_id)
+            if quote is None:
+                continue
+            excluded = await quote_approval.second_person_excluded(db, approval, quote)
+            if excluded and not await quote_approval.approver_available(
+                db, excluding=excluded
+            ):
+                context.no_second.add(str(approval.id))
         person_ids |= {a.requested_by_id for a in approvals if a.requested_by_id}
     line_ids = {
         _as_uuid(t.subject_id) for t in tasks if t.subject_kind == "open_role"
@@ -691,6 +706,17 @@ async def _tell_one(access: TaskAccess, view: TaskView, context: _Context) -> Te
         blocked = (
             f"Niemand heeft het recht {label} in grip. Een beheerder geeft dat "
             "recht bij Team, op de pagina van een persoon."
+        )
+    elif (
+        task.subject_kind == "quote_approval"
+        and (task.repeat_key or "") in context.no_second
+        and not mine
+    ):
+        blocked = (
+            "Niemand anders kan deze offerte goedkeuren: wie de offerte maakte "
+            "of de goedkeuring vroeg, beslist er niet zelf over. Een beheerder "
+            "geeft een collega het recht Interne goedkeurder van offertes bij "
+            "Team, op de pagina van een persoon."
         )
     if can_act:
         instruction = _fill(told.do, values) or told.do

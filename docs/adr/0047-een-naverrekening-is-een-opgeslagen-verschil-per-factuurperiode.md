@@ -1,6 +1,6 @@
 # 0047 Een naverrekening is een opgeslagen verschil per factuurperiode
 
-Status: aanvaard
+Status: aanvaard (2026-10-09)
 
 ## Context
 

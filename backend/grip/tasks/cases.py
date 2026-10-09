@@ -867,7 +867,9 @@ async def load_vacancy_cases(
         await db.scalars(
             select(Vacancy)
             .where(Vacancy.id.in_(ids))
-            .options(selectinload(Vacancy.decisions))
+            # The request form names the requester and who advises: loaded
+            # here, never by a lazy load in the middle of reading facts.
+            .options(selectinload(Vacancy.decisions), selectinload(Vacancy.requester))
         )
     ).all()
     line_ids = {v.budget_line_id for v in vacancies} - {None}

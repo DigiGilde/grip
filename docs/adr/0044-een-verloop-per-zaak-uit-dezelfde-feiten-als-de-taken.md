@@ -28,3 +28,7 @@ Het patroon, de praktijkgevallen en de tabel van stappen en taken staan in `docs
 - Nieuwe feiten in de catalogus, waaronder of interne goedkeuring nodig is en gevraagd is, en of een offerte nog geldt en bij de begroting past. Het laatste rekent de begroting door bij elke taakberekening van een potentiële opdracht met een offerte; dat kost tijd en is alleen dan nodig.
 - De functies die de stand in de browser uitrekenden (`standing`, `vacancySteps`) sturen de schermen niet meer. Ze bestaan nog voor de kaart van een offerte en als terugval in de vacaturelijst.
 - Een later instelscherm voor werkstromen heeft nodig: een opslag voor plannen per instantie in plaats van een bestand, een controle vooraf die zegt welke lopende zaken van stap veranderen, en een grens aan wat instelbaar is (namen, termijnen, wie handelt, welke stappen gelden), omdat de feiten zelf code blijven.
+
+## Later gewijzigd (2026-10-09)
+
+Een afgewezen offerte is voor de opdrachtnemer een stap terug en geen einde (ADR 0045). Een stap overnemen geeft geen recht, en een stap waar een ander moet beslissen is niet over te nemen (ADR 0048). Een naverrekening is een stap van haar factuurperiode zolang ze openstaat (ADR 0047).

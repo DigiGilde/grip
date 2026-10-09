@@ -35,6 +35,7 @@ from grip.access import (
 from grip.access.deps import AccessDecider, CurrentSubject, require
 from grip.access.quote_approval import quote_resource
 from grip.api.routes.quotes import document_response
+from grip.core import clock
 from grip.core.auth import CurrentPerson
 from grip.core.database import get_db
 from grip.models.assignment import Assignment
@@ -59,7 +60,12 @@ from grip.schema.quote_approvals import (
     WaitingApprovalsOut,
 )
 from grip.schema.quotes import content_from_snapshot
-from grip.services import instance_settings, quote_approval, quote_views
+from grip.services import (
+    instance_settings,
+    quote_approval,
+    quote_reference,
+    quote_views,
+)
 from grip.services.errors import NotFoundError
 
 router = APIRouter(tags=["quote-approvals"])
@@ -125,12 +131,12 @@ async def approval_state(
         await decide(decider, subject, Action.DECIDE_QUOTE_APPROVAL, resource)
     )
     current = state.current
-    own_request = (
-        current is not None
-        and current.requested_by_id is not None
-        and current.requested_by_id == subject.person_id
+    # Who made the quote or asked for the approval does not decide on it;
+    # the service answers with nobody when the instance allows one's own.
+    own_request = subject.person_id in await quote_approval.second_person_excluded(
+        db, current, quote
     )
-    allow_self = bool(await instance_settings.get(db, quote_approval.ALLOW_SELF.key))
+    allow_self = False
     names = await quote_views.person_names(
         db,
         {
@@ -340,7 +346,12 @@ async def waiting_approvals(
     for approval, quote in rows:
         resource = await approval_resource(db, quote)
         assignment_name, client_name = await _names_of(db, quote)
-        own = approval.requested_by_id == subject.person_id
+        own = subject.person_id in await quote_approval.second_person_excluded(
+            db, approval, quote
+        )
+        if own:
+            # Not hers to decide: it does not wait for her approval.
+            continue
         value = WaitingApprovalOut(
             quote_id=quote.id,
             quote_reference=quote.reference,
@@ -422,9 +433,12 @@ async def approver_quote_document(
 # --- instance settings ------------------------------------------------------
 
 
-def _settings_out(values: dict[str, Any]) -> InstanceSettingsOut:
+def _settings_out(
+    values: dict[str, Any], next_reference: str | None = None
+) -> InstanceSettingsOut:
     declared = instance_settings.declared()
     return InstanceSettingsOut(
+        next_quote_reference=next_reference,
         items=[
             InstanceSettingOut(
                 key=key,
@@ -433,7 +447,7 @@ def _settings_out(values: dict[str, Any]) -> InstanceSettingsOut:
                 label=declared[key].label,
             )
             for key, value in values.items()
-        ]
+        ],
     )
 
 
@@ -445,7 +459,10 @@ async def get_instance_settings(
 ) -> InstanceSettingsOut:
     """The settings of this instance that the organisation itself changes."""
     await require(decider, subject, Action.MANAGE_USERS, Resource.instance())
-    return _settings_out(await instance_settings.get_all(db))
+    return _settings_out(
+        await instance_settings.get_all(db),
+        await quote_reference.upcoming_reference(db, clock.today().year),
+    )
 
 
 @router.patch("/instance-settings", response_model=InstanceSettingsOut)
@@ -458,6 +475,7 @@ async def set_instance_settings(
 ) -> InstanceSettingsOut:
     """Change settings. For the beheerder; every change leaves an audit row."""
     await require(decider, subject, Action.MANAGE_USERS, Resource.instance())
+    values = await instance_settings.set_values(db, body.values, actor=person)
     return _settings_out(
-        await instance_settings.set_values(db, body.values, actor=person)
+        values, await quote_reference.upcoming_reference(db, clock.today().year)
     )

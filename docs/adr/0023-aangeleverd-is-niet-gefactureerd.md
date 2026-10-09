@@ -52,3 +52,7 @@ Het vastleggen en het intrekken geven een domeingebeurtenis: `invoice.recorded` 
 - Voor betaald is ruimte gelaten en niets gebouwd. Het kan als feit op de vastgelegde factuur komen, met dezelfde bron, zonder de twee andere feiten te raken.
 - Een takenlaag bovenop de gebeurtenissen kan "factuur versturen" als taak openen bij een aanlevering en sluiten bij `invoice.recorded`.
 - Wie een factuur vastlegt is nu wie de opdracht beheert. Een aparte functie voor de financiële administratie bestaat niet; komt die er, dan is dit de plek waar ze haar recht krijgt.
+
+## Later gewijzigd (2026-10-09)
+
+De drie woorden zijn gebleven. Aangeleverd is sindsdien een feit met een ontvanger en een moment: een factuurverzoek per factuurperiode, gemaild of zelf doorgegeven (ADR 0039). De factuur wordt op de aanlevering vastgelegd, niet op een maand.

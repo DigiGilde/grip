@@ -5,11 +5,14 @@ the difference is stored with its cause, a task asks whoever delivers to
 deliver it, delivering closes it, and the invoice for it is recorded.
 """
 
+import io
 from datetime import date
 
 import pytest
+from pypdf import PdfReader
 from sqlalchemy import select
 
+from grip.core import clock
 from grip.models.billing_correction import BillingCorrection
 from grip.models.billing_delivery import BillingDelivery
 from grip.models.person_details import PersonScale
@@ -165,6 +168,36 @@ async def test_invoiced_then_a_late_promotion_the_task_the_delivery_and_the_invo
     assert row.delivered_at is not None
     assert row.delivered_delivery_id is not None
     assert row.delivered_delivery_id != first.id
+
+    # The document says what the screen and the task say: per month the
+    # difference, why, and the request it comes on top of.
+    page = (
+        await client.get(f"/api/billing/deliveries/{row.delivered_delivery_id}")
+    ).json()
+    assert page["corrections"] == [
+        {
+            "month": "2026-03",
+            "month_label": "maart 2026",
+            "amount_cents": -240_000,
+            "cause": "inzetschaal gewijzigd met ingang van 1 maart 2026",
+            "follows_reference": first.reference,
+            "follows_delivered_on": clock.local_date(first.delivered_at).isoformat(),
+        }
+    ]
+    document = await client.get(
+        f"/api/billing/deliveries/{row.delivered_delivery_id}/document"
+    )
+    text = " ".join(
+        " ".join(sheet.extract_text().split())
+        for sheet in PdfReader(io.BytesIO(document.content)).pages
+    )
+    assert "Naverrekening maart 2026: -€ 2.400,00." in text
+    assert "Inzetschaal gewijzigd met ingang van 1 maart 2026." in text
+    assert f"Dit bedrag gaat af van factuurverzoek {first.reference} van" in text
+    # Why names a date or a rate card, never whose scale it was: this
+    # agreement keeps names off the specification.
+    assert world.member.name not in text
+
     quarter = await _quarter(client, world)
     assert quarter["correction"] is False
     assert quarter["state"] == "delivered"

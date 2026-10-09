@@ -9,7 +9,7 @@ import { DETAIL_LABELS } from '@/features/month-close/periodText';
 import { useInstance } from '@/layout/useInstance';
 import { formatDate, formatEuro, formatPercent } from '@/lib/format';
 import { PATHS } from '@/paths';
-import { replacedText, replacesText } from './replaced';
+import { correctionText, replacedText, replacesText } from './replaced';
 import { ActionBar } from '@/ui/ActionBar';
 import { Facts, LoadError, Loading, Page, Section } from '@/ui/layout';
 
@@ -101,6 +101,9 @@ export function DeliveryPage() {
             <nldd-text key={`${item.month_label}-${item.reference}`}>
               {replacesText(item)}
             </nldd-text>
+          ))}
+          {(data.corrections ?? []).map((item) => (
+            <nldd-text key={`correction-${item.month}`}>{correctionText(item)}</nldd-text>
           ))}
           {data.has_document ? (
             <ActionBar

@@ -189,3 +189,25 @@ async def test_staffing_for_a_team_member_is_names_only(world, as_person):
     assert "open_fte" not in body
     assert (await as_person(world.lezer).get(url)).status_code == 403
     assert (await as_person(world.outsider).get(url)).status_code == 404
+
+
+async def test_a_team_member_does_not_read_the_category_of_the_line(world, as_person):
+    """The colleague bills in C on a line budgeted in D. Their own category
+    is theirs to know; the price level of the line is money of the assignment
+    and stays out of everything a team member reads about their own inzet."""
+    client = as_person(world.colleague)
+    answers = [
+        await client.get(URL),
+        await client.get("/api/allocations?year=2026"),
+        await client.get(f"/api/assignments/{world.assignment.id}/staffing"),
+        await client.get(f"/api/people/{world.colleague.id}"),
+    ]
+    for answer in answers:
+        assert "line_category" not in answer.text, answer.request.url
+    board = _row(answers[0].json(), world.colleague)
+    assert board["bars"][0]["category_mismatch"] is True
+
+    # Who reads the money of the assignment still reads both.
+    owner = (await as_person(world.owner).get(URL)).json()
+    bar = _row(owner, world.colleague)["bars"][0]
+    assert (bar["person_category"], bar["line_category"]) == ("C", "D")

@@ -27,3 +27,7 @@ Het rijkslogo en de huisstijl zijn voorbehouden aan de Rijksoverheid en aan wie 
 - Voor het bijwerken van de pictogrammen zijn librsvg en ImageMagick nodig. Voor het bouwen van de frontend niet.
 - Voor een brede uitrol moet bij de huisstijlcoordinator van het departement worden nagevraagd of een productmerk naast het rijkslogo is toegestaan. Tot dan is dit een eigen oordeel.
 - Vier richtingen zijn getekend en bewaard, zodat de keuze kan worden herzien zonder opnieuw te beginnen.
+
+## Later gewijzigd (2026-10-09)
+
+De keuze voor richting a is voorlopig. De beslissing over het merk ligt nog bij de opdrachtgever van grip; zie `docs/openstaand.md`.

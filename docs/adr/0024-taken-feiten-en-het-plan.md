@@ -42,3 +42,7 @@ De woorden volgen zaakgericht werken, zonder de componenten ervan: een opdracht 
 - Voor wie een taak is, wordt bij het lezen bepaald uit de rol. Wisselt de eigenaar van een opdracht, dan wisselen de taken mee. Draagt iemand een taak over aan een persoon, dan blijft dat staan.
 - Het plan wordt met grip meegeleverd. Een scherm om het plan te bewerken, het beheer van versies en een koppelvlak volgens de ZGW-standaarden zijn latere stappen. Die stappen mogen de richting niet omkeren: geen taak die een feit zet, en geen sjabloon dat buiten de catalogus reikt.
 - Het achtergrondproces draait voortaan ook als federatie uit staat, tenzij het interval voor taken op nul staat.
+
+## Later gewijzigd (2026-10-09)
+
+De regel dat een zaak de versie van het plan houdt waarmee ze begon, geldt niet meer zonder uitzondering: een plan kan een eerdere versie opvolgen, en een zaak op die eerdere versie gaat dan bij de volgende beoordeling over (ADR 0038). Wat een taak de lezer vertelt staat naast het plan en niet erin (ADR 0038). Waar een zaak staat en wat de volgende stap is komt uit dezelfde feiten als de taken (ADR 0044).

@@ -241,8 +241,30 @@ class TaskAccess:
             return task.assignee_person_id == person_id
         role = task.assignee_role
         if role in catalogue.FUNCTION_ROLES:
-            return role in self.subject.functions
+            if role not in self.subject.functions:
+                return False
+            # Internal approval is a second person's: not hers who made the
+            # quote or asked for the approval, whatever right she holds.
+            return not (
+                task.subject_kind == "quote_approval"
+                and person_id in await self._not_to_decide(task)
+            )
         if role in catalogue.ASSIGNMENT_ROLES and task.assignment_id is not None:
             held = (await self.assignment_roles()).get(task.assignment_id)
             return held == "owner" if role == "owner" else held is not None
         return False
+
+    async def _not_to_decide(self, task: Task) -> frozenset[UUID]:
+        """Who may not decide on the approval this task asks for."""
+        from grip.models.quote import Quote, QuoteApproval
+        from grip.services import quote_approval
+
+        try:
+            approval_id = UUID(task.repeat_key)
+        except ValueError:
+            return frozenset()
+        approval = await self._db.get(QuoteApproval, approval_id)
+        quote = await self._db.get(Quote, approval.quote_id) if approval else None
+        if approval is None or quote is None:
+            return frozenset()
+        return await quote_approval.second_person_excluded(self._db, approval, quote)

@@ -297,6 +297,23 @@ async def _issue(act_as, world, **body) -> dict:
     return response.json()
 
 
+async def test_the_settings_show_the_reference_the_next_quote_really_gets(
+    act_as, world
+):
+    """Not "0001" as an example when quotes exist: the number that comes next,
+    and showing it takes no number."""
+    prefix = quote_reference.reference_prefix()
+    year = datetime.now(UTC).year
+    beheerder = act_as(world.beheerder)
+    shown = (await beheerder.get("/api/instance-settings")).json()
+    assert shown["next_quote_reference"] == f"{prefix}-{year}-0001"
+    await _issue(act_as, world)
+    for _ in range(2):
+        shown = (await act_as(world.beheerder).get("/api/instance-settings")).json()
+        assert shown["next_quote_reference"] == f"{prefix}-{year}-0002"
+    assert (await _issue(act_as, world))["reference"] == f"{prefix}-{year}-0002"
+
+
 async def test_a_quote_gets_a_reference_that_is_part_of_what_is_hashed(
     act_as, world, db_session
 ):

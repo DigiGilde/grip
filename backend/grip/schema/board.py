@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from grip.access import DataClass, in_class, nested
 
 A = DataClass.ASSIGNMENT_BASIC
+B = DataClass.ASSIGNMENT_FINANCIAL
 C = DataClass.STAFFING
 ROSTER = DataClass.STAFFING_ROSTER
 D = DataClass.PERSON_RATE
@@ -42,7 +43,10 @@ class BoardBarOut(BaseModel):
     closed_months: Annotated[list[date], in_class(C)]
     can_edit: Annotated[bool, in_class(C)]
     category_mismatch: Annotated[bool, in_class(SIGNAL)]
-    line_category: Annotated[str | None, in_class(D)]
+    # The price level of the budget line: money of the assignment (class B),
+    # not something about the person. A team member reads their own
+    # category, not the one the line is budgeted at.
+    line_category: Annotated[str | None, in_class(B)]
     person_category: Annotated[str | None, in_class(D)]
 
 

@@ -266,7 +266,12 @@ async def get_assignment_staffing(
         for item in role.bars:
             bar = item.bar
             about = Resource.allocation(assignment_id, bar.person_id)
-            permitted = set(await access.classes(about, _ROLE_BAR_CLASSES - {A})) | {A}
+            permitted = set(await access.classes(about, _ROLE_BAR_CLASSES - {A, B})) | {
+                A
+            }
+            # The category the line is budgeted at is money of the assignment.
+            if await access.may(Action.READ, Resource.assignment(assignment_id), B):
+                permitted.add(B)
             if DataClass.STAFFING not in permitted:
                 continue
             bars.append(

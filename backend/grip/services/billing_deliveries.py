@@ -897,6 +897,56 @@ async def _replaced_by(
     ]
 
 
+async def _corrections_stated(
+    session: AsyncSession, delivery: BillingDelivery
+) -> list[dict[str, Any]]:
+    """The differences this delivery carries: per month the amount, why, and
+    the request it comes on top of.
+
+    Read from the stored corrections that went along with this delivery. The
+    cause is in the words it was stored in; those name a rate card or a date,
+    never a person, so they go on the document whatever the agreement says
+    about names.
+    """
+    rows = [
+        row
+        for row in (
+            await billing_corrections.all_corrections(session, [delivery.assignment_id])
+        ).get(delivery.assignment_id, [])
+        if row.delivered_delivery_id == delivery.id
+    ]
+    follows_ids = {row.follows_delivery_id for row in rows if row.follows_delivery_id}
+    follows: dict[UUID, BillingDelivery] = {}
+    if follows_ids:
+        found = await session.scalars(
+            select(BillingDelivery).where(BillingDelivery.id.in_(follows_ids))
+        )
+        follows = {earlier.id: earlier for earlier in found}
+    stated: list[dict[str, Any]] = []
+    for row in rows:
+        earlier = (
+            follows.get(row.follows_delivery_id) if row.follows_delivery_id else None
+        )
+        cause = billing_corrections.causes_text(row)
+        for month, cents in sorted(billing_corrections.month_cents([row]).items()):
+            stated.append(
+                {
+                    "month": str(month),
+                    "month_label": billing_periods.month_name(month),
+                    "amount_cents": cents,
+                    "cause": cause,
+                    "follows_reference": earlier.reference if earlier else None,
+                    "follows_delivered_on": clock.local_date(
+                        earlier.delivered_at
+                    ).isoformat()
+                    if earlier
+                    else None,
+                }
+            )
+    stated.sort(key=lambda item: item["month"])
+    return stated
+
+
 async def _references(session: AsyncSession, ids: Iterable[UUID]) -> dict[UUID, str]:
     wanted = set(ids)
     if not wanted:
@@ -952,6 +1002,7 @@ async def document_content(
         "reference": delivery.reference,
         "replaces": await _replaced(session, delivery),
         "replaced_by": await _replaced_by(session, delivery),
+        "corrections": await _corrections_stated(session, delivery),
         "sender": await quotes.sender_name(session, assignment),
         "assignment_name": assignment.name,
         "assignment_uri": assignment.uri,

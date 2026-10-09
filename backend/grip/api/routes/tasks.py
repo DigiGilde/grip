@@ -19,6 +19,7 @@ from grip.core import clock
 from grip.core.auth import CurrentPerson
 from grip.core.config import Settings, get_settings
 from grip.core.database import get_db
+from grip.models.role import BEHEERDER
 from grip.models.task import Task
 from grip.schema.tasks import (
     CaseCourseOut,
@@ -114,8 +115,10 @@ def _out(view: TaskView) -> TaskOut:
     )
 
 
-async def _look(db: AsyncSession, settings: Settings, *, max_age: int = 0) -> None:
-    await engine.ensure_fresh(
+async def _look(
+    db: AsyncSession, settings: Settings, *, max_age: int = 0
+) -> engine.Outcome | None:
+    return await engine.ensure_fresh(
         db,
         today=clock.today(),
         instance_base_uri=settings.INSTANCE_BASE_URI,
@@ -135,7 +138,7 @@ async def list_my_tasks(
     settings: Settings = Depends(get_settings),
 ) -> dict[str, Any]:
     """The open tasks that are mine to do, soonest first."""
-    await _look(db, settings)
+    looked = await _look(db, settings)
     access = _access(db, decider, subject)
     today = clock.today()
     views = await service.my_tasks(db, access, today=today)
@@ -145,6 +148,11 @@ async def list_my_tasks(
             items=[_out(view) for view in views],
             awaited=[_out(view) for view in awaited],
             counts=TaskCountsOut(**service.counts_of(views)),
+            # A case whose facts could not be read keeps its tasks as they
+            # were; who keeps the instance is told that it happened.
+            failed_cases=len(looked.failed)
+            if looked is not None and BEHEERDER in subject.functions
+            else 0,
         ),
         _CLASSES,
     )

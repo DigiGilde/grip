@@ -133,13 +133,17 @@ export function approverDocumentUrl(quoteId: string, download = false): string {
   return `/api/quote-approvals/quotes/${quoteId}/document${download ? '?download=true' : ''}`;
 }
 
-export function fetchInstanceSettings(): Promise<{ items: InstanceSetting[] }> {
+export interface InstanceSettings {
+  items: InstanceSetting[];
+  /** What the next quote will be called, with the prefix as it is now. */
+  next_quote_reference?: string | null;
+}
+
+export function fetchInstanceSettings(): Promise<InstanceSettings> {
   return apiGet('/api/instance-settings');
 }
 
-export function saveInstanceSettings(
-  values: Record<string, unknown>,
-): Promise<{ items: InstanceSetting[] }> {
+export function saveInstanceSettings(values: Record<string, unknown>): Promise<InstanceSettings> {
   return apiPatch('/api/instance-settings', { values });
 }
 

@@ -113,3 +113,55 @@ def test_a_month_delivered_again_names_the_request_it_replaces() -> None:
     assert "vervangt" not in render_html(
         _content([_line("2026-02", "februari 2026", 2965000)]), Letterhead()
     )
+
+
+def _stated(amount: int, **more: Any) -> dict[str, Any]:
+    return {
+        "month": "2026-03",
+        "month_label": "maart 2026",
+        "amount_cents": amount,
+        "cause": "inzetschaal gewijzigd met ingang van 1 maart 2026",
+        "follows_reference": "O-12/2026-Q1",
+        "follows_delivered_on": "2026-04-02",
+        **more,
+    }
+
+
+def test_a_naverrekening_says_why_and_on_top_of_which_request() -> None:
+    content = _content([_line("2026-03", "maart 2026", 250000, correction=True)])
+    content["corrections"] = [_stated(250000)]
+    html = " ".join(render_html(content, Letterhead()).split())
+    assert "Naverrekening maart 2026: € 2.500,00." in html
+    assert "Inzetschaal gewijzigd met ingang van 1 maart 2026." in html
+    assert "Dit bedrag komt bovenop factuurverzoek" in html
+    assert "O-12/2026-Q1</span> van 2 april 2026." in html
+
+
+def test_a_negative_naverrekening_comes_off_the_earlier_request() -> None:
+    content = _content([_line("2026-03", "maart 2026", -240000, correction=True)])
+    content["corrections"] = [_stated(-240000)]
+    html = " ".join(render_html(content, Letterhead()).split())
+    assert "Dit bedrag gaat af van factuurverzoek" in html
+    assert "komt bovenop factuurverzoek" not in html
+
+
+def test_a_naverrekening_without_a_known_request_still_says_what_to_do() -> None:
+    content = _content([_line("2026-03", "maart 2026", 250000, correction=True)])
+    content["corrections"] = [
+        _stated(250000, follows_reference=None, follows_delivered_on=None, cause="")
+    ]
+    html = " ".join(render_html(content, Letterhead()).split())
+    assert (
+        "Naverrekening maart 2026: € 2.500,00. Dit bedrag komt bovenop wat eerder "
+        "over deze maand is aangeleverd." in html
+    )
+
+
+def test_a_request_without_differences_says_nothing_about_them() -> None:
+    html = render_html(
+        _content([_line("2026-01", "januari 2026", 1250000)]), Letterhead()
+    )
+    assert (
+        "Naverrekening januari" not in html
+        and "komt bovenop factuurverzoek" not in html
+    )

@@ -416,4 +416,24 @@ describe('the switch for mailing the signing link', () => {
     expect(other.container.querySelector('nldd-checkbox-field')).toBeNull();
     expect(other.container.textContent).not.toMatch(/mail/i);
   });
+  it('shows the reference the next quote really gets, and a way back', async () => {
+    mockApi({
+      '/api/instance-settings': {
+        items: [
+          {
+            key: 'quote.reference_prefix',
+            value: 'VG',
+            default: 'VG',
+            label: 'Voorvoegsel van het kenmerk',
+          },
+        ],
+        next_quote_reference: 'VG-2026-0007',
+      },
+    });
+    const { container } = renderApp(<QuoteSettingsPage />);
+    // Facts carry their values in attributes of the cells.
+    await waitFor(() => expect(container.innerHTML).toContain('VG-2026-0007'));
+    expect(container.innerHTML).not.toContain('bijvoorbeeld');
+    expect(container.querySelector('nldd-link[text^="Terug naar"]')).not.toBeNull();
+  });
 });

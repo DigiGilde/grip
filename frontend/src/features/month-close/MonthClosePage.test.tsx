@@ -415,6 +415,52 @@ describe('MonthClosePage', () => {
     });
   });
 
+  it('lets a beheerder reopen a closed month, and says what that does to a delivered one', async () => {
+    const closed = {
+      ...OPEN_MONTH,
+      month: '2026-02',
+      closed: true,
+      closable: false,
+      closed_at: '2026-03-03T12:00:00Z',
+      closed_by_name: 'Voorbeeld Een',
+      may_close: false,
+      may_reopen: true,
+    };
+    renderTab(
+      { ...OVERVIEW, periods: [Q1] },
+      { '/api/assignments/a-1/months/2026-02': closed },
+      '/opdrachten/a-1/maandafsluiting?maand=2026-02',
+    );
+    await waitFor(() =>
+      expect(document.querySelector('nldd-button[text="Heropen de maand"]')).not.toBeNull(),
+    );
+    document
+      .querySelector('nldd-button[text="Heropen de maand"]')
+      ?.dispatchEvent(new Event('click'));
+    await waitFor(() =>
+      expect(
+        document.querySelector(
+          'nldd-banner[text="Deze maand is al aangeleverd aan de financiële administratie"]',
+        ),
+      ).not.toBeNull(),
+    );
+  });
+
+  it('tells who closes months where the way back is', async () => {
+    const closed = { ...OPEN_MONTH, month: '2026-02', closed: true, closable: false };
+    renderTab(
+      { ...OVERVIEW, periods: [Q1] },
+      { '/api/assignments/a-1/months/2026-02': closed },
+      '/opdrachten/a-1/maandafsluiting?maand=2026-02',
+    );
+    await waitFor(() =>
+      expect(document.body.textContent).toContain(
+        'Een afgesloten maand heropent alleen een beheerder.',
+      ),
+    );
+    expect(document.querySelector('nldd-button[text="Heropen de maand"]')).toBeNull();
+  });
+
   it('refuses to close on a percentage that is none', async () => {
     const overview = { ...OVERVIEW, next_step: CLOSE_STEP, periods: [Q3] };
     const { calls } = renderTab(

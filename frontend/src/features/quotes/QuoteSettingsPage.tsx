@@ -29,6 +29,7 @@ import {
   type InstanceSetting,
 } from './approval';
 import { CheckboxInput } from './ui';
+import { useAdminBack } from '@/layout/useAdminBack';
 
 function valueOf(items: readonly InstanceSetting[], key: string): unknown {
   return items.find((item) => item.key === key)?.value;
@@ -43,6 +44,7 @@ function whenText(mode: string, thresholdCents: number): string {
 /** How this organisation handles its quotes. For the beheerder. */
 export function QuoteSettingsPage() {
   const instance = useInstance();
+  const adminBack = useAdminBack();
   const queryClient = useQueryClient();
   const query = useQuery({
     queryKey: approvalKeys.settings,
@@ -89,7 +91,7 @@ export function QuoteSettingsPage() {
 
   return (
     <>
-      <Page title="Offertes" instanceName={instance?.name} spacing="sections">
+      <Page title="Offertes" instanceName={instance?.name} spacing="sections" back={adminBack}>
         {query.isPending ? <Loading /> : null}
         {query.isError ? (
           <LoadError
@@ -147,8 +149,8 @@ export function QuoteSettingsPage() {
               facts={[
                 { label: 'Voorvoegsel', value: prefix },
                 {
-                  label: 'Volgende offerte heet bijvoorbeeld',
-                  value: `${prefix}-${year}-0001`,
+                  label: 'De volgende offerte heet',
+                  value: query.data.next_quote_reference ?? `${prefix}-${year}-0001`,
                 },
               ]}
             />

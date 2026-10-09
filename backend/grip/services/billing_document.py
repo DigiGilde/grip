@@ -12,7 +12,7 @@ The page shares the head, the type and the table style of the quote.
 from __future__ import annotations
 
 import os
-from datetime import datetime
+from datetime import date, datetime
 from html import escape
 from typing import Any
 
@@ -161,6 +161,34 @@ def _lines_table(content: dict[str, Any]) -> str:
     )
 
 
+def _correction_sentence(item: dict[str, Any]) -> str:
+    """One difference as a financial administrator acts on it: the month and
+    the amount, why, and the request it comes on top of."""
+    amount = int(item["amount_cents"])
+    cause = str(item.get("cause") or "").strip()
+    why = f" {escape(cause[:1].upper() + cause[1:])}." if cause else ""
+    reference = item.get("follows_reference")
+    if reference:
+        day = item.get("follows_delivered_on")
+        when = f" van {escape(format_date(date.fromisoformat(day)))}" if day else ""
+        mark = f'<span class="reference">{escape(str(reference))}</span>{when}'
+        act = (
+            f" Dit bedrag gaat af van factuurverzoek {mark}."
+            if amount < 0
+            else f" Dit bedrag komt bovenop factuurverzoek {mark}."
+        )
+    else:
+        act = (
+            " Dit bedrag gaat af van wat eerder over deze maand is aangeleverd."
+            if amount < 0
+            else " Dit bedrag komt bovenop wat eerder over deze maand is aangeleverd."
+        )
+    return (
+        f"<p>Naverrekening {escape(str(item['month_label']))}: "
+        f"{format_euro(amount)}.{why}{act}</p>"
+    )
+
+
 def render_html(content: dict[str, Any], letterhead: Letterhead | None = None) -> str:
     """The factuurverzoek as one self-contained page; every value is escaped."""
     letterhead = letterhead or letterhead_from_settings()
@@ -232,6 +260,11 @@ def render_html(content: dict[str, Any], letterhead: Letterhead | None = None) -
         for item in content.get("replaces") or []
     )
     replaces_block = f'<div class="replaces">{replaced}</div>' if replaced else ""
+    corrected = "".join(
+        _correction_sentence(item) for item in content.get("corrections") or []
+    )
+    if corrected:
+        replaces_block += f'<div class="replaces">{corrected}</div>'
     style = (
         (_STYLE + _EXTRA_STYLE)
         .replace("__FIRST_TOP__", "40mm" if ribbon else "24mm")

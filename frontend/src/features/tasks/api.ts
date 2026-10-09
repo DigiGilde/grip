@@ -90,6 +90,8 @@ export interface TaskList {
   /** Tasks of others on the cases the reader started. */
   awaited: Task[];
   counts: TaskCounts;
+  /** For the beheerder: cases whose tasks could not be brought up to date. */
+  failed_cases: number;
 }
 
 export interface Track {
@@ -135,6 +137,7 @@ function asList(body: Partial<TaskList>): TaskList {
     items: body.items ?? [],
     awaited: body.awaited ?? [],
     counts: { ...NO_COUNTS, ...body.counts },
+    failed_cases: body.failed_cases ?? 0,
   };
 }
 
