@@ -461,8 +461,11 @@ async def seed(
         await reset_database(db)
 
     result = SeedResult()
-    # The stand-in beheerder of dev mode stays the default person.
-    await ensure_beheerder(db, DEV_BEHEERDER_EMAIL, DEV_BEHEERDER_NAME)
+    # The stand-in beheerder of dev mode stays the default person. An example
+    # instance has a login and no dev mode, so there the stand-in would only
+    # be one more name in the list a visitor chooses from.
+    if not settings.is_example:
+        await ensure_beheerder(db, DEV_BEHEERDER_EMAIL, DEV_BEHEERDER_NAME)
     beheerder = await _people(db, result)
 
     for year in RATES:

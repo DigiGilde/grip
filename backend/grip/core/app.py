@@ -22,12 +22,40 @@ from grip.middleware.session import ServerSideSessionMiddleware
 logger = logging.getLogger(__name__)
 
 
+def configure_logging() -> None:
+    """Let the application's own INFO lines reach the container log.
+
+    uvicorn configures only its own loggers, so without this a line such as
+    "OIDC login: ..." or "Example instance: the example data was loaded" is
+    dropped and only warnings come through. Other libraries stay as they are.
+    """
+    own = logging.getLogger("grip")
+    own.setLevel(logging.INFO)
+    if not own.handlers and not logging.getLogger().handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(
+            logging.Formatter("%(levelname)s:     %(name)s: %(message)s")
+        )
+        own.addHandler(handler)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     from grip.core.auth import check_oidc_transport, close_http_client
     from grip.core.bootstrap import bootstrap_beheerders
 
     settings = get_settings()
+    # A deployed instance never signs with a throwaway key. Without a key of
+    # its own no decision can be recorded: a person would log in again and
+    # then be told nothing was laid down. Say so at start.
+    if settings.PUBLIC_HOST:
+        from grip.federation import signing
+
+        if signing.get_signing_key(settings) is None:
+            logger.error(
+                "FEDERATION_SIGNING_KEY is not set: no decision (akkoord, "
+                "afwijzing, interne goedkeuring) can be recorded."
+            )
     # A provider whose endpoints are plain http would let people log in and
     # then refuse every session; say so now instead.
     await check_oidc_transport(settings)
@@ -79,6 +107,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    configure_logging()
 
     # Only expose OpenAPI and docs when OIDC is not configured (local
     # development), so a deployed instance does not show its API surface to

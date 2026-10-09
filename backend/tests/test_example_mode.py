@@ -132,6 +132,18 @@ async def test_an_example_fills_itself_once(db_session) -> None:
     assert await example.default_person(db_session) is not None
 
 
+async def test_an_example_has_no_stand_in_of_the_developer(db_session) -> None:
+    from grip.core.bootstrap import DEV_BEHEERDER_EMAIL
+
+    await example.prepare(db_session, _example())
+
+    emails = (await db_session.execute(select(Person.email))).scalars().all()
+    assert emails
+    assert DEV_BEHEERDER_EMAIL not in emails
+    # A visitor still comes in as a beheerder of the example.
+    assert await example.default_person(db_session) is not None
+
+
 async def test_reset_only_in_an_example_instance(db_session) -> None:
     with pytest.raises(example.ExampleModeError):
         await example.reset(db_session, _real())

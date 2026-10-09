@@ -97,16 +97,17 @@ De twee bestanden met twee instanties gebruiken vaste databases en draaien daaro
 
 ## Wat nog moet gebeuren voor de eerste uitrol
 
-1. De hele servertest groen op de laatste commit.
-2. De lokale opstelling met Keycloak nalopen (`just local-up`): inloggen, uitloggen, de sessie na een herstart, twee hostnamen achter een proxy, en de voorbeeldmodus met een echte login. Dit is nog niet gedaan.
-3. `golf-5` naar `main` in de grip-repo. Een push naar `main` bouwt de images.
-4. Op het platform een project aanmaken, eerst voor een voorbeeldinstantie; de stappen staan in [uitrol-zad.md](uitrol-zad.md).
-5. Het project en de sleutel in GitHub zetten. Draai dit zelf, zodat de sleutel nergens in een gesprek komt:
+De hele servertest is groen en de lokale opstelling met Keycloak is nagelopen: twee hostnamen, de eerste beheerder op een lege database tot en met een getekende offerte, opnieuw inloggen bij het tekenen, en de voorbeeldmodus. Wat bewezen is en wat alleen op het platform te leren valt staat bovenaan [uitrol-zad.md](uitrol-zad.md).
+
+1. Op het platform een project aanmaken, eerst voor een voorbeeldinstantie; de stappen staan in [uitrol-zad.md](uitrol-zad.md). Elke instantie krijgt een eigen ondertekensleutel als secret; zonder die sleutel legt een uitgerolde instantie geen besluit vast.
+2. Het project en de sleutel van het platform in GitHub zetten. Draai dit zelf, zodat de sleutel nergens in een gesprek komt:
 
 ```
 gh variable set ZAD_PROJECT_ID --repo DigiGilde/grip --body "<project-id>"
 gh secret set ZAD_API_KEY --repo DigiGilde/grip
 ```
+
+3. Een push naar `main` bouwt de images en rolt uit zodra die twee er staan.
 
 ## Wat op een antwoord van een mens wacht
 

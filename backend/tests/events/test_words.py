@@ -304,3 +304,44 @@ def test_a_role_on_an_assignment_names_the_role_and_the_assignment():
         words.title("assignment_role.created", "assignment_role", None, changes=role)
         == "Rol op de opdracht toegevoegd"
     )
+
+
+# -- logins -----------------------------------------------------------------------
+
+
+def test_a_login_is_not_called_a_change():
+    assert words.title("login.succeeded", "login", "Test Beheerder") == (
+        "Test Beheerder ingelogd"
+    )
+    assert words.title("login.refused", "login", None) == "Inloggen geweigerd"
+    assert words.title("login.switched", "login", "Lotte Leiding") == (
+        "Voorbeeldpersoon Lotte Leiding gekozen"
+    )
+
+
+def test_a_refused_login_names_the_address_and_the_reason_in_words():
+    told = words.lines(
+        "login.refused",
+        "login",
+        [],
+        payload={
+            "reason": "emailadres_niet_bevestigd",
+            "email": "iemand@voorbeeld.example",
+        },
+    )
+
+    assert "Adres iemand@voorbeeld.example" in told
+    assert "Reden Adres niet bevestigd door de provider" in told
+    assert not any(_has_code(line) for line in told)
+
+
+def test_every_refusal_reason_has_words():
+    from grip.core import auth
+
+    reasons = [
+        value for name, value in vars(auth).items() if name.startswith("REFUSED_")
+    ]
+
+    assert reasons
+    for reason in reasons:
+        assert words.value_text("reason", reason) != reason

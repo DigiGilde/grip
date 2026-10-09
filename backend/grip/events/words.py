@@ -99,6 +99,10 @@ _VERBS = {"created": "toegevoegd", "updated": "gewijzigd", "deleted": "verwijder
 
 # Events that are more than a change of fields have a sentence of their own.
 TYPE_SENTENCES: dict[str, str] = {
+    "login.succeeded": "Ingelogd",
+    "login.refused": "Inloggen geweigerd",
+    "login.guest": "Ingelogd als genodigde",
+    "login.switched": "Voorbeeldpersoon gekozen",
     "assignment_request.created": "Offerte aangevraagd",
     "assignment.status_changed": "Status van de opdracht gewijzigd",
     "quote.issued": "Offerte gemaakt",
@@ -215,6 +219,12 @@ VALUE_LABELS: dict[str, dict[str, str]] = {
         "own": "Eigen periode",
     },
     "reason": {
+        "onbekend": "Niet bekend in deze omgeving",
+        "emailadres_niet_bevestigd": "Adres niet bevestigd door de provider",
+        "geen_emailadres": "De provider gaf geen adres door",
+        "geen_subject": "De provider gaf geen kenmerk van de persoon door",
+        "inactief": "De persoon is inactief",
+        "andere_aanmelding": "De persoon is aan een andere aanmelding gebonden",
         "standard_text": "Standaardtekst gebruikt",
         "retention": "Bewaartermijn verstreken",
         "read_retention": "Bewaartermijn van inzage verstreken",
@@ -388,6 +398,10 @@ def title(
             return f"Schaal van {person_name} gewijzigd"
         if event_type == "data.read" and person_name:
             return f"Gegevens van {person_name} ingezien"
+        if event_type == "login.succeeded" and person_name:
+            return f"{person_name} ingelogd"
+        if event_type == "login.switched" and person_name:
+            return f"Voorbeeldpersoon {person_name} gekozen"
         return sentence
     kind = KIND_LABELS.get(subject_kind, "Gegevens")
     verb = _VERBS.get(event_type.partition(".")[2], "gewijzigd")
@@ -442,6 +456,12 @@ def lines(
         when = value_text("valid_from", since.new)
         if when:
             result[-1] += f" per {when}"
+    if event_type.startswith("login."):
+        # The address that was offered: a beheerder needs it to know who to
+        # add or unbind.
+        address = (payload or {}).get("email")
+        if isinstance(address, str) and address:
+            result.append(f"Adres {address}")
     for name in ("new_status", "reason"):
         text = value_text(name, (payload or {}).get(name))
         if text and name not in seen:
