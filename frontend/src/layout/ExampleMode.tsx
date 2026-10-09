@@ -2,11 +2,11 @@ import { useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   chooseExamplePerson,
+  fetchAuthStatus,
   fetchExamplePersons,
-  type AuthStatus,
   type ExamplePerson,
 } from '@/api/auth';
-import { apiGet } from '@/api/client';
+import { AUTH_STATUS_KEY } from '@/auth/authState';
 import { useNlddEvent } from '@/components/nldd/events';
 import { useInstance } from './useInstance';
 
@@ -30,10 +30,11 @@ interface ExampleVisit {
 function useExampleVisit(): ExampleVisit | null {
   const instance = useInstance();
   const { data } = useQuery({
-    queryKey: ['example-visit'],
-    queryFn: () => apiGet<AuthStatus>('/api/auth/status'),
+    // The answer the application already has about the reader.
+    queryKey: AUTH_STATUS_KEY,
+    queryFn: fetchAuthStatus,
     enabled: instance?.example === true,
-    staleTime: Infinity,
+    staleTime: 60_000,
     retry: false,
   });
   if (!data?.example_visitor || !data.person) return null;

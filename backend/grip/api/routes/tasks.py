@@ -360,7 +360,10 @@ async def list_courses(
         except ValueError:
             continue
     readable: set[UUID] = set()
-    for case_id in list(wanted)[:200]:
+    asked = list(wanted)[:200]
+    if case_kind == "vacancy":
+        await access.prime_vacancies(set(asked))
+    for case_id in asked:
         rights = await access.case(
             case_kind,
             case_id if case_kind == "assignment" else None,

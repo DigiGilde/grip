@@ -234,6 +234,47 @@ async def test_the_internal_opening_runs_at_least_five_working_days(
     assert follow_up.position == 6
 
 
+async def test_the_model_reads_who_the_organisation_is_from_the_standard_texts(
+    db_session, vacancy, requester, fake_client
+):
+    from grip.services.vacancies import library
+
+    await library.load_profile(db_session, "digigilde")
+    shared = {s.key: s for s in await library.shared_sections(db_session)}
+    shared[library.ORGANISATION_SECTION].body = (
+        "Wij zijn een fictief team dat registers bouwt.\n\n"
+        "Meer weten? Kijk op {onbekend_gegeven}."
+    )
+    await db_session.flush()
+
+    await service.draft_text(
+        db_session,
+        vacancy.id,
+        TextKind.vacancy_text,
+        actor=requester,
+        client=fake_client,
+    )
+    prompt = fake_client.calls[0]["user"]
+    assert "Over de organisatie" in prompt
+    assert "Wij zijn een fictief team dat registers bouwt." in prompt
+    # A paragraph with a place that cannot be filled does not reach the model.
+    assert "Meer weten?" not in prompt
+    assert "vul aan" not in prompt
+
+
+async def test_without_that_part_the_model_gets_no_description(
+    db_session, vacancy, requester, fake_client
+):
+    await service.draft_text(
+        db_session,
+        vacancy.id,
+        TextKind.vacancy_text,
+        actor=requester,
+        client=fake_client,
+    )
+    assert "Over de organisatie" not in fake_client.calls[0]["user"]
+
+
 async def test_a_model_draft_is_stored_with_its_provenance(
     db_session, vacancy, requester, fake_client
 ):

@@ -326,3 +326,72 @@ async def test_the_creator_hands_over_once_a_budget_covers_the_item(
         db_session, own, world.beta_line.id, Decimal(40), actor=world.beheerder
     )
     assert (await client.get(f"/api/costs/{own}")).status_code == 404
+
+
+async def test_the_list_comes_in_pages_with_what_needs_attention_first(
+    client, world, as_person, db_session
+):
+    # Covered in full and within budget: nothing to attend to.
+    calm = await costs.create_cost_item(
+        db_session,
+        description="Aa licenties",
+        budgeted_cents=100,
+        actor=world.beheerder,
+    )
+    await costs.set_coverage(
+        db_session, calm.id, world.alfa_line.id, Decimal(100), actor=world.beheerder
+    )
+    # Thirty percent covered: money nobody pays for.
+    open_item = await _hosting(db_session, world)
+    as_person(world.beheerder)
+    whole = (await client.get("/api/costs")).json()
+    assert [i["id"] for i in whole["items"]] == [str(open_item.id), str(calm.id)]
+    assert whole["total"] == 2
+
+    first = (await client.get("/api/costs", params={"page": 1, "page_size": 1})).json()
+    second = (await client.get("/api/costs", params={"page": 2, "page_size": 1})).json()
+    assert [i["id"] for i in first["items"]] == [str(open_item.id)]
+    assert [i["id"] for i in second["items"]] == [str(calm.id)]
+    assert first["total"] == second["total"] == 2
+    assert (second["page"], second["page_size"]) == (2, 1)
+
+    found = (await client.get("/api/costs", params={"q": "LICENT"})).json()
+    assert [i["id"] for i in found["items"]] == [str(calm.id)]
+    assert found["total"] == 1
+    assert (await client.get("/api/costs", params={"page": 0})).status_code == 422
+
+
+async def test_pages_and_counts_hold_only_what_the_asker_may_see(
+    client, world, as_person, db_session
+):
+    """A cost item on an assignment someone is no part of cannot be counted,
+    paged to or searched for."""
+    theirs = await _hosting(db_session, world, alfa_pct="30")
+    other = await costs.create_cost_item(
+        db_session,
+        description="Geheim contract",
+        budgeted_cents=100,
+        actor=world.beheerder,
+    )
+    await costs.set_coverage(
+        db_session, other.id, world.beta_line.id, Decimal(100), actor=world.beheerder
+    )
+    as_person(world.beheerder)
+    assert (await client.get("/api/costs")).json()["total"] == 2
+
+    for person in (world.planner, world.hired, world.outsider):
+        as_person(person)
+        for params in ({}, {"page": 1}, {"page": 2, "page_size": 1}, {"q": "Geheim"}):
+            body = (await client.get("/api/costs", params=params)).json()
+            assert body["items"] == [], (person.name, params)
+            assert body["total"] == 0, (person.name, params)
+
+    # The owner of Alfa sees the item Alfa covers and nothing of the other.
+    as_person(world.owner)
+    body = (await client.get("/api/costs", params={"page": 1, "page_size": 1})).json()
+    assert [i["id"] for i in body["items"]] == [str(theirs.id)]
+    assert body["total"] == 1
+    assert (await client.get("/api/costs", params={"q": "Geheim"})).json()["total"] == 0
+    assert (await client.get("/api/costs", params={"page": 2, "page_size": 1})).json()[
+        "items"
+    ] == []

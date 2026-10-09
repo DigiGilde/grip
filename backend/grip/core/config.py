@@ -218,9 +218,6 @@ class Settings(BaseSettings):
     MAIL_OUTBOX_INTERVAL_SECONDS: int = 15
     MAIL_MAX_ATTEMPTS: int = 8
 
-    # A few sentences about the organisation, given to the model as context
-    # when it drafts a vacancy text. Must not contain names of people.
-    VACANCY_ORGANISATION_DESCRIPTION: str = ""
     # Which language model drafts texts. Empty: VLAM when it is configured,
     # otherwise none. "claude_cli" runs the command-line tool installed on
     # the developer's machine with that person's own login. It is a

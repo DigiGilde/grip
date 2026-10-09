@@ -1,4 +1,4 @@
-import { act, screen } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
@@ -17,7 +17,7 @@ function NavigateProbe() {
 }
 
 describe('focus after navigation', () => {
-  it('leaves focus alone on first render and moves it to the heading after a route change', () => {
+  it('leaves focus alone on first render and moves it to the heading after a route change', async () => {
     renderApp(
       <>
         <NavigateProbe />
@@ -28,8 +28,10 @@ describe('focus after navigation', () => {
 
     act(() => navigateTo('/tarieven'));
 
-    const heading = screen.getByRole('heading', { level: 1, name: 'Tarieven' });
-    expect(heading).toHaveFocus();
+    // The page is a file of its own; focus moves when it is shown.
+    const heading = await screen.findByRole('heading', { level: 1, name: 'Tarieven' });
+    // The text inside the heading takes the focus, so no ring is drawn.
+    await waitFor(() => expect(heading.firstElementChild).toHaveFocus());
   });
 });
 
@@ -44,13 +46,17 @@ describe('internalHref', () => {
       // jsdom does not implement following a link.
       event.preventDefault();
     });
-    host.querySelector(selector)?.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true, cancelable: true }));
+    host
+      .querySelector(selector)
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true, cancelable: true }));
     host.remove();
     return result;
   }
 
   it('returns the path of an in-app link', () => {
-    expect(clickOn('<nldd-tab-bar-item href="/inzet"><span>x</span></nldd-tab-bar-item>', 'span')).toBe('/inzet');
+    expect(
+      clickOn('<nldd-tab-bar-item href="/inzet"><span>x</span></nldd-tab-bar-item>', 'span'),
+    ).toBe('/inzet');
   });
 
   it('leaves API and external links to the browser', () => {

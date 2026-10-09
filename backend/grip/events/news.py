@@ -29,14 +29,14 @@ from typing import Any
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import func, select
+from sqlalchemy import func, literal, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip.access.relations import RelationSource
 from grip.access.types import DataClass, Resource, ResourceKind, Subject
 from grip.core import clock
-from grip.events.reading import EventAccess
+from grip.events.reading import READ_TYPE, EventAccess
 from grip.models.assignment import Assignment
 from grip.models.person import Person
 from grip.models.quote import Quote
@@ -1074,6 +1074,9 @@ async def read(
         select(StreamEvent)
         .where(
             StreamEvent.type.in_(NEWS_TYPES),
+            # News is never a read; said as a literal, so the index on the
+            # changes serves this and the newest are found without sorting.
+            StreamEvent.type != literal(READ_TYPE, literal_execute=True),
             # What the reader did themselves is not news to them.
             StreamEvent.actor_person_id.is_distinct_from(subject.person_id),
         )

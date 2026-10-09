@@ -49,8 +49,8 @@ const GROUPS: { title: string; entries: Entry[] }[] = [
       { path: PATHS.quoteSettings, title: 'Offertes', text: 'Kenmerk, goedkeuring en mail' },
       {
         path: PATHS.vacancySetup,
-        title: 'Aanvraagformulier en taalmodel',
-        text: 'Het formulier voor een vacature en het model voor concepten',
+        title: 'Aanvraagformulier',
+        text: 'Het lege formulier voor een vacature en wat grip erin invult',
       },
       {
         path: PATHS.vacancyStandardTexts,
@@ -71,6 +71,11 @@ const GROUPS: { title: string; entries: Entry[] }[] = [
         path: PATHS.organisations,
         title: 'Organisaties',
         text: 'Het overheidsregister en wat zelf is toegevoegd',
+      },
+      {
+        path: PATHS.languageModel,
+        title: 'Taalmodel',
+        text: 'Het model dat teksten voorstelt, en wat ernaartoe gaat',
       },
       {
         path: PATHS.client,

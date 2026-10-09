@@ -8,6 +8,7 @@ van zaken uses, for the whole period and per year.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
@@ -135,23 +136,38 @@ def _agreed_line(line: dict[str, Any]) -> AgreedLine:
 
 async def accepted_quote(session: AsyncSession, assignment_id: UUID) -> Agreed | None:
     """The quote the client accepted, as it was issued. The latest, if several."""
-    result = await session.execute(
+    return (await accepted_quotes(session, [assignment_id])).get(assignment_id)
+
+
+async def accepted_quotes(
+    session: AsyncSession, assignment_ids: Iterable[UUID]
+) -> dict[UUID, Agreed]:
+    """``accepted_quote`` of several assignments; none for one without."""
+    ids = list(dict.fromkeys(assignment_ids))
+    if not ids:
+        return {}
+    quotes: dict[UUID, Quote] = {}
+    for quote in await session.scalars(
         select(Quote)
-        .where(Quote.assignment_id == assignment_id, Quote.status == "accepted")
+        .where(Quote.assignment_id.in_(ids), Quote.status == "accepted")
         .order_by(Quote.issued_at.desc())
-        .limit(1)
-    )
-    quote = result.scalar_one_or_none()
-    if quote is None:
-        return None
-    acceptance = (
-        await session.execute(
+    ):
+        quotes.setdefault(quote.assignment_id, quote)
+    acceptances: dict[UUID, QuoteAcceptance] = {}
+    if quotes:
+        for acceptance in await session.scalars(
             select(QuoteAcceptance)
-            .where(QuoteAcceptance.quote_id == quote.id)
+            .where(QuoteAcceptance.quote_id.in_([q.id for q in quotes.values()]))
             .order_by(QuoteAcceptance.signed_at.desc())
-            .limit(1)
-        )
-    ).scalar_one_or_none()
+        ):
+            acceptances.setdefault(acceptance.quote_id, acceptance)
+    return {
+        assignment_id: _agreed(quote, acceptances.get(quote.id))
+        for assignment_id, quote in quotes.items()
+    }
+
+
+def _agreed(quote: Quote, acceptance: QuoteAcceptance | None) -> Agreed:
     snapshot = quote.snapshot or {}
     subtotals = tuple(
         (int(entry["year"]), _cents(entry.get("amount")))

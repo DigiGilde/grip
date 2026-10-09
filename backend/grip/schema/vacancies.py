@@ -315,7 +315,6 @@ class LanguageModelOut(BaseModel):
     model_id: Annotated[str | None, LISTS] = None
     # Names of the settings that are still empty.
     missing_settings: Annotated[list[str], LISTS]
-    organisation_description_set: Annotated[bool, LISTS]
     # Filled when the endpoint was asked for its models.
     available_models: Annotated[list[str] | None, LISTS] = None
     # Why the list of models could not be fetched, if it could not.

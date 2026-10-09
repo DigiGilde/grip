@@ -62,10 +62,11 @@ describe('CostsPage', () => {
     expect(container.querySelector('.cost-mini [data-kind="uncovered"]')).toBeNull();
   });
 
-  it('puts what needs attention first and says what it is', async () => {
+  it('keeps the order of the server and says what needs attention', async () => {
+    // The server puts what needs attention first; the page does not reorder.
     const overrun = { ...ITEM, id: 'c-3', description: 'Advies', variance_cents: -100000 };
     const { container } = await renderCosts({
-      items: [ITEM, overrun, UNCOVERED],
+      items: [UNCOVERED, overrun, ITEM],
       year: null,
       may_create: false,
     });
@@ -87,12 +88,41 @@ describe('CostsPage', () => {
       attachments: [],
     };
     const { container } = await renderCosts({
-      items: [ITEM, { ...ITEM, id: 'c-4', description: 'Zonder bijlage', invoice_lines: [line] }],
+      items: [{ ...ITEM, id: 'c-4', description: 'Zonder bijlage', invoice_lines: [line] }, ITEM],
       year: null,
       may_create: false,
     });
     expect(names(container)).toEqual(['Zonder bijlage', 'Hostingcontract']);
     expect(container.textContent).toContain('1 factuur zonder bijlage');
+  });
+
+  it('asks for one page and shows where the reader is in a long list', async () => {
+    const { container, calls } = await renderCosts(
+      { items: [ITEM], total: 120, page: 2, page_size: 50, year: null, may_create: false },
+      '/kosten?pagina=2&zoek=host',
+    );
+    expect(calls.some((call) => call.includes('page=2') && call.includes('q=host'))).toBe(true);
+    expect(container.querySelector('[data-page-range]')?.textContent).toBe(
+      '51 tot en met 100 van 120 kostenposten',
+    );
+    const pager = container.querySelector('nldd-pagination');
+    expect(pager).toHaveAttribute('current', '2');
+    expect(pager).toHaveAttribute('total', '3');
+    // The other pages keep the search; the first page has the plain address.
+    expect(pager).toHaveAttribute('href-pattern', '/kosten?pagina={page}&zoek=host');
+  });
+
+  it('shows no pages for a list that fits on one', async () => {
+    const { container } = await renderCosts({
+      items: [ITEM],
+      total: 1,
+      page: 1,
+      page_size: 50,
+      year: null,
+      may_create: false,
+    });
+    expect(container.querySelector('[data-page-range]')).toBeNull();
+    expect(container.querySelector('nldd-pagination')).toBeNull();
   });
 
   it('offers one primary action, and only to who may add a cost item', async () => {

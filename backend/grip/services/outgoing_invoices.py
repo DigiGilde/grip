@@ -50,7 +50,8 @@ from grip.services.pricing import (
     DEFAULT_OPTIONS,
     CalcInputs,
     PricingOptions,
-    load_inputs_by_assignment,
+    load_inputs_or_none,
+    rates_digest,
 )
 
 NOT_DELIVERED = "not_delivered"
@@ -304,48 +305,46 @@ def _deliverable(
         return {}
     if inputs is None:
         return dict.fromkeys(wanted)
-    result: dict[date, int | None] = {}
-    for first_day in wanted:
-        month = Month.of(first_day)
-        actuals = {key: pct for key, pct in inputs.actuals.items() if key[1] == month}
-        try:
-            lines = calc.billing_lines(
-                month,
-                inputs.allocations,
-                inputs.lines,
-                inputs.rates,
-                inputs.scales,
-                actuals=actuals,
-                partial_months=options.partial_months,
+
+    def compute() -> dict[date, int | None]:
+        priced = calc.billing_lines_by_month(
+            [Month.of(first_day) for first_day in wanted],
+            inputs.allocations,
+            inputs.lines,
+            inputs.rates,
+            inputs.scales,
+            actuals=inputs.actuals,
+            partial_months=options.partial_months,
+        )
+        result: dict[date, int | None] = {}
+        for first_day in wanted:
+            lines = priced[Month.of(first_day)]
+            result[first_day] = (
+                None
+                if isinstance(lines, calc.CalcError)
+                else sum(line.amount_cents for line in lines)
             )
-        except calc.CalcError:
-            result[first_day] = None
-            continue
-        result[first_day] = sum(line.amount_cents for line in lines)
-    return result
+        return result
+
+    # Pure in what it is given, so a change elsewhere (a cost item, another
+    # person) does not price the months of this assignment again.
+    content = read_cache.digest(
+        rates_digest(inputs.rates),
+        inputs.allocations,
+        inputs.lines,
+        inputs.scales,
+        inputs.actuals,
+        wanted,
+        options,
+    )
+    return dict(read_cache.by_content("deliverable", content, compute))
 
 
 async def _inputs_of(
     session: AsyncSession, assignment_ids: list[UUID], options: PricingOptions
 ) -> dict[UUID, CalcInputs | None]:
     """The inputs per assignment; None where they cannot be read."""
-    try:
-        return dict(
-            await load_inputs_by_assignment(session, assignment_ids, options=options)
-        )
-    except calc.CalcError:
-        pass
-    found: dict[UUID, CalcInputs | None] = {}
-    for assignment_id in assignment_ids:
-        try:
-            found[assignment_id] = (
-                await load_inputs_by_assignment(
-                    session, [assignment_id], options=options
-                )
-            )[assignment_id]
-        except calc.CalcError:
-            found[assignment_id] = None
-    return found
+    return await load_inputs_or_none(session, assignment_ids, options=options)
 
 
 async def month_billing(

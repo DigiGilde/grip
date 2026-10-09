@@ -176,26 +176,6 @@ def _state(latest: VacancyText | None, review: VacancyTextReview | None) -> str:
     return STATE_AGREED
 
 
-async def _reviews(db: AsyncSession, vacancy_id: UUID) -> list[VacancyTextReview]:
-    return list(
-        await db.scalars(
-            select(VacancyTextReview)
-            .where(VacancyTextReview.vacancy_id == vacancy_id)
-            .order_by(VacancyTextReview.round)
-        )
-    )
-
-
-async def _remarks(db: AsyncSession, vacancy_id: UUID) -> list[VacancyTextRemark]:
-    return list(
-        await db.scalars(
-            select(VacancyTextRemark)
-            .where(VacancyTextRemark.vacancy_id == vacancy_id)
-            .order_by(VacancyTextRemark.created_at)
-        )
-    )
-
-
 def _work(
     vacancy: Vacancy,
     kind: str,
@@ -231,21 +211,53 @@ def _work(
 
 async def work_of(db: AsyncSession, vacancy: Vacancy) -> dict[str, TextWork]:
     """Where each text of the vacancy stands."""
-    reviews = await _reviews(db, vacancy.id)
-    remarks = await _remarks(db, vacancy.id)
-    repo = VacancyRepository(db)
-    facts = await library.facts_for(db, vacancy)
-    result = {}
-    for kind in (TextKind.motivation.value, TextKind.vacancy_text.value):
-        result[kind] = _work(
-            vacancy,
-            kind,
-            await repo.texts(vacancy.id, kind),
-            [review for review in reviews if review.kind == kind],
-            [remark for remark in remarks if remark.kind == kind],
-            # Only a vacancy text names facts; a motivation is prose.
-            facts if kind == TextKind.vacancy_text.value else {},
-        )
+    return (await works_of(db, [vacancy]))[vacancy.id]
+
+
+async def works_of(
+    db: AsyncSession, vacancies: Iterable[Vacancy]
+) -> dict[UUID, dict[str, TextWork]]:
+    """``work_of`` of several vacancies, read together."""
+    wanted = list(vacancies)
+    ids = [vacancy.id for vacancy in wanted]
+    if not ids:
+        return {}
+    reviews: dict[UUID, list[VacancyTextReview]] = {i: [] for i in ids}
+    for review in await db.scalars(
+        select(VacancyTextReview)
+        .where(VacancyTextReview.vacancy_id.in_(ids))
+        .order_by(VacancyTextReview.round)
+    ):
+        reviews[review.vacancy_id].append(review)
+    remarks: dict[UUID, list[VacancyTextRemark]] = {i: [] for i in ids}
+    for remark in await db.scalars(
+        select(VacancyTextRemark)
+        .where(VacancyTextRemark.vacancy_id.in_(ids))
+        .order_by(VacancyTextRemark.created_at)
+    ):
+        remarks[remark.vacancy_id].append(remark)
+    texts: dict[tuple[UUID, str], list[VacancyText]] = {}
+    for text in await db.scalars(
+        select(VacancyText)
+        .where(VacancyText.vacancy_id.in_(ids))
+        .order_by(VacancyText.created_at, VacancyText.id)
+    ):
+        texts.setdefault((text.vacancy_id, text.kind), []).append(text)
+    facts = await library.facts_for_many(db, wanted)
+    result: dict[UUID, dict[str, TextWork]] = {}
+    for vacancy in wanted:
+        works = {}
+        for kind in (TextKind.motivation.value, TextKind.vacancy_text.value):
+            works[kind] = _work(
+                vacancy,
+                kind,
+                texts.get((vacancy.id, kind), []),
+                [review for review in reviews[vacancy.id] if review.kind == kind],
+                [remark for remark in remarks[vacancy.id] if remark.kind == kind],
+                # Only a vacancy text names facts; a motivation is prose.
+                facts[vacancy.id] if kind == TextKind.vacancy_text.value else {},
+            )
+        result[vacancy.id] = works
     return result
 
 

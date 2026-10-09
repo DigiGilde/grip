@@ -219,11 +219,32 @@ async function page(request) {
   }
 }
 
+// How many files are kept at most. One build is under two hundred; the
+// oldest go first, so files of earlier builds leave on their own.
+const KEPT_FILES = 400;
+
+async function trim(cache) {
+  const keys = await cache.keys();
+  // Keys come back in the order they were kept.
+  for (const key of keys.slice(0, Math.max(0, keys.length - KEPT_FILES))) {
+    if (new URL(key.url).pathname !== SHELL_URL) await cache.delete(key);
+  }
+}
+
+/** A file of the build, and not a page that was served in its place. */
+function isFile(response) {
+  const type = response.headers.get('content-type') || '';
+  return response.ok && !type.includes('text/html');
+}
+
 async function staticFile(request, url) {
   const cache = await caches.open(STATIC);
   const kept = await cache.match(request);
   const fresh = fetch(request).then((response) => {
-    if (response.ok) void cache.put(request, response.clone());
+    // Never keep an error or a page under the name of a file: a hashed file
+    // is kept for good, so a wrong answer would stay wrong. A file that is
+    // gone after a deployment answers 404 here; the page then reloads once.
+    if (isFile(response)) void cache.put(request, response.clone()).then(() => trim(cache));
     return response;
   });
   // A hashed file never changes: the kept copy is the file.

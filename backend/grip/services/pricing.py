@@ -10,6 +10,7 @@ months count with the planned inzet (docs/domein.md, Maandafsluiting).
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import date, timedelta
@@ -225,6 +226,29 @@ def to_calc_coverage(coverage: CostCoverage) -> calc.CostCoverage:
     )
 
 
+# -- digests -----------------------------------------------------------------
+
+# Stands in for the rate book where that is digested on its own.
+_NO_RATES = calc.RateBook(cards=())
+# The digest of the rate book last seen: every assignment of a request
+# shares it, and it is the larger part of digesting the inputs.
+_last_rates: tuple[calc.RateBook, str] | None = None
+
+
+def rates_digest(rates: calc.RateBook) -> str:
+    global _last_rates
+    if _last_rates is None or _last_rates[0] is not rates:
+        _last_rates = (rates, read_cache.digest(rates))
+    return _last_rates[1]
+
+
+def inputs_digest(inputs: CalcInputs) -> str:
+    """One text for the content of the inputs (``read_cache.by_content``)."""
+    return read_cache.digest(
+        rates_digest(inputs.rates), dataclasses.replace(inputs, rates=_NO_RATES)
+    )
+
+
 # -- loading ------------------------------------------------------------------
 
 
@@ -360,6 +384,33 @@ async def load_inputs_by_assignment(
     inputs = await load_inputs_for_lines(session, lines, options=options)
     parts = split_by_assignment(inputs)
     return {i: parts.get(str(i)) or no_inputs(inputs.rates) for i in ids}
+
+
+async def load_inputs_or_none(
+    session: AsyncSession,
+    assignment_ids: Iterable[UUID],
+    *,
+    options: PricingOptions = DEFAULT_OPTIONS,
+) -> dict[UUID, CalcInputs | None]:
+    """The inputs per assignment, read together; None where they cannot be
+    read. When reading them together fails, each is read on its own, so one
+    assignment with a fault does not take the others along."""
+    ids = list(dict.fromkeys(assignment_ids))
+    try:
+        return dict(await load_inputs_by_assignment(session, ids, options=options))
+    except calc.CalcError:
+        pass
+    found: dict[UUID, CalcInputs | None] = {}
+    for assignment_id in ids:
+        try:
+            found[assignment_id] = (
+                await load_inputs_by_assignment(
+                    session, [assignment_id], options=options
+                )
+            )[assignment_id]
+        except calc.CalcError:
+            found[assignment_id] = None
+    return found
 
 
 async def load_inputs_for_assignment(
@@ -508,6 +559,34 @@ async def budgeted_by_year(
         ).items():
             totals[year] = totals.get(year, 0) + cents
     return dict(sorted(totals.items()))
+
+
+async def budgeted_by_year_many(
+    session: AsyncSession,
+    assignment_ids: Iterable[UUID],
+    *,
+    options: PricingOptions = DEFAULT_OPTIONS,
+) -> dict[UUID, dict[int, int] | None]:
+    """``budgeted_by_year`` of several assignments, read together; None for
+    one that cannot be priced."""
+    inputs_of = await load_inputs_or_none(session, assignment_ids, options=options)
+    found: dict[UUID, dict[int, int] | None] = {}
+    for assignment_id, inputs in inputs_of.items():
+        if inputs is None:
+            found[assignment_id] = None
+            continue
+        totals: dict[int, int] = {}
+        try:
+            for line in inputs.lines:
+                for year, cents in calc.budgeted_by_year(
+                    line, inputs.rates, partial_months=options.partial_months
+                ).items():
+                    totals[year] = totals.get(year, 0) + cents
+        except calc.CalcError:
+            found[assignment_id] = None
+            continue
+        found[assignment_id] = dict(sorted(totals.items()))
+    return found
 
 
 async def category_signals(

@@ -434,6 +434,19 @@ async def _load_each_if_needed(
     return cases, failed
 
 
+# What the facts of an assignment case rest on besides the figures: who holds
+# which function (is there someone to approve), vacancies on its lines, the
+# form in use. Tasks are derived from the facts and devices are not about a
+# case, so those do not count.
+_CASE_KINDS = read_cache.UNRELATED_KINDS - {
+    "task",
+    "task_note",
+    "passkey_credential",
+    "notification_preference",
+    "push_subscription",
+}
+
+
 async def evaluate_assignments(
     db: AsyncSession,
     assignment_ids: set[UUID],
@@ -444,10 +457,27 @@ async def evaluate_assignments(
 ) -> Outcome:
     await db.flush()
 
-    async def load(ids: set[UUID]) -> list[CaseSnapshot]:
-        return await load_assignment_cases(
-            db, ids, today=today, instance_base_uri=instance_base_uri
+    async def compute(ids: list[UUID]) -> dict[UUID, CaseSnapshot | None]:
+        found = await load_assignment_cases(
+            db, set(ids), today=today, instance_base_uri=instance_base_uri
         )
+        by_id: dict[UUID, CaseSnapshot | None] = dict.fromkeys(ids)
+        by_id.update({case.case_id: case for case in found})
+        return by_id
+
+    async def load(ids: set[UUID]) -> list[CaseSnapshot]:
+        # The facts of a case hold until an event about it, or one that is
+        # not about a single assignment, and until the day turns. A case
+        # nothing happened on is not read again.
+        found = await read_cache.remember_many(
+            db,
+            "task_case",
+            sorted(ids, key=str),
+            (today, instance_base_uri),
+            compute,
+            count=_CASE_KINDS,
+        )
+        return [case for case in found.values() if case is not None]
 
     cases, failed = await _load_each_if_needed(db, "assignment", assignment_ids, load)
     outcome = await _reconcile(db, cases, now=now or datetime.now(UTC))

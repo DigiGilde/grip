@@ -1,3 +1,4 @@
+import { PageBoundary } from '@/PageBoundary';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -221,7 +222,9 @@ export function AssignmentLayout() {
       {assignment && (
         <AssignmentShellContext.Provider value={assignment}>
           <PrimaryTakenContext.Provider value={elsewhere !== null}>
-            <Outlet />
+            <PageBoundary resetKey={pathname}>
+              <Outlet />
+            </PageBoundary>
           </PrimaryTakenContext.Provider>
         </AssignmentShellContext.Provider>
       )}

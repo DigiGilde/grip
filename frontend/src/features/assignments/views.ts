@@ -1,9 +1,10 @@
 /** The three views of the list of assignments. */
-import type { AssignmentSummary } from './api';
 import type { Phase } from './labels';
 import { todayIso } from '@/lib/today';
 
 export const VIEW_PARAM = 'weergave';
+/** The words searched for, in the address. */
+export const SEARCH_PARAM = 'zoek';
 
 export const VIEWS: readonly { phase: Phase; slug: string }[] = [
   { phase: 'potential', slug: 'pijplijn' },
@@ -18,15 +19,18 @@ export function phaseOfView(value: string | null): Phase {
   return VIEWS.find((view) => view.slug === value)?.phase ?? DEFAULT_PHASE;
 }
 
-export function viewHref(path: string, phase: Phase): string {
+/**
+ * The address of a view. The words searched for travel along, so the counts
+ * on the tabs and the list behind them are about the same search; the page
+ * does not, because every view starts at its first.
+ */
+export function viewHref(path: string, phase: Phase, search = ''): string {
   const slug = VIEWS.find((view) => view.phase === phase)?.slug;
-  return phase === DEFAULT_PHASE || !slug ? path : `${path}?${VIEW_PARAM}=${slug}`;
-}
-
-export function countByPhase(items: readonly AssignmentSummary[]): Record<Phase, number> {
-  const counts: Record<Phase, number> = { potential: 0, active: 0, closed: 0 };
-  for (const item of items) counts[item.phase] += 1;
-  return counts;
+  const params = new URLSearchParams();
+  if (phase !== DEFAULT_PHASE && slug) params.set(VIEW_PARAM, slug);
+  if (search) params.set(SEARCH_PARAM, search);
+  const query = params.toString();
+  return query ? `${path}?${query}` : path;
 }
 
 /** Whole days between an ISO date and today; null without a date. */

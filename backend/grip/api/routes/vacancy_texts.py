@@ -44,6 +44,8 @@ from grip.services import context_fetch, instance_settings, internal_judges
 from grip.services.errors import DomainValidationError, NotFoundError
 from grip.services.llm import LlmNotConfiguredError, LlmResponseError, get_chat_client
 from grip.services.llm.client import (
+    CALLS_PER_INSTANCE_PER_HOUR,
+    CALLS_PER_PERSON_PER_HOUR,
     PROVIDER_CLAUDE_CLI,
     PROVIDER_NONE,
     active_provider,
@@ -1375,6 +1377,8 @@ async def model_status(
         }.get(provider, "VLAM"),
         "available": is_llm_configured(settings),
         "development": provider == PROVIDER_CLAUDE_CLI,
+        "calls_per_person_per_hour": CALLS_PER_PERSON_PER_HOUR,
+        "calls_per_instance_per_hour": CALLS_PER_INSTANCE_PER_HOUR,
         "note": "Dit is het ontwikkelmodel. Tekst die je laat opstellen verlaat "
         "de eigen modeldienst van de overheid; gebruik alleen verzonnen gegevens."
         if provider == PROVIDER_CLAUDE_CLI

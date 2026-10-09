@@ -488,6 +488,7 @@ describe('AdminPage', () => {
       PATHS.vacancyStandardTexts,
       PATHS.peers,
       PATHS.organisations,
+      PATHS.languageModel,
       PATHS.client,
       PATHS.activity,
     ]);

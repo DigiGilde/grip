@@ -34,9 +34,16 @@ export function PageHeading({ text, instanceName, lead, inline }: PageHeadingPro
       {...(inline ? {} : { slot: 'header' })}
       {...(lead ? { 'supporting-text': lead } : {})}
     >
-      {/* tabIndex -1: focusable from script after navigation, not a tab stop. */}
-      <h1 id={PAGE_HEADING_ID} tabIndex={-1}>
-        {text}
+      {/*
+        The span takes the focus, not the h1: focusable from script after
+        navigation, not a tab stop. The title component draws a ring around a
+        focused slotted heading from inside its shadow root, which a page
+        style cannot switch off; a child of the heading is out of its reach.
+      */}
+      <h1>
+        <span id={PAGE_HEADING_ID} tabIndex={-1}>
+          {text}
+        </span>
       </h1>
     </nldd-title>
   );

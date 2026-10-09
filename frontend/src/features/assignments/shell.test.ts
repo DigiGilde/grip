@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { visibleTabs } from './shell';
 import { NO_PERMISSIONS, PERMISSIONS, assignment } from './testing';
-import { countByPhase, daysSince, durationText, phaseOfView, viewHref } from './views';
+import { daysSince, durationText, phaseOfView, viewHref } from './views';
 import { assignmentInput, initialState } from './assignmentForm';
 
 describe('visibleTabs', () => {
@@ -59,13 +59,11 @@ describe('list views', () => {
     expect(viewHref('/opdrachten', 'potential')).toBe('/opdrachten?weergave=pijplijn');
   });
 
-  it('counts per phase', () => {
-    const items = [
-      assignment(),
-      assignment({ phase: 'potential' }),
-      assignment({ phase: 'potential' }),
-    ];
-    expect(countByPhase(items)).toEqual({ potential: 2, active: 1, closed: 0 });
+  it('keeps the search across the views and starts each at its first page', () => {
+    expect(viewHref('/opdrachten', 'active', 'alfa')).toBe('/opdrachten?zoek=alfa');
+    expect(viewHref('/opdrachten', 'closed', 'a & b')).toBe(
+      '/opdrachten?weergave=afgesloten&zoek=a+%26+b',
+    );
   });
 
   it('says how long something has been in a state', () => {

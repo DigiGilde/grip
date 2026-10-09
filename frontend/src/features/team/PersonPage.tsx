@@ -7,7 +7,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ApiError } from '@/api/client';
 import { useAuth } from '@/auth/context';
 import { orUndef, useNlddEvent } from '@/components/nldd/events';
-import { boardKeys, fetchBoard, type BoardPerson } from '@/features/allocations/board/api';
+import { boardKeys, fetchPersonBoard, type BoardPerson } from '@/features/allocations/board/api';
 import { buildGroups, toTimeline } from '@/features/allocations/board/model';
 import { assignmentTabPath } from '@/features/assignments/paths';
 import { WIES_KEYS, fetchReconciliation } from '@/features/wies/api';
@@ -148,9 +148,11 @@ function Heading({ name, end, children }: HeadingProps) {
     <nldd-container ref={ref} slot="header" gap="8">
       {/* No link back: the second bar of Team marks Mensen and leads there. */}
       <nldd-title size={2}>
-        {/* tabIndex -1: focusable from script after navigation, not a tab stop. */}
-        <h1 id={PAGE_HEADING_ID} tabIndex={-1}>
-          {name}
+        {/* The span takes the focus after navigation; see PageHeading. */}
+        <h1>
+          <span id={PAGE_HEADING_ID} tabIndex={-1}>
+            {name}
+          </span>
         </h1>
         {end}
       </nldd-title>
@@ -250,8 +252,9 @@ function PersonScreen({ person, day, mayManage }: ScreenProps) {
   });
   // The board already decides per bar and per row what this reader may see.
   const board = useQuery({
-    queryKey: boardKeys.board(''),
-    queryFn: () => fetchBoard(''),
+    // Only this person's row: the page shows nothing of the others.
+    queryKey: boardKeys.person(person.id),
+    queryFn: () => fetchPersonBoard(person.id),
     enabled: 'current_assignment_count' in person,
     retry: false,
   });

@@ -213,26 +213,49 @@ async def _require_edit(
     await require(decider, subject, Action.EDIT, resource, _FIN)
 
 
+# How many cost items a page of the list holds, and the most one may ask.
+_PAGE_SIZE = 50
+_MAX_PAGE_SIZE = 200
+
+
 @router.get("", response_model=None)
 async def list_cost_items(
     subject: CurrentSubject,
     decider: AccessDecider,
     year: YearQuery = None,
+    search: str | None = Query(default=None, alias="q", max_length=100),
+    page: int | None = Query(default=None, ge=1),
+    page_size: int = Query(default=_PAGE_SIZE, ge=1, le=_MAX_PAGE_SIZE),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
-    """The cost items the asker may see.
+    """The cost items the asker may see, what needs attention first.
 
     With a year only invoice lines of that year count, in the forecast and
-    in the coverage amounts.
+    in the coverage amounts. ``q`` looks in the description, ``page`` asks
+    for one page. ``total`` counts only what the asker may see: the list is
+    searched, ordered and cut after the access decision.
     """
     rights = _AssignmentRights(decider, subject)
-    items: list[dict[str, Any]] = []
+    words = (search or "").strip().casefold()
+    visible: list[tuple[int, str, dict[str, Any]]] = []
     for overview in await cost_overview.cost_item_overviews(db, year=year):
         item = await _item_out(decider, subject, overview, rights)
-        if item is not None:
-            items.append(item)
+        if item is None:
+            continue
+        description = overview.item.description
+        if words and words not in description.casefold():
+            continue
+        visible.append((overview.attention_rank, description.casefold(), item))
+    visible.sort(key=lambda entry: (entry[0], entry[1]))
+    total = len(visible)
+    window = (
+        visible if page is None else visible[(page - 1) * page_size : page * page_size]
+    )
     return {
-        "items": items,
+        "items": [item for _, _, item in window],
+        "total": total,
+        "page": page or 1,
+        "page_size": page_size if page is not None else max(total, 1),
         "year": year,
         "may_create": await may(decider, subject, Action.EDIT, _COLLECTION, _FIN),
     }

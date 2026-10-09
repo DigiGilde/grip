@@ -286,6 +286,42 @@ async def _latest_quote_totals(
     return {row[0]: row[1] for row in rows}
 
 
+async def assignment_index(
+    session: AsyncSession,
+    *,
+    only_ids: Iterable[UUID] | None = None,
+    search: str | None = None,
+) -> list[tuple[UUID, str]]:
+    """The id and status of assignments, in the order of the list.
+
+    The light half of a windowed list: the caller filters what the reader
+    may see, counts, takes a window of ids and asks ``assignment_rows`` for
+    those only. ``search`` matches the name of the assignment or of its
+    client, anywhere in the text and without regard to case.
+    """
+    stmt = select(Assignment.id, Assignment.status).order_by(
+        Assignment.name, Assignment.id
+    )
+    if only_ids is not None:
+        ids = list(set(only_ids))
+        if not ids:
+            return []
+        stmt = stmt.where(Assignment.id.in_(ids))
+    words = (search or "").strip()
+    if words:
+        # The reader's text is a text, not a pattern.
+        escaped = words.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        pattern = f"%{escaped}%"
+        client = select(Organisation.id).where(
+            Organisation.name.ilike(pattern, escape="\\")
+        )
+        stmt = stmt.where(
+            Assignment.name.ilike(pattern, escape="\\")
+            | Assignment.client_organisation_id.in_(client)
+        )
+    return [(row[0], row[1]) for row in await session.execute(stmt)]
+
+
 async def assignment_rows(
     session: AsyncSession,
     *,

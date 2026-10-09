@@ -147,6 +147,9 @@ async def _views(
 ) -> list[TaskView]:
     """The tasks the reader may see, as the reader sees them."""
     await access.prime_vacancies({t.vacancy_id for t in tasks if t.vacancy_id})
+    await access.prime_parts(
+        {t.vacancy_id for t in tasks if t.vacancy_id and t.case_kind == "vacancy"}
+    )
     visible = [task for task in tasks if (await access.of_task(task)).read]
     names = await _names(db, visible)
     views = []

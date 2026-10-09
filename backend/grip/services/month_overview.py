@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import csv
 import io
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -201,40 +202,89 @@ async def timeline(
     session: AsyncSession, assignment_id: UUID, *, today: date | None = None
 ) -> list[MonthState]:
     """Every month of the assignment with its state, in order."""
-    today = today or clock.today()
     assignment = await get_assignment(session, assignment_id)
-    closes = await _closes(session, assignment_id)
-    period = await _period(session, assignment)
-    months = set(_months(*period)) if period else set()
-    months |= {Month.of(close.month) for close in closes}
+    return (await timelines(session, [assignment], today=today))[assignment_id]
 
-    in_force = {
-        Month.of(close.month): close for close in closes if close.reopened_at is None
-    }
-    reopened: dict[Month, int] = {}
-    for close in closes:
-        if close.reopened_at is not None:
-            key = Month.of(close.month)
-            reopened[key] = reopened.get(key, 0) + 1
-    names = await _names(
-        session, {c.closed_by_id for c in in_force.values() if c.closed_by_id}
+
+async def timelines(
+    session: AsyncSession,
+    assignments: Iterable[Assignment],
+    *,
+    today: date | None = None,
+) -> dict[UUID, list[MonthState]]:
+    """``timeline`` of several assignments, read together."""
+    today = today or clock.today()
+    wanted = list(assignments)
+    ids = [assignment.id for assignment in wanted]
+    if not ids:
+        return {}
+    closes_of: dict[UUID, list[MonthClose]] = {i: [] for i in ids}
+    result = await session.execute(
+        select(MonthClose)
+        .where(MonthClose.assignment_id.in_(ids))
+        .order_by(MonthClose.month, MonthClose.closed_at)
+        .execution_options(populate_existing=True)
     )
-    states = []
-    for month in sorted(months, key=lambda m: (m.year, m.month)):
-        close = in_force.get(month)
-        states.append(
-            MonthState(
-                month=month,
-                closed=close is not None,
-                closed_at=close.closed_at if close else None,
-                closed_by_name=names.get(close.closed_by_id)
-                if close and close.closed_by_id
-                else None,
-                reopen_count=reopened.get(month, 0),
-                closable=close is None and _closable(month, today),
+    for close in result.scalars():
+        closes_of[close.assignment_id].append(close)
+    spans = {
+        row[0]: (row[1], row[2])
+        for row in await session.execute(
+            select(
+                BudgetLine.assignment_id,
+                func.min(Allocation.start_date),
+                func.max(Allocation.end_date),
             )
+            .join(BudgetLine, BudgetLine.id == Allocation.budget_line_id)
+            .where(BudgetLine.assignment_id.in_(ids))
+            .group_by(BudgetLine.assignment_id)
         )
-    return states
+    }
+    names = await _names(
+        session,
+        {
+            close.closed_by_id
+            for closes in closes_of.values()
+            for close in closes
+            if close.reopened_at is None and close.closed_by_id
+        },
+    )
+    found: dict[UUID, list[MonthState]] = {}
+    for assignment in wanted:
+        closes = closes_of[assignment.id]
+        first, last = spans.get(assignment.id, (None, None))
+        starts = [d for d in (assignment.start_date, first) if d is not None]
+        ends = [d for d in (assignment.end_date, last) if d is not None]
+        months = set(_months(min(starts), max(ends))) if starts and ends else set()
+        months |= {Month.of(close.month) for close in closes}
+
+        in_force = {
+            Month.of(close.month): close
+            for close in closes
+            if close.reopened_at is None
+        }
+        reopened: dict[Month, int] = {}
+        for close in closes:
+            if close.reopened_at is not None:
+                key = Month.of(close.month)
+                reopened[key] = reopened.get(key, 0) + 1
+        states = []
+        for month in sorted(months, key=lambda m: (m.year, m.month)):
+            close = in_force.get(month)
+            states.append(
+                MonthState(
+                    month=month,
+                    closed=close is not None,
+                    closed_at=close.closed_at if close else None,
+                    closed_by_name=names.get(close.closed_by_id)
+                    if close and close.closed_by_id
+                    else None,
+                    reopen_count=reopened.get(month, 0),
+                    closable=close is None and _closable(month, today),
+                )
+            )
+        found[assignment.id] = states
+    return found
 
 
 async def month_detail(

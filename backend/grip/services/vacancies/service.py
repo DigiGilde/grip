@@ -44,6 +44,7 @@ from grip.services.errors import DomainError, DomainValidationError, NotFoundErr
 from grip.services.llm import ChatClient, get_chat_client
 from grip.services.phase import Phase, is_tentative, phase_of
 from grip.services.vacancies import form as forms
+from grip.services.vacancies import library
 from grip.services.vacancies.drafting import (
     MAX_EXAMPLES,
     PROMPT_VERSION,
@@ -923,10 +924,13 @@ async def build_draft_input(
 ) -> DraftInput:
     """Collect what a draft may be based on, and nothing else.
 
-    The summary of the assignment and the description of the organisation are
-    given by the caller on purpose: grip does not send free-text notes of an
-    assignment to the model on its own.
+    The summary of the assignment is given by the caller on purpose: grip
+    does not send free-text notes of an assignment to the model on its own.
+    The description of the organisation comes from the shared part of the
+    standard vacancy texts, unless the caller gives one.
     """
+    if organisation_description is None:
+        organisation_description = await library.organisation_description(db, vacancy)
     repo = VacancyRepository(db)
     assignment_name = None
     if vacancy.budget_line_id is not None:

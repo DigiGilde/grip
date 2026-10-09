@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import BigInteger, DateTime, Index, String, Text, case
+from sqlalchemy import BigInteger, DateTime, Index, String, Text, case, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, synonym
 
@@ -36,6 +36,12 @@ class StreamEvent(Base):
         Index("ix_stream_event_case", "case_kind", "case_id", "seq"),
         Index("ix_stream_event_person", "person_id", "seq"),
         Index("ix_stream_event_actor", "actor_person_id", "seq"),
+        # The changes only, in order: reads outnumber them many times.
+        Index(
+            "ix_stream_event_changes",
+            "seq",
+            postgresql_where=text("type <> 'data.read'"),
+        ),
     )
 
     # The position in the stream. Given out under a lock when the event is

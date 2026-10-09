@@ -1,4 +1,5 @@
-import { Outlet } from 'react-router-dom';
+import { PageBoundary } from '@/PageBoundary';
+import { Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/auth/context';
 import { Brand } from '@/brand/Brand';
 import { ExampleNotice } from '@/layout/ExampleMode';
@@ -25,6 +26,7 @@ export function SigningLayout() {
         ? state.person.name
         : null;
   useRouteFocus();
+  const { pathname } = useLocation();
   const instanceName = instanceNames(instance?.name).organisation || PRODUCT_NAME;
 
   return (
@@ -39,7 +41,9 @@ export function SigningLayout() {
           </nldd-container>
           <div id={MAIN_CONTENT_ID} tabIndex={-1}>
             <ExampleNotice />
-            <Outlet />
+            <PageBoundary resetKey={pathname}>
+              <Outlet />
+            </PageBoundary>
           </div>
         </nldd-page>
       </nldd-app-view>

@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { fetchModelStatus, testModel } from '@/features/vacancies/textWorkApi';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -25,13 +24,10 @@ import {
 } from '@/features/vacancies/ui';
 import {
   ErrorNotice,
-  type Fact,
-  Facts,
   FormSheet,
   LoadError,
   Loading,
   Page,
-  Quiet,
   Section,
   SectionHeading,
   NoAccess,
@@ -41,7 +37,6 @@ import {
   activateFormTemplate,
   fetchBundledMappings,
   fetchFormTemplates,
-  fetchLanguageModel,
   inspectForm,
   uploadFormTemplate,
   type BundledMapping,
@@ -243,7 +238,7 @@ function Templates() {
     navigate(PATHS.formTemplate.replace(':templateId', template.id));
 
   return (
-    <Section title="Aanvraagformulier">
+    <Section title="Formulieren">
       {templates.isPending && <Loading />}
       {templates.isError && (
         <LoadError error={templates.error} retry={() => void templates.refetch()} />
@@ -316,59 +311,7 @@ function Templates() {
   );
 }
 
-/**
- * The language model in one place: which one drafts texts here, whether it
- * answers, and what the organisation has set for it.
- */
-function LanguageModelSection() {
-  const model = useQuery({
-    queryKey: [...SETUP_KEYS.model, false],
-    queryFn: () => fetchLanguageModel(false),
-  });
-  const status = useQuery({ queryKey: ['vacancy-texts', 'model'], queryFn: fetchModelStatus });
-  const test = useMutation({ mutationFn: testModel });
-  const data = model.data;
-  const facts: Fact[] = data
-    ? [
-        ...(data.model_id ? [{ label: 'Model', value: data.model_id }] : []),
-        {
-          label: 'Omschrijving van de organisatie',
-          value: data.organisation_description_set ? 'Ingesteld' : 'Niet ingesteld',
-        },
-      ]
-    : [];
-  // What is missing matters only while no model answers here.
-  const missing = !status.data?.available ? (data?.missing_settings ?? []) : [];
-
-  return (
-    <Section title="Taalmodel">
-      {model.isPending && <Loading />}
-      {model.isError && <LoadError error={model.error} retry={() => void model.refetch()} />}
-      {status.data && <nldd-text>{status.data.provider_text}</nldd-text>}
-      {status.data?.note && <Quiet>{status.data.note}</Quiet>}
-      {missing.length > 0 && <Quiet>Ontbreekt in de omgeving: {missing.join(', ')}</Quiet>}
-      {facts.length > 0 && <Facts label="Instellingen van het taalmodel" facts={facts} />}
-      {test.data && (
-        <Quiet>
-          {test.data.message}
-          {test.data.model ? ` ${test.data.model}.` : ''}
-        </Quiet>
-      )}
-      {test.isError && <ErrorNotice message={errorMessage(test.error)} />}
-      {status.data?.available && (
-        <nldd-button-group>
-          <Button
-            text="Test de verbinding"
-            loading={test.isPending}
-            onClick={() => test.mutate()}
-          />
-        </nldd-button-group>
-      )}
-    </Section>
-  );
-}
-
-/** Beheer of what vacancies need: the blank request form and the language model. */
+/** Beheer of the blank request form for a vacancy. */
 export function VacancySetupPage() {
   const instance = useInstance();
   const adminBack = useAdminBack();
@@ -383,7 +326,7 @@ export function VacancySetupPage() {
   return (
     <RouterLinks>
       <Page
-        title="Vacatureformulier en taalmodel"
+        title="Aanvraagformulier"
         instanceName={instance?.name}
         spacing="sections"
         back={adminBack}
@@ -393,7 +336,6 @@ export function VacancySetupPage() {
         ) : (
           <Templates />
         )}
-        {!denied && !access.isPending ? <LanguageModelSection /> : null}
       </Page>
     </RouterLinks>
   );

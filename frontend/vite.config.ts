@@ -17,14 +17,29 @@ export default defineConfig({
         // and no single file dominates the first load.
         codeSplitting: {
           groups: [
-            // The text editor of the design system brings CodeMirror, about
-            // as many bytes as our own code. Only the pages that write text
-            // need it, and `ui/TextEditor` imports it on demand. It is left
-            // out of both groups, so it lands in the chunk of that import
-            // and is fetched then, not with every first page.
+            // What the shell, the start page and the tasks render: the part
+            // of the design system every first page needs. Every other
+            // component stays out of the groups, so it lands with the pages
+            // that use it and is fetched on the way there (the date picker
+            // with a form, the text editor with a page that writes text).
+            // A component the shell starts to use and that is not listed
+            // here still works: it then travels with our own code.
             {
               name: 'design-system',
-              test: /node_modules[\\/](lit|lit-html|lit-element|@lit|@nldd[\\/](?!design-system[\\/]dist[\\/](components[\\/]inputs[\\/]text-editor|utilities[\\/]codemirror)[\\/]))[\\/]?/,
+              test: new RegExp(
+                'node_modules[\\\\/](' +
+                  'lit|lit-html|lit-element|@lit|@floating-ui|' +
+                  '@nldd[\\\\/]design-system[\\\\/]dist[\\\\/](' +
+                  'utilities[\\\\/](?!codemirror)|' +
+                  'components[\\\\/](' +
+                  'actions[\\\\/](button|button-group|icon-button|menu|toolbar)|' +
+                  'content[\\\\/](avatar|avatar-group|icon|identity|keyboard-shortcut|title|tooltip)|' +
+                  'layout[\\\\/](app-view|container|page|page-sections|popover|split-views)|' +
+                  'lists-and-tables[\\\\/](cells|list|list-item)|' +
+                  'navigation[\\\\/](menu-bar|menu-bar-item|skip-link|tab-bar)|' +
+                  'status-and-feedback[\\\\/](activity-indicator|badge|banner|inline-dialog)' +
+                  ')[\\\\/]))',
+              ),
               priority: 20,
             },
             {

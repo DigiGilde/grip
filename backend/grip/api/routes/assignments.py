@@ -29,7 +29,7 @@ from grip.schema.assignments import (
 from grip.services import assignment_views as views
 from grip.services import assignments as service
 from grip.services import internal_judges
-from grip.services.phase import Phase
+from grip.services.phase import Phase, phase_of
 
 router = APIRouter(tags=["assignments"])
 
@@ -128,26 +128,59 @@ async def _detail(row: views.AssignmentRow, access: RequestAccess) -> dict[str, 
     return build_response(model, await access.classes(resource, _DETAIL_CLASSES))
 
 
+# How many assignments a page of the list holds, and the most one may ask.
+_PAGE_SIZE = 50
+_MAX_PAGE_SIZE = 200
+
+
 @router.get("/assignments", response_model=None)
 async def list_assignments(
     access: RequestAccess,
     db: DbSession,
     status_filter: str | None = Query(default=None, alias="status"),
+    phase: Phase | None = Query(default=None),
+    search: str | None = Query(default=None, alias="q", max_length=100),
+    page: int | None = Query(default=None, ge=1),
+    page_size: int = Query(default=_PAGE_SIZE, ge=1, le=_MAX_PAGE_SIZE),
 ) -> dict[str, Any]:
-    """Every assignment for whoever reads them all; otherwise the own ones."""
-    if await access.may(Action.READ, Resource.assignment(), A):
-        rows = await views.assignment_rows(db, status=status_filter)
-    else:
-        rows = await views.assignment_rows(
-            db, status=status_filter, only_ids=await access.own_assignment_ids()
-        )
-    readable = []
-    for row in rows:
+    """Every assignment for whoever reads them all; otherwise the own ones.
+
+    ``phase`` and ``q`` narrow the list, ``page`` asks for one page of it.
+    ``counts`` says how many assignments each phase holds under the same
+    search, and ``total`` how many the list holds: both count only what the
+    reader may see, because the window is taken after the access decision.
+    Without ``page`` the whole list comes back.
+    """
+    only_ids = (
+        None
+        if await access.may(Action.READ, Resource.assignment(), A)
+        else await access.own_assignment_ids()
+    )
+    index = await views.assignment_index(db, only_ids=only_ids, search=search)
+    # Decide per assignment before anything is counted or cut.
+    permitted_by_id: dict[UUID, Any] = {}
+    counts = dict.fromkeys(Phase, 0)
+    listed: list[UUID] = []
+    for assignment_id, assignment_status in index:
         permitted = await access.classes(
-            Resource.assignment(row.assignment.id), _SUMMARY_CLASSES
+            Resource.assignment(assignment_id), _SUMMARY_CLASSES
         )
-        if A in permitted:
-            readable.append((row, permitted))
+        if A not in permitted:
+            continue
+        permitted_by_id[assignment_id] = permitted
+        of_phase = phase_of(assignment_status)
+        counts[of_phase] += 1
+        if phase is not None and of_phase is not phase:
+            continue
+        if status_filter is not None and assignment_status != status_filter:
+            continue
+        listed.append(assignment_id)
+    total = len(listed)
+    window = (
+        listed if page is None else listed[(page - 1) * page_size : page * page_size]
+    )
+    rows = await views.assignment_rows(db, only_ids=window)
+    readable = [(row, permitted_by_id[row.assignment.id]) for row in rows]
     # A potential assignment without a quote shows its budget instead.
     budgeted = await views.budgeted_totals(
         db,
@@ -170,6 +203,10 @@ async def list_assignments(
     ]
     return {
         "items": items,
+        "total": total,
+        "page": page or 1,
+        "page_size": page_size if page is not None else max(total, 1),
+        "counts": {of_phase.value: count for of_phase, count in counts.items()},
         "can_create": await access.may(Action.CREATE_ASSIGNMENT, Resource.assignment()),
     }
 

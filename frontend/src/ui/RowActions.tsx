@@ -16,6 +16,10 @@ import { orUndef, useNlddEvent } from '@/components/nldd/events';
 import { MoreButton } from './Icon';
 import './hidden.css';
 
+// The confirmation of a destructive action. A page loads its own files, so
+// this cannot count on another page having registered the dialog.
+if (import.meta.env.MODE !== 'test') void import('@nldd/design-system/modal-dialog');
+
 /**
  * The header of the actions column. It shows nothing, by the rule above, but
  * a screen reader that reads a table by its headers needs a word for it.

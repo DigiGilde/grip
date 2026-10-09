@@ -211,3 +211,36 @@ async def test_a_team_member_does_not_read_the_category_of_the_line(world, as_pe
     owner = (await as_person(world.owner).get(URL)).json()
     bar = _row(owner, world.colleague)["bars"][0]
     assert (bar["person_category"], bar["line_category"]) == ("C", "D")
+
+
+async def test_one_row_for_the_page_about_a_person(world, as_person):
+    """Asking for one person gives the same row and nothing of the others."""
+    whole = (await as_person(world.planner).get(URL)).json()
+    one = (
+        await as_person(world.planner).get(f"{URL}&person_id={world.member.id}")
+    ).json()
+    assert one["persons"] == [_row(whole, world.member)]
+    assert one["months"] == whole["months"]
+    assert one["open_roles"] == []
+
+    # It is a narrower question, never a wider one: who does not see a row on
+    # the board does not get it by asking for it.
+    for reader in (world.lezer, world.outsider):
+        body = (
+            await as_person(reader).get(f"{URL}&person_id={world.member.id}")
+        ).json()
+        assert body["persons"] == []
+    # A team member gets the own row, and not a colleague's by asking for it.
+    own = (
+        await as_person(world.member).get(f"{URL}&person_id={world.member.id}")
+    ).json()
+    assert [p["person_id"] for p in own["persons"]] == [str(world.member.id)]
+    whole_for_member = (await as_person(world.member).get(URL)).json()
+    other = (
+        await as_person(world.member).get(f"{URL}&person_id={world.colleague.id}")
+    ).json()
+    assert other["persons"] == [
+        p
+        for p in whole_for_member["persons"]
+        if p["person_id"] == str(world.colleague.id)
+    ]

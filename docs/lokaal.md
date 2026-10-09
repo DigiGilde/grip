@@ -257,7 +257,7 @@ Lokaal heeft niemand een sleutel voor VLAM. Staat het opdrachtregelprogramma `cl
 LLM_PROVIDER=claude_cli
 ```
 
-`just preview` zet dit zelf aan als het programma is gevonden en er geen VLAM is ingesteld. Op de pagina "Vacatureformulier en taalmodel" staat welke aanbieder actief is, met een knop om de verbinding te testen.
+`just preview` zet dit zelf aan als het programma is gevonden en er geen VLAM is ingesteld. Op de pagina "Taalmodel" onder Beheer staat welke aanbieder actief is, met een knop om de verbinding te testen.
 
 - Het werkt alleen in lokale ontwikkeling (`DEV_NO_AUTH` aan, geen `PUBLIC_HOST`). Daarbuiten weigert grip te starten met deze instelling.
 - Tekst die je laat opstellen gaat naar een dienst buiten de overheid. Gebruik alleen verzonnen gegevens.

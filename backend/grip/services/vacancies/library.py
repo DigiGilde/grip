@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from decimal import ROUND_HALF_UP, Decimal
@@ -512,50 +513,81 @@ def _date(value: date | None) -> str | None:
 
 async def values_for(db: AsyncSession, vacancy: Vacancy) -> dict[str, str]:
     """What the placeholders stand for on this vacancy; missing ones are absent."""
+    return (await values_for_many(db, [vacancy]))[vacancy.id]
+
+
+async def values_for_many(
+    db: AsyncSession, vacancies: Iterable[Vacancy]
+) -> dict[UUID, dict[str, str]]:
+    """``values_for`` of several vacancies; what they share is read once."""
+    wanted = list(vacancies)
     settings = _check_text_settings(await instance_settings.get(db, TEXT_SETTINGS.key))
     sender = await quote_sender.current_sender(db)
-    assignment_name = None
-    if vacancy.budget_line_id is not None:
-        line = await db.get(BudgetLine, vacancy.budget_line_id)
-        if line is not None:
-            assignment = await db.get(Assignment, line.assignment_id)
-            assignment_name = assignment.name if assignment else None
+    line_ids = {v.budget_line_id for v in wanted if v.budget_line_id is not None}
+    name_of_line: dict[UUID, str] = {}
+    if line_ids:
+        rows = await db.execute(
+            select(BudgetLine.id, Assignment.name)
+            .join(Assignment, Assignment.id == BudgetLine.assignment_id)
+            .where(BudgetLine.id.in_(line_ids))
+        )
+        name_of_line = {row[0]: row[1] for row in rows}
     organisation = (sender.get("organisation") or "").strip()
-    values = {
-        "functie": vacancy.function_title,
-        "schaal": str(vacancy.scale) if vacancy.scale is not None else None,
-        "uren": _hours(vacancy.fte),
-        "fte": _decimal(vacancy.fte),
-        "contract": CONTRACT_SENTENCES.get(vacancy.contract_type or ""),
-        "startdatum": _date(vacancy.start_date),
-        "einddatum": _date(vacancy.end_date),
-        "standplaats": settings["location"],
-        "organisatie": organisation,
-        "eenheid": settings["unit_name"] or organisation,
-        "website": settings["website"],
-        "contact": settings["contact"],
-        # The name of the assignment is an internal name; a vacancy text goes
-        # outside. So the writer names the team or product in plain words,
-        # with the internal name as a reminder of which one it is.
-        "opdracht": (
-            f"[vul aan: het team of product in gewone woorden; intern heet de "
-            f"opdracht {assignment_name}]"
-            if assignment_name
+    found: dict[UUID, dict[str, str]] = {}
+    for vacancy in wanted:
+        assignment_name = (
+            name_of_line.get(vacancy.budget_line_id)
+            if vacancy.budget_line_id is not None
             else None
-        ),
-        # The name itself, as a fact about the vacancy; never printed in a text.
-        ASSIGNMENT_NAME: assignment_name,
-    }
-    return {name: value for name, value in values.items() if value}
+        )
+        values = {
+            "functie": vacancy.function_title,
+            "schaal": str(vacancy.scale) if vacancy.scale is not None else None,
+            "uren": _hours(vacancy.fte),
+            "fte": _decimal(vacancy.fte),
+            "contract": CONTRACT_SENTENCES.get(vacancy.contract_type or ""),
+            "startdatum": _date(vacancy.start_date),
+            "einddatum": _date(vacancy.end_date),
+            "standplaats": settings["location"],
+            "organisatie": organisation,
+            "eenheid": settings["unit_name"] or organisation,
+            "website": settings["website"],
+            "contact": settings["contact"],
+            # The name of the assignment is an internal name; a vacancy text
+            # goes outside. So the writer names the team or product in plain
+            # words, with the internal name as a reminder of which one it is.
+            "opdracht": (
+                f"[vul aan: het team of product in gewone woorden; intern heet de "
+                f"opdracht {assignment_name}]"
+                if assignment_name
+                else None
+            ),
+            # The name itself, as a fact about the vacancy; never printed in
+            # a text.
+            ASSIGNMENT_NAME: assignment_name,
+        }
+        found[vacancy.id] = {name: value for name, value in values.items() if value}
+    return found
 
 
-async def facts_for(db: AsyncSession, vacancy: Vacancy) -> dict[str, Fact]:
-    """Every fact a vacancy text can name, with its value for this vacancy."""
-    values = await values_for(db, vacancy)
+def _facts(values: dict[str, str]) -> dict[str, Fact]:
     return {
         name: Fact(name, kind.label, values.get(name), kind.where, kind.instruction)
         for name, kind in FACT_KINDS.items()
     }
+
+
+async def facts_for(db: AsyncSession, vacancy: Vacancy) -> dict[str, Fact]:
+    """Every fact a vacancy text can name, with its value for this vacancy."""
+    return _facts(await values_for(db, vacancy))
+
+
+async def facts_for_many(
+    db: AsyncSession, vacancies: Iterable[Vacancy]
+) -> dict[UUID, dict[str, Fact]]:
+    """``facts_for`` of several vacancies."""
+    values = await values_for_many(db, vacancies)
+    return {vacancy_id: _facts(own) for vacancy_id, own in values.items()}
 
 
 @dataclass
@@ -632,6 +664,31 @@ def resolve(
             )
         )
     return resolved
+
+
+# The shared part of the standard texts that says who the organisation is.
+ORGANISATION_SECTION = "hier_kom_je_te_werken"
+
+
+async def organisation_description(db: AsyncSession, vacancy: Vacancy) -> str | None:
+    """Who the organisation is, from the shared part a beheerder maintains.
+
+    A paragraph with a place that cannot be filled yet is left out, so a
+    model never reads an open place as text.
+    """
+    section = next(
+        (s for s in await shared_sections(db) if s.key == ORGANISATION_SECTION), None
+    )
+    if section is None or not section.body.strip():
+        return None
+    values = await values_for(db, vacancy)
+    kept: list[str] = []
+    for paragraph in section.body.split("\n\n"):
+        missing: list[str] = []
+        filled = _fill(paragraph, values, missing).strip()
+        if filled and not missing:
+            kept.append(filled)
+    return "\n\n".join(kept) or None
 
 
 def template_label(template: VacancyTextTemplate) -> str:

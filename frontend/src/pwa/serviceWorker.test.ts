@@ -18,6 +18,8 @@ interface FetchLike {
 interface Kept {
   put: ReturnType<typeof vi.fn>;
   match: ReturnType<typeof vi.fn>;
+  keys: ReturnType<typeof vi.fn>;
+  delete: ReturnType<typeof vi.fn>;
 }
 
 function load(fetchImpl: (request: unknown) => Promise<Response>) {
@@ -30,6 +32,10 @@ function load(fetchImpl: (request: unknown) => Promise<Response>) {
     match: vi.fn(async (key: unknown) =>
       store.get(typeof key === 'string' ? key : (key as { url: string }).url),
     ),
+    keys: vi.fn(async () =>
+      [...store.keys()].map((key) => ({ url: new URL(key, 'https://grip.test.example').href })),
+    ),
+    delete: vi.fn(async (key: { url: string }) => store.delete(key.url)),
   };
   const deleted: string[] = [];
   const windows: {
@@ -150,12 +156,45 @@ describe('the service worker', () => {
     expect(await response.text()).toContain('Grip heeft een internetverbinding nodig');
   });
 
+  const script = (status = 200) =>
+    new Response('export {}', { status, headers: { 'content-type': 'text/javascript' } });
+
   it('keeps a hashed file of the build', async () => {
+    network.mockResolvedValue(script());
     const { listeners, cache } = load(network);
     const { event, answers } = fetchEvent('/assets/index-abc123.js');
     (listeners.fetch as unknown as Listener)(event);
     await first(answers);
     expect(cache.put).toHaveBeenCalledTimes(1);
+  });
+
+  it('never keeps a page or an error under the name of a file', async () => {
+    // After a deployment the file of an older build is gone. Whatever the
+    // server says instead must not become that file for good.
+    const { listeners, cache } = load(network);
+    const page = fetchEvent('/assets/OudePagina-abc123.js');
+    (listeners.fetch as unknown as Listener)(page.event);
+    expect((await first(page.answers)).headers.get('content-type')).toBe('text/html');
+
+    network.mockResolvedValue(script(404));
+    const gone = fetchEvent('/assets/OudePagina-def456.js');
+    (listeners.fetch as unknown as Listener)(gone.event);
+    // The page gets the 404 and reloads for the new build.
+    expect((await first(gone.answers)).status).toBe(404);
+    expect(cache.put).not.toHaveBeenCalled();
+  });
+
+  it('lets the oldest files go when it keeps too many', async () => {
+    network.mockImplementation(async () => script());
+    const { listeners, store } = load(network);
+    for (let n = 0; n < 405; n += 1) {
+      const { event, answers } = fetchEvent(`/assets/chunk-${n}.js`);
+      (listeners.fetch as unknown as Listener)(event);
+      await first(answers);
+    }
+    await vi.waitFor(() => expect(store.size).toBe(400));
+    expect(store.has('https://grip.test.example/assets/chunk-0.js')).toBe(false);
+    expect(store.has('https://grip.test.example/assets/chunk-404.js')).toBe(true);
   });
 
   it('empties everything when the page asks, as it does on logout', async () => {

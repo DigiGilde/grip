@@ -884,9 +884,6 @@ async def get_language_model(
         configured=not missing,
         model_id=settings.VLAM_MODEL_ID or None,
         missing_settings=missing,
-        organisation_description_set=bool(
-            settings.VACANCY_ORGANISATION_DESCRIPTION.strip()
-        ),
         available_models=models,
         check_error=error,
     )
@@ -1262,9 +1259,6 @@ async def draft_text(
             body.kind,
             actor=person,
             assignment_summary=(body.assignment_summary or "").strip() or None,
-            organisation_description=(
-                settings.VACANCY_ORGANISATION_DESCRIPTION.strip() or None
-            ),
         )
     except LlmNotConfiguredError as exc:
         return _model_problem(

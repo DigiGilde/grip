@@ -333,6 +333,8 @@ export interface ModelStatus {
   available: boolean;
   development: boolean;
   note: string | null;
+  calls_per_person_per_hour: number;
+  calls_per_instance_per_hour: number;
 }
 export const fetchModelStatus = () => apiGet<ModelStatus>(`${LIB}/model`);
 export const testModel = () =>

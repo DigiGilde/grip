@@ -13,7 +13,7 @@ whole period. The mode is half away from zero (commercial rounding).
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import date, timedelta
 from decimal import Decimal
 from fractions import Fraction
@@ -35,6 +35,7 @@ from grip.calc.types import (
     BudgetLine,
     BudgetLineKind,
     BudgetLineStatus,
+    CalcError,
     CategoryMismatch,
     CostCoverage,
     CostItem,
@@ -698,6 +699,86 @@ def category_mismatches(
 # Monthly close
 
 
+@dataclass(frozen=True)
+class _PlannedRun:
+    """The planned months of one allocation, priced once.
+
+    ``closed_month_amount`` prices every month of the allocation to give one
+    of them, so asking for each month in turn costs the square of the
+    number of months. This holds the months as planned, up to the first one
+    that cannot be priced, so each month is looked up instead.
+    """
+
+    amounts: dict[Month, MonthAmount]
+    planned: dict[Month, Fraction]
+    failed_at: Month | None = None
+    error: CalcError | None = None
+
+
+def _planned_run(
+    allocation: Allocation,
+    rates: RateBook,
+    scales: tuple[PersonScale, ...],
+    partial_months: PartialMonths,
+) -> _PlannedRun:
+    planned = dict(
+        month_fractions(allocation.start_date, allocation.end_date, partial_months)
+    )
+    amounts: dict[Month, MonthAmount] = {}
+    for month in months_between(allocation.start_date, allocation.end_date):
+        if month not in planned:
+            continue
+        first, last = overlap(month, allocation.start_date, allocation.end_date)  # type: ignore[misc]
+        try:
+            parts = _stretches(
+                first,
+                last,
+                planned[month],
+                rates,
+                scales,
+                person_id=allocation.person_id,
+            )
+            amounts[month] = _month_amount(
+                month, allocation.fte_pct, planned[month], AmountSource.PLANNED, parts
+            )
+        except CalcError as error:
+            return _PlannedRun(amounts, planned, month, error)
+    return _PlannedRun(amounts, planned)
+
+
+def _from_run(
+    run: _PlannedRun,
+    allocation: Allocation,
+    month: Month,
+    rates: RateBook,
+    scales: Iterable[PersonScale],
+    actual_fte_pct: Decimal | None,
+) -> MonthAmount | None:
+    """What ``closed_month_amount`` gives, from the remembered planned months.
+
+    None where only the full computation can tell: the month that failed as
+    planned is the one asked with an established percentage.
+    """
+    at = (month.year, month.month)
+    failed = (run.failed_at.year, run.failed_at.month) if run.failed_at else None
+    if actual_fte_pct is None:
+        if run.error is not None:
+            raise run.error
+        return run.amounts.get(month)
+    if failed is not None and failed < at:
+        raise run.error  # type: ignore[misc]
+    if failed == at:
+        return None
+    first, last = overlap(month, allocation.start_date, allocation.end_date)  # type: ignore[misc]
+    parts = _stretches(
+        first, last, Fraction(1), rates, tuple(scales), person_id=allocation.person_id
+    )
+    own = _month_amount(month, actual_fte_pct, Fraction(1), AmountSource.ACTUAL, parts)
+    if run.error is not None:
+        raise run.error
+    return own
+
+
 def closed_month_amount(
     allocation: Allocation,
     month: Month,
@@ -706,6 +787,7 @@ def closed_month_amount(
     *,
     actual_fte_pct: Decimal | None = None,
     partial_months: PartialMonths = PartialMonths.CALENDAR_DAYS,
+    _run: _PlannedRun | None = None,
 ) -> MonthAmount:
     """Amount of one allocation in one month at the monthly close.
 
@@ -714,6 +796,10 @@ def closed_month_amount(
     """
     if overlap(month, allocation.start_date, allocation.end_date) is None:
         raise InvalidInputError(f"allocation {allocation.id} does not run in {month}")
+    if _run is not None:
+        found = _from_run(_run, allocation, month, rates, scales, actual_fte_pct)
+        if found is not None:
+            return found
     actuals = (
         {(allocation.id, month): actual_fte_pct} if actual_fte_pct is not None else None
     )
@@ -742,6 +828,7 @@ def billing_lines(
     *,
     actuals: Actuals | None = None,
     partial_months: PartialMonths = PartialMonths.CALENDAR_DAYS,
+    _runs: dict[str, _PlannedRun] | None = None,
 ) -> tuple[BillingLine, ...]:
     """Billing lines for a closed month: one per allocation running in it."""
     allocations = tuple(allocations)
@@ -771,6 +858,13 @@ def billing_lines(
                 f"{allocation.budget_line_id}"
             )
         actual = actuals.get((allocation.id, month)) if actuals else None
+        run = None
+        if _runs is not None:
+            run = _runs.get(allocation.id)
+            if run is None:
+                run = _runs[allocation.id] = _planned_run(
+                    allocation, rates, scales, partial_months
+                )
         amount = closed_month_amount(
             allocation,
             month,
@@ -778,6 +872,7 @@ def billing_lines(
             scales,
             actual_fte_pct=actual,
             partial_months=partial_months,
+            _run=run,
         )
         result.append(
             BillingLine(
@@ -804,3 +899,47 @@ def billing_lines(
             ),
         )
     )
+
+
+def billing_lines_by_month(
+    months: Iterable[Month],
+    allocations: Iterable[Allocation],
+    budget_lines: Iterable[BudgetLine],
+    rates: RateBook,
+    scales: Iterable[PersonScale],
+    *,
+    actuals: Actuals | None = None,
+    partial_months: PartialMonths = PartialMonths.CALENDAR_DAYS,
+) -> dict[Month, tuple[BillingLine, ...] | CalcError]:
+    """``billing_lines`` of several months of the same inzet.
+
+    Each month counts only its own established percentages, as when it is
+    asked alone. A month that cannot be priced gives its error instead of
+    lines. The planned months of an allocation are priced once for all the
+    months asked.
+    """
+    allocations = tuple(allocations)
+    budget_lines = tuple(budget_lines)
+    scales = tuple(scales)
+    runs: dict[str, _PlannedRun] = {}
+    found: dict[Month, tuple[BillingLine, ...] | CalcError] = {}
+    for month in months:
+        own = (
+            {key: pct for key, pct in actuals.items() if key[1] == month}
+            if actuals
+            else None
+        )
+        try:
+            found[month] = billing_lines(
+                month,
+                allocations,
+                budget_lines,
+                rates,
+                scales,
+                actuals=own,
+                partial_months=partial_months,
+                _runs=runs,
+            )
+        except CalcError as error:
+            found[month] = error
+    return found

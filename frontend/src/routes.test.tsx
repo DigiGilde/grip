@@ -184,10 +184,11 @@ describe('routes', () => {
 
   it.each(PAGES)(
     'renders %s with exactly one h1, marks %s current and its view %s',
-    (path, label, view) => {
+    async (path, label, view) => {
       const { container } = renderApp(<AppRoutes />, { path, auth: ALL });
 
-      const headings = screen.getAllByRole('heading', { level: 1 });
+      // Most pages are a file of their own: wait for it.
+      const headings = await screen.findAllByRole('heading', { level: 1 });
       expect(headings).toHaveLength(1);
       expect(headings[0]).toHaveTextContent(HEADINGS[path]!);
       expect(document.title).toBe(`${HEADINGS[path]} · Testinstantie · grip`);
@@ -216,11 +217,11 @@ describe('routes', () => {
     },
   );
 
-  it('keeps every address that left the bar', () => {
+  it('keeps every address that left the bar', async () => {
     // A page has its address whether or not the navigation names it.
     for (const path of ['/inzet', '/kosten', '/factureren', '/aanvragen']) {
       const { unmount } = renderApp(<AppRoutes />, { path, auth: EVERYTHING });
-      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(HEADINGS[path]!);
+      expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent(HEADINGS[path]!);
       unmount();
     }
   });

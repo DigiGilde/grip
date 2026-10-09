@@ -13,6 +13,7 @@ import '@nldd/design-system/file-field';
 import '@nldd/design-system/form';
 import '@nldd/design-system/form-actions';
 import '@nldd/design-system/form-field';
+import '@nldd/design-system/form-section';
 import '@nldd/design-system/icon-cell';
 import '@nldd/design-system/list';
 import '@nldd/design-system/list-item';

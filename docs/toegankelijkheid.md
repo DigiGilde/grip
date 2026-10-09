@@ -28,7 +28,7 @@ Controleer deze vier punten tegen de actuele uitleg van DigiToegankelijk voordat
 
 ### Met de machine
 
-`just check-a11y` draait axe-core in een echte browser (Chrome, zonder venster) op elke route uit `frontend/src/paths.ts`, met echte gegevens uit de voorbeelddatabase. De controle kijkt door de schaduw-DOM van de componenten van het designsysteem heen.
+`just check-a11y` draait axe-core in een echte browser (Chrome, zonder venster) op elke route uit `frontend/src/paths.ts`, met echte gegevens uit de voorbeelddatabase. De controle kijkt door de schaduw-DOM van de componenten van het designsysteem heen. Zij meldt ook een eigen regel, `element-not-registered`: een element van het designsysteem waarvan het onderdeel niet geladen is. Elke pagina laadt haar eigen bestanden; een pagina die een onderdeel tekent zonder het te registreren toont het als losse tekst zonder rol. Bij het splitsen van de pagina's kwamen er zo twee boven (de bevestiging van een rijmenu en een formulierdeel bij vacatures); beide zijn hersteld.
 
 | Wat | Hoe |
 |---|---|

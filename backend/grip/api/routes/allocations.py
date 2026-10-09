@@ -167,17 +167,22 @@ async def get_board(
     db: DbSession,
     start: str | None = None,
     months: int = 12,
+    person_id: UUID | None = None,
 ) -> dict[str, Any]:
     """The planner's board: people over months, bars per allocation, open roles.
 
     ``start`` is the first month as ``YYYY-MM``; by default three months back.
     Each bar and each row is decided separately, so a team member gets the
     own row and someone who manages an assignment the bars on it. No amounts.
+    ``person_id`` asks for the row of one person, for the page about them:
+    the same decisions, without the other rows and the open roles.
     """
     data = await staffing_board.board(db, _board_start(start), months=months)
 
     persons: list[dict[str, Any]] = []
     for person in data.persons:
+        if person_id is not None and person.person_id != person_id:
+            continue
         about_person = Resource.person(person.person_id)
         person_classes = set(await access.classes(about_person, {C, ROSTER}))
         bars: list[dict[str, Any]] = []
@@ -252,7 +257,7 @@ async def get_board(
         persons.append(row)
 
     roles: list[dict[str, Any]] = []
-    for role in data.open_roles:
+    for role in data.open_roles if person_id is None else ():
         resource = Resource.assignment(role.assignment_id)
         permitted = await access.classes(resource, {A, C})
         if C not in permitted:

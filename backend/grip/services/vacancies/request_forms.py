@@ -14,6 +14,7 @@ files are removed after the days the instance sets (ADR 0018).
 from __future__ import annotations
 
 import io
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -26,7 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from grip.core.audit import CREATE, DELETE, record_audit
 from grip.models.person import Person
 from grip.models.stored_document import StoredDocument
-from grip.models.vacancy import TextKind, Vacancy, VacancyStatus
+from grip.models.vacancy import TextKind, Vacancy, VacancyStatus, VacancyText
 from grip.repositories.vacancy import FormTemplateRepository
 from grip.services import instance_settings, stored_documents
 from grip.services.errors import DomainValidationError, NotFoundError
@@ -108,8 +109,17 @@ async def changed_since(
     template = await FormTemplateRepository(db).active(service.VACANCY_REQUEST_FORM)
     if template is None:
         return []
+    return await _changed(db, vacancy, document, template, await _values(db, vacancy))
+
+
+async def _changed(
+    db: AsyncSession,
+    vacancy: Vacancy,
+    document: StoredDocument,
+    template: Any,
+    values: dict[str, Any],
+) -> list[str]:
     mapping = forms.parse_mapping(form_setup.usable_mapping(template))
-    values = await _values(db, vacancy)
     # What the form held when it was made is kept with it; only a form from
     # before that was kept is opened to read its fields.
     have_by_field = document.made_from
@@ -152,10 +162,50 @@ async def _fields_of(
 
 
 async def standing(db: AsyncSession, vacancy: Vacancy) -> Standing:
-    versions = await _kept(db, REQUEST_FORM, vacancy.id)
-    signed = await _kept(db, SIGNED_FORM, vacancy.id)
-    changed = await changed_since(db, vacancy, versions[0]) if versions else []
-    return Standing(versions=versions, signed=signed, changed=changed)
+    return (await standings(db, [vacancy]))[vacancy.id]
+
+
+async def standings(
+    db: AsyncSession, vacancies: Iterable[Vacancy]
+) -> dict[UUID, Standing]:
+    """``standing`` of several vacancies; the template is read once."""
+    wanted = list(vacancies)
+    ids = [vacancy.id for vacancy in wanted]
+    versions_of = await stored_documents.documents_of(db, REQUEST_FORM, ids)
+    signed_of = await stored_documents.documents_of(db, SIGNED_FORM, ids)
+    with_form = [vacancy for vacancy in wanted if versions_of.get(vacancy.id)]
+    template = (
+        await FormTemplateRepository(db).active(service.VACANCY_REQUEST_FORM)
+        if with_form
+        else None
+    )
+    motivation_of: dict[UUID, str] = {}
+    if with_form and template is not None:
+        rows = await db.scalars(
+            select(VacancyText)
+            .where(
+                VacancyText.vacancy_id.in_([vacancy.id for vacancy in with_form]),
+                VacancyText.kind == TextKind.motivation.value,
+                VacancyText.established_at.is_not(None),
+            )
+            .order_by(VacancyText.established_at.desc(), VacancyText.created_at.desc())
+        )
+        for text in rows:
+            # The one established last, as ``service.established_text`` gives.
+            motivation_of.setdefault(text.vacancy_id, text.body)
+    found: dict[UUID, Standing] = {}
+    for vacancy in wanted:
+        # Newest first.
+        versions = list(reversed(versions_of.get(vacancy.id, [])))
+        signed = list(reversed(signed_of.get(vacancy.id, [])))
+        changed: list[str] = []
+        if versions and template is not None:
+            values = service.form_values(
+                vacancy, motivation=motivation_of.get(vacancy.id)
+            )
+            changed = await _changed(db, vacancy, versions[0], template, values)
+        found[vacancy.id] = Standing(versions=versions, signed=signed, changed=changed)
+    return found
 
 
 async def make(

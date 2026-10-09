@@ -754,8 +754,9 @@ async def _vacancy_text_subjects(
     from grip.services.vacancies import text_flow
 
     result: dict[UUID, dict[str, list[Subject]]] = {}
+    works_of = await text_flow.works_of(db, vacancies)
     for vacancy in vacancies:
-        works = await text_flow.work_of(db, vacancy)
+        works = works_of[vacancy.id]
         texts: list[Subject] = []
         reviews: list[Subject] = []
         for kind, work in works.items():
@@ -825,8 +826,10 @@ async def _vacancy_text_subjects(
     return result, published
 
 
-async def _request_form_facts(db: AsyncSession, vacancy: Vacancy) -> dict[str, bool]:
-    """Where the request form of a vacancy stands.
+async def _request_form_facts(
+    db: AsyncSession, vacancies: Sequence[Vacancy]
+) -> dict[UUID, dict[str, bool]]:
+    """Where the request form of each vacancy stands.
 
     Only looked at while the request runs or was just approved: reading the
     kept form is work, and before or long after that nobody needs one.
@@ -834,22 +837,27 @@ async def _request_form_facts(db: AsyncSession, vacancy: Vacancy) -> dict[str, b
     from grip.repositories.vacancy import FormTemplateRepository
     from grip.services.vacancies import request_forms, service
 
-    facts = {
+    none = {
         "request_form_in_use": False,
         "request_form_current": False,
         "request_form_signed": False,
     }
-    if vacancy.status not in ("requested", "approved"):
+    facts = {vacancy.id: dict(none) for vacancy in vacancies}
+    running = [v for v in vacancies if v.status in ("requested", "approved")]
+    if not running:
         return facts
     template = await FormTemplateRepository(db).active(service.VACANCY_REQUEST_FORM)
     if template is None:
         return facts
-    standing = await request_forms.standing(db, vacancy)
-    return {
-        "request_form_in_use": True,
-        "request_form_current": bool(standing.versions) and not standing.changed,
-        "request_form_signed": bool(standing.signed),
-    }
+    standings = await request_forms.standings(db, running)
+    for vacancy in running:
+        standing = standings[vacancy.id]
+        facts[vacancy.id] = {
+            "request_form_in_use": True,
+            "request_form_current": bool(standing.versions) and not standing.changed,
+            "request_form_signed": bool(standing.signed),
+        }
+    return facts
 
 
 def _request_prepared(vacancy: Vacancy) -> bool:
@@ -903,6 +911,7 @@ async def load_vacancy_cases(
         }
 
     text_subjects, published = await _vacancy_text_subjects(db, vacancies)
+    form_facts = await _request_form_facts(db, vacancies)
 
     snapshots = []
     for vacancy in vacancies:
@@ -939,7 +948,7 @@ async def load_vacancy_cases(
             "filled": status == "filled",
             "rejected": status == "rejected",
             "withdrawn": status == "withdrawn",
-            **await _request_form_facts(db, vacancy),
+            **form_facts[vacancy.id],
         }
         people: dict[str, UUID | None] = {"requester": vacancy.requester_id}
         for kind in ("hr_advice", "control_advice", "approval"):

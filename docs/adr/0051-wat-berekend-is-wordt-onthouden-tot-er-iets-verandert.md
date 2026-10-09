@@ -23,10 +23,23 @@ In de tests staat `READ_CACHE=verify`: elke onthouden waarde wordt opnieuw berek
 
 De taakmotor volgt dezelfde gedachte: hij kijkt niet opnieuw naar alle zaken zolang de stroom en de dag niet veranderd zijn sinds dit proces dat voor het laatst deed.
 
+### Aanvulling: onthouden op inhoud
+
+Een wijziging die niet over één opdracht gaat verandert de sleutel van alle opdrachten, terwijl ze de bedragen van weinig opdrachten verandert. Daarom is er een tweede geheugen, `read_cache.by_content`: de uitkomst van een zuivere berekening blijft staan onder een vingerafdruk van alles wat die berekening krijgt (de invoer voor `grip/calc`, de regels, de namen die ze toont, het jaar). Na zo'n wijziging wordt de invoer van alle opdrachten opnieuw gelezen, in een vast aantal queries, en wordt alleen gerekend voor de opdrachten waarvan de invoer anders is.
+
+- Een berekening die zo onthouden wordt leest niets dan haar argumenten: geen database, geen klok.
+- De vingerafdruk bevat alles wat de berekening krijgt. Van een databaserij tellen de kolommen die gelezen zijn.
+- `READ_CACHE=verify` rekent ook hier elke onthouden waarde na.
+
+De feiten van een opdracht voor de taakmotor worden op dezelfde manier onthouden als een leesmodel per opdracht. Daarbij tellen ook de gebeurtenissen over functies en vacatures mee, omdat de feiten daarop rusten (is er iemand die mag goedkeuren).
+
+Het gedeelde stempel wordt per proces bijgehouden: een proces leest alleen de gebeurtenissen sinds het voor het laatst keek, en controleert daarbij dat de stroom nog dezelfde is (de hash van de gebeurtenis tot waar het keek). Alleen een sessie die zelf niets schreef legt vast tot waar gekeken is.
+
 ## Gevolgen
 
 - Een wijziging aan domeingegevens zonder gebeurtenis geeft een verouderd bedrag. De volledigheidstest (`grip.events.completeness`) bewaakt dat al; hij is nu ook voor de bedragen dragend.
 - Een nieuw leesmodel dat onthouden wordt mag alleen rusten op gegevens met gebeurtenissen, en op de dag alleen als die in de sleutel zit.
-- Na een wijziging die alle opdrachten raakt (een tarief, een kostenpost) rekent de eerste lezer alles opnieuw: enkele seconden op ware grootte. Dat staat in `docs/snelheid.md` als open punt.
+- Na een wijziging die alle opdrachten raakt (een tarief, een kostenpost) leest de eerste lezer alle invoer opnieuw en rekent alleen wat anders is: een halve tot een hele seconde op ware grootte. Na een herstart wordt alles één keer gerekend: een tot twee seconden per pagina. De cijfers staan in `docs/snelheid.md`.
+- Het geheugen is begrensd op een aantal waarden (`READ_CACHE_MAX_ENTRIES`, standaard 8000); de oudste gaan eerst.
 - Elk proces heeft zijn eigen geheugen; na een herstart is het leeg.
 - `READ_CACHE=off` zet het onthouden uit.

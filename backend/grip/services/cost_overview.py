@@ -74,6 +74,22 @@ class CostItemOverview:
         return Decimal(100) - self.pct_total
 
     @property
+    def attention_rank(self) -> int:
+        """Where the item stands in a list that puts what needs attention
+        first: money nobody pays for, then an overrun, then a received
+        invoice without its document, then everything else."""
+        if self.uncovered_cents is None or self.uncovered_cents > 0:
+            return 0
+        if self.variance_cents < 0:
+            return 1
+        if any(
+            line.kind == "actual" and not self.attachments.get(line.id)
+            for line in self.invoice_lines
+        ):
+            return 2
+        return 3
+
+    @property
     def assignment_ids(self) -> frozenset[UUID]:
         return frozenset(c.assignment_id for c in self.coverages)
 

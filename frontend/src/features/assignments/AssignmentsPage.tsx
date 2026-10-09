@@ -2,18 +2,25 @@ import { useCourses } from '@/features/tasks/course';
 import { courseLine } from '@/ui/course';
 import { LoadError, NameLine, Page, Stack, TabNav } from '@/ui/layout';
 import { useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useInstance } from '@/layout/useInstance';
 import { useRouterLinks } from '@/layout/useRouterLinks';
 import { formatEuro, formatPeriod } from '@/lib/format';
 import { ActionBar } from '@/ui/ActionBar';
-import { assignmentKeys, fetchAssignments, type AssignmentSummary } from './api';
+import { PageRange, Pager } from '@/ui/Pager';
+import { usePaging, useSearchWords } from '@/ui/paging';
+import {
+  ASSIGNMENT_PAGE_SIZE,
+  assignmentKeys,
+  fetchAssignments,
+  type AssignmentSummary,
+} from './api';
 import { AssignmentFormSheet } from './AssignmentFormSheet';
 import { PHASE_VIEW_LABELS, STATUS_COLORS, statusLabel, type Phase } from './labels';
 import { assignmentPath } from './paths';
 import { EmptyNotice, Loading } from './ui';
-import { VIEWS, VIEW_PARAM, countByPhase, phaseOfView, viewHref } from './views';
+import { SEARCH_PARAM, VIEWS, VIEW_PARAM, phaseOfView, viewHref } from './views';
 
 const EMPTY_TEXT: Record<Phase, { text: string; supporting: string }> = {
   potential: {
@@ -169,37 +176,58 @@ export function AssignmentsPage() {
   const contentRef = useRef<HTMLDivElement>(null);
   useRouterLinks(contentRef);
 
-  const query = useQuery({ queryKey: assignmentKeys.list(), queryFn: fetchAssignments });
-  const all = query.data?.items ?? [];
   const phase = phaseOfView(searchParams.get(VIEW_PARAM));
-  const counts = countByPhase(all);
-  const items = all.filter((item) => item.phase === phase);
+  const [words, setWords, search] = useSearchWords(SEARCH_PARAM);
+  // The server sends one page of one view, and counts all three.
+  const asked = usePaging(undefined, ASSIGNMENT_PAGE_SIZE).page;
+  const query = useQuery({
+    queryKey: assignmentKeys.list({ phase, page: asked, search }),
+    queryFn: () => fetchAssignments({ phase, page: asked, search }),
+    // The rows stay while the next page or the next search is on its way.
+    placeholderData: keepPreviousData,
+  });
+  const paging = usePaging(query.data?.total, ASSIGNMENT_PAGE_SIZE);
+  const items = query.data?.items ?? [];
+  const counts = query.data?.counts;
+  const empty = search
+    ? {
+        text: `Geen opdrachten gevonden voor "${search}"`,
+        supporting: 'Je zoekt op de naam van de opdracht of van de opdrachtgever.',
+      }
+    : EMPTY_TEXT[phase];
 
   return (
     <Page title="Opdrachten" instanceName={instance?.name}>
       <div ref={contentRef}>
         <Stack gap="group">
-          {query.data?.can_create && (
-            <ActionBar
-              label="Opdrachten"
-              actions={[
-                {
-                  text: 'Nieuwe opdracht',
-                  primary: true,
-                  onClick: () =>
-                    setSheet((current) => ({ open: true, session: current.session + 1 })),
-                },
-              ]}
-            />
-          )}
+          <ActionBar
+            label="Opdrachten zoeken en acties"
+            search={{
+              label: 'Zoek op opdracht of opdrachtgever',
+              value: words,
+              onChange: setWords,
+            }}
+            actions={
+              query.data?.can_create
+                ? [
+                    {
+                      text: 'Nieuwe opdracht',
+                      primary: true,
+                      onClick: () =>
+                        setSheet((current) => ({ open: true, session: current.session + 1 })),
+                    },
+                  ]
+                : []
+            }
+          />
           {/* Each view has its own address, so this is navigation between pages. */}
           <TabNav
             label="Weergave van de opdrachten"
             current={phase}
             items={VIEWS.map((view) => ({
               key: view.phase,
-              href: viewHref(pathname, view.phase),
-              text: query.isSuccess
+              href: viewHref(pathname, view.phase, search),
+              text: counts
                 ? `${PHASE_VIEW_LABELS[view.phase]} (${counts[view.phase]})`
                 : PHASE_VIEW_LABELS[view.phase],
             }))}
@@ -207,28 +235,33 @@ export function AssignmentsPage() {
           {query.isPending && <Loading />}
           {query.isError && <LoadError error={query.error} retry={() => void query.refetch()} />}
           {query.isSuccess && items.length === 0 && (
-            <EmptyNotice
-              text={EMPTY_TEXT[phase].text}
-              supportingText={EMPTY_TEXT[phase].supporting}
-            />
+            <EmptyNotice text={empty.text} supportingText={empty.supporting} />
           )}
-          {items.length > 0 &&
-            (phase === 'potential' ? (
-              <PipelineTable items={items} />
-            ) : (
-              <AssignmentTable items={items} label={PHASE_VIEW_LABELS[phase]} phase={phase} />
-            ))}
+          {items.length > 0 && (
+            <Stack gap="related">
+              <PageRange paging={paging} noun="opdrachten" />
+              {phase === 'potential' ? (
+                <PipelineTable items={items} />
+              ) : (
+                <AssignmentTable items={items} label={PHASE_VIEW_LABELS[phase]} phase={phase} />
+              )}
+              <Pager paging={paging} label="Pagina's van de opdrachten" />
+            </Stack>
+          )}
         </Stack>
       </div>
-      <AssignmentFormSheet
-        open={sheet.open}
-        session={sheet.session}
-        onClose={() => setSheet((current) => ({ ...current, open: false }))}
-        onSaved={(saved) => {
-          setSheet((current) => ({ ...current, open: false }));
-          navigate(assignmentPath(saved.id));
-        }}
-      />
+      {/* The form asks for what it offers (the organisations): only once it is opened. */}
+      {sheet.session > 0 && (
+        <AssignmentFormSheet
+          open={sheet.open}
+          session={sheet.session}
+          onClose={() => setSheet((current) => ({ ...current, open: false }))}
+          onSaved={(saved) => {
+            setSheet((current) => ({ ...current, open: false }));
+            navigate(assignmentPath(saved.id));
+          }}
+        />
+      )}
     </Page>
   );
 }

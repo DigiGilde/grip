@@ -1,7 +1,10 @@
-import { Outlet } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Outlet, useLocation } from 'react-router-dom';
 import { BrandMark } from '@/brand/BrandMark';
 import { PRODUCT_NAME, instanceNames } from '@/brand/names';
 import { TaskBar } from '@/features/tasks/TaskBar';
+import { PageBoundary } from '@/PageBoundary';
+import { preloadFor } from '@/pageChunks';
 import { PATHS } from '@/paths';
 import { AccountMenu, LogoutMenuItem } from './AccountMenu';
 import {
@@ -13,6 +16,7 @@ import {
 import { ExampleNotice } from './ExampleMode';
 import { useInstance } from './useInstance';
 import { useRouteFocus } from './useRouteFocus';
+import { internalHref } from './useRouterLinks';
 import { useAppBadge } from '@/features/notifications/useAppBadge';
 import { useOnline } from '@/pwa/useOnline';
 import './shell.css';
@@ -94,6 +98,26 @@ function NarrowToolbar({
   );
 }
 
+/**
+ * Fetches the page behind a link as soon as the pointer or the focus is on
+ * it, so it is there when the click comes. One listener for every link of
+ * the application; a link to the page that is already loaded costs nothing.
+ */
+function usePreloadOnIntent(): void {
+  useEffect(() => {
+    const onIntent = (event: Event) => {
+      const href = internalHref(event);
+      if (href !== null) preloadFor(href);
+    };
+    document.addEventListener('pointerover', onIntent, { passive: true });
+    document.addEventListener('focusin', onIntent);
+    return () => {
+      document.removeEventListener('pointerover', onIntent);
+      document.removeEventListener('focusin', onIntent);
+    };
+  }, []);
+}
+
 /** Said once, at the top, while the browser has no connection. */
 function OfflineNotice() {
   const online = useOnline();
@@ -125,8 +149,10 @@ function OfflineNotice() {
  */
 export function AppShell() {
   const instance = useInstance();
+  const { pathname } = useLocation();
   useRouteFocus();
   useAppBadge();
+  usePreloadOnIntent();
 
   const { organisation } = instanceNames(instance?.name);
   const instanceName = organisation ? `${organisation}, ${PRODUCT_NAME}` : PRODUCT_NAME;
@@ -180,7 +206,9 @@ export function AppShell() {
                 <SectionViews />
                 <TaskBar />
                 <OfflineNotice />
-                <Outlet />
+                <PageBoundary resetKey={pathname}>
+                  <Outlet />
+                </PageBoundary>
               </div>
             </nldd-page>
           </nldd-split-view-pane>

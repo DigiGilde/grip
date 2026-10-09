@@ -39,10 +39,9 @@ describe('VacancySetupPage', () => {
       ),
     );
     expect(container.querySelector('nldd-button')).toBeNull();
-    expect(container.querySelector('nldd-title[text="Taalmodel"]')).toBeNull();
   });
 
-  it('shows the templates, which one is in use, and the model status', async () => {
+  it('shows the templates and which one is in use, and nothing about the model', async () => {
     stubApi({
       '/api/form-templates': {
         body: [
@@ -68,13 +67,6 @@ describe('VacancySetupPage', () => {
         ],
       },
       '/api/form-templates/bundled-mappings': { body: [] },
-      '/api/vacancies/language-model': {
-        body: {
-          configured: false,
-          missing_settings: ['VLAM_API_KEY', 'VLAM_MODEL_ID'],
-          organisation_description_set: false,
-        },
-      },
     });
     const { container } = renderApp(<VacancySetupPage />);
     await waitFor(() =>
@@ -93,13 +85,8 @@ describe('VacancySetupPage', () => {
     expect(container.textContent).toContain('2 koppelingen niet gecontroleerd');
     // With a form in use, delivering a new one is not the main thing to do here.
     expect(container.querySelector('nldd-button[text="Lever een leeg formulier aan"]')).toBeNull();
-    // One section for the language model: what is missing while none answers.
-    await waitFor(() =>
-      expect(container.textContent).toContain(
-        'Ontbreekt in de omgeving: VLAM_API_KEY, VLAM_MODEL_ID',
-      ),
-    );
-    expect(container.querySelectorAll('nldd-title[text="Taalmodel"]')).toHaveLength(1);
+    // The language model is a connection with its own page under Beheer.
+    expect(container.textContent).not.toContain('Taalmodel');
     // The upload sheet stays in the document while closed.
     expect(document.body.querySelector('nldd-sheet')).not.toBeNull();
   });

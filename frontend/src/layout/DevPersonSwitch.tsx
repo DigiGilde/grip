@@ -1,5 +1,7 @@
 import { useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { fetchAuthStatus } from '@/api/auth';
+import { AUTH_STATUS_KEY } from '@/auth/authState';
 import { useNlddEvent } from '@/components/nldd/events';
 
 /**
@@ -24,12 +26,6 @@ interface DevPeople {
 }
 
 async function fetchDevPeople(): Promise<DevPeople> {
-  const status = await fetch('/api/auth/status', {
-    credentials: 'same-origin',
-  });
-  if (!status.ok) return { enabled: false, people: [] };
-  const body = (await status.json()) as { oidc_configured?: boolean };
-  if (body.oidc_configured !== false) return { enabled: false, people: [] };
   // Listed as the default person (no cookie), so the list is the same
   // whoever is currently being viewed as.
   const people = await fetch('/api/people', { credentials: 'omit' });
@@ -40,9 +36,18 @@ async function fetchDevPeople(): Promise<DevPeople> {
 }
 
 function useDevPeople(): DevPeople | undefined {
+  // Whether an identity provider is configured is in the answer the
+  // application already has about the reader: no second request for it.
+  const status = useQuery({
+    queryKey: AUTH_STATUS_KEY,
+    queryFn: fetchAuthStatus,
+    staleTime: 60_000,
+    retry: false,
+  }).data;
   return useQuery({
     queryKey: ['dev-people'],
     queryFn: fetchDevPeople,
+    enabled: status?.oidc_configured === false,
     staleTime: Infinity,
     retry: false,
   }).data;

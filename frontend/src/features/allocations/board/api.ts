@@ -79,8 +79,14 @@ export const BOARD_MONTHS = 12;
 
 export const boardKeys = {
   board: (start: string) => ['allocations', 'board', start] as const,
+  // Under the board's key, so whatever refreshes the board refreshes this too.
+  person: (personId: string) => ['allocations', 'board', '', 'person', personId] as const,
 };
 
 /** `start` is the first month as YYYY-MM; empty for the default window. */
 export const fetchBoard = (start: string) =>
   apiGet<Board>('/api/allocations/board', { start, months: BOARD_MONTHS });
+
+/** The board with the row of one person only, for the page about them. */
+export const fetchPersonBoard = (personId: string) =>
+  apiGet<Board>('/api/allocations/board', { months: BOARD_MONTHS, person_id: personId });

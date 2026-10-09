@@ -1,3 +1,4 @@
+import { PageBoundary } from '@/PageBoundary';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -296,7 +297,9 @@ export function VacancyLayout() {
           }}
         >
           <PrimaryTakenContext.Provider value={step !== null}>
-            <Outlet />
+            <PageBoundary resetKey={pathname}>
+              <Outlet />
+            </PageBoundary>
           </PrimaryTakenContext.Provider>
         </VacancyShellContext.Provider>
       )}

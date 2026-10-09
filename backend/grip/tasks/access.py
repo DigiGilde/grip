@@ -233,6 +233,34 @@ class TaskAccess:
             Action.READ, resource, DataClass.ASSIGNMENT_BASIC
         ) and await self._may(Action.EDIT, resource, DataClass.ASSIGNMENT_BASIC)
 
+    async def prime_parts(self, vacancy_ids: set[UUID]) -> None:
+        """Decide ``has_part_in`` for several vacancies with two queries."""
+        person_id = self.subject.person_id
+        missing = vacancy_ids - self._runs_vacancy.keys()
+        if person_id is None or not missing:
+            return
+        requested = set(
+            await self._db.scalars(
+                select(Vacancy.id).where(
+                    Vacancy.id.in_(missing), Vacancy.requester_id == person_id
+                )
+            )
+        )
+        wrote = set(
+            await self._db.scalars(
+                select(VacancyText.vacancy_id)
+                .where(
+                    VacancyText.vacancy_id.in_(missing),
+                    VacancyText.created_by_id == person_id,
+                )
+                .distinct()
+            )
+        )
+        for vacancy_id in missing:
+            self._runs_vacancy[vacancy_id] = (
+                vacancy_id in requested or vacancy_id in wrote
+            )
+
     async def has_part_in(self, task: Task) -> bool:
         """Whether the reader runs the case of this task with others.
 

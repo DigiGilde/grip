@@ -29,9 +29,10 @@ from grip.services import outgoing_invoices, read_cache
 from grip.services.pricing import (
     DEFAULT_OPTIONS,
     PricingOptions,
+    inputs_digest,
     load_inputs_by_assignment,
 )
-from grip.services.reports.assignment_report import accepted_quote
+from grip.services.reports.assignment_report import Agreed, accepted_quotes
 
 # The columns of the CSV export, in order. Stable: a new column is added at
 # the end, an existing one is never renamed or moved. Amounts are in euros
@@ -130,24 +131,39 @@ async def _figures(
         options=options,
         lines=[line for own in lines_of.values() for line in own],
     )
+    agreed_of = await accepted_quotes(session, assignment_ids)
     found: dict[UUID, _Figures] = {}
     for assignment_id in assignment_ids:
-        priced = views.price_lines(
+        agreed = agreed_of.get(assignment_id)
+
+        def compute(
+            assignment_id: UUID = assignment_id, agreed: Agreed | None = agreed
+        ) -> _Figures:
+            priced = views.price_lines(
+                assignment_id,
+                lines_of[assignment_id],
+                inputs_of[assignment_id],
+                year,
+                options,
+            )
+            return _Figures(
+                totals=priced.totals,
+                pricing_error=priced.pricing_error,
+                budgeted_years=tuple(priced.budgeted_by_year),
+                agreed_cents=dict(agreed.subtotals).get(year)
+                if agreed is not None
+                else None,
+            )
+
+        content = read_cache.digest(
             assignment_id,
+            inputs_digest(inputs_of[assignment_id]),
             lines_of[assignment_id],
-            inputs_of[assignment_id],
+            agreed.subtotals if agreed is not None else None,
             year,
             options,
         )
-        agreed = await accepted_quote(session, assignment_id)
-        found[assignment_id] = _Figures(
-            totals=priced.totals,
-            pricing_error=priced.pricing_error,
-            budgeted_years=tuple(priced.budgeted_by_year),
-            agreed_cents=dict(agreed.subtotals).get(year)
-            if agreed is not None
-            else None,
-        )
+        found[assignment_id] = read_cache.by_content("year_account", content, compute)
     return found
 
 

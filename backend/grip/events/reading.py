@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import or_, select
+from sqlalchemy import literal, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -293,7 +293,10 @@ class EventAccess:
 def _query(filters: Filters) -> Any:
     query = select(StreamEvent)
     if filters.kind == KIND_CHANGES:
-        query = query.where(StreamEvent.type != READ_TYPE)
+        # As a literal, so the index on the changes can serve it.
+        query = query.where(
+            StreamEvent.type != literal(READ_TYPE, literal_execute=True)
+        )
     elif filters.kind == KIND_READS:
         query = query.where(StreamEvent.type == READ_TYPE)
     if filters.case_kind is not None:

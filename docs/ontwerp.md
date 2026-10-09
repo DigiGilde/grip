@@ -54,6 +54,8 @@ Ze staan in `frontend/src/ui/layout/` en `frontend/src/ui/`.
 | `FilterSelect` | Eén keuzelijst op de gewone maat. |
 | `OpenRow`, `OpenCell`, `RowActions` (`@/ui/RowActions`) | Een rij die opent, en één stille knop met een menu voor de overige acties. |
 | `ActionBar` (`@/ui/ActionBar`) | Filters links, de hoofdactie rechts, alles op één maat. |
+| `search` op `ActionBar` | Zoeken in de lijst onder de balk: één zoekveld, vóór de filters. Op een smal scherm staat het op een eigen regel over de volle breedte, want een zoekveld past niet in het menu van de balk. De woorden staan in het adres (`?zoek=`). |
+| `PageRange`, `Pager` (`@/ui/Pager`), `usePaging` (`@/ui/paging`) | Een lange lijst in pagina's van vijftig. Boven de rijen staat welke het zijn ("51 tot en met 100 van 300 opdrachten"), eronder de weg naar de andere pagina's. De pagina staat in het adres (`?pagina=2`). Een lijst van één pagina toont geen van beide. |
 | `NameLine` | Een naam met zijn status: het label staat op de regel van de naam, in het midden ervan, met hooguit één gedempte regel eronder. |
 | `TitleBlock`, en `back` op `Page` | De ene terugverwijzing boven de titel: `back={{ href, text }}`. |
 | `KeyFigures` | Een paar cijfers die een pagina samenvatten: een gedempt label boven de waarde, zonder kader. Een tabel is voor rijen van één soort. |
@@ -143,6 +145,8 @@ Een bewaarde tekst wordt overal getoond met `RichText` uit `@/ui/RichText`, uit 
 **Een status is een label.** Gebruik `nldd-tag` of `nldd-badge` met de kleur uit de bestaande toewijzing. De kleur draagt nooit als enige de betekenis.
 
 **Schrijf gewoon Nederlands.** Lees elke zin als iemand die het systeem niet heeft gebouwd. Zinnen beginnen met een hoofdletter en hebben verder kleine letters, zonder uitroepteken. Je schrijft "je". Een knop zegt wat er gebeurt.
+
+**Een lange lijst komt in pagina's van de server.** Opdrachten en Kosten vragen één pagina van vijftig rijen; de server zoekt, sorteert en telt, en doet dat pas na de toegangsbeslissing, zodat een telling nooit iets verraadt. Geen lijst die vanzelf verder laadt: de lezer ziet waar hij is en hoeveel er is. De pagina en de zoekwoorden staan in het adres, dus een pagina is te delen en de terugknop werkt. Na een andere pagina gaat de focus naar de regel boven de rijen. De pagina waar je bent is in de paginering een rustig neutraal vlak en geen gevuld accent (`ui/pager.css`): het ene gevulde accent blijft de hoofdknop. De tellingen op tabs volgen de zoekwoorden.
 
 ### Vaste woorden
 

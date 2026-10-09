@@ -50,6 +50,7 @@ export const PATHS = {
   admin: '/beheer',
   activity: '/beheer/activiteit',
   peers: '/beheer/koppelingen',
+  languageModel: '/beheer/taalmodel',
   organisations: '/beheer/organisaties',
   roles: '/beheer/rollen',
   reports: '/rapportage',

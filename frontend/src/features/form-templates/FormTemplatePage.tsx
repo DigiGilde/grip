@@ -163,7 +163,7 @@ export function FormTemplatePage() {
         title={data?.name ?? 'Formulier'}
         instanceName={instance?.name}
         spacing="sections"
-        back={{ href: PATHS.vacancySetup, text: 'Terug naar Vacatureformulier en taalmodel' }}
+        back={{ href: PATHS.vacancySetup, text: 'Terug naar Aanvraagformulier' }}
       >
         {detail.isPending ? <Loading /> : null}
         {detail.isError ? (

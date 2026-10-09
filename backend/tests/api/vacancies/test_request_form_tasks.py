@@ -140,10 +140,10 @@ async def test_one_case_with_failing_facts_does_not_take_the_others_down(
 
     real = cases._request_form_facts
 
-    async def failing(db, vacancy):
-        if str(vacancy.id) == broken:
+    async def failing(db, vacancies):
+        if any(str(vacancy.id) == broken for vacancy in vacancies):
             raise RuntimeError("the facts of this vacancy cannot be read")
-        return await real(db, vacancy)
+        return await real(db, vacancies)
 
     monkeypatch.setattr(cases, "_request_form_facts", failing)
     # Nothing in the data changed, so the engine would not look again; the

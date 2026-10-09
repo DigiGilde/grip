@@ -6,14 +6,16 @@ import { useInstance } from '@/layout/useInstance';
 import { useRouterLinks } from '@/layout/useRouterLinks';
 import { ActionBar } from '@/ui/ActionBar';
 import { OpenRow } from '@/ui/RowActions';
-import { LoadError, Loading, Page } from '@/ui/layout';
-import { costsKey, fetchCostItems, type CostItem } from './api';
+import { LoadError, Loading, Page, Stack } from '@/ui/layout';
+import { PageRange, Pager } from '@/ui/Pager';
+import { PAGE_PARAM, usePaging, useSearchWords } from '@/ui/paging';
+import { COST_PAGE_SIZE, costsKey, fetchCostItems, type CostItem } from './api';
 import { CoverageMiniBar } from './CostBars';
 import { ItemSheet, type ItemTarget } from './CostSheets';
 import {
   ALL_YEARS,
+  SEARCH_PARAM,
   YEAR_PARAM,
-  attentionFirst,
   attentionPoints,
   costItemPath,
   coverageText,
@@ -42,23 +44,38 @@ export function CostsPage() {
   useRouterLinks(rootRef);
   const [searchParams, setSearchParams] = useSearchParams();
   const year = parseYear(searchParams.get(YEAR_PARAM));
+  const [words, setWords, search] = useSearchWords(SEARCH_PARAM);
+  // The server orders the list (what needs attention first) and sends a page.
+  const asked = usePaging(undefined, COST_PAGE_SIZE).page;
   const query = useQuery({
-    queryKey: costsKey(year),
-    queryFn: () => fetchCostItems(year),
+    queryKey: costsKey(year, asked, search),
+    queryFn: () => fetchCostItems(year, asked, search),
     placeholderData: keepPreviousData,
   });
-  const items = attentionFirst(query.data?.items ?? []);
+  const paging = usePaging(query.data?.total, COST_PAGE_SIZE);
+  const items = query.data?.items ?? [];
   const mayCreate = query.data?.may_create ?? false;
   const [adding, setAdding] = useState<ItemTarget | null>(null);
 
   const setYear = (value: string) =>
-    setSearchParams(value === ALL_YEARS ? {} : { [YEAR_PARAM]: value }, { replace: true });
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        if (value === ALL_YEARS) next.delete(YEAR_PARAM);
+        else next.set(YEAR_PARAM, value);
+        // Another year, another order: start at the first page.
+        next.delete(PAGE_PARAM);
+        return next;
+      },
+      { replace: true },
+    );
 
   return (
     <div ref={rootRef}>
       <Page title="Kosten en facturen" instanceName={instance?.name}>
         <ActionBar
-          label="Kostenposten filteren en acties"
+          label="Kostenposten zoeken, filteren en acties"
+          search={{ label: 'Zoek op kostenpost', value: words, onChange: setWords }}
           filters={[
             {
               label: 'Jaar',
@@ -83,53 +100,65 @@ export function CostsPage() {
         {query.isPending && <Loading />}
         {query.isError && <LoadError error={query.error} retry={() => void query.refetch()} />}
         {query.data && (
-          <nldd-table
-            accessible-label="Kostenposten"
-            columns="minmax(220px,1fr) 180px 200px"
-            sm-columns="minmax(150px,1fr) 130px"
-          >
-            <nldd-table-row slot="header">
-              <nldd-text-cell text="Kostenpost" />
-              <nldd-text-cell text="Dekking" hide-below="md" />
-              <nldd-text-cell text="Verwacht totaal" horizontal-alignment="right" />
-            </nldd-table-row>
-            {items.map((item) => {
-              const path = costItemPath(item.id, year);
-              const points = attentionPoints(item);
-              const over = item.variance_cents < 0;
-              return (
-                <OpenRow key={item.id} onOpen={() => navigate(path)}>
-                  <nldd-cell>
-                    <nldd-container gap="4">
-                      <nldd-link href={path} text={item.description} />
-                      <nldd-text size="sm" color="secondary">
-                        {[invoiceCount(item), ...points].join(' · ')}
-                      </nldd-text>
-                    </nldd-container>
-                  </nldd-cell>
-                  <nldd-cell hide-below="md">
-                    <nldd-container gap="4">
-                      <CoverageMiniBar item={item} />
-                      <nldd-text size="sm" color="secondary">
-                        {coverageText(item)}
-                      </nldd-text>
-                    </nldd-container>
-                  </nldd-cell>
-                  <nldd-text-cell
-                    text={formatEuro(item.forecast_cents)}
-                    supporting-text={`van ${formatEuro(item.budgeted_cents)} begroot`}
-                    horizontal-alignment="right"
-                    {...(over ? { color: 'critical' } : {})}
-                  />
-                </OpenRow>
-              );
-            })}
-            <nldd-inline-dialog
-              slot="empty"
-              text="Er zijn geen kostenposten om te tonen"
-              supporting-text="Je ziet hier kostenposten die worden gedekt door een opdracht die je beheert."
-            />
-          </nldd-table>
+          <Stack gap="related">
+            <PageRange paging={paging} noun="kostenposten" />
+            <nldd-table
+              accessible-label="Kostenposten"
+              columns="minmax(220px,1fr) 180px 200px"
+              sm-columns="minmax(150px,1fr) 130px"
+            >
+              <nldd-table-row slot="header">
+                <nldd-text-cell text="Kostenpost" />
+                <nldd-text-cell text="Dekking" hide-below="md" />
+                <nldd-text-cell text="Verwacht totaal" horizontal-alignment="right" />
+              </nldd-table-row>
+              {items.map((item) => {
+                const path = costItemPath(item.id, year);
+                const points = attentionPoints(item);
+                const over = item.variance_cents < 0;
+                return (
+                  <OpenRow key={item.id} onOpen={() => navigate(path)}>
+                    <nldd-cell>
+                      <nldd-container gap="4">
+                        <nldd-link href={path} text={item.description} />
+                        <nldd-text size="sm" color="secondary">
+                          {[invoiceCount(item), ...points].join(' · ')}
+                        </nldd-text>
+                      </nldd-container>
+                    </nldd-cell>
+                    <nldd-cell hide-below="md">
+                      <nldd-container gap="4">
+                        <CoverageMiniBar item={item} />
+                        <nldd-text size="sm" color="secondary">
+                          {coverageText(item)}
+                        </nldd-text>
+                      </nldd-container>
+                    </nldd-cell>
+                    <nldd-text-cell
+                      text={formatEuro(item.forecast_cents)}
+                      supporting-text={`van ${formatEuro(item.budgeted_cents)} begroot`}
+                      horizontal-alignment="right"
+                      {...(over ? { color: 'critical' } : {})}
+                    />
+                  </OpenRow>
+                );
+              })}
+              <nldd-inline-dialog
+                slot="empty"
+                text={
+                  search
+                    ? `Geen kostenposten gevonden voor "${search}"`
+                    : 'Er zijn geen kostenposten om te tonen'
+                }
+                supporting-text={
+                  search
+                    ? 'Je zoekt op de omschrijving van de kostenpost.'
+                    : 'Je ziet hier kostenposten die worden gedekt door een opdracht die je beheert.'
+                }
+              />
+            </nldd-table>
+            <Pager paging={paging} label="Pagina's van de kostenposten" />
+          </Stack>
         )}
       </Page>
       <ItemSheet

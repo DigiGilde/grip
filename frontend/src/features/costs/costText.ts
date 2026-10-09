@@ -25,6 +25,8 @@ export function varianceWord(item: Pick<CostItem, 'variance_cents'>): string {
   return 'Precies begroot';
 }
 
+/** The words searched for, in the address. */
+export const SEARCH_PARAM = 'zoek';
 export const YEAR_PARAM = 'jaar';
 export const ALL_YEARS = 'alle';
 
@@ -54,7 +56,9 @@ export function costsPath(year: number | null = null): string {
 
 /** What an invoice is called: its reference, else its description. */
 export function lineLabel(line: Pick<InvoiceLine, 'reference' | 'description' | 'kind'>): string {
-  return line.reference ?? line.description ?? (line.kind === 'actual' ? 'Factuur' : 'Verwachte factuur');
+  return (
+    line.reference ?? line.description ?? (line.kind === 'actual' ? 'Factuur' : 'Verwachte factuur')
+  );
 }
 
 /** The quiet line under an invoice: its month, and its description when the name is the reference. */
@@ -83,10 +87,6 @@ export function attachmentCount(count: number): string {
   return count === 1 ? '1 bijlage' : `${count} bijlagen`;
 }
 
-function isUncovered(item: CostItem): boolean {
-  return item.uncovered_cents === null || item.uncovered_cents > 0;
-}
-
 /**
  * What asks for attention on a cost item, most pressing first: money nobody
  * pays for, an overrun, and a received invoice without its document.
@@ -100,22 +100,6 @@ export function attentionPoints(item: CostItem): string[] {
   if (missing === 1) points.push('1 factuur zonder bijlage');
   else if (missing > 1) points.push(`${missing} facturen zonder bijlage`);
   return points;
-}
-
-/** Lower sorts first: uncovered, then over budget, then a missing document. */
-function attentionRank(item: CostItem): number {
-  if (isUncovered(item)) return 0;
-  if (item.variance_cents < 0) return 1;
-  if (item.invoice_lines.some(lacksDocument)) return 2;
-  return 3;
-}
-
-/** The cost items with what needs attention first, then by name. */
-export function attentionFirst(items: readonly CostItem[]): CostItem[] {
-  return [...items].sort(
-    (a, b) =>
-      attentionRank(a) - attentionRank(b) || a.description.localeCompare(b.description, 'nl'),
-  );
 }
 
 /** "80% gedekt", or what to say when the shares do not add up. */

@@ -69,7 +69,12 @@ export interface CostItem {
 }
 
 export interface CostItemList {
+  /** One page of the list, what needs attention first. */
   items: CostItem[];
+  /** How many cost items the list holds, over all its pages. */
+  total: number;
+  page: number;
+  page_size: number;
   year: number | null;
   may_create: boolean;
 }
@@ -82,7 +87,11 @@ export interface BudgetLineOption {
   assignment_name: string;
 }
 
-export const costsKey = (year: number | null) => ['costs', 'items', year] as const;
+/** How many cost items one page of the list shows. */
+export const COST_PAGE_SIZE = 50;
+
+export const costsKey = (year: number | null, page = 1, search = '') =>
+  ['costs', 'items', year, page, search] as const;
 export const costItemKey = (id: string, year: number | null) =>
   ['costs', 'item', id, year] as const;
 export const COVERAGE_OPTIONS_KEY = ['costs', 'coverage-options'] as const;
@@ -91,8 +100,13 @@ export function fetchCostItem(id: string, year: number | null): Promise<CostItem
   return apiGet<CostItem>(`/api/costs/${id}`, { year });
 }
 
-export function fetchCostItems(year: number | null): Promise<CostItemList> {
-  return apiGet<CostItemList>('/api/costs', { year });
+export function fetchCostItems(year: number | null, page = 1, search = ''): Promise<CostItemList> {
+  return apiGet<CostItemList>('/api/costs', {
+    year,
+    page,
+    page_size: COST_PAGE_SIZE,
+    ...(search ? { q: search } : {}),
+  });
 }
 
 export function fetchCoverageOptions(): Promise<{ items: BudgetLineOption[] }> {

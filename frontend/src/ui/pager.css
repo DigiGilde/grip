@@ -1,0 +1,38 @@
+/*
+ * The page you are on is not a second primary button.
+ *
+ * The design system draws the current page of its pagination as a filled
+ * accent mark, the same blue as the primary action. A page keeps one filled
+ * accent, its next step, so here the current page is the neutral pressed
+ * surface instead. It stays the only marked number in the row and carries
+ * `aria-current`. Recorded upstream as a proposal (docs/ontwerp.md).
+ */
+nldd-pagination {
+  --semantics-buttons-neutral-tinted-is-selected-background-color: var(
+    --semantics-buttons-neutral-tinted-is-expanded-background-color
+  );
+  --semantics-buttons-neutral-tinted-is-selected-content-color: var(
+    --semantics-buttons-neutral-tinted-is-expanded-content-color
+  );
+  --semantics-buttons-neutral-tinted-is-selected-highlight-border-color: var(
+    --semantics-buttons-neutral-tinted-is-expanded-highlight-border-color
+  );
+  --semantics-buttons-neutral-tinted-is-selected-is-hovered-background-color: var(
+    --semantics-buttons-neutral-tinted-is-expanded-is-hovered-background-color
+  );
+  --semantics-buttons-neutral-tinted-is-selected-is-hovered-content-color: var(
+    --semantics-buttons-neutral-tinted-is-expanded-is-hovered-content-color
+  );
+  --semantics-buttons-neutral-tinted-is-selected-is-hovered-highlight-border-color: var(
+    --semantics-buttons-neutral-tinted-is-expanded-is-hovered-highlight-border-color
+  );
+  --semantics-buttons-neutral-tinted-is-selected-is-active-background-color: var(
+    --semantics-buttons-neutral-tinted-is-expanded-is-active-background-color
+  );
+  --semantics-buttons-neutral-tinted-is-selected-is-active-content-color: var(
+    --semantics-buttons-neutral-tinted-is-expanded-is-active-content-color
+  );
+  --semantics-buttons-neutral-tinted-is-selected-is-active-highlight-border-color: var(
+    --semantics-buttons-neutral-tinted-is-expanded-is-active-highlight-border-color
+  );
+}

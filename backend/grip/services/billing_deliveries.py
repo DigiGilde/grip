@@ -376,20 +376,6 @@ async def _deliveries(
     return list(result.scalars())
 
 
-async def _planned_cents(
-    session: AsyncSession, assignment_id: UUID, months: Iterable[Month]
-) -> dict[Month, int | None]:
-    result: dict[Month, int | None] = {}
-    for month in months:
-        try:
-            lines = await month_close.proposal(session, assignment_id, month)
-        except calc.CalcError:
-            result[month] = None
-            continue
-        result[month] = sum(line.amount_cents for line in lines)
-    return result
-
-
 async def can_mail(session: AsyncSession) -> tuple[bool, str]:
     recipient = await instance_settings.get(session, RECIPIENT.key)
     return bool(recipient) and mail_is_configured(), recipient
@@ -419,12 +405,7 @@ async def overviews(
     ids = list(dict.fromkeys(assignment_ids))
 
     async def compute(missing: list[UUID]) -> dict[UUID, Overview]:
-        # What every period builds on, read together.
-        await outgoing_invoices.month_billings(session, missing)
-        return {
-            assignment_id: await _overview(session, assignment_id, day)
-            for assignment_id in missing
-        }
+        return await _overviews(session, missing, day)
 
     return await read_cache.remember_many(
         session,
@@ -436,62 +417,199 @@ async def overviews(
     )
 
 
-async def _overview(
-    session: AsyncSession, assignment_id: UUID, today: date
-) -> Overview:
-    assignment = await get_assignment(session, assignment_id)
-    terms = await terms_of(session, assignment_id)
-    billable = allows_billing(assignment.status)
-    timeline = await month_overview.timeline(session, assignment_id, today=today)
-    billing = {
-        Month.of(m.month): m
-        for m in await outgoing_invoices.month_billing(session, assignment_id)
+@dataclass
+class _Read:
+    """What the overview of one assignment is built from, read beforehand."""
+
+    assignment: Assignment
+    terms: Terms
+    timeline: list[month_overview.MonthState]
+    billing: dict[Month, Any]
+    deliveries: list[BillingDelivery]
+    exports: list[BillingExport]
+    closes: dict[date, UUID]
+    invoiced_exports: set[UUID]
+    invoice_of_export: dict[UUID, Any]
+    names: dict[UUID, str]
+    mail_rows: dict[UUID, Any]
+    planned: dict[Month, int | None]
+    stored: list[Any]
+    mailable: bool
+    recipient: str
+
+
+async def _overviews(
+    session: AsyncSession, assignment_ids: list[UUID], today: date
+) -> dict[UUID, Overview]:
+    """The overview of each assignment, with what they share read together.
+
+    The number of statements does not grow with the number of assignments;
+    the amounts come from the same functions as for one.
+    """
+    ids = list(dict.fromkeys(assignment_ids))
+    if not ids:
+        return {}
+    assignments = {
+        row.id: row
+        for row in await session.scalars(
+            select(Assignment).where(Assignment.id.in_(ids))
+        )
     }
-    deliveries = await _deliveries(session, assignment_id)
-    exports = await outgoing_invoices._exports(session, assignment_id)
-    closes = await outgoing_invoices._closes_in_force(session, assignment_id)
-    current = outgoing_invoices._current_exports(exports, closes)
-    corrections = outgoing_invoices._corrections(exports, current)
+    for assignment_id in ids:
+        if assignment_id not in assignments:
+            raise NotFoundError("Opdracht", assignment_id)
+    default_rhythm = await instance_settings.get(session, DEFAULT_RHYTHM.key)
+    terms_rows = {
+        row.assignment_id: row
+        for row in await session.scalars(
+            select(BillingTerms).where(BillingTerms.assignment_id.in_(ids))
+        )
+    }
+    timelines = await month_overview.timelines(
+        session, [assignments[i] for i in ids], today=today
+    )
+    billings = await outgoing_invoices.month_billings(session, ids)
+    deliveries_of: dict[UUID, list[BillingDelivery]] = {i: [] for i in ids}
+    for delivery in await session.scalars(
+        select(BillingDelivery)
+        .where(BillingDelivery.assignment_id.in_(ids))
+        .order_by(BillingDelivery.delivered_at, BillingDelivery.id)
+    ):
+        deliveries_of[delivery.assignment_id].append(delivery)
+    exports_of = await outgoing_invoices._exports_of(session, ids)
+    closes_of = await outgoing_invoices._closes_in_force_of(session, ids)
     invoiced_exports = {
         row[0]
         for row in await session.execute(
-            select(OutgoingInvoiceDelivery.billing_export_id).where(
-                OutgoingInvoiceDelivery.billing_export_id.in_([e.id for e in exports])
+            select(OutgoingInvoiceDelivery.billing_export_id)
+            .join(
+                BillingExport,
+                BillingExport.id == OutgoingInvoiceDelivery.billing_export_id,
+            )
+            .where(BillingExport.assignment_id.in_(ids))
+        )
+    }
+    invoices_of = await outgoing_invoices._invoices_in_force_of(session, ids)
+    names = await _names(
+        session,
+        [d.delivered_by_id for rows in deliveries_of.values() for d in rows],
+    )
+    mail_rows = await outbox.latest_for(
+        session,
+        "billing_delivery",
+        {d.id for rows in deliveries_of.values() for d in rows},
+    )
+    # The planned amount of the months that are not closed yet and have begun.
+    wanted_months = {
+        assignment_id: [
+            state.month
+            for state in timelines[assignment_id]
+            if not state.closed and state.month.first_day <= today
+        ]
+        for assignment_id in ids
+    }
+    with_open = [i for i in ids if wanted_months[i]]
+    inputs_of = (
+        await outgoing_invoices._inputs_of(
+            session, with_open, outgoing_invoices.DEFAULT_OPTIONS
+        )
+        if with_open
+        else {}
+    )
+    stored_of = await billing_corrections.open_corrections(session, ids)
+    mailable, recipient = await can_mail(session)
+
+    found: dict[UUID, Overview] = {}
+    for assignment_id in ids:
+        row = terms_rows.get(assignment_id)
+        terms = (
+            Terms(
+                rhythm=default_rhythm,
+                rhythm_is_default=True,
+                details={},
+                names_on_specification=False,
+            )
+            if row is None
+            else Terms(
+                rhythm=row.rhythm,
+                rhythm_is_default=False,
+                details={k: str(v) for k, v in (row.details or {}).items() if v},
+                names_on_specification=row.names_on_specification,
+                version=row.version,
             )
         )
-    }
-    invoices = {
-        view.invoice.id: view
-        for view in await outgoing_invoices.invoices_of_assignment(
-            session, assignment_id
+        exports = exports_of[assignment_id]
+        own_exports = {export.id for export in exports}
+        invoice_of_export: dict[UUID, Any] = {}
+        # Newest invoice date first, as the list of invoices reads them.
+        for invoice in reversed(invoices_of[assignment_id]):
+            for link in invoice.deliveries:
+                if link.billing_export_id in own_exports:
+                    invoice_of_export[link.billing_export_id] = invoice
+        planned: dict[Month, int | None] = {}
+        inputs = inputs_of.get(assignment_id)
+        for month in wanted_months[assignment_id]:
+            if inputs is None:
+                planned[month] = None
+                continue
+            try:
+                lines = month_close._lines(
+                    inputs, month, outgoing_invoices.DEFAULT_OPTIONS, None
+                )
+            except calc.CalcError:
+                planned[month] = None
+                continue
+            planned[month] = sum(line.amount_cents for line in lines)
+        found[assignment_id] = _overview(
+            _Read(
+                assignment=assignments[assignment_id],
+                terms=terms,
+                timeline=timelines[assignment_id],
+                billing={Month.of(m.month): m for m in billings[assignment_id]},
+                deliveries=deliveries_of[assignment_id],
+                exports=exports,
+                closes=closes_of[assignment_id],
+                invoiced_exports=invoiced_exports,
+                invoice_of_export=invoice_of_export,
+                names=names,
+                mail_rows=mail_rows,
+                planned=planned,
+                stored=stored_of.get(assignment_id, []),
+                mailable=mailable,
+                recipient=recipient,
+            ),
+            today,
         )
-        if view.invoice.withdrawn_at is None
-    }
-    invoice_of_export: dict[UUID, Any] = {}
-    for view in invoices.values():
-        for delivery in view.deliveries:
-            invoice_of_export[delivery.export_id] = view.invoice
-    names = await _names(session, [d.delivered_by_id for d in deliveries])
-    mail_rows = await outbox.latest_for(
-        session, "billing_delivery", {d.id for d in deliveries}
-    )
+    return found
+
+
+def _overview(read: _Read, today: date) -> Overview:
+    assignment_id = read.assignment.id
+    terms = read.terms
+    billable = allows_billing(read.assignment.status)
+    timeline = read.timeline
+    billing = read.billing
+    deliveries = read.deliveries
+    exports = read.exports
+    closes = read.closes
+    current = outgoing_invoices._current_exports(exports, closes)
+    corrections = outgoing_invoices._corrections(exports, current)
+    invoiced_exports = read.invoiced_exports
+    invoice_of_export = read.invoice_of_export
+    names = read.names
+    mail_rows = read.mail_rows
 
     replaced_of: dict[UUID, list[Replacement]] = {}
     for replacement in replacements(exports, closes):
         replaced_of.setdefault(replacement.old_delivery_id, []).append(replacement)
     reference_of = {d.id: d.reference for d in deliveries}
 
-    unclosed = [state.month for state in timeline if not state.closed]
-    planned = await _planned_cents(
-        session, assignment_id, [m for m in unclosed if m.first_day <= today]
-    )
+    planned = read.planned
 
     periods = billing_periods.periods_of(
         [state.month for state in timeline], terms.rhythm
     )
-    stored = (await billing_corrections.open_corrections(session, [assignment_id])).get(
-        assignment_id, []
-    )
+    stored = read.stored
     stored_cents = billing_corrections.month_cents(stored)
     causes_of = {row.period_key: billing_corrections.causes_text(row) for row in stored}
     by_month = {state.month: state for state in timeline}
@@ -654,7 +772,7 @@ async def _overview(
     shown = tuple(v for v in views if v.state != UPCOMING)
     upcoming = tuple(v for v in views if v.state == UPCOMING)
     all_priced = all(v.closed_cents is not None for v in shown)
-    mailable, recipient = await can_mail(session)
+    mailable, recipient = read.mailable, read.recipient
     return Overview(
         assignment_id=assignment_id,
         billable=billable,

@@ -28,6 +28,14 @@
  * only times the requests the pages were seen to make (needs an earlier
  * --json file to read them from: --api out.json).
  *
+ * --first measures something else: the first load of a page in a browser
+ * that has nothing kept yet, and again with its files kept, on the profile
+ * of a slow office laptop (the processor four times slower, 10 Mbit/s,
+ * 40 ms). It says when the page is usable, how many kilobytes travelled and
+ * in how many requests. Run it against a built application.
+ *   node scripts/check-speed.mjs --base http://speed.localhost:5184 --first
+ *     [--only /opdrachten]
+ *
  * Use a host name of your own in --base: the reader is chosen with the
  * development cookie, which must not land on the localhost you work in.
  * Exit code 1 when something is over budget.
@@ -357,7 +365,72 @@ async function apiOnly(file) {
   return out.some((c) => c.ms > BUDGET.callMs || (c.statements ?? 0) > BUDGET.statements);
 }
 
+/** A slow office laptop on an office line. */
+const SLOW = { cpu: 4, latencyMs: 40, downKbit: 10 * 1024, upKbit: 5 * 1024 };
+
+async function firstLoadOnce(browser, path, warm) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  const cdp = await context.newCDPSession(page);
+  await cdp.send('Network.enable');
+  await cdp.send('Network.emulateNetworkConditions', {
+    offline: false,
+    latency: SLOW.latencyMs,
+    downloadThroughput: (SLOW.downKbit * 1024) / 8,
+    uploadThroughput: (SLOW.upKbit * 1024) / 8,
+  });
+  await cdp.send('Emulation.setCPUThrottlingRate', { rate: SLOW.cpu });
+  let bytes = 0;
+  let requests = 0;
+  cdp.on('Network.loadingFinished', (event) => {
+    bytes += event.encodedDataLength;
+    requests += 1;
+  });
+  if (warm) {
+    await page.goto(`${BASE}${path}`, { waitUntil: 'networkidle' });
+    bytes = 0;
+    requests = 0;
+  }
+  const started = Date.now();
+  await page.goto(`${BASE}${path}`, { waitUntil: 'commit' });
+  await page.waitForFunction(
+    () => document.querySelector('h1') && !document.querySelector('[data-state="loading"]'),
+    null,
+    { timeout: SETTLE_MS },
+  );
+  const usable = Date.now() - started;
+  await page.waitForLoadState('networkidle');
+  await context.close();
+  return { usable, kB: Math.round(bytes / 1024), requests };
+}
+
+/** The first load of a page, cold and with its files kept; the middle of three. */
+async function firstLoad() {
+  const browser = await chromium.launch({ executablePath: browserPath(), headless: true });
+  const paths = ONLY ? ONLY.split(',') : ['/', '/taken', '/opdrachten'];
+  console.log('pagina                 koud: bruikbaar     kB  verzoeken   warm: bruikbaar     kB');
+  for (const path of paths) {
+    const cold = [];
+    const warm = [];
+    for (let i = 0; i < 3; i += 1) {
+      cold.push(await firstLoadOnce(browser, path, false));
+      warm.push(await firstLoadOnce(browser, path, true));
+    }
+    const middle = (runs) => [...runs].sort((a, b) => a.usable - b.usable)[1];
+    const c = middle(cold);
+    const w = middle(warm);
+    console.log(
+      `${path.padEnd(22)} ${`${c.usable} ms`.padStart(15)} ${String(c.kB).padStart(6)} ${String(c.requests).padStart(10)} ${`${w.usable} ms`.padStart(17)} ${String(w.kB).padStart(6)}`,
+    );
+  }
+  await browser.close();
+}
+
 async function main() {
+  if (args.first) {
+    await firstLoad();
+    return;
+  }
   if (typeof args.api === 'string') {
     process.exitCode = (await apiOnly(args.api)) ? 1 : 0;
     return;

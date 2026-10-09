@@ -26,7 +26,8 @@ Beslissingen over wat grip moet doen.
 | Deeltijd | Iedereen telt als voltijds. Een factor per persoon ontbreekt | [domein.md](domein.md) |
 | Het menu | Variant E is gekozen en gebouwd. De aannames erachter zijn niet bij gebruikers getoetst | zie "Gebruikers" hieronder |
 | Wijzigingen in Bouwmeester en Wies | De wijzigingen staan op lokale branches. Mogen ze worden voorgelegd? | [plan.md](plan.md), "Wijzigingen buiten grip" |
-| De werkbranch | Al het werk staat op een eigen branch van de grip-repo, niet op de hoofdbranch | |
+| Leesgebeurtenissen na het antwoord | Een inzage wordt nu vastgelegd voordat het antwoord vertrekt, achter hetzelfde slot als elke wijziging. Na het antwoord vastleggen laat een lezer nooit wachten, maar een inzage kan dan ontbreken als het proces op dat moment stopt. Blijft het zo? | [snelheid.md](snelheid.md), [bewijs.md](bewijs.md) |
+| Een lege omschrijving van de organisatie | Het taalmodel krijgt "Over de organisatie" uit het gedeelde onderdeel "Hier kom je te werken" van de standaardteksten. Is dat leeg, dan krijgt het model niets en meldt geen scherm dat | [vacatureteksten.md](vacatureteksten.md) |
 | Het Grist-document | De import wacht op een download van het document | [import-grist.md](import-grist.md) |
 | Keuzes voor Wies | Of de privacyverklaring van Wies de uitwisseling met grip noemt, welk merk collega's uit grip krijgen, wie als actief telt, en hoe vaak er wordt gesynchroniseerd | [wies.md](wies.md) |
 | Bestaande interne opdrachten | Een interne opdracht krijgt nu taken ("Maak de begroting", "Start de opdracht"). Bestaande concepten tonen die vanaf de volgende beoordeling | [werkstromen.md](werkstromen.md) |

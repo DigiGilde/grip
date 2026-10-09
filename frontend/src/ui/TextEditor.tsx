@@ -21,7 +21,7 @@ import { Button } from './Button';
 import { nextPlaceToFill, placesToFill, type PlaceToFill, type TextFact } from './text/facts';
 import { toStored, type TextMarks } from './text/marks';
 
-if (import.meta.env.MODE !== 'test') void import('./text/register');
+if (import.meta.env.MODE !== 'test') void import('./text/registerEditor');
 
 interface ActiveFormats {
   bold: boolean;

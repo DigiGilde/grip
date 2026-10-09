@@ -243,12 +243,12 @@ async def money_reading(
             )
         )
         names = {row.id: row.name for row in result}
+    budgets = await pricing.budgeted_by_year_many(
+        session, ids[INTERNAL], options=options
+    )
     for assignment_id in ids[INTERNAL]:
-        try:
-            by_year = await pricing.budgeted_by_year(
-                session, assignment_id, options=options
-            )
-        except calc.CalcError:
+        by_year = budgets[assignment_id]
+        if by_year is None:
             unpriced.add(names.get(assignment_id, str(assignment_id)))
             continue
         internal_budget += by_year.get(year, 0)

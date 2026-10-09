@@ -40,7 +40,6 @@ export interface LanguageModel {
   configured: boolean;
   model_id?: string | null;
   missing_settings: string[];
-  organisation_description_set: boolean;
   available_models?: string[] | null;
   check_error?: string | null;
 }

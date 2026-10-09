@@ -138,6 +138,10 @@ export function BillingPage() {
   ).length;
   // A naverrekening is a difference on a period delivered before, not a
   // period that is ready: it is named as what it is.
+  // Ready, but for someone else to deliver: the reader watches here.
+  const forOthers = rows.filter(
+    (row) => row.period.state === 'ready' && !row.overview.may_deliver,
+  ).length;
   const corrections = batch.filter((row) => row.period.correction).length;
   const title =
     count === 0
@@ -180,12 +184,16 @@ export function BillingPage() {
               <Stack gap="tight">
                 <nldd-text>
                   {held === 0
-                    ? `${title}.`
+                    ? forOthers === 0
+                      ? `${title}.`
+                      : forOthers === 1
+                        ? '1 periode is klaar om aan te leveren. Dat doet de eigenaar of een manager van de opdracht.'
+                        : `${forOthers} perioden zijn klaar om aan te leveren. Dat doet de eigenaar of een manager van de opdracht.`
                     : held === 1
                       ? '1 periode is afgesloten, maar het factuuradres ontbreekt nog.'
                       : `${held} perioden zijn afgesloten, maar het factuuradres ontbreekt nog.`}
                 </nldd-text>
-                {nearest && held === 0 ? (
+                {nearest && held === 0 && forOthers === 0 ? (
                   <Quiet>
                     Het dichtst bij: {nearest.overview.assignment_name}, {nearest.period.label},{' '}
                     {periodLine(nearest.period)}.

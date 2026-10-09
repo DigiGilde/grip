@@ -26,6 +26,7 @@ import asyncio
 import itertools
 import logging
 import secrets
+import time
 from collections import defaultdict
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
@@ -86,6 +87,10 @@ _running: set[asyncio.Task[None]] = set()
 _PENDING = "grip_events_pending"
 _CORRELATION = "grip_events_correlation"
 _COUNT = "grip_events_count"
+# When this transaction took the lock on the stream.
+_LOCKED_AT = "grip_events_locked_at"
+# A transaction that holds the lock longer than this is logged.
+LOCK_HELD_WARNING_SECONDS = 0.5
 # The subject kinds of the events a session wrote, in order.
 KINDS_WRITTEN = "grip_events_kinds"
 
@@ -413,6 +418,7 @@ def _seal(session: Session, flush_context: Any, instances: Any) -> None:
     # From here until this transaction ends no other transaction can add
     # to the stream, so positions are given out in commit order.
     connection.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": _LOCK_KEY})
+    session.info.setdefault(_LOCKED_AT, time.monotonic())
     head = connection.execute(
         text("SELECT seq, hash FROM stream_event ORDER BY seq DESC LIMIT 1")
     ).first()
@@ -465,11 +471,31 @@ async def drain() -> None:
         await asyncio.gather(*list(_running), return_exceptions=True)
 
 
+def _lock_released(session: Session) -> None:
+    """Say so when this transaction kept everyone else from writing for long.
+
+    While a transaction holds the lock on the stream nobody else can record
+    a change or a read. Slow work (a pdf, a model call) belongs before the
+    first event of a transaction or after its commit.
+    """
+    locked_at = session.info.pop(_LOCKED_AT, None)
+    if locked_at is None:
+        return
+    held = time.monotonic() - locked_at
+    if held >= LOCK_HELD_WARNING_SECONDS:
+        logger.warning(
+            "the event stream was locked for %.1f s by one transaction (%s)",
+            held,
+            ", ".join(sorted(set(session.info.get(KINDS_WRITTEN, [])))[:6]),
+        )
+
+
 @sa_event.listens_for(Session, "after_commit")
 def _dispatch(session: Session) -> None:
     if session.in_nested_transaction():
         # A savepoint was released: the work can still roll back.
         return
+    _lock_released(session)
     session.info.pop(_CORRELATION, None)
     pending: list[tuple[StreamEvent, dict[str, Any]]] = session.info.pop(_PENDING, [])
     # An event written inside a savepoint that rolled back is not durable.
@@ -494,5 +520,6 @@ def _discard(session: Session) -> None:
         # Only a savepoint went: what was written before it still stands,
         # and what was written inside it is no longer persistent.
         return
+    _lock_released(session)
     session.info.pop(_PENDING, None)
     session.info.pop(_CORRELATION, None)

@@ -32,9 +32,26 @@ export interface AssignmentSummary {
 }
 
 export interface AssignmentList {
+  /** One page of the list. */
   items: AssignmentSummary[];
+  /** How many assignments the list holds, over all its pages. */
+  total: number;
+  page: number;
+  page_size: number;
+  /** How many assignments each view holds under the same search. */
+  counts: Record<AssignmentSummary['phase'], number>;
   can_create: boolean;
 }
+
+/** What the list page asks for: one view, one page, and words to look for. */
+export interface AssignmentListQuery {
+  phase: AssignmentSummary['phase'];
+  page: number;
+  search: string;
+}
+
+/** How many assignments one page of the list shows. */
+export const ASSIGNMENT_PAGE_SIZE = 50;
 
 export interface RoleHolder {
   person_id: string;
@@ -201,7 +218,8 @@ export interface LinePreview {
 
 export const assignmentKeys = {
   all: ['assignments'] as const,
-  list: () => ['assignments', 'list'] as const,
+  list: (query?: AssignmentListQuery) =>
+    query ? (['assignments', 'list', query] as const) : (['assignments', 'list'] as const),
   detail: (id: string) => ['assignments', 'detail', id] as const,
   budget: (id: string) => ['assignments', 'budget', id] as const,
   organisations: ['organisations'] as const,
@@ -209,7 +227,15 @@ export const assignmentKeys = {
   judgeOptions: ['person-options', 'judging'] as const,
 };
 
-export const fetchAssignments = () => apiGet<AssignmentList>('/api/assignments');
+export function fetchAssignments(query: AssignmentListQuery) {
+  const params = new URLSearchParams({
+    phase: query.phase,
+    page: String(query.page),
+    page_size: String(ASSIGNMENT_PAGE_SIZE),
+  });
+  if (query.search) params.set('q', query.search);
+  return apiGet<AssignmentList>(`/api/assignments?${params.toString()}`);
+}
 
 export const fetchAssignment = (id: string) => apiGet<AssignmentDetail>(`/api/assignments/${id}`);
 

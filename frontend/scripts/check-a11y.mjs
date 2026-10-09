@@ -205,7 +205,32 @@ async function scan(page, context) {
             summary: (node.failureSummary ?? '').replace(/\s+/g, ' ').slice(0, 260),
           })),
         }));
-      return { violations: brief(outcome.violations), incomplete: brief(outcome.incomplete) };
+      // An element of the design system that no loaded file registered is
+      // not a component: its children show as plain text and it has no
+      // role. Pages load their own files, so each must bring what it draws.
+      const unregistered = [];
+      const walk = (root) => {
+        for (const element of root.querySelectorAll('*')) {
+          const tag = element.localName;
+          if (tag.startsWith('nldd-') && !customElements.get(tag)) unregistered.push(element);
+          if (element.shadowRoot) walk(element.shadowRoot);
+        }
+      };
+      walk(document);
+      const violations = brief(outcome.violations);
+      if (unregistered.length > 0)
+        violations.push({
+          id: 'element-not-registered',
+          impact: 'critical',
+          help: 'A design system element is used without its component being loaded',
+          tags: [],
+          nodes: [...new Set(unregistered.map((element) => element.localName))].map((tag) => ({
+            target: tag,
+            html: `<${tag}>`,
+            summary: 'Import the component in the module that draws it, or in its register file.',
+          })),
+        });
+      return { violations, incomplete: brief(outcome.incomplete) };
     },
     { tags: TAGS, context },
   );

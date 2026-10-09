@@ -52,6 +52,7 @@ from grip.services.pricing import (
     DEFAULT_OPTIONS,
     CalcInputs,
     PricingOptions,
+    inputs_digest,
     load_inputs_by_assignment,
 )
 
@@ -618,20 +619,47 @@ async def _compute_many(
     ):
         agreed_of[assignment_id] = total_cents
 
-    return {
-        assignment_id: _compute(
+    found: dict[UUID, _Computed] = {}
+    for assignment_id in ids:
+        inputs = inputs_of[assignment_id]
+        own_allocations = allocations_of[assignment_id]
+
+        def compute(
+            assignment_id: UUID = assignment_id,
+            inputs: CalcInputs = inputs,
+            own_allocations: list[Allocation] = own_allocations,
+        ) -> _Computed:
+            return _compute(
+                lines_of[assignment_id],
+                inputs,
+                own_allocations,
+                names,
+                descriptions,
+                closed_of[assignment_id],
+                agreed_of.get(assignment_id),
+                year,
+                options,
+            )
+
+        # Everything ``_compute`` is given, with of the shared names and
+        # descriptions only those it can read.
+        content = read_cache.digest(
+            inputs_digest(inputs),
             lines_of[assignment_id],
-            inputs_of[assignment_id],
-            allocations_of[assignment_id],
-            names,
-            descriptions,
-            closed_of[assignment_id],
+            own_allocations,
+            sorted(
+                (str(a.person_id), names.get(a.person_id, "")) for a in own_allocations
+            ),
+            sorted(
+                (item.id, descriptions.get(item.id, "")) for item in inputs.cost_items
+            ),
+            sorted(closed_of[assignment_id]),
             agreed_of.get(assignment_id),
             year,
             options,
         )
-        for assignment_id in ids
-    }
+        found[assignment_id] = read_cache.by_content("finance", content, compute)
+    return found
 
 
 def _compute(
