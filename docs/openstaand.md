@@ -10,6 +10,10 @@ Beslissingen over wat grip moet doen.
 
 | Punt | De keuze | Waar |
 |---|---|---|
+| Tarieven en een getekende opdracht | Na het vaststellen van een tarievenkaart volgt de begroting van een opdracht met een getekende offerte de nieuwe tarieven; het verschil met de offerte wordt getoond. Klopt dat, of houdt een getekende opdracht haar prijs? | [rondgang.md](rondgang.md), A612 |
+| Maanden op volgorde | Een maand kan worden afgesloten terwijl een eerdere nog open is. Mag dat? | [rondgang.md](rondgang.md), B611 |
+| Dekking van een kostenpost | De keuzelijst biedt ook personeelsregels aan als dekking. Hoort een kostenpost alleen door een vast bedrag gedekt te worden? | [rondgang.md](rondgang.md), A608 |
+| Open rollen bij de eigenaar | Een rol invullen is nu ook de stap van de eigenaar of manager; haar teller en meldingen tellen open rollen op eigen opdrachten mee | [werkstromen.md](werkstromen.md) |
 | Het merk | Richting a (greep) of b (letter), of geen van de vier. Nu staat a erin, voorlopig | [merk.md](merk.md), het vel in `docs/merk/richtingen.png` |
 | Na het akkoord | De begroting kan na een getekende offerte nog worden gewijzigd; grip laat het verschil zien en blokkeert niets. Het voorstel is een aanvullende offerte op dezelfde opdracht, terwijl ze in uitvoering blijft. Dat is ontworpen, niet gebouwd | [werkstromen.md](werkstromen.md), "Ontwerp: verlengen of groeien na akkoord" |
 | Een bevestigingscode per mail bij het tekenen | Alleen nodig als SSO Rijk opnieuw aanmelden niet afdwingt en de juristen het tijdstip van belang vinden. Niet gebouwd | [bewijs.md](bewijs.md), [sso-rijk.md](sso-rijk.md) |
