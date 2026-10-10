@@ -36,3 +36,5 @@ esac
 sha="$(git -C "$repo" rev-parse --short HEAD 2>/dev/null || echo unknown)"
 docker build -t grip-local/backend --build-arg GIT_SHA="$sha" "$backend_ctx"
 docker build -t grip-local/frontend "$frontend_ctx"
+# The ontwikkelportaal only holds docs and the site generator, so the working tree is enough.
+docker build -t grip-local/ontwikkelportaal -f "$repo/ontwikkelportaal/Dockerfile" "$repo"

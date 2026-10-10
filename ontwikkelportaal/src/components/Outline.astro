@@ -1,0 +1,26 @@
+---
+// The second-level headings of a page, as links into it.
+import type { MarkdownHeading } from 'astro';
+
+interface Props {
+  headings: MarkdownHeading[];
+}
+
+const items = Astro.props.headings.filter((h) => h.depth === 2);
+---
+
+{
+  items.length > 0 && (
+    <Fragment>
+      <nldd-title size="5" heading-level="2" text="Op deze pagina" />
+      <nldd-spacer size="4" />
+      <nldd-list type="navigation" appearance="simple" aria-label="Op deze pagina">
+        {items.map((h) => (
+          <nldd-list-item href={`#${h.slug}`}>
+            <nldd-text-cell text={h.text} />
+          </nldd-list-item>
+        ))}
+      </nldd-list>
+    </Fragment>
+  )
+}

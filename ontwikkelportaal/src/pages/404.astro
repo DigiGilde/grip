@@ -1,0 +1,20 @@
+---
+import Base from '../layouts/Base.astro';
+import { ROUTES } from '../lib/site';
+---
+
+<Base title="Pagina niet gevonden">
+  <nldd-simple-section>
+    <nldd-inline-dialog
+      icon="signpost"
+      heading-level="1"
+      text="Deze pagina bestaat niet"
+      supporting-text="Misschien is ze verplaatst. Zoek haar op, of begin bij de start."
+    >
+      <nldd-button-group slot="actions">
+        <nldd-button appearance="secondary" text="Zoeken" href={ROUTES.search}></nldd-button>
+        <nldd-button appearance="secondary" text="Naar de start" href={ROUTES.start}></nldd-button>
+      </nldd-button-group>
+    </nldd-inline-dialog>
+  </nldd-simple-section>
+</Base>

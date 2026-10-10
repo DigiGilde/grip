@@ -2,6 +2,8 @@
 grip.html
 Grip.html
 /*.pdf
+/artifacts/
+/.playwright-mcp/
 
 # Secrets and local configuration
 .env

@@ -1,0 +1,18 @@
+---
+import Article from '../../layouts/Article.astro';
+import BookNav from '../../components/BookNav.astro';
+import { aboutBookHtml } from '../../lib/book';
+import { ROUTES } from '../../lib/site';
+
+const html = await aboutBookHtml();
+---
+
+<Article
+  title="Over het personaboek"
+  sidebarLabel="Personaboek"
+  crumbs={[{ text: 'Personaboek', href: ROUTES.book }]}
+  search={{ onderdeel: 'Personaboek' }}
+>
+  <BookNav slot="sidebar" about />
+  <nldd-rich-text set:html={html} />
+</Article>

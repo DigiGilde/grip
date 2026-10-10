@@ -1,0 +1,78 @@
+---
+// The sidebar of the Personaboek on every page of it: a search field, the
+// filters Organisatie and Grip-instantie, a count and the list of all
+// personas. src/scripts/personaboek.ts narrows the list, and the table on the
+// overview, from the data attributes; without script the whole list shows.
+import { ORGANISATIONS, ROUTES, personaRoute } from '../lib/site';
+import { bookInstances, bookPersonas, filterData, orgParam } from '../lib/book';
+
+interface Props {
+  current?: string;
+  about?: boolean;
+}
+
+const { current, about } = Astro.props;
+const personas = await bookPersonas();
+const organisations = ORGANISATIONS.filter((o) => personas.some((p) => p.organisatie === o));
+const groups = [
+  { key: 'org', title: 'Organisatie', values: organisations.map((o) => ({ value: o, param: orgParam(o) })) },
+  { key: 'instance', title: 'Grip-instantie', values: bookInstances(personas).map((i) => ({ value: i, param: i })) },
+];
+---
+
+<div id="personaboek-filter">
+  <nldd-search-field
+    id="personaboek-zoeken"
+    placeholder="Zoek op code, naam of rol"
+    accessible-label="Zoek een persona op code, naam of rol"></nldd-search-field>
+  <nldd-spacer size="8" />
+  {
+    about ? (
+      <nldd-text size="sm" color="secondary">Over het personaboek</nldd-text>
+    ) : (
+      <nldd-link href={ROUTES.bookAbout} text="Over het personaboek" />
+    )
+  }
+  <nldd-spacer size="8" />
+  <nldd-text id="personaboek-aantal" size="sm" color="secondary" aria-live="polite">
+    {personas.length} persona’s
+  </nldd-text>
+
+  {
+    groups.map((group) => (
+      <Fragment>
+        <nldd-spacer size="24" />
+        <nldd-title size="5" heading-level="2" text={group.title} />
+        <nldd-spacer size="4" />
+        <nldd-list appearance="simple" dividers="never" accessible-label={group.title}>
+          {group.values.map(({ value, param }) => (
+            <nldd-list-item checkbox data-filter={group.key} data-value={value} data-param={param}>
+              <nldd-cell>
+                <nldd-checkbox decorative />
+              </nldd-cell>
+              <nldd-spacer-cell size="8" />
+              <nldd-text-cell text={value} />
+            </nldd-list-item>
+          ))}
+        </nldd-list>
+      </Fragment>
+    ))
+  }
+
+  <nldd-spacer size="24" />
+  <nldd-list type="navigation" appearance="simple" aria-label="Persona’s">
+    {
+      personas.map((p) => (
+        <nldd-list-item href={personaRoute(p.code)} current={p.code === current || undefined} {...filterData(p)}>
+          <nldd-text-cell overline={p.code} text={p.naam} />
+        </nldd-list-item>
+      ))
+    }
+    <nldd-inline-dialog slot="no-results" text="Geen persona gevonden"></nldd-inline-dialog>
+  </nldd-list>
+
+</div>
+
+<script>
+  import '../scripts/personaboek';
+</script>

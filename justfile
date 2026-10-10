@@ -351,3 +351,15 @@ push-key:
 # Put an example instance (INSTANCE_MODE=voorbeeld) back to its starting state
 example-reset:
     cd backend && uv run python -m grip.core.example
+
+# ---------------------------------------------------------------------------
+# Ontwikkelportaal (static site over docs/; see docs/lokaal.md)
+# ---------------------------------------------------------------------------
+
+# Build the ontwikkelportaal into ontwikkelportaal/dist with its search index, and check links and scripts
+ontwikkelportaal:
+    cd ontwikkelportaal && npm ci --ignore-scripts && npm run build && npm run check
+
+# Run the ontwikkelportaal with live reload while editing docs/ or ontwikkelportaal/ (search needs a build first)
+ontwikkelportaal-dev:
+    cd ontwikkelportaal && npm run dev

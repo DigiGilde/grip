@@ -48,6 +48,7 @@ De bron is `frontend/brand/mark.svg`. Alle afgeleide bestanden maakt `just brand
 | `frontend/public/favicon.svg` | vector | Tabblad; volgt licht en donker |
 | `frontend/public/favicon.ico` | 16, 32, 48 | Browsers zonder svg-pictogram |
 | `frontend/public/apple-touch-icon.png` | 180 | Beginscherm op iOS |
+| `ontwikkelportaal/public/` `favicon.svg`, `favicon.ico` en `apple-touch-icon.png` | als hierboven | Dezelfde drie voor het ontwikkelportaal, waarvan het image zonder `frontend/` wordt gebouwd |
 | `frontend/public/icons/icon-192.png` | 192 | App-pictogram |
 | `frontend/public/icons/icon-512.png` | 512 | App-pictogram |
 | `frontend/public/icons/icon-maskable-192.png` | 192 | App-pictogram dat het systeem bijsnijdt |

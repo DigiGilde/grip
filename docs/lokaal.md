@@ -11,7 +11,7 @@ Alles staat in `deploy/local/`. Wat per machine wordt gegenereerd (certificaten,
 Je hebt Docker nodig, verder niets.
 
 ```
-just local-build        # de twee images bouwen
+just local-build        # de images bouwen
 just local-up           # een instantie, zonder login
 just local-urls         # waar alles luistert
 just local-down         # stoppen, gegevens blijven
@@ -28,6 +28,19 @@ just local-nuke         # stoppen en alles van deze omgeving weggooien
 | `just local-up fsc` | Twee instanties met FSC ertussen |
 | `just local-up fsc-keycloak` | Hetzelfde, met de lokale Keycloak |
 | `just local-up fsc-corpus` | Twee instanties met FSC, plus een derde deelnemer voor de lokale Bouwmeester |
+
+## Ontwikkelportaal
+
+Bij de modi met FSC hoort ook het ontwikkelportaal op http://localhost:9000: de documentatie in hoofdstukken, de besluiten (ADR's) en het personaboek, met zoeken over alles. Onder Demo staan de twee instanties met een knop naar elk. Het portaal is geen onderdeel van grip en heeft geen gegevens.
+
+Het is een statische site in `ontwikkelportaal/`, gebouwd met Astro uit de Markdown in `docs/` en met de componenten van het NLDD Designsysteem. Welke instanties onder Demo staan, komt bij het starten uit de omgeving van de container (`ONTWIKKELPORTAAL_INSTANCES`, zie [uitrol-zad.md](uitrol-zad.md#ontwikkelportaal)); de lokale waarde staat in `deploy/local/compose.yml`. Zoeken is Pagefind: de index wordt bij het bouwen gemaakt en draait in de browser. De beveiligingskop staat daarvoor `'wasm-unsafe-eval'` toe en verder geen script uit de pagina zelf.
+
+```
+just ontwikkelportaal       # bouwen naar ontwikkelportaal/dist en links, scripts en navigatie controleren
+just ontwikkelportaal-dev   # met herladen tijdens het schrijven; zoeken werkt pas na een bouw
+```
+
+`just ontwikkelportaal-dev` leest de instanties uit `ontwikkelportaal/public/config.json`.
 
 ## Een instantie
 

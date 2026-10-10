@@ -1,0 +1,124 @@
+name: Ontwikkelportaal preview
+
+# Every pull request gets its own deployment of the ontwikkelportaal on ZAD,
+# pr<number>, removed again when the pull request closes. It lives in the
+# project of the example instance (ZAD_PROJECT_ID, ZAD_API_KEY) and holds only
+# the component ontwikkelportaal: a new deployment gets the components it is
+# created with, not the other components of the project. The deployment of
+# the portal for main is in docker.yml.
+#
+# Only for pull requests from this repository: a fork gets no secrets.
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, closed]
+
+permissions: {}
+
+concurrency:
+  group: ontwikkelportaal-pr-${{ github.event.pull_request.number }}
+  # A newer push replaces a running deploy; the cleanup waits and is never cancelled.
+  cancel-in-progress: ${{ github.event.action != 'closed' }}
+
+env:
+  DEPLOYMENT: pr${{ github.event.pull_request.number }}
+  # The deploy comment is found and removed again by this header.
+  COMMENT_HEADER: "## Ontwikkelportaal van deze pull request"
+
+jobs:
+  build:
+    if: >-
+      github.event.action != 'closed'
+      && vars.ZAD_PROJECT_ID != ''
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && github.event.pull_request.user.type != 'Bot'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.prefix.outputs.value }}/ontwikkelportaal:sha-${{ steps.sha.outputs.value }}
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # ghcr.io wants a lowercase path; the organisation name may not be.
+      - name: Compute image prefix
+        id: prefix
+        run: echo "value=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Compute short commit
+        id: sha
+        run: echo "value=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./ontwikkelportaal/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.prefix.outputs.value }}/ontwikkelportaal:sha-${{ steps.sha.outputs.value }}
+            ${{ steps.prefix.outputs.value }}/ontwikkelportaal:pr-${{ github.event.pull_request.number }}
+          cache-from: type=gha,scope=ontwikkelportaal
+          cache-to: type=gha,mode=max,scope=ontwikkelportaal
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      # The action comments the address on the pull request.
+      pull-requests: write
+
+    steps:
+      - name: Deploy the ontwikkelportaal to ZAD
+        uses: RijksICTGilde/zad-actions/deploy@v4
+        with:
+          api-key: ${{ secrets.ZAD_API_KEY }}
+          project-id: ${{ vars.ZAD_PROJECT_ID }}
+          deployment-name: ${{ env.DEPLOYMENT }}
+          # The list form, so the comment carries exactly the header below.
+          components: '[{"name": "ontwikkelportaal", "image": "${{ needs.build.outputs.image }}"}]'
+          wait-for-ready: true
+          comment-on-pr: true
+          comment-header: ${{ env.COMMENT_HEADER }}
+
+  cleanup:
+    if: >-
+      github.event.action == 'closed'
+      && vars.ZAD_PROJECT_ID != ''
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && github.event.pull_request.user.type != 'Bot'
+    runs-on: ubuntu-latest
+    permissions:
+      # The action removes the deploy comment.
+      pull-requests: write
+
+    steps:
+      # The project also holds the example instance: remove nothing but a preview.
+      - name: Only a deployment of a pull request
+        run: |
+          if ! printf '%s' "$DEPLOYMENT" | grep -Eq '^pr[0-9]+$'; then
+            echo "::error::Refusing to remove deployment '$DEPLOYMENT': not a pull request preview"
+            exit 1
+          fi
+
+      - name: Remove the deployment of this pull request
+        uses: RijksICTGilde/zad-actions/cleanup@v4
+        with:
+          api-key: ${{ secrets.ZAD_API_KEY }}
+          project-id: ${{ vars.ZAD_PROJECT_ID }}
+          deployment-name: ${{ env.DEPLOYMENT }}
+          comment-header: ${{ env.COMMENT_HEADER }}

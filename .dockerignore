@@ -17,3 +17,15 @@ frontend/coverage
 frontend/.vite
 Grip.html
 /*.pdf
+
+# Only the ontwikkelportaal builds from the repository root, and it needs
+# nothing but its own directory and docs/. Everything else stays out,
+# including local secrets and state.
+*
+!docs
+!ontwikkelportaal
+**/.env
+**/.env.*
+ontwikkelportaal/node_modules
+ontwikkelportaal/dist
+ontwikkelportaal/.astro
