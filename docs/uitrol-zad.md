@@ -241,3 +241,74 @@ zadctl project refresh
 
 - De login met SSO Rijk zelf: welke claims er komen, of het adres als bevestigd wordt doorgegeven, en of SSO Rijk bij een besluit opnieuw om het wachtwoord vraagt. De regel `OIDC login:` in het logboek laat de eerste twee zien.
 - Het adresbereik voor `TRUSTED_PROXIES`.
+
+## Ontwikkelportaal
+
+Een statische site naast de instanties: de documentatie, de besluiten en het personaboek, met zoeken over alles, en onder Demo een knop naar elke instantie die je instelt. Het is geen onderdeel van grip en heeft geen backend, login of gegevens. Niets hiervan is al op het platform gedraaid.
+
+**Voorlopig in het project van de voorbeeldinstantie.** We bouwen nu vanuit voorbeelden; bij de opschoonronde voor productie krijgt het portaal een eigen plek. Het gebruikt daarom dezelfde `ZAD_PROJECT_ID` en `ZAD_API_KEY` als de instantie, maar een eigen uitrol, `ontwikkelportaal`. In de uitrol `main` kan het niet: die heeft één adres, https://grip-voorbeeld.rijks.app/, en daar staat de frontend al op `/`.
+
+| Onderdeel | Image | Poort | Pad | Gezondheidscontrole |
+|---|---|---|---|---|
+| `ontwikkelportaal` | `ghcr.io/digigilde/grip/ontwikkelportaal` | 8080 | `/` | HTTP `GET /` |
+
+Het image bouwt de site met de zoekindex in de bouwfase en controleert daar de links; het uiteindelijke image is nginx met alleen de uitkomst. Het draait als gewone gebruiker en schrijft alleen in `/tmp`. De beveiligingskop staat `'wasm-unsafe-eval'` toe, anders start zoeken niet, en verder geen script uit de pagina zelf.
+
+### Welke instanties onder Demo staan
+
+`ONTWIKKELPORTAAL_INSTANCES` is een JSON-lijst met per instantie:
+
+| Veld | Verplicht | Wat |
+|---|---|---|
+| `naam` | ja | De naam op de kaart en op de knop "Open ..." |
+| `url` | ja | Het adres van de instantie, `http` of `https` |
+| `rol` | nee | De regel onder de naam |
+| `omschrijving` | nee | Een zin over wat de instantie doet; getoond als tekst, zonder opmaak |
+
+Een instantie zonder naam of met een ander soort adres verschijnt niet. Zonder instanties heeft de startpagina geen Demo. De container schrijft de lijst bij het starten naar `/config.json` en de startpagina leest die, dus één image dient elke omgeving.
+
+Zet de waarde op het onderdeel, niet op een uitrol: dan krijgen de uitrol `ontwikkelportaal` en elke uitrol van een pull request haar. Voor de voorbeeldinstantie, die zich "Grip voorbeeld" noemt:
+
+```sh
+zadctl env add -c ontwikkelportaal 'ONTWIKKELPORTAAL_INSTANCES=[{"naam": "Grip voorbeeld", "rol": "Voorbeeldinstantie", "omschrijving": "Grip met verzonnen gegevens. Wie op de lijst van bezoekers staat, kijkt mee als voorbeeldpersoon.", "url": "https://grip-voorbeeld.rijks.app/"}]'
+```
+
+Een latere wijziging gaat met `zadctl env set` en geldt vanaf de volgende start van de container.
+
+### Eenmalig
+
+In het project van de voorbeeldinstantie, met de sleutel van dat project:
+
+```sh
+zadctl component add ontwikkelportaal --port 8080 --path / --service publish-on-web
+zadctl service config set health-check --component ontwikkelportaal \
+  --set scheme=http --set port=8080 --set liveness-path=/ --set readiness-path=/
+zadctl env add -c ontwikkelportaal 'ONTWIKKELPORTAAL_INSTANCES=[...]'
+```
+
+De variabele `ZAD_PROJECT_ID` en het geheim `ZAD_API_KEY` uit stap 4 zijn genoeg; er komt niets bij. Maak na de eerste bouw het pakket `ontwikkelportaal` openbaar, net als de images van de instantie.
+
+### Het adres
+
+Zonder verdere instelling krijgt het portaal het standaardadres van het cluster, `ontwikkelportaal-ontwikkelportaal-<project>.<cluster>`; `zadctl deployment url ontwikkelportaal --component ontwikkelportaal` toont het. Een eigen adres, bijvoorbeeld `grip-ontwikkelportaal.rijks.app`, vraag je aan op de uitrol:
+
+```sh
+zadctl deployment create ontwikkelportaal --domain-format subdomain \
+  --subdomain grip-ontwikkelportaal --base-domain rijks.app --dry-run
+```
+
+Zonder `--dry-run` wordt dat een aanvraag die een beheerder van het platform goedkeurt; tot die tijd blijft het standaardadres werken. De workflow laat de instellingen van het adres staan als hij een nieuw image uitrolt.
+
+### Uitrollen
+
+| Wanneer | Workflow | Uitrol |
+|---|---|---|
+| Push naar `main` | `Build and deploy`, de stappen `build-ontwikkelportaal` en `deploy-ontwikkelportaal` | `ontwikkelportaal` |
+| Een pull request opent of krijgt een nieuwe commit | `Ontwikkelportaal preview` | `pr<nummer>` |
+| De pull request sluit, samengevoegd of niet | `Ontwikkelportaal preview` | `pr<nummer>` wordt verwijderd |
+
+Het portaal bouwt in een eigen stap, los van backend en frontend: een fout in het portaal houdt de uitrol van de instantie niet tegen.
+
+Een uitrol van een pull request bevat alleen het onderdeel `ontwikkelportaal`. De Operations Manager geeft een nieuwe uitrol de onderdelen waarmee ze wordt aangemaakt en neemt de andere onderdelen van het project niet mee, dus backend en frontend starten daar niet. De workflow zet het adres in een reactie onder de kop "Ontwikkelportaal van deze pull request"; dat adres kun je delen. Het heeft de vorm `ontwikkelportaal-pr<nummer>-<project>.<cluster>`. Bij het sluiten verdwijnen de uitrol en de reactie. De opruimstap weigert elke uitrol waarvan de naam niet `pr` plus een nummer is, zodat hij `main` en `ontwikkelportaal` nooit raakt.
+
+Pull requests uit een fork of van een bot krijgen geen uitrol: ze hebben geen toegang tot de sleutel. Zolang `ZAD_PROJECT_ID` niet bestaat, slaan beide workflows de uitrol over. De images van een pull request (`pr-<nummer>` en `sha-<zeven tekens>`) blijven in het register staan; opruimen gaat met de hand.

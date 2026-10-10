@@ -26,7 +26,7 @@ all_files="-f compose.yml -f compose.fsc.yml -f compose.fsc-corpus.yml"
 all_profiles="--profile keycloak --profile two"
 
 need_images() {
-    docker image inspect grip-local/backend grip-local/frontend >/dev/null 2>&1 || ./build.sh
+    docker image inspect grip-local/backend grip-local/frontend grip-local/ontwikkelportaal >/dev/null 2>&1 || ./build.sh
 }
 
 cmd="${1:-up}"
@@ -83,6 +83,7 @@ case "$cmd" in
     urls)
         cat <<URLS
 
+  Ontwikkelportaal, docs and demo      http://localhost:9000   (modes fsc)
   Instance A, DigiGilde voorbeeld      http://localhost:9001
   Instance B, Voorbeeldministerie      http://localhost:9002   (modes fsc)
   Local Keycloak                       https://localhost:9443  (modes keycloak; admin / state/secrets.env)

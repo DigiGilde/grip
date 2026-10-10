@@ -134,6 +134,21 @@ services:
         condition: service_started
         restart: true
 
+  # --- Ontwikkelportaal: docs and links to both instances. Only with `--profile two`
+  ontwikkelportaal:
+    profiles: ["two"]
+    image: grip-local/ontwikkelportaal
+    environment:
+      ONTWIKKELPORTAAL_INSTANCES: >-
+        [{"naam": "DigiGilde voorbeeld", "rol": "Opdrachtnemer",
+          "omschrijving": "Maakt offertes, voert opdrachten uit, sluit maanden af en factureert.",
+          "url": "http://localhost:9001"},
+         {"naam": "Voorbeeldministerie", "rol": "Opdrachtgever",
+          "omschrijving": "Vraagt werk aan bij DigiGilde voorbeeld, tekent offertes en volgt de uitputting.",
+          "url": "http://localhost:9002"}]
+    ports:
+      - "127.0.0.1:9000:8080"
+
   # A local identity provider, to run the real login code path without any
   # outside account. Only with `--profile keycloak` (just local-up keycloak).
   keycloak:

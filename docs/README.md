@@ -15,6 +15,8 @@ Grip legt vast hoe een organisatie binnen de Rijksoverheid een opdracht uitvoert
 
 De code is Engels, de schermen en deze documentatie zijn Nederlands. Welke codenaam bij welk woord op het scherm hoort staat in de begrippenlijst van [domein.md](domein.md).
 
+Dezelfde pagina's, de besluiten en het personaboek staan ook opgemaakt en doorzoekbaar in het ontwikkelportaal, met een link naar de instanties van de demo. Hoe je het lokaal draait staat in [lokaal.md](lokaal.md#ontwikkelportaal), de uitrol in [uitrol-zad.md](uitrol-zad.md#ontwikkelportaal).
+
 ## Waar begin je
 
 **Je wilt het lokaal draaien**
@@ -97,3 +99,4 @@ De code is Engels, de schermen en deze documentatie zijn Nederlands. Welke coden
 | [lokaal.md](lokaal.md) | De lokale omgeving en wat ermee is aangetoond |
 | [uitrol-zad.md](uitrol-zad.md) | Uitrollen op ZAD: eerst een voorbeeldinstantie, dan een echte |
 | [import-grist.md](import-grist.md) | De import uit het Grist-document |
+| [personas/](personas/README.md) | Het personaboek: wie met grip werkt, met een vaste code per persona |
