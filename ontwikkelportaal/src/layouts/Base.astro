@@ -1,0 +1,110 @@
+---
+import '@nldd/design-system/styles';
+import '../styles/site.css';
+import { ROUTES, SITE_NAME } from '../lib/site';
+
+export interface Crumb {
+  text: string;
+  href: string;
+}
+
+interface Props {
+  /** The page's own name; the start page passes none and gets no trail and no back button. */
+  title?: string;
+  /** The page's name in the trail, when shorter than its title. */
+  crumb?: string;
+  /** The trail between Start and this page. */
+  crumbs?: Crumb[];
+  /** The back button in the top bar; by default the last crumb, or Start. */
+  back?: Crumb;
+}
+
+const { title, crumb, crumbs = [], back } = Astro.props;
+const documentTitle = title ? `${title} · ${SITE_NAME}` : SITE_NAME;
+const start: Crumb = { text: 'Start', href: ROUTES.start };
+const trail = title ? [start, ...crumbs] : [];
+const up = title ? (back ?? trail[trail.length - 1]) : undefined;
+const onSearch = Astro.url.pathname.replace(/\/?$/, '/') === ROUTES.search;
+---
+
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{documentTitle}</title>
+    {/* The icons of grip, copied into public/ by `just brand` from frontend/brand/mark.svg. */}
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  </head>
+  <body>
+    <nldd-app-view>
+      <nldd-page>
+        <nldd-skip-link slot="header" text="Direct naar de inhoud">
+          <nldd-top-navigation-bar
+            no-logo
+            website-title={SITE_NAME}
+            website-href={ROUTES.start}
+            back-href={up?.href}
+            back-text={up?.text}
+          >
+            <nldd-menu-bar slot="utility" accessible-label="Zoeken">
+              <nldd-menu-bar-item
+                id="zoeken-knop"
+                text="Zoeken"
+                icon="search"
+                href={ROUTES.search}
+                current={onSearch || undefined}
+              />
+            </nldd-menu-bar>
+          </nldd-top-navigation-bar>
+        </nldd-skip-link>
+
+        <slot />
+
+        <div slot="footer">
+          <nldd-page-footer>
+            {
+              trail.length > 0 && (
+                <nldd-breadcrumbs slot="breadcrumbs">
+                  {trail.map((c) => (
+                    <nldd-breadcrumbs-item text={c.text} href={c.href} />
+                  ))}
+                  <nldd-breadcrumbs-item text={crumb ?? title} current />
+                </nldd-breadcrumbs>
+              )
+            }
+            <nldd-page-footer-legal-bar slot="legal-bar">
+              <nldd-page-footer-legal-bar-item slot="start" text={SITE_NAME} />
+            </nldd-page-footer-legal-bar>
+          </nldd-page-footer>
+        </div>
+      </nldd-page>
+    </nldd-app-view>
+
+    <nldd-window
+      id="zoekvenster"
+      accessible-label="Zoeken"
+      centered
+      top="15vh"
+      width="min(40rem, 92vw)"
+      data-pagefind-ignore
+    >
+      <nldd-container padding="16" gap="16">
+        <nldd-search-field
+          id="zoekvenster-veld"
+          placeholder="Zoek in documentatie, besluiten en persona’s"
+          accessible-label="Zoeken"></nldd-search-field>
+        <nldd-text id="zoekvenster-stand" size="sm" color="secondary" aria-live="polite"></nldd-text>
+        <nldd-list id="zoekvenster-resultaten" type="navigation" aria-label="Zoekresultaten"></nldd-list>
+        <nldd-link id="zoekvenster-meer" href={ROUTES.search} text="Alle resultaten en filters" hidden></nldd-link>
+      </nldd-container>
+    </nldd-window>
+
+    <script>
+      import '../scripts/site';
+      import '../scripts/zoekvenster';
+    </script>
+  </body>
+</html>

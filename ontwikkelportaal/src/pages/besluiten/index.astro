@@ -1,0 +1,79 @@
+---
+import { getCollection, getEntry, render } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import { ROUTES, STATUS_COLOR } from '../../lib/site';
+
+const intro = await getEntry('intros', 'adr/README');
+if (!intro) throw new Error('docs/adr/README.md ontbreekt');
+const { Content, remarkPluginFrontmatter } = await render(intro);
+const adrs = (await getCollection('adr')).sort((a, b) => a.id.localeCompare(b.id));
+const statuses = [...new Set(adrs.map((a) => a.data.status))].sort();
+const label = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+---
+
+<Base title={intro.data.title}>
+  <nldd-simple-section>
+    <nldd-container slot="header">
+      <nldd-title size="2" heading-level="1" text={intro.data.title}></nldd-title>
+      <nldd-spacer size="16"></nldd-spacer>
+      <div
+        data-pagefind-body
+        data-pagefind-filter="onderdeel[data-filter-onderdeel]"
+        data-filter-onderdeel="Besluiten"
+        data-pagefind-meta="title[data-search-title]"
+        data-search-title={intro.data.title}
+      >
+        <nldd-rich-text>
+          <Content />
+        </nldd-rich-text>
+      </div>
+    </nldd-container>
+
+    <nldd-container gap="16" id="besluiten">
+      <nldd-container layout="wrap" gap="16" vertical-alignment="center">
+        <nldd-search-field
+          id="besluiten-zoeken"
+          width="320px"
+          placeholder="Zoek op nummer of titel"
+          accessible-label="Zoek een besluit op nummer of titel"></nldd-search-field>
+        <nldd-segmented-control id="besluiten-status" accessible-label="Status" value="">
+          <nldd-segmented-control-item value="" text="Alle"></nldd-segmented-control-item>
+          {statuses.map((s) => <nldd-segmented-control-item value={s} text={label(s)} />)}
+        </nldd-segmented-control>
+      </nldd-container>
+      <nldd-text id="besluiten-aantal" size="sm" color="secondary" aria-live="polite">
+        {adrs.length} besluiten
+      </nldd-text>
+      <nldd-list type="navigation" appearance="box-tinted" aria-label="Besluiten">
+        {
+          adrs.map((a) => (
+            <nldd-list-item
+              href={`${ROUTES.adr}${a.id}/`}
+              data-status={a.data.status}
+              data-search={`${a.data.number} ${a.data.title}`.toLowerCase()}
+            >
+              <nldd-text-cell overline={`ADR ${a.data.number}`} text={a.data.title} />
+              <nldd-spacer-cell />
+              <nldd-cell>
+                <nldd-tag color={STATUS_COLOR[a.data.status]} text={a.data.status} />
+              </nldd-cell>
+              <nldd-spacer-cell />
+              <nldd-text-cell width="96px" color="secondary" text={a.data.date ?? ''} hide-below="md" />
+              <nldd-spacer-cell />
+              <nldd-icon-cell size="20" icon="chevron-right" />
+            </nldd-list-item>
+          ))
+        }
+        <nldd-inline-dialog slot="no-results" text="Geen besluit gevonden"></nldd-inline-dialog>
+      </nldd-list>
+    </nldd-container>
+  </nldd-simple-section>
+
+  <nldd-simple-section>
+    <nldd-rich-text set:html={remarkPluginFrontmatter.tailHtml} />
+  </nldd-simple-section>
+
+  <script>
+    import '../../scripts/besluiten';
+  </script>
+</Base>

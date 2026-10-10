@@ -1,0 +1,43 @@
+---
+import Article from '../../layouts/Article.astro';
+import BookNav from '../../components/BookNav.astro';
+import { bookPersonas, filterData } from '../../lib/book';
+import { ROUTES, personaRoute } from '../../lib/site';
+
+const personas = await bookPersonas();
+---
+
+<Article title="Personaboek" sidebarLabel="Personaboek" search={{ onderdeel: 'Personaboek' }}>
+  <BookNav slot="sidebar" />
+  <nldd-text>
+    {personas.length} verzonnen persona’s in de keten rond grip. Kies een persona voor werk, mandaat en rechten. Bij
+    <nldd-link href={ROUTES.bookAbout} text="Over het personaboek" /> staat hoe het boek is opgebouwd.
+  </nldd-text>
+  <nldd-spacer size="24"></nldd-spacer>
+  <nldd-table
+    accessible-label="Alle persona’s"
+    columns="minmax(88px, max-content) minmax(140px, 1fr) minmax(180px, 1fr) minmax(220px, 1.5fr) minmax(220px, 1.5fr)"
+  >
+    <nldd-table-row slot="header">
+      <nldd-text-cell text="Code" />
+      <nldd-text-cell text="Naam" />
+      <nldd-text-cell text="Organisatie" />
+      <nldd-text-cell text="Rol" />
+      <nldd-text-cell text="Grips" />
+    </nldd-table-row>
+    {
+      personas.map((p) => (
+        <nldd-table-row {...filterData(p)}>
+          <nldd-cell vertical-alignment="top">
+            <nldd-link href={personaRoute(p.code)} text={p.code} />
+          </nldd-cell>
+          <nldd-text-cell vertical-alignment="top" text={p.naam} />
+          <nldd-text-cell vertical-alignment="top" text={p.organisatie} />
+          <nldd-text-cell vertical-alignment="top" text={p.rol} />
+          <nldd-text-cell vertical-alignment="top" text={p.grips} />
+        </nldd-table-row>
+      ))
+    }
+    <nldd-inline-dialog slot="empty" text="Geen persona gevonden"></nldd-inline-dialog>
+  </nldd-table>
+</Article>

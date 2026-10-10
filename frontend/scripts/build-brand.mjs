@@ -1,14 +1,15 @@
 /**
  * Builds the icon set of grip from the one source drawing, brand/mark.svg.
  *
- * Nothing in public/ or docs/merk/ that this script writes is edited by hand:
- * change the drawing or the numbers below and run `just brand`. The results
- * are committed, so building the frontend does not need the tools used here.
+ * Nothing in public/, docs/merk/ or ../ontwikkelportaal/public/ that this
+ * script writes is edited by hand: change the drawing or the numbers below and
+ * run `just brand`. The results are committed, so building the frontend does
+ * not need the tools used here.
  *
  * Needs rsvg-convert (librsvg) and magick (ImageMagick) on the PATH.
  */
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 const root = path.resolve(import.meta.dirname, '..');
@@ -16,6 +17,7 @@ const brandDir = path.join(root, 'brand');
 const publicDir = path.join(root, 'public');
 const iconsDir = path.join(publicDir, 'icons');
 const docsDir = path.resolve(root, '../docs/merk');
+const portalPublicDir = path.resolve(root, '../ontwikkelportaal/public');
 
 // The reference value of the token lintblauw and the step that pairs with it
 // on a dark surface (lintblauw-750 in dark mode). Static files cannot read the
@@ -71,7 +73,8 @@ function need(tool) {
 
 need('rsvg-convert');
 need('magick');
-for (const dir of [publicDir, iconsDir, docsDir]) mkdirSync(dir, { recursive: true });
+for (const dir of [publicDir, iconsDir, docsDir, portalPublicDir])
+  mkdirSync(dir, { recursive: true });
 
 const mark = path.join(brandDir, 'mark.svg');
 const markShapes = shapes(mark);
@@ -105,6 +108,12 @@ execFileSync('rm', icoParts);
 
 // Home screen icons. The platform rounds the corners; the tile is full bleed.
 png(tile(mark, 180, 0.6), path.join(publicDir, 'apple-touch-icon.png'), 180);
+
+// The ontwikkelportaal shows the same tab and home screen icons. Its image is
+// built without frontend/, so it gets copies of its own.
+for (const name of ['favicon.svg', 'favicon.ico', 'apple-touch-icon.png']) {
+  copyFileSync(path.join(publicDir, name), path.join(portalPublicDir, name));
+}
 png(tile(mark, 512, 0.62, 96), path.join(iconsDir, 'icon-192.png'), 192);
 png(tile(mark, 512, 0.62, 96), path.join(iconsDir, 'icon-512.png'), 512);
 // Maskable: everything that matters stays inside the inner 80 percent circle.
@@ -171,4 +180,4 @@ const sheetHeight = directions.length * rowHeight + 20;
 const sheet = `<svg xmlns="http://www.w3.org/2000/svg" width="${sheetWidth}" height="${sheetHeight}" viewBox="0 0 ${sheetWidth} ${sheetHeight}"><rect width="${sheetWidth}" height="${sheetHeight}" fill="${WHITE}"/>${rows.join('')}</svg>`;
 execFileSync('rsvg-convert', ['-o', path.join(docsDir, 'richtingen.png')], { input: sheet });
 
-console.log('Merkbestanden bijgewerkt in public/ en docs/merk/.');
+console.log('Merkbestanden bijgewerkt in public/, docs/merk/ en ontwikkelportaal/public/.');

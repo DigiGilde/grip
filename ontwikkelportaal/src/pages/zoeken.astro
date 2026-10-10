@@ -1,0 +1,63 @@
+---
+import { getCollection } from 'astro:content';
+import Base from '../layouts/Base.astro';
+import { ORGANISATIONS } from '../lib/site';
+
+const statuses = [...new Set((await getCollection('adr')).map((a) => a.data.status))].sort();
+const groups = [
+  { key: 'onderdeel', title: 'Onderdeel', values: ['Documentatie', 'Besluiten', 'Personaboek'] },
+  { key: 'status', title: 'Status van een besluit', values: statuses },
+  { key: 'organisatie', title: 'Organisatie van een persona', values: [...ORGANISATIONS] },
+];
+---
+
+<Base title="Zoeken">
+  <nldd-sidebar-section sidebar-label="Filters" id="zoeken">
+    <nldd-container slot="header">
+      <nldd-title size="2" heading-level="1" text="Zoeken"></nldd-title>
+      <nldd-spacer size="16"></nldd-spacer>
+      <nldd-search-field
+        id="zoekveld"
+        placeholder="Zoek in documentatie, besluiten en persona’s"
+        accessible-label="Zoeken"></nldd-search-field>
+      <div class="sidebar-trigger">
+        <nldd-spacer size="16"></nldd-spacer>
+        <nldd-button appearance="secondary" start-icon="filter" text="Filters"></nldd-button>
+      </div>
+    </nldd-container>
+
+    <nldd-container slot="sidebar" padding="16">
+      {
+        groups.map((group, i) => (
+          <Fragment>
+            {i > 0 && <nldd-spacer size="24" />}
+            <nldd-title size="5" heading-level="2" text={group.title} />
+            <nldd-spacer size="4" />
+            <nldd-list appearance="simple" dividers="never" accessible-label={group.title}>
+              {group.values.map((value) => (
+                <nldd-list-item checkbox data-filter={group.key} data-value={value}>
+                  <nldd-cell>
+                    <nldd-checkbox decorative />
+                  </nldd-cell>
+                  <nldd-spacer-cell size="8" />
+                  <nldd-text-cell text={value.charAt(0).toUpperCase() + value.slice(1)} />
+                  <nldd-spacer-cell size="8" />
+                  <nldd-text-cell width="fit-content" horizontal-alignment="right" color="secondary" data-count />
+                </nldd-list-item>
+              ))}
+            </nldd-list>
+          </Fragment>
+        ))
+      }
+    </nldd-container>
+
+    <nldd-container gap="16">
+      <nldd-text id="zoeken-stand" size="sm" color="secondary" aria-live="polite"></nldd-text>
+      <nldd-list id="zoekresultaten" type="navigation" aria-label="Zoekresultaten"></nldd-list>
+    </nldd-container>
+  </nldd-sidebar-section>
+
+  <script>
+    import '../scripts/zoeken';
+  </script>
+</Base>

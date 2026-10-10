@@ -56,3 +56,39 @@ def test_every_process_of_the_image_can_be_imported_on_its_own(module: str) -> N
         check=False,
     )
     assert result.returncode == 0, result.stderr[-600:]
+
+
+def test_the_ontwikkelportaal_image_checks_the_site_and_allows_search() -> None:
+    """The image builds the site from the lockfile, fails on a broken link, and
+    its policy lets Pagefind compile without allowing inline script."""
+    dockerfile = (ROOT / "ontwikkelportaal" / "Dockerfile").read_text()
+    assert "npm ci" in dockerfile
+    assert "npm run build && npm run check" in dockerfile
+    package = json.loads((ROOT / "ontwikkelportaal" / "package.json").read_text())
+    lock = json.loads((ROOT / "ontwikkelportaal" / "package-lock.json").read_text())
+    for name, version in package["dependencies"].items():
+        assert version == lock["packages"][f"node_modules/{name}"]["version"], name
+    screens = json.loads((ROOT / "frontend" / "package-lock.json").read_text())
+    nldd = "node_modules/@nldd/design-system"
+    assert lock["packages"][nldd]["version"] == screens["packages"][nldd]["version"]
+    template = (ROOT / "ontwikkelportaal" / "nginx.conf.template").read_text()
+    script_src = re.search(r"script-src ([^;]*);", template)
+    assert script_src is not None
+    assert script_src.group(1).split() == ["'self'", "'wasm-unsafe-eval'"]
+
+
+def test_the_root_build_context_holds_only_the_portal_and_docs() -> None:
+    """The ontwikkelportaal is built from the repository root; nothing else of
+    the repository, and no local secret, may reach that context."""
+    lines = [
+        line.strip()
+        for line in (ROOT / ".dockerignore").read_text().splitlines()
+        if line.strip() and not line.startswith("#")
+    ]
+    allowlist = lines[lines.index("*") :]
+    assert [line for line in allowlist if line.startswith("!")] == [
+        "!docs",
+        "!ontwikkelportaal",
+    ]
+    assert "**/.env" in allowlist
+    assert "ontwikkelportaal/node_modules" in allowlist

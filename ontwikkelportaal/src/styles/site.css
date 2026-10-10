@@ -1,0 +1,12 @@
+/* The only rule the components do not cover: nldd-sidebar-section folds its
+   sidebar into a sheet below the large breakpoint and leaves the button that
+   opens it to the page. Show that button only while there is a sheet. */
+nldd-sidebar-section:not([collapsed]) .sidebar-trigger {
+  display: none;
+}
+
+/* A long result list scrolls inside the search window instead of pushing its last link off screen. */
+#zoekvenster-resultaten {
+  max-height: 50vh;
+  overflow-y: auto;
+}
