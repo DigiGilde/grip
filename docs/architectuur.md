@@ -53,6 +53,8 @@ Elke instantie biedt achter de eigen inway de REST-dienst `grip-opdrachtverkeer`
 | Uitputting en factuurgegevens | gever haalt op, op verzoek | pull |
 | Eindrapport | nemer naar gever | push |
 | Vacature en aanbod | tussen instanties met een contract | push |
+| Verzoek om een kostenpost (`requestCostItem`) | vrager naar uitvoerder | push |
+| Kostenposten bij verwijzingen (`getCostItems`) | vrager haalt op bij uitvoerder | pull |
 | Doorgifte aan de moeder | moeder haalt op | pull |
 
 Elk bericht heeft een UUID en is idempotent. Uitgaand verkeer gaat via een outbox-tabel en een worker, inkomend via een inbox-tabel. De applicatie blijft daardoor werken als de tegenpartij onbereikbaar is.

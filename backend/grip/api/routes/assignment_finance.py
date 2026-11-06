@@ -138,9 +138,12 @@ async def get_assignment_finance(
                     realised_cents=c.realised_cents,
                     forecast_cents=c.forecast_cents,
                     total_cents=c.total_cents,
+                    executor_name=c.executor_name,
+                    reference_state=c.reference_state,
                 )
                 for c in item.costs
             ],
+            incomplete_by=list(item.incomplete_by),
         ).model_dump(mode="json")
         body["persons"] = persons
         lines.append(body)
@@ -195,6 +198,7 @@ async def get_assignment_finance(
             for s in data.signals
         ],
         free_room_threshold_pct=data.free_room_threshold_pct,
+        incomplete_by=list(data.incomplete_by),
     )
     # The signed quote is the agreement; a budget changed afterwards differs
     # from it, and nothing else would say so.

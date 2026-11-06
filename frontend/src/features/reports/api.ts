@@ -31,6 +31,8 @@ export interface Turnover {
   expected_cents: number;
   /** The year of the agreed assignments, in the words of the assignment pages. */
   figures: FinanceFigures;
+  /** Organisations whose cost items could not be counted in the figures. */
+  incomplete_by?: string[];
   unpriced_assignments: string[];
 }
 
@@ -144,10 +146,13 @@ export interface CostCoverageItem {
   covered_cents: number | null;
   uncovered_cents: number | null;
   pct_total: string;
+  incomplete_by?: string[];
 }
 
 export interface CostCoverage {
   scope: Scope;
+  /** Organisations whose cost items could not be counted in the totals. */
+  incomplete_by?: string[];
   forecast_cents: number;
   covered_cents: number;
   uncovered_cents: number;
@@ -317,6 +322,8 @@ export interface Totals {
   used_cents?: number;
   available_cents?: number;
   overrun?: boolean;
+  /** Organisations whose cost items could not be counted: these totals are incomplete. */
+  incomplete_by?: string[];
 }
 
 /** Whether the reader got amounts at all. */

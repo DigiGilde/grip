@@ -42,7 +42,14 @@ def test_the_frontend_container_starts_without_a_backend_address() -> None:
 
 
 @pytest.mark.parametrize(
-    "module", ["grip.core.app", "grip.worker", "grip.federation.app", "grip.dev.seed"]
+    "module",
+    [
+        "grip.core.app",
+        "grip.worker",
+        "grip.federation.app",
+        "grip.dev.seed",
+        "grip.dev.datasets.programma",
+    ],
 )
 def test_every_process_of_the_image_can_be_imported_on_its_own(module: str) -> None:
     """Each role of the entrypoint starts in a fresh interpreter. The order of

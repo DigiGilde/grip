@@ -1,22 +1,28 @@
 openapi: 3.1.0
 info:
   title: grip-opdrachtverkeer
-  version: 1.0.0
-  summary: Het verkeer tussen grip-instanties over aanvragen, offertes, akkoord, inzage, vacatures en doorgifte.
+  version: 1.1.0
+  summary: Het verkeer tussen grip-instanties over aanvragen, offertes, akkoord, inzage, vacatures, kostenposten en doorgifte.
   description: |
     Elke grip-instantie biedt deze dienst aan achter de eigen FSC-inway, onder de dienstnaam
     `grip-opdrachtverkeer`. Een instantie kan opdrachtgever en opdrachtnemer zijn. Een opdracht is
     lokaal volledig; dit verkeer is een laag erbovenop.
 
-    **Identiteit.** Opdrachten, offertes en vacatures hebben een URI van de instantie die ze
-    aanmaakt, bijvoorbeeld `{basis}/id/opdracht/{uuid}`. De `{opdrachtId}`, `{offerteId}` en
+    **Identiteit.** Opdrachten, offertes, vacatures en kostenposten hebben een URI van de instantie
+    die ze aanmaakt, bijvoorbeeld `{basis}/id/opdracht/{uuid}`. De `{opdrachtId}`, `{offerteId}` en
     `{vacatureId}` in de paden zijn de `{uuid}` uit die URI. Organisaties worden aangeduid met hun
     TOOI-URI.
 
+    **Eigenaar en verwijzing.** Elk gegeven heeft een eigenaar: de instantie waar het ontstaat,
+    wijzigt en wordt gewist. Een andere instantie bewaart een verwijzing met een eigen URI en haalt
+    de inhoud bij de eigenaar op. Wie een gegeven bij een ander wil laten ontstaan, vraagt de
+    eigenaar erom.
+
     **Aanroeper.** De aanroeper is een FSC-peer. De ontvanger leidt de relatie af uit het peer-id:
-    opdrachtgever of opdrachtnemer van die opdracht, moederinstantie, of corpus. Elke operatie
-    noemt in `x-grip-caller` welke relatie vereist is. Een opdracht waar de aanroeper geen relatie
-    mee heeft geeft 404.
+    opdrachtgever of opdrachtnemer van die opdracht, vrager van die kostenpost, moederinstantie,
+    of corpus. Elke operatie noemt in `x-grip-caller` welke relatie vereist is. Een opdracht waar
+    de aanroeper geen relatie mee heeft geeft 404. Wie de afzender is volgt altijd uit het
+    peer-id, nooit uit een veld in het bericht.
 
     **Gegevensklassen.** Elke operatie noemt in `x-grip-data-class` de klassen die het bericht of
     antwoord bevat: A opdracht-basis, B opdracht-financieel, C bemensing, D persoon-tarief,
@@ -55,6 +61,8 @@ tags:
     description: Afsluiting van een opdracht.
   - name: Vacatures
     description: Open rollen uitzetten bij andere instanties.
+  - name: Kostenposten
+    description: Een uitgave die een andere organisatie doet en die de vrager in de eigen uitputting wil zien.
   - name: Doorgifte
     description: Wat een moederinstantie bij een onderdeel opvraagt.
   - name: Corpus
@@ -345,6 +353,77 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
+  /kostenpostverzoeken:
+    post:
+      operationId: requestCostItem
+      tags: [Kostenposten]
+      summary: Om een kostenpost vragen
+      description: |
+        De vrager vraagt de organisatie die de uitgave doet (de eigenaar) om een kostenpost aan te
+        maken, met omschrijving, verwacht bedrag en eventueel periode en opdracht. De eigenaar maakt de
+        kostenpost aan met de vrager als "gevraagd door" en de `verwijzing_uri`, en boekt het
+        verwachte bedrag als verwachte factuurregel. De vrager bewaart zelf alleen een verwijzing.
+
+        Een volgend verzoek met dezelfde `verwijzing_uri` en een hoger `volgnummer` vraagt om een
+        wijziging van omschrijving en bedrag; de eigenaar voert haar uit. Factuurregels, bijlagen en
+        dekking blijven van de eigenaar. Een verzoek met een volgnummer dat niet hoger is dan het
+        laatst uitgevoerde wordt ontvangen en niet meer uitgevoerd.
+
+        De vrager is de aanroepende peer. De `verwijzing_uri` moet onder de basis-URI van die peer
+        vallen (`{basis}/id/kostenpost/{uuid}`); anders weigert de eigenaar met 403. Een kostenpost
+        kan dus alleen door dezelfde peer worden gewijzigd. Weigert de eigenaar het verzoek, dan
+        antwoordt hij met 403 of 409 en bestaat de kostenpost niet.
+      x-grip-caller: peer
+      x-grip-data-class: [B]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "../../schemas/kostenpostverzoek.schema.json" }
+      responses:
+        "201": { $ref: "#/components/responses/Received" }
+        "200": { $ref: "#/components/responses/Duplicate" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /kostenposten:
+    get:
+      operationId: getCostItems
+      tags: [Kostenposten]
+      summary: Kostenposten bij verwijzingen ophalen
+      description: |
+        De vrager haalt bij de eigenaar omschrijving, verwacht bedrag en factuurregels op van de
+        kostenposten bij zijn verwijzingen, met een verzoek voor alle verwijzingen die hij nodig heeft.
+        Elke gevraagde verwijzing staat een keer in het antwoord. Een verwijzing waarvoor de eigenaar
+        geen kostenpost heeft, of een kostenpost die een andere organisatie vroeg, komt terug met
+        `aangemaakt` op `false`; de eigenaar zegt niet welke van de twee.
+
+        Alleen de organisatie die de kostenpost vroeg, leest haar. De vrager bewaart wat hij ophaalt
+        hooguit kort en rekent er niet mee als de eigenaar niet bereikbaar is.
+      x-grip-caller: requester
+      x-grip-data-class: [B]
+      parameters:
+        - name: verwijzingUri
+          in: query
+          required: true
+          description: URI van een verwijzing bij de vrager. Herhaal de parameter voor meer verwijzingen.
+          style: form
+          explode: true
+          schema:
+            type: array
+            minItems: 1
+            maxItems: 50
+            items: { type: string, format: uri }
+      responses:
+        "200":
+          description: De kostenposten bij de gevraagde verwijzingen.
+          headers:
+            API-Version: { $ref: "#/components/headers/API-Version" }
+          content:
+            application/json:
+              schema: { $ref: "../../schemas/kostenposten.schema.json" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
   /doorgifte/opdrachten:
     get:
       operationId: getHandoverAssignments

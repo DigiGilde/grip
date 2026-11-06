@@ -25,6 +25,15 @@ jobs:
             context: ./frontend
             dockerfile: ./frontend/Dockerfile
             target: production
+          - image: fsc-manager
+            context: ./deploy/zad/fsc/images/manager
+            dockerfile: ./deploy/zad/fsc/images/manager/Dockerfile
+          - image: fsc-controller
+            context: ./deploy/zad/fsc/images/controller
+            dockerfile: ./deploy/zad/fsc/images/controller/Dockerfile
+          - image: fsc-txlog
+            context: ./deploy/zad/fsc/images/txlog
+            dockerfile: ./deploy/zad/fsc/images/txlog/Dockerfile
 
     steps:
       - uses: actions/checkout@v7

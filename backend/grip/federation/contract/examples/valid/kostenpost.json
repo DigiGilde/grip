@@ -1,0 +1,31 @@
+{
+  "verwijzing_uri": "https://grip.opdrachtgever.example/id/kostenpost/5d6e7f80-0000-4000-8000-0000000000a1",
+  "aangemaakt": true,
+  "uri": "https://grip.opdrachtnemer.example/id/kostenpost/7a1b2c3d-0000-4000-8000-0000000000b1",
+  "omschrijving": "Zaal en catering voor de bijeenkomst in maart",
+  "begroot": {
+    "bedrag_centen": 450000,
+    "valuta": "EUR"
+  },
+  "regels": [
+    {
+      "kenmerk": "ZAAL-2026-031",
+      "omschrijving": "Zaalhuur",
+      "soort": "ontvangen",
+      "bedrag": {
+        "bedrag_centen": 285000,
+        "valuta": "EUR"
+      },
+      "periode": "2026-03-01"
+    },
+    {
+      "omschrijving": "Catering",
+      "soort": "verwacht",
+      "bedrag": {
+        "bedrag_centen": 150000,
+        "valuta": "EUR"
+      },
+      "periode": "2026-03-01"
+    }
+  ]
+}

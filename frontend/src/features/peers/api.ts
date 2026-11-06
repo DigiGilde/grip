@@ -16,6 +16,8 @@ export interface Peer {
   /** FSC service name to the grant hash of the contract with this peer. */
   grant_hashes: Record<string, string>;
   financial_inspection: boolean;
+  /** The peer is an example instance; only an example instance talks to it. */
+  is_example: boolean;
   is_active: boolean;
   key_count: number;
   jwks_fetched_at: string | null;
@@ -35,6 +37,7 @@ export interface PeerInput {
   role: PeerRole;
   grant_hashes: Record<string, string>;
   financial_inspection: boolean;
+  is_example: boolean;
   is_active: boolean;
 }
 

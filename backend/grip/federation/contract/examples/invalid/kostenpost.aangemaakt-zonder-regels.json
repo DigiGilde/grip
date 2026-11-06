@@ -1,0 +1,10 @@
+{
+  "verwijzing_uri": "https://grip.opdrachtgever.example/id/kostenpost/5d6e7f80-0000-4000-8000-0000000000a1",
+  "aangemaakt": true,
+  "uri": "https://grip.opdrachtnemer.example/id/kostenpost/7a1b2c3d-0000-4000-8000-0000000000b1",
+  "omschrijving": "Zaal en catering voor de bijeenkomst in maart",
+  "begroot": {
+    "bedrag_centen": 450000,
+    "valuta": "EUR"
+  }
+}

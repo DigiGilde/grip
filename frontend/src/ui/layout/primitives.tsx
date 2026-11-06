@@ -388,6 +388,8 @@ interface KeyFiguresProps {
   /** Accessible name of the group. */
   label: string;
   figures: readonly KeyFigure[];
+  /** One quiet line under all figures: what they have in common, e.g. that they are incomplete. */
+  note?: ReactNode;
 }
 
 /**
@@ -395,19 +397,22 @@ interface KeyFiguresProps {
  * each value, no box, wrapping to as many columns as fit. For the head of a
  * page; a table is for rows of the same kind.
  */
-export function KeyFigures({ label, figures }: KeyFiguresProps) {
+export function KeyFigures({ label, figures, note }: KeyFiguresProps) {
   return (
-    <dl className="key-figures" aria-label={label}>
-      {figures.map((figure) => (
-        <div key={figure.label} className="key-figure">
-          <dt>{figure.label}</dt>
-          <dd className={figure.critical ? 'key-figure-value critical' : 'key-figure-value'}>
-            {figure.value}
-          </dd>
-          {figure.detail ? <dd className="key-figure-detail">{figure.detail}</dd> : null}
-        </div>
-      ))}
-    </dl>
+    <>
+      <dl className="key-figures" aria-label={label}>
+        {figures.map((figure) => (
+          <div key={figure.label} className="key-figure">
+            <dt>{figure.label}</dt>
+            <dd className={figure.critical ? 'key-figure-value critical' : 'key-figure-value'}>
+              {figure.value}
+            </dd>
+            {figure.detail ? <dd className="key-figure-detail">{figure.detail}</dd> : null}
+          </div>
+        ))}
+      </dl>
+      {note ? <p className="key-figure-detail key-figures-note">{note}</p> : null}
+    </>
   );
 }
 

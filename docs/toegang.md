@@ -105,8 +105,20 @@ Een andere instantie is geen gebruiker. FSC bepaalt per contract welke dienst ee
 
 - Een tegenpartij leest klasse A van opdrachten waarvan zij opdrachtgever is. Klasse B levert de opdrachtnemer alleen als de tegenpartij erom vraagt. Klassen C t/m F gaan nooit naar een tegenpartij.
 - De moederinstantie leest A, B en C van de opdrachten van het onderdeel. Klassen D t/m F blijven binnen de instantie.
+- Een tegenpartij vraagt om een kostenpost (ADR 0052). Een nieuw verzoek mag van elke tegenpartij komen, een wijziging alleen van de tegenpartij die om de kostenpost vroeg. De URI van de verwijzing moet onder de basis-URI van de aanroeper vallen. Alleen die tegenpartij leest de kostenpost, en alleen klasse B; voor elke andere aanroeper is de kostenpost "niet aangemaakt", zodat zij niet leert wat anderen vroegen.
+
+Wie de afzender is volgt altijd uit het peer-id, nooit uit een veld in het bericht. Een organisatie die het bericht noemt is informatief; noemt ze een andere instantie dan de aanroeper, dan weigert de route het bericht.
 
 Inkomende routes voor peers vertrouwen alleen verzoeken die via de inway binnenkomen.
+
+### Voorbeelden en echt werk
+
+Voorbeeldinstanties federeren alleen met elkaar, in een eigen FSC-groep (ADR 0054). De server dwingt dat af, in beide richtingen en met twee controles die niet van elkaar afhangen:
+
+- **Het peerregister.** Elke peer is wel of niet als voorbeeld gemarkeerd (Beheer > Koppelingen). Een voorbeeldinstantie verstuurt alleen naar peers met die markering en neemt alleen van hen iets aan; een instantie voor echt werk nooit. De outwayclient controleert elke uitgaande aanroep (de outbox, opvragen zoals `getCostItems`, de sleutels van een peer, de verbindingstest), de peer-afhankelijkheid van de listener elke inkomende. Een peer aan de andere kant krijgt hetzelfde antwoord als een onbekende, en voor het domein bestaat hij niet: hij is geen uitvoerder, geen opdrachtnemer en geen ontvanger van een vacature.
+- **De groep.** Een voorbeeldinstantie neemt een aanroep alleen aan als het toegangstoken dat de inway doorgeeft (`Fsc-Authorization`) is uitgegeven in haar eigen groep (`EXAMPLE_FSC_GROUP`, de claim `gid`). Een verkeerde regel in het register is dan niet genoeg om verkeer uit een andere groep binnen te laten.
+
+Een instantie voor echt werk kent geen voorbeeldgroep. Haar tweede lijn is FSC zelf: haar inway vertrouwt alleen certificaten van haar eigen groep, en de test-CA van de voorbeelden geeft die niet uit. De instellingen staan het niet anders toe: `EXAMPLE_FSC_GROUP` buiten een voorbeeldinstantie is een startfout, en federatie in een voorbeeldinstantie zonder die groep ook.
 
 ## Afdwingen
 
@@ -158,7 +170,7 @@ De servers moeten draaien. Geef een eigen hostnaam mee (`--base http://toegang.l
 
 **Bemensing naar de moeder (klasse C).** De moederinstantie krijgt standaard aantallen: hoeveel mensen ingezet, beschikbaar en gezocht, per rol en per periode. Namen gaan alleen mee als de beheerder van de dochterinstantie dat aanzet.
 
-**Kostenposten (klasse B).** Een kostenpost hoort niet bij een opdracht. De beheerder mag kostenposten aanmaken en wijzigen. Daarnaast wijzigt een kostenpost wie een opdracht beheert waarvan de begroting hem dekt; zolang nog niets hem dekt, is dat wie hem heeft aangemaakt. Een kostenpost die nog door niets wordt gedekt, zoekt een begroting: wie een opdracht beheert mag hem lezen en een eigen begrotingsregel laten dekken, en wijzigt verder niets. Zonder die regel kon een kostenpost van de beheerder door niemand worden gedekt: de beheerder wijzigt geen begroting, en geen manager wist dat de post bestond.
+**Kostenposten (klasse B).** Een kostenpost hoort niet bij een opdracht. De beheerder mag kostenposten aanmaken en wijzigen. Daarnaast wijzigt een kostenpost wie een opdracht beheert waarvan de begroting hem dekt; zolang nog niets hem dekt, is dat wie hem heeft aangemaakt. Een kostenpost die nog door niets wordt gedekt, zoekt een begroting: wie een opdracht beheert mag hem lezen en een eigen begrotingsregel laten dekken, en wijzigt verder niets. Zonder die regel kon een kostenpost van de beheerder door niemand worden gedekt: de beheerder wijzigt geen begroting, en geen manager wist dat de post bestond. Uitvoerder, de stand van een verwijzing, de factuurregels die bij de uitvoerder zijn opgehaald en "Gevraagd door" zijn ook klasse B: wie de kostenpost mag lezen, ziet ze (ADR 0052). Een uitvoerder kiezen kan wie een kostenpost mag aanmaken.
 
 **Eigenaar en managers van een opdracht.** Wie eigenaar of manager is, wijzigt de eigenaar of een manager van die opdracht, en de beheerder op elke opdracht, want een eigenaar kan vertrokken zijn. Het is een eigen handeling: ze geeft de beheerder geen recht om de opdracht zelf te wijzigen. Een beheerder die zichzelf manager maakt, heeft daarna de rechten van een manager, en het auditlog vermeldt dat hij zichzelf heeft aangewezen. Een opdracht houdt altijd een eigenaar.
 

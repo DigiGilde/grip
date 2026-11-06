@@ -148,6 +148,52 @@ describe('FinanceTab', () => {
     expect(allText(container)).not.toContain('Voorbeeld Een');
   });
 
+  it('marks a line and the total as incomplete when a cost item cannot be read', async () => {
+    const base = finance();
+    const line = base.lines[0]!;
+    const cost = line.costs[0]!;
+    const { container } = renderTab(
+      finance({
+        incomplete_by: ['Voorbeeldgilde', 'Voorbeeldwerkplaats'],
+        lines: [
+          {
+            ...line,
+            incomplete_by: ['Voorbeeldgilde'],
+            costs: [
+              {
+                ...cost,
+                realised_cents: 0,
+                forecast_cents: 0,
+                total_cents: 0,
+                executor_name: 'Voorbeeldgilde',
+                reference_state: 'unreachable',
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    await waitFor(() =>
+      expect(container.querySelector('nldd-table[accessible-label^="Stand per"]')).not.toBeNull(),
+    );
+    const table = container.querySelector(
+      'nldd-table[accessible-label^="Stand per"]',
+    ) as HTMLElement;
+    const notes = [...table.querySelectorAll('nldd-text-cell')].map((cell) =>
+      cell.getAttribute('supporting-text'),
+    );
+    expect(notes).toContain('Categorie D. Onvolledig: niet alles is op te halen bij Voorbeeldgilde');
+    expect(notes).toContain(
+      'Onvolledig: niet alles is op te halen bij Voorbeeldgilde en Voorbeeldwerkplaats',
+    );
+    const detail = container.querySelector('nldd-list[type="tree"]') as HTMLElement;
+    const costRow = [...detail.querySelectorAll('nldd-list-item[slot="children"]')].find((row) =>
+      allText(row as HTMLElement).includes('Hostingcontract'),
+    ) as HTMLElement;
+    expect(allText(costRow)).toContain('Niet op te halen bij Voorbeeldgilde');
+    expect(allText(costRow)).not.toContain('€');
+  });
+
   it('shows the months with closed ones marked, and the chart with its table', async () => {
     const { container } = renderTab();
     await waitFor(() =>

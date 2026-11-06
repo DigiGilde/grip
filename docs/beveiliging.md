@@ -108,13 +108,14 @@ De backend stuurt op elk antwoord `default-src 'none'; frame-ancestors 'none'; b
 | De sessiecookie heeft geen `__Host-`-voorvoegsel. | Op een domein dat met andere projecten wordt gedeeld zou een buurproject een cookie met dezelfde naam kunnen zetten. De cookie is ondertekend, dus een vreemde waarde is ongeldig; het ergste is dat iemand wordt uitgelogd. | laag |
 | Uitloggen is een gewoon adres (`GET`). | Een andere site kan iemand laten uitloggen. Hinderlijk, niet schadelijk. | laag |
 | De code waarmee de provider terugkomt staat in het toegangslog. | Die code is eenmalig en binnen seconden verbruikt. Wie het log mag lezen, kan er niets meer mee. | laag |
+| Een bezoeker van een voorbeeldinstantie kijkt mee als beheerder en kan daarmee de koppelingen wijzigen. Het peerregister blijft bij de nachtelijke reset staan. | Een bezoeker kan een koppeling uitschakelen of verkeerd markeren; het verkeer tussen de voorbeelden stopt dan tot iemand het herstelt. Een koppeling met echt werk is zo niet te maken: de grens geldt aan beide kanten en de FSC-groep is een andere. | laag |
 | De ketting van gebeurtenissen bewijst volgorde en ongewijzigdheid tegenover wie de keten niet beheert. | Wie de database beheert, kan de hele keten opnieuw schrijven. Zie [gebeurtenissen.md](gebeurtenissen.md) en [bewijs.md](bewijs.md) voor wat dat wel en niet aantoont. | bekend |
 
 ## Wat niet is bekeken
 
 - De echte inlogronde bij SSO Rijk. De ronde is tegen een lokale Keycloak en met nagebootste antwoorden getest; het echte gedrag (welke gegevens, hoe vers) blijkt bij de eerste login.
 - Het platform zelf: de ingress, TLS, het netwerk tussen de onderdelen, de opslag van geheimen, de back-ups.
-- De federatie tussen organisaties met een echte tegenpartij. In een voorbeeldinstantie staat die uit en weigert grip te starten als ze aan staat.
+- De federatie tussen organisaties met een echte tegenpartij. Een voorbeeldinstantie federeert alleen met andere voorbeeldinstanties, in een eigen FSC-groep (ADR 0054); daarbuiten weigert grip te starten als federatie aan staat. De grens tussen voorbeelden en echt werk staat in [toegang.md](toegang.md#voorbeelden-en-echt-werk).
 - De pdf in elke browser. Het beleid op pagina's is gemeten in Chrome.
 - Mail met een echte mailserver. Een voorbeeldinstantie verstuurt niets; de opbouw van een bericht is in de code gelezen.
 - Verschillen in antwoordtijd tussen "bestaat niet" en "geen toegang". De antwoorden zelf zijn gelijk; de tijd is niet gemeten.

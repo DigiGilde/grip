@@ -14,12 +14,14 @@ import {
   ATTACHMENT_ACCEPT,
   ATTACHMENT_HELP,
   COVERAGE_OPTIONS_KEY,
+  EXECUTOR_OPTIONS_KEY,
   KIND_CHOICES,
   addInvoiceLine,
   attachmentUrl,
   createCostItem,
   fetchCostItem,
   fetchCoverageOptions,
+  fetchExecutorOptions,
   formatBytes,
   removeAttachment,
   setCoverage,
@@ -104,26 +106,60 @@ interface ItemSheetProps {
   onCreated?: (item: CostItem) => void;
 }
 
+interface ItemFields {
+  description: string;
+  budgeted: string;
+  /** Organisation id of the executor; empty when this organisation makes it. */
+  executor: string;
+  /** A day in the month of the expense, asked of the executor. */
+  period: string;
+}
+
+const itemFields = (item: CostItem | null): ItemFields => ({
+  description: item?.description ?? '',
+  budgeted: item ? centsToEuroInput(item.budgeted_cents) : '',
+  executor: item?.executor_organisation_id ?? '',
+  period: '',
+});
+
+/** "2026-03-17" as the month it is in: "2026-03-01". */
+const firstOfMonth = (day: string) => `${day.slice(0, 7)}-01`;
+
+const OWN_ORGANISATION = 'Eigen organisatie';
+
 export function ItemSheet({ target, onClose, onCreated }: ItemSheetProps) {
   const refresh = useRefreshCosts();
-  const sheet = useSheetForm(target, ({ item }) => ({
-    description: item?.description ?? '',
-    budgeted: item ? centsToEuroInput(item.budgeted_cents) : '',
-  }));
+  const sheet = useSheetForm(target, ({ item }) => itemFields(item));
   const item = sheet.shown?.item ?? null;
-  const form = sheet.form ?? { description: '', budgeted: '' };
+  const form = sheet.form ?? itemFields(null);
+  // A change to a reference is a request; its executor applies it.
+  const reference = item !== null && item.reference_state !== null;
+  // Another organisation can take on a new item, or an own one without
+  // invoices; not one that was asked for here by another organisation.
+  const mayGetExecutor =
+    item === null ||
+    (!reference && item.invoice_lines.length === 0 && item.requested_by_name === null);
+  const executors = useQuery({
+    queryKey: EXECUTOR_OPTIONS_KEY,
+    queryFn: fetchExecutorOptions,
+    enabled: target !== null && mayGetExecutor,
+    retry: false,
+  });
+  const executorOptions = (executors.data?.items ?? []).map((option) => ({
+    value: option.organisation_id,
+    label: option.name,
+  }));
+  const offersExecutor = mayGetExecutor && executorOptions.length > 0;
+  const executorName = (id: string) =>
+    executorOptions.find((option) => option.value === id)?.label ?? OWN_ORGANISATION;
 
-  const describeItem = (values: { description: string; budgeted: string }) => [
+  const describeItem = (values: ItemFields) => [
     { label: 'Omschrijving', value: values.description },
     { label: 'Begroot', value: values.budgeted },
+    ...(offersExecutor ? [{ label: 'Uitgevoerd door', value: executorName(values.executor) }] : []),
   ];
   const theirItem = sheet.theirs?.record ?? null;
-  const theirForm = theirItem
-    ? {
-        description: theirItem.description,
-        budgeted: centsToEuroInput(theirItem.budgeted_cents),
-      }
-    : null;
+  const theirForm = theirItem ? itemFields(theirItem) : null;
 
   async function submit(onTopOf: number | undefined = sheet.base ?? item?.version) {
     // The budget of a new cost item may follow later; an empty field is zero.
@@ -138,10 +174,19 @@ export function ItemSheet({ target, onClose, onCreated }: ItemSheetProps) {
     }
     sheet.setBusy(true);
     try {
-      const body = { description: form.description.trim(), budgeted_cents: cents };
+      const body = {
+        description: form.description.trim(),
+        budgeted_cents: cents,
+        ...(offersExecutor && form.executor ? { executor_organisation_id: form.executor } : {}),
+      };
       const saved = item
         ? await updateCostItem(item.id, body, onTopOf)
-        : await createCostItem(body);
+        : await createCostItem({
+            ...body,
+            ...(body.executor_organisation_id && form.period
+              ? { period: firstOfMonth(form.period) }
+              : {}),
+          });
       await refresh();
       sheet.clearTheirs();
       onClose();
@@ -158,7 +203,7 @@ export function ItemSheet({ target, onClose, onCreated }: ItemSheetProps) {
     <FormSheet
       open={target !== null}
       title={item ? 'Wijzig gegevens' : 'Nieuwe kostenpost'}
-      submitText={item ? 'Bewaar gegevens' : 'Maak kostenpost'}
+      submitText={reference ? 'Vraag wijziging' : item ? 'Bewaar gegevens' : 'Maak kostenpost'}
       onSubmit={() => void submit()}
       onClose={onClose}
       busy={sheet.busy}
@@ -181,6 +226,7 @@ export function ItemSheet({ target, onClose, onCreated }: ItemSheetProps) {
           busy={sheet.busy}
         />
       ) : null}
+      {reference && <Quiet>{item?.executor_name ?? 'De uitvoerder'} past de wijziging toe</Quiet>}
       <TextField
         label="Omschrijving"
         {...(item ? {} : { supportingLabel: 'Bijvoorbeeld een hostingcontract' })}
@@ -197,6 +243,25 @@ export function ItemSheet({ target, onClose, onCreated }: ItemSheetProps) {
         keyboard="decimal"
         required={Boolean(item)}
       />
+      {offersExecutor && (
+        <SelectField
+          label="Uitgevoerd door"
+          supportingLabel="Een organisatie die de uitgave voor je doet en de facturen ontvangt"
+          value={form.executor}
+          onChange={(executor) => sheet.patch({ executor })}
+          emptyLabel={OWN_ORGANISATION}
+          options={executorOptions}
+        />
+      )}
+      {!item && offersExecutor && form.executor && (
+        <DateField
+          label="Periode"
+          supportingLabel="Een dag in de maand van de uitgave"
+          optional
+          value={form.period}
+          onChange={(period) => sheet.patch({ period })}
+        />
+      )}
     </FormSheet>
   );
 }

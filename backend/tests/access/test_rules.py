@@ -432,6 +432,34 @@ async def test_issue_quote_and_deliver_report(world) -> None:
     )
 
 
+async def test_request_and_read_a_cost_item(world) -> None:
+    # A new request: any counterpart, and only a counterpart.
+    new = Resource.cost_item(None)
+    assert await _allowed_subjects(world, Action.REQUEST_COST_ITEM, new) == {
+        "peer_client",
+        "peer_contractor",
+        "peer_stranger",
+    }
+    # An item asked for here: changed only by the peer that asked for it.
+    asked = Resource.cost_item(world.other_cost_item)
+    assert await _allowed_subjects(world, Action.REQUEST_COST_ITEM, asked) == {
+        "peer_client"
+    }
+    other = Resource.cost_item(world.cost_item)
+    assert await _allowed_subjects(world, Action.REQUEST_COST_ITEM, other) == set()
+    # Read by the peer that asked for it, only class B; and by the parent.
+    peers = [name for name in ALL_SUBJECTS if name.startswith("peer_")]
+    readers = {
+        name
+        for name in peers
+        if await _read(world, name, asked, DataClass.ASSIGNMENT_FINANCIAL)
+    }
+    assert readers == {"peer_client", "peer_parent"}
+    for data_class in (DataClass.ASSIGNMENT_BASIC, DataClass.STAFFING):
+        assert not await _read(world, "peer_client", asked, data_class)
+    assert not await _read(world, "peer_client", other, DataClass.ASSIGNMENT_FINANCIAL)
+
+
 async def test_accept_quote(world) -> None:
     # A quote this instance issued: the client signs, as peer or as guest.
     issued = Resource.quote(world.quote, world.own)

@@ -1,7 +1,7 @@
 /** The words and the order of the cost screens, in one place so both say the same. */
 import { formatEuro, formatMonth, formatPercent } from '@/lib/format';
 import { PATHS } from '@/paths';
-import type { CostItem, InvoiceLine } from './api';
+import type { ChangeState, CostItem, InvoiceLine, ReferenceState } from './api';
 
 /**
  * The fixed money words, as they read for a cost: what an assignment calls
@@ -19,7 +19,7 @@ export const COST_LABELS = {
 } as const;
 
 /** The variance in words, never by colour alone. */
-export function varianceWord(item: Pick<CostItem, 'variance_cents'>): string {
+export function varianceWord(item: { variance_cents: number }): string {
   if (item.variance_cents < 0) return 'Overschrijding';
   if (item.variance_cents > 0) return 'Ruimte';
   return 'Precies begroot';
@@ -62,14 +62,14 @@ export function lineLabel(line: Pick<InvoiceLine, 'reference' | 'description' | 
 }
 
 /** The quiet line under an invoice: its month, and its description when the name is the reference. */
-export function lineDetail(line: InvoiceLine): string {
+export function lineDetail(line: Pick<InvoiceLine, 'period' | 'reference' | 'description'>): string {
   return [line.period ? formatMonth(line.period) : '', line.reference ? line.description : null]
     .filter(Boolean)
     .join(' · ');
 }
 
 /** Invoices in the order of time; one without a period comes last. */
-export function inTimeOrder(lines: readonly InvoiceLine[]): InvoiceLine[] {
+export function inTimeOrder<T extends Pick<InvoiceLine, 'period'>>(lines: readonly T[]): T[] {
   return [...lines].sort((a, b) => {
     if (a.period === b.period) return 0;
     if (a.period === null) return 1;
@@ -92,6 +92,7 @@ export function attachmentCount(count: number): string {
  * pays for, an overrun, and a received invoice without its document.
  */
 export function attentionPoints(item: CostItem): string[] {
+  if (!isCounted(item)) return [];
   const points: string[] = [];
   if (item.uncovered_cents === null) points.push('Dekking boven 100%');
   else if (item.uncovered_cents > 0) points.push(`${formatEuro(item.uncovered_cents)} ongedekt`);
@@ -104,7 +105,7 @@ export function attentionPoints(item: CostItem): string[] {
 
 /** "80% gedekt", or what to say when the shares do not add up. */
 export function coverageText(item: CostItem): string {
-  return item.covered_cents === null
+  return item.uncovered_pct === null
     ? `${formatPercent(item.pct_total)} vastgelegd`
     : `${formatPercent(item.pct_total)} gedekt`;
 }
@@ -139,4 +140,72 @@ export function pctToInput(pct: string | null | undefined): string {
     .replace(/(\.\d*?)0+$/, '$1')
     .replace(/\.$/, '')
     .replace('.', ',');
+}
+
+/** A cost item whose amounts are known: one of this organisation, or a reference read just now. */
+export type CountedItem = CostItem & {
+  budgeted_cents: number;
+  forecast_cents: number;
+  actual_cents: number;
+  estimate_cents: number;
+  variance_cents: number;
+};
+
+export function isCounted(item: CostItem): item is CountedItem {
+  return (
+    item.budgeted_cents !== null &&
+    item.forecast_cents !== null &&
+    item.actual_cents !== null &&
+    item.estimate_cents !== null &&
+    item.variance_cents !== null
+  );
+}
+
+/** "A", "A en B", "A, B en C". */
+function nameList(names: readonly string[]): string {
+  return names.length > 1 ? `${names.slice(0, -1).join(', ')} en ${names.at(-1)}` : (names[0] ?? '');
+}
+
+const executorOrFallback = (name: string | null | undefined) => name || 'de uitvoerder';
+
+/**
+ * Where a cost item another organisation keeps stands, in the same words on
+ * every screen.
+ */
+export function referenceStateText(state: ReferenceState, executor: string | null | undefined): string {
+  const name = executorOrFallback(executor);
+  switch (state) {
+    case 'waiting':
+      return `Wacht op ${name}`;
+    case 'refused':
+      return `Geweigerd door ${name}`;
+    case 'undelivered':
+      return `Niet aangekomen bij ${name}`;
+    case 'unreachable':
+      return `Niet op te halen bij ${name}`;
+    case 'found':
+      return `Uitgevoerd door ${name}`;
+  }
+}
+
+/** What became of a requested change the executor has not applied. */
+export function changeStateText(state: ChangeState, executor: string | null | undefined): string {
+  const name = executorOrFallback(executor);
+  switch (state) {
+    case 'waiting':
+      return `Wijziging gevraagd, wacht op ${name}`;
+    case 'refused':
+      return `Wijziging geweigerd door ${name}`;
+    case 'undelivered':
+      return `Wijziging niet aangekomen bij ${name}`;
+  }
+}
+
+export function requestedByText(name: string): string {
+  return `Gevraagd door ${name}`;
+}
+
+/** A total that misses cost items that could not be read at another organisation. */
+export function incompleteText(names: readonly string[]): string {
+  return `Onvolledig: niet alles is op te halen bij ${nameList(names)}`;
 }

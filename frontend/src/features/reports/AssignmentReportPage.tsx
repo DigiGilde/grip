@@ -11,6 +11,7 @@ import { RouterLinks } from '@/layout/RouterLinks';
 import { useInstance } from '@/layout/useInstance';
 import { formatDate, formatEuro, formatFte, formatPercent, formatPeriod } from '@/lib/format';
 import { PATHS } from '@/paths';
+import { incompleteText } from '@/features/costs/costText';
 import {
   assignmentReportDocumentUrl,
   fetchAssignmentReport,
@@ -18,6 +19,7 @@ import {
   reportKeys,
   type AssignmentReport,
   type Audience,
+  type Totals,
 } from './api';
 import { ACCEPTANCE_FORM_LABELS, KIND_LABELS } from './labels';
 import {
@@ -231,6 +233,12 @@ function DeliveredBlock({ report }: { report: AssignmentReport }) {
   );
 }
 
+/** The note on the row of a total that misses what another organisation keeps. */
+function incompleteNote(totals: Totals | null | undefined) {
+  const names = totals?.incomplete_by ?? [];
+  return names.length > 0 ? { 'supporting-text': incompleteText(names) } : {};
+}
+
 function CostBlock({ report }: { report: AssignmentReport }) {
   const periods = (report.periods ?? []).filter((period) => hasAmounts(period.totals));
   const lines = (report.lines ?? []).filter((line) => hasAmounts(line.totals));
@@ -256,13 +264,13 @@ function CostBlock({ report }: { report: AssignmentReport }) {
           </nldd-table-row>
           {periods.map((period) => (
             <nldd-table-row key={period.year}>
-              <nldd-text-cell text={String(period.year)} />
+              <nldd-text-cell text={String(period.year)} {...incompleteNote(period.totals)} />
               <TotalsCells totals={period.totals} error={period.pricing_error} />
             </nldd-table-row>
           ))}
           {hasAmounts(report.totals) && (
             <nldd-table-row>
-              <nldd-text-cell text="**Hele looptijd**" />
+              <nldd-text-cell text="**Hele looptijd**" {...incompleteNote(report.totals)} />
               <TotalsCells totals={report.totals} bold />
             </nldd-table-row>
           )}
@@ -279,7 +287,7 @@ function CostBlock({ report }: { report: AssignmentReport }) {
           </nldd-table-row>
           {lines.map((line) => (
             <nldd-table-row key={line.budget_line_id}>
-              <nldd-text-cell text={line.description} />
+              <nldd-text-cell text={line.description} {...incompleteNote(line.totals)} />
               <TotalsCells totals={line.totals} error={line.pricing_error} />
             </nldd-table-row>
           ))}

@@ -21,7 +21,6 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip.federation.models import (
@@ -32,7 +31,7 @@ from grip.federation.models import (
     Peer,
 )
 from grip.federation.outbox import enqueue
-from grip.federation.peers import find_peer_for_organisation
+from grip.federation.peers import find_peer_for_organisation, usable_peers
 from grip.federation.registry import get_message_builder
 from grip.services.errors import DomainValidationError
 from grip.services.quote_channels import NOT_CONNECTED
@@ -134,8 +133,7 @@ async def on_vacancy_published(
         peers = list(
             (
                 await db.execute(
-                    select(Peer).where(
-                        Peer.is_active.is_(True),
+                    usable_peers().where(
                         Peer.role.in_(
                             [PEER_ROLE_COUNTERPART, PEER_ROLE_PARENT, PEER_ROLE_CHILD]
                         ),

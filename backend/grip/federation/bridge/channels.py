@@ -19,9 +19,16 @@ from grip.federation.contract_loader import SERVICE_OPDRACHTVERKEER
 from grip.federation.models import (
     OUTBOX_PENDING,
     OUTBOX_SENT,
+    PEER_ROLE_COUNTERPART,
     FederationOutbox,
+    Peer,
 )
-from grip.federation.peers import find_peer_for_organisation
+from grip.federation.peers import (
+    find_peer_for_organisation,
+    normalize_uri,
+    usable_peers,
+)
+from grip.models.organisation import Organisation
 from grip.services.quote_channels import NOT_CONNECTED
 
 NO_OWN_IDENTITY = (
@@ -79,3 +86,33 @@ async def delivery_state(db: AsyncSession, quote_id: UUID) -> str | None:
     if row.status == OUTBOX_SENT:
         return "sent"
     return "refused"
+
+
+async def possible_executors(db: AsyncSession) -> set[UUID]:
+    """The organisations a cost item can be asked of (ADR 0052).
+
+    Those whose instance is an active counterparty with a grant for the
+    service the request travels over.
+    """
+    if not get_settings().INSTANCE_TOOI_URI:
+        return set()
+    peers = (
+        await db.execute(usable_peers().where(Peer.role == PEER_ROLE_COUNTERPART))
+    ).scalars()
+    bases = {
+        normalize_uri(peer.base_uri)
+        for peer in peers
+        if (peer.grant_hashes or {}).get(SERVICE_OPDRACHTVERKEER)
+    }
+    if not bases:
+        return set()
+    rows = await db.execute(
+        select(Organisation.id, Organisation.instance_uri).where(
+            Organisation.instance_uri.is_not(None)
+        )
+    )
+    return {
+        organisation_id
+        for organisation_id, instance_uri in rows
+        if normalize_uri(instance_uri) in bases
+    }

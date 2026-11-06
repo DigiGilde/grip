@@ -69,6 +69,7 @@ from grip.schema.reports import (
     YearAmountOut,
 )
 from grip.services import assignment_views as views
+from grip.services.pricing import incomplete_names
 from grip.services.reports import assignment_report as assignment_reports
 from grip.services.reports import investment, steering, year_account
 from grip.services.reports.document import render_report_html
@@ -119,6 +120,7 @@ def _totals(totals: views.Totals | None) -> TotalsOut | None:
         used_cents=totals.used_cents,
         available_cents=totals.available_cents,
         overrun=totals.overrun,
+        incomplete_by=list(totals.incomplete_by),
     )
 
 
@@ -336,7 +338,8 @@ async def _turnover_block(
         return None
     name, ids = scope
     data = await steering.turnover(db, year, assignment_ids=ids)
-    figures = figures_out(await steering.agreed_figures(db, year, assignment_ids=ids))
+    agreed, incomplete = await steering.agreed_figures(db, year, assignment_ids=ids)
+    figures = figures_out(agreed)
     assert figures is not None
     return build_response(
         TurnoverOut(
@@ -357,6 +360,7 @@ async def _turnover_block(
             pipeline_cents=data.pipeline_cents,
             expected_cents=data.realised_cents + data.forecast_cents,
             figures=figures,
+            incomplete_by=list(incomplete),
             unpriced_assignments=list(data.unpriced),
         ),
         {B},
@@ -581,14 +585,16 @@ async def _costs_block(
             forecast_cents=sum(i.forecast_cents for i in items),
             covered_cents=sum(i.covered_cents or 0 for i in items),
             uncovered_cents=sum(i.uncovered_cents or 0 for i in items),
+            incomplete_by=list(incomplete_names(items)),
             items=[
                 CostCoverageItemOut(
                     cost_item_id=i.item.id,
-                    description=i.item.description,
+                    description=i.description,
                     forecast_cents=i.forecast_cents,
                     covered_cents=i.covered_cents,
                     uncovered_cents=i.uncovered_cents,
                     pct_total=i.pct_total,
+                    incomplete_by=list(i.incomplete_by),
                 )
                 for i in items
             ],

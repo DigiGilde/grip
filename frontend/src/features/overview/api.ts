@@ -106,6 +106,8 @@ export interface Totals {
   used_cents?: number;
   available_cents?: number;
   overrun?: boolean;
+  /** Organisations whose cost items could not be counted: these totals are incomplete. */
+  incomplete_by?: string[];
 }
 
 export function hasAmounts(totals: Totals | null | undefined): totals is Required<Totals> {

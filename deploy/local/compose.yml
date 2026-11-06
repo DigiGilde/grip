@@ -18,6 +18,7 @@ x-instance-a-env: &instance-a-env
   DATABASE_URL: postgresql+asyncpg://grip:grip@db-a:5432/grip
   INSTANCE_NAME: DigiGilde voorbeeld
   INSTANCE_KEY: digigilde-voorbeeld
+  INSTANCE_TOOI_URI: https://identifier.overheid.nl/tooi/id/oorg/oorg99002
   INSTANCE_BASE_URI: http://localhost:9001
   FRONTEND_URL: http://localhost:9001
   BACKEND_URL: http://localhost:9001
@@ -40,6 +41,7 @@ x-instance-b-env: &instance-b-env
   DATABASE_URL: postgresql+asyncpg://grip:grip@db-b:5432/grip
   INSTANCE_NAME: Voorbeeldministerie
   INSTANCE_KEY: voorbeeldministerie
+  INSTANCE_TOOI_URI: https://identifier.overheid.nl/tooi/id/ministerie/mnre9001
   INSTANCE_BASE_URI: http://localhost:9002
   FRONTEND_URL: http://localhost:9002
   BACKEND_URL: http://localhost:9002
@@ -52,6 +54,27 @@ x-instance-b-env: &instance-b-env
   OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
   OIDC_DISCOVERY_URL: ${OIDC_DISCOVERY_URL:-}
   SSL_CERT_FILE: /tls/ca-bundle.crt
+
+x-instance-d-env: &instance-d-env
+  DATABASE_URL: postgresql+asyncpg://grip:grip@db-d:5432/grip
+  INSTANCE_NAME: Voorbeeldprogramma
+  INSTANCE_KEY: programma
+  INSTANCE_TOOI_URI: https://identifier.overheid.nl/tooi/id/ministerie/mnre9001
+  INSTANCE_BASE_URI: http://localhost:9003
+  FRONTEND_URL: http://localhost:9003
+  BACKEND_URL: http://localhost:9003
+  TRUSTED_PROXIES: 172.31.250.0/24
+  SESSION_SECRET_KEY: ${SESSION_SECRET_KEY_D:-lokale-omgeving-geen-geheim-d-7e25}
+  BOOTSTRAP_BEHEERDER_EMAILS: ${BOOTSTRAP_BEHEERDER_EMAILS:-}
+  DEV_NO_AUTH: ${DEV_NO_AUTH:-1}
+  OIDC_ISSUER: ${OIDC_ISSUER:-}
+  OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-grip}
+  OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+  OIDC_DISCOVERY_URL: ${OIDC_DISCOVERY_URL:-}
+  SSL_CERT_FILE: /tls/ca-bundle.crt
+  # The default profile holds the vacancy texts of DigiGilde.
+  VACANCY_TEXT_PROFILE: ""
+  SEED_DATASET: programma
 
 services:
   # --- Instance A: the contractor ------------------------------------------
@@ -134,18 +157,61 @@ services:
         condition: service_started
         restart: true
 
-  # --- Ontwikkelportaal: docs and links to both instances. Only with `--profile two`
+  # --- Instance D: the programme that A works for. Only with `--profile two` -------------------
+  db-d:
+    profiles: ["two"]
+    image: postgres:16
+    environment:
+      POSTGRES_USER: grip
+      POSTGRES_PASSWORD: grip
+      POSTGRES_DB: grip
+    volumes:
+      - db-d:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U grip -d grip"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  backend-d:
+    profiles: ["two"]
+    image: grip-local/backend
+    environment:
+      <<: *instance-d-env
+      GRIP_PROCESS: web
+    volumes:
+      - ./state/tls:/tls:ro
+    depends_on:
+      db-d:
+        condition: service_healthy
+
+  frontend-d:
+    profiles: ["two"]
+    image: grip-local/frontend
+    environment:
+      BACKEND_URL: http://backend-d:8080
+    ports:
+      - "127.0.0.1:9003:8080"
+    depends_on:
+      backend-d:
+        condition: service_started
+        restart: true
+
+  # --- Ontwikkelportaal: docs and links to all instances. Only with `--profile two`
   ontwikkelportaal:
     profiles: ["two"]
     image: grip-local/ontwikkelportaal
     environment:
       ONTWIKKELPORTAAL_INSTANCES: >-
-        [{"naam": "DigiGilde voorbeeld", "rol": "Opdrachtnemer",
+        [{"naam": "Voorbeeldministerie", "rol": "Opdrachtgever",
+          "omschrijving": "Financiert het Voorbeeldprogramma met een jaarbudget en volgt de uitputting.",
+          "url": "http://localhost:9002"},
+         {"naam": "Voorbeeldprogramma", "rol": "Programma",
+          "omschrijving": "Geeft opdrachten aan DigiGilde voorbeeld en boekt kosten die een leverancier voor het programma doet.",
+          "url": "http://localhost:9003"},
+         {"naam": "DigiGilde voorbeeld", "rol": "Opdrachtnemer",
           "omschrijving": "Maakt offertes, voert opdrachten uit, sluit maanden af en factureert.",
-          "url": "http://localhost:9001"},
-         {"naam": "Voorbeeldministerie", "rol": "Opdrachtgever",
-          "omschrijving": "Vraagt werk aan bij DigiGilde voorbeeld, tekent offertes en volgt de uitputting.",
-          "url": "http://localhost:9002"}]
+          "url": "http://localhost:9001"}]
     ports:
       - "127.0.0.1:9000:8080"
 
@@ -181,3 +247,4 @@ networks:
 volumes:
   db-a:
   db-b:
+  db-d:

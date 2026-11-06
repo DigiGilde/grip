@@ -13,6 +13,7 @@ const PEER = {
   role: 'counterpart',
   grant_hashes: { 'grip-opdrachtverkeer': '$1$4$grant' },
   financial_inspection: true,
+  is_example: false,
   is_active: true,
   key_count: 1,
   jwks_fetched_at: '2026-10-08T10:00:00Z',
@@ -59,6 +60,16 @@ describe('PeersPage', () => {
     expect(cells).toContain('Geen grant hash vastgelegd');
     const status = container.querySelector('nldd-table nldd-badge');
     expect(status?.getAttribute('text')).toBe('Uitgeschakeld');
+  });
+
+  it('marks an example instance as a peer nothing is exchanged with', async () => {
+    const container = await renderPeers({
+      items: [{ ...PEER, is_example: true }],
+      services: SERVICES,
+      outway_configured: true,
+    });
+    const status = container.querySelector('nldd-table nldd-badge');
+    expect(status?.getAttribute('text')).toBe('Voorbeeld, geen verkeer');
   });
 
   it('warns when no outway is configured', async () => {

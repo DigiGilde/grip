@@ -461,3 +461,87 @@ def test_an_example_instance_has_no_passkeys() -> None:
             **keys,
         )
     )
+
+
+# -- federating in the group of the examples (ADR 0054) ------------------------
+
+
+def test_an_example_federates_only_in_an_example_group() -> None:
+    s = _example(
+        EXAMPLE_FSC_GROUP="grip-voorbeeld",
+        FEDERATION_INBOUND_ENABLED=True,
+        FEDERATION_OUTBOUND_ENABLED=True,
+    )
+    assert s.federates_as_example
+    # The group opens federation and nothing else.
+    for linked in (
+        {"WIES_BASE_URL": "https://wies.example"},
+        {"GRIP_EXPORT_KEY": "k"},
+        {"EVENTS_FEED_KEY": "k"},
+        {"BOOTSTRAP_BEHEERDER_EMAILS": "iemand@voorbeeld.example"},
+    ):
+        with pytest.raises(ValueError, match="voorbeeldinstantie"):
+            _example(EXAMPLE_FSC_GROUP="grip-voorbeeld", **linked)
+    s = _example(EXAMPLE_FSC_GROUP="grip-voorbeeld", SMTP_HOST="relay.example")
+    assert s.SMTP_HOST == ""
+
+
+def test_real_work_is_never_in_the_group_of_the_examples() -> None:
+    with pytest.raises(ValueError, match="EXAMPLE_FSC_GROUP"):
+        _settings(
+            OIDC_ISSUER="https://idp.example/realms/x",
+            SESSION_SECRET_KEY="s" * 40,
+            PUBLIC_HOST="https://grip.example",
+            EXAMPLE_FSC_GROUP="grip-voorbeeld",
+        )
+
+
+def test_where_the_other_examples_live() -> None:
+    s = _example(
+        EXAMPLE_INSTANCE_URIS="digigilde=https://a.voorbeeld.example/, "
+        "Ministerie = https://b.voorbeeld.example, zonder-adres"
+    )
+    assert s.example_instance_uris == {
+        "digigilde": "https://a.voorbeeld.example",
+        "ministerie": "https://b.voorbeeld.example",
+    }
+
+
+def test_nothing_crosses_while_the_examples_go_back():
+    from datetime import UTC, datetime
+
+    from grip.core import clock
+
+    settings = _example(EXAMPLE_RESET_HOUR="3", INSTANCE_TIMEZONE="Europe/Amsterdam")
+    with clock.at(datetime(2026, 3, 10, 2, 0, tzinfo=UTC)):  # 03:00 local
+        assert example.in_reset_window(settings)
+        assert not example.in_reset_window(_real())
+        assert not example.in_reset_window(_example(EXAMPLE_RESET_HOUR=""))
+    with clock.at(datetime(2026, 3, 10, 2, 9, tzinfo=UTC)):
+        assert example.in_reset_window(settings)
+    with clock.at(datetime(2026, 3, 10, 2, 10, tzinfo=UTC)):
+        assert not example.in_reset_window(settings)
+
+
+async def test_reset_keeps_how_the_example_is_connected(db_session):
+    from grip.federation.models import Peer
+
+    settings = _example()
+    await example.prepare(db_session, settings)
+    db_session.add(
+        Peer(
+            peer_id="01800000000000000004",
+            name="Voorbeeldprogramma",
+            base_uri="https://programma.voorbeeld.example",
+            role="counterpart",
+            grant_hashes={"grip-opdrachtverkeer": "$1$4$grant"},
+            is_example=True,
+        )
+    )
+    await db_session.flush()
+    await example.reset(db_session, settings)
+    peer = await db_session.scalar(
+        select(Peer).where(Peer.peer_id == "01800000000000000004")
+    )
+    assert peer is not None and peer.is_example
+    assert peer.grant_hashes == {"grip-opdrachtverkeer": "$1$4$grant"}

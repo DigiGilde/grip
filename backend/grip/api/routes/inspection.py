@@ -271,6 +271,7 @@ async def request_budget_usage(
                 )
                 for line in answer.get("lines") or []
             ],
+            incomplete_by=[str(name) for name in answer.get("incomplete_by") or []],
         )
     permitted = await access.classes(
         Resource.assignment(assignment.id), schema_classes(type(value))

@@ -57,34 +57,46 @@ export interface Figure {
  * take in without reading a table. A figure that needs attention says so
  * with a mark and a word, not with colour alone.
  */
-export function Figures({ figures, label }: { figures: Figure[]; label: string }) {
+export function Figures({
+  figures,
+  label,
+  note,
+}: {
+  figures: Figure[];
+  label: string;
+  /** One quiet line under all figures, e.g. that they are incomplete. */
+  note?: string;
+}) {
   return (
-    <dl className="grip-figures" aria-label={label}>
-      {figures.map((figure) => (
-        <div
-          key={figure.label}
-          className={[
-            'grip-figure',
-            figure.attention ? 'grip-figure--attention' : '',
-            figure.quiet ? 'grip-figure--quiet' : '',
-          ]
-            .filter(Boolean)
-            .join(' ')}
-        >
-          <dt>{figure.label}</dt>
-          <dd className="grip-figure__value">{figure.value}</dd>
-          {figure.attention && (
-            <dd className="grip-figure__flag">
-              <span className="grip-mark" aria-hidden="true">
-                !
-              </span>
-              {figure.attention}
-            </dd>
-          )}
-          {figure.detail && <dd className="grip-figure__detail">{figure.detail}</dd>}
-        </div>
-      ))}
-    </dl>
+    <>
+      <dl className="grip-figures" aria-label={label}>
+        {figures.map((figure) => (
+          <div
+            key={figure.label}
+            className={[
+              'grip-figure',
+              figure.attention ? 'grip-figure--attention' : '',
+              figure.quiet ? 'grip-figure--quiet' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+          >
+            <dt>{figure.label}</dt>
+            <dd className="grip-figure__value">{figure.value}</dd>
+            {figure.attention && (
+              <dd className="grip-figure__flag">
+                <span className="grip-mark" aria-hidden="true">
+                  !
+                </span>
+                {figure.attention}
+              </dd>
+            )}
+            {figure.detail && <dd className="grip-figure__detail">{figure.detail}</dd>}
+          </div>
+        ))}
+      </dl>
+      {note ? <p className="grip-figure__detail grip-figures__note">{note}</p> : null}
+    </>
   );
 }
 

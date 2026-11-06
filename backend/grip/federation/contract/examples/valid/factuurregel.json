@@ -1,0 +1,10 @@
+{
+  "kenmerk": "ZAAL-2026-031",
+  "omschrijving": "Zaalhuur",
+  "soort": "ontvangen",
+  "bedrag": {
+    "bedrag_centen": 285000,
+    "valuta": "EUR"
+  },
+  "periode": "2026-03-01"
+}

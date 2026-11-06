@@ -34,7 +34,11 @@ from grip.federation.models import (
     FederationOutbox,
     Peer,
 )
-from grip.federation.peers import find_peer_for_organisation, normalize_uri
+from grip.federation.peers import (
+    find_peer_for_organisation,
+    normalize_uri,
+    usable_peers,
+)
 from grip.models.assignment import Assignment
 from grip.models.audit_log import AuditLog
 from grip.models.organisation import Organisation
@@ -448,8 +452,8 @@ async def contractor_peers(db: AsyncSession) -> list[Peer]:
     rows = (
         (
             await db.execute(
-                select(Peer)
-                .where(Peer.is_active.is_(True), Peer.role.in_(_CONTRACTOR_ROLES))
+                usable_peers()
+                .where(Peer.role.in_(_CONTRACTOR_ROLES))
                 .order_by(Peer.name)
             )
         )
@@ -463,9 +467,7 @@ async def corpus_peers(db: AsyncSession) -> list[Peer]:
     rows = (
         (
             await db.execute(
-                select(Peer)
-                .where(Peer.is_active.is_(True), Peer.role == PEER_ROLE_CORPUS)
-                .order_by(Peer.name)
+                usable_peers().where(Peer.role == PEER_ROLE_CORPUS).order_by(Peer.name)
             )
         )
         .scalars()

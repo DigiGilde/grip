@@ -4,8 +4,13 @@ Run from ``backend/``::
 
     uv run python -m grip.dev.seed            # fill an empty database
     uv run python -m grip.dev.seed --reset    # empty the database first
+    uv run python -m grip.dev.seed --dataset programma
 
 or ``just seed`` and ``just seed --reset`` from the repo root.
+
+This module holds the default dataset, ``voorbeeld``. Another dataset is a
+module in ``grip.dev.datasets``, chosen with ``SEED_DATASET`` or
+``--dataset``; an example instance loads the one ``SEED_DATASET`` names.
 
 Everything is invented and meant to look invented: the assignments carry the
 names of the domain description (Opdracht Alfa 2026 and so on), people have
@@ -41,6 +46,8 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import importlib
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -58,7 +65,7 @@ from grip.core.bootstrap import (
 )
 from grip.core.config import Settings, get_settings
 from grip.core.database import Base
-from grip.dev import corpus_standin
+from grip.dev import corpus_standin, datasets
 from grip.federation.contract_loader import SERVICE_CORPUS_CONTEXT
 from grip.federation.models import PEER_ROLE_CORPUS, Peer
 from grip.models.assignment import Assignment
@@ -100,6 +107,7 @@ SCALES: dict[int, str] = {
     17: "E",
 }
 DRAFT_YEAR = 2028
+DEFAULT_DATASET = "voorbeeld"
 
 
 @dataclass(frozen=True)
@@ -200,6 +208,7 @@ class SeedResult:
     lines: dict[str, UUID] = field(default_factory=dict)
     counts: dict[str, int] = field(default_factory=dict)
     relations: dict[str, list[str]] = field(default_factory=dict)
+    examples: tuple[ExamplePerson, ...] = PEOPLE
 
     def relate(self, key: str, what: str) -> None:
         self.relations.setdefault(key, []).append(what)
@@ -225,9 +234,11 @@ async def _assignment_count(db: AsyncSession) -> int:
     return (await db.execute(select(func.count()).select_from(Assignment))).scalar_one()
 
 
-async def reset_database(db: AsyncSession) -> None:
-    """Empty every table except the functions that the migration seeded."""
-    tables = [t.name for t in Base.metadata.sorted_tables if t.name != "role"]
+async def reset_database(db: AsyncSession, *, keep: tuple[str, ...] = ()) -> None:
+    """Empty every table except the functions that the migration seeded and
+    the tables in ``keep``."""
+    kept = {"role", *keep}
+    tables = [t.name for t in Base.metadata.sorted_tables if t.name not in kept]
     quoted = ", ".join(f'"{name}"' for name in tables)
     await db.execute(text(f"TRUNCATE {quoted} RESTART IDENTITY CASCADE"))
 
@@ -249,13 +260,15 @@ async def _rate_card(db: AsyncSession, year: int, actor: Person) -> None:
     await rates.set_rate_card_status(db, year, "active", actor=actor)
 
 
-async def _people(db: AsyncSession, result: SeedResult) -> Person:
+async def _people(
+    db: AsyncSession, result: SeedResult, people: tuple[ExamplePerson, ...] = PEOPLE
+) -> Person:
     """Create the example persons and their functions.
 
     There is no service for either yet, so these rows are written here, with
-    an audit row each.
+    an audit row each. Returns the first beheerder, who grants the rest.
     """
-    for example in PEOPLE:
+    for example in people:
         person = Person(name=example.name, email=example.email)
         db.add(person)
         await db.flush()
@@ -268,8 +281,10 @@ async def _people(db: AsyncSession, result: SeedResult) -> Person:
             new_value={"email": example.email, "source": "seed"},
         )
         result.people[example.key] = person
-    beheerder = result.people["bente.beheer"]
-    for example in PEOPLE:
+    beheerder = result.people[
+        next(example.key for example in people if BEHEERDER in example.functions)
+    ]
+    for example in people:
         person = result.people[example.key]
         if example.manager is not None:
             person.manager_id = result.people[example.manager].id
@@ -444,28 +459,66 @@ async def _accept_by_pdf(
     )
 
 
+Filler = Callable[[AsyncSession, Settings], Awaitable[SeedResult]]
+
+
+def dataset_names() -> tuple[str, ...]:
+    return (DEFAULT_DATASET, *datasets.NAMES)
+
+
+def _filler(name: str) -> Filler:
+    if name == DEFAULT_DATASET:
+        return _seed_voorbeeld
+    if name not in datasets.NAMES:
+        raise SeedRefusedError(
+            f"Er is geen voorbeeldset '{name}'. Kies uit: "
+            + ", ".join(dataset_names())
+            + "."
+        )
+    fill: Filler = importlib.import_module(f"grip.dev.datasets.{name}").fill
+    return fill
+
+
 async def seed(
-    db: AsyncSession, *, settings: Settings | None = None, reset: bool = False
+    db: AsyncSession,
+    *,
+    settings: Settings | None = None,
+    reset: bool = False,
+    dataset: str | None = None,
 ) -> SeedResult:
-    """Fill the database with the example data. The caller commits."""
+    """Fill the database with an example dataset. The caller commits.
+
+    ``dataset`` defaults to ``SEED_DATASET``.
+    """
     settings = settings or get_settings()
     ensure_local_instance(settings)
+    fill = _filler(
+        (dataset or settings.SEED_DATASET).strip().lower() or DEFAULT_DATASET
+    )
+    # The peer registry of an example instance is how it is connected to the
+    # other examples (ADR 0054), not example data: going back to the
+    # starting state keeps it.
+    keep = ("peer",) if settings.is_example else ()
     if await _assignment_count(db):
         if not reset:
             raise SeedRefusedError(
                 "De database bevat al opdrachten. Gebruik --reset om hem eerst "
                 "leeg te maken; daarmee verdwijnen alle gegevens."
             )
-        await reset_database(db)
+        await reset_database(db, keep=keep)
     elif reset:
-        await reset_database(db)
+        await reset_database(db, keep=keep)
 
-    result = SeedResult()
     # The stand-in beheerder of dev mode stays the default person. An example
     # instance has a login and no dev mode, so there the stand-in would only
     # be one more name in the list a visitor chooses from.
     if not settings.is_example:
         await ensure_beheerder(db, DEV_BEHEERDER_EMAIL, DEV_BEHEERDER_NAME)
+    return await fill(db, settings)
+
+
+async def _seed_voorbeeld(db: AsyncSession, settings: Settings) -> SeedResult:
+    result = SeedResult()
     beheerder = await _people(db, result)
 
     for year in RATES:
@@ -1098,6 +1151,7 @@ async def extend(
                 base_uri=corpus.base,
                 role=PEER_ROLE_CORPUS,
                 grant_hashes=grants,
+                is_example=settings.is_example,
             )
             db.add(peer)
             await db.flush()
@@ -1188,7 +1242,7 @@ def describe(result: SeedResult) -> str:
     lines.append(", ".join(f"{k}: {v}" for k, v in sorted(result.counts.items())))
     lines.append("")
     lines.append("Personen (zet het id in de cookie grip_dev_person):")
-    for example in PEOPLE:
+    for example in result.examples:
         person = result.people[example.key]
         parts = [
             f"functie: {', '.join(example.functions)}" if example.functions else ""
@@ -1206,7 +1260,7 @@ def describe(result: SeedResult) -> str:
     return "\n".join(lines)
 
 
-async def _main(reset: bool, extend_only: bool) -> int:
+async def _main(reset: bool, extend_only: bool, dataset: str | None) -> int:
     from grip.core.database import async_session, close_db
 
     try:
@@ -1215,7 +1269,7 @@ async def _main(reset: bool, extend_only: bool) -> int:
                 if extend_only:
                     counts = await extend(db)
                 else:
-                    result = await seed(db, reset=reset)
+                    result = await seed(db, reset=reset, dataset=dataset)
             except SeedRefusedError as exc:
                 print(f"Geweigerd: {exc}")
                 return 1
@@ -1249,10 +1303,15 @@ def main() -> None:
             "context van de opdrachten; herhaalbaar, verwijdert niets anders"
         ),
     )
+    parser.add_argument(
+        "--dataset",
+        choices=dataset_names(),
+        help="welke voorbeeldset (standaard SEED_DATASET)",
+    )
     args = parser.parse_args()
     if args.reset and args.extend:
         parser.error("--reset en --extend gaan niet samen")
-    raise SystemExit(asyncio.run(_main(args.reset, args.extend)))
+    raise SystemExit(asyncio.run(_main(args.reset, args.extend, args.dataset)))
 
 
 if __name__ == "__main__":

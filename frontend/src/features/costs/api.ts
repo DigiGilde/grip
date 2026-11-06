@@ -32,6 +32,24 @@ export interface InvoiceLine {
   attachments: Attachment[];
 }
 
+/** An invoice line of a cost item another organisation keeps, as read there just now. */
+export interface ExecutorLine {
+  reference: string | null;
+  description: string | null;
+  kind: 'actual' | 'estimate';
+  amount_cents: number;
+  period: string | null;
+}
+
+/**
+ * What a cost item another organisation keeps stands for here: not made
+ * there yet, refused, never delivered, read just now, or not to be read now.
+ */
+export type ReferenceState = 'waiting' | 'refused' | 'undelivered' | 'found' | 'unreachable';
+
+/** What became of a request to change a found reference, until it is applied. */
+export type ChangeState = 'waiting' | 'refused' | 'undelivered';
+
 export interface Coverage {
   id?: string;
   version?: number;
@@ -40,7 +58,8 @@ export interface Coverage {
   assignment_id: string;
   assignment_name: string;
   pct: string;
-  amount_cents: number;
+  /** Null while the cost item cannot be counted. */
+  amount_cents: number | null;
   may_edit: boolean;
 }
 
@@ -49,12 +68,14 @@ export interface CostItem {
   /** Counts the changes of the record; sent back with a save. */
   version?: number;
   description: string;
-  budgeted_cents: number;
-  forecast_cents: number;
-  actual_cents: number;
-  estimate_cents: number;
+  /** Null for a reference whose executor could not be read. */
+  budgeted_cents: number | null;
+  /** These amounts are null while the cost item cannot be counted. */
+  forecast_cents: number | null;
+  actual_cents: number | null;
+  estimate_cents: number | null;
   /** Budgeted minus the expected total; negative means over budget. */
-  variance_cents: number;
+  variance_cents: number | null;
   /** Null when the stored percentages add up to more than 100. */
   covered_cents: number | null;
   uncovered_cents: number | null;
@@ -63,7 +84,18 @@ export interface CostItem {
   uncovered_pct: string | null;
   /** Share covered by assignments the asker may not see. */
   hidden_coverage_pct: string;
+  /** Another organisation keeps the cost item; this one is a reference to it. */
+  executor_organisation_id: string | null;
+  executor_name: string | null;
+  /** Null for a cost item of this organisation. */
+  reference_state: ReferenceState | null;
+  change_state: ChangeState | null;
+  /** At the executor: the organisation that asked for this cost item. */
+  requested_by_name: string | null;
+  /** Always empty for a reference. */
   invoice_lines: InvoiceLine[];
+  /** The invoice lines of a found reference, read at the executor. */
+  executor_lines: ExecutorLine[];
   coverages: Coverage[];
   may_edit: boolean;
 }
@@ -87,6 +119,12 @@ export interface BudgetLineOption {
   assignment_name: string;
 }
 
+/** An organisation that can be asked to make a cost item: its grip is connected. */
+export interface ExecutorOption {
+  organisation_id: string;
+  name: string;
+}
+
 /** How many cost items one page of the list shows. */
 export const COST_PAGE_SIZE = 50;
 
@@ -95,6 +133,7 @@ export const costsKey = (year: number | null, page = 1, search = '') =>
 export const costItemKey = (id: string, year: number | null) =>
   ['costs', 'item', id, year] as const;
 export const COVERAGE_OPTIONS_KEY = ['costs', 'coverage-options'] as const;
+export const EXECUTOR_OPTIONS_KEY = ['costs', 'executor-options'] as const;
 
 export function fetchCostItem(id: string, year: number | null): Promise<CostItem> {
   return apiGet<CostItem>(`/api/costs/${id}`, { year });
@@ -113,17 +152,31 @@ export function fetchCoverageOptions(): Promise<{ items: BudgetLineOption[] }> {
   return apiGet<{ items: BudgetLineOption[] }>('/api/costs/coverage-options');
 }
 
-export function createCostItem(body: {
+export function fetchExecutorOptions(): Promise<{ items: ExecutorOption[] }> {
+  return apiGet<{ items: ExecutorOption[] }>('/api/costs/executor-options');
+}
+
+export interface CostItemInput {
   description: string;
   budgeted_cents: number;
-}): Promise<CostItem> {
+  /** Left out keeps the executor; a reference cannot change or lose it. */
+  executor_organisation_id?: string;
+}
+
+/** `period` is the first day of the month of the expense, asked of the executor. */
+export function createCostItem(body: CostItemInput & { period?: string }): Promise<CostItem> {
   return apiPost<CostItem>('/api/costs', body);
+}
+
+/** Only a reference can be deleted; the cost item at the executor stays. */
+export function deleteCostItem(id: string): Promise<void> {
+  return apiDelete(`/api/costs/${id}`);
 }
 
 /** `version` is the version of the cost item the form started from. */
 export function updateCostItem(
   id: string,
-  body: { description: string; budgeted_cents: number },
+  body: CostItemInput,
   version?: number,
 ): Promise<CostItem> {
   return apiPatch<CostItem>(`/api/costs/${id}`, body, ifMatch(id, version));
