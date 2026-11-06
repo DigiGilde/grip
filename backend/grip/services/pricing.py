@@ -15,6 +15,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from decimal import Decimal
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
@@ -33,7 +34,8 @@ from grip.repositories.domain import (
     PersonDetailRepository,
     RateRepository,
 )
-from grip.services import read_cache
+from grip.services import cost_references, read_cache
+from grip.services.cost_references import Reference
 from grip.services.errors import NotFoundError
 from grip.services.quote_content import QuoteLineSource
 
@@ -67,6 +69,9 @@ class CalcInputs:
     coverages: tuple[calc.CostCoverage, ...]
     # Established FTE percentage per (allocation id, month) of closed months.
     actuals: dict[tuple[str, Month], Decimal] = field(default_factory=dict)
+    # Cost items another organisation keeps, by id: what was read there now
+    # (ADR 0052). Their amounts above are what was read, or nothing.
+    references: dict[str, Reference] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -79,6 +84,9 @@ class LineOverview:
     forecast_cents: int
     # Coverage of cost items put on this line.
     coverage_cents: int
+    # The executors of cost items on this line that could not be counted:
+    # the figures of the line are incomplete.
+    incomplete_by: tuple[str, ...] = ()
 
     @property
     def used_cents(self) -> int:
@@ -115,6 +123,10 @@ class AssignmentOverview:
     @property
     def coverage_cents(self) -> int:
         return sum(line.coverage_cents for line in self.lines)
+
+    @property
+    def incomplete_by(self) -> tuple[str, ...]:
+        return incomplete_names(self.lines)
 
     @property
     def used_cents(self) -> int:
@@ -204,7 +216,7 @@ def to_calc_allocation(allocation: Allocation) -> calc.Allocation:
 
 
 def to_calc_cost_item(item: CostItem) -> calc.CostItem:
-    return calc.CostItem(id=str(item.id), budgeted_cents=item.budgeted_cents)
+    return calc.CostItem(id=str(item.id), budgeted_cents=item.budgeted_cents or 0)
 
 
 def to_calc_invoice_line(line: InvoiceLine) -> calc.InvoiceLine:
@@ -215,6 +227,93 @@ def to_calc_invoice_line(line: InvoiceLine) -> calc.InvoiceLine:
         amount_cents=line.amount_cents,
         period=line.period,
     )
+
+
+def _in_year(period: date | None, year: int | None) -> bool:
+    return year is None or (period is not None and period.year == year)
+
+
+def calc_costs(
+    items: Iterable[CostItem],
+    lines: Iterable[InvoiceLine],
+    references: dict[UUID, Reference],
+    *,
+    year: int | None = None,
+) -> tuple[tuple[calc.CostItem, ...], tuple[calc.InvoiceLine, ...]]:
+    """Cost items and invoice lines as the calculation module takes them.
+
+    A reference counts with what its executor has (ADR 0052): the amount
+    and the invoice lines read there, as ordinary ones. One that could not
+    be read counts for nothing. With a year, only the lines of that year.
+    """
+    calc_items: list[calc.CostItem] = []
+    calc_lines = [
+        to_calc_invoice_line(line) for line in lines if _in_year(line.period, year)
+    ]
+    for item in items:
+        reference = references.get(item.id)
+        if reference is None:
+            calc_items.append(to_calc_cost_item(item))
+            continue
+        content = reference.content if reference.counts else None
+        calc_items.append(
+            calc.CostItem(
+                id=str(item.id),
+                budgeted_cents=content.budgeted_cents if content else 0,
+            )
+        )
+        for number, line in enumerate(content.lines if content else ()):
+            if not _in_year(line.period, year):
+                continue
+            calc_lines.append(
+                calc.InvoiceLine(
+                    id=f"{item.id}:{number}",
+                    cost_item_id=str(item.id),
+                    kind=calc.InvoiceLineKind(line.kind),
+                    amount_cents=line.amount_cents,
+                    period=line.period,
+                )
+            )
+    return tuple(calc_items), tuple(calc_lines)
+
+
+def incomplete_names(
+    parts: Iterable[Any],
+) -> tuple[str, ...]:
+    """The executors that make any of ``parts`` incomplete, once each."""
+    return tuple(sorted({name for part in parts for name in part.incomplete_by}))
+
+
+def line_incomplete_by(line_id: str, inputs: CalcInputs) -> tuple[str, ...]:
+    """The executors of cost items on this line that cannot be counted now."""
+    names = {
+        inputs.references[coverage.cost_item_id].executor_name
+        for coverage in inputs.coverages
+        if coverage.budget_line_id == line_id
+        and coverage.cost_item_id in inputs.references
+        and inputs.references[coverage.cost_item_id].unknown
+    }
+    return tuple(sorted(names))
+
+
+async def cost_descriptions(
+    session: AsyncSession, inputs: CalcInputs
+) -> dict[str, str]:
+    """The description of every cost item in ``inputs``, by id.
+
+    For a reference: what its executor has, or else what was asked.
+    """
+    ids = [UUID(item.id) for item in inputs.cost_items]
+    if not ids:
+        return {}
+    rows = await session.execute(
+        select(CostItem.id, CostItem.description).where(CostItem.id.in_(ids))
+    )
+    found = {str(item_id): description or "" for item_id, description in rows}
+    for item_id, reference in inputs.references.items():
+        if reference.content is not None:
+            found[item_id] = reference.content.description
+    return found
 
 
 def to_calc_coverage(coverage: CostCoverage) -> calc.CostCoverage:
@@ -288,6 +387,8 @@ async def load_inputs_for_lines(
     item_ids = {c.cost_item_id for c in coverages}
     cost_items = await costs.items(item_ids)
     invoice_lines = await costs.invoice_lines(item_ids)
+    references = await cost_references.read(session, cost_items)
+    calc_items, calc_lines = calc_costs(cost_items, invoice_lines, references)
     scales = await PersonDetailRepository(session).scales(
         {a.person_id for a in allocations}
     )
@@ -296,10 +397,11 @@ async def load_inputs_for_lines(
         scales=tuple(to_calc_scale(s) for s in scales),
         lines=tuple(to_calc_line(line) for line in lines),
         allocations=tuple(to_calc_allocation(a) for a in allocations),
-        cost_items=tuple(to_calc_cost_item(i) for i in cost_items),
-        invoice_lines=tuple(to_calc_invoice_line(i) for i in invoice_lines),
+        cost_items=calc_items,
+        invoice_lines=calc_lines,
         coverages=tuple(to_calc_coverage(c) for c in coverages),
         actuals=await _load_actuals(session, [a.id for a in allocations]),
+        references={str(i): reference for i, reference in references.items()},
     )
 
 
@@ -349,6 +451,11 @@ def split_by_assignment(inputs: CalcInputs) -> dict[str, CalcInputs]:
             ),
             coverages=tuple(own_coverages),
             actuals=actuals.get(assignment_id, {}),
+            references={
+                i: reference
+                for i, reference in inputs.references.items()
+                if i in item_ids
+            },
         )
     return parts
 
@@ -483,6 +590,7 @@ def _line_overview(
         realised_cents=realised,
         forecast_cents=forecast,
         coverage_cents=coverage,
+        incomplete_by=line_incomplete_by(line.id, inputs),
     )
 
 
@@ -759,9 +867,11 @@ async def cost_item_coverage(
         raise NotFoundError("Kostenpost", cost_item_id)
     invoice_lines = await costs.invoice_lines([cost_item_id])
     coverages = await costs.coverages_of_item(cost_item_id)
+    references = await cost_references.read(session, items)
+    calc_items, calc_lines = calc_costs(items, invoice_lines, references)
     return calc.cost_item_coverage(
-        to_calc_cost_item(items[0]),
-        tuple(to_calc_invoice_line(i) for i in invoice_lines),
+        calc_items[0],
+        calc_lines,
         tuple(to_calc_coverage(c) for c in coverages),
         basis=options.coverage_basis,
     )

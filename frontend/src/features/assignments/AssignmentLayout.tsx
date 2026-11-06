@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { errorMessage } from '@/api/client';
+import { incompleteText } from '@/features/costs/costText';
 import { useCaseCourse } from '@/features/tasks/course';
 import { TakeOverButton } from '@/features/tasks/TakeOver';
 import { useInstance } from '@/layout/useInstance';
@@ -81,7 +82,14 @@ function Figures({ assignment }: { assignment: AssignmentDetail }) {
           },
         ]),
   ];
-  return <KeyFigures label="Kerncijfers over de hele looptijd" figures={figures} />;
+  const missing = query.data?.incomplete_by ?? [];
+  return (
+    <KeyFigures
+      label="Kerncijfers over de hele looptijd"
+      figures={figures}
+      {...(missing.length > 0 ? { note: incompleteText(missing) } : {})}
+    />
+  );
 }
 
 /**

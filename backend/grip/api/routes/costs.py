@@ -7,6 +7,9 @@ assignment; its creator does. The access model decides all of this.
 
 Coverage is a commitment of a budget line, so setting or changing it asks
 for edit rights on the assignment of that line.
+
+A cost item can be kept by another organisation (ADR 0052): then it is a
+reference here, read at that organisation, and a change is a request to it.
 """
 
 from __future__ import annotations
@@ -49,11 +52,19 @@ from grip.schema.costs import (
     CostItemUpdate,
     CoverageOut,
     CoverageUpdate,
+    ExecutorLineOut,
+    ExecutorOptionOut,
     InvoiceLineCreate,
     InvoiceLineOut,
     InvoiceLineUpdate,
 )
-from grip.services import cost_overview, costs, invoice_lines, stored_documents
+from grip.services import (
+    cost_overview,
+    cost_references,
+    costs,
+    invoice_lines,
+    stored_documents,
+)
 from grip.services.cost_overview import CostItemOverview
 
 router = APIRouter(prefix="/costs", tags=["costs"])
@@ -125,25 +136,42 @@ async def _item_out(
                 assignment_id=line.assignment_id,
                 assignment_name=line.assignment_name,
                 pct=line.pct,
-                amount_cents=line.amount_cents,
+                amount_cents=line.amount_cents if overview.counts else None,
                 may_edit=await rights.edit(line.assignment_id),
             )
         )
     item = overview.item
+    reference = overview.reference
+    counted = overview.counts
     value = CostItemOut(
         id=item.id,
         version=item.version,
-        description=item.description,
-        budgeted_cents=item.budgeted_cents,
-        forecast_cents=overview.forecast_cents,
-        actual_cents=overview.actual_cents,
-        estimate_cents=overview.estimate_cents,
-        variance_cents=overview.variance_cents,
-        covered_cents=overview.covered_cents,
-        uncovered_cents=overview.uncovered_cents,
+        description=overview.description,
+        budgeted_cents=overview.budgeted_cents,
+        forecast_cents=overview.forecast_cents if counted else None,
+        actual_cents=overview.actual_cents if counted else None,
+        estimate_cents=overview.estimate_cents if counted else None,
+        variance_cents=overview.variance_cents if counted else None,
+        covered_cents=overview.covered_cents if counted else None,
+        uncovered_cents=overview.uncovered_cents if counted else None,
         pct_total=overview.pct_total,
         uncovered_pct=overview.uncovered_pct,
         hidden_coverage_pct=hidden,
+        executor_organisation_id=item.executor_organisation_id,
+        executor_name=reference.executor_name if reference else None,
+        reference_state=reference.state.value if reference else None,
+        change_state=reference.change if reference else None,
+        requested_by_name=overview.requester_name,
+        executor_lines=[
+            ExecutorLineOut(
+                reference=line.reference,
+                description=line.description,
+                kind=line.kind,
+                amount_cents=line.amount_cents,
+                period=line.period,
+            )
+            for line in overview.fetched_lines
+        ],
         invoice_lines=[
             InvoiceLineOut(
                 id=line.id,
@@ -206,8 +234,8 @@ async def _one(
 async def _require_edit(
     db: AsyncSession, decider: Decider, subject: Subject, cost_item_id: UUID
 ) -> None:
-    overview = await _overview(db, cost_item_id)
-    resource = _resource(overview)
+    item = await costs.get_cost_item(db, cost_item_id)
+    resource = Resource.cost_item(item.id)
     # Someone who may not even see the item learns nothing about it.
     await require(decider, subject, Action.READ, resource, _FIN, hide_existence=True)
     await require(decider, subject, Action.EDIT, resource, _FIN)
@@ -242,7 +270,7 @@ async def list_cost_items(
         item = await _item_out(decider, subject, overview, rights)
         if item is None:
             continue
-        description = overview.item.description
+        description = overview.description
         if words and words not in description.casefold():
             continue
         visible.append((overview.attention_rank, description.casefold(), item))
@@ -284,6 +312,28 @@ async def list_coverage_options(
     return {"items": items}
 
 
+@router.get("/executor-options", response_model=None)
+async def list_executor_options(
+    subject: CurrentSubject,
+    decider: AccessDecider,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """The organisations that can be asked to make a cost item: those whose
+    grip is connected with this one. For whoever may add a cost item."""
+    await require(decider, subject, Action.EDIT, _COLLECTION, _FIN)
+    items = [
+        build_response(
+            ExecutorOptionOut(
+                organisation_id=organisation.id,
+                name=organisation.label or organisation.name,
+            ),
+            {_FIN},
+        )
+        for organisation in await cost_references.possible_executors(db)
+    ]
+    return {"items": items}
+
+
 @router.get("/{cost_item_id}", response_model=None)
 async def get_cost_item(
     cost_item_id: UUID,
@@ -308,6 +358,8 @@ async def create_cost_item(
         db,
         description=body.description,
         budgeted_cents=body.budgeted_cents,
+        executor_organisation_id=body.executor_organisation_id,
+        period=body.period,
         actor=actor,
     )
     return await _one(db, decider, subject, item.id)
@@ -328,9 +380,31 @@ async def update_cost_item(
         cost_item_id,
         description=body.description,
         budgeted_cents=body.budgeted_cents,
+        executor_organisation_id=(
+            body.executor_organisation_id
+            if "executor_organisation_id" in body.model_fields_set
+            else costs.UNCHANGED
+        ),
         actor=actor,
     )
     return await _one(db, decider, subject, cost_item_id)
+
+
+@router.delete(
+    "/{cost_item_id}", response_model=None, status_code=status.HTTP_204_NO_CONTENT
+)
+async def delete_reference(
+    cost_item_id: UUID,
+    actor: CurrentPerson,
+    subject: CurrentSubject,
+    decider: AccessDecider,
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    """Remove a reference to a cost item another organisation keeps, with
+    its coverage here. The cost item there stays."""
+    await _require_edit(db, decider, subject, cost_item_id)
+    await costs.delete_reference(db, cost_item_id, actor=actor)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post(

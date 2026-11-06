@@ -75,6 +75,10 @@ class CostAmountOut(BaseModel):
     realised_cents: Annotated[int, in_class(B)]
     forecast_cents: Annotated[int, in_class(B)]
     total_cents: Annotated[int, in_class(B)]
+    # A cost item another organisation keeps (ADR 0052): that organisation,
+    # and what the item stands for now. The amounts count only when found.
+    executor_name: Annotated[str | None, in_class(B)] = None
+    reference_state: Annotated[str | None, in_class(B)] = None
 
 
 class FinanceLineOut(BaseModel):
@@ -92,6 +96,9 @@ class FinanceLineOut(BaseModel):
     # How many persons are on the line whose amounts this reader may not see.
     persons_hidden: Annotated[int, in_class(B)]
     costs: Annotated[list[CostAmountOut], nested()]
+    # The organisations whose cost items on this line could not be counted:
+    # the figures of the line are incomplete.
+    incomplete_by: Annotated[list[str], in_class(B)] = []
 
 
 class MonthRowOut(BaseModel):
@@ -132,6 +139,9 @@ class AssignmentFinanceOut(BaseModel):
     budgeted_outside_months_cents: Annotated[int, in_class(B)]
     signals: Annotated[list[SignalOut], nested()]
     free_room_threshold_pct: Annotated[Decimal, in_class(B)]
+    # The organisations whose cost items could not be counted: the totals
+    # are incomplete.
+    incomplete_by: Annotated[list[str], in_class(B)] = []
 
 
 class LinePreviewIn(BaseModel):

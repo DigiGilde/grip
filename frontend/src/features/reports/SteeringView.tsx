@@ -2,6 +2,7 @@ import { assignmentPath } from '@/features/assignments/paths';
 import { EmptyNotice } from '@/ui/layout';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { formatDate, formatEuro, formatFte, formatPercent, formatPeriod } from '@/lib/format';
+import { incompleteText } from '@/features/costs/costText';
 import type { Billability, CostCoverage, OpenRoles, Pipeline, Turnover } from './api';
 import { SERIES_COLORS } from './charts/colors';
 import { MonthColumns } from './charts/MonthColumns';
@@ -9,6 +10,10 @@ import { VACANCY_STATUS_LABELS, monthName, scopeNote } from './labels';
 import { Disclosure, Figures, MoneyCell, NumberCell, ReportBlock } from './ui';
 
 const euros = (cents: number) => formatEuro(cents);
+
+/** The one line under figures that miss what another organisation keeps. */
+const incompleteNote = (names: readonly string[] | undefined) =>
+  names && names.length > 0 ? { note: incompleteText(names) } : {};
 
 const count = (number: number, one: string, many: string) =>
   `${number} ${number === 1 ? one : many}`;
@@ -40,6 +45,7 @@ export function TurnoverBlock({
     >
       <Figures
         label="Omzet in het kort"
+        {...incompleteNote(turnover.incomplete_by)}
         figures={[
           {
             label: 'Verwacht totaal',
@@ -255,6 +261,7 @@ export function CostsBlock({
     >
       <Figures
         label="Kosten in het kort"
+        {...incompleteNote(costs.incomplete_by)}
         figures={[
           {
             label: 'Ongedekt',
@@ -282,7 +289,12 @@ export function CostsBlock({
           </nldd-table-row>
           {(costs.items ?? []).map((item) => (
             <nldd-table-row key={item.cost_item_id}>
-              <nldd-text-cell text={item.description} />
+              <nldd-text-cell
+                text={item.description}
+                {...((item.incomplete_by ?? []).length > 0
+                  ? { 'supporting-text': incompleteText(item.incomplete_by ?? []) }
+                  : {})}
+              />
               <MoneyCell cents={item.forecast_cents} />
               <MoneyCell
                 cents={item.covered_cents}
@@ -295,7 +307,12 @@ export function CostsBlock({
             </nldd-table-row>
           ))}
           <nldd-table-row>
-            <nldd-text-cell text="**Totaal**" />
+            <nldd-text-cell
+              text="**Totaal**"
+              {...((costs.incomplete_by ?? []).length > 0
+                ? { 'supporting-text': incompleteText(costs.incomplete_by ?? []) }
+                : {})}
+            />
             <MoneyCell cents={costs.forecast_cents} bold />
             <MoneyCell cents={costs.covered_cents} bold />
             <MoneyCell cents={costs.uncovered_cents} bold />

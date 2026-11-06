@@ -36,6 +36,17 @@ class InvoiceLineOut(BaseModel):
     attachments: Annotated[list[AttachmentOut], nested()]
 
 
+class ExecutorLineOut(BaseModel):
+    """An invoice line of a cost item another organisation keeps, as read
+    there just now. It is only read here."""
+
+    reference: Annotated[str | None, _FIN]
+    description: Annotated[str | None, _FIN]
+    kind: Annotated[str, _FIN]
+    amount_cents: Annotated[int, _FIN]
+    period: Annotated[date | None, _FIN]
+
+
 class CoverageOut(BaseModel):
     id: Annotated[UUID, _FIN]
     # Counts the changes of the record; a form sends it back with its save.
@@ -45,7 +56,8 @@ class CoverageOut(BaseModel):
     assignment_id: Annotated[UUID, _FIN]
     assignment_name: Annotated[str, _FIN]
     pct: Annotated[Decimal, _FIN]
-    amount_cents: Annotated[int, _FIN]
+    # Null while the cost item cannot be counted (a reference not read).
+    amount_cents: Annotated[int | None, _FIN]
     may_edit: Annotated[bool, _FIN]
 
 
@@ -54,13 +66,15 @@ class CostItemOut(BaseModel):
     # Counts the changes of the record; a form sends it back with its save.
     version: Annotated[int, _FIN] = 1
     description: Annotated[str, _FIN]
-    budgeted_cents: Annotated[int, _FIN]
-    # R6: realised plus estimated invoice lines.
-    forecast_cents: Annotated[int, _FIN]
-    actual_cents: Annotated[int, _FIN]
-    estimate_cents: Annotated[int, _FIN]
+    # Null for a reference whose executor could not be read.
+    budgeted_cents: Annotated[int | None, _FIN]
+    # R6: realised plus estimated invoice lines. These amounts are null
+    # while the cost item cannot be counted (ADR 0052).
+    forecast_cents: Annotated[int | None, _FIN]
+    actual_cents: Annotated[int | None, _FIN]
+    estimate_cents: Annotated[int | None, _FIN]
     # Budgeted minus the expected total; negative means over budget.
-    variance_cents: Annotated[int, _FIN]
+    variance_cents: Annotated[int | None, _FIN]
     # R8. Null when the stored percentages add up to more than 100.
     covered_cents: Annotated[int | None, _FIN]
     uncovered_cents: Annotated[int | None, _FIN]
@@ -69,9 +83,28 @@ class CostItemOut(BaseModel):
     uncovered_pct: Annotated[Decimal | None, _FIN]
     # Share covered by budget lines of assignments the asker may not see.
     hidden_coverage_pct: Annotated[Decimal, _FIN]
+    # A reference (ADR 0052): the organisation that keeps the cost item,
+    # and what the item stands for now: waiting, refused, undelivered,
+    # found or unreachable. For a found one, what became of a later request
+    # to change it, while the executor has not applied it.
+    executor_organisation_id: Annotated[UUID | None, _FIN] = None
+    executor_name: Annotated[str | None, _FIN] = None
+    reference_state: Annotated[str | None, _FIN] = None
+    change_state: Annotated[str | None, _FIN] = None
+    # At the executor: the organisation that asked for the cost item.
+    requested_by_name: Annotated[str | None, _FIN] = None
     invoice_lines: Annotated[list[InvoiceLineOut], nested()]
+    # The invoice lines of a reference, as read at the executor.
+    executor_lines: Annotated[list[ExecutorLineOut], nested()] = []
     coverages: Annotated[list[CoverageOut], nested()]
     may_edit: Annotated[bool, _FIN]
+
+
+class ExecutorOptionOut(BaseModel):
+    """An organisation that can be asked to make a cost item."""
+
+    organisation_id: Annotated[UUID, _FIN]
+    name: Annotated[str, _FIN]
 
 
 class BudgetLineOptionOut(BaseModel):
@@ -85,11 +118,18 @@ class BudgetLineOptionOut(BaseModel):
 class CostItemCreate(BaseModel):
     description: str = Field(min_length=1, max_length=500)
     budgeted_cents: int = Field(default=0, ge=0)
+    # Another organisation makes the expense and keeps the cost item.
+    executor_organisation_id: UUID | None = None
+    # A day in the period of the expense, asked of the executor.
+    period: date | None = None
 
 
 class CostItemUpdate(BaseModel):
     description: str | None = Field(default=None, min_length=1, max_length=500)
     budgeted_cents: int | None = Field(default=None, ge=0)
+    # Left out keeps the executor. An own item without invoices can get one;
+    # a reference keeps the one it has.
+    executor_organisation_id: UUID | None = None
 
 
 class InvoiceLineCreate(BaseModel):

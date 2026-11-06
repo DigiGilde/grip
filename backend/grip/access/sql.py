@@ -331,6 +331,17 @@ class SqlRelationSource:
             peer_id, assignment_id, Assignment.contractor_organisation_id
         )
 
+    async def peer_requested_cost_item(self, peer_id: str, cost_item_id: UUID) -> bool:
+        peer = await self._peer(peer_id)
+        if peer is None:
+            return False
+        requester_uri = await self._db.scalar(
+            select(Organisation.instance_uri)
+            .join(CostItem, CostItem.requester_organisation_id == Organisation.id)
+            .where(CostItem.id == cost_item_id)
+        )
+        return _same_base(requester_uri, peer.base_uri)
+
     async def assignment_references_corpus(
         self, peer_id: str, assignment_id: UUID
     ) -> bool:

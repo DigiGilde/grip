@@ -13,6 +13,7 @@ import {
   SectionHeading,
   NotFound,
 } from '@/ui/layout';
+import { incompleteText } from '@/features/costs/costText';
 import { AssignmentContextView } from '@/features/nodes';
 import { QUOTE_STATUS_COLORS, QUOTE_STATUS_LABELS } from '@/features/quotes/api';
 import { formatDateTime } from '@/features/quotes/format';
@@ -164,6 +165,13 @@ function UsageView({ usage }: { usage: BudgetUsage }) {
     );
   }
   const lines = usage.lines ?? [];
+  const incompleteBy = usage.incomplete_by ?? [];
+  const totalNote = [
+    (usage.available_cents ?? 0) < 0 ? 'Overschreden' : '',
+    incompleteBy.length > 0 ? incompleteText(incompleteBy) : '',
+  ]
+    .filter(Boolean)
+    .join('. ');
   return (
     <nldd-container gap="16">
       <nldd-text aria-live="polite">
@@ -195,7 +203,7 @@ function UsageView({ usage }: { usage: BudgetUsage }) {
         <nldd-table-row>
           <nldd-text-cell
             text="Totaal"
-            {...((usage.available_cents ?? 0) < 0 ? { 'supporting-text': 'Overschreden' } : {})}
+            {...(totalNote ? { 'supporting-text': totalNote } : {})}
           />
           <nldd-text-cell text={formatEuro(usage.budgeted_cents)} horizontal-alignment="right" />
           <nldd-text-cell text={formatEuro(usage.used_cents)} horizontal-alignment="right" />

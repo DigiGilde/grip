@@ -1,0 +1,19 @@
+{
+  "id": "5d6e7f80-0000-4000-8000-000000000101",
+  "verwijzing_uri": "https://grip.opdrachtgever.example/id/kostenpost/5d6e7f80-0000-4000-8000-0000000000a1",
+  "volgnummer": 1,
+  "organisatie": {
+    "tooi_uri": "https://identifier.overheid.nl/tooi/id/ministerie/mnre0000",
+    "naam": "Voorbeeldprogramma",
+    "eenheid_kenmerk": "programma",
+    "instantie_uri": "https://grip.opdrachtgever.example"
+  },
+  "omschrijving": "Zaal en catering voor de bijeenkomst in maart",
+  "begroot": {
+    "bedrag_centen": 450000,
+    "valuta": "EUR"
+  },
+  "periode": "2026-03-01",
+  "opdracht_uri": "https://grip.opdrachtgever.example/id/opdracht/3f2a8c54-6d1b-4f0e-9a77-1c2b3d4e5f60",
+  "verzonden_op": "2026-02-02T09:30:00+01:00"
+}

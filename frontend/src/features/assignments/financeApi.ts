@@ -3,6 +3,7 @@
  * service; the screen formats and never adds up.
  */
 import { apiGet } from '@/api/client';
+import type { ReferenceState } from '@/features/costs/api';
 
 export interface Figures {
   budgeted_cents: number;
@@ -61,6 +62,9 @@ export interface CostAmount {
   realised_cents: number;
   forecast_cents: number;
   total_cents: number;
+  /** A cost item another organisation keeps; its amounts are 0 unless found. */
+  executor_name: string | null;
+  reference_state: ReferenceState | null;
 }
 
 export interface FinanceLine {
@@ -76,6 +80,8 @@ export interface FinanceLine {
   /** Persons on the line whose amounts this reader may not see. */
   persons_hidden: number;
   costs: CostAmount[];
+  /** Organisations whose cost items on this line could not be counted. */
+  incomplete_by: string[];
 }
 
 export interface MonthRow {
@@ -115,6 +121,8 @@ export interface AssignmentFinance {
   budgeted_outside_months_cents: number;
   signals: Signal[];
   free_room_threshold_pct: string;
+  /** Organisations whose cost items could not be counted: the totals are incomplete. */
+  incomplete_by: string[];
 }
 
 export const financeKeys = {

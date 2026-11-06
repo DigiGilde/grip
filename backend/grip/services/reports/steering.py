@@ -207,12 +207,13 @@ async def agreed_figures(
     *,
     assignment_ids: Iterable[UUID] | None = None,
     options: PricingOptions = DEFAULT_OPTIONS,
-) -> assignment_finance.Figures:
+) -> tuple[assignment_finance.Figures, tuple[str, ...]]:
     """The year of the agreed assignments in the words of the assignment pages.
 
     The sum of the figures the Financieel tab shows per assignment, over the
     assignments that count in the forecast (agreed formally or verbally).
     An assignment that cannot be priced is left out, as in the turnover.
+    Also the executors whose cost items could not be counted in it.
     """
     agreed = [
         assignment.id
@@ -223,8 +224,11 @@ async def agreed_figures(
     found = await assignment_finance.assignment_finances(
         session, rows, year=year, options=options
     )
-    return assignment_finance.Figures.sum(
-        data.totals for data in found.values() if data.totals is not None
+    return (
+        assignment_finance.Figures.sum(
+            data.totals for data in found.values() if data.totals is not None
+        ),
+        pricing.incomplete_names(found.values()),
     )
 
 

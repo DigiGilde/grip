@@ -116,6 +116,29 @@ async def test_spending_is_asked_explicitly_and_logged(
     assert logged[0].new_value["answered"] is True
 
 
+async def test_spending_says_who_could_not_be_read(
+    client, cast, act_as, outway, received
+):
+    outway.handler = contractor(
+        received,
+        usage=httpx.Response(
+            200,
+            json={
+                **example("uitputting.onvolledig"),
+                "opdracht_uri": received.assignment.uri,
+            },
+        ),
+    )
+    act_as(cast.requester)
+    body = (
+        await client.post(
+            f"/api/client/assignments/{received.assignment.id}/budget-usage", json={}
+        )
+    ).json()
+    assert body["incomplete_by"] == ["Voorbeeldleverancier"]
+    assert body["used_cents"] == 110000000
+
+
 async def test_spending_refused_by_the_contract_is_said_as_such(
     client, cast, act_as, outway, received
 ):

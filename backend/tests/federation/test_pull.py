@@ -67,6 +67,12 @@ PULLS = [
         "handover-costs",
         PEER_ROLE_PARENT,
     ),
+    (
+        "getCostItems",
+        "/v1/kostenposten?verwijzingUri=https://g.example/id/kostenpost/1",
+        "cost-items",
+        "counterpart",
+    ),
 ]
 
 

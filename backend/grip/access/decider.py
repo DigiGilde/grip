@@ -560,6 +560,9 @@ class LocalDecider:
                 return allow("relation:contractor")
             return deny(_NO_GRANT)
 
+        if action is Action.REQUEST_COST_ITEM:
+            return await self._peer_cost_item(req, roles)
+
         if action is Action.ACCEPT_QUOTE:
             if (
                 res.kind is ResourceKind.QUOTE
@@ -580,6 +583,10 @@ class LocalDecider:
             decision = self._parent_reads(req, data_class)
             if decision.allowed:
                 return decision
+
+        if res.kind is ResourceKind.COST_ITEM:
+            requester = await self._peer_cost_item(req, roles)
+            return requester if requester.allowed else decision
 
         if (
             res.kind not in (ResourceKind.ASSIGNMENT, ResourceKind.QUOTE)
@@ -611,6 +618,31 @@ class LocalDecider:
         ):
             return allow("relation:corpus")
         return decision
+
+    async def _peer_cost_item(
+        self, req: AccessRequest, roles: frozenset[PeerRole]
+    ) -> Decision:
+        """A counterparty asks for a cost item here, or reads one (ADR 0052).
+
+        A new request may come from any counterparty. Changing an item and
+        reading it, only class B, is for the organisation that asked for it.
+        """
+        peer_id, res = req.subject.peer_id, req.resource
+        assert peer_id is not None
+        if PeerRole.COUNTERPART not in roles:
+            return deny(_NO_GRANT)
+        if res.kind is not ResourceKind.COST_ITEM:
+            return deny(_NO_GRANT)
+        if req.action is Action.REQUEST_COST_ITEM:
+            if res.id is None:
+                return allow("relation:counterparty")
+        elif req.data_class is not DataClass.ASSIGNMENT_FINANCIAL:
+            return deny("class_never_shared")
+        if res.id is not None and await self._relations.peer_requested_cost_item(
+            peer_id, res.id
+        ):
+            return allow("relation:requester")
+        return deny(_NO_GRANT)
 
     @staticmethod
     def _parent_reads(req: AccessRequest, data_class: DataClass) -> Decision:

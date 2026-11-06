@@ -225,6 +225,22 @@ describe('AssignmentLayout', () => {
     expect(allText(planner.container)).not.toContain('€');
   });
 
+  it('says under the headline facts that they miss what another organisation keeps', async () => {
+    const { container } = renderShell(
+      PERMISSIONS.owner,
+      '/opdrachten/a1',
+      {},
+      STAFFING,
+      finance({ incomplete_by: ['Voorbeeldgilde'] }),
+    );
+    await tabs(container);
+    await waitFor(() =>
+      expect(container.querySelector('dl[aria-label^="Kerncijfers"] + p')).toHaveTextContent(
+        'Onvolledig: niet alles is op te halen bij Voorbeeldgilde',
+      ),
+    );
+  });
+
   it('draws no row of zeros for an assignment with nothing budgeted, done or planned', async () => {
     // What the server answers for an assignment that was just made: zeros, not absence.
     const empty = {

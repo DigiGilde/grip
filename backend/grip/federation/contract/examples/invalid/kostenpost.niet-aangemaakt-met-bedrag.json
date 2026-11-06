@@ -1,0 +1,8 @@
+{
+  "verwijzing_uri": "https://grip.opdrachtgever.example/id/kostenpost/5d6e7f80-0000-4000-8000-0000000000a2",
+  "aangemaakt": false,
+  "begroot": {
+    "bedrag_centen": 60000,
+    "valuta": "EUR"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "id": "5d6e7f80-0000-4000-8000-000000000104",
+  "verwijzing_uri": "https://grip.opdrachtgever.example/id/kostenpost/5d6e7f80-0000-4000-8000-0000000000a2",
+  "volgnummer": 1,
+  "organisatie": {
+    "tooi_uri": "https://identifier.overheid.nl/tooi/id/ministerie/mnre0000",
+    "naam": "Voorbeeldprogramma",
+    "eenheid_kenmerk": "programma",
+    "instantie_uri": "https://grip.opdrachtgever.example"
+  },
+  "omschrijving": "Hotelovernachtingen werkbezoek",
+  "begroot": 600.0,
+  "verzonden_op": "2026-02-02T09:45:00+01:00"
+}
