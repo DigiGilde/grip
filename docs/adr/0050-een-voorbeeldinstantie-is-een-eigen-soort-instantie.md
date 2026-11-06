@@ -36,3 +36,7 @@ Voorbeeldgegevens in een instantie voor echt werk zijn geen optie. Een verzonnen
 ## Later gewijzigd (2026-10-10)
 
 Voorbeeldinstanties mogen federeren, alleen met elkaar, in een eigen FSC-groep (ADR 0054). Federatie is nog een startfout zonder `EXAMPLE_FSC_GROUP`; de andere kanalen naar buiten blijven dat altijd.
+
+## Later gewijzigd (2026-11-04)
+
+De verwijzing is niet meer het adres maar een willekeurige sleutel per aanmelding: `bezoeker:<sleutel>`. De keten hasht die kolom, dus een adres zou daar niet te wissen zijn. Welk adres bij de sleutel hoort, staat alleen in de waarden van `login.visited`. Een limiet per bezoeker telt daardoor per aanmelding.

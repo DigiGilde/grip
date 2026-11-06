@@ -381,7 +381,7 @@ function useStatusActions(assignment: AssignmentDetail): {
           setProblem(
             ending
               ? 'Schrijf op waarom de opdracht niet doorgaat.'
-              : 'Schrijf op wie akkoord gaf en wat er is afgesproken.',
+              : 'Schrijf op in welke functie akkoord is gegeven en wat er is afgesproken.',
           );
           return;
         }
@@ -396,7 +396,7 @@ function useStatusActions(assignment: AssignmentDetail): {
         hint={
           ending
             ? 'De opdracht gaat naar Afgesloten als niet doorgegaan. Dit is niet terug te draaien.'
-            : 'Wie gaf akkoord, wanneer, en onder welk voorbehoud. De opdracht blijft potentieel tot het getekende akkoord er is.'
+            : 'In welke functie is akkoord gegeven, wanneer, en onder welk voorbehoud. Geen namen. De opdracht blijft potentieel tot het getekende akkoord er is.'
         }
         multiline
         value={note}

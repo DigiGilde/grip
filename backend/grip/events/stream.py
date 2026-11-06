@@ -227,16 +227,23 @@ def append(
 
 
 async def record(
-    session: AsyncSession, event_type: str | None = None, **fields: Any
+    session: AsyncSession,
+    event_type: str | None = None,
+    *,
+    raw_payload: Mapping[str, Any] | None = None,
+    **fields: Any,
 ) -> StreamEvent:
     """Write an event and call the transactional handlers of its type.
 
     A handler that raises aborts the change the event belongs to: an event
-    that cannot be handled must not be lost silently.
+    that cannot be handled must not be lost silently. ``raw_payload`` is what
+    the handlers get when the stored payload holds less.
     """
     event = append(session, event_type, **fields)
     # Handlers get the payload as the caller gave it, not its stored form.
-    event._raw_payload = fields.get("payload")  # type: ignore[attr-defined]
+    event._raw_payload = (  # type: ignore[attr-defined]
+        fields.get("payload") if raw_payload is None else raw_payload
+    )
     for handler in [*_transactional[event.type], *_transactional[ANY]]:
         await handler(session, event)
     return event

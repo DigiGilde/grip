@@ -6,6 +6,7 @@ All names and amounts are fictional.
 from __future__ import annotations
 
 import base64
+import json
 import uuid
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
@@ -1799,10 +1800,10 @@ async def test_a_row_changed_by_hand_shows_for_each_table(db_session, case, owne
     invitation = await db_session.get(QuoteInvitation, offer.invitation_id)
     assignment = await db_session.get(Assignment, case.id)
     quote.reference = "VOORBEELD-1"
-    approval.request_note = "Anders"
-    invitation.email = "ander@voorbeeld.example"
-    offer.recipient = "ander@voorbeeld.example"
-    acceptance.signer_name = "Iemand Anders"
+    approval.quote_hash = "0" * 64
+    invitation.expires_at = datetime(2020, 1, 1, tzinfo=UTC)
+    offer.channel = "document"
+    acceptance.signed_at = datetime(2020, 1, 1, tzinfo=UTC)
     assignment.quote_date = date(2020, 1, 1)
     await db_session.flush()
     report = await differences(db_session, case.id)
@@ -1814,6 +1815,66 @@ async def test_a_row_changed_by_hand_shows_for_each_table(db_session, case, owne
         "quote_offer",
         "quote_acceptance",
     }
+
+
+async def test_a_fact_keeps_no_name_address_or_typed_text_the_row_holds(
+    db_session, case, owner
+):
+    quote = await quotes.issue_quote(db_session, case.id, actor=owner)
+    await quote_approval.request_approval(
+        db_session, quote.id, actor=owner, note="Graag nakijken, Voorbeeldnotitie"
+    )
+    await quotes.offer_quote(
+        db_session, quote.id, "signing_link", actor=owner, email=SIGNER
+    )
+    await _accept_pdf(db_session, quote, owner, signer_function="Voorbeeldfunctie")
+    await db_session.flush()
+
+    stored = (
+        await db_session.scalars(
+            select(StreamEvent.new_value).where(
+                StreamEvent.subject_kind == SUBJECT_KIND,
+                StreamEvent.subject_id == str(case.id),
+            )
+        )
+    ).all()
+    kept = json.dumps(stored)
+    for typed in (
+        SIGNER,
+        "Directeur Voorbeeld",
+        "directeur@voorbeeld.example",
+        "Voorbeeldfunctie",
+        "Voorbeeldnotitie",
+    ):
+        assert typed not in kept
+    issued = next(row for row in stored if "quote" in row["fields"])
+    assert issued["fields"]["quote"]["canonical"] is None
+
+    # What a stand reads comes from the row.
+    gram = await _last(db_session, case.id)
+    assert gram.fields["acceptance"]["signer_name"] == "Directeur Voorbeeld"
+    await _same(db_session, case.id)
+
+
+async def test_a_name_changed_in_its_row_is_what_every_stand_reads(
+    db_session, case, owner
+):
+    """The row is the source here: erasing a name is changing the row, and the
+    check does not see a change by hand."""
+    quote = await quotes.issue_quote(db_session, case.id, actor=owner)
+    acceptance = await _accept_pdf(db_session, quote, owner)
+    await _same(db_session, case.id)
+
+    acceptance.signer_name = ""
+    acceptance.signer_email = ""
+    await db_session.flush()
+
+    gram = await _last(db_session, case.id)
+    assert gram.fields["acceptance"]["signer_name"] == ""
+    assert "Directeur Voorbeeld" not in words.statement(
+        gram.fact, gram.fields, actor=owner
+    )
+    await _same(db_session, case.id)
 
 
 # -- from another instance ----------------------------------------------------

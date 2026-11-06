@@ -494,3 +494,73 @@ def title_of(name: str, fields: Fields | None) -> str:
 
 def effects_of(name: str, fields: Fields) -> tuple[Effect, ...]:
     return FACTS[name].effects(fields)
+
+
+# Who someone is, or what they typed, where a stand needs only what the row holds
+# now: a column written once, or one no stand shows. A fact keeps the key without
+# the value and a stand reads the value in the row (ADR 0052), so erasing it is
+# changing that row, and nothing in the chronicle brings it back.
+ROW_ONLY_COLUMNS: dict[str, frozenset[str]] = {
+    ASSIGNMENT: frozenset({"client_contact"}),
+    LINE: frozenset({"intended_person_id"}),
+    QUOTE: frozenset({"canonical"}),
+    INVITATION: frozenset({"email"}),
+    OFFER: frozenset({"recipient"}),
+    APPROVAL: frozenset({"request_note", "decision_note"}),
+    ACCEPTANCE: frozenset({"signer_name", "signer_email", "signer_function", "jws"}),
+    REJECTION: frozenset({"reason"}),
+}
+
+# Where a fact names such a row: the part of its fields that holds the columns
+# (None for the fields themselves), the key of the row id, and the table.
+_ROW_ONLY_PARTS: dict[str, tuple[tuple[str | None, str, str], ...]] = {
+    "assignment_created": (("assignment", "id", ASSIGNMENT),),
+    "assignment_requested": (("assignment", "id", ASSIGNMENT),),
+    "assignment_request_received": (("assignment", "id", ASSIGNMENT),),
+    "assignment_changed": (("changes", "assignment_id", ASSIGNMENT),),
+    "budget_line_added": (("line", "id", LINE),),
+    "budget_line_changed": (("changes", "line_id", LINE),),
+    "quote_issued": (("quote", "id", QUOTE),),
+    "quote_received": (("quote", "id", QUOTE),),
+    "quote_offered": (("invitation", "id", INVITATION), ("offer", "id", OFFER)),
+    "approval_requested": (("approval", "id", APPROVAL),),
+    "approval_approved": ((None, "approval_id", APPROVAL),),
+    "approval_sent_back": ((None, "approval_id", APPROVAL),),
+    "quote_accepted": (("acceptance", "id", ACCEPTANCE),),
+    "quote_rejected": (("rejection", "id", REJECTION),),
+}
+
+
+def row_only_parts(
+    name: str, fields: Fields | None
+) -> list[tuple[str | None, str, str, frozenset[str]]]:
+    """Where this fact leaves values in a row: part, table, row id, columns."""
+    found: list[tuple[str | None, str, str, frozenset[str]]] = []
+    for part, id_key, table in _ROW_ONLY_PARTS.get(name, ()):
+        holder = fields if part is None else (fields or {}).get(part)
+        if not holder:
+            continue
+        columns = ROW_ONLY_COLUMNS[table] & set(holder)
+        row_id = holder.get(id_key) or (fields or {}).get(id_key)
+        if columns and row_id:
+            found.append((part, table, str(row_id), frozenset(columns)))
+    return found
+
+
+def with_row_values(
+    name: str, fields: Fields, values: Callable[[str, str, str], Any]
+) -> dict[str, Any]:
+    """The fields with each row-only column set to ``values(table, row_id, column)``."""
+    result = dict(fields)
+    for part, table, row_id, columns in row_only_parts(name, fields):
+        holder = result if part is None else dict(result[part])
+        for column in columns:
+            holder[column] = values(table, row_id, column)
+        if part is not None:
+            result[part] = holder
+    return result
+
+
+def as_recorded(name: str, fields: Fields) -> dict[str, Any]:
+    """The fields as the stream keeps them: without what only the row holds."""
+    return with_row_values(name, fields, lambda _table, _row_id, _column: None)

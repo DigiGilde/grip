@@ -58,6 +58,7 @@ Een route roept een service aan, een service een repository. Sla geen laag over.
 - Schrijf die tabellen alleen met `grip.chronicle.writer.establish`. Controles eerst; wijzigingsregel en domeingebeurtenis erna.
 - Eén feit per handeling. De effecten van een feit lezen alleen de velden van het feit; wat besloten is staat erin.
 - Een feit zegt wie vaststelde: wie vastlegt dat een ander tekende, is iets anders dan wie tekent.
+- Een feit bevat geen naam, adres of getypte tekst van een kolom die eenmalig wordt geschreven of die geen stand toont. Zo'n kolom staat in `ROW_ONLY_COLUMNS` (`grip.chronicle.facts`) en alleen in de rij.
 - Een feitnaam wordt nooit hernoemd of verwijderd. Wat een feit later erbij kreeg, lees je met `.get`; een datamigratie op de negen tabellen schrijf je als feit.
 - `just kroniek-check` leest alleen en vergelijkt elke tabel met zijn kroniek.
 

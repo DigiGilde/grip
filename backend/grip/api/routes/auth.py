@@ -305,9 +305,11 @@ async def callback(
                     session["refresh_token"] = token.get("refresh_token")
                     session["id_token"] = token.get("id_token")
                     session["person_id"] = str(as_person.id)
+                    visit = uuid4().hex
                     session[example.VISITOR_SESSION_KEY] = {
                         "email": guest["email"],
                         "name": guest["name"],
+                        "visit": visit,
                     }
                     session["_rotate"] = True
                     stream.append(
@@ -315,7 +317,11 @@ async def callback(
                         "login.visited",
                         subject=(LOGIN_SUBJECT, uuid4()),
                         person_id=as_person.id,
-                        payload={"email": guest["email"], "as": str(as_person.id)},
+                        payload={
+                            "email": guest["email"],
+                            "as": str(as_person.id),
+                            "visit": visit,
+                        },
                     )
                     logger.info("OIDC login as visitor of the example")
                     return _frontend_redirect(settings, next_path=next_path)

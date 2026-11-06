@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
 from collections.abc import Sequence
+from dataclasses import replace
 from datetime import datetime
 from typing import Any
 from uuid import UUID
@@ -10,9 +12,14 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from grip.chronicle.facts import FACTS
+from grip.chronicle.facts import (
+    FACTS,
+    ROW_ONLY_COLUMNS,
+    row_only_parts,
+    with_row_values,
+)
 from grip.chronicle.ledger import Gram
-from grip.chronicle.writer import RATE_BOOK, SUBJECT_KIND, fact_of
+from grip.chronicle.writer import MODELS, RATE_BOOK, SUBJECT_KIND, fact_of, normal
 from grip.models.organisation import Organisation
 from grip.models.stream_event import CASE_ASSIGNMENT, StreamEvent
 
@@ -71,7 +78,40 @@ class ChronicleRepository:
         if upto is not None:
             query = query.where(StreamEvent.seq <= upto)
         rows = await self.db.execute(query.order_by(StreamEvent.seq))
-        return [gram for gram in map(_gram, rows) if gram is not None]
+        return await self._with_rows(
+            [gram for gram in map(_gram, rows) if gram is not None]
+        )
+
+    async def _with_rows(self, grams: list[Gram]) -> list[Gram]:
+        """Put back what a fact leaves in its row, as the row holds it now."""
+        wanted: dict[str, set[str]] = defaultdict(set)
+        for gram in grams:
+            for _part, table, row_id, _columns in row_only_parts(
+                gram.fact, gram.fields
+            ):
+                wanted[table].add(row_id)
+        held: dict[tuple[str, str], Any] = {}
+        for table, ids in wanted.items():
+            model = MODELS[table]
+            columns = [getattr(model, name) for name in sorted(ROW_ONLY_COLUMNS[table])]
+            found = await self.db.execute(
+                select(model.id, *columns).where(
+                    model.id.in_([UUID(row_id) for row_id in ids])
+                )
+            )
+            held.update({(table, str(row.id)): row for row in found})
+
+        def value(table: str, row_id: str, column: str) -> Any:
+            # A row that is gone holds nothing any more.
+            row = held.get((table, row_id))
+            return normal(MODELS[table], column, getattr(row, column, None))
+
+        return [
+            replace(gram, fields=with_row_values(gram.fact, gram.fields, value))
+            if gram.fields is not None and row_only_parts(gram.fact, gram.fields)
+            else gram
+            for gram in grams
+        ]
 
     async def grams(self, assignment_id: UUID, upto: int | None = None) -> list[Gram]:
         """The facts of one assignment in the order they were recorded."""

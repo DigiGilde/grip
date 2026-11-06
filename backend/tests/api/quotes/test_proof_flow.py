@@ -29,8 +29,8 @@ from grip.proof import flow
 from grip.proof.decisions import execute
 from grip.proof.statement import columns, parse_statement
 from grip.proof.verify import verify_bundle
+from grip.services import assignments, instance_settings, quote_approval
 from grip.services import events as domain_events
-from grip.services import instance_settings, quote_approval
 from tests.proof.idp import StandInProvider
 
 GUEST_EMAIL = "gast@opdrachtgever.example"
@@ -256,6 +256,50 @@ async def test_rejection_through_the_signing_link(act_as, world, db_session):
     statement = parse_statement(bytes(evidence.statement))
     assert statement["besluit"] == "afwijzing"
     assert statement["toelichting"] == rejection.reason == "Het budget is er niet."
+
+
+async def test_without_a_client_the_name_of_the_signer_is_no_organisation(
+    act_as, world, db_session
+):
+    quote = await _invited(act_as, world, world.signer.email)
+    await assignments.update_assignment(
+        db_session, world.assignment.id, actor=None, client_organisation_id=None
+    )
+    client = act_as(world.signer)
+    url = f"/api/signing/quotes/{quote['id']}/intents"
+
+    refused = await client.post(
+        url,
+        json={
+            "decision": "accept",
+            "quote_hash": quote["snapshot_hash"],
+            "confirm_mandate": True,
+        },
+    )
+    assert refused.status_code == 422, refused.text
+    assert "Geef de naam van de organisatie" in refused.json()["detail"]
+
+    intent = (
+        await client.post(
+            url,
+            json={
+                "decision": "reject",
+                "quote_hash": quote["snapshot_hash"],
+                "reason": "Het budget is er niet.",
+            },
+        )
+    ).json()
+    _result(await client.get(intent["authorize_url"]))
+    rejection = (
+        await db_session.execute(
+            select(QuoteRejection).where(
+                QuoteRejection.quote_id == uuid.UUID(quote["id"])
+            )
+        )
+    ).scalar_one()
+    assert rejection.organisation is None
+    evidence = await db_session.get(DecisionEvidence, rejection.evidence_id)
+    assert parse_statement(bytes(evidence.statement))["namens"] is None
 
 
 async def test_acceptance_needs_the_declaration_and_the_hash_that_was_shown(

@@ -21,7 +21,7 @@ Een gebeurtenis is een rij in `stream_event`. Ze wordt geschreven in de transact
 | `correlation_id` | Verbindt alles wat één verzoek of één inkomend bericht veroorzaakte. 32 hexadecimale tekens, zodat het ook een trace-id is. |
 | `purpose` | Waarvoor gegevens zijn ingezien, voor zover bekend. |
 | `old_value`, `new_value` | De wijziging per veld. |
-| `payload` | Wat een domeingebeurtenis aan haar afhandelaars meldt. |
+| `payload` | Wat een domeingebeurtenis aan haar afhandelaars meldt. Namen, adressen en getypte tekst die de rij al bevat, worden niet opgeslagen (`services/events.py`); een afhandelaar in de transactie krijgt ze wel. |
 | `note` | Toelichting of reden. |
 | `refs` | Verwijzingen naar bewijs dat elders ligt, op hash. |
 | `existence_class` | De gegevensklasse die bepaalt wie mag weten dat dit gebeurde. Leeg betekent beheer van de instantie. |

@@ -33,7 +33,7 @@ from grip.chronicle.effects import (
     moment_text,
     plain,
 )
-from grip.chronicle.facts import FACTS, effects_of
+from grip.chronicle.facts import FACTS, as_recorded, effects_of
 from grip.core import clock
 from grip.events import stream
 from grip.models.assignment import Assignment, AssignmentRole, BudgetLine
@@ -352,7 +352,7 @@ async def establish(
         fact,
         subject_id=assignment_id,
         assignment_id=assignment_id,
-        values=values,
+        values=as_recorded(fact, values),
         plan_version=plan_version,
         actor=actor,
         effective_on=effective_on,

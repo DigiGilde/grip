@@ -126,8 +126,9 @@ class Assignment(Versioned, Base):
     start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    # Who agreed verbally and when, as noted by the owner or manager. Kept
-    # after formal acceptance, as the trail of how the assignment started.
+    # In which function someone agreed verbally and when, as noted by the owner
+    # or manager. Kept after formal acceptance, as the trail of how the assignment
+    # started.
     verbal_agreement_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     verbal_agreement_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

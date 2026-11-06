@@ -81,7 +81,9 @@ Wie rijen schrijft voordat er een gebeurtenis is, neemt het slot op de stroom ee
 | `recorded_on` | De dag waarop het is vastgelegd, volgens de klok van de instantie. |
 | `effective_on` | De dag waarop het telt, als die kan afwijken: getekend op, afgewezen op. |
 | `basis` | De regel die is gewogen, waar dat kon: de tarievenkaarten bij een offerte, de instelling bij een verzoek om goedkeuring. |
-| `fields` | Wat is vastgesteld. Alle waarden die de effecten nodig hebben. |
+| `fields` | Wat is vastgesteld. Alle waarden die de effecten nodig hebben, behalve wat alleen in de rij staat (zie hieronder). |
+
+Namen, adressen en getypte tekst in een kolom die eenmalig wordt geschreven of die geen stand toont, staan alleen in de rij: `ROW_ONLY_COLUMNS` in `grip.chronicle.facts`. `establish` geeft de effecten de volle waarden, maar het feit in de stroom houdt de sleutel met de waarde `null`. `ChronicleRepository` zet de waarde van de rij terug als het een feit leest, dus vouwing, woorden en stand zien haar zoals de rij haar nu heeft. Een nieuwe kolom met tekst, bytes of JSON kiest: in die lijst, of in `STAYS_IN_A_FACT` in `tests/chronicle/test_core.py` met de reden. Zonder keuze faalt de test.
 
 Daarnaast `refs` op de gebeurtenis (hashes van bewijs dat elders ligt), en de vaste gegevens van elke gebeurtenis: wie, wanneer, herkomst, keten. Alle gebeurtenissen van één transactie delen het moment van de transactie, dus ook het feit en wat erachteraan komt.
 
@@ -145,7 +147,7 @@ Er zijn twee dingen, voor twee plekken.
 report = await verify.differences(session, assignment_id)
 ```
 
-`differences` is wat daaronder zit: het vergelijkt de vouwing met de rijen, langs de sessie heen. Niet vergeleken: `version`, `updated_at`, `created_at` en de naam van de rol op een regel (de verwijzing wel), en een sleutel die de vouwing niet kent.
+`differences` is wat daaronder zit: het vergelijkt de vouwing met de rijen, langs de sessie heen. Niet vergeleken: `version`, `updated_at`, `created_at` en de naam van de rol op een regel (de verwijzing wel), en een sleutel die de vouwing niet kent. Een kolom uit `ROW_ONLY_COLUMNS` is in de vouwing de waarde van de rij, dus een wijziging daarvan met de hand is geen verschil.
 
 `rebuild` schrijft de vouwing terug en legt dat zelf vast (`chronicle_rebuilt`). Het schrijft de eigenaar als laatste, zodat de oude eigenaar eerst terugtreedt. Dat is het bewijs dat de tabellen afgeleid zijn: beschadig een rij en de kroniek zet haar terug. Het draait alleen lokaal, via `just kroniek-herstel`. Of het ook op een echte instantie mag, is niet besloten.
 

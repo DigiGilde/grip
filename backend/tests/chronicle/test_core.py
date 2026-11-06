@@ -8,7 +8,9 @@ from decimal import Decimal
 from uuid import uuid4
 
 import pytest
+from sqlalchemy import LargeBinary, String
 from sqlalchemy import inspect as sa_inspect
+from sqlalchemy.dialects.postgresql import JSONB
 
 from grip.chronicle.effects import Drop, Flush, Insert, Patch, plain
 from grip.chronicle.facts import (
@@ -16,6 +18,8 @@ from grip.chronicle.facts import (
     EXECUTOGRAM,
     FACTS,
     READ_MODELS,
+    ROW_ONLY_COLUMNS,
+    as_recorded,
     effects_of,
     title_of,
 )
@@ -110,6 +114,81 @@ def _line(assignment_id, **values) -> dict:
 
 def test_every_read_model_has_a_model():
     assert set(READ_MODELS) == set(MODELS)
+
+
+# A column of a read model that can hold what someone typed or who someone is
+# either lives in its row only (ROW_ONLY_COLUMNS), or stays in a fact for the
+# reason given here. A new such column fails until it has chosen.
+STAYS_IN_A_FACT = {
+    "assignment.uri": "an address of the case",
+    "assignment.name": "changes; a stand shows it as it was",
+    "assignment.kind": "a code",
+    "assignment.shared_with_instance_uri": "an address of an instance",
+    "assignment.status": "a code",
+    "assignment.parent_assignment_uri": "an address of a case",
+    "assignment.context_refs": "addresses of policy",
+    "assignment.notes": "changes; a stand shows it as it was",
+    "assignment.verbal_agreement_note": "a stand shows it; asks for no name",
+    "assignment_role.role": "a code",
+    "budget_line.description": "changes; decides whether a quote is outdated",
+    "budget_line.kind": "a code",
+    "budget_line.role": "a name from the catalogue",
+    "budget_line.rate_category": "a code",
+    "budget_line.period_source": "a code",
+    "quote.uri": "an address of the quote",
+    "quote.reference": "a number",
+    "quote.status": "a code",
+    "quote.snapshot_hash": "a hash",
+    "quote.document_sha256": "a hash",
+    "quote.document_ref": "a reference to a stored document",
+    "quote.document_origin": "a code",
+    "quote.prose_provenance": "how sections were drafted, no person",
+    "quote_offer.channel": "a code",
+    "quote_approval.quote_hash": "a hash",
+    "quote_approval.status": "a code",
+    "quote_acceptance.quote_hash": "a hash",
+    "quote_acceptance.organisation": "an organisation",
+    "quote_acceptance.form": "a code",
+    "quote_acceptance.document_sha256": "a hash",
+    "quote_acceptance.document_ref": "a reference to a stored document",
+    "quote_rejection.quote_hash": "a hash",
+    "quote_rejection.organisation": "an organisation",
+}
+
+
+def test_every_text_column_of_a_read_model_has_chosen():
+    text_columns = {
+        f"{table}.{column.key}"
+        for table, model in MODELS.items()
+        for column in sa_inspect(model).columns
+        if isinstance(column.type, String | LargeBinary | JSONB)
+    }
+    in_rows = {
+        f"{table}.{name}" for table, names in ROW_ONLY_COLUMNS.items() for name in names
+    }
+    assert not in_rows & set(STAYS_IN_A_FACT)
+    assert text_columns - in_rows - set(STAYS_IN_A_FACT) == set()
+    for table, names in ROW_ONLY_COLUMNS.items():
+        assert names <= {column.key for column in sa_inspect(MODELS[table]).columns}
+
+
+def test_a_fact_keeps_the_key_of_what_only_the_row_holds():
+    fields = {
+        "acceptance": {
+            "id": str(uuid4()),
+            "signer_name": "Voorbeeld Tekenaar",
+            "signer_email": "tekenaar@voorbeeld.example",
+            "form": "signing_link",
+        },
+        "assignment_id": str(uuid4()),
+    }
+    kept = as_recorded("quote_accepted", fields)
+    assert kept["acceptance"]["signer_name"] is None
+    assert kept["acceptance"]["signer_email"] is None
+    assert kept["acceptance"]["form"] == "signing_link"
+    assert fields["acceptance"]["signer_name"] == "Voorbeeld Tekenaar"
+    # A fact that names no such row is kept as it is.
+    assert as_recorded("assignment_shared", {"x": 1}) == {"x": 1}
 
 
 def test_a_fact_keeps_its_name_for_good():

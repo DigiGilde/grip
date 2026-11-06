@@ -481,7 +481,8 @@ def _check_ready_for(
     """
     if target == VERBALLY_AGREED and not (reason and reason.strip()):
         raise DomainValidationError(
-            "Noteer bij een mondeling akkoord wie akkoord gaf en wanneer."
+            "Noteer bij een mondeling akkoord in welke functie akkoord is gegeven "
+            "en wanneer."
         )
     if (
         target == "cancelled"

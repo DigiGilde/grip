@@ -65,6 +65,17 @@ EVENT_TYPES = (
     CLIENT_BILLING_DETAILS_GIVEN,
 )
 
+# What stays out of the stored event, because the row holds it: names, addresses
+# and typed text. A handler in the transaction still gets it; one after the commit
+# reads the stored form and does not.
+_NOT_STORED: dict[str, frozenset[str]] = {
+    ASSIGNMENT_REQUEST_CREATED: frozenset({"name", "description"}),
+    QUOTE_ISSUED: frozenset({"snapshot"}),
+    QUOTE_ACCEPTED: frozenset({"signer", "jws"}),
+    QUOTE_REJECTED: frozenset({"reason"}),
+    ASSIGNMENT_STATUS_CHANGED: frozenset({"reason"}),
+}
+
 Handler = Callable[[AsyncSession, str, dict[str, Any]], Awaitable[None]]
 
 # Each handler is registered with the stream through an adapter that gives
@@ -116,4 +127,10 @@ async def emit(session: AsyncSession, event_type: str, payload: dict[str, Any]) 
     """
     if event_type not in EVENT_TYPES:
         raise ValueError(f"unknown event type: {event_type}")
-    await stream.record(session, event_type, payload=payload)
+    left_out = _NOT_STORED.get(event_type, frozenset())
+    await stream.record(
+        session,
+        event_type,
+        payload={key: value for key, value in payload.items() if key not in left_out},
+        raw_payload=payload,
+    )
