@@ -61,6 +61,7 @@ reset-db:
 # To act as an example person, set the cookie `grip_dev_person` to an id the
 # seed prints: document.cookie = "grip_dev_person=<id>; path=/" in the browser.
 # Without the cookie you are the first active beheerder.
+# `--dataset NAME` picks the dataset (default SEED_DATASET: voorbeeld; also programma).
 # Load fictional example data into an empty local database (`just seed --reset` empties it first)
 seed *ARGS:
     cd backend && uv run python -m grip.dev.seed {{ ARGS }}
@@ -154,13 +155,13 @@ sync-contract CHECKOUT:
 local-build SOURCE="tree":
     deploy/local/local.sh build {{ SOURCE }}
 
-# Start the local environment (MODE: one, keycloak, sso, fsc, fsc-keycloak)
+# Start the local environment (MODE: one, keycloak, sso, fsc, fsc-keycloak, fsc-corpus, fsc-voorbeeld)
 local-up MODE="one":
     deploy/local/local.sh up {{ MODE }}
 
-# Publish the services, make the FSC contracts and fill grip's peer registry
-local-fsc-init:
-    deploy/local/local.sh fsc-init
+# Publish the services, make the FSC contracts and fill grip's peer registry (--voorbeeld: mark the peers as example)
+local-fsc-init *ARGS:
+    deploy/local/local.sh fsc-init {{ ARGS }}
 
 # Show where the local environment listens and what is running
 local-urls:

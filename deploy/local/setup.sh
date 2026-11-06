@@ -16,6 +16,7 @@ if [ ! -f "$state/secrets.env" ]; then
     cat > "$state/secrets.env" <<SECRETS
 SESSION_SECRET_KEY=$(rand 32)
 SESSION_SECRET_KEY_B=$(rand 32)
+SESSION_SECRET_KEY_D=$(rand 32)
 KEYCLOAK_ADMIN_PASSWORD=$(rand 12)
 KEYCLOAK_CLIENT_SECRET=$(rand 24)
 KEYCLOAK_USER_PASSWORD=$(rand 12)
@@ -23,6 +24,11 @@ SECRETS
 fi
 # shellcheck disable=SC1091
 . "$state/secrets.env"
+# An existing secrets.env from before instance D has no key for it yet.
+if [ -z "${SESSION_SECRET_KEY_D:-}" ]; then
+    SESSION_SECRET_KEY_D="$(rand 32)"
+    echo "SESSION_SECRET_KEY_D=$SESSION_SECRET_KEY_D" >> "$state/secrets.env"
+fi
 
 # The application refuses to send tokens to an identity provider over plain
 # http, also locally. So the local Keycloak gets TLS: a private CA and one
@@ -93,12 +99,13 @@ cat > "$state/keycloak/grip-realm.json" <<REALM
       "directAccessGrantsEnabled": false,
       "redirectUris": [
         "http://localhost:9001/api/auth/callback",
-        "http://localhost:9002/api/auth/callback"
+        "http://localhost:9002/api/auth/callback",
+        "http://localhost:9003/api/auth/callback"
       ],
-      "webOrigins": ["http://localhost:9001", "http://localhost:9002"],
+      "webOrigins": ["http://localhost:9001", "http://localhost:9002", "http://localhost:9003"],
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "http://localhost:9001/*##http://localhost:9002/*"
+        "post.logout.redirect.uris": "http://localhost:9001/*##http://localhost:9002/*##http://localhost:9003/*"
       },
       "protocolMappers": [
         {
@@ -180,6 +187,7 @@ cat > "$state/noauth.env" <<ENV
 DEV_NO_AUTH=1
 SESSION_SECRET_KEY=$SESSION_SECRET_KEY
 SESSION_SECRET_KEY_B=$SESSION_SECRET_KEY_B
+SESSION_SECRET_KEY_D=$SESSION_SECRET_KEY_D
 ENV
 
 # Login through the local Keycloak. The browser reaches it on
@@ -189,6 +197,7 @@ cat > "$state/keycloak.env" <<ENV
 DEV_NO_AUTH=0
 SESSION_SECRET_KEY=$SESSION_SECRET_KEY
 SESSION_SECRET_KEY_B=$SESSION_SECRET_KEY_B
+SESSION_SECRET_KEY_D=$SESSION_SECRET_KEY_D
 OIDC_ISSUER=https://localhost:9443/realms/grip
 OIDC_DISCOVERY_URL=https://keycloak:8443/realms/grip/.well-known/openid-configuration
 OIDC_CLIENT_ID=grip
