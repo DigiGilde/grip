@@ -13,6 +13,7 @@ Dit bestand volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/). De v
 - `POST /kostenpostverzoeken` (`requestCostItem`): een organisatie vraagt de organisatie die de uitgave doet om een kostenpost aan te maken, met omschrijving, verwacht bedrag en eventueel periode en opdracht. Idempotent op de `verwijzing_uri`; een volgend verzoek met een hoger `volgnummer` vraagt om een wijziging van omschrijving en bedrag.
 - `GET /kostenposten?verwijzingUri=...` (`getCostItems`): de vrager haalt omschrijving, verwacht bedrag en factuurregels op bij een of meer verwijzingen, in een verzoek. Een verwijzing zonder kostenpost die de vrager mag lezen komt terug met `aangemaakt` op `false`.
 - Schema's `kostenpostverzoek`, `kostenposten`, `kostenpost` en `factuurregel`; de soort van een factuurregel is `ontvangen` of `verwacht`.
+- `onvolledig_door` in de uitputting (`getBudgetUsage`) en de doorgifte van kosten (`getHandoverCosts`): de organisaties waar een kostenpost niet is op te halen. Staat er een naam, dan zijn de bedragen onvolledig.
 - `x-grip-caller: requester`: de organisatie die de kostenpost vroeg. De vrager is altijd de aanroepende peer; `organisatie` in een verzoek is informatief, en de `verwijzing_uri` valt onder de basis-URI van de vrager.
 
 - Offerte: `kenmerk`, `uw_kenmerk`, `afzender` en `brief` in de momentopname. De brief is de tekst bij de bedragen en hoort bij de inhoud waarover de hash wordt berekend.

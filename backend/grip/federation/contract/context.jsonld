@@ -126,6 +126,7 @@
     "ondertekenaar": "kv:ondertekenaar",
     "ondertekening": "kv:ondertekening",
     "ontvangen_op": "kv:ontvangen_op",
+    "onvolledig_door": "kv:onvolledig_door",
     "opdracht": "kv:opdracht",
     "opdracht_uri": {
       "@id": "kv:opdracht_uri",

@@ -91,6 +91,7 @@ De vertaling is omkeerbaar: elke term heeft precies een codenaam en andersom. Bi
 | `offertebedrag` | `quoted_amount` |
 | `omschrijving` | `description` |
 | `onderdelen` | `sections` |
+| `onvolledig_door` | `incomplete_by` |
 | `ondertekenaar` | `signer` |
 | `ondertekening` | `signatures` |
 | `ontvangen_op` | `received_at` |
