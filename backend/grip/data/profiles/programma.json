@@ -1,0 +1,76 @@
+{
+  "profile": "programma",
+  "title": "Voorbeeldprogramma (fictief)",
+  "description": "Startwaarden voor de afzender, de onderdelen en de standaardteksten van een offerte van het fictieve Voorbeeldprogramma aan het Voorbeeldministerie. Gegevens op het niveau van het programma; een contactpersoon en een ondertekenaar vult de beheerder zelf in.",
+  "sender": {
+    "organisation": "Voorbeeldprogramma",
+    "part_of": [
+      "Voorbeeldministerie"
+    ],
+    "unit": "Programmabureau",
+    "visiting_address": [
+      "Voorbeeldplein 1",
+      "1234 AB Voorbeeldstad"
+    ],
+    "postal_address": [
+      "Postbus 12345",
+      "1230 AA Voorbeeldstad"
+    ],
+    "orders_email": "programmabureau@programma.example",
+    "signatory": {
+      "on_behalf_of": "het Voorbeeldprogramma",
+      "organisation": "Voorbeeldministerie"
+    }
+  },
+  "letter": {
+    "opening": "Hierbij bieden wij u de begroting van het programma voor het komende jaar aan.",
+    "closing": "**Contactpersoon {eenheid}**\n{contactpersoon}\n\nGraag beantwoord ik uw eventuele vragen.\n\nIk verzoek u de begroting schriftelijk vast te stellen onder vermelding van de datum en het kenmerk van deze brief. Uw besluit kunt u zenden aan {opdrachtenadres}.",
+    "billing_annex": false
+  },
+  "text_blocks": [
+    {
+      "key": "inleiding",
+      "heading": "Inleiding",
+      "draftable": true,
+      "hint": "De opgave van het programma en wat er het afgelopen jaar is bereikt."
+    },
+    {
+      "key": "opdracht",
+      "heading": "Opdracht",
+      "draftable": true,
+      "hint": "Wat het programma dit jaar doet en met welk doel. Wat het zelf doet en wat het aan leveranciers geeft."
+    },
+    {
+      "key": "team",
+      "heading": "Opbouw en inzet team",
+      "draftable": true,
+      "hint": "Welke rollen en hoeveel fte. Rollen en niveaus, geen namen."
+    },
+    {
+      "key": "kosten",
+      "heading": "Kosten",
+      "with_costs": true,
+      "hint": "Wat bij de bedragen gezegd moet worden, bijvoorbeeld welk deel naar leveranciers gaat. De tabel volgt uit de begroting."
+    },
+    {
+      "key": "leveranciers",
+      "heading": "Leveranciers",
+      "included": false,
+      "draftable": true,
+      "hint": "Welke opdrachten het programma geeft en aan wie."
+    },
+    {
+      "key": "governance",
+      "heading": "Governance",
+      "draftable": true,
+      "body": "Opdrachtgever: het Voorbeeldministerie, verantwoordelijk voor de kaders en het budget.\nProgramma: verantwoordelijk voor de uitvoering en de verantwoording van de uitgaven.\n\nOverlegstructuur:\n- Maandelijks overleg met de opdrachtgever\n- Kwartaalrapportage over de uitputting\n- Jaarverantwoording",
+      "hint": "Wie stuurt, wie uitvoert, en welk overleg er is."
+    },
+    {
+      "key": "wijzigingen",
+      "heading": "Wijzigingen",
+      "body": "Wijzigt de inzet of een uitgave zo dat de begroting niet meer past, dan legt het programma dat vooraf aan de opdrachtgever voor. Een aanpassing geldt nadat de opdrachtgever haar schriftelijk heeft bevestigd.",
+      "hint": "Standaardtekst van het programma."
+    }
+  ]
+}

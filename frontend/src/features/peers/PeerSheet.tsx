@@ -5,6 +5,7 @@ import { useStaleForm } from '@/ui/useStaleForm';
 import { formatDate } from '@/lib/format';
 import { Button, SelectField, SwitchField, TextField } from '@/features/team/ui/controls';
 import { Form, Sheet } from '@/features/team/ui/overlays';
+import { useInstance } from '@/layout/useInstance';
 import {
   PEERS_KEY,
   ROLE_LABELS,
@@ -58,6 +59,7 @@ interface PeerFormProps {
 
 function PeerForm({ peer, services, onSaved }: PeerFormProps) {
   const queryClient = useQueryClient();
+  const instance = useInstance();
   const [peerId, setPeerId] = useState(peer?.peer_id ?? '');
   const [name, setName] = useState(peer?.name ?? '');
   const [baseUri, setBaseUri] = useState(peer?.base_uri ?? '');
@@ -65,6 +67,7 @@ function PeerForm({ peer, services, onSaved }: PeerFormProps) {
   const [role, setRole] = useState<PeerRole>(peer?.role ?? 'counterpart');
   const [grants, setGrants] = useState<Record<string, string>>(peer?.grant_hashes ?? {});
   const [financial, setFinancial] = useState(peer?.financial_inspection ?? false);
+  const [example, setExample] = useState(peer?.is_example ?? instance?.example ?? false);
   const [active, setActive] = useState(peer?.is_active ?? true);
   const [error, setError] = useState<string | null>(null);
 
@@ -103,6 +106,7 @@ function PeerForm({ peer, services, onSaved }: PeerFormProps) {
           role,
           grant_hashes: grants,
           financial_inspection: financial,
+          is_example: example,
           is_active: active,
         });
       }}
@@ -155,6 +159,11 @@ function PeerForm({ peer, services, onSaved }: PeerFormProps) {
           onChange={setFinancial}
         />
       )}
+      <SwitchField
+        label="Voorbeeldinstantie: alleen een voorbeeldinstantie wisselt hiermee berichten uit"
+        checked={example}
+        onChange={setExample}
+      />
       <SwitchField
         label="Actief: verkeer met deze partij is toegestaan"
         checked={active}

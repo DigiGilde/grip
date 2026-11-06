@@ -30,4 +30,9 @@ Voorbeeldgegevens in een instantie voor echt werk zijn geen optie. Een verzonnen
 - De code staat op één plek, `grip/core/example.py`, en de controles in `Settings._validate_instance_mode`. Een nieuw kanaal naar buiten krijgt daar een regel bij.
 - Een nieuw soort document neemt de vermelding over via `Letterhead.example`.
 - Lokale ontwikkeling is geen voorbeeldinstantie en werkt als voorheen: `just seed` met de hand.
+- Welke verzonnen set een voorbeeldinstantie laadt, volgt uit `SEED_DATASET` (standaard `voorbeeld`); elke andere set is een module in `grip/dev/datasets`.
 - De voorbeeldgegevens hebben vaste jaren (2025 tot en met 2028). Ze verschuiven niet mee met de dag waarop de instantie start; dat is nog open.
+
+## Later gewijzigd (2026-10-10)
+
+Voorbeeldinstanties mogen federeren, alleen met elkaar, in een eigen FSC-groep (ADR 0054). Federatie is nog een startfout zonder `EXAMPLE_FSC_GROUP`; de andere kanalen naar buiten blijven dat altijd.

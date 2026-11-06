@@ -178,6 +178,47 @@ async def test_connection_test_without_grant_or_outway(
     assert result["ok"] is False and "outway" in result["detail"]
 
 
+async def test_a_peer_is_marked_as_example_and_nothing_crosses(
+    client, db_session, beheerder, act_as, _test_app
+):
+    act_as(beheerder)
+    created = (await client.post("/api/peers", json=PEER)).json()
+    assert created["is_example"] is False
+    changed = await client.patch(
+        f"/api/peers/{created['id']}", json={"is_example": True}
+    )
+    assert changed.status_code == 200, changed.text
+    assert changed.json()["is_example"] is True
+    update = await db_session.scalar(
+        select(AuditLog).where(AuditLog.entity == "peer", AuditLog.action == "update")
+    )
+    assert update.new_value == {"is_example": True}
+
+    seen = []
+    _test_app.dependency_overrides[get_outway_client] = lambda: _outway(
+        lambda request: seen.append(request) or httpx.Response(200, json={})
+    )
+    result = (await client.post(f"/api/peers/{created['id']}/test-connection")).json()
+    assert result["ok"] is False and "voorbeeld" in result["detail"]
+    assert seen == []
+
+
+async def test_the_example_marker_does_not_leak(client, create_person, act_as):
+    beheerder = await create_person("b2@example.org", functions=["beheerder"])
+    act_as(beheerder)
+    body = {**PEER, "is_example": True}
+    created = (await client.post("/api/peers", json=body)).json()
+    for functions in (["planner"], ["lezer"], ["aanvrager"], []):
+        person = await create_person(
+            f"{'-'.join(functions) or 'niemand'}@example.org", functions=functions
+        )
+        act_as(person)
+        for path in ("/api/peers", f"/api/peers/{created['id']}"):
+            response = await client.get(path)
+            assert response.status_code == 403, (functions, path)
+            assert "is_example" not in response.text
+
+
 # --- a received quote ------------------------------------------------------
 
 

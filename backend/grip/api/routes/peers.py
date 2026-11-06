@@ -31,6 +31,7 @@ from grip.federation.outway import (
     MissingGrantError,
     OutwayClient,
     OutwayNotConfiguredError,
+    PeerOutsideGroupError,
 )
 from grip.federation.routes import get_outway_client
 from grip.schema.peers import (
@@ -54,6 +55,7 @@ _AUDITED = (
     "role",
     "grant_hashes",
     "financial_inspection",
+    "is_example",
     "is_active",
 )
 
@@ -74,6 +76,7 @@ def _out(peer: Peer) -> dict[str, Any]:
         "role": peer.role,
         "grant_hashes": dict(peer.grant_hashes or {}),
         "financial_inspection": bool(peer.financial_inspection),
+        "is_example": bool(peer.is_example),
         "is_active": peer.is_active,
         "key_count": len((peer.jwks or {}).get("keys", [])),
         "jwks_fetched_at": peer.jwks_fetched_at,
@@ -215,6 +218,13 @@ async def test_connection(
         response = await outway.request(peer, service, "GET", path)
     except OutwayNotConfiguredError:
         return result(False, "Er is geen outway ingesteld (OUTWAY_URL).")
+    except PeerOutsideGroupError:
+        return result(
+            False,
+            "Een voorbeeldinstantie praat alleen met voorbeeldinstanties, en "
+            "een instantie voor echt werk nooit met een voorbeeld. Er is niets "
+            "verstuurd.",
+        )
     except MissingGrantError:
         return result(
             False, f"Er is geen grant hash vastgelegd voor de dienst {service}."

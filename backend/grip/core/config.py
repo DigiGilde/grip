@@ -33,9 +33,20 @@ class Settings(BaseSettings):
     # example data, for showing grip and for trying a deployment. It loads the
     # example data by itself on an empty database, lets a visitor who logs in
     # look as one of the example persons, marks every page and document as an
-    # example, and never talks to another system. An example instance is
-    # thrown away, never promoted: see grip.core.example and ADR 0050.
+    # example, and talks to no other system than example instances in its own
+    # FSC group (EXAMPLE_FSC_GROUP). An example instance is thrown away, never
+    # promoted: see grip.core.example and ADR 0050 and 0054.
     INSTANCE_MODE: str = ""
+    # The FSC group of the example instances (ADR 0054). Only in an example
+    # instance, and only with it may an example instance federate: then only
+    # with peers marked as example, and only calls that come through this
+    # group are accepted. Empty: an example instance does not federate.
+    EXAMPLE_FSC_GROUP: str = ""
+    # Where the other example instances live, for the example datasets that
+    # refer to them: "key=base URI" pairs separated by commas, for example
+    # "digigilde=https://grip.voorbeeld.example". A key that is missing keeps
+    # the address of the local setup (deploy/local).
+    EXAMPLE_INSTANCE_URIS: str = ""
     # Who may enter an example instance: comma-separated mail domains
     # ("voorbeeld.example") or whole addresses. Empty: nobody. The address
     # must be one the identity provider vouches for.
@@ -43,6 +54,9 @@ class Settings(BaseSettings):
     # The hour (0 to 23, on the instance's calendar) at which an example
     # instance goes back to its starting state every night. Empty: never.
     EXAMPLE_RESET_HOUR: str = "3"
+    # Which fictional dataset `just seed` and an example instance load: the
+    # default "voorbeeld" (grip.dev.seed) or a module in grip.dev.datasets.
+    SEED_DATASET: str = "voorbeeld"
 
     # The organisation as it signs its documents. A quote is sent by the
     # organisation, not by the software instance: this name stands on the
@@ -400,10 +414,24 @@ class Settings(BaseSettings):
             if part.strip()
         ]
 
+    @property
+    def example_instance_uris(self) -> dict[str, str]:
+        pairs = (part.split("=", 1) for part in self.EXAMPLE_INSTANCE_URIS.split(","))
+        return {
+            key.strip().lower(): uri.strip().rstrip("/")
+            for key, uri in (pair for pair in pairs if len(pair) == 2)
+            if key.strip() and uri.strip()
+        }
+
+    @property
+    def federates_as_example(self) -> bool:
+        """An example instance in an example FSC group (ADR 0054)."""
+        return self.is_example and bool(self.EXAMPLE_FSC_GROUP.strip())
+
     @model_validator(mode="after")
     def _validate_instance_mode(self) -> "Settings":
-        """An example instance never talks to another system and never
-        looks like the real thing."""
+        """An example instance talks to no system but other example
+        instances, and never looks like the real thing."""
         mode = self.INSTANCE_MODE.strip().lower()
         if mode not in ("", "normaal", "voorbeeld"):
             raise ValueError(
@@ -411,12 +439,25 @@ class Settings(BaseSettings):
                 f"'{self.INSTANCE_MODE}' is onbekend."
             )
         if mode != "voorbeeld":
+            if self.EXAMPLE_FSC_GROUP.strip():
+                raise ValueError(
+                    "EXAMPLE_FSC_GROUP hoort alleen bij een voorbeeldinstantie "
+                    "(INSTANCE_MODE=voorbeeld). Een instantie voor echt werk "
+                    "zit nooit in de groep van de voorbeelden."
+                )
             return self
+        in_example_group = bool(self.EXAMPLE_FSC_GROUP.strip())
         linked = [
             name
             for name, on in (
-                ("FEDERATION_INBOUND_ENABLED", self.FEDERATION_INBOUND_ENABLED),
-                ("FEDERATION_OUTBOUND_ENABLED", self.FEDERATION_OUTBOUND_ENABLED),
+                (
+                    "FEDERATION_INBOUND_ENABLED",
+                    self.FEDERATION_INBOUND_ENABLED and not in_example_group,
+                ),
+                (
+                    "FEDERATION_OUTBOUND_ENABLED",
+                    self.FEDERATION_OUTBOUND_ENABLED and not in_example_group,
+                ),
                 ("WIES_BASE_URL", bool(self.WIES_BASE_URL)),
                 ("GRIP_EXPORT_KEY", bool(self.GRIP_EXPORT_KEY)),
                 ("EVENTS_FEED_KEY", bool(self.EVENTS_FEED_KEY)),
@@ -426,9 +467,18 @@ class Settings(BaseSettings):
             if on
         ]
         if linked:
+            federation = any(name.startswith("FEDERATION_") for name in linked)
             raise ValueError(
                 "Een voorbeeldinstantie (INSTANCE_MODE=voorbeeld) wisselt niets "
-                "uit met andere systemen. Haal weg: " + ", ".join(linked) + "."
+                "uit met andere systemen. Haal weg: "
+                + ", ".join(linked)
+                + "."
+                + (
+                    " Federeren mag alleen met andere voorbeeldinstanties, in "
+                    "een eigen groep (EXAMPLE_FSC_GROUP)."
+                    if federation
+                    else ""
+                )
             )
         hour = self.EXAMPLE_RESET_HOUR.strip()
         if hour and not (hour.isdigit() and 0 <= int(hour) <= 23):
