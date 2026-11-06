@@ -619,7 +619,7 @@ async def choose_example_person(
         "login.switched",
         subject=(LOGIN_SUBJECT, uuid4()),
         person_id=person.id,
-        payload={"email": visitor.get("email", ""), "as": str(person.id)},
+        payload={"visit": visitor.get("visit", ""), "as": str(person.id)},
     )
     await db.commit()
     return await auth_status(request, db, settings)

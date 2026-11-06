@@ -326,7 +326,9 @@ async def test_a_visitor_chooses_whom_to_look_as(db_session, provider):
     assert status.person.id == other.id and status.example_visitor == "Be Zoeker"
     (event,) = await _login_events(db_session)
     assert event.type == "login.switched"
-    assert event.payload == {"email": "bezoeker@voorbeeld.example", "as": str(other.id)}
+    # The key of the visit, as on what the visitor does: the address stays in
+    # login.visited only.
+    assert event.payload == {"visit": "eenbezoek", "as": str(other.id)}
     # Recorded as done by the example person, through the real login.
     assert event.actor_person_id is None or event.actor_ref
 

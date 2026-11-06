@@ -39,4 +39,4 @@ Voorbeeldinstanties mogen federeren, alleen met elkaar, in een eigen FSC-groep (
 
 ## Later gewijzigd (2026-11-04)
 
-De verwijzing is niet meer het adres maar een willekeurige sleutel per aanmelding: `bezoeker:<sleutel>`. De keten hasht die kolom, dus een adres zou daar niet te wissen zijn. Welk adres bij de sleutel hoort, staat alleen in de waarden van `login.visited`. Een limiet per bezoeker telt daardoor per aanmelding.
+De verwijzing is niet meer het adres maar een willekeurige sleutel per aanmelding: `bezoeker:<sleutel>`. De keten hasht die kolom, dus een adres zou daar niet te wissen zijn. Welk adres bij de sleutel hoort, staat alleen in de waarden van `login.visited`; `login.switched` noemt de sleutel. Een limiet per bezoeker telt daardoor per aanmelding.
