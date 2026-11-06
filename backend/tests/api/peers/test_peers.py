@@ -258,7 +258,9 @@ async def received_quote(db_session, beheerder, monkeypatch):
     )
     # The quote came from the contractor's instance: the assignment is shared
     # with it, which is why a decision goes back there.
-    assignments.share_with_instance(assignment, CONTRACTOR["instance_uri"])
+    await assignments.share_with_instance(
+        db_session, assignment, CONTRACTOR["instance_uri"]
+    )
     snapshot = await quotes.build_snapshot(db_session, assignment)
     quote = await quotes.receive_quote(
         db_session,
@@ -336,6 +338,61 @@ async def test_rejection_goes_to_the_contractor_with_the_reason(
     (queued,) = (await db_session.execute(select(FederationOutbox))).scalars().all()
     assert queued.operation == "sendRejection"
     assert queued.payload[terms.term("reason")] == "Past niet in het budget."
+
+
+async def test_a_recorded_rejection_goes_to_the_contractor_in_the_name_of_the_client(
+    client, db_session, create_person, act_as, received_quote
+):
+    register_event_handlers()
+    owner = await create_person("eigenaar@example.org", functions=["planner"])
+    await assignments.set_assignment_role(
+        db_session, received_quote.assignment_id, owner.id, "owner", actor=None
+    )
+    act_as(owner)
+    response = await client.post(
+        f"/api/quotes/{received_quote.id}/rejection",
+        json={"reason": "Past niet in het budget."},
+    )
+    assert response.status_code == 201, response.text
+    (queued,) = (await db_session.execute(select(FederationOutbox))).scalars().all()
+    assert queued.operation == "sendRejection"
+    organisation = queued.payload[terms.term("organisation")]
+    assert organisation[terms.term("name")] == get_settings().INSTANCE_NAME
+    assert organisation[terms.term("tooi_uri")] == get_settings().INSTANCE_TOOI_URI
+
+
+async def test_a_recorded_rejection_for_a_client_made_by_hand_goes_in_the_own_name(
+    client, db_session, create_person, act_as, received_quote
+):
+    """A client without a TOOI URI has a name for the sentence, not for a message."""
+    register_event_handlers()
+    owner = await create_person("eigenaar@example.org", functions=["planner"])
+    await assignments.set_assignment_role(
+        db_session, received_quote.assignment_id, owner.id, "owner", actor=None
+    )
+    by_hand = await assignments.upsert_organisation(
+        db_session, tooi_uri=None, name="Voorbeeldafdeling"
+    )
+    await assignments.update_assignment(
+        db_session,
+        received_quote.assignment_id,
+        actor=None,
+        client_organisation_id=by_hand.id,
+    )
+    act_as(owner)
+    response = await client.post(
+        f"/api/quotes/{received_quote.id}/rejection",
+        json={"reason": "Past niet in het budget."},
+    )
+    assert response.status_code == 201, response.text
+    (queued,) = (await db_session.execute(select(FederationOutbox))).scalars().all()
+    organisation = queued.payload[terms.term("organisation")]
+    assert organisation[terms.term("name")] == get_settings().INSTANCE_NAME
+    assert organisation[terms.term("tooi_uri")] == get_settings().INSTANCE_TOOI_URI
+    moments = await client.get(
+        f"/api/assignments/{received_quote.assignment_id}/chronicle"
+    )
+    assert "Voorbeeldafdeling" in moments.json()["items"][-1]["statement"]
 
 
 async def test_someone_without_the_function_cannot_decide(

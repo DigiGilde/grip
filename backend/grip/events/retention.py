@@ -20,11 +20,14 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import func, null, select, update
+from sqlalchemy.dialects.postgresql import array
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from grip.chronicle import rates
+from grip.chronicle.writer import event_type
 from grip.events import context, stream
 from grip.models.stream_event import StreamEvent
-from grip.services import instance_settings
+from grip.services import instance_settings, quote_approval
 from grip.services.errors import DomainValidationError
 
 READ_TYPE = "data.read"
@@ -109,6 +112,16 @@ async def erase_person(db: AsyncSession, person_id: UUID, *, reason: str) -> int
     )
 
 
+def _needed_to_look_back() -> Any:
+    """What every later stand prices and weighs with. Holds no personal data."""
+    approval_rule = array([quote_approval.MODE.key, quote_approval.THRESHOLD.key])
+    return (StreamEvent.type == event_type(rates.FACT)) | (
+        (StreamEvent.subject_kind == "instance_setting")
+        # A row migrated without new values gives NULL, which no NOT makes true.
+        & StreamEvent.new_value.has_any(approval_rule).is_(True)
+    )
+
+
 async def apply_retention(db: AsyncSession, *, now: datetime | None = None) -> int:
     """Erase the values that are older than the instance keeps them."""
     now = now or datetime.now(UTC)
@@ -118,7 +131,8 @@ async def apply_retention(db: AsyncSession, *, now: datetime | None = None) -> i
         erased += await _erase(
             db,
             (StreamEvent.occurred_at < now - timedelta(days=days))
-            & (StreamEvent.type != ERASED_TYPE),
+            & (StreamEvent.type != ERASED_TYPE)
+            & ~_needed_to_look_back(),
             reason="retention",
             about={"retention_days": days},
         )

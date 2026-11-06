@@ -12,7 +12,8 @@ import hashlib
 import json
 import re
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 
 import pytest
 import rfc8785
@@ -27,7 +28,14 @@ from grip.federation.models import FederationOutbox, Peer
 from grip.models.assignment import Assignment
 from grip.models.organisation import Organisation
 from grip.models.quote import Quote, QuoteAcceptance, QuoteOffer
-from grip.services import assignments, quote_channels, quotes, rates, terms
+from grip.services import (
+    assignments,
+    quote_channels,
+    quote_views,
+    quotes,
+    rates,
+    terms,
+)
 from grip.services import events as domain_events
 from grip.services.errors import QuoteHashMismatchError
 from tests.api.quotes.conftest import document_text
@@ -36,6 +44,41 @@ from .conftest import PDF_BYTES
 
 CLIENT_INSTANCE = "https://grip.opdrachtgever.example"
 CONTRACTOR_INSTANCE = "https://grip.opdrachtnemer.example"
+MOMENT = datetime(2026, 11, 8, 10, 0, tzinfo=UTC)
+
+
+def _link(**moments) -> SimpleNamespace:
+    return SimpleNamespace(
+        **{
+            "used_at": None,
+            "withdrawn_at": None,
+            "expires_at": None,
+            "opened_at": None,
+            **moments,
+        }
+    )
+
+
+@pytest.mark.parametrize(
+    ("link", "state"),
+    [
+        (_link(), "invited"),
+        (_link(opened_at=MOMENT), "opened"),
+        (_link(expires_at=MOMENT + timedelta(seconds=1)), "invited"),
+        (_link(expires_at=MOMENT), "expired"),
+        (_link(expires_at=MOMENT, opened_at=MOMENT), "expired"),
+        (_link(withdrawn_at=MOMENT, expires_at=MOMENT), "withdrawn"),
+        (_link(used_at=MOMENT, withdrawn_at=MOMENT, expires_at=MOMENT), "signed"),
+    ],
+)
+def test_where_a_signing_link_stands_at_a_moment(link, state):
+    assert quote_views.invitation_state(link, MOMENT) == state
+
+
+def test_a_signing_link_is_judged_at_the_moment_it_is_given():
+    link = _link(expires_at=MOMENT)
+    assert quote_views.invitation_state(link, MOMENT - timedelta(days=1)) == "invited"
+    assert quote_views.invitation_state(link, MOMENT + timedelta(days=1)) == "expired"
 
 
 @pytest.fixture
@@ -197,7 +240,7 @@ async def test_the_hash_is_one_value_on_document_and_every_acceptance(
         contractor_organisation_id=contractor.id,
         uri=f"{get_settings().INSTANCE_BASE_URI}/id/opdracht/{uuid.uuid4()}",
     )
-    assignments.share_with_instance(mirror, CONTRACTOR_INSTANCE)
+    await assignments.share_with_instance(db_session, mirror, CONTRACTOR_INSTANCE)
     received = await quotes.receive_quote(
         db_session,
         mirror.id,

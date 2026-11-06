@@ -350,6 +350,25 @@ async def test_a_guest_signs_without_a_person_record(guest_api, act_as, world):
     assert seen["acceptance"]["signer_name"] == "Gast Tekenaar"
 
 
+async def test_a_guest_who_rejects_decides_as_a_person_would(guest_api, act_as, world):
+    quote = await _issued_and_invited(act_as, world)
+    async with guest_api(_guest_session()) as client:
+        response = await client.post(
+            f"/api/signing/quotes/{quote['id']}/reject",
+            json={"quote_hash": quote["snapshot_hash"], "reason": "Past niet."},
+        )
+        assert response.status_code == 201, response.text
+
+    moments = (
+        await act_as(world.manager).get(
+            f"/api/assignments/{world.assignment.id}/chronicle"
+        )
+    ).json()["items"]
+    assert moments[-1]["fact"] == "quote_rejected"
+    assert moments[-1]["decision"] is True
+    assert moments[-1]["statement"] == "Voorbeeldministerie wees de offerte af."
+
+
 async def test_a_guest_for_another_address_sees_nothing(guest_api, act_as, world):
     quote = await _issued_and_invited(act_as, world)
     async with guest_api(_guest_session("ander@elders.example")) as client:

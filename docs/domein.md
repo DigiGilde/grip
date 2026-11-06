@@ -38,6 +38,9 @@ UI-termen zijn Nederlands; code en schema gebruiken de Engelse naam.
 | Aanlevering | `billing_delivery` | Wat voor één factuurperiode aan de financiële administratie is gegeven, met het factuurverzoek als bewaard document |
 | Factuurverzoek | `factuurverzoek` | Het document van een aanlevering: bedrag, factuuradres, afspraak en specificatie per maand |
 | Nog aan te leveren | `to_deliver` | De vastgestelde inzet van afgesloten maanden, geprijsd, min wat is aangeleverd |
+| Moment | `Gram`, type `chronolexogram.<feit>` | Eén vastgelegd feit op het pad naar een opdracht: wie stelde wat vast, wanneer. Zie [kroniek.md](kroniek.md) |
+| Stand op ... | `fold`, `Ledger` | Hoe opdracht, begroting, offerte en verloop er op een moment voorstonden, afgeleid uit de feiten tot en met dat moment |
+| Besluit | `decretogram` | Een feit waarin wie het vaststelt hier zelf besluit. Een besluit dat elders is genomen en hier alleen wordt vastgelegd (een pdf, een binnenkomend akkoord, een afwijzing die iemand voor een ander noteert) is er geen. De andere soorten (`executogram`, `lexogram`, `general`) krijgen geen merkteken op het scherm |
 | Gefactureerd | `invoiced` | Er is een factuur verstuurd. Grip weet dat alleen doordat iemand het heeft vastgelegd; tot dan heet geen bedrag gefactureerd |
 | Nog te factureren | `to_invoice` | Aangeleverd min gefactureerd: aangeleverd, en in grip nog geen factuur vastgelegd |
 | Potentiële opdracht | `phase: potential` | Een opdracht zonder akkoord van de opdrachtgever, ook als haar laatste offerte is afgewezen. Haar bedragen tellen nooit mee in het lopende werk en staan apart, onder "Potentieel" of "Potentiële opdrachten"; inzet erop is onder voorbehoud. In de code heet dat `pipeline`; op het scherm staat dat woord niet |

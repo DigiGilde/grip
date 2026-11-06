@@ -46,6 +46,9 @@ from grip.services.errors import (
     QuoteHashMismatchError,
 )
 
+_FIRST_YEAR = 1900
+_LAST_YEAR = 2199
+
 
 def _not_found() -> FederationProblem:
     return FederationProblem(
@@ -68,6 +71,24 @@ def _refuse(error: DomainError) -> FederationProblem:
 
 def _date(value: str | None) -> date | None:
     return date.fromisoformat(value) if value else None
+
+
+def _moment(body: dict[str, Any], field: str) -> datetime:
+    """When a peer says a decision fell. Not at the far ends of the calendar.
+
+    There a local day overflows and a stored instant reads back without its zone.
+    A refusal keeps a catch-up going, where anything else stops it for every
+    message behind this one.
+    """
+    moment = datetime.fromisoformat(body[field])
+    if not _FIRST_YEAR <= moment.year <= _LAST_YEAR:
+        raise FederationProblem(
+            400,
+            "Bericht geweigerd",
+            f"Het veld {terms.term(field)} noemt een moment buiten de jaren "
+            f"{_FIRST_YEAR} tot en met {_LAST_YEAR}.",
+        )
+    return moment
 
 
 async def receive_assignment_request(
@@ -95,6 +116,11 @@ async def receive_assignment_request(
             parent_assignment_uri=body.get("parent_assignment_uri"),
             start_date=_date(period.get("start_date")),
             end_date=_date(period.get("end_date")),
+            received={
+                "from": peer.peer_id,
+                "id": body["id"],
+                "received_from": body["client"]["name"],
+            },
         )
     except DomainError as error:
         raise _refuse(error) from error
@@ -106,6 +132,7 @@ async def receive_quote(
 ) -> dict[str, Any]:
     """A contractor sends a quote, on request or on its own initiative."""
     body = message.payload
+    issued_at = _moment(body, "issued_at")
     access = peer_access(db, peer)
     repository = AssignmentRepository(db)
     assignment = await repository.get_by_uri(body["assignment_uri"])
@@ -132,14 +159,14 @@ async def receive_quote(
         except DomainError as error:
             raise _refuse(error) from error
         # A quote received from an instance is an exchange with it.
-        assignments.share_with_instance(assignment, peer.base_uri)
+        await assignments.share_with_instance(db, assignment, peer.base_uri)
     else:
         decision = await access.may(
             Action.ISSUE_QUOTE, Resource.quote(None, assignment.id)
         )
         if not decision.allowed:
             raise _not_found()
-        assignments.share_with_instance(assignment, peer.base_uri)
+        await assignments.share_with_instance(db, assignment, peer.base_uri)
     try:
         quote = await quotes.receive_quote(
             db,
@@ -153,8 +180,13 @@ async def receive_quote(
                 message.contract_payload[terms.term("snapshot")]
             ),
             claimed_hash=body["snapshot_hash"],
-            issued_at=datetime.fromisoformat(body["issued_at"]),
+            issued_at=issued_at,
             request_id=UUID(body["request_id"]) if body.get("request_id") else None,
+            received={
+                "from": peer.peer_id,
+                "id": body["id"],
+                "received_from": body["contractor"]["name"],
+            },
         )
     except DomainError as error:
         raise _refuse(error) from error
@@ -196,7 +228,7 @@ async def receive_acceptance(
         )
     quote = await _own_quote(db, peer, body)
     signer = body["signer"]
-    signed_at = datetime.fromisoformat(body["signed_at"])
+    signed_at = _moment(body, "signed_at")
     given = body.get("billing_details")
     if given is not None:
         decision = await peer_access(db, peer).may(
@@ -220,6 +252,7 @@ async def receive_acceptance(
             jws=body["jws"],
             acceptance_id=UUID(body["id"]),
             origin="remote",
+            received={"from": peer.peer_id, "id": body["id"]},
         )
         result = {"quote_id": str(quote.id), "acceptance_id": str(acceptance.id)}
         if given is not None:
@@ -290,9 +323,10 @@ async def receive_rejection(
             quote_hash=quote.snapshot_hash,
             reason=body.get("reason"),
             organisation=body["organisation"],
-            rejected_at=datetime.fromisoformat(body["rejected_at"]),
+            rejected_at=_moment(body, "rejected_at"),
             rejection_id=UUID(body["id"]),
             origin="remote",
+            received={"from": peer.peer_id, "id": body["id"]},
         )
     except DomainError as error:
         raise _refuse(error) from error

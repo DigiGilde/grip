@@ -24,6 +24,11 @@ export function formatDateTime(iso: string | null | undefined): string {
   return Number.isNaN(date.getTime()) ? '' : dateTime.format(date);
 }
 
+/** The name of a budget line starts with its role when it has one: no need to say it twice. */
+export function nameSaysRole(name: string, role: string): boolean {
+  return name.toLowerCase().startsWith(role.toLowerCase());
+}
+
 /** What a client reads on the rate leaflet: the scales, then the category. */
 export function scaleText(line: { scales?: number[]; rate_category?: string | null }): string {
   const scales = line.scales ?? [];

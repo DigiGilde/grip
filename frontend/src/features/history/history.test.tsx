@@ -68,7 +68,7 @@ describe('an event in words', () => {
 
   it('has a sentence for what is more than a change of fields', () => {
     expect(headline(event({ type: 'quote.accepted', subject_kind: 'quote' }))).toBe(
-      'Offerte aanvaard',
+      'Offerte getekend',
     );
     expect(
       detail(
@@ -121,7 +121,7 @@ describe('moments', () => {
       event({ seq: 1, correlation_id: 'c-1' }),
     ]);
     expect(rows.map((row) => row.headline)).toEqual([
-      'Offerte aanvaard',
+      'Offerte getekend',
       'Begrotingsregel gewijzigd',
     ]);
     expect(rows[0]?.lines).toEqual(['Opdracht gewijzigd: Status van offered naar active']);

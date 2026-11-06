@@ -26,3 +26,4 @@ import '@nldd/design-system/list-item';
 import '@nldd/design-system/icon-cell';
 import '@nldd/design-system/spacer-cell';
 import '@nldd/design-system/step-bar';
+import '@nldd/design-system/step-cell';

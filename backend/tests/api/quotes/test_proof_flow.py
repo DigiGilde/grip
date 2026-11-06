@@ -251,6 +251,7 @@ async def test_rejection_through_the_signing_link(act_as, world, db_session):
         )
     ).scalar_one()
     assert str(rejection.evidence_id) == evidence_id
+    assert rejection.recorded_by_id is None, "the signer decides, and records nothing"
     evidence = await db_session.get(DecisionEvidence, rejection.evidence_id)
     statement = parse_statement(bytes(evidence.statement))
     assert statement["besluit"] == "afwijzing"

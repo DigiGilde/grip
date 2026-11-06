@@ -53,6 +53,7 @@ ASSIGNMENT_STATUSES = (
 ROLE_OWNER = "owner"
 ROLE_MANAGER = "manager"
 BUDGET_LINE_KINDS = ("personnel", "fixed")
+LINE_NEEDS_A_NAME = "Kies een rol of geef de regel een omschrijving."
 
 
 class Assignment(Versioned, Base):
@@ -373,19 +374,60 @@ def _resolve_budget_line_roles(
         if not line.role and not (line.detail or "").strip():
             from grip.services.errors import DomainValidationError
 
-            raise DomainValidationError(
-                "Kies een rol of geef de regel een omschrijving."
-            )
+            raise DomainValidationError(LINE_NEEDS_A_NAME)
 
 
-def _resolve_roles(session: Session, lines: list["BudgetLine"]) -> None:
-    from grip.models.catalogue_role import ROLE_SOURCE_MANUAL, CatalogueRole
+def _pending_roles(session: Session) -> "dict[str, CatalogueRole]":
+    from grip.models.catalogue_role import CatalogueRole
 
-    pending = {
+    return {
         o.name.lower(): o
         for o in session.new
         if isinstance(o, CatalogueRole) and o.name
     }
+
+
+def _entry_named(
+    session: Session, name: str, pending: "dict[str, CatalogueRole]"
+) -> "CatalogueRole":
+    """The catalogue entry with this name, whatever its capitals, or a new one."""
+    from grip.models.catalogue_role import ROLE_SOURCE_MANUAL, CatalogueRole
+
+    entry = (
+        pending.get(name.lower())
+        or session.execute(
+            select(CatalogueRole).where(func.lower(CatalogueRole.name) == name.lower())
+        ).scalar_one_or_none()
+    )
+    if entry is None:
+        entry = CatalogueRole(
+            id=uuid.uuid4(),
+            name=name,
+            source=ROLE_SOURCE_MANUAL,
+            needs_review=True,
+        )
+        session.add(entry)
+        pending[name.lower()] = entry
+    return entry
+
+
+def role_entry_for(session: Session, value: str | None) -> "CatalogueRole | None":
+    """The catalogue entry a typed role name means, as ``_resolve_roles`` finds it.
+
+    For who has to say the reference and the name before the line is written.
+    A new entry stays pending in the session and reaches the database first.
+    """
+    name = canonical_role_name(value or "")
+    if not name:
+        return None
+    with session.no_autoflush:
+        return _entry_named(session, name, _pending_roles(session))
+
+
+def _resolve_roles(session: Session, lines: list["BudgetLine"]) -> None:
+    from grip.models.catalogue_role import CatalogueRole
+
+    pending = _pending_roles(session)
     with session.no_autoflush:
         for line in lines:
             state = inspect(line)
@@ -409,23 +451,7 @@ def _resolve_roles(session: Session, lines: list["BudgetLine"]) -> None:
                 line.role = None
                 line.role_id = None
                 continue
-            entry = (
-                pending.get(name.lower())
-                or session.execute(
-                    select(CatalogueRole).where(
-                        func.lower(CatalogueRole.name) == name.lower()
-                    )
-                ).scalar_one_or_none()
-            )
-            if entry is None:
-                entry = CatalogueRole(
-                    id=uuid.uuid4(),
-                    name=name,
-                    source=ROLE_SOURCE_MANUAL,
-                    needs_review=True,
-                )
-                session.add(entry)
-                pending[name.lower()] = entry
+            entry = _entry_named(session, name, pending)
             line.role_entry = entry
             line.role_id = entry.id
             line.role = entry.name

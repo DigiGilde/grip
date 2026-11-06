@@ -167,6 +167,10 @@ Een bewaarde tekst wordt overal getoond met `RichText` uit `@/ui/RichText`, uit 
 | Echtheidskenmerk, bestandskenmerk | De code over de inhoud van een offerte, en die over haar pdf. Nooit "hash" of "vingerafdruk" |
 | Bekijk pdf | De ene link naar het document van een offerte |
 | Stand | Waar een zaak staat en wie aan zet is: "Jij: ..." of "Wacht op ..." |
+| Moment | Eén vastgelegd feit van een opdracht in tab Geschiedenis. De lijst heet Momenten; "verloop" blijft de stappen van een zaak |
+| Stand op ... | Hoe opdracht, begroting en offerte er op een moment voorstonden. De kop van een stand noemt de dag en het uur van het moment |
+| Besluit | Het merkteken op een moment waarop wie het vastlegde zelf besloot. Nooit "decretogram", "uitvoering" of "regel" |
+| Later vastgelegd | Wat na een moment is vastgelegd maar al telde vanaf een dag die dat moment had gezien, onder de stand van dat moment |
 | Te doen, Wacht op anderen | De twee groepen taken |
 | Start, Taken, Opdrachten, Team, Vacatures, Financieel, Rapportage, Beheer | De plekken in de hoofdbalk. Onder Team: Mensen en Inzet. Onder Financieel: Kosten en Factureren |
 | Geschiedenis, Activiteit, Wat is er gebeurd | Wat er met een zaak gebeurde, wat er in de instantie gebeurde, en het nieuws voor de lezer |

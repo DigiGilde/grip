@@ -42,3 +42,7 @@ Er is één duurzame stroom van gebeurtenissen. Alles wat in een instantie gebeu
 ## Later gewijzigd (2026-10-09)
 
 Inzage wordt sindsdien per verzoek vastgelegd, niet per persoon: een pagina over een persoon geeft een gebeurtenis over die persoon, een lijst geeft een gebeurtenis met de klassen en het aantal personen. Het overzicht voor mensen toont standaard alleen wijzigingen. Een selectie uit de stroom is het nieuws voor de lezer (ADR 0043).
+
+## Later gewijzigd (2026-11-04)
+
+Op het pad naar een opdracht is een feit de bron en zijn de tabellen afgeleid; de stroom is er niet meer alleen een verslag naast (ADR 0052). De wijzigingsregels en domeingebeurtenissen blijven ernaast bestaan.

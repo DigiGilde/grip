@@ -19,9 +19,10 @@ from __future__ import annotations
 
 import logging
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Iterator
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import event as sa_event
@@ -198,6 +199,69 @@ def _apply(task: Task, wanted: _Wanted) -> None:
     task.waiting_on = wanted.waiting_on
 
 
+@dataclass
+class _Evaluation:
+    """What the facts say about one template and one subject of a case."""
+
+    template: Template
+    key: str
+    task: Task | None
+    done: bool
+    applicable: bool
+    # None when the plan asks for nothing here.
+    wanted: _Wanted | None
+
+
+def _evaluations(
+    case: CaseSnapshot, plan: Plan, by_key: dict[str, Task]
+) -> Iterator[_Evaluation]:
+    """Each template of the plan for each of its subjects, in plan order."""
+    for template in plan.templates.get(case.case_kind, ()):
+        first_open_taken = False
+        for subject in case.subjects_of(template.subject):
+            facts = {**case.facts, **subject.facts}
+            key = _dedupe_key(template, case, subject)
+            task = by_key.get(key)
+            done = template.done_when is not None and facts.get(
+                template.done_when, False
+            )
+            applicable = all(_holds(condition, facts) for condition in template.when)
+            wanted = None
+            if not done and applicable:
+                passed_over = (
+                    template.only_first
+                    and first_open_taken
+                    and (task is None or not task.is_open)
+                )
+                if not passed_over:
+                    first_open_taken = True
+                    person_id, role, waiting_on, waiting = _assignee(
+                        template, case, subject
+                    )
+                    wanted = _Wanted(
+                        template=template,
+                        subject=subject,
+                        title=_format(template.title, case, subject),
+                        link=_format(template.link, case, subject)
+                        if template.link
+                        else None,
+                        due_on=_due(template, subject, task),
+                        assignee_person_id=person_id,
+                        assignee_role=role,
+                        waiting_on=waiting_on,
+                        waiting=waiting,
+                        situation=_situation(template, facts),
+                    )
+            yield _Evaluation(template, key, task, done, applicable, wanted)
+
+
+def asked_for(case: CaseSnapshot, plan: Plan) -> list[_Wanted]:
+    """The tasks the plan asks for, from the facts alone."""
+    return [
+        each.wanted for each in _evaluations(case, plan, {}) if each.wanted is not None
+    ]
+
+
 async def _reconcile_case(
     db: AsyncSession,
     case: CaseSnapshot,
@@ -210,64 +274,39 @@ async def _reconcile_case(
     by_key = {task.dedupe_key: task for task in existing if task.dedupe_key}
     seen: set[str] = set()
 
-    for template in plan.templates.get(case.case_kind, ()):
-        first_open_taken = False
-        for subject in case.subjects_of(template.subject):
-            facts = {**case.facts, **subject.facts}
-            key = _dedupe_key(template, case, subject)
-            seen.add(key)
-            task = by_key.get(key)
-            done = template.done_when is not None and facts.get(
-                template.done_when, False
-            )
-            applicable = all(_holds(condition, facts) for condition in template.when)
-
-            if done:
-                if task is not None and task.is_open:
-                    task.status = "done"
-                    task.completed_at = now
-                    task.completed_by_fact = template.done_when
-                    outcome.closed += 1
-                continue
-            if not applicable:
-                if task is not None and task.is_open:
-                    task.status = "obsolete"
-                    task.completed_at = now
-                    outcome.obsolete += 1
-                continue
-
-            if template.only_first:
-                if first_open_taken and (task is None or not task.is_open):
-                    continue
-                first_open_taken = True
-
-            person_id, role, waiting_on, waiting = _assignee(template, case, subject)
-            wanted = _Wanted(
-                template=template,
-                subject=subject,
-                title=_format(template.title, case, subject),
-                link=_format(template.link, case, subject) if template.link else None,
-                due_on=_due(template, subject, task),
-                assignee_person_id=person_id,
-                assignee_role=role,
-                waiting_on=waiting_on,
-                waiting=waiting,
-                situation=_situation(template, facts),
-            )
-            if task is None:
-                await _create(db, case, plan, wanted, key)
-                outcome.created += 1
-            elif task.is_open:
-                _apply(task, wanted)
-            elif task.status == "obsolete" or task.completed_by_fact is not None:
-                # The reason came back, or the fact no longer holds.
-                _apply(task, wanted)
-                task.status = "waiting" if wanted.waiting else "todo"
-                task.completed_at = None
-                task.completed_by_fact = None
-                task.completed_by_id = None
-                outcome.reopened += 1
-            # A task a person ticked stays ticked.
+    for each in _evaluations(case, plan, by_key):
+        seen.add(each.key)
+        task = each.task
+        if each.done:
+            if task is not None and task.is_open:
+                task.status = "done"
+                task.completed_at = now
+                task.completed_by_fact = each.template.done_when
+                outcome.closed += 1
+            continue
+        if not each.applicable:
+            if task is not None and task.is_open:
+                task.status = "obsolete"
+                task.completed_at = now
+                outcome.obsolete += 1
+            continue
+        wanted = each.wanted
+        if wanted is None:
+            continue
+        if task is None:
+            await _create(db, case, plan, wanted)
+            outcome.created += 1
+        elif task.is_open:
+            _apply(task, wanted)
+        elif task.status == "obsolete" or task.completed_by_fact is not None:
+            # The reason came back, or the fact no longer holds.
+            _apply(task, wanted)
+            task.status = "waiting" if wanted.waiting else "todo"
+            task.completed_at = None
+            task.completed_by_fact = None
+            task.completed_by_id = None
+            outcome.reopened += 1
+        # A task a person ticked stays ticked.
 
     # A task whose subject is gone (a deleted budget line, a round that
     # ended in a rejection) has lost its reason.
@@ -284,34 +323,39 @@ async def _reconcile_case(
     return outcome
 
 
-async def _create(
-    db: AsyncSession, case: CaseSnapshot, plan: Plan, wanted: _Wanted, key: str
-) -> None:
+def task_values(case: CaseSnapshot, plan: Plan, wanted: _Wanted) -> dict[str, Any]:
+    """The columns of a new task for what the plan asks."""
     template = wanted.template
+    return {
+        "case_kind": case.case_kind,
+        "assignment_id": case.assignment_id,
+        "vacancy_id": case.vacancy_id,
+        "origin": "plan",
+        "template_key": template.key,
+        "plan_version": plan.version,
+        "repeat_key": wanted.subject.repeat_key,
+        "dedupe_key": _dedupe_key(template, case, wanted.subject),
+        "title": wanted.title,
+        "track": template.track,
+        "subject_kind": wanted.subject.kind,
+        "subject_id": wanted.subject.subject_id,
+        "link": wanted.link,
+        "assignee_person_id": wanted.assignee_person_id,
+        "assignee_role": wanted.assignee_role,
+        "waiting_on": wanted.waiting_on,
+        "due_on": wanted.due_on,
+        "status": "waiting" if wanted.waiting else "todo",
+        "closing_fact": template.done_when,
+        "situation": wanted.situation,
+    }
+
+
+async def _create(
+    db: AsyncSession, case: CaseSnapshot, plan: Plan, wanted: _Wanted
+) -> None:
     await db.execute(
         pg_insert(Task)
-        .values(
-            case_kind=case.case_kind,
-            assignment_id=case.assignment_id,
-            vacancy_id=case.vacancy_id,
-            origin="plan",
-            template_key=template.key,
-            plan_version=plan.version,
-            repeat_key=wanted.subject.repeat_key,
-            dedupe_key=key,
-            title=wanted.title,
-            track=template.track,
-            subject_kind=wanted.subject.kind,
-            subject_id=wanted.subject.subject_id,
-            link=wanted.link,
-            assignee_person_id=wanted.assignee_person_id,
-            assignee_role=wanted.assignee_role,
-            waiting_on=wanted.waiting_on,
-            due_on=wanted.due_on,
-            status="waiting" if wanted.waiting else "todo",
-            closing_fact=template.done_when,
-            situation=wanted.situation,
-        )
+        .values(**task_values(case, plan, wanted))
         .on_conflict_do_nothing()
     )
 

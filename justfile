@@ -72,6 +72,25 @@ seed *ARGS:
 seed-scale *ARGS:
     cd backend && uv run python -m grip.dev.seed_scale {{ ARGS }}
 
+# Walk an example assignment along the path, one committed step at a time, and
+# look back at each moment in tab Geschiedenis. Uses DATABASE_URL; needs a seeded
+# database and no containers of its own. `--days N` lays the facts N days apart,
+# `--geen-goedkeuring` leaves internal approval as it is set.
+kroniek-nieuw *ARGS:
+    cd backend && uv run python -m grip.dev.chronicle_walk new {{ ARGS }}
+
+# The next step of this assignment, chosen from the course the screens read
+kroniek-stap ID *ARGS:
+    cd backend && uv run python -m grip.dev.chronicle_walk next {{ ID }} {{ ARGS }}
+
+# Compare the tables of every assignment with its chronicle
+kroniek-check:
+    cd backend && uv run python -m grip.chronicle.check
+
+# Write what differs back from the chronicle of this assignment
+kroniek-herstel ID:
+    cd backend && uv run python -m grip.dev.chronicle_walk rebuild {{ ID }}
+
 # `just seed --extend` adds the corpus peers and the context of the example
 # assignments to data that was seeded earlier; a fresh seed includes them.
 # The dev backend reaches the stand-in as its outway: start the backend with

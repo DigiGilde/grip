@@ -170,6 +170,7 @@ async def accept(
         signer_person_id=signer.person_id,
         signer_function=body.signer_function,
         organisation_name=body.organisation_name,
+        declared_mandate=body.confirm_mandate,
     )
     await db.refresh(quote)
     return await signing_view(db, decider, signer, quote, resource)

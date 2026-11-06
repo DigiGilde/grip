@@ -25,6 +25,7 @@ CONTENT_TYPE = "application/json"
 
 # Kind of subject, in the Dutch of the interface.
 KINDS: dict[str, str] = {
+    "chronolexogram": "vastlegging",
     "assignment": "opdracht",
     "assignment_request": "opdrachtaanvraag",
     "assignment_role": "opdrachtrol",
@@ -143,6 +144,9 @@ def _slug(value: str) -> str:
 def event_type(internal: str) -> str:
     """``quote.accepted`` becomes ``nl.grip.offerte.aanvaard``."""
     kind, _, verb = internal.partition(".")
+    if kind == "chronolexogram":
+        # The name of a fact is a code name; the feed says only that it is one.
+        verb = "recorded"
     return ".".join(
         [
             TYPE_PREFIX,

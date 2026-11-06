@@ -3,11 +3,28 @@
  * structure instead of sentences that explain it. The steps are those of
  * the assignment and stand in its head, not on the card.
  */
-import { formatDate } from '@/lib/format';
-import type { QuoteDetail, QuoteOffer, QuoteSummary } from './api';
-import { OFFER_CHANNEL_LABELS } from './api';
+import { dayOf, formatDate } from '@/lib/format';
+import type { OfferInvitation, QuoteDetail, QuoteOffer, QuoteSummary } from './api';
+import { OFFER_CHANNEL_LABELS, QUOTE_STATUS_LABELS } from './api';
 import { awaitsApproval, type ApprovalState } from './approval';
 import { formatDateTime } from './format';
+
+/**
+ * The word for where a quote stands: what an open quote waits on, otherwise its
+ * status. Without offers or an approval to go on, the plain status.
+ */
+export function quoteLabel(
+  status: string,
+  offers: readonly unknown[],
+  approvalStatus: string | null | undefined,
+): string {
+  if (status === 'issued') {
+    if (offers.length > 0) return 'Aangeboden';
+    if (approvalStatus === 'requested') return 'Wacht op goedkeuring';
+    if (approvalStatus === 'sent_back') return 'Teruggestuurd';
+  }
+  return QUOTE_STATUS_LABELS[status] ?? status;
+}
 
 /** Whether the client can still answer through this offer. */
 export function awaitsResponse(offer: QuoteOffer): boolean {
@@ -37,12 +54,25 @@ export function listedOffers(offers: readonly QuoteOffer[]): QuoteOffer[] {
 }
 
 /** "Met een tekenlink aan naam@organisatie.example": the channel, and to whom. */
-export function offerTitle(offer: QuoteOffer): string {
+export function offerTitle(offer: Pick<QuoteOffer, 'channel' | 'recipient'>): string {
   const channel = OFFER_CHANNEL_LABELS[offer.channel] ?? offer.channel;
   if (offer.channel === 'signing_link' && offer.recipient) {
     return `${channel} aan ${offer.recipient}`;
   }
   return channel;
+}
+
+/** A signing link that no longer works, in words; null for one that does. */
+export function endedLinkText(
+  invitation: Pick<OfferInvitation, 'state' | 'withdrawn_at' | 'expires_at'>,
+): string | null {
+  if (invitation.state === 'withdrawn') {
+    return `Tekenlink ingetrokken op ${formatDateTime(invitation.withdrawn_at)}`;
+  }
+  if (invitation.state === 'expired') {
+    return `Tekenlink verlopen op ${formatDate(invitation.expires_at)}`;
+  }
+  return null;
 }
 
 /** Where the offer stands, in words. */
@@ -59,15 +89,13 @@ export function offerState(offer: QuoteOffer, quote: QuoteSummary): string {
   }
   const invitation = offer.invitation;
   if (!invitation) return 'Uitgenodigd om te tekenen';
+  const ended = endedLinkText(invitation);
+  if (ended) return ended;
   switch (invitation.state) {
     case 'signed': {
       const who = quote.acceptance?.signer_name;
       return `Getekend op ${formatDateTime(invitation.used_at)}${who ? ` door ${who}` : ''}`;
     }
-    case 'withdrawn':
-      return `Tekenlink ingetrokken op ${formatDateTime(invitation.withdrawn_at)}`;
-    case 'expired':
-      return `Tekenlink verlopen op ${formatDate(invitation.expires_at)}`;
     case 'opened':
       return `Geopend op ${formatDateTime(invitation.opened_at)}`;
     default:
@@ -136,6 +164,20 @@ export function invitationMessage(input: {
 /** A reason from the server in words for someone who offers a quote. */
 export function channelReason(reason: string | null | undefined): string {
   return reason?.trim() || 'Dit kan nu niet.';
+}
+
+/** What stands in the way of correcting the day of signing; null when nothing does. */
+export function correctionProblem(input: {
+  day: string;
+  reason: string;
+  signedAt: string | undefined;
+}): string | null {
+  if (!input.day) return 'Kies de datum van tekenen.';
+  if (input.signedAt && dayOf(input.signedAt) === input.day) {
+    return 'Dit is de datum die al is vastgelegd. Kies de juiste datum.';
+  }
+  if (!input.reason.trim()) return 'Schrijf op waarom de datum niet klopte.';
+  return null;
 }
 
 /** What happened to the mail with the signing link, in words; null without one. */

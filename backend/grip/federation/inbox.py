@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from grip.core.config import Settings
+from grip.events import context as event_context
 from grip.federation import terms
 from grip.federation.models import FederationInbox
 from grip.federation.problems import FederationProblem
@@ -52,18 +53,22 @@ async def process_pending(db: AsyncSession, *, limit: int = 50) -> int:
             path_parameters={},
             received_at=row.received_at,
         )
-        try:
-            async with db.begin_nested():
-                result = await handler(db, row.peer, message)
-            row.result = result or {}
-        except FederationProblem as problem:
-            logger.warning(
-                "Stored message %s (%s) was refused afterwards: %s",
-                row.message_id,
-                row.operation,
-                problem,
-            )
-            row.result = {"refused": problem.body()}
+        # As when it arrives: everything this message causes is the peer's
+        # doing and shares one id.
+        with event_context.scope(correlation_id=row.message_id.hex):
+            event_context.set_peer(row.peer.peer_id)
+            try:
+                async with db.begin_nested():
+                    result = await handler(db, row.peer, message)
+                row.result = result or {}
+            except FederationProblem as problem:
+                logger.warning(
+                    "Stored message %s (%s) was refused afterwards: %s",
+                    row.message_id,
+                    row.operation,
+                    problem,
+                )
+                row.result = {"refused": problem.body()}
         row.processed_at = datetime.now(UTC)
         processed += 1
     await db.flush()

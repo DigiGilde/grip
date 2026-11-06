@@ -206,11 +206,16 @@ async def quote_rejected(db: AsyncSession, payload: dict[str, Any]) -> Built:
     if found is None:
         return None
     quote, contractor = found
+    # A client made by hand has a name for the sentence here, and no TOOI URI to
+    # stand in a message with.
+    organisation = payload.get("organisation") or {}
     message = {
         "id": payload["rejection_id"],
         "quote_id": payload["quote_id"],
         "quote_hash": quote.snapshot_hash,
-        "organisation": payload.get("organisation") or own_reference(),
+        "organisation": organisation
+        if organisation.get("tooi_uri")
+        else own_reference(),
         "reason": payload.get("reason"),
         "rejected_at": payload["rejected_at"],
     }

@@ -8,7 +8,7 @@ fact in the catalogue is computed here and nowhere else.
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from decimal import Decimal
@@ -156,7 +156,7 @@ def _grouped(rows: Any, key: str) -> dict[Any, list[Any]]:
 
 
 def _open_roles(
-    lines: list[BudgetLine], allocations: dict[UUID, list[Allocation]], today: date
+    lines: Sequence[Any], allocations: Mapping[UUID, Sequence[Any]], today: date
 ) -> list[Subject]:
     subjects = []
     for line in sorted(lines, key=lambda item: (item.position, str(item.id))):
@@ -187,7 +187,7 @@ def _open_roles(
     return subjects
 
 
-def _months_with_inzet(allocations: list[Allocation], today: date) -> list[date]:
+def _months_with_inzet(allocations: Sequence[Any], today: date) -> list[date]:
     """Ended months in which someone was planned on the assignment."""
     if not allocations:
         return []
@@ -205,6 +205,300 @@ def _months_with_inzet(allocations: list[Allocation], today: date) -> list[date]
             months.append(month)
         month = _next_month(month)
     return months
+
+
+@dataclass
+class AssignmentInputs:
+    """Everything the facts of one assignment are computed from.
+
+    A row needs only the attributes the rules read, in their Python types:
+    moments as datetimes and fte as a Decimal. ``quotes`` are oldest first.
+    """
+
+    id: UUID
+    kind: str
+    status: str
+    is_client: bool
+    lines: Sequence[Any] = ()
+    # By budget line: whether a role is staffed.
+    role_allocations: Mapping[UUID, Sequence[Any]] = field(default_factory=dict)
+    # Which months should be closed. A reader that has no closes must leave
+    # this empty, or every month with work reads as still open.
+    month_allocations: Sequence[Any] = ()
+    quotes: Sequence[Any] = ()
+    approvals: Sequence[Any] = ()
+    offered: Collection[UUID] = frozenset()
+    # Of the open quote. Without it no approval is asked for that quote.
+    approval: quote_approval.ApprovalState | None = None
+    valid_until: Any = None
+    budget_moved: bool = False
+    final_report_issued: bool = False
+    closes: Sequence[Any] = ()
+    exports_by_close: Mapping[Any, Sequence[Any]] = field(default_factory=dict)
+    invoiced: Collection[UUID] = frozenset()
+    rhythm: str = billing_periods.MONTHLY
+    deliveries: Sequence[Any] = ()
+    corrections: Sequence[Any] = ()
+
+
+def is_client_of(client_uri: str | None, instance_base_uri: str) -> bool:
+    """Whether the client at this address is this instance itself."""
+    return _same_base(client_uri, instance_base_uri)
+
+
+def quote_in_view(own_quotes: Sequence[Any]) -> Any | None:
+    """The latest quote that is out or accepted."""
+    live = [q for q in own_quotes if q.status in ("issued", "accepted")]
+    return live[-1] if live else None
+
+
+def quote_open(own_quotes: Sequence[Any]) -> Any | None:
+    """The quote in view while it is unanswered: the one whose approval and
+    validity count."""
+    current = quote_in_view(own_quotes)
+    return current if current is not None and current.status == "issued" else None
+
+
+def outdated_matters(status: str, own_quotes: Sequence[Any], is_client: bool) -> bool:
+    """Whether the budget is held against the quote: only while it can still
+    matter."""
+    return (
+        quote_open(own_quotes) is not None
+        and not is_client
+        and phase.phase_of(status) is phase.Phase.POTENTIAL
+    )
+
+
+def assignment_snapshot(inputs: AssignmentInputs, *, today: date) -> CaseSnapshot:
+    """The facts and subjects of one assignment, from its inputs alone."""
+    status = inputs.status
+    own_lines = inputs.lines
+    own_quotes = inputs.quotes
+    own_approvals = inputs.approvals
+    is_client = inputs.is_client
+    ever_agreed = any(quote.status == "accepted" for quote in own_quotes)
+    case_phase = phase.phase_of(status)
+    facts = {
+        "external": inputs.kind == "external",
+        "client": is_client,
+        "contractor": not is_client,
+        "potential": case_phase is phase.Phase.POTENTIAL,
+        "agreed": status in ("accepted", "in_progress", "completed", "accounted"),
+        "started": status in ("in_progress", "completed", "accounted"),
+        "completed": status in ("completed", "accounted"),
+        "closed": case_phase is phase.Phase.CLOSED,
+        "budget_has_line": bool(own_lines),
+        "budget_has_personnel_line": any(
+            line.kind == "personnel" for line in own_lines
+        ),
+        "may_close_months": phase.allows_month_close(status),
+        "may_bill": phase.allows_billing(status),
+        "final_report_issued": inputs.final_report_issued,
+        "verbally_agreed": status == phase.VERBALLY_AGREED,
+        "accounted": status == "accounted",
+        "rejected": status == "rejected",
+        "cancelled": status == "cancelled",
+        # A rejected quote is no end for who made it: the way on is a new
+        # quote, or ending without an assignment. For the client who said
+        # no it is the end, until a new quote comes in.
+        "declined": status == "rejected" and is_client,
+        "not_proceeded": status == "cancelled" and not ever_agreed,
+    }
+
+    rejected = [quote for quote in own_quotes if quote.status == "rejected"]
+    current = quote_in_view(own_quotes)
+    # TODO(stand van een potentiële opdracht): the assignment screens get
+    # one function for where a potential assignment stands (budget, quote
+    # made, offered, accepted). The facts of the quote round below must
+    # come from that function once it exists, not from this second copy.
+    # Staffing comes into view once the work is agreed, or a quote is out:
+    # a draft that nobody has seen yet is no reason to line people up.
+    facts["staffing_in_view"] = (
+        case_phase is not phase.Phase.POTENTIAL
+        or current is not None
+        or status == phase.VERBALLY_AGREED
+    )
+    round_number = len(rejected) + 1
+    # Internal approval is a step of the course only for a quote that
+    # needs it; asked per quote, since the rule can depend on its amount.
+    approval_needed = False
+    approval_given = False
+    approval_asked = False
+    no_approver = False
+    in_force = quote_open(own_quotes) is not None
+    approval = inputs.approval if in_force and not is_client else None
+    if approval is not None:
+        approval_needed = approval.requirement.required
+        approval_given = approval.approved
+        approval_asked = approval.status in ("requested", "approved")
+        no_approver = approval_needed and not approval.approver_available
+    facts["approval_needed"] = approval_needed
+    facts["approval_given"] = approval_given
+    facts["approval_asked"] = approval_asked
+    facts["no_approver"] = no_approver
+    received = [q for q in own_quotes if q.status != "superseded"]
+    facts["quote_received"] = is_client and bool(received)
+    facts["quote_answered"] = (
+        is_client and bool(received) and all(q.status != "issued" for q in received)
+    )
+    expired = (
+        in_force
+        and isinstance(inputs.valid_until, str)
+        and inputs.valid_until < today.isoformat()
+    )
+    # A quote that no longer matches the budget leads nowhere: the step
+    # is to make a new one. Asked only while it can still matter.
+    outdated = outdated_matters(status, own_quotes, is_client) and inputs.budget_moved
+    sent_back = any(
+        a.status == "sent_back"
+        and a.decided_at is not None
+        and not any(later.issued_at > a.decided_at for later in own_quotes)
+        for a in own_approvals
+    )
+    # A quote that was sent back internally is no longer the one to go on with.
+    fresh = current is not None and not expired and not outdated and not sent_back
+    subjects: dict[str, list[Subject]] = {
+        "case": [Subject(kind="case")],
+        "quote_round": [
+            Subject(
+                kind="quote_round",
+                repeat_key=f"ronde-{round_number}",
+                subject_id=str(current.id) if current else None,
+                facts={
+                    "quote_issued": current is not None,
+                    "quote_offered": current is not None
+                    and (current.id in inputs.offered or current.status == "accepted"),
+                    "quote_accepted": current is not None
+                    and current.status == "accepted",
+                    "quote_rejected_before": bool(rejected) and current is None,
+                    "quote_sent_back": sent_back,
+                    "quote_expired": expired,
+                    "quote_outdated": outdated,
+                    "quote_fresh": fresh,
+                    "quote_may_offer": fresh
+                    and (not approval_needed or approval_given),
+                },
+            )
+        ],
+        "rejected_quote": [
+            Subject(
+                kind="rejected_quote",
+                repeat_key=str(quote.id),
+                subject_id=str(quote.id),
+                facts={
+                    "quote_superseded": any(
+                        later.issued_at > quote.issued_at for later in own_quotes
+                    )
+                },
+            )
+            for quote in rejected
+        ],
+        "received_quote": [
+            Subject(
+                kind="received_quote",
+                repeat_key=str(quote.id),
+                subject_id=str(quote.id),
+                facts={"quote_decided": quote.status != "issued"},
+            )
+            for quote in own_quotes
+            if quote.status != "superseded"
+        ],
+        "quote_approval": [
+            Subject(
+                kind="quote_approval",
+                repeat_key=str(approval.id),
+                subject_id=str(approval.quote_id),
+                facts={"approval_decided": approval.status != "requested"},
+                anchors={
+                    "approval_requested_on": clock.local_date(approval.requested_at)
+                },
+                variables={"kenmerk": approval.reference or ""},
+            )
+            for approval in own_approvals
+        ],
+        "sent_back_quote": [
+            Subject(
+                kind="sent_back_quote",
+                repeat_key=str(approval.id),
+                subject_id=str(approval.quote_id),
+                facts={
+                    "quote_superseded": any(
+                        later.issued_at > approval.decided_at for later in own_quotes
+                    )
+                },
+                variables={"kenmerk": approval.reference or ""},
+                person_id=approval.requested_by_id,
+            )
+            for approval in own_approvals
+            if approval.status == "sent_back" and approval.decided_at is not None
+        ],
+        # Per month, as an older plan asked; corrections are kept per
+        # billing period now.
+        "correction_month": [],
+        "period_correction": _period_corrections(inputs.corrections),
+        "open_role": _open_roles(own_lines, inputs.role_allocations, today),
+    }
+
+    closed_by_month = {close.month: close for close in inputs.closes}
+    months_with_inzet = _months_with_inzet(inputs.month_allocations, today)
+    subjects["month_to_close"] = [
+        Subject(
+            kind="month_to_close",
+            repeat_key=month_key(month),
+            subject_id=month_key(month),
+            facts={"month_closed": month in closed_by_month},
+            anchors={"month_end": _month_end(month)},
+            variables={"maand": month_label(month)},
+        )
+        for month in months_with_inzet
+    ]
+    closed_months = []
+    for month in sorted(closed_by_month):
+        close = closed_by_month[month]
+        delivered = inputs.exports_by_close.get(close.id, [])
+        closed_months.append(
+            Subject(
+                kind="closed_month",
+                repeat_key=month_key(month),
+                subject_id=month_key(month),
+                facts={
+                    "billing_delivered": bool(delivered),
+                    "invoice_recorded": any(e.id in inputs.invoiced for e in delivered),
+                },
+                anchors={
+                    "closed_on": clock.local_date(close.closed_at),
+                    "delivered_on": min(
+                        (clock.local_date(e.created_at) for e in delivered),
+                        default=None,
+                    ),
+                },
+                variables={"maand": month_label(month)},
+            )
+        )
+    subjects["closed_month"] = closed_months
+    subjects["billing_period"] = _billing_periods(
+        inputs.rhythm,
+        months_with_inzet=months_with_inzet,
+        closed_by_month=closed_by_month,
+        exports_by_close=inputs.exports_by_close,
+        invoiced=inputs.invoiced,
+        delivered_keys={
+            d.period_key: clock.local_date(d.delivered_at) for d in inputs.deliveries
+        },
+        corrections_open={
+            row.period_key for row in inputs.corrections if row.delivered_at is None
+        },
+        today=today,
+    )
+
+    return CaseSnapshot(
+        case_kind="assignment",
+        case_id=inputs.id,
+        assignment_id=inputs.id,
+        vacancy_id=None,
+        facts=facts,
+        subjects=subjects,
+    )
 
 
 async def load_assignment_cases(
@@ -352,273 +646,65 @@ async def load_assignment_cases(
 
     snapshots = []
     for assignment in assignments:
-        status = assignment.status
         own_lines = lines_by_assignment.get(assignment.id, [])
-        own_allocations = [
-            allocation
-            for line in own_lines
-            for allocation in allocations_by_line.get(line.id, [])
-        ]
         own_quotes = quotes_by_assignment.get(assignment.id, [])
-        own_approvals = approvals_by_assignment.get(assignment.id, [])
-        ever_agreed = any(quote.status == "accepted" for quote in own_quotes)
-        is_client = _same_base(
+        is_client = is_client_of(
             client_uris.get(assignment.client_organisation_id)
             if assignment.client_organisation_id
             else None,
             instance_base_uri,
         )
-        case_phase = phase.phase_of(status)
-        facts = {
-            "external": assignment.kind == "external",
-            "client": is_client,
-            "contractor": not is_client,
-            "potential": case_phase is phase.Phase.POTENTIAL,
-            "agreed": status in ("accepted", "in_progress", "completed", "accounted"),
-            "started": status in ("in_progress", "completed", "accounted"),
-            "completed": status in ("completed", "accounted"),
-            "closed": case_phase is phase.Phase.CLOSED,
-            "budget_has_line": bool(own_lines),
-            "budget_has_personnel_line": any(
-                line.kind == "personnel" for line in own_lines
-            ),
-            "may_close_months": phase.allows_month_close(status),
-            "may_bill": phase.allows_billing(status),
-            "final_report_issued": str(assignment.id) in reported,
-            "verbally_agreed": status == phase.VERBALLY_AGREED,
-            "accounted": status == "accounted",
-            "rejected": status == "rejected",
-            "cancelled": status == "cancelled",
-            # A rejected quote is no end for who made it: the way on is a new
-            # quote, or ending without an assignment. For the client who said
-            # no it is the end, until a new quote comes in.
-            "declined": status == "rejected" and is_client,
-            "not_proceeded": status == "cancelled" and not ever_agreed,
-        }
-
-        rejected = [quote for quote in own_quotes if quote.status == "rejected"]
-        live = [q for q in own_quotes if q.status in ("issued", "accepted")]
-        # TODO(stand van een potentiële opdracht): the assignment screens get
-        # one function for where a potential assignment stands (budget, quote
-        # made, offered, accepted). The facts of the quote round below must
-        # come from that function once it exists, not from this second copy.
-        # Staffing comes into view once the work is agreed, or a quote is out:
-        # a draft that nobody has seen yet is no reason to line people up.
-        facts["staffing_in_view"] = (
-            case_phase is not phase.Phase.POTENTIAL
-            or bool(live)
-            or status == phase.VERBALLY_AGREED
-        )
-        current = live[-1] if live else None
-        round_number = len(rejected) + 1
-        # Internal approval is a step of the course only for a quote that
-        # needs it; asked per quote, since the rule can depend on its amount.
-        approval_needed = False
-        approval_given = False
-        approval_asked = False
-        no_approver = False
         # The rows above carry only what every case needs; the quote in
         # force is read whole, for its amount, its validity and its hash.
+        open_quote = quote_open(own_quotes)
         in_force = (
-            await db.get(Quote, current.id)
-            if current is not None and current.status == "issued"
+            await db.get(Quote, open_quote.id) if open_quote is not None else None
+        )
+        approval = (
+            await quote_approval.state_of(db, in_force)
+            if in_force is not None and not is_client
             else None
         )
-        if in_force is not None and not is_client:
-            approval = await quote_approval.state_of(db, in_force)
-            approval_needed = approval.requirement.required
-            approval_given = approval.approved
-            approval_asked = approval.status in ("requested", "approved")
-            no_approver = approval_needed and not approval.approver_available
-        facts["approval_needed"] = approval_needed
-        facts["approval_given"] = approval_given
-        facts["approval_asked"] = approval_asked
-        facts["no_approver"] = no_approver
-        received = [q for q in own_quotes if q.status != "superseded"]
-        facts["quote_received"] = is_client and bool(received)
-        facts["quote_answered"] = (
-            is_client and bool(received) and all(q.status != "issued" for q in received)
-        )
-        valid_until = (in_force.snapshot or {}).get("valid_until") if in_force else None
-        expired = (
-            in_force is not None
-            and isinstance(valid_until, str)
-            and valid_until < today.isoformat()
-        )
-        # A quote that no longer matches the budget leads nowhere: the step
-        # is to make a new one. Asked only while it can still matter.
-        outdated = False
-        if (
-            current is not None
-            and current.status == "issued"
-            and not is_client
-            and case_phase is phase.Phase.POTENTIAL
-        ):
+        moved: bool | None = False
+        if outdated_matters(assignment.status, own_quotes, is_client):
             moved, _ = await quote_budget.budget_moved(db, assignment)
-            outdated = bool(moved)
-        sent_back = any(
-            a.status == "sent_back"
-            and a.decided_at is not None
-            and not any(later.issued_at > a.decided_at for later in own_quotes)
-            for a in own_approvals
-        )
-        # A quote that was sent back internally is no longer the one to go on with.
-        fresh = current is not None and not expired and not outdated and not sent_back
-        subjects: dict[str, list[Subject]] = {
-            "case": [Subject(kind="case")],
-            "quote_round": [
-                Subject(
-                    kind="quote_round",
-                    repeat_key=f"ronde-{round_number}",
-                    subject_id=str(current.id) if current else None,
-                    facts={
-                        "quote_issued": current is not None,
-                        "quote_offered": current is not None
-                        and (current.id in offered or current.status == "accepted"),
-                        "quote_accepted": current is not None
-                        and current.status == "accepted",
-                        "quote_rejected_before": bool(rejected) and current is None,
-                        "quote_sent_back": sent_back,
-                        "quote_expired": expired,
-                        "quote_outdated": outdated,
-                        "quote_fresh": fresh,
-                        "quote_may_offer": fresh
-                        and (not approval_needed or approval_given),
-                    },
-                )
-            ],
-            "rejected_quote": [
-                Subject(
-                    kind="rejected_quote",
-                    repeat_key=str(quote.id),
-                    subject_id=str(quote.id),
-                    facts={
-                        "quote_superseded": any(
-                            later.issued_at > quote.issued_at for later in own_quotes
-                        )
-                    },
-                )
-                for quote in rejected
-            ],
-            "received_quote": [
-                Subject(
-                    kind="received_quote",
-                    repeat_key=str(quote.id),
-                    subject_id=str(quote.id),
-                    facts={"quote_decided": quote.status != "issued"},
-                )
-                for quote in own_quotes
-                if quote.status != "superseded"
-            ],
-            "quote_approval": [
-                Subject(
-                    kind="quote_approval",
-                    repeat_key=str(approval.id),
-                    subject_id=str(approval.quote_id),
-                    facts={"approval_decided": approval.status != "requested"},
-                    anchors={
-                        "approval_requested_on": clock.local_date(approval.requested_at)
-                    },
-                    variables={"kenmerk": approval.reference or ""},
-                )
-                for approval in own_approvals
-            ],
-            "sent_back_quote": [
-                Subject(
-                    kind="sent_back_quote",
-                    repeat_key=str(approval.id),
-                    subject_id=str(approval.quote_id),
-                    facts={
-                        "quote_superseded": any(
-                            later.issued_at > approval.decided_at
-                            for later in own_quotes
-                        )
-                    },
-                    variables={"kenmerk": approval.reference or ""},
-                    person_id=approval.requested_by_id,
-                )
-                for approval in own_approvals
-                if approval.status == "sent_back" and approval.decided_at is not None
-            ],
-            # Per month, as an older plan asked; corrections are kept per
-            # billing period now.
-            "correction_month": [],
-            "period_correction": _period_corrections(
-                corrections_by_assignment.get(assignment.id, [])
-            ),
-            "open_role": _open_roles(own_lines, allocations_by_line, today),
-        }
-
-        closed_by_month = {
-            close.month: close for close in closes_by_assignment.get(assignment.id, [])
-        }
-        subjects["month_to_close"] = [
-            Subject(
-                kind="month_to_close",
-                repeat_key=month_key(month),
-                subject_id=month_key(month),
-                facts={"month_closed": month in closed_by_month},
-                anchors={"month_end": _month_end(month)},
-                variables={"maand": month_label(month)},
-            )
-            for month in _months_with_inzet(own_allocations, today)
-        ]
-        closed_months = []
-        for month in sorted(closed_by_month):
-            close = closed_by_month[month]
-            delivered = exports_by_close.get(close.id, [])
-            closed_months.append(
-                Subject(
-                    kind="closed_month",
-                    repeat_key=month_key(month),
-                    subject_id=month_key(month),
-                    facts={
-                        "billing_delivered": bool(delivered),
-                        "invoice_recorded": any(e.id in invoiced for e in delivered),
-                    },
-                    anchors={
-                        "closed_on": clock.local_date(close.closed_at),
-                        "delivered_on": min(
-                            (clock.local_date(e.created_at) for e in delivered),
-                            default=None,
-                        ),
-                    },
-                    variables={"maand": month_label(month)},
-                )
-            )
-        subjects["closed_month"] = closed_months
-        subjects["billing_period"] = _billing_periods(
-            rhythms.get(assignment.id, default_rhythm),
-            months_with_inzet=_months_with_inzet(own_allocations, today),
-            closed_by_month=closed_by_month,
-            exports_by_close=exports_by_close,
-            invoiced=invoiced,
-            delivered_keys={
-                d.period_key: clock.local_date(d.delivered_at)
-                for d in deliveries_by_assignment.get(assignment.id, [])
-            },
-            corrections_open={
-                row.period_key
-                for row in corrections_by_assignment.get(assignment.id, [])
-                if row.delivered_at is None
-            },
-            today=today,
-        )
-
         snapshots.append(
-            CaseSnapshot(
-                case_kind="assignment",
-                case_id=assignment.id,
-                assignment_id=assignment.id,
-                vacancy_id=None,
-                facts=facts,
-                subjects=subjects,
+            assignment_snapshot(
+                AssignmentInputs(
+                    id=assignment.id,
+                    kind=assignment.kind,
+                    status=assignment.status,
+                    is_client=is_client,
+                    lines=own_lines,
+                    role_allocations=allocations_by_line,
+                    month_allocations=[
+                        allocation
+                        for line in own_lines
+                        for allocation in allocations_by_line.get(line.id, [])
+                    ],
+                    quotes=own_quotes,
+                    approvals=approvals_by_assignment.get(assignment.id, []),
+                    offered=offered,
+                    approval=approval,
+                    valid_until=(in_force.snapshot or {}).get("valid_until")
+                    if in_force
+                    else None,
+                    budget_moved=bool(moved),
+                    final_report_issued=str(assignment.id) in reported,
+                    closes=closes_by_assignment.get(assignment.id, []),
+                    exports_by_close=exports_by_close,
+                    invoiced=invoiced,
+                    rhythm=rhythms.get(assignment.id, default_rhythm),
+                    deliveries=deliveries_by_assignment.get(assignment.id, []),
+                    corrections=corrections_by_assignment.get(assignment.id, []),
+                ),
+                today=today,
             )
         )
     return snapshots
 
 
-def _period_corrections(rows: list[Any]) -> list[Subject]:
+def _period_corrections(rows: Sequence[Any]) -> list[Subject]:
     """One subject per billing period that has, or had, a difference to
     deliver. Done while no difference is open; a period whose only
     correction was undone has no subject, and its task lapses."""
@@ -656,8 +742,8 @@ def _billing_periods(
     *,
     months_with_inzet: list[date],
     closed_by_month: dict[date, Any],
-    exports_by_close: dict[Any, list[Any]],
-    invoiced: set[UUID],
+    exports_by_close: Mapping[Any, Sequence[Any]],
+    invoiced: Collection[UUID],
     delivered_keys: dict[str, date],
     corrections_open: set[str],
     today: date,

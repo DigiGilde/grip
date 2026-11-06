@@ -22,6 +22,7 @@ import {
   offerState,
   offerTitle,
   primaryAction,
+  quoteLabel,
 } from './offers';
 import { bundleUrl, statementPageUrl, type QuoteEvidenceRow } from './proof';
 import { QuoteDetails } from './QuoteDetails';
@@ -37,6 +38,7 @@ export type CardAction =
   | { kind: 'review' }
   | { kind: 'new-quote' }
   | { kind: 'grant-right' }
+  | { kind: 'correct-signed-date' }
   | { kind: 'withdraw-link'; invitationId: string }
   | { kind: 'renew-link'; invitationId: string }
   | { kind: 'resend-mail'; invitationId: string };
@@ -97,7 +99,8 @@ function Decision({
     return (
       <Stack gap="close">
         <nldd-text>
-          Getekend op {formatDateTime(acceptance.signed_at)}
+          {/* The day only: a day typed in a sheet is stored at noon, a time nobody gave. */}
+          Getekend op {formatDate(acceptance.signed_at)}
           {who ? ` door ${who}` : ''}.
         </nldd-text>
         <DecisionProof decision="accept" evidence={evidence} mayManage={mayManage} />
@@ -320,6 +323,15 @@ export function QuoteCard({
         ) : null}
       </nldd-menu>
     </MoreButton>
+  ) : mayManage && quote.acceptance?.form === 'uploaded_pdf' ? (
+    <MoreButton name="deze offerte" size="sm">
+      <nldd-menu slot="popup" placement="bottom-start">
+        <MenuAction
+          text="Corrigeer de datum van tekenen"
+          onSelect={() => onAction({ kind: 'correct-signed-date' })}
+        />
+      </nldd-menu>
+    </MoreButton>
   ) : null;
 
   return (
@@ -338,15 +350,11 @@ export function QuoteCard({
             <nldd-badge
               slot="end"
               color={QUOTE_STATUS_COLORS[quote.status] ?? 'neutral'}
-              text={
-                open && offers.length > 0
-                  ? 'Aangeboden'
-                  : open && approval?.approval_required && approval.status === 'requested'
-                    ? 'Wacht op goedkeuring'
-                    : open && approval?.approval_required && approval.status === 'sent_back'
-                      ? 'Teruggestuurd'
-                      : (QUOTE_STATUS_LABELS[quote.status] ?? quote.status)
-              }
+              text={quoteLabel(
+                quote.status,
+                offers,
+                approval?.approval_required ? approval.status : null,
+              )}
             />
           </nldd-title>
           <Quiet>{byline(quote)}</Quiet>

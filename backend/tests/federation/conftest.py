@@ -10,6 +10,7 @@ from typing import Any
 
 import httpx
 import pytest
+from fastapi import Request
 from httpx import ASGITransport, AsyncClient
 
 from grip.core.config import Settings, get_settings
@@ -110,11 +111,13 @@ def fed_app():
 
 
 @pytest.fixture
-async def fed_client(db_session, fed_app, fed_settings, outway):
+async def fed_client(db_session, fed_app, fed_settings, outway, chronicle_proof):
     """HTTPX client on the federation app, with the test's database session."""
 
-    async def _override_get_db():
-        yield db_session
+    async def _override_get_db(request: Request):
+        label = f"{request.method} {request.url.path}"
+        async with chronicle_proof.following(label):
+            yield db_session
 
     fed_app.dependency_overrides[get_db] = _override_get_db
     fed_app.dependency_overrides[get_settings] = lambda: fed_settings

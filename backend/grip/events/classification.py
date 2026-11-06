@@ -79,6 +79,9 @@ _PERSONAL_FIELDS: dict[str, DataClass] = {
 
 SPECS: dict[str, Spec] = {
     # -- the assignment and what belongs to it --------------------------
+    # A fact holds values of several classes under one key, so the stream does
+    # not hand it out: the chronicle route builds its answers per class.
+    "chronolexogram": _spec(ADMIN, ADMIN, _ASSIGNMENT),
     "assignment": _spec(A, A, _ASSIGNMENT),
     "assignment_request": _spec(A, A, _ASSIGNMENT),
     "assignment_role": _spec(A, A, _ASSIGNMENT),

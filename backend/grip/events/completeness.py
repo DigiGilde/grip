@@ -70,17 +70,21 @@ COVERED_BY: dict[str, tuple[str, ...]] = {
     # A client that is not known yet is added with the request that names it.
     "organisation": ("organisation_sync", "assignment_request"),
     # Lines follow when a role is merged or the period of the assignment moves.
-    "budget_line": ("catalogue_role", "assignment"),
-    "assignment_role": ("assignment", "assignment_request"),
+    "budget_line": ("catalogue_role", "assignment", "chronolexogram"),
+    "assignment_role": ("assignment", "assignment_request", "chronolexogram"),
     "person": ("colleague_proposal", "vacancy_hire", "person_standing"),
     "person_catalogue_role": ("person_roles", "person_role", "catalogue_role"),
     "person_role": ("person", "person_roles"),
     "role": ("person_role",),
     "rate_band": ("rate_card",),
     "scale_band": ("rate_card",),
-    "quote_acceptance": ("quote",),
-    "quote_rejection": ("quote",),
-    "quote_offer": ("quote",),
+    # A fact of the chronicle says what it wrote to its read models.
+    "quote": ("chronolexogram",),
+    "quote_invitation": ("chronolexogram",),
+    "quote_approval": ("chronolexogram",),
+    "quote_acceptance": ("quote", "chronolexogram"),
+    "quote_rejection": ("quote", "chronolexogram"),
+    "quote_offer": ("quote", "chronolexogram"),
     "decision_evidence": ("quote", "quote_acceptance", "quote_rejection"),
     "stored_document": (
         "invoice_attachment",
@@ -104,6 +108,7 @@ COVERED_BY: dict[str, tuple[str, ...]] = {
         "final_report_received",
         "quote",
         "quote_offer",
+        "chronolexogram",
     ),
     # Inzet that follows a line or an assignment moves with it. The one
     # event at the line or the assignment names what moved along.

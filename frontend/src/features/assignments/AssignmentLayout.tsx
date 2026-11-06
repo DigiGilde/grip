@@ -1,8 +1,9 @@
 import { PageBoundary } from '@/PageBoundary';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { errorMessage } from '@/api/client';
+import { chronicleKeys, momentOf } from '@/features/chronicle/api';
 import { incompleteText } from '@/features/costs/costText';
 import { useCaseCourse } from '@/features/tasks/course';
 import { TakeOverButton } from '@/features/tasks/TakeOver';
@@ -96,11 +97,10 @@ function Figures({ assignment }: { assignment: AssignmentDetail }) {
  * Steps that are one decision and nothing more: the head does them in place,
  * by the kind of work the server names, to the status they lead to.
  */
-const IN_PLACE: Record<string, readonly string[]> = {
-  'uitvoering.starten': ['in_progress'],
-  // An internal assignment has no quote and no agreement to wait for:
-  // starting it takes both status steps at once.
-  'intern.starten': ['accepted', 'in_progress'],
+const IN_PLACE: Record<string, string> = {
+  'uitvoering.starten': 'in_progress',
+  // An internal assignment has no quote and no agreement to wait for.
+  'intern.starten': 'in_progress',
 };
 
 /**
@@ -110,6 +110,7 @@ const IN_PLACE: Record<string, readonly string[]> = {
 export function AssignmentLayout() {
   const { assignmentId = '' } = useParams();
   const { pathname } = useLocation();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const instance = useInstance();
   const query = useQuery({
@@ -119,13 +120,19 @@ export function AssignmentLayout() {
     retry: false,
   });
   const assignment = query.data;
+  const here = pathname.replace(/\/$/, '');
+  // An earlier moment on the tab Geschiedenis: what holds now stays out of the
+  // head, except as who the reader looks; the stand draws its own client and
+  // period. Not an access control; the server decides what the tab may show.
+  const lookingBack =
+    momentOf(searchParams) !== null && here === assignmentTabPath(assignmentId, 'history');
   // One quiet line: for whom, when, and as who the reader looks.
   const facts = assignment
     ? [
         // Said in words: a tag would pull the eye from the sentence and the one action.
-        assignment.phase === 'potential' ? 'Potentiële opdracht' : '',
-        assignment.client_name,
-        formatPeriod(assignment.start_date, assignment.end_date),
+        !lookingBack && assignment.phase === 'potential' ? 'Potentiële opdracht' : '',
+        lookingBack ? '' : assignment.client_name,
+        lookingBack ? '' : formatPeriod(assignment.start_date, assignment.end_date),
         // The page is the assignment; the line need not name it again.
         relationText(assignment.viewer_relations)
           .replace(' van deze opdracht', '')
@@ -140,28 +147,28 @@ export function AssignmentLayout() {
   // Where the assignment stands and what is next, from the same facts as
   // its tasks. The step is the page's one primary action, unless the reader
   // already is where it is done: there the page's own button does it.
-  const course = useCaseCourse('assignment', assignmentId, assignment !== undefined).data?.course;
+  const liveCourse = useCaseCourse(
+    'assignment',
+    assignmentId,
+    assignment !== undefined && !lookingBack,
+  ).data?.course;
+  // A disabled query still answers from its cache.
+  const course = lookingBack ? undefined : liveCourse;
   const next = courseAction(course);
-  const here = pathname.replace(/\/$/, '');
-  const path = course?.next?.mine ? IN_PLACE[course.next.task_key ?? ''] : undefined;
-  // The status steps still to take: from the first one the assignment may take now.
-  const from = path?.findIndex((status) =>
-    (assignment?.allowed_transitions ?? []).includes(status),
-  );
-  const target = path && from !== undefined && from >= 0 ? path.slice(from) : undefined;
-  const allowed = target !== undefined;
+  const leadsTo = course?.next?.mine ? IN_PLACE[course.next.task_key ?? ''] : undefined;
+  const target =
+    leadsTo && (assignment?.allowed_transitions ?? []).includes(leadsTo) ? leadsTo : undefined;
   const elsewhere =
-    next && (allowed || next.href.split('?')[0]?.replace(/\/$/, '') !== here) ? next : null;
+    next && (target || next.href.split('?')[0]?.replace(/\/$/, '') !== here) ? next : null;
   const queryClient = useQueryClient();
   const [problem, setProblem] = useState<string | null>(null);
   const step = useMutation({
-    mutationFn: async (statuses: readonly string[]) => {
-      for (const status of statuses) await transitionAssignment(assignmentId, status);
-    },
+    mutationFn: (status: string) => transitionAssignment(assignmentId, status),
     onSuccess: () => {
       setProblem(null);
       void queryClient.invalidateQueries({ queryKey: assignmentKeys.all });
       void queryClient.invalidateQueries({ queryKey: ['overview'] });
+      void queryClient.invalidateQueries({ queryKey: chronicleKeys.moments(assignmentId) });
     },
     onError: (error) => setProblem(errorMessage(error)),
   });
@@ -178,9 +185,7 @@ export function AssignmentLayout() {
                   appearance="primary"
                   text={elsewhere.text}
                   loading={step.isPending}
-                  onClick={() =>
-                    allowed && target ? step.mutate(target) : navigate(elsewhere.href)
-                  }
+                  onClick={() => (target ? step.mutate(target) : navigate(elsewhere.href))}
                 />
               ),
             }
@@ -213,17 +218,21 @@ export function AssignmentLayout() {
             {course && !course.ended && (
               <CourseBar course={course} accessibleLabel={`Verloop van ${assignment.name}`} />
             )}
-            <nldd-container layout="wrap" gap="8" vertical-alignment="center">
-              {/* The course says where it stands; the status only once it has ended. */}
-              {(!course || course.ended) && (
-                <nldd-badge
-                  color={STATUS_COLORS[assignment.status] ?? 'neutral'}
-                  text={course?.ended ?? statusLabel(assignment.status)}
-                />
-              )}
-              {facts && <nldd-text color="secondary">{facts}</nldd-text>}
-            </nldd-container>
-            {assignment.permissions.read_financial && <Figures assignment={assignment} />}
+            {(facts || !lookingBack) && (
+              <nldd-container layout="wrap" gap="8" vertical-alignment="center">
+                {/* The course says where it stands; the status only once it has ended. */}
+                {!lookingBack && (!course || course.ended) && (
+                  <nldd-badge
+                    color={STATUS_COLORS[assignment.status] ?? 'neutral'}
+                    text={course?.ended ?? statusLabel(assignment.status)}
+                  />
+                )}
+                {facts && <nldd-text color="secondary">{facts}</nldd-text>}
+              </nldd-container>
+            )}
+            {!lookingBack && assignment.permissions.read_financial && (
+              <Figures assignment={assignment} />
+            )}
           </>
         )}
       </ThingHead>

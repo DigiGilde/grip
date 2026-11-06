@@ -41,6 +41,21 @@ def test_a_reader_who_may_see_values_gets_from_what_to_what():
     assert words.lines("person_scale.updated", "person_scale", hidden) == []
 
 
+def test_a_quote_is_signed_in_the_fixed_word():
+    assert words.title("quote.accepted", "quote", None) == "Offerte getekend"
+    assert (
+        words.title("quote.accepted", "quote", None, {"form": "signing_link"})
+        == "Offerte getekend"
+    )
+
+
+def test_who_records_a_signed_pdf_is_not_told_as_who_signed():
+    assert (
+        words.title("quote.accepted", "quote", None, {"form": "uploaded_pdf"})
+        == "Getekende pdf vastgelegd"
+    )
+
+
 def test_code_values_get_their_dutch_label():
     assert words.lines(
         "assignment.updated",

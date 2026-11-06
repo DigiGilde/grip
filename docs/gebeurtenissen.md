@@ -77,9 +77,15 @@ Daarnaast zijn er gebeurtenissen met een eigen betekenis:
 
 Een wijziging van domeingegevens zonder gebeurtenis is een fout. De testsuite volgt elk verzoek (`grip.events.completeness`) en faalt als een domeintabel is gewijzigd zonder gebeurtenis die dat dekt. Een tabel is gedekt door een gebeurtenis over die tabel zelf, of over een soort die er in `COVERED_BY` voor is genoemd. Tabellen zonder domeingegevens (sessies, de uitbak, wat de takenmotor onthoudt, de stroom zelf) staan in `NOT_DOMAIN` met de reden.
 
+## De kroniek
+
+Op het pad naar een opdracht schrijft een handeling eerst een feit: een gebeurtenis met onderwerp `chronolexogram` en type `chronolexogram.<feit>`, gevuld door `grip.chronicle.writer.establish`. De tabellen op dat pad worden uit de feiten afgeleid en de stand op elk eerder moment ook. De wijzigingsregels en domeingebeurtenissen hierboven blijven erachteraan komen. Zie [kroniek.md](kroniek.md) en ADR 0052.
+
+Een feit staat niet in de lijst wijzigingen (`kind=changes`) en valt niet onder het nieuws. Het is alleen voor de beheerder te lezen via `/api/events`, omdat het waarden van meer klassen onder één sleutel heeft; de routes van de kroniek bouwen hun antwoord per klasse op. In de feed heet het `nl.grip.vastlegging.vastgelegd`, zonder waarden.
+
 ## De keten
 
-Elke gebeurtenis draagt de hash van de vorige. De hash is SHA-256 over een canonieke vorm (RFC 8785) van de vaste gegevens van de gebeurtenis en van de afdrukken van haar waarden. Een waarde wordt dus niet zelf gehasht, maar via een gezouten afdruk.
+Elke gebeurtenis draagt de hash van de vorige. De hash is SHA-256 over een canonieke vorm (RFC 8785) van de vaste gegevens van de gebeurtenis en van de afdrukken van haar waarden. Een waarde wordt dus niet zelf gehasht, maar via een gezouten afdruk. Een afdruk moet de reis door de database overleven: een getal vanaf 1e16 geeft JSONB als geheel getal terug, dus wordt het dat vóór de afdruk.
 
 ```
 uv run python -m grip.events.check
@@ -183,7 +189,7 @@ Nog niet gebouwd:
 
 ## Bewaren en wissen
 
-Twee instellingen van de instantie, in dagen, met nul voor "nooit": `events.retention_days` voor de waarden in de stroom en `events.read_retention_days` voor wie wat inzag. De taak `python -m grip.events.retention` wist wat ouder is.
+Twee instellingen van de instantie, in dagen, met nul voor "nooit": `events.retention_days` voor de waarden in de stroom en `events.read_retention_days` voor wie wat inzag. De taak `python -m grip.events.retention` wist wat ouder is. Uitgezonderd zijn de tarievenfeiten van de kroniek en de wijzigingen van de instelling voor interne goedkeuring: ze bevatten geen persoonsgegevens en elke latere stand heeft ze nodig (ADR 0052).
 
 Wissen haalt de waarden en het zout van een gebeurtenis weg. De gebeurtenis zelf blijft, met haar afdrukken, zodat de keten controleerbaar blijft. Voor een verzoek om verwijdering van één persoon is er `retention.erase_person`. Elke wisactie is een gebeurtenis `stream.erased` met de reden en het bereik.
 

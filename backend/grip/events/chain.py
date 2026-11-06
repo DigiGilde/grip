@@ -18,6 +18,7 @@ import json
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 
 import rfc8785
@@ -26,14 +27,25 @@ import rfc8785
 CHAIN_VERSION = 1
 # What the first event points back to.
 GENESIS = "0" * 64
+# From here up a float is written with an exponent and has no fraction: JSONB
+# keeps its digits and hands back an integer.
+_WHOLE_FROM = 1e16
 
 _VALUES = ("old_value", "new_value", "payload", "note")
 _DIGESTS = ("old_digest", "new_digest", "payload_digest", "note_digest")
 
 
+def _number(text: str) -> float | int:
+    number = float(text)
+    if abs(number) >= _WHOLE_FROM:
+        return int(Decimal(text))
+    # JSONB knows no negative zero.
+    return number + 0.0
+
+
 def plain(value: Any) -> Any:
     """The value as JSON stores it, so a digest survives a round trip."""
-    return json.loads(json.dumps(value, default=str))
+    return json.loads(json.dumps(value, default=str), parse_float=_number)
 
 
 def _canonical(value: Any) -> bytes:

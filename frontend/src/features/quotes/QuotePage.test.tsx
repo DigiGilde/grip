@@ -1,7 +1,9 @@
-import { waitFor } from '@testing-library/react';
+import { act, waitFor } from '@testing-library/react';
 import { Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { todayIso } from '@/lib/today';
 import { renderApp } from '@/test/utils';
+import { correctAcceptanceDate } from './api';
 import { QuotePage } from './QuotePage';
 import { clickButton, mockApi, texts } from './testing';
 
@@ -111,6 +113,7 @@ interface Setup {
   quotes?: object[];
   mayManage?: boolean;
   offers?: object[];
+  replies?: Record<string, unknown>;
 }
 
 async function renderTab({
@@ -122,8 +125,10 @@ async function renderTab({
   budgetMoved,
   evidence,
   detail = {},
+  replies = {},
 }: Setup) {
   const { calls } = mockApi({
+    ...replies,
     ...(evidence ? { '/api/proof/quotes/q-1/evidence': { items: evidence } } : {}),
     ...(approval ? { '/api/assignments/a-1/quote-approvals': { items: [approval] } } : {}),
     'POST /api/quotes/q-1/approval/request': {
@@ -446,10 +451,261 @@ describe('QuotePage', () => {
       ],
     });
     expect(container.textContent).toContain(
-      'door Tekenaar Voorbeeld (Directeur) namens Voorbeeldministerie',
+      'Getekend op 10 feb 2026 door Tekenaar Voorbeeld (Directeur) namens Voorbeeldministerie',
     );
     expect(primaries(container)).toEqual([]);
     expect(container.querySelector('nldd-card nldd-icon-button')).toBeNull();
+  });
+
+  describe('recording a signed pdf', () => {
+    const UPLOAD = '/api/quotes/q-1/acceptance/uploaded-pdf';
+    const sheet = () =>
+      [...document.body.querySelectorAll('nldd-sheet')].find(
+        (el) => el.querySelector('nldd-title')?.getAttribute('text') === 'Getekende pdf vastleggen',
+      ) as Element;
+    const dateField = () => sheet().querySelector('nldd-date-field');
+    const problem = () => sheet().querySelector('nldd-banner[variant="critical"]');
+    const uploads = () => lastCalls.filter((call) => call.url === UPLOAD);
+    const opened = async () => {
+      const container = await renderTab({
+        quotes: [QUOTE],
+        offers: [{ id: 'o-2', channel: 'document', offered_at: '2026-02-03T10:00:00Z' }],
+        replies: { [`POST ${UPLOAD}`]: QUOTE },
+      });
+      await waitFor(() => expect(primaries(container)).toEqual(['Leg getekende pdf vast']));
+      clickButton(container, 'Leg getekende pdf vast');
+      await waitFor(() => expect(sheet().hasAttribute('open')).toBe(true));
+      return container;
+    };
+    const choosePdf = () =>
+      act(() => {
+        const pdf = new File(['%PDF'], 'getekend.pdf', { type: 'application/pdf' });
+        sheet()
+          .querySelector('nldd-file-field')
+          ?.dispatchEvent(new CustomEvent('change', { detail: { files: [pdf] } }));
+      });
+    const typeDay = (value: string) =>
+      act(() => {
+        dateField()?.dispatchEvent(new CustomEvent('input', { detail: { value } }));
+      });
+    const save = () =>
+      act(() => {
+        sheet()
+          .querySelector('nldd-form')
+          ?.dispatchEvent(new Event('submit', { cancelable: true }));
+      });
+
+    it('starts from today, in a field that must be filled', async () => {
+      await opened();
+      expect(dateField()).toHaveAttribute('value', todayIso());
+      expect(dateField()).toHaveAttribute('required');
+      expect(dateField()?.closest('nldd-form-field')).not.toHaveAttribute('optional');
+    });
+
+    it('refuses at save a date that gives no day, and does not record today', async () => {
+      await opened();
+      choosePdf();
+      // What the field holds for 31-12-2099 or 32-13-2026: the text stays, the value is empty.
+      typeDay('');
+      expect(problem()).toBeNull();
+      save();
+      await waitFor(() => expect(problem()).toHaveAttribute('text', 'Kies de datum van tekenen.'));
+      expect(uploads()).toEqual([]);
+      expect(sheet()).toHaveAttribute('open');
+    });
+
+    it('sends the day in the field, at noon UTC', async () => {
+      await opened();
+      choosePdf();
+      save();
+      await waitFor(() => expect(uploads()).toHaveLength(1));
+      expect((uploads()[0]?.body as FormData).get('signed_at')).toBe(`${todayIso()}T12:00:00Z`);
+    });
+
+    it('sends another day when one is chosen', async () => {
+      await opened();
+      choosePdf();
+      typeDay('2026-02-05');
+      save();
+      await waitFor(() => expect(uploads()).toHaveLength(1));
+      expect((uploads()[0]?.body as FormData).get('signed_at')).toBe('2026-02-05T12:00:00Z');
+    });
+
+    it('starts from today again when it opens again', async () => {
+      const container = await opened();
+      typeDay('');
+      await waitFor(() => expect(dateField()).toHaveAttribute('value', ''));
+      act(() => {
+        sheet().dispatchEvent(new CustomEvent('close'));
+      });
+      await waitFor(() => expect(sheet()).not.toHaveAttribute('open'));
+      clickButton(container, 'Leg getekende pdf vast');
+      await waitFor(() => expect(dateField()).toHaveAttribute('value', todayIso()));
+    });
+  });
+
+  describe('correcting the day an uploaded pdf was signed', () => {
+    const accepted = (form: string) => ({
+      preview: { ...PREVIEW, assignment_status: 'accepted', can_issue: false },
+      quotes: [
+        {
+          ...QUOTE,
+          status: 'accepted',
+          acceptance: {
+            form,
+            signed_at: '2026-02-10T12:00:00Z',
+            signer_name: 'Tekenaar Voorbeeld',
+            has_document: true,
+          },
+        },
+      ],
+    });
+
+    it('is offered on an uploaded pdf to who may record an acceptance', async () => {
+      const container = await renderTab(accepted('uploaded_pdf'));
+      expect(texts(container, 'nldd-menu-item')).toEqual(['Corrigeer de datum van tekenen']);
+      // The sheet stays closed until someone asks for it.
+      expect(
+        document.querySelector(
+          'nldd-sheet:not([open]) nldd-title[text="Datum van tekenen corrigeren"]',
+        ),
+      ).not.toBeNull();
+    });
+
+    it('is not offered to who may not, or on another way of signing', async () => {
+      const reader = await renderTab({ ...accepted('uploaded_pdf'), mayManage: false });
+      expect(texts(reader, 'nldd-menu-item')).toEqual([]);
+      const link = await renderTab(accepted('signing_link'));
+      expect(texts(link, 'nldd-menu-item')).toEqual([]);
+    });
+
+    it('sends the day as recording does, at noon UTC', async () => {
+      const { calls } = mockApi({
+        'POST /api/quotes/q-1/acceptance/correction': QUOTE,
+      });
+      await correctAcceptanceDate('q-1', {
+        signed_at: '2026-02-11',
+        reason: 'Verkeerd overgenomen',
+        expected_signed_at: '2026-02-10T12:00:00Z',
+      });
+      expect(calls).toEqual([
+        {
+          url: '/api/quotes/q-1/acceptance/correction',
+          method: 'POST',
+          body: {
+            signed_at: '2026-02-11T12:00:00Z',
+            reason: 'Verkeerd overgenomen',
+            expected_signed_at: '2026-02-10T12:00:00Z',
+          },
+        },
+      ]);
+    });
+
+    const CONFLICT = {
+      status: 409,
+      body: {
+        title: 'Intussen gewijzigd',
+        status: 409,
+        detail:
+          'Priya Voorbeeld heeft de datum van tekenen intussen gewijzigd op 4 nov 2026 om 02:40. Er is niets overschreven.',
+        code: 'StaleWriteError',
+        changed_by: 'Priya Voorbeeld',
+        changed_at: '2026-11-04T01:40:00Z',
+      },
+    };
+    const sheet = () =>
+      [...document.body.querySelectorAll('nldd-sheet')].find(
+        (el) =>
+          el.querySelector('nldd-title')?.getAttribute('text') === 'Datum van tekenen corrigeren',
+      ) as Element;
+    const correct = async (container: HTMLElement) => {
+      container
+        .querySelector('nldd-menu-item[text="Corrigeer de datum van tekenen"]')
+        ?.dispatchEvent(new CustomEvent('select'));
+      await waitFor(() => expect(sheet().hasAttribute('open')).toBe(true));
+      const type = (selector: string, value: string) => {
+        sheet()
+          .querySelector(selector)
+          ?.dispatchEvent(new CustomEvent('input', { detail: { value } }));
+      };
+      type('nldd-date-field', '2026-02-11');
+      type('nldd-multi-line-text-field', '  Verkeerd overgenomen ');
+      await waitFor(() =>
+        expect(sheet().querySelector('nldd-date-field')?.getAttribute('value')).toBe('2026-02-11'),
+      );
+      sheet()
+        .querySelector('nldd-form')
+        ?.dispatchEvent(new Event('submit', { cancelable: true }));
+    };
+    const correction = () =>
+      lastCalls.filter((call) => call.url === '/api/quotes/q-1/acceptance/correction');
+
+    it('sends the date the sheet started from', async () => {
+      const container = await renderTab({
+        ...accepted('uploaded_pdf'),
+        replies: { 'POST /api/quotes/q-1/acceptance/correction': QUOTE },
+      });
+      await correct(container);
+      await waitFor(() => expect(correction()).toHaveLength(1));
+      expect(correction()[0]?.body).toEqual({
+        signed_at: '2026-02-11T12:00:00Z',
+        reason: 'Verkeerd overgenomen',
+        expected_signed_at: '2026-02-10T12:00:00Z',
+      });
+    });
+
+    it('says in the sheet who was first, and reads the quote again', async () => {
+      const container = await renderTab({
+        ...accepted('uploaded_pdf'),
+        replies: { 'POST /api/quotes/q-1/acceptance/correction': CONFLICT },
+      });
+      const lists = () =>
+        lastCalls.filter((call) => call.url === '/api/assignments/a-1/quotes').length;
+      const before = lists();
+      await correct(container);
+      await waitFor(() =>
+        expect(sheet().querySelector('nldd-banner[variant="critical"]')?.getAttribute('text')).toBe(
+          CONFLICT.body.detail,
+        ),
+      );
+      expect(sheet().hasAttribute('open')).toBe(true);
+      expect(sheet().querySelector('nldd-date-field')?.getAttribute('value')).toBe('2026-02-11');
+      await waitFor(() => expect(lists()).toBeGreaterThan(before));
+    });
+
+    it('keeps the date it started from while the page reads a newer one', async () => {
+      const setup = accepted('uploaded_pdf');
+      const list = { may_manage: true, quotes: setup.quotes };
+      const container = await renderTab({
+        ...setup,
+        replies: {
+          'POST /api/quotes/q-1/acceptance/correction': CONFLICT,
+          'GET /api/assignments/a-1/quotes': list,
+        },
+      });
+      // What the server holds from now on; the page reads it after the refusal.
+      list.quotes = [
+        {
+          ...setup.quotes[0]!,
+          acceptance: { ...setup.quotes[0]!.acceptance, signed_at: '2026-02-20T12:00:00Z' },
+        },
+      ];
+      const lists = () =>
+        lastCalls.filter((call) => call.url === '/api/assignments/a-1/quotes').length;
+      const before = lists();
+      await correct(container);
+      await waitFor(() => expect(correction()).toHaveLength(1));
+      await waitFor(() => expect(lists()).toBeGreaterThan(before));
+      await waitFor(() => expect(sheet().querySelector('nldd-banner')).not.toBeNull());
+      // A second try from this sheet has not seen the newer date, so it is refused too.
+      sheet()
+        .querySelector('nldd-form')
+        ?.dispatchEvent(new Event('submit', { cancelable: true }));
+      await waitFor(() => expect(correction()).toHaveLength(2));
+      expect((correction()[1]?.body as { expected_signed_at: string }).expected_signed_at).toBe(
+        '2026-02-10T12:00:00Z',
+      );
+    });
   });
 
   it('collapses earlier quotes to one line each', async () => {
@@ -511,6 +767,14 @@ describe('QuotePage', () => {
       budgetMoved: false,
     });
     expect(texts(same, 'nldd-button')).not.toContain('Maak nieuwe offerte');
+  });
+
+  it('does not say a quote waits when a second pair of eyes is only asked for', async () => {
+    const container = await renderTab({
+      quotes: [QUOTE],
+      approval: { ...APPROVAL, approval_required: false, may_offer: true, status: 'requested' },
+    });
+    expect(texts(container, 'nldd-card nldd-badge')).toEqual(['Offerte gemaakt']);
   });
 
   it('puts internal approval between making and offering only where it is required', async () => {

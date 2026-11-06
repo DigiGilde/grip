@@ -422,6 +422,7 @@ NEWS: tuple[News, ...] = (
 # mail, bookkeeping of tasks, and parts of something that is news as a whole.
 OFF_KINDS: frozenset[str] = frozenset(
     {
+        "chronolexogram",
         "data",
         "stream",
         "login",
