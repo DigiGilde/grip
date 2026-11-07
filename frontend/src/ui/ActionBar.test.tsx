@@ -17,7 +17,7 @@ describe('ActionBar', () => {
       />,
     );
     const toolbar = container.querySelector('nldd-toolbar');
-    expect(toolbar).toHaveAttribute('label', 'Inzet: weergave');
+    expect(toolbar).toHaveAttribute('accessible-label', 'Inzet: weergave');
     const sizes = [toolbar, ...container.querySelectorAll('nldd-dropdown, nldd-button')].map((el) =>
       el?.getAttribute('size'),
     );

@@ -79,7 +79,7 @@ export function LoginPage() {
     passkeyMadeHere();
 
   return (
-    <nldd-app-view background="tinted">
+    <nldd-shell background="tinted">
       <nldd-page landmarks="page">
         <nldd-simple-section width="400px" vertical-alignment="center">
           <nldd-container gap="24">
@@ -133,6 +133,6 @@ export function LoginPage() {
           </nldd-container>
         </nldd-simple-section>
       </nldd-page>
-    </nldd-app-view>
+    </nldd-shell>
   );
 }

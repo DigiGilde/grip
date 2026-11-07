@@ -210,7 +210,7 @@ export function ActionBar({ label, search, filters = [], actions = [], more }: A
   const extra = more && more.actions.length > 0 ? more : null;
   if (!search && filters.length === 0 && actions.length === 0 && !extra) return null;
   const bar = (
-    <nldd-toolbar size={SIZE} label={label}>
+    <nldd-toolbar size={SIZE} accessible-label={label}>
       {search && !narrow && (
         <nldd-toolbar-item slot="start" priority={3}>
           <SearchField search={search} width={search.width ?? '320px'} />

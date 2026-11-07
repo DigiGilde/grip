@@ -3,11 +3,11 @@
  * cannot know about the page it is mounted in. */
 @import "@nldd/design-system/styles";
 
-/* The design system gives html and body a height of 100% when an nldd-app-view
- * is on the page, assuming the app-view is a child of body. React mounts into
- * #root in between, and that div gets no height of its own, so the app-view
+/* The design system gives html and body a height of 100% when an nldd-shell
+ * is on the page, assuming the shell is a child of body. React mounts into
+ * #root in between, and that div gets no height of its own, so the shell
  * would have nothing to fill. */
-#root:has(nldd-app-view) {
+#root:has(nldd-shell) {
   height: 100%;
 }
 

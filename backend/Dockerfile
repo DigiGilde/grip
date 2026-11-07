@@ -30,7 +30,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # logo and the typeface are for the Rijksoverheid and those working on its
 # behalf only.
 FROM node:22-slim AS huisstijl
-ARG NLDD_DESIGN_SYSTEM_VERSION=0.8.96
+ARG NLDD_DESIGN_SYSTEM_VERSION=0.15.0
 WORKDIR /pkg
 RUN npm pack "@nldd/design-system@${NLDD_DESIGN_SYSTEM_VERSION}" --silent \
     && tar -xzf nldd-design-system-*.tgz \

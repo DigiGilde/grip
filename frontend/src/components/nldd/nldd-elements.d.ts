@@ -15,7 +15,6 @@
 import type { DetailedHTMLProps, HTMLAttributes, Ref } from 'react';
 
 import type { NLDDActivityIndicator } from '@nldd/design-system/activity-indicator';
-import type { NLDDAppView } from '@nldd/design-system/app-view';
 import type { NLDDAvatar } from '@nldd/design-system/avatar';
 import type { NLDDAvatarGroup } from '@nldd/design-system/avatar-group';
 import type { NLDDBadge } from '@nldd/design-system/badge';
@@ -66,8 +65,8 @@ import type { NLDDListItemSegment } from '@nldd/design-system/list-item-segment'
 import type { NLDDMenu } from '@nldd/design-system/menu';
 import type { NLDDMenuBar } from '@nldd/design-system/menu-bar';
 import type { NLDDMenuBarItem } from '@nldd/design-system/menu-bar-item';
-import type { NLDDMenuGroup } from '@nldd/design-system/menu';
-import type { NLDDMenuItem } from '@nldd/design-system/menu';
+import type { NLDDMenuGroup } from '@nldd/design-system/menu-group';
+import type { NLDDMenuItem } from '@nldd/design-system/menu-item';
 import type { NLDDModalDialog } from '@nldd/design-system/modal-dialog';
 import type { NLDDMultiLineTextField } from '@nldd/design-system/multi-line-text-field';
 import type { NLDDNavigationSplitView } from '@nldd/design-system/navigation-split-view';
@@ -94,10 +93,12 @@ import type { NLDDSearchField } from '@nldd/design-system/search-field';
 import type { NLDDSegmentedControl } from '@nldd/design-system/segmented-control';
 import type { NLDDSegmentedControlItem } from '@nldd/design-system/segmented-control';
 import type { NLDDSheet } from '@nldd/design-system/sheet';
+import type { NLDDShell } from '@nldd/design-system/shell';
 import type { NLDDSideBySideSplitView } from '@nldd/design-system/side-by-side-split-view';
 import type { NLDDSidebarSection } from '@nldd/design-system/sidebar-section';
 import type { NLDDSimpleSection } from '@nldd/design-system/simple-section';
 import type { NLDDSkipLink } from '@nldd/design-system/skip-link';
+import type { NLDDSlider } from '@nldd/design-system/slider';
 import type { NLDDSpacer } from '@nldd/design-system/spacer';
 import type { NLDDSpacerCell } from '@nldd/design-system/spacer-cell';
 import type { NLDDSplitButton } from '@nldd/design-system/split-button';
@@ -116,6 +117,8 @@ import type { NLDDTabBarItem } from '@nldd/design-system/tab-bar';
 import type { NLDDTable } from '@nldd/design-system/table';
 import type { NLDDTableRow } from '@nldd/design-system/table';
 import type { NLDDTag } from '@nldd/design-system/tag';
+import type { NLDDTaskBoard } from '@nldd/design-system/task-board';
+import type { NLDDTaskBoardColumn } from '@nldd/design-system/task-board-column';
 import type { NLDDText } from '@nldd/design-system/text';
 import type { NLDDTextCell } from '@nldd/design-system/text-cell';
 import type { NLDDTextEditor } from '@nldd/design-system/text-editor';
@@ -129,8 +132,8 @@ import type { NLDDToggleButtonGroup } from '@nldd/design-system/toggle-button-gr
 import type { NLDDToken } from '@nldd/design-system/token';
 import type { NLDDTokenField } from '@nldd/design-system/token-field';
 import type { NLDDToolbar } from '@nldd/design-system/toolbar';
-import type { NLDDToolbarItem } from '@nldd/design-system/toolbar';
-import type { NLDDToolbarTitle } from '@nldd/design-system/toolbar';
+import type { NLDDToolbarItem } from '@nldd/design-system/toolbar-item';
+import type { NLDDToolbarTitle } from '@nldd/design-system/toolbar-title';
 import type { NLDDTooltip } from '@nldd/design-system/tooltip';
 import type { NLDDTopNavigationBar } from '@nldd/design-system/top-navigation-bar';
 import type { NLDDTopTitleBar } from '@nldd/design-system/top-title-bar';
@@ -150,11 +153,6 @@ type NlddElement = DetailedHTMLProps<HTMLAttributes<HTMLElement>, HTMLElement> &
 declare module 'react' {
 	namespace JSX {
 		interface IntrinsicElements {
-			/** NOT REGISTERED. Using this renders its children unstyled with no
-			 *  error. Add `import '@nldd/design-system/activity-indicator';` to
-			 *  components/nldd/register.ts first. Some elements register through a
-			 *  parent's module (nldd-table-row with nldd-table); register.test.ts lists
-			 *  those. */
 			'nldd-activity-indicator': NlddElement & {
 				/** Circle diameter on the icon scale: 16,20,24,28,32,40,44,48,56,64,80,96 (default '32') */
 				'size'?: NLDDActivityIndicator['size'];
@@ -170,10 +168,6 @@ declare module 'react' {
 				'no-backdrop'?: NLDDActivityIndicator['noBackdrop'];
 				/** Override translation keys; unset keys fall back to Dutch */
 				'translations'?: NLDDActivityIndicator['translations'];
-			};
-			'nldd-app-view': NlddElement & {
-				/** Background color (cascades to descendants) */
-				'background'?: NLDDAppView['background'];
 			};
 			/** NOT REGISTERED. Using this renders its children unstyled with no
 			 *  error. Add `import '@nldd/design-system/avatar';` to
@@ -205,13 +199,13 @@ declare module 'react' {
 				'decorative'?: NLDDAvatar['decorative'];
 				/** When the name appears as a tooltip on hover or focus: `delay` (the default, after 700ms), `instant`, or `never`. An avatar shows no text, so without a tooltip the name is readable by assistive software only. A `decorative` avatar shows none regardless: there the name already stands beside it as text */
 				'tooltip-timing'?: NLDDAvatar['tooltipTiming'];
-				/** Makes the avatar a link to this URL; the shape itself becomes the link, so the hit area and the focus ring follow it */
+				/** Makes the avatar a link to this URL; the shape itself becomes the link, so the hit area and the focus ring follow it. As a link or a button the avatar needs size 24 or larger (WCAG 2.5.8) */
 				'href'?: NLDDAvatar['href'];
 				/** Takes the control out of the tab order (tabindex="-1"), for an avatar that is a link or a button inside a roving container (a row of an nldd-list). Does nothing on a decorative avatar. */
 				'no-tab'?: NLDDAvatar['noTab'];
 				/** Makes the avatar a button; ignored when `href` is set */
 				'button'?: NLDDAvatar['button'];
-				/** Link target for href (e.g. '_blank'); completes rel and announces "Opens in a new tab" */
+				/** Link target for href (e.g. '_blank'); completes rel and announces "Opens in a new tab". An `href` to another origin than the page (another website, a subdomain too) adds a visually hidden "andere website", in one sentence with the new-tab announcement when both apply; there is no way to switch it off. */
 				'target'?: NLDDAvatar['target'];
 				/** Link rel for href; with target '_blank', 'noopener noreferrer' is added to whatever you set */
 				'rel'?: NLDDAvatar['rel'];
@@ -226,21 +220,16 @@ declare module 'react' {
 			'nldd-avatar-group': NlddElement & {
 				/** Diameter of each avatar in px (spacer-aligned: 16, 20, 24, 28, 32, 40, 44, 48, 56, 64, 80, 96); default 40 */
 				'size'?: NLDDAvatarGroup['size'];
-				/** Shows at most this many avatars; the rest go behind a "+N" button that opens them as a list of names */
+				/** Shows at most this many avatars; the rest go behind a "+N" button that opens them as a list of names. A longer number is set smaller, and where it no longer fits the disc the button shows an ellipsis with the count in a tooltip (a number shows from size 24 with one digit, 40 with two, 56 with three and 80 with four) */
 				'max'?: NLDDAvatarGroup['max'];
 				/** Describes the group as a whole (e.g. "Editors"); without a label the group is not a landmark of its own and the avatars speak for themselves */
 				'accessible-label'?: NLDDAvatarGroup['accessibleLabel'];
 				'translations'?: NLDDAvatarGroup['translations'];
 			};
-			/** NOT REGISTERED. Using this renders its children unstyled with no
-			 *  error. Add `import '@nldd/design-system/badge';` to
-			 *  components/nldd/register.ts first. Some elements register through a
-			 *  parent's module (nldd-table-row with nldd-table); register.test.ts lists
-			 *  those. */
 			'nldd-badge': NlddElement & {
 				/** Size: 'sm' | 'md' (default: 'md') */
 				'size'?: NLDDBadge['size'];
-				/** Semantic ('critical' | 'accent' | 'neutral' | 'warning' | 'success'), a Rijkshuisstijl color ('lintblauw' | 'hemelblauw' | 'oranje' | …), or 'inherit' to fill in the content color around it: the `--context-content-color` channel a list item, table row or menu sets, falling back to `currentColor`. Default: 'critical' */
+				/** The meaning of the badge, the same set as nldd-status-bar, or 'inherit' to fill in the content color around it: the `--context-content-color` channel a list item, table row or menu sets, falling back to `currentColor`. Default: 'critical'. A badge is a signal, not a category, so it has no Rijkshuisstijl colors: the theme picks the accent, and `custom-color` takes any other. Another value falls back to 'accent' and says so in development. */
 				'color'?: NLDDBadge['color'];
 				/** A color of its own, as any CSS color value ('#a90061', 'oklch(0.6 0.2 20)', 'var(--brand-cable-blue)'). For a color the system cannot know: the jacket of a cable, a color someone picked. It wins over `color`. Whatever it paints, the text and icon on top become white or black, whichever contrasts. The text on it is black or white, picked on the relative luminance of the fill, so it clears 4.5:1 whatever color you hand it. */
 				'custom-color'?: NLDDBadge['customColor'];
@@ -265,7 +254,7 @@ declare module 'react' {
 				'variant'?: NLDDBanner['variant'];
 				/** Banner size (default: 'md'). 'sm' tightens the padding to 8px, drops the icon to 24px and uses a smaller dismiss button - for a bar that sits between chrome and content rather than a standalone page-level notice. The typography is unchanged. */
 				'size'?: NLDDBanner['size'];
-				/** Icon override. Default per variant: neutral → info-circle-filled, accent → info-circle-filled, success → check-circle-filled, warning → exclamation-triangle-filled, critical → exclamation-circle-filled */
+				/** Icon override. Default per variant: neutral → info-circle-filled, accent → info-circle-filled, success → check-mark-circle-filled, warning → exclamation-triangle-filled, critical → exclamation-circle-filled */
 				'icon'?: NLDDBanner['icon'];
 				/** Main text (heading or paragraph, depending on heading-level) */
 				'text'?: NLDDBanner['text'];
@@ -281,6 +270,18 @@ declare module 'react' {
 			'nldd-bar-split-view': NlddElement & {
 				/** Background color variant (default: inherit) */
 				'background'?: NLDDBarSplitView['background'];
+				/** Show this panel from this breakpoint and larger */
+				'above'?: NLDDBarSplitView['above'];
+				/** Show this panel up to and including this breakpoint */
+				'below'?: NLDDBarSplitView['below'];
+				/** Show this panel only at this breakpoint */
+				'only'?: NLDDBarSplitView['only'];
+				/** Position of this panel at sm (lower comes first) */
+				'sm-order'?: NLDDBarSplitView['smOrder'];
+				/** Position of this panel at md (lower comes first) */
+				'md-order'?: NLDDBarSplitView['mdOrder'];
+				/** Position of this panel at lg (lower comes first) */
+				'lg-order'?: NLDDBarSplitView['lgOrder'];
 			};
 			/** NOT REGISTERED. Using this renders its children unstyled with no
 			 *  error. Add `import '@nldd/design-system/blockquote';` to
@@ -297,7 +298,7 @@ declare module 'react' {
 			 *  parent's module (nldd-table-row with nldd-table); register.test.ts lists
 			 *  those. */
 			'nldd-box': NlddElement & {
-				/** Which surface this box draws, named as it is on nldd-app-view, nldd-page, nldd-split-view-pane and nldd-card. It starts tinted where a card starts base: a box is there to stand out from the page, a card to sit on it. - `tinted` (default): a box on a plain page background. - `base`: a box on an already-tinted parent (the border ring gets +2 palette steps so it still reads against a card-on-card). - `critical`: a region whose actions are destructive or irreversible (a "danger zone"), tinted and outlined in critical. It carries no ARIA of its own: unlike nldd-banner this is not an announcement but a permanent part of the page, so the heading and the button labels have to name the danger - color is a reinforcement, never the only signal (WCAG 1.4.1). The box draws the surface and nothing else: it has no padding of its own, the same way nldd-card has none. Put an nldd-container inside it and let that set the inset, so one component owns spacing wherever it is used. */
+				/** Which surface this box draws, named as it is on nldd-shell, nldd-page, nldd-split-view-pane and nldd-card. It starts tinted where a card starts base: a box is there to stand out from the page, a card to sit on it. - `tinted` (default): a box on a plain page background. - `base`: a box on an already-tinted parent (the border ring gets +2 palette steps so it still reads against a card-on-card). - `accent-tinted`: a tint of the theme's accent, with the contrast of `tinted`, for a box that belongs to the service rather than to the page. - `critical`: a region whose actions are destructive or irreversible (a "danger zone"), tinted and outlined in critical. It carries no ARIA of its own: unlike nldd-banner this is not an announcement but a permanent part of the page, so the heading and the button labels have to name the danger - color is a reinforcement, never the only signal (WCAG 1.4.1). The box draws the surface and nothing else: it has no padding of its own, the same way nldd-card has none. Put an nldd-container inside it and let that set the inset, so one component owns spacing wherever it is used. */
 				'background'?: NLDDBox['background'];
 			};
 			/** NOT REGISTERED. Using this renders its children unstyled with no
@@ -345,13 +346,13 @@ declare module 'react' {
 				'popup-type'?: NLDDButton['popupType'];
 				/** Button type for form submission: 'button' | 'submit' | 'reset' (ignored when href is set) */
 				'type'?: NLDDButton['type'];
-				/** ID of a popover element this button invokes; forwarded to the inner button. Use the popoverTargetElement property instead when the popover lives in another tree. */
+				/** ID of a popover element this button invokes, looked up in the tree of this button; the inner button gets the element. Use the popoverTargetElement property instead when the popover lives in another tree. */
 				'popovertarget'?: NLDDButton['popovertarget'];
-				/** Loading state (default: false). Shows an activity indicator over the visually hidden content, sets aria-busy on the inner control and blocks activation, without dropping the button from the tab order (unlike disabled). The content stays laid out, so the button keeps its width. */
+				/** Loading state (default: false). Shows an activity indicator over the visually hidden content, sets aria-busy on the inner control and blocks activation, without dropping the button from the tab order (unlike disabled). The content stays laid out, so the button keeps its width. Meant for an action that has to wait for the server, such as sending an application. For most actions, show the result right away and confirm in the background, as the design guidelines describe. */
 				'loading'?: NLDDButton['loading'];
 				/** What the screen reader announces while `loading` is on, for a button that does more than load: "Aan het bewaren". Leave it out and the activity indicator says its translated "Laden". */
 				'loading-text'?: NLDDButton['loadingText'];
-				/** Disabled state */
+				/** Disabled state. Avoid it: let the action run and say afterwards what is missing; the design guidelines say why. */
 				'disabled'?: NLDDButton['disabled'];
 				/** Button text */
 				'text'?: NLDDButton['text'];
@@ -367,14 +368,26 @@ declare module 'react' {
 				'end-icon'?: NLDDButton['endIcon'];
 				/** Accessible label for the button, overrides text for screen readers */
 				'accessible-label'?: NLDDButton['accessibleLabel'];
+				/** Keyboard shortcut hint shown right after the text, e.g. 'Cmd+S'. Display only (rendered via nldd-keyboard-shortcut): it does not bind the key, wire up the handling in your app. Part of the accessible name, as in nldd-menu-item. Hidden on touch-only devices, where it isn't invokable. Keep it for the few main actions of a screen (save, search); a hint on every button is noise. */
+				'shortcut'?: NLDDButton['shortcut'];
+				/** Override of `shortcut` on macOS, where the keys differ (falls back to `shortcut`). */
+				'shortcut-mac'?: NLDDButton['shortcutMac'];
+				/** Override of `shortcut` on Windows (falls back to `shortcut`). */
+				'shortcut-windows'?: NLDDButton['shortcutWindows'];
+				/** Override of `shortcut` on Linux (falls back to `shortcut`). */
+				'shortcut-linux'?: NLDDButton['shortcutLinux'];
 				/** When set, renders an <a> element instead of <button> */
 				'href'?: NLDDButton['href'];
-				/** Link target (e.g. '_blank'); only used when href is set. With '_blank' the button adds a visually hidden "opens in new tab" announcement for screen readers (WCAG 2.1 SC 3.2.2). */
+				/** Link target (e.g. '_blank'); only used when href is set. With '_blank' the button adds a visually hidden "opens in new tab" announcement for screen readers (WCAG 2.1 SC 3.2.2). An `href` to another origin than the page (another website, a subdomain too) adds a visually hidden "andere website", in one sentence with the new-tab announcement when both apply; there is no way to switch it off. */
 				'target'?: NLDDButton['target'];
+				/** Saves the file the link points at instead of opening it; only used with href. Without a value the browser takes the name from the URL, with one that is the file name. A browser ignores it for a URL on another origin and opens the file there. Adds a visually hidden "downloadt bestand" for screen readers. Leave `target` off: a download opens no tab. */
+				'download'?: NLDDButton['download'];
 				/** Link rel attribute, used with href; with target '_blank', 'noopener noreferrer' is added to whatever you set */
 				'rel'?: NLDDButton['rel'];
 				/** Override translation keys (e.g. the "opens in new tab" announcement); unset keys fall back to Dutch. */
 				'translations'?: NLDDButton['translations'];
+				/** Id of the form this button submits or resets, for a button that sits outside it. Takes an `nldd-form` as well as a plain `<form>`. Without it the button acts on the form it stands in. The id is looked up in the button's own root, as the platform does it: a button inside a shadow tree does not reach a form in the document around it. An id that finds nothing, or an `nldd-form` that has not rendered its form yet, says so in development rather than letting the click do nothing. */
+				'form'?: NLDDButton['form'];
 			};
 			/** NOT REGISTERED. Using this renders its children unstyled with no
 			 *  error. Add `import '@nldd/design-system/button-bar';` to
@@ -402,10 +415,12 @@ declare module 'react' {
 			 *  parent's module (nldd-table-row with nldd-table); register.test.ts lists
 			 *  those. */
 			'nldd-button-group': NlddElement & {
-				/** Button group size: 'sm' | 'md' (default: 'md') */
+				/** Button group size, set on every button in it: 'sm' | 'md' (default: 'md') */
 				'size'?: NLDDButtonGroup['size'];
 				/** Layout direction: 'auto' | 'horizontal' | 'vertical' (default: 'auto') */
 				'orientation'?: NLDDButtonGroup['orientation'];
+				/** 'full': the buttons fill the row in equal shares, and a button that does not fit moves to a line of its own (default: unset, each button as wide as its label) */
+				'width'?: NLDDButtonGroup['width'];
 			};
 			/** NOT REGISTERED. Using this renders its children unstyled with no
 			 *  error. Add `import '@nldd/design-system/card';` to
@@ -413,19 +428,21 @@ declare module 'react' {
 			 *  parent's module (nldd-table-row with nldd-table); register.test.ts lists
 			 *  those. */
 			'nldd-card': NlddElement & {
-				/** Surface color of the card: `base` (default) on a plain page background, `tinted` when the card should stand out against a base surface */
+				/** Surface color of the card: `base` (default) on a plain page background, `tinted` when the card should stand out against a base surface, `accent-tinted` for a tint of the theme's accent with the contrast of `tinted` */
 				'background'?: NLDDCard['background'];
 				/** Accessible name of the card; with `href`/`button` it names the link or button, otherwise the card region */
 				'accessible-label'?: NLDDCard['accessibleLabel'];
 				/** Makes the whole card a link to this URL (empty = no link) */
 				'href'?: NLDDCard['href'];
-				/** Link target for href (e.g. '_blank'); adjusts rel automatically and adds an "Opent in nieuw tabblad" announcement for '_blank' */
+				/** Link target for href (e.g. '_blank'); adjusts rel automatically and adds an "opent in nieuw tabblad" announcement for '_blank'. An `href` to another origin than the page (another website, a subdomain too) adds a visually hidden "andere website", in one sentence with the new-tab announcement when both apply; there is no way to switch it off. */
 				'target'?: NLDDCard['target'];
+				/** Saves the file the link points at instead of opening it; only used with href. Without a value the browser takes the name from the URL, with one that is the file name. A browser ignores it for a URL on another origin and opens the file there. Adds a visually hidden "downloadt bestand" for screen readers. Leave `target` off: a download opens no tab. */
+				'download'?: NLDDCard['download'];
 				/** Link rel for href; with target '_blank', 'noopener noreferrer' is added to whatever you set */
 				'rel'?: NLDDCard['rel'];
 				/** Makes the whole card a button; ignored when `href` is set */
 				'button'?: NLDDCard['button'];
-				/** Override translation keys (e.g. the "Opent in nieuw tabblad" announcement) */
+				/** Override translation keys (e.g. the "opent in nieuw tabblad" announcement) */
 				'translations'?: NLDDCard['translations'];
 			};
 			/** NOT REGISTERED. Using this renders its children unstyled with no
@@ -446,6 +463,7 @@ declare module 'react' {
 				'horizontal-alignment'?: NLDDCell['horizontalAlignment'];
 				/** Vertical alignment of slotted content (default: 'center') */
 				'vertical-alignment'?: NLDDCell['verticalAlignment'];
+				'row-header'?: NLDDCell['rowHeader'];
 				'hide-below'?: NLDDCell['hideBelow'];
 				'hide-above'?: NLDDCell['hideAbove'];
 			};
@@ -469,6 +487,8 @@ declare module 'react' {
 				'value'?: NLDDCheckbox['value'];
 				/** Name for form submission */
 				'name'?: NLDDCheckbox['name'];
+				/** 'inherit' draws the control in the color of the text around it, with the mark in the surface color (`--context-parent-background-color`) or else `--semantics-content-contrast-color`, white or black against the text color. For a control on a colored surface, such as the panel of nldd-hero, where the accent would not stand out. Without it the control uses the accent. */
+				'color'?: NLDDCheckbox['color'];
 				/** Accessible label forwarded as aria-label to the native input. */
 				'accessible-label'?: NLDDCheckbox['accessibleLabel'];
 				/** Required state */
@@ -493,6 +513,8 @@ declare module 'react' {
 				'value'?: NLDDCheckboxField['value'];
 				/** Name for form submission */
 				'name'?: NLDDCheckboxField['name'];
+				/** 'inherit' draws the control and its label in the color of the text around it, for a field on a colored surface such as the panel of nldd-hero. Passed to the control inside. */
+				'color'?: NLDDCheckboxField['color'];
 				/** Label text for the checkbox */
 				'label'?: NLDDCheckboxField['label'];
 				/** Required state */
@@ -507,6 +529,16 @@ declare module 'react' {
 			 *  parent's module (nldd-table-row with nldd-table); register.test.ts lists
 			 *  those. */
 			'nldd-code-editor': NlddElement & {
+				/** Wrap long lines instead of horizontal scroll */
+				'wrap'?: NLDDCodeEditor['wrap'];
+				/** 'none' (fixed) | 'vertical' (drag) | 'auto' (grow, default) */
+				'resize'?: NLDDCodeEditor['resize'];
+				/** 'simple' (default, bare) | 'input-field' (framed surface) */
+				'appearance'?: NLDDCodeEditor['appearance'];
+				/** Highlight grammar (yaml, json, javascript, typescript, css, html, xml, bash, markdown, rust, gherkin, toml, sql, python). Empty disables highlighting. */
+				'language'?: NLDDCodeEditor['language'];
+				/** Show a line-number gutter */
+				'line-numbers'?: NLDDCodeEditor['lineNumbers'];
 				/** Editor content */
 				'value'?: NLDDCodeEditor['value'];
 				/** Sets the id on the editable element. Set automatically by nldd-form-field. */
@@ -521,18 +553,8 @@ declare module 'react' {
 				'readonly'?: NLDDCodeEditor['readonly'];
 				/** Required state */
 				'required'?: NLDDCodeEditor['required'];
-				/** Wrap long lines instead of horizontal scroll */
-				'wrap'?: NLDDCodeEditor['wrap'];
 				/** Minimum visible rows (the floor in every resize mode). Default: 6. */
 				'rows'?: NLDDCodeEditor['rows'];
-				/** 'none' (fixed) | 'vertical' (drag) | 'auto' (grow, default) */
-				'resize'?: NLDDCodeEditor['resize'];
-				/** 'simple' (default, bare) | 'input-field' (framed surface) */
-				'appearance'?: NLDDCodeEditor['appearance'];
-				/** Highlight grammar (yaml, json, javascript, typescript, css, html, xml, bash, markdown, rust, gherkin, toml, sql, python). Empty disables highlighting. */
-				'language'?: NLDDCodeEditor['language'];
-				/** Show a line-number gutter */
-				'line-numbers'?: NLDDCodeEditor['lineNumbers'];
 				/** Accessible label forwarded to the editor. Set automatically by nldd-form-field. */
 				'accessible-label'?: NLDDCodeEditor['accessibleLabel'];
 				/** Marks the control as invalid. Announced with aria-invalid; nothing is drawn for it. */
@@ -549,10 +571,14 @@ declare module 'react' {
 				'appearance'?: NLDDCodeViewer['appearance'];
 				/** Grammar to highlight with. Empty disables highlighting. */
 				'language'?: NLDDCodeViewer['language'];
+				/** The content is a unified diff: shown with line colors, old and new line numbers, and the changed words marked. */
+				'diff'?: NLDDCodeViewer['diff'];
 				/** Hide the copy-to-clipboard button (shown by default). */
 				'no-copy'?: NLDDCodeViewer['noCopy'];
 				/** Wrap long lines instead of horizontal scroll */
 				'wrap'?: NLDDCodeViewer['wrap'];
+				/** Tallest the block may get, as a CSS length (e.g. '400px', '50vh'). Beyond it the content scrolls vertically. Unset means no cap. */
+				'max-height'?: NLDDCodeViewer['maxHeight'];
 				'copy-unavailable'?: NLDDCodeViewer['_copyUnavailable'];
 				/** Override translation keys (e.g. the copy button labels and the scroll-region label); unset keys fall back to Dutch. */
 				'translations'?: NLDDCodeViewer['translations'];
@@ -565,8 +591,10 @@ declare module 'react' {
 			'nldd-collection': NlddElement & {
 				/** Layout mode: 'grid' | 'stack' | 'lanes' | 'horizontal-scroll' (default: 'grid') */
 				'layout'?: NLDDCollection['layout'];
-				/** Preferred width for each item (e.g. '280px', '20rem'). In grid and lanes layouts used as the minimum column width (columns will be at least this wide; 1fr if container allows more). In horizontal scroll used as flex-basis. Never forces horizontal overflow - the value is clamped to container width. */
-				'item-width'?: NLDDCollection['itemWidth'];
+				/** Smallest width an item takes (e.g. '280px', '20rem'). In grid and lanes the minimum column width: columns are at least this wide and grow to fill the row. In horizontal scroll the flex-basis: items never shrink below it, and grow up to `item-max-width` when they fit. No effect in stack. Never forces horizontal overflow, the value is clamped to the container width. */
+				'item-min-width'?: NLDDCollection['itemMinWidth'];
+				/** Largest width an item takes in horizontal scroll (e.g. '400px', '25rem'), so one or two items that fit do not stretch across the container. Defaults to 480px; `item-max-width="100%"` lets items fill the container, as they did before the default. Never narrower than `item-min-width`, which wins when it is wider, and never wider than the container. No effect in grid, lanes and stack: a grid leaves empty columns rather than stretching an item, and its right edge stays aligned with the content around it. */
+				'item-max-width'?: NLDDCollection['itemMaxWidth'];
 				/** Gap between items, as a step of the spacing scale ('0', '2', '4', '6', '8', '10', '12', '16', '20', '24', '28', '32', '40', '44', '48', '56', '64', '80', '96'). Overrides the responsive default at every breakpoint; unset keeps the default. */
 				'gap'?: NLDDCollection['gap'];
 				/** Gap at sm, overriding `gap` there */
@@ -645,12 +673,14 @@ declare module 'react' {
 				'md-column-count'?: NLDDContainer['mdColumnCount'];
 				/** Column count when this container is lg-wide */
 				'lg-column-count'?: NLDDContainer['lgColumnCount'];
-				/** 'full' (default, fills the parent) | 'fit-content' | a CSS length (e.g. '480px'). A container narrower than its parent stays where its parent puts it; use the parent's horizontal-alignment to move it. */
+				/** 'full' (default, fills the parent) | 'fit-content' | a CSS length (e.g. '480px'). A container narrower than its parent stays where its parent puts it; use the parent's horizontal-alignment to move it. A 'fit-content' container takes its width from its content, so it cannot measure itself: its breakpoint padding, gap and column count follow the container around it. */
 				'width'?: NLDDContainer['width'];
 				/** Minimum width as a CSS length (e.g. '280px') */
 				'min-width'?: NLDDContainer['minWidth'];
 				/** Maximum width as a CSS length (e.g. '480px') */
 				'max-width'?: NLDDContainer['maxWidth'];
+				/** Minimum height as a CSS length (e.g. '240px'), padding included. Reserves the room that content still on its way will take; vertical-alignment then places the children within it. */
+				'min-height'?: NLDDContainer['minHeight'];
 				/** Gap between children. One distance for all of them, so it fits children of one kind; for a stack of different kinds, space each seam with nldd-spacer instead. */
 				'gap'?: NLDDContainer['gap'];
 				/** Gap at sm breakpoint */
@@ -719,6 +749,14 @@ declare module 'react' {
 				'horizontal-alignment'?: NLDDContainer['horizontalAlignment'];
 				/** 'top' | 'center' | 'bottom' */
 				'vertical-alignment'?: NLDDContainer['verticalAlignment'];
+				/** Position of this child in the container */
+				'order'?: NLDDContainer['order'];
+				/** Position of this child at sm */
+				'sm-order'?: NLDDContainer['smOrder'];
+				/** Position of this child at md */
+				'md-order'?: NLDDContainer['mdOrder'];
+				/** Position of this child at lg */
+				'lg-order'?: NLDDContainer['lgOrder'];
 			};
 			/** NOT REGISTERED. Using this renders its children unstyled with no
 			 *  error. Add `import '@nldd/design-system/date-field';` to
@@ -811,6 +849,7 @@ declare module 'react' {
 				'min-height'?: NLDDDescriptionCell['minHeight'];
 				/** Vertical alignment (default: 'center') */
 				'vertical-alignment'?: NLDDDescriptionCell['verticalAlignment'];
+				'row-header'?: NLDDDescriptionCell['rowHeader'];
 				'hide-below'?: NLDDDescriptionCell['hideBelow'];
 				'hide-above'?: NLDDDescriptionCell['hideAbove'];
 			};
@@ -831,7 +870,7 @@ declare module 'react' {
 				'accessible-label'?: NLDDDocumentTabBar['accessibleLabel'];
 				/** Renders a nav landmark instead of tablist; use when items have hrefs */
 				'navigation'?: NLDDDocumentTabBar['navigation'];
-				/** Translation overrides; unset keys fall back to Dutch. Available keys: 'components.document-tab-bar.overflow-action' (default: 'Meer') */
+				/** Translation overrides; unset keys fall back to Dutch. Available keys: 'components.document-tab-bar.show-more-tabs-action' (default: 'Toon meer tabbladen') */
 				'translations'?: NLDDDocumentTabBar['translations'];
 			};
 			/** NOT REGISTERED. Using this renders its children unstyled with no
@@ -893,12 +932,16 @@ declare module 'react' {
 			 *  parent's module (nldd-table-row with nldd-table); register.test.ts lists
 			 *  those. */
 			'nldd-file-field': NlddElement & {
+				/** 'control' (default): a row the height of a field. 'area': a tall surface with the upload icon and the accepted types when empty, and the file icon, name and buttons stacked once chosen; both states keep the same height */
+				'variant'?: NLDDFileField['variant'];
 				/** Field size: 'md' (default) | 'sm'. Set automatically by nldd-form-field. */
 				'size'?: NLDDFileField['size'];
 				/** Comma-separated list of accepted file types, forwarded to the input (e.g. ".pdf,image/*") */
 				'accept'?: NLDDFileField['accept'];
-				/** Allows choosing more than one file */
+				/** Allows choosing more than one file, and dropping a folder */
 				'multiple'?: NLDDFileField['multiple'];
+				/** Offers a folder beside files, since one dialog picks either: choosing and changing open a menu with both, and an area shows a button for each. Takes several files, as `multiple` does */
+				'directory'?: NLDDFileField['directory'];
 				/** Accessible label forwarded to the inner input. Set automatically by nldd-form-field. */
 				'accessible-label'?: NLDDFileField['accessibleLabel'];
 				/** Sets the id on the native input. Set automatically by nldd-form-field. */
@@ -916,6 +959,8 @@ declare module 'react' {
 				/** Override translation keys; unset keys fall back to Dutch */
 				'translations'?: NLDDFileField['translations'];
 				'files'?: NLDDFileField['files'];
+				/** Where each file sat: its name, or for a file from a dropped folder the path from that folder down ("site/css/main.css"). Same order as `files`. */
+				'paths'?: NLDDFileField['paths'];
 				'internals'?: NLDDFileField['internals'];
 			};
 			/** NOT REGISTERED. Using this renders its children unstyled with no
@@ -926,6 +971,20 @@ declare module 'react' {
 			'nldd-form': NlddElement & {
 				/** Default `label-alignment` for descendant nldd-form-field and nldd-form-actions ('top' | 'right' | 'left'). Propagated to descendants as `form-label-alignment`. A `label-alignment` of its own on the descendant takes precedence through the CSS cascade. */
 				'label-alignment'?: NLDDForm['labelAlignment'];
+				/** Form name */
+				'name'?: NLDDForm['name'];
+				/** 'on' | 'off' (form-level autofill toggle) */
+				'autocomplete'?: NLDDForm['autocomplete'];
+				/** Submit target ('_self' | '_blank' | ...) */
+				'target'?: NLDDForm['target'];
+				/** HTTP method ('get' | 'post' | 'dialog') */
+				'method'?: NLDDForm['method'];
+				/** URL endpoint for submission */
+				'action'?: NLDDForm['action'];
+				/** Encoding type for submission */
+				'enctype'?: NLDDForm['enctype'];
+				/** Skip native browser validation */
+				'novalidate'?: NLDDForm['novalidate'];
 				/** The inner <form> element. Useful for `form.checkValidity()` etc. */
 				'form'?: NLDDForm['form'];
 			};
@@ -937,6 +996,8 @@ declare module 'react' {
 			'nldd-form-actions': NlddElement & {
 				/** 'top' (default) | 'right' | 'left'. A value of its own always wins over the inherited form-label-alignment. */
 				'label-alignment'?: NLDDFormActions['labelAlignment'];
+				/** Set by a wrapping nldd-form as a fallback. Do not set it yourself in consumer code. */
+				'form-label-alignment'?: NLDDFormActions['formLabelAlignment'];
 			};
 			/** NOT REGISTERED. Using this renders its children unstyled with no
 			 *  error. Add `import '@nldd/design-system/form-field';` to
@@ -946,14 +1007,16 @@ declare module 'react' {
 			'nldd-form-field': NlddElement & {
 				/** 'top' (default) | 'right' | 'left'. A value of its own always wins over the inherited form-label-alignment. */
 				'label-alignment'?: NLDDFormField['labelAlignment'];
-				/** Field label text. Omit for no-label layout. */
+				/** Field label text. Omit for no-label layout. Supports **bold** markdown syntax, for the word to type in a confirmation; the accessible name of the control takes the text without the markers. */
 				'label'?: NLDDFormField['label'];
-				/** Short supporting text below the label. Same typography as optional badge. */
+				/** Short supporting text below the label. Same typography as optional badge. Supports **bold** markdown syntax. */
 				'supporting-label'?: NLDDFormField['supportingLabel'];
 				/** Shows an optional badge next to the label. */
 				'optional'?: NLDDFormField['optional'];
 				/** Text for the optional badge. Defaults to 'Optioneel'. */
 				'optional-label'?: NLDDFormField['optionalLabel'];
+				/** Set by a wrapping nldd-form as a fallback. Do not set it yourself in consumer code. */
+				'form-label-alignment'?: NLDDFormField['formLabelAlignment'];
 			};
 			/** NOT REGISTERED. Using this renders its children unstyled with no
 			 *  error. Add `import '@nldd/design-system/form-field-help-text';` to
@@ -981,10 +1044,12 @@ declare module 'react' {
 			'nldd-full-bleed-section': NlddElement & {
 				/** Body max-width: 'full' removes the constraint so the section spans the full available width. Any CSS length (e.g. '480px') overrides the default max-width. */
 				'width'?: NLDDFullBleedSection['width'];
-				/** Surface background ('inherit' default; 'base'/'tinted' paint and cascade a surface). */
+				/** Surface background ('inherit' default; 'base', 'tinted' and 'accent-tinted', a tint of the theme's accent with the contrast of 'tinted', paint and cascade a surface). */
 				'background'?: NLDDFullBleedSection['background'];
 				/** Minimum section height (any CSS length, e.g. '400px', '100dvh') (mirrors width, which sets the body max-width). */
 				'height'?: NLDDFullBleedSection['height'];
+				/** Takes the height the page has left, so the footer sits at the bottom of a short page. Without it, nldd-page lets its last section grow. */
+				'grow'?: NLDDFullBleedSection['grow'];
 				/** Block (top and bottom) padding override (token 0-96; '0' strips it). */
 				'padding-block'?: NLDDFullBleedSection['paddingBlock'];
 				/** Top padding override. */
@@ -1010,14 +1075,22 @@ declare module 'react' {
 			'nldd-hero': NlddElement & {
 				/** Body max-width; 'full' removes the bound (section API) */
 				'width'?: NLDDHero['width'];
-				/** Surface color of the panel: 'base' (the base surface) or a category color - 'accent' (default) or a Rijkshuisstijl color such as 'lintblauw'|'donkerblauw'|'oranje' */
+				/** Rounds one corner of the media area, in the shape language of the Rijkshuisstijl: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right', or empty (or 'auto') to let the hero choose a corner the panel leaves free. With media it applies with `layout="contained"` and the panel in a corner or along a side; with overlap or a centered panel the hero stays rectangular and says so in development. The panel stands against the edge of the image, so a `main-width` in percent (33.33%, 50%) is a share of the image, and gets a corner at half the radius, the one pointing into the image, with more padding along its two sides so the content keeps its distance to the curve. A panel along the same edge as the rounded corner of the image stops before the curve, at the panel's padding from it; a panel along a full side, a `main-width="full"` strip and the panel on mobile stay square. On mobile a bottom corner moves to the top, and the panel stands under the image, as wide as it, instead of overlapping it. Without media the panel is the whole hero: the corner applies in every layout and position, at half the radius, and the hero chooses top-right, or top-left for a panel on the right. The radius comes from the ribbon width: 1.5X on sm, 2X on md and lg, and is never more than a third of the shortest side of the area it rounds, so a low hero keeps a corner rather than a drop. Says so in development when the chosen corner sits under the panel, or with `width="full"` */
+				'corner'?: NLDDHero['corner'];
+				/** How the panel relates to the image (default: 'overlap'). 'contained' keeps it on the image, in any of the eight positions; 'overlap' lets it fall `overlap-size` over the bottom of the image and run on below as far as its content needs, so the image keeps its height whatever the content. In 'overlap' the image has a fixed height (320px on md, 400px on lg) unless `media-height` or `media-aspect-ratio` is set, and only the horizontal side of `main-position` counts. A panel shorter than `overlap-size` ends inside the image and says so in development */
+				'layout'?: NLDDHero['layout'];
+				/** Surface color of the panel: 'accent' (default), the accent color of the theme, or 'base', the base surface */
 				'main-background'?: NLDDHero['mainBackground'];
-				/** Width of the panel (default: '1/2'); 'full' makes a full top or bottom strip and is ignored with 'left'/'right' */
+				/** Width of the panel (default: 'auto'). 'auto' follows the content, between 480px and 640px and never wider than the image allows: a short title gets a narrow panel, a paragraph runs on to a readable line length. 'full' makes a strip across the whole image, at the top or the bottom, and is ignored with 'left'/'right'. Any CSS width (e.g. '560px', '60%') sets it exactly on md and lg, still never wider than the image allows; an invalid value falls back to 'auto' */
 				'main-width'?: NLDDHero['mainWidth'];
 				/** Position of the text panel (default: 'bottom-left'); 'left'/'right' span the full height */
 				'main-position'?: NLDDHero['mainPosition'];
 				/** Aspect ratio of the media area (CSS form, '16/9' or '16:9'); default '21/9'. On md/lg it sets the height of the hero, on sm the height of the media area */
 				'media-aspect-ratio'?: NLDDHero['mediaAspectRatio'];
+				/** With layout="overlap": how far the panel falls over the bottom of the image, any CSS length (default: 160px). The overlap stays the same whatever the height of the image; a panel shorter than this ends inside the image */
+				'overlap-size'?: NLDDHero['overlapSize'];
+				/** Fixed height of the media area, any CSS length (e.g. '320px', '40vh'); wins over media-aspect-ratio. An invalid value falls back to the ratio */
+				'media-height'?: NLDDHero['mediaHeight'];
 				/** Source of the media area (an alternative to the media slot); ignored as soon as the media slot is filled */
 				'media-src'?: NLDDHero['mediaSrc'];
 				/** Responsive source set for media-src */
@@ -1028,8 +1101,9 @@ declare module 'react' {
 				'media-alt'?: NLDDHero['mediaAlt'];
 				/** Surface behind the hero (section API) */
 				'background'?: NLDDHero['background'];
-				/** Minimum height of the section (section API) */
 				'height'?: NLDDHero['height'];
+				/** Takes the height the page has left, so the footer sits at the bottom of a short page. Without it, nldd-page lets its last section grow. */
+				'grow'?: NLDDHero['grow'];
 				/** Block padding override, also per edge and responsive (section API) */
 				'padding-block'?: NLDDHero['paddingBlock'];
 				'padding-top'?: NLDDHero['paddingTop'];
@@ -1068,11 +1142,11 @@ declare module 'react' {
 				'size'?: NLDDIconButton['size'];
 				/** In lg size, hides the text label and enlarges the icon by one step (28px) */
 				'hide-lg-text'?: NLDDIconButton['hideLgText'];
-				/** Loading state (default: false). Shows an activity indicator over the visually hidden icon, sets aria-busy on the inner control and blocks activation, without dropping the button from the tab order (unlike disabled). */
+				/** Loading state (default: false). Shows an activity indicator over the visually hidden icon, sets aria-busy on the inner control and blocks activation, without dropping the button from the tab order (unlike disabled). Meant for an action that has to wait for the server, such as sending an application. For most actions, show the result right away and confirm in the background, as the design guidelines describe. */
 				'loading'?: NLDDIconButton['loading'];
 				/** What the screen reader announces while `loading` is on, for a button that does more than load: "Aan het bewaren". Leave it out and the activity indicator says its translated "Laden". */
 				'loading-text'?: NLDDIconButton['loadingText'];
-				/** Disabled state */
+				/** Disabled state. Avoid it: let the action run and say afterwards what is missing; the design guidelines say why. */
 				'disabled'?: NLDDIconButton['disabled'];
 				/** Removes the per-appearance highlight border (e.g. when a control group draws a single border instead). */
 				'no-highlight-border'?: NLDDIconButton['noHighlightBorder'];
@@ -1088,7 +1162,7 @@ declare module 'react' {
 				'popup-type'?: NLDDIconButton['popupType'];
 				/** Width mode: 'full' (stretches to container) or any CSS length (e.g. '240px') */
 				'width'?: NLDDIconButton['width'];
-				/** ID of a popover element to toggle; forwarded to the inner <button> */
+				/** ID of a popover element to toggle, looked up in the tree of this button; the inner <button> gets the element. */
 				'popovertarget'?: NLDDIconButton['popovertarget'];
 				/** Button text, used as aria-label and shown below the icon in lg size */
 				'text'?: NLDDIconButton['text'];
@@ -1098,10 +1172,20 @@ declare module 'react' {
 				'accessible-label'?: NLDDIconButton['accessibleLabel'];
 				/** Forwarded to the inner nldd-tooltip's `timing`: 'delay' (the default, a 700 ms show-delay), 'instant', or 'never' (suppress the visual tooltip; screen readers still get the aria-label). Use 'never' when the surrounding context already explains the button (e.g. spin buttons in nldd-number-field, the chevron in nldd-split-button). */
 				'tooltip-timing'?: NLDDIconButton['tooltipTiming'];
+				/** Keyboard shortcut hint shown in the tooltip after the text, e.g. 'Alt+P'. Display only (rendered via nldd-keyboard-shortcut): it does not bind the key, wire up the handling in your app. Part of the accessible name ("Presentatiemodus Alt P"), as in nldd-menu-item. Hidden on touch-only devices, where it isn't invokable. */
+				'shortcut'?: NLDDIconButton['shortcut'];
+				/** Override of `shortcut` on macOS, where the keys differ (falls back to `shortcut`). */
+				'shortcut-mac'?: NLDDIconButton['shortcutMac'];
+				/** Override of `shortcut` on Windows (falls back to `shortcut`). */
+				'shortcut-windows'?: NLDDIconButton['shortcutWindows'];
+				/** Override of `shortcut` on Linux (falls back to `shortcut`). */
+				'shortcut-linux'?: NLDDIconButton['shortcutLinux'];
 				/** When set, renders an <a> element instead of <button> */
 				'href'?: NLDDIconButton['href'];
-				/** Link target (e.g. '_blank'); only used when href is set. With '_blank' the "opens in new tab" announcement is folded into the aria-label for screen readers (WCAG 2.1 SC 3.2.2). */
+				/** Link target (e.g. '_blank'); only used when href is set. With '_blank' the "opens in new tab" announcement is folded into the aria-label for screen readers (WCAG 2.1 SC 3.2.2). An `href` to another origin than the page (another website, a subdomain too) adds a visually hidden "andere website", in one sentence with the new-tab announcement when both apply; there is no way to switch it off. */
 				'target'?: NLDDIconButton['target'];
+				/** Saves the file the link points at instead of opening it; only used with href. Without a value the browser takes the name from the URL, with one that is the file name. A browser ignores it for a URL on another origin and opens the file there. Adds a visually hidden "downloadt bestand" for screen readers. Leave `target` off: a download opens no tab. */
+				'download'?: NLDDIconButton['download'];
 				/** Link rel attribute, used with href; with target '_blank', 'noopener noreferrer' is added to whatever you set */
 				'rel'?: NLDDIconButton['rel'];
 				/** Override translation keys (e.g. the "opens in new tab" announcement); unset keys fall back to Dutch. */
@@ -1123,12 +1207,9 @@ declare module 'react' {
 				'icon'?: NLDDIconCell['icon'];
 				'hide-below'?: NLDDIconCell['hideBelow'];
 				'hide-above'?: NLDDIconCell['hideAbove'];
+				/** Marks this icon as the chevron of a row or segment that opens and closes: the row turns it with `expanded`. */
+				'disclosure'?: NLDDIconCell['disclosure'];
 			};
-			/** NOT REGISTERED. Using this renders its children unstyled with no
-			 *  error. Add `import '@nldd/design-system/identity';` to
-			 *  components/nldd/register.ts first. Some elements register through a
-			 *  parent's module (nldd-table-row with nldd-table); register.test.ts lists
-			 *  those. */
 			'nldd-identity': NlddElement & {
 				/** Name line (e.g. "Jan Jansen and Piet Pietersen"); the fallback when the text slot is empty */
 				'text'?: NLDDIdentity['text'];
@@ -1179,7 +1260,7 @@ declare module 'react' {
 				'credit'?: NLDDImage['credit'];
 				/** Decorative image: alt is forced empty + aria-hidden */
 				'decorative'?: NLDDImage['decorative'];
-				/** Low-quality image placeholder as a CSV string `"base,c1,c2,c3,c4,c5,c6"` - seven 0-255 bytes, each packing an 8-bit Oklab triplet (2 bits L, 3 bits a, 3 bits b). The first is the base color shown outside the cell gradients; the other six are per-cell colors in row-major 3×2 order. Generate via the encoder in `lqip-encoder.ts` or via the "LQIP encoder tool" Storybook story. Extends Lean Rada's CSS-only LQIP (https://leanrada.com/notes/css-only-lqip/) with per-cell hue - Lean's original format encodes grayscale cells only; ours encodes a color per cell so multi-color subjects survive the placeholder. */
+				/** Loading preview (LQIP, low-quality image placeholder) as a CSV string `"base,c1,c2,c3,c4,c5,c6"` - seven 0-255 bytes, each packing an 8-bit Oklab triplet (2 bits L, 3 bits a, 3 bits b). The first is the base color shown outside the cell gradients; the other six are per-cell colors in row-major 3×2 order. Generate via the encoder in `lqip-encoder.ts` or via the "LQIP encoder tool" Storybook story. Extends Lean Rada's CSS-only LQIP (https://leanrada.com/notes/css-only-lqip/) with per-cell hue - Lean's original format encodes grayscale cells only; ours encodes a color per cell so multi-color subjects survive the preview. */
 				'lqip'?: NLDDImage['lqip'];
 				/** Override translation keys (e.g. the message shown when the image fails to load); unset keys fall back to Dutch. */
 				'translations'?: NLDDImage['translations'];
@@ -1199,7 +1280,7 @@ declare module 'react' {
 				'supporting-text'?: NLDDInlineDialog['supportingText'];
 				/** Renders text as h1–h6; absent renders a p */
 				'heading-level'?: NLDDInlineDialog['headingLevel'];
-				/** Overrides the alignment of text, icon and actions. Unset (the default) derives it: content in the default slot means a task, which aligns left; a bare message stays centered. Left alignment also lays the actions out in a row instead of stacked full-width. */
+				/** Overrides the alignment of text, icon and actions. Unset (the default) derives it: content in the default slot means a task, which aligns left; a bare message stays centered. Centered, the actions stack at most 360px wide, even where two would fit side by side. Left-aligned, they sit in a row, each as wide as its label. */
 				'horizontal-alignment'?: NLDDInlineDialog['horizontalAlignment'];
 			};
 			/** NOT REGISTERED. Using this renders its children unstyled with no
@@ -1230,7 +1311,7 @@ declare module 'react' {
 			 *  parent's module (nldd-table-row with nldd-table); register.test.ts lists
 			 *  those. */
 			'nldd-keyboard-shortcut': NlddElement & {
-				/** Keys separated by '+' (e.g. 'Cmd+K' or 'Ctrl+Shift+P'). Use '+++' for a literal '+' key: 'Ctrl+++' becomes 'Ctrl' + '+'. For more complex cases (a combo with several '+' keys, for instance) use the default slot with your own <kbd> elements instead of the keys attribute. */
+				/** Keys separated by '+' (e.g. 'Cmd+K' or 'Ctrl+Shift+P'). End with '++' for a literal '+' key: 'Ctrl++' becomes 'Ctrl' + '+' ('Ctrl+++' works too). For more complex cases, such as a combo with several '+' keys, use the default slot with your own <kbd> elements instead of the keys attribute. */
 				'keys'?: NLDDKeyboardShortcut['keys'];
 				/** Optional override for macOS (iPhone/iPad/iPod included). */
 				'mac-keys'?: NLDDKeyboardShortcut['macKeys'];
@@ -1246,6 +1327,8 @@ declare module 'react' {
 				'color'?: NLDDKeyboardShortcut['color'];
 				/** Show on touch-only devices too, where shortcuts cannot be invoked. */
 				'always-visible'?: NLDDKeyboardShortcut['alwaysVisible'];
+				/** Development aid: overrides the OS detection for this instance, so you can show several platform variants side by side in Storybook or documentation. Not meant for production use; leave it empty (default) so the real OS detection applies. */
+				'debug-os'?: NLDDKeyboardShortcut['debugOs'];
 			};
 			/** NOT REGISTERED. Using this renders its children unstyled with no
 			 *  error. Add `import '@nldd/design-system/link';` to
@@ -1255,8 +1338,10 @@ declare module 'react' {
 			'nldd-link': NlddElement & {
 				/** Link target */
 				'href'?: NLDDLink['href'];
-				/** Link target (e.g. '_blank'); adjusts rel automatically. With '_blank' the link adds a visually hidden "Opent in nieuw tabblad" announcement for screen readers (WCAG 2.1 SC 3.2.2). */
+				/** Link target (e.g. '_blank'); adjusts rel automatically. With '_blank' the link adds a visually hidden "opent in nieuw tabblad" announcement for screen readers (WCAG 2.1 SC 3.2.2). An `href` to another origin than the page (another website, a subdomain too) adds a visually hidden "andere website", in one sentence with the new-tab announcement when both apply; there is no way to switch it off. */
 				'target'?: NLDDLink['target'];
+				/** Saves the file the link points at instead of opening it; only used with href. Without a value the browser takes the name from the URL, with one that is the file name. A browser ignores it for a URL on another origin and opens the file there. Adds a visually hidden "downloadt bestand" for screen readers. Leave `target` off: a download opens no tab. */
+				'download'?: NLDDLink['download'];
 				/** Link rel attribute; with target '_blank', 'noopener noreferrer' is added to whatever you set */
 				'rel'?: NLDDLink['rel'];
 				/** Text size: 'inherit' (the default) follows the surrounding text and lays the link out inline, so it wraps in running prose. 'xs' | 'sm' | 'md' | 'lg' pin a size and switch to inline-flex, which baseline-aligns a start or end icon with an explicit gap. */
@@ -1269,11 +1354,11 @@ declare module 'react' {
 				'end-icon'?: NLDDLink['endIcon'];
 				/** Accessible label for screen readers */
 				'accessible-label'?: NLDDLink['accessibleLabel'];
-				/** Disabled state */
+				/** Disabled state. Avoid it where you can; the design guidelines say why. */
 				'disabled'?: NLDDLink['disabled'];
 				/** Takes the control out of the tab order (tabindex="-1"), for a control owned by a roving container (a row of an nldd-list, where the arrow keys move between rows) that manages focus itself. Still mouse- and script-focusable. */
 				'no-tab'?: NLDDLink['noTab'];
-				/** Override translation keys (e.g. the "Opent in nieuw tabblad" announcement); unset keys fall back to Dutch. */
+				/** Override translation keys (e.g. the "opent in nieuw tabblad" announcement); unset keys fall back to Dutch. */
 				'translations'?: NLDDLink['translations'];
 			};
 			/** NOT REGISTERED. Using this renders its children unstyled with no
@@ -1290,7 +1375,7 @@ declare module 'react' {
 				'dividers'?: NLDDList['dividers'];
 				/** Listbox only: caps the options' scroll region at this CSS length (e.g. '320px'). Unset means no cap. */
 				'height'?: NLDDList['height'];
-				/** Accessible name, forwarded to the list in `type="list"` and to the search field in `type="listbox"`. For `type="navigation"` set `aria-label` / `aria-labelledby` on the element itself. Falls back to the i18n default. */
+				/** Accessible name: of the list in `type="list"`, of the search field in `type="listbox"`, and of the navigation landmark in `type="navigation"`, so several navigation lists on a page can be told apart. Falls back to the i18n default. An `aria-label` or `aria-labelledby` set on the element itself wins. */
 				'accessible-label'?: NLDDList['accessibleLabel'];
 				/** Override translation keys; unset keys fall back to Dutch */
 				'translations'?: NLDDList['translations'];
@@ -1307,8 +1392,10 @@ declare module 'react' {
 				'size'?: NLDDListItem['size'];
 				/** Renders the item as an `<a>` with this URL. Wins over `checkbox` and `button`; without any of the three the item is a plain container with no action. */
 				'href'?: NLDDListItem['href'];
-				/** Link target forwarded to the `<a>` (e.g. '_blank'); only applies with `href`. With '_blank' a visually hidden "opens in new tab" announcement is added for assistive technology. */
+				/** Link target forwarded to the `<a>` (e.g. '_blank'); only applies with `href`. With '_blank' a visually hidden "opens in new tab" announcement is added for assistive technology. An `href` to another origin than the page (another website, a subdomain too) adds a visually hidden "andere website", in one sentence with the new-tab announcement when both apply; there is no way to switch it off. */
 				'target'?: NLDDListItem['target'];
+				/** Saves the file the link points at instead of opening it; only used with href. Without a value the browser takes the name from the URL, with one that is the file name. A browser ignores it for a URL on another origin and opens the file there. Adds a visually hidden "downloadt bestand" for screen readers. Leave `target` off: a download opens no tab. */
+				'download'?: NLDDListItem['download'];
 				/** Link rel forwarded to the `<a>`, only with `href`; with target '_blank', 'noopener noreferrer' is added to whatever you set */
 				'rel'?: NLDDListItem['rel'];
 				/** Renders the item as a `<button>`. Last of the three: `href` and `checkbox` both win over it. */
@@ -1317,23 +1404,29 @@ declare module 'react' {
 				'checkbox'?: NLDDListItem['checkbox'];
 				/** Makes the whole row one radio of a group: the action becomes a `role="radio"` button carrying `aria-checked`, and activation sets `checked` (never clears it) and fires `change`. Put the rows in an `nldd-list type="radiogroup"`, which is what makes them a set. Wins over `button`, loses to `href` and `checkbox`. The arrow keys move focus without checking, where a native radio group and `nldd-radio-button-group` check as they go: a row can carry more than a label, so stepping past one should not commit it. */
 				'radio'?: NLDDListItem['radio'];
+				/** Accessible name of the row's action (its link, button, checkbox or radio), for a row whose text does not say enough on its own. It replaces the content of the whole row for assistive technology, the supporting text and a status included, so set it only when the row has no text of its own, or put everything that matters in it. Start it with the row's visible title, so voice control finds the row by the words on screen (WCAG 2.5.3); development warns when it does not. The hint for another website or a new tab is added to it. */
+				'accessible-label'?: NLDDListItem['accessibleLabel'];
 				/** Set by the parent `nldd-list` when its own `reorderable` is on (with `type="list"`); consumers do not set this. Serves as a CSS hook for drag handle visibility. */
 				'reorderable'?: NLDDListItem['reorderable'];
-				/** Marks the item as selected: it is one of the rows you picked. Selection is consumer-managed; the list never sets it. In a `navigation` parent it puts `aria-current="page"` on the inner action, in a `listbox` parent it drives `aria-selected`. */
+				/** Marks the item as selected: it is one of the rows you picked. Selection is consumer-managed; the list never sets it. A selected row sets `--context-selected-indicator-color` and `--context-selected-contrast-color` to its text and fill color, so a checked nldd-checkbox, nldd-radio-button or nldd-switch in it takes the colors of the row: on its gray the accent can fall below 3:1. In a `navigation` parent it puts `aria-current` on the inner action, with `current-type` as its value; in a `listbox` parent it drives `aria-selected`. */
 				'selected'?: NLDDListItem['selected'];
 				/** Checked state of a `checkbox` or `radio` row. A checkbox row toggles it on activation, a radio row only ever sets it */
 				'checked'?: NLDDListItem['checked'];
 				/** Disclosure state. Drives the `children` group's visibility AND supplies `aria-expanded` - to the row's own control when the row is interactive, or to the segment marked `disclosure`. Written once either way; the item DEV-warns when there is nowhere for it to live. */
 				'expanded'?: NLDDListItem['expanded'];
-				/** Marks the item as the one you are on: the page a menu row points at, the record a list has open. Exactly one row in a list carries it, where `selected` may be on many. It paints like `selected` at rest, and takes the highlighted fill while focus is anywhere in the row - including inside a nested `nldd-list-item-segment`, which is what a segmented row needs: the focus never reaches the row's own control, because there is none. In a `navigation` parent it puts `aria-current="page"` on the inner action. On a segmented row set it on the segment that holds the link instead: the row reads `current` off its own segments and paints itself, so it is written once, where `aria-current` belongs. */
+				/** Marks the item as the one you are on: the page a menu row points at, the record a list has open. Exactly one row in a list carries it, where `selected` may be on many. It paints like `selected` at rest, a quiet fill on purpose: the page itself says where you are, in its title, heading and breadcrumb, so the fill is an extra that should not pull attention from the content, and an automated check that flags its contrast is expected. It takes the highlighted fill while focus is anywhere in the row - including inside a nested `nldd-list-item-segment`, which is what a segmented row needs: the focus never reaches the row's own control, because there is none. In a `navigation` parent it puts `aria-current` on the inner action, with `current-type` as its value. On a segmented row set it on the segment that holds the link instead: the row reads `current` off its own segments and paints itself, so it is written once, where `aria-current` belongs. */
 				'current'?: NLDDListItem['current'];
+				/** The `aria-current` value a `current` or `selected` row puts on its action in a `navigation` parent (default 'page'). Use 'location' for a table of contents, whose rows point at sections of the page you are on. */
+				'current-type'?: NLDDListItem['currentType'];
 				/** Switches the row's own control off: a `button` or `checkbox` row stops responding and dims, a `href` row gets `aria-disabled` and its click is blocked (a link cannot be disabled natively). A row without a control of its own has nothing to switch off, and segments carry their own `disabled`. The arrow keys skip a disabled row. */
 				'disabled'?: NLDDListItem['disabled'];
+				'translations'?: NLDDListItem['translations'];
+				/** Show this cell only while the row is `reorderable` */
+				'reorderable-only'?: NLDDListItem['reorderableOnly'];
 				/** The divider starts at this cell instead of at the row's first text or title cell. On the leading cell it restores the full-width line. */
 				'divider-start'?: NLDDListItem['dividerStart'];
 				/** The divider stops after this cell. With several markers the line runs from the first start to the last end. */
 				'divider-end'?: NLDDListItem['dividerEnd'];
-				'translations'?: NLDDListItem['translations'];
 			};
 			/** NOT REGISTERED. Using this renders its children unstyled with no
 			 *  error. Add `import '@nldd/design-system/list-item-segment';` to
@@ -1345,8 +1438,10 @@ declare module 'react' {
 				'width'?: NLDDListItemSegment['width'];
 				/** Renders the segment as an `<a>` with this URL. Wins over `checkbox` and `button`. */
 				'href'?: NLDDListItemSegment['href'];
-				/** Link target forwarded to the `<a>`; only applies with `href` */
+				/** Link target forwarded to the `<a>`; only applies with `href`. With '_blank' a visually hidden "opent in nieuw tabblad" announcement is added. An `href` to another origin than the page (another website, a subdomain too) adds a visually hidden "andere website", in one sentence with the new-tab announcement when both apply; there is no way to switch it off. With `accessible-label` the hint goes into the label. */
 				'target'?: NLDDListItemSegment['target'];
+				/** Saves the file the link points at instead of opening it; only used with href. Without a value the browser takes the name from the URL, with one that is the file name. A browser ignores it for a URL on another origin and opens the file there. Adds a visually hidden "downloadt bestand" for screen readers. Leave `target` off: a download opens no tab. */
+				'download'?: NLDDListItemSegment['download'];
 				/** Link rel forwarded to the `<a>`, only with `href`; with target '_blank', 'noopener noreferrer' is added to whatever you set */
 				'rel'?: NLDDListItemSegment['rel'];
 				/** Renders the segment as a `<button>`. Last of the three: `href` and `checkbox` both win over it. */
@@ -1363,40 +1458,40 @@ declare module 'react' {
 				'expanded'?: NLDDListItemSegment['expanded'];
 				/** Type of popup this segment opens: 'menu' | 'listbox' | 'dialog' | 'tree' | 'grid'. Becomes aria-haspopup on the control and makes aria-expanded permanent, so a row of identical "more" segments says what it opens before anything is open. An nldd-menu or nldd-popover anchored here sets it itself from the first render. */
 				'popup-type'?: NLDDListItemSegment['popupType'];
-				/** ID of a popover this segment toggles; forwarded to the inner button. The IDL counterparts `popoverTargetElement` and `popoverTargetAction` work across shadow boundaries, as on nldd-icon-button. */
+				/** ID of a popover this segment toggles, looked up in the tree of the segment; the inner button gets the element. The IDL counterparts `popoverTargetElement` and `popoverTargetAction` work across shadow boundaries, as on nldd-icon-button. */
 				'popovertarget'?: NLDDListItemSegment['popovertarget'];
-				/** Marks the segment as the current page (`aria-current="page"`). The row it sits in paints itself as the current row from it, so on a segmented row this is the only place it has to be set. */
+				/** Marks the segment as the current one, with `aria-current` set to `current-type`. The row it sits in paints itself as the current row from it, so on a segmented row this is the only place it has to be set. */
 				'current'?: NLDDListItemSegment['current'];
+				/** The `aria-current` value of a `current` segment (default 'page'). Use 'location' for a table of contents, whose rows point at sections of the page you are on. */
+				'current-type'?: NLDDListItemSegment['currentType'];
 				/** Switches the segment off: a `button` or `checkbox` segment stops responding and dims, a `href` segment gets `aria-disabled` and its click is blocked (a link cannot be disabled natively). The arrow keys skip a row whose only segment is off. */
 				'disabled'?: NLDDListItemSegment['disabled'];
+				'translations'?: NLDDListItemSegment['translations'];
 				/** The row's divider starts at this cell instead of at its first text or title cell. */
 				'divider-start'?: NLDDListItemSegment['dividerStart'];
 				/** The row's divider stops after this cell. */
 				'divider-end'?: NLDDListItemSegment['dividerEnd'];
 			};
 			'nldd-menu': NlddElement & {
-				/** Explicit width, pinned exactly (sets --_menu-width and clamps min/max to it). Leave unset to let the menu size to its content between a minimum and a viewport-aware maximum of min(100vw - inset, 640px). */
+				/** What the menu is (default 'menu'). `menu` is a menu of actions: `role="menu"` with menu items, for things you do. `listbox` is the popup of a combobox: `role="listbox"` with options, focus stays in the field. `navigation` is a submenu in a site navigation: a list of links (`role="list"`, each item a list item around a real link), because a screen reader treats a menu as an application and reads a list of links as what it is. Every item takes an `href`. Tab reaches each link, the arrow keys, Home and End move between them, Escape closes and returns focus to the trigger, and the menu closes when focus leaves it. The trigger says `aria-expanded` and promises no menu. Checkbox and radio items, shortcuts and `filter()` belong to actions and warn in development here. A submenu of a navigation menu is a navigation menu too. The variant sets `role="listitem"` on its items and groups, and takes it off again when it changes back, also where you had set that role yourself. */
+				'variant'?: NLDDMenu['variant'];
+				/** Explicit width, pinned exactly. Without it the menu sizes to its content between a minimum and a viewport-aware maximum (min(100vw - inset, 640px)). */
 				'width'?: NLDDMenu['width'];
+				/** Name of the menu or listbox for assistive technology, on the element that has the role. Without it the menu takes the name of its anchor (the `accessible-label`, `aria-label`, `text` or text of the button or field it hangs off), and a submenu the text of the item that opens it, so a listbox under a search field is "Zoeken" rather than nameless (WCAG 4.1.2). The list of an nldd-combo-box or nldd-token-field takes the name of the field. */
+				'accessible-label'?: NLDDMenu['accessibleLabel'];
 				/** ID of the anchor element. Positions the menu against it AND makes it a toggle: the menu listens on document click and opens/closes itself when the click lands on the anchor. Use this for a menu hung off a button. For a menu you open yourself (a type-ahead under a text field, say), set the `anchorElement` property instead - same positioning, no toggle. */
 				'anchor'?: NLDDMenu['anchor'];
 				/** Floating UI placement. Default: 'bottom-start'. */
 				'placement'?: NLDDMenu['placement'];
-				/** Maximum number of visible items before the menu scrolls. Sets --_menu-max-items internally. Default: 0 (no limit). */
+				/** Maximum number of visible items before scrolling. Sets --_menu-max-items internally. Default: 0 (no limit). */
 				'max-items'?: NLDDMenu['maxItems'];
 				/** Text of the default empty-state dialog. Falls back to Dutch i18n "Geen opties beschikbaar". */
 				'empty-text'?: NLDDMenu['emptyText'];
 				/** Supporting text of the default empty-state dialog. */
 				'empty-supporting-text'?: NLDDMenu['emptySupportingText'];
-				/** Override one or more translation keys. Unset keys fall back to the Dutch default. */
+				/** Override one or more translation keys. */
 				'translations'?: NLDDMenu['translations'];
-				/** Render variant. Use 'listbox' when the menu serves as a combobox popup - this switches role to "listbox" and item roles to "option" per ARIA spec. Default: 'menu'. */
-				'variant'?: NLDDMenu['variant'];
 			};
-			/** NOT REGISTERED. Using this renders its children unstyled with no
-			 *  error. Add `import '@nldd/design-system/menu-bar';` to
-			 *  components/nldd/register.ts first. Some elements register through a
-			 *  parent's module (nldd-table-row with nldd-table); register.test.ts lists
-			 *  those. */
 			'nldd-menu-bar': NlddElement & {
 				/** Text for the overflow button (default through i18n) */
 				'overflow-text'?: NLDDMenuBar['overflowText'];
@@ -1406,11 +1501,6 @@ declare module 'react' {
 				'compact'?: NLDDMenuBar['compact'];
 				'translations'?: NLDDMenuBar['translations'];
 			};
-			/** NOT REGISTERED. Using this renders its children unstyled with no
-			 *  error. Add `import '@nldd/design-system/menu-bar-item';` to
-			 *  components/nldd/register.ts first. Some elements register through a
-			 *  parent's module (nldd-table-row with nldd-table); register.test.ts lists
-			 *  those. */
 			'nldd-menu-bar-item': NlddElement & {
 				/** Text of the item */
 				'text'?: NLDDMenuBarItem['text'];
@@ -1422,15 +1512,15 @@ declare module 'react' {
 				'href'?: NLDDMenuBarItem['href'];
 				/** Optional icon name (nldd-icon) */
 				'icon'?: NLDDMenuBarItem['icon'];
-				/** Show the disclosure icon and open the slotted `<nldd-menu>` on click */
+				/** Show the disclosure icon and open the slotted `<nldd-menu>` on click. The control then says `aria-haspopup="menu"`, except for a menu with `variant="navigation"`: that is a list of links, so the control only says `aria-expanded`. */
 				'expandable'?: NLDDMenuBarItem['expandable'];
-				/** Hide the text visually (always) */
+				/** Hide the text visually (always). The text then shows as a tooltip on hover and focus. */
 				'icon-only'?: NLDDMenuBarItem['iconOnly'];
-				/** Decides what stays visible in compact mode: 'icon' hides the text, 'text' hides the icon */
+				/** Decides what stays visible in compact mode: 'icon' hides the text, 'text' hides the icon. A bar is compact on a narrow screen and also at 200% zoom on a desktop, so with 'icon' the text is gone there too and shows as a tooltip instead. */
 				'content-priority'?: NLDDMenuBarItem['contentPriority'];
 				/** Activates content-priority behavior (set by the parent nldd-menu-bar) */
 				'compact'?: NLDDMenuBarItem['compact'];
-				/** Turn interaction off */
+				/** Turn interaction off. Avoid it where you can; the design guidelines say why. */
 				'disabled'?: NLDDMenuBarItem['disabled'];
 				/** Override aria-label */
 				'accessible-label'?: NLDDMenuBarItem['accessibleLabel'];
@@ -1438,6 +1528,8 @@ declare module 'react' {
 				'haspopup'?: NLDDMenuBarItem['haspopup'];
 				/** Whether the matching popover is open; sets aria-expanded on the button when expandable or haspopup is set. Tracked automatically for a slotted `<nldd-menu>`. */
 				'expanded'?: NLDDMenuBarItem['expanded'];
+				/** Whether the linked popover or menu is open */
+				'open'?: NLDDMenuBarItem['open'];
 			};
 			/** NOT REGISTERED. Using this renders its children unstyled with no
 			 *  error. Add `import '@nldd/design-system/menu-divider';` to
@@ -1590,7 +1682,7 @@ declare module 'react' {
 			'nldd-notification': NlddElement & {
 				/** What kind of message this is; sets the icon color and the ARIA role (default: 'neutral') */
 				'variant'?: NLDDNotification['variant'];
-				/** Icon override. Default per variant: neutral → info-circle-filled, accent → info-circle-filled, success → check-circle-filled, warning → exclamation-triangle-filled, critical → exclamation-circle-filled */
+				/** Icon override. Default per variant: neutral → info-circle-filled, accent → info-circle-filled, success → check-mark-circle-filled, warning → exclamation-triangle-filled, critical → exclamation-circle-filled */
 				'icon'?: NLDDNotification['icon'];
 				/** The message */
 				'text'?: NLDDNotification['text'];
@@ -1641,10 +1733,14 @@ declare module 'react' {
 			'nldd-one-half-one-half-section': NlddElement & {
 				/** Body max-width: 'full' removes the constraint so the section spans the full available width. Any CSS length (e.g. '480px') overrides the default max-width. */
 				'width'?: NLDDOneHalfOneHalfSection['width'];
-				/** Surface background ('inherit' default; 'base'/'tinted' paint and cascade a surface). */
+				/** Where the shorter column sits next to the longer one ('top' default). Only where the columns stand side by side; stacked, they follow each other. */
+				'vertical-alignment'?: NLDDOneHalfOneHalfSection['verticalAlignment'];
+				/** Surface background ('inherit' default; 'base', 'tinted' and 'accent-tinted', a tint of the theme's accent with the contrast of 'tinted', paint and cascade a surface). */
 				'background'?: NLDDOneHalfOneHalfSection['background'];
 				/** Minimum section height (any CSS length, e.g. '400px', '100dvh') (mirrors width, which sets the body max-width). */
 				'height'?: NLDDOneHalfOneHalfSection['height'];
+				/** Takes the height the page has left, so the footer sits at the bottom of a short page. Without it, nldd-page lets its last section grow. */
+				'grow'?: NLDDOneHalfOneHalfSection['grow'];
 				/** Block (top and bottom) padding override (token 0-96; '0' strips it). */
 				'padding-block'?: NLDDOneHalfOneHalfSection['paddingBlock'];
 				/** Top padding override. */
@@ -1670,10 +1766,14 @@ declare module 'react' {
 			'nldd-one-third-two-thirds-section': NlddElement & {
 				/** Body max-width: 'full' removes the constraint so the section spans the full available width. Any CSS length (e.g. '480px') overrides the default max-width. */
 				'width'?: NLDDOneThirdTwoThirdsSection['width'];
-				/** Surface background ('inherit' default; 'base'/'tinted' paint and cascade a surface). */
+				/** Where the shorter column sits next to the longer one ('top' default). Only where the columns stand side by side; stacked, they follow each other. */
+				'vertical-alignment'?: NLDDOneThirdTwoThirdsSection['verticalAlignment'];
+				/** Surface background ('inherit' default; 'base', 'tinted' and 'accent-tinted', a tint of the theme's accent with the contrast of 'tinted', paint and cascade a surface). */
 				'background'?: NLDDOneThirdTwoThirdsSection['background'];
 				/** Minimum section height (any CSS length, e.g. '400px', '100dvh') (mirrors width, which sets the body max-width). */
 				'height'?: NLDDOneThirdTwoThirdsSection['height'];
+				/** Takes the height the page has left, so the footer sits at the bottom of a short page. Without it, nldd-page lets its last section grow. */
+				'grow'?: NLDDOneThirdTwoThirdsSection['grow'];
 				/** Block (top and bottom) padding override (token 0-96; '0' strips it). */
 				'padding-block'?: NLDDOneThirdTwoThirdsSection['paddingBlock'];
 				/** Top padding override. */
@@ -1711,6 +1811,8 @@ declare module 'react' {
 			'nldd-page-footer': NlddElement & {
 				/** Body max-width, mirroring a page section: 'full' removes the constraint so the content spans the full width; any CSS length (e.g. '480px') overrides the default max-width. */
 				'width'?: NLDDPageFooter['width'];
+				/** Leaves out the ribbon under the footer, and the room it takes, as `no-logo` does on nldd-top-navigation-bar. The ribbon belongs to the house style of the Rijksoverheid, so a site outside it, or one anyone may run, turns it off. An empty footer then takes no height at all. */
+				'no-ribbon'?: NLDDPageFooter['noRibbon'];
 			};
 			/** NOT REGISTERED. Using this renders its children unstyled with no
 			 *  error. Add `import '@nldd/design-system/page-footer-legal-bar';` to
@@ -1744,7 +1846,7 @@ declare module 'react' {
 				'current'?: NLDDPagination['current'];
 				/** Total number of pages (recommended max: 200 for compact select performance) */
 				'total'?: NLDDPagination['total'];
-				/** Disabled state */
+				/** Disabled state. Avoid it where you can; the design guidelines say why. */
 				'disabled'?: NLDDPagination['disabled'];
 				/** Centers the pagination in the container (host fills row, items grouped in the middle) */
 				'centered'?: NLDDPagination['centered'];
@@ -1833,6 +1935,8 @@ declare module 'react' {
 				'translations'?: NLDDPopover['translations'];
 				/** Whether the popover is open. Set it to open or close the popover, as an alternative to show() and hide(); opening needs an anchor, and without one it stays unset. The popover clears it itself when it closes another way (Escape, a click outside), so bind it together with the close event. */
 				'open'?: NLDDPopover['open'];
+				/** ARIA role (default: 'dialog'). For informational content (a tooltip callout, a rich-text help panel) without a dialog interaction pattern, set `role="region"`. For menu-style triggers, `role="menu"` plus `aria-haspopup="menu"` on the anchor. The popover never overwrites a role that was set explicitly. */
+				'role'?: NLDDPopover['role'];
 			};
 			/** NOT REGISTERED. Using this renders its children unstyled with no
 			 *  error. Add `import '@nldd/design-system/progress-bar';` to
@@ -1873,7 +1977,7 @@ declare module 'react' {
 			'nldd-progress-bar-segment-indicator': NlddElement & {
 				/** Share of the parent's total (default 0; <=0 hides segment) */
 				'value'?: NLDDProgressBarSegmentIndicator['value'];
-				/** Color. Semantic (neutral, accent, success, warning, critical) or a Rijkskleur. Default 'accent'. */
+				/** Color. Semantic (neutral, accent, success, warning, critical) or a Rijkskleur. Default 'accent'. With more than one segment, give each a Rijkskleur (or success, warning and critical where they mean that): `accent` can turn near-black or match another segment in a theme, and `neutral` disappears against the track. */
 				'color'?: NLDDProgressBarSegmentIndicator['color'];
 				/** Name for screenreader text (optional) */
 				'name'?: NLDDProgressBarSegmentIndicator['name'];
@@ -1919,7 +2023,7 @@ declare module 'react' {
 			'nldd-progress-circle-segment-indicator': NlddElement & {
 				/** Share of the parent's total (default 0; <=0 hides segment) */
 				'value'?: NLDDProgressCircleSegmentIndicator['value'];
-				/** Color (semantic or Rijkskleur). Default 'accent'. */
+				/** Color (semantic or Rijkskleur). Default 'accent'. With more than one segment, give each a Rijkskleur (or success, warning and critical where they mean that): `accent` can turn near-black or match another segment in a theme, and `neutral` disappears against the track. */
 				'color'?: NLDDProgressCircleSegmentIndicator['color'];
 				/** Optional name used in the combined tooltip + screenreader text */
 				'name'?: NLDDProgressCircleSegmentIndicator['name'];
@@ -1946,6 +2050,8 @@ declare module 'react' {
 				'name'?: NLDDRadioButton['name'];
 				/** Value submitted with the form when this radio button is checked */
 				'value'?: NLDDRadioButton['value'];
+				/** 'inherit' draws the control in the color of the text around it, with the mark in the surface color (`--context-parent-background-color`) or else `--semantics-content-contrast-color`, white or black against the text color. For a control on a colored surface, such as the panel of nldd-hero, where the accent would not stand out. Without it the control uses the accent. */
+				'color'?: NLDDRadioButton['color'];
 				/** Accessible label, set as aria-label on this element: it is the radio. */
 				'accessible-label'?: NLDDRadioButton['accessibleLabel'];
 				/** Marks the control as invalid. Announced with aria-invalid; nothing is drawn for it. Note: aria-labelledby is not supported as IDREF resolution cannot cross shadow DOM boundaries. */
@@ -1968,6 +2074,8 @@ declare module 'react' {
 				'name'?: NLDDRadioButtonField['name'];
 				/** Required state. What it asks is whether anything in the group is checked, as a native radio does. Set automatically by nldd-radio-button-group. */
 				'required'?: NLDDRadioButtonField['required'];
+				/** 'inherit' draws the control and its label in the color of the text around it, for a field on a colored surface such as the panel of nldd-hero. Passed to the control inside. */
+				'color'?: NLDDRadioButtonField['color'];
 				/** Label text for the radio button */
 				'label'?: NLDDRadioButtonField['label'];
 				/** Marks the control as invalid. Announced with aria-invalid; nothing is drawn for it. */
@@ -2007,7 +2115,7 @@ declare module 'react' {
 				'centered'?: NLDDRichText['centered'];
 				/** Override translation keys; unset keys fall back to Dutch */
 				'translations'?: NLDDRichText['translations'];
-				/** Opt-in automatic hyphenation for running text (p, li, dd). Needs a correct `lang` on the page (`lang="nl"` on `<html>`, for instance): without language information the browser does not hyphenate. An `overflow-wrap: break-word` safety net on p/li is always on, independent of this attribute, so long URLs and compounds break neatly instead of overflowing even without a dictionary. */
+				/** Opt-in automatic hyphenation for running text (p, li, dd). Needs a correct `lang` on the page (`lang="nl"` on `<html>`, for instance): without language information the browser does not hyphenate. An `overflow-wrap: break-word` safety net on headings, p and li is always on, independent of this attribute, so a word wider than the column breaks instead of overflowing. Headings are hyphenated regardless of this attribute, but only a word of at least 12 letters, as in `nldd-title`, so a short word moves to the next line whole. A soft hyphen (`&shy;`) adds a place to break of your own. */
 				'hyphens'?: NLDDRichText['hyphens'];
 			};
 			/** NOT REGISTERED. Using this renders its children unstyled with no
@@ -2022,10 +2130,18 @@ declare module 'react' {
 				'width'?: NLDDSearchField['width'];
 				/** Placeholder text for the input */
 				'placeholder'?: NLDDSearchField['placeholder'];
-				/** Accessible name (aria-label) of the native input. Falls back to `placeholder`, and keeps it when a value is typed. That works while the placeholder names the field ('Zoek een gebruiker'); set this when the placeholder is an example instead ('bijv. Jansen'). */
+				/** Accessible name (aria-label) of the native input. Falls back to `placeholder`, and keeps it when a value is typed. That works while the placeholder names the field ('Zoek een gebruiker'); set this when the placeholder is an example instead ('bijv. Jansen'). Without a visible label the placeholder is the only text on screen, so a name of your own starts with it: someone who works the computer by voice says what they see, and a name that leaves it out does not answer (WCAG 2.5.3). */
 				'accessible-label'?: NLDDSearchField['accessibleLabel'];
 				/** When set, shows a search button on the right */
 				'show-search-button'?: NLDDSearchField['showSearchButton'];
+				/** Keyboard shortcut hint shown at the right end of the empty field, e.g. 'Cmd+K' or '/'. Display only (rendered via nldd-keyboard-shortcut): it does not bind the key, wire up focusing the field in your app. Hidden while the field has focus or a value, and on touch-only devices. Joins the field's description for screen readers. */
+				'shortcut'?: NLDDSearchField['shortcut'];
+				/** Override of `shortcut` on macOS, where the keys differ (falls back to `shortcut`). */
+				'shortcut-mac'?: NLDDSearchField['shortcutMac'];
+				/** Override of `shortcut` on Windows (falls back to `shortcut`). */
+				'shortcut-windows'?: NLDDSearchField['shortcutWindows'];
+				/** Override of `shortcut` on Linux (falls back to `shortcut`). */
+				'shortcut-linux'?: NLDDSearchField['shortcutLinux'];
 				/** Override translation keys; unset keys fall back to Dutch */
 				'translations'?: NLDDSearchField['translations'];
 				/** Marks the control as invalid. Announced with aria-invalid; nothing is drawn for it. */
@@ -2110,6 +2226,14 @@ declare module 'react' {
 				'text'?: NLDDSegmentedControlItem['text'];
 				/** Icon name for nldd-icon */
 				'icon'?: NLDDSegmentedControlItem['icon'];
+				/** Keyboard shortcut hint shown in the tooltip, e.g. 'Cmd+B'. Display only (rendered via nldd-keyboard-shortcut): it does not bind the key, wire up the handling in your app. Part of the accessible name ("Vet Cmd B"), as in nldd-menu-item. Hidden on touch-only devices, where it isn't invokable. */
+				'shortcut'?: NLDDSegmentedControlItem['shortcut'];
+				/** Override of `shortcut` on macOS, where the keys differ (falls back to `shortcut`). */
+				'shortcut-mac'?: NLDDSegmentedControlItem['shortcutMac'];
+				/** Override of `shortcut` on Windows (falls back to `shortcut`). */
+				'shortcut-windows'?: NLDDSegmentedControlItem['shortcutWindows'];
+				/** Override of `shortcut` on Linux (falls back to `shortcut`). */
+				'shortcut-linux'?: NLDDSegmentedControlItem['shortcutLinux'];
 			};
 			/** NOT REGISTERED. Using this renders its children unstyled with no
 			 *  error. Add `import '@nldd/design-system/sheet';` to
@@ -2127,6 +2251,10 @@ declare module 'react' {
 				'accessible-label'?: NLDDSheet['accessibleLabel'];
 				/** Whether the sheet is open. Set it to open or close the sheet, as an alternative to show() and hide(). The sheet clears it itself when it closes another way (Escape, the backdrop, the close button of its title bar), so bind it together with the close event. */
 				'open'?: NLDDSheet['open'];
+			};
+			'nldd-shell': NlddElement & {
+				/** Background color (cascades to descendants) */
+				'background'?: NLDDShell['background'];
 			};
 			/** NOT REGISTERED. Using this renders its children unstyled with no
 			 *  error. Add `import '@nldd/design-system/side-by-side-split-view';` to
@@ -2161,6 +2289,8 @@ declare module 'react' {
 				'collapsed'?: NLDDSidebarSection['collapsed'];
 				'background'?: NLDDSidebarSection['background'];
 				'height'?: NLDDSidebarSection['height'];
+				/** Takes the height the page has left, so the footer sits at the bottom of a short page. Without it, nldd-page lets its last section grow. */
+				'grow'?: NLDDSidebarSection['grow'];
 				'padding-block'?: NLDDSidebarSection['paddingBlock'];
 				'padding-top'?: NLDDSidebarSection['paddingTop'];
 				'padding-bottom'?: NLDDSidebarSection['paddingBottom'];
@@ -2181,10 +2311,12 @@ declare module 'react' {
 				'horizontal-alignment'?: NLDDSimpleSection['horizontalAlignment'];
 				/** Where the body's children sit down the section ('top' default). Only visible when the section is taller than its content. */
 				'vertical-alignment'?: NLDDSimpleSection['verticalAlignment'];
-				/** Surface background ('inherit' default; 'base'/'tinted' paint and cascade a surface). */
+				/** Surface background ('inherit' default; 'base', 'tinted' and 'accent-tinted', a tint of the theme's accent with the contrast of 'tinted', paint and cascade a surface). */
 				'background'?: NLDDSimpleSection['background'];
 				/** Minimum section height (any CSS length, e.g. '400px', '100dvh') (mirrors width, which sets the body max-width). */
 				'height'?: NLDDSimpleSection['height'];
+				/** Takes the height the page has left, so the footer sits at the bottom of a short page. Without it, nldd-page lets its last section grow. */
+				'grow'?: NLDDSimpleSection['grow'];
 				/** Block (top and bottom) padding override (token 0-96; '0' strips it). */
 				'padding-block'?: NLDDSimpleSection['paddingBlock'];
 				/** Top padding override. */
@@ -2203,11 +2335,53 @@ declare module 'react' {
 				'lg-padding-bottom'?: NLDDSimpleSection['lgPaddingBottom'];
 			};
 			'nldd-skip-link': NlddElement & {
-				/** Text of the skip link. Falls back to the i18n default. */
+				/** Text of the skip link. Name what is skipped. Falls back to the i18n default. */
 				'text'?: NLDDSkipLink['text'];
-				/** Optional external target id. Without href it jumps to the end of its own content. */
+				/** Optional external target id. Without href it jumps to the first rendered element after the skip link. */
 				'href'?: NLDDSkipLink['href'];
 				'translations'?: NLDDSkipLink['translations'];
+			};
+			/** NOT REGISTERED. Using this renders its children unstyled with no
+			 *  error. Add `import '@nldd/design-system/slider';` to
+			 *  components/nldd/register.ts first. Some elements register through a
+			 *  parent's module (nldd-table-row with nldd-table); register.test.ts lists
+			 *  those. */
+			'nldd-slider': NlddElement & {
+				/** Slider size: 'xs' | 'sm' | 'md' (default: 'md'), with the height of the other controls of that size. Set automatically by nldd-form-field. */
+				'size'?: NLDDSlider['size'];
+				/** Picks a range, with a thumb for each end: `start-value` and `end-value` in place of `value` */
+				'range'?: NLDDSlider['range'];
+				/** Counts drawn as bars above the track, one per bucket of (max - min) / n, comma- or space-separated; as a property, an array of numbers. The bars within the chosen value or range are colored. */
+				'histogram'?: NLDDSlider['histogram'];
+				/** Icon at the start of the track, such as a quiet speaker for a volume. A click on it moves the value a tenth of the range down (not in a range). */
+				'start-icon'?: NLDDSlider['startIcon'];
+				/** Icon at the end of the track. A click on it moves the value a tenth of the range up (not in a range). */
+				'end-icon'?: NLDDSlider['endIcon'];
+				/** Accessible name; a range adds "minimum" and "maximum" to it for its thumbs. Set automatically by nldd-form-field. */
+				'accessible-label'?: NLDDSlider['accessibleLabel'];
+				/** When the value shows above the thumb: 'instant' (the default: on hover, keyboard focus and while dragging) or 'never', for a slider whose value shows elsewhere, such as in fields above it */
+				'tooltip-timing'?: NLDDSlider['tooltipTiming'];
+				/** Marks the control as invalid. Announced with aria-invalid; nothing is drawn for it. */
+				'invalid'?: NLDDSlider['invalid'];
+				/** Disabled state */
+				'disabled'?: NLDDSlider['disabled'];
+				/** Name for form submission */
+				'name'?: NLDDSlider['name'];
+				/** The value (default: the middle between min and max) */
+				'value'?: NLDDSlider['value'];
+				/** The start of a range (default: min) */
+				'start-value'?: NLDDSlider['startValue'];
+				/** The end of a range (default: max) */
+				'end-value'?: NLDDSlider['endValue'];
+				/** Smallest value (default: 0) */
+				'min'?: NLDDSlider['min'];
+				/** Largest value (default: 100) */
+				'max'?: NLDDSlider['max'];
+				/** Step between values (default: 1) */
+				'step'?: NLDDSlider['step'];
+				/** Override translation keys; unset keys fall back to Dutch */
+				'translations'?: NLDDSlider['translations'];
+				'internals'?: NLDDSlider['internals'];
 			};
 			/** NOT REGISTERED. Using this renders its children unstyled with no
 			 *  error. Add `import '@nldd/design-system/spacer';` to
@@ -2247,12 +2421,20 @@ declare module 'react' {
 				'size'?: NLDDSplitButton['size'];
 				/** Visual style (default: 'neutral-tinted'; 'inherit-tinted' and 'inherit-filled' for a colored surface) */
 				'appearance'?: NLDDSplitButton['appearance'];
-				/** Disabled state */
+				/** Disabled state. Avoid it: let the action run and say afterwards what is missing; the design guidelines say why. */
 				'disabled'?: NLDDSplitButton['disabled'];
 				/** Width mode: 'full' (stretches to container) or any CSS length; the main action button fills the available space */
 				'width'?: NLDDSplitButton['width'];
 				/** Button text for the primary action */
 				'text'?: NLDDSplitButton['text'];
+				/** Keyboard shortcut hint for the primary action, shown right after its text, e.g. 'Cmd+S'. Forwarded to the inner nldd-button; display only, wire up the handling in your app. */
+				'shortcut'?: NLDDSplitButton['shortcut'];
+				/** Override of `shortcut` on macOS, where the keys differ (falls back to `shortcut`). */
+				'shortcut-mac'?: NLDDSplitButton['shortcutMac'];
+				/** Override of `shortcut` on Windows (falls back to `shortcut`). */
+				'shortcut-windows'?: NLDDSplitButton['shortcutWindows'];
+				/** Override of `shortcut` on Linux (falls back to `shortcut`). */
+				'shortcut-linux'?: NLDDSplitButton['shortcutLinux'];
 				/** Icon name shown before the text on the primary action button */
 				'icon'?: NLDDSplitButton['icon'];
 				/** Translations; unset keys fall back to Dutch */
@@ -2313,7 +2495,6 @@ declare module 'react' {
 			 *  parent's module (nldd-table-row with nldd-table); register.test.ts lists
 			 *  those. */
 			'nldd-step-bar': NlddElement & {
-				'current'?: NLDDStepBar['current'];
 				/** Name of the nav; defaults to the i18n value ("Voortgang") */
 				'accessible-label'?: NLDDStepBar['accessibleLabel'];
 				/** Override translation keys; unset keys fall back to Dutch */
@@ -2334,7 +2515,7 @@ declare module 'react' {
 				'icon'?: NLDDStepBarItem['icon'];
 				/** Makes the step a link (back to a completed step, for instance) */
 				'href'?: NLDDStepBarItem['href'];
-				/** For flows without a URL per step (a wizard inside one window). Ignored once `href` is set: one step is one action, and a link outranks a button -- the same rule as nldd-card and nldd-avatar. */
+				/** Makes the step a button, for flows without a URL per step; ignored when `href` is set */
 				'button'?: NLDDStepBarItem['button'];
 			};
 			/** NOT REGISTERED. Using this renders its children unstyled with no
@@ -2349,6 +2530,10 @@ declare module 'react' {
 				'status'?: NLDDStepCell['status'];
 				/** How wide the lane is and so how big the dot: `sm` (default, 16px) for steps without a number, `md` (24px) where a number or an icon has to fit. Every row in one list takes the same size, or the track jumps */
 				'size'?: NLDDStepCell['size'];
+				/** Where the dot stands in the row (default 'center'). `top` puts it against the row's top padding and `bottom` against its bottom padding, as a whole dot would stand, so a `minor` dot lines up with a `major` one. To line it up with what stands beside it, such as the first line of a text cell or a title, use `marker-offset`. The track runs to the middle of the dot either way, so consecutive rows still connect */
+				'vertical-alignment'?: NLDDStepCell['verticalAlignment'];
+				/** How far below the top of the row's content the middle of the dot stands, as a CSS length or a percentage of the content's height: `0%` is its top, `50%` its middle and `100%` its bottom. For a row whose first line is not as high as a whole dot, such as a large title beside it: half the height of that line puts the dot beside it. Measured after the row's padding, so it stays right when `size` changes that padding. Prefer `rem` over `px`, so the dot moves along when someone sets a larger font size in the browser. Wins over `vertical-alignment`; an invalid value falls back to it and says so in development */
+				'marker-offset'?: NLDDStepCell['markerOffset'];
 				/** The direction the timeline moves forward in: `down` (default) puts the past above, `up` below. Only the current step has half a track, so this only has an effect there */
 				'direction'?: NLDDStepCell['direction'];
 				/** Place of the row in the list as it stands on screen (default 'between'): decides whether the line continues above the dot, below it, or on both sides. `first` is the top row and only has a line below, `last` the bottom row and only has a line above, also with `direction="up"`: position is about where the row stands, `direction` about which way time runs. `only` is the single row in the series and gets a line on neither side: a track of one dot leads nowhere. On a `level="none"` row, which is nothing but line, `only` leaves it out altogether: the track ends above it */
@@ -2406,6 +2591,8 @@ declare module 'react' {
 				'no-tab'?: NLDDSwitch['noTab'];
 				/** Switch size: 'xs' | 'sm' (default: 'sm') */
 				'size'?: NLDDSwitch['size'];
+				/** 'inherit' draws the control in the color of the text around it, with the mark in the surface color (`--context-parent-background-color`) or else `--semantics-content-contrast-color`, white or black against the text color. For a control on a colored surface, such as the panel of nldd-hero, where the accent would not stand out. Without it the control uses the accent. */
+				'color'?: NLDDSwitch['color'];
 				/** Accessible label forwarded as aria-label to the native input. Required when using nldd-switch without nldd-switch-field. */
 				'accessible-label'?: NLDDSwitch['accessibleLabel'];
 				/** Value submitted with the form when the switch is on (default: 'on') */
@@ -2430,6 +2617,8 @@ declare module 'react' {
 				'value'?: NLDDSwitchField['value'];
 				/** Name for form submission */
 				'name'?: NLDDSwitchField['name'];
+				/** 'inherit' draws the control and its label in the color of the text around it, for a field on a colored surface such as the panel of nldd-hero. Passed to the control inside. */
+				'color'?: NLDDSwitchField['color'];
 				/** Label text for the switch */
 				'label'?: NLDDSwitchField['label'];
 				/** Required state */
@@ -2446,10 +2635,12 @@ declare module 'react' {
 				'size'?: NLDDTabBar['size'];
 				/** Renders a nav landmark instead of tablist; use for href-based items that navigate between routes */
 				'navigation'?: NLDDTabBar['navigation'];
-				/** Disables the whole bar: dims it, blocks pointer interaction, and takes the tabs out of the tab order */
+				/** Disables the whole bar: dims it, blocks pointer interaction, and takes the tabs out of the tab order. Avoid it where you can; the design guidelines say why. */
 				'disabled'?: NLDDTabBar['disabled'];
 				/** Accessible name for the navigation region; defaults to 'Tabs' */
 				'accessible-label'?: NLDDTabBar['accessibleLabel'];
+				/** Override translation keys (e.g. the overflow button label); unset keys fall back to Dutch. */
+				'translations'?: NLDDTabBar['translations'];
 			};
 			/** NOT REGISTERED. Using this renders its children unstyled with no
 			 *  error. Add `import '@nldd/design-system/tab-bar-item';` to
@@ -2467,6 +2658,8 @@ declare module 'react' {
 				'icon'?: NLDDTabBarItem['icon'];
 				/** Size: 'md' (default) | 'lg'. Set by nldd-tab-bar from its own size; 'lg' enlarges the touch target while keeping the variant layout. */
 				'size'?: NLDDTabBarItem['size'];
+				/** Forces this presentation on this item, over the one from nldd-tab-bar */
+				'variant'?: NLDDTabBarItem['variant'];
 			};
 			/** NOT REGISTERED. Using this renders its children unstyled with no
 			 *  error. Add `import '@nldd/design-system/table';` to
@@ -2520,6 +2713,40 @@ declare module 'react' {
 				'accessible-label'?: NLDDTag['accessibleLabel'];
 			};
 			/** NOT REGISTERED. Using this renders its children unstyled with no
+			 *  error. Add `import '@nldd/design-system/task-board';` to
+			 *  components/nldd/register.ts first. Some elements register through a
+			 *  parent's module (nldd-table-row with nldd-table); register.test.ts lists
+			 *  those. */
+			'nldd-task-board': NlddElement & {
+				/** Accessible name of the board (default: "Takenbord") */
+				'accessible-label'?: NLDDTaskBoard['accessibleLabel'];
+				/** Fixed height as a CSS length (e.g. '480px'): every column takes it, and scrolls its items once they do not fit. To fill a page or a pane, set the height in your layout instead (flex, or `height: 100%`) */
+				'height'?: NLDDTaskBoard['height'];
+				/** Items cannot be dragged or moved with the keyboard; they still work, and `moveItem()` still moves */
+				'readonly'?: NLDDTaskBoard['readonly'];
+				/** Override translation keys; unset keys fall back to Dutch */
+				'translations'?: NLDDTaskBoard['translations'];
+				/** The columns, in order. */
+				'columns'?: NLDDTaskBoard['columns'];
+			};
+			/** NOT REGISTERED. Using this renders its children unstyled with no
+			 *  error. Add `import '@nldd/design-system/task-board-column';` to
+			 *  components/nldd/register.ts first. Some elements register through a
+			 *  parent's module (nldd-table-row with nldd-table); register.test.ts lists
+			 *  those. */
+			'nldd-task-board-column': NlddElement & {
+				/** The column's name, shown in the header and used as its accessible name */
+				'text'?: NLDDTaskBoardColumn['text'];
+				/** Accessible name in place of `text`, for a column whose header comes from the slot */
+				'accessible-label'?: NLDDTaskBoardColumn['accessibleLabel'];
+				/** What the column stands for in your data, such as a status; `nldd-move` reports it as `fromColumn` and `toColumn` */
+				'value'?: NLDDTaskBoardColumn['value'];
+				/** The column's name: what a screen reader hears for it. */
+				'label'?: NLDDTaskBoardColumn['label'];
+				/** The column's items, in order; a hidden one does not count. */
+				'items'?: NLDDTaskBoardColumn['items'];
+			};
+			/** NOT REGISTERED. Using this renders its children unstyled with no
 			 *  error. Add `import '@nldd/design-system/text';` to
 			 *  components/nldd/register.ts first. Some elements register through a
 			 *  parent's module (nldd-table-row with nldd-table); register.test.ts lists
@@ -2568,6 +2795,7 @@ declare module 'react' {
 				'query'?: NLDDTextCell['query'];
 				/** 'match' | 'predictive' (default: 'predictive') */
 				'query-mark-mode'?: NLDDTextCell['queryMarkMode'];
+				'row-header'?: NLDDTextCell['rowHeader'];
 				'hide-below'?: NLDDTextCell['hideBelow'];
 				'hide-above'?: NLDDTextCell['hideAbove'];
 			};
@@ -2577,6 +2805,20 @@ declare module 'react' {
 			 *  parent's module (nldd-table-row with nldd-table); register.test.ts lists
 			 *  those. */
 			'nldd-text-editor': NlddElement & {
+				/** Turns spellchecking off. It is on by default, like the other text fields, and leaves out what is not running text: inline code and code blocks, the address of a link and a bare URL (the link text is checked), and mentions. Autocorrect and autocapitalize follow the user's own settings, as in the other fields, also with `no-spellcheck`. Two limits come from the browser: text that was already there is checked once you edit near it, not when the editor opens (the editor lives in a shadow root; Firefox only checks around the caret), and markup that changes how a line is built, such as starting a list item, hides the underlines on that line until you type on. */
+				'no-spellcheck'?: NLDDTextEditor['noSpellcheck'];
+				/** Wrap long lines (default true; prose wraps) */
+				'wrap'?: NLDDTextEditor['wrap'];
+				/** 'none' (fixed) | 'vertical' (drag) | 'auto' (grow, default) */
+				'resize'?: NLDDTextEditor['resize'];
+				/** 'simple' (default, bare) | 'input-field' (framed surface) */
+				'appearance'?: NLDDTextEditor['appearance'];
+				/** 'visible' (default): every formatting mark stays in view, dimmed, a bullet as the character you typed (`-`, `*` or `+`). 'hidden': the marks of bold, italic, strikethrough, inline code, links and the `#` of a heading are hidden and come back where the caret or the selection touches that construct, so the text reads closer to the result while what you edit is still the markdown. A bullet reads as a dot, and shows its character on the line the caret is on. A quote reads as a line on the left per level, at the level the result gives each line, as in nldd-rich-text, with the spaces after a `>` beyond the first hidden and a missing one made room for, so every level is the same step; with the caret anywhere in it, its `>` marks and spaces show instead. A `---` line reads as a divider until the caret is on it, and a code block loses its closing ``` line until the caret is in it, since its own tint and edge already say what it is. Its opening line stays as the head of the block, with only the backticks hidden: the language as a label on the left, the copy button on the right. The numbers of a numbered list stay, in the color of the text: they are content. Read-only and disabled hide every mark, which makes a clean read view. The value is plain markdown either way. */
+				'syntax'?: NLDDTextEditor['syntax'];
+				/** Enable the annotation overlay (off by default). Annotations only render when this is set. */
+				'annotatable'?: NLDDTextEditor['annotatable'];
+				/** Override the editor's assistive-tech strings (the open-in-new-tab link badge, the annotation count badge, the label of a task's box and the copy button of a code block). Unset keys fall back to Dutch. */
+				'translations'?: NLDDTextEditor['translations'];
 				/** Editor content (markdown) */
 				'value'?: NLDDTextEditor['value'];
 				/** Sets the id on the editable element. Set automatically by nldd-form-field. */
@@ -2591,22 +2833,10 @@ declare module 'react' {
 				'readonly'?: NLDDTextEditor['readonly'];
 				/** Required state */
 				'required'?: NLDDTextEditor['required'];
-				/** Turns spellchecking off. It is on by default, like the other text fields, and leaves out what is not running text: inline code and code blocks, the address of a link and a bare URL (the link text is checked), and mentions. Autocorrect and autocapitalize follow the user's own settings, as in the other fields, also with `no-spellcheck`. Two limits come from the browser: text that was already there is checked once you edit near it, not when the editor opens (the editor lives in a shadow root; Firefox only checks around the caret), and markup that changes how a line is built, such as starting a list item, hides the underlines on that line until you type on. */
-				'no-spellcheck'?: NLDDTextEditor['noSpellcheck'];
-				/** Wrap long lines (default true; prose wraps) */
-				'wrap'?: NLDDTextEditor['wrap'];
 				/** Minimum visible rows (the floor in every resize mode). Default: 6. */
 				'rows'?: NLDDTextEditor['rows'];
-				/** 'none' (fixed) | 'vertical' (drag) | 'auto' (grow, default) */
-				'resize'?: NLDDTextEditor['resize'];
-				/** 'simple' (default, bare) | 'input-field' (framed surface) */
-				'appearance'?: NLDDTextEditor['appearance'];
 				/** Accessible label forwarded to the editor. Set automatically by nldd-form-field. */
 				'accessible-label'?: NLDDTextEditor['accessibleLabel'];
-				/** Enable the annotation overlay (off by default). Annotations only render when this is set. */
-				'annotatable'?: NLDDTextEditor['annotatable'];
-				/** Override the editor's assistive-tech strings (the open-in-new-tab link badge and the annotation count badge). Unset keys fall back to Dutch. */
-				'translations'?: NLDDTextEditor['translations'];
 				/** Marks the control as invalid. Announced with aria-invalid; nothing is drawn for it. */
 				'invalid'?: NLDDTextEditor['invalid'];
 				/** Your own typeahead lists next to the */
@@ -2735,6 +2965,12 @@ declare module 'react' {
 			'nldd-title': NlddElement & {
 				/** Visual size of the title: 1–6 (default: 3) */
 				'size'?: NLDDTitle['size'];
+				/** A size of your own at sm, any CSS length (e.g. '56px', '3.5rem', 'clamp(3rem, 8vw, 7rem)'), for a statement larger than size 1. A var() works when the variable holds a length; one that is not defined leaves the title without its size, the floor included. For headings use `size`; if a design does not fit the scale, raise it as an issue. Set per breakpoint on purpose: a breakpoint without one keeps the size from `size`, so a title made large for a wide screen never breaks a narrow one. Never smaller than size 1 at the same breakpoint: a smaller value shows as size 1, and a fixed length that is smaller says so in development (a relative value, such as vw, em or a percentage, is not checked there; the floor still holds). Takes the weight, typeface and line height of size 1. An invalid value falls back to `size` */
+				'sm-custom-size'?: NLDDTitle['smCustomSize'];
+				/** The same, at md */
+				'md-custom-size'?: NLDDTitle['mdCustomSize'];
+				/** The same, at lg */
+				'lg-custom-size'?: NLDDTitle['lgCustomSize'];
 				/** 'content' (the default) takes the system's own content colors. 'inherit' lets the title follow the text color of the surface instead (for colored areas such as the filled categories); overline and supporting-text get the same color at a lowered opacity. */
 				'color'?: NLDDTitle['color'];
 				/** Title text. Content in the default slot takes its place. */
@@ -2752,7 +2988,7 @@ declare module 'react' {
 			 *  parent's module (nldd-table-row with nldd-table); register.test.ts lists
 			 *  those. */
 			'nldd-title-cell': NlddElement & {
-				/** Visual size of the title (default: 5) */
+				/** Visual size of the title (unset: looks like 5, and becomes 6 in an `nldd-table-row`, where a title the size of the other cells reads better) */
 				'size'?: NLDDTitleCell['size'];
 				/** Text color variant (default: 'content'). `secondary` demotes the title to match the muted overline/supporting-text. `accent`, `success`, `warning` and `critical` tint all three regions so the cell reads as a coherent state. */
 				'color'?: NLDDTitleCell['color'];
@@ -2780,6 +3016,7 @@ declare module 'react' {
 				'query'?: NLDDTitleCell['query'];
 				/** 'match' | 'predictive' (default: 'predictive') */
 				'query-mark-mode'?: NLDDTitleCell['queryMarkMode'];
+				'row-header'?: NLDDTitleCell['rowHeader'];
 				'hide-below'?: NLDDTitleCell['hideBelow'];
 				'hide-above'?: NLDDTitleCell['hideAbove'];
 			};
@@ -2817,6 +3054,14 @@ declare module 'react' {
 				'variant'?: NLDDToggleButton['variant'];
 				/** Accessible label; required for icon-only usage */
 				'accessible-label'?: NLDDToggleButton['accessibleLabel'];
+				/** Keyboard shortcut hint shown in the tooltip, e.g. 'Cmd+B'. Display only (rendered via nldd-keyboard-shortcut): it does not bind the key, wire up the handling in your app. Part of the accessible name ("Vet Cmd B"), as in nldd-menu-item. Hidden on touch-only devices, where it isn't invokable. */
+				'shortcut'?: NLDDToggleButton['shortcut'];
+				/** Override of `shortcut` on macOS, where the keys differ (falls back to `shortcut`). */
+				'shortcut-mac'?: NLDDToggleButton['shortcutMac'];
+				/** Override of `shortcut` on Windows (falls back to `shortcut`). */
+				'shortcut-windows'?: NLDDToggleButton['shortcutWindows'];
+				/** Override of `shortcut` on Linux (falls back to `shortcut`). */
+				'shortcut-linux'?: NLDDToggleButton['shortcutLinux'];
 				/** Marks the control as invalid. Announced with aria-invalid; nothing is drawn for it. */
 				'invalid'?: NLDDToggleButton['invalid'];
 				'internals'?: NLDDToggleButton['internals'];
@@ -2866,7 +3111,7 @@ declare module 'react' {
 				'roving'?: NLDDToken['roving'];
 				/** Reflects whether the token's menu is open (control="menu"); managed by the token. */
 				'expanded'?: NLDDToken['expanded'];
-				/** Disabled state */
+				/** Disabled state. Avoid it where you can; the design guidelines say why. */
 				'disabled'?: NLDDToken['disabled'];
 			};
 			/** NOT REGISTERED. Using this renders its children unstyled with no
@@ -2914,8 +3159,8 @@ declare module 'react' {
 				'size'?: NLDDToolbar['size'];
 				/** When true, shows a text label below each toolbar item and the overflow button */
 				'show-item-labels'?: NLDDToolbar['showItemLabels'];
-				/** Accessible label for the toolbar. Only needed when multiple toolbars appear on the same page */
-				'label'?: NLDDToolbar['label'];
+				/** Accessible name of the toolbar. Only needed when multiple toolbars appear on the same page. */
+				'accessible-label'?: NLDDToolbar['accessibleLabel'];
 				/** Override translation keys (e.g. the overflow button label); unset keys fall back to Dutch. */
 				'translations'?: NLDDToolbar['translations'];
 			};
@@ -2935,6 +3180,20 @@ declare module 'react' {
 				'label'?: NLDDToolbarItem['label'];
 				/** Overflow order: items with a lower priority move into the overflow menu first (default 0). Items sharing a priority overflow together, regardless of position. */
 				'priority'?: NLDDToolbarItem['priority'];
+				/** Set by nldd-toolbar, not a consumer attribute: mirrors the toolbar's size (default: 'md') onto the item host, so size-dependent styling can key off it. */
+				'size'?: NLDDToolbarItem['size'];
+				/** Set by nldd-toolbar, not a consumer attribute: mirrors the toolbar's show-item-labels, so the item renders its label below the control. */
+				'show-item-labels'?: NLDDToolbarItem['showItemLabels'];
+				/** Set by nldd-toolbar, not a consumer attribute: marks an item that grows or shrinks to fill space. Toggled synchronously during measurement, so it can appear or disappear between layout frames - do not style against it. It is not reflected as a JS property - read it with hasAttribute('fluid'). */
+				'fluid'?: NLDDToolbarItem['fluid'];
+				/** Set by nldd-toolbar, not a consumer attribute: the sole fluid item, allowed to shrink below its content. Same synchronous-toggle and property-read caveats as fluid. */
+				'solo-fluid'?: NLDDToolbarItem['soloFluid'];
+				/** Set by nldd-toolbar, not a consumer attribute, when the item moves into the overflow menu. Same synchronous-toggle caveat. */
+				'hidden'?: NLDDToolbarItem['hidden'];
+				/** Set by nldd-toolbar, not a consumer attribute: the item holds a control that overflows by itself (nldd-tab-bar), so it gets the width that control wants with everything shown. Same synchronous-toggle caveat. */
+				'shrinkable'?: NLDDToolbarItem['shrinkable'];
+				/** Set by nldd-toolbar, not a consumer attribute: a shrinkable item narrowed down to what its control needs at least, before it would move into the overflow menu. Same synchronous-toggle caveat. */
+				'shrunk'?: NLDDToolbarItem['shrunk'];
 			};
 			/** NOT REGISTERED. Using this renders its children unstyled with no
 			 *  error. Add `import '@nldd/design-system/toolbar-title';` to
@@ -2954,9 +3213,11 @@ declare module 'react' {
 				'text'?: NLDDToolbarTitle['text'];
 				/** Secondary supporting text shown below the title. */
 				'supporting-text'?: NLDDToolbarTitle['supportingText'];
+				/** Set by nldd-toolbar, not a consumer attribute: mirrors the toolbar's size (default: 'md'), which sets the title group height and, at 'sm', the title and supporting-text fonts. */
+				'size'?: NLDDToolbarTitle['size'];
 				/** Makes the mark and the name one link, for the place this window belongs to (usually the app's own start). The `action` slot stays outside it: a control inside a link is a control you cannot reach without following the link. */
 				'href'?: NLDDToolbarTitle['href'];
-				/** Where the link opens; only meaningful with `href`. `_blank` adds rel="noopener noreferrer" and a visually hidden "opens in a new tab" announcement. */
+				/** Where the link opens; only meaningful with `href`. `_blank` adds rel="noopener noreferrer" and a visually hidden "opens in a new tab" announcement. An `href` to another origin than the page (another website, a subdomain too) adds a visually hidden "andere website", in one sentence with the new-tab announcement when both apply; there is no way to switch it off. */
 				'target'?: NLDDToolbarTitle['target'];
 				/** Override translation keys (the new-tab announcement); unset keys fall back to Dutch. */
 				'translations'?: NLDDToolbarTitle['translations'];
@@ -2969,6 +3230,14 @@ declare module 'react' {
 			'nldd-tooltip': NlddElement & {
 				/** Tooltip text */
 				'text'?: NLDDTooltip['text'];
+				/** Keyboard shortcut hint shown after the text, e.g. 'Cmd+P'. Display only (rendered via nldd-keyboard-shortcut): it does not bind the key. Joins the description of a light-DOM trigger. Hidden on touch-only devices, where it isn't invokable. */
+				'shortcut'?: NLDDTooltip['shortcut'];
+				/** Override of `shortcut` on macOS, where the keys differ (falls back to `shortcut`). */
+				'shortcut-mac'?: NLDDTooltip['shortcutMac'];
+				/** Override of `shortcut` on Windows (falls back to `shortcut`). */
+				'shortcut-windows'?: NLDDTooltip['shortcutWindows'];
+				/** Override of `shortcut` on Linux (falls back to `shortcut`). */
+				'shortcut-linux'?: NLDDTooltip['shortcutLinux'];
 				/** Forces the tooltip visible, whatever hover or focus does. Use it for programmatic feedback ("Copied", for instance). Reset it to false to restore the hover behavior. */
 				'open'?: NLDDTooltip['open'];
 				/** Position: 'top' | 'bottom' | 'left' | 'right' (default: 'bottom'; automatically 'top' on touch devices) */
@@ -2982,7 +3251,7 @@ declare module 'react' {
 			 *  parent's module (nldd-table-row with nldd-table); register.test.ts lists
 			 *  those. */
 			'nldd-top-navigation-bar': NlddElement & {
-				/** Name of the website or application, above the menu bar. Empty leaves the title line out. */
+				/** Name of the website or application, above the menu bar. Empty leaves the title line out. On a narrow screen, where it has a line of its own, a long name wraps; on md and lg it sits beside the menu on one line, so keep it short enough to fit there. */
 				'website-title'?: NLDDTopNavigationBar['websiteTitle'];
 				/** Hides the whole logo bar, wordmark included. */
 				'no-logo'?: NLDDTopNavigationBar['noLogo'];
@@ -2996,7 +3265,7 @@ declare module 'react' {
 				'logo-supporting-text-1'?: NLDDTopNavigationBar['logoSupportingText1'];
 				/** Second supporting line under the wordmark title. Only visible when there is a wordmark. */
 				'logo-supporting-text-2'?: NLDDTopNavigationBar['logoSupportingText2'];
-				/** URL for the logo and wordmark. Without it they are not a link but an image with an accessible label. */
+				/** URL for the logo and wordmark. Without it they are not a link but an image with an accessible label. Leave it out when `website-href` already goes to the same page: two links to the start page side by side are two tab stops and the same link twice in a screen reader's list of links. */
 				'logo-href'?: NLDDTopNavigationBar['logoHref'];
 				/** URL for the website title. Without it the title stays plain text. */
 				'website-href'?: NLDDTopNavigationBar['websiteHref'];
@@ -3012,7 +3281,7 @@ declare module 'react' {
 			 *  parent's module (nldd-table-row with nldd-table); register.test.ts lists
 			 *  those. */
 			'nldd-top-title-bar': NlddElement & {
-				/** Title of the bar, rendered as the heading in the title group. */
+				/** Title of the bar, rendered as the heading in the title group. One line, cut off with an ellipsis when it does not fit; see above for a title that can run long. */
 				'text'?: NLDDTopTitleBar['text'];
 				/** Text under the title. */
 				'supporting-text'?: NLDDTopTitleBar['supportingText'];
@@ -3035,10 +3304,14 @@ declare module 'react' {
 			'nldd-two-thirds-one-third-section': NlddElement & {
 				/** Body max-width: 'full' removes the constraint so the section spans the full available width. Any CSS length (e.g. '480px') overrides the default max-width. */
 				'width'?: NLDDTwoThirdsOneThirdSection['width'];
-				/** Surface background ('inherit' default; 'base'/'tinted' paint and cascade a surface). */
+				/** Where the shorter column sits next to the longer one ('top' default). Only where the columns stand side by side; stacked, they follow each other. */
+				'vertical-alignment'?: NLDDTwoThirdsOneThirdSection['verticalAlignment'];
+				/** Surface background ('inherit' default; 'base', 'tinted' and 'accent-tinted', a tint of the theme's accent with the contrast of 'tinted', paint and cascade a surface). */
 				'background'?: NLDDTwoThirdsOneThirdSection['background'];
 				/** Minimum section height (any CSS length, e.g. '400px', '100dvh') (mirrors width, which sets the body max-width). */
 				'height'?: NLDDTwoThirdsOneThirdSection['height'];
+				/** Takes the height the page has left, so the footer sits at the bottom of a short page. Without it, nldd-page lets its last section grow. */
+				'grow'?: NLDDTwoThirdsOneThirdSection['grow'];
 				/** Block (top and bottom) padding override (token 0-96; '0' strips it). */
 				'padding-block'?: NLDDTwoThirdsOneThirdSection['paddingBlock'];
 				/** Top padding override. */
@@ -3062,13 +3335,13 @@ declare module 'react' {
 			 *  parent's module (nldd-table-row with nldd-table); register.test.ts lists
 			 *  those. */
 			'nldd-validation-item': NlddElement & {
-				/** Regular expression the value has to contain. Not anchored, unlike the native `pattern`: `[A-Z]` means "has a capital in it". */
+				/** Regular expression the value has to contain. Not anchored, unlike the native `pattern`: `[A-Z]` means "has a capital in it". Not held against an empty value unless the field is required. */
 				'match'?: NLDDValidationItem['match'];
-				/** Fewest characters the value may have. */
+				/** Fewest characters the value may have. Not held against an empty value unless the field is required. */
 				'minlength'?: NLDDValidationItem['minlength'];
 				/** Most characters the value may have. */
 				'maxlength'?: NLDDValidationItem['maxlength'];
-				/** The value may not be empty. Use it on a field whose other rules would pass an empty value. */
+				/** The value may not be empty. Without it, and without `required` on the control, an empty value passes every rule in the list, as it does for the native `pattern` and `minlength`. The control is read by its `required` property or attribute; one that only says `aria-required` needs this item. */
 				'required'?: NLDDValidationItem['required'];
 				/** Show this item before there is a verdict, whatever the list says. */
 				'hint'?: NLDDValidationItem['hint'];
@@ -3089,10 +3362,19 @@ declare module 'react' {
 				'hint'?: NLDDValidationList['hint'];
 				/** Drop the hints, because this field has been judged. Turned on by the list itself once its control is `invalid`, and settable by hand. What turns red follows `invalid`, not this. */
 				'judging'?: NLDDValidationList['judging'];
+				/** Override translation keys (the line the list shows when the field is invalid and no item fails); unset keys fall back to Dutch. */
+				'translations'?: NLDDValidationList['translations'];
 				/** The control this list is about. Set by the wrapping nldd-form-field, which already answers "which control is this field about" for the label and the description. A `for` of its own wins, and setting this property directly is what a test or a story does. */
 				'control'?: NLDDValidationList['control'];
 				/** The value to check, when there is no control to read it from. */
 				'value'?: NLDDValidationList['value'];
+			};
+			/** NOT REGISTERED. Using this renders its children unstyled with no
+			 *  error. Add `import '@nldd/design-system/visually-hidden';` to
+			 *  components/nldd/register.ts first. Some elements register through a
+			 *  parent's module (nldd-table-row with nldd-table); register.test.ts lists
+			 *  those. */
+			'nldd-visually-hidden': NlddElement & {
 			};
 			/** NOT REGISTERED. Using this renders its children unstyled with no
 			 *  error. Add `import '@nldd/design-system/window';` to
@@ -3120,7 +3402,7 @@ declare module 'react' {
 				'accessible-label'?: NLDDWindow['accessibleLabel'];
 				/** Override translation keys; unset keys fall back to the Dutch default. */
 				'translations'?: NLDDWindow['translations'];
-				/** A click on the backdrop does not close the window. For windows where dismissing by accident costs work: a wizard, a form with filled-in fields. Escape and the dismiss button keep working. */
+				/** A click on the backdrop does not close the window. For windows where dismissing by accident costs work: a process of several steps, a form with filled-in fields. Escape and the dismiss button keep working. */
 				'no-light-dismiss'?: NLDDWindow['noLightDismiss'];
 				/** Whether the window is open. Set it to open or close the window, as an alternative to show() and hide(). The window clears it itself when it closes another way (Escape, the backdrop, the close button of its title bar), so bind it together with the close event. */
 				'open'?: NLDDWindow['open'];

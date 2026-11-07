@@ -125,7 +125,7 @@ const theme = EditorView.baseTheme({
     WebkitBoxDecorationBreak: 'clone',
   },
   '.cm-grip-fact': {
-    borderBottom: 'var(--primitives-border-width-sm, thin) dotted currentColor',
+    borderBottom: 'var(--primitives-border-width-thin) dotted currentColor',
     cursor: 'default',
   },
   '.cm-grip-fact.cm-grip-open': {

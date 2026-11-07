@@ -32,7 +32,7 @@ export function SigningLayout() {
   return (
     <>
       <nldd-skip-link href={`#${MAIN_CONTENT_ID}`} text="Direct naar de inhoud" />
-      <nldd-app-view>
+      <nldd-shell>
         <nldd-page landmarks="page" accessible-label={`Tekenen bij ${instanceName}`}>
           <nldd-container padding="16" layout="wrap" gap="16" vertical-alignment="center">
             <Brand variant="signing" instanceName={instance?.name} />
@@ -46,7 +46,7 @@ export function SigningLayout() {
             </PageBoundary>
           </div>
         </nldd-page>
-      </nldd-app-view>
+      </nldd-shell>
     </>
   );
 }

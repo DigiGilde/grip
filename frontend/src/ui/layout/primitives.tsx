@@ -307,7 +307,7 @@ interface CardGridProps {
 /** Cards in rows of equal height. */
 export function CardGrid({ itemWidth = '280px', children }: CardGridProps) {
   return (
-    <nldd-collection layout="grid" item-width={itemWidth} gap={GAP.related}>
+    <nldd-collection layout="grid" item-min-width={itemWidth} gap={GAP.related}>
       {children}
     </nldd-collection>
   );

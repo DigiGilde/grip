@@ -16,7 +16,7 @@
  */
 
 // Layout
-import '@nldd/design-system/app-view';
+import '@nldd/design-system/shell';
 import '@nldd/design-system/bar-split-view';
 import '@nldd/design-system/container';
 import '@nldd/design-system/page';

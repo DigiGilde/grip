@@ -261,7 +261,7 @@ function Toolbar({ query, onQuery, canManage, onAdd, onReload, reloading }: Tool
   useNlddEvent(reloadRef, 'click', onReload);
   useNlddEvent(reloadMenuRef, 'select', onReload);
   return (
-    <nldd-toolbar size="md" label="Zoeken in het Functiegebouw Rijk">
+    <nldd-toolbar size="md" accessible-label="Zoeken in het Functiegebouw Rijk">
       <nldd-toolbar-item slot="start" priority={3}>
         <nldd-search-field
           ref={searchRef}

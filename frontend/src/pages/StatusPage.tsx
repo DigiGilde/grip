@@ -41,7 +41,7 @@ export function StatusPage({
     // Spinner and heading form one centered block. The inline dialog would
     // put the heading at the top of the page and the spinner in the middle.
     return (
-      <nldd-app-view background="tinted">
+      <nldd-shell background="tinted">
         <nldd-page landmarks="page">
           <nldd-simple-section
             width="480px"
@@ -56,7 +56,7 @@ export function StatusPage({
             </div>
           </nldd-simple-section>
         </nldd-page>
-      </nldd-app-view>
+      </nldd-shell>
     );
   }
 
@@ -64,7 +64,7 @@ export function StatusPage({
   // what you can do. A heading at the top with the message far below it
   // reads as two unrelated things.
   return (
-    <nldd-app-view background="tinted">
+    <nldd-shell background="tinted">
       <nldd-page landmarks="page">
         <nldd-simple-section width="480px" vertical-alignment="center">
           <nldd-container gap="24">
@@ -83,6 +83,6 @@ export function StatusPage({
           </nldd-container>
         </nldd-simple-section>
       </nldd-page>
-    </nldd-app-view>
+    </nldd-shell>
   );
 }

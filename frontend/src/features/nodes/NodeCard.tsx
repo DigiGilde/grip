@@ -96,7 +96,7 @@ export function NodeCard({ item, onOpen, pending, hideReason, action }: NodeCard
 /** Node cards in a responsive grid; the cards of a row are equally high. */
 export function NodeCardGrid({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <nldd-collection layout="grid" item-width="280px" gap="16" role="group" aria-label={label}>
+    <nldd-collection layout="grid" item-min-width="280px" gap="16" role="group" aria-label={label}>
       {children}
     </nldd-collection>
   );

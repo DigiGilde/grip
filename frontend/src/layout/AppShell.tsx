@@ -82,7 +82,7 @@ function NarrowToolbar({
   return (
     <section aria-label={BAR_LABEL}>
       <nldd-container padding="8">
-        <nldd-toolbar label={instanceName}>
+        <nldd-toolbar accessible-label={instanceName}>
           <nldd-toolbar-item slot="start" priority={3}>
             <NavigationMenuButton />
             <MainNavigationOverflow />
@@ -160,7 +160,7 @@ export function AppShell() {
   return (
     <>
       <nldd-skip-link href={`#${MAIN_CONTENT_ID}`} text="Direct naar de inhoud" />
-      <nldd-app-view>
+      <nldd-shell>
         <nldd-bar-split-view>
           <nldd-split-view-pane slot="toolbar-wide" {...FROM_LG}>
             {/* A named region, so the name and the account sit inside a landmark.
@@ -168,7 +168,7 @@ export function AppShell() {
                 document, and a second one is announced twice. */}
             <section aria-label={BAR_LABEL}>
               <nldd-container padding="8">
-                <nldd-toolbar label={instanceName}>
+                <nldd-toolbar accessible-label={instanceName}>
                   <BrandTitle instanceName={instance?.name} />
                   {/* Fluid: the menu bar gets the room that is left and puts what does not fit behind its own button. */}
                   <nldd-toolbar-item slot="start" priority={3} min-width="200px">
@@ -213,7 +213,7 @@ export function AppShell() {
             </nldd-page>
           </nldd-split-view-pane>
         </nldd-bar-split-view>
-      </nldd-app-view>
+      </nldd-shell>
     </>
   );
 }
