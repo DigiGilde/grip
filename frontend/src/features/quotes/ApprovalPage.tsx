@@ -106,9 +106,10 @@ export function ApprovalPage() {
   return (
     <>
       <Page
+        kind="document"
         title={quote ? `Offerte ${quote.assignment_name}` : 'Offerte goedkeuren'}
         instanceName={instance?.name}
-        width="960px"
+       
       >
         {query.isPending ? <Loading /> : null}
         {query.isError && hidden ? (

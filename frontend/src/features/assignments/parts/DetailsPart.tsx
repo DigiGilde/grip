@@ -1,5 +1,3 @@
-import { fetchAssignmentFinance, financeKeys } from '../financeApi';
-import { signalText } from '../financeText';
 import { Facts as FactList, Quiet, Section, Stack } from '@/ui/layout';
 import {
   ROW_ACTIONS_COLUMN,
@@ -23,7 +21,8 @@ import {
   type AssignmentDetail,
 } from '../api';
 import { AssignmentFormSheet } from '../AssignmentFormSheet';
-import { KIND_LABELS, ROLE_LABELS, TRANSITION_LABELS, statusLabel } from '../labels';
+import { AssignmentPartPage } from '../AssignmentPartPage';
+import { KIND_LABELS, ROLE_LABELS, TRANSITION_LABELS, relationText, statusLabel } from '../labels';
 import { useAssignmentShell } from '../shell';
 import { ReadOnlyNote } from '../ReadOnlyNote';
 import { Button, EmptyNotice, ErrorNotice, FormSheet, SelectInput, TextInput } from '../ui';
@@ -259,7 +258,7 @@ function ContextRefs({ assignment }: { assignment: AssignmentDetail }) {
       {canEdit && (
         <div>
           <Button
-            text="Voeg een node toe"
+            text="Voeg context toe"
             onClick={() => {
               setChosen([]);
               setProblem(null);
@@ -284,8 +283,8 @@ function ContextRefs({ assignment }: { assignment: AssignmentDetail }) {
           if (added.length === 0) {
             setProblem(
               chosen.length === 0
-                ? 'Kies een node uit het corpus, of plak een URI en kies "Voeg URI toe".'
-                : 'Deze nodes staan al bij de opdracht.',
+                ? 'Kies een stuk uit de lijst, of plak een URI en kies "Voeg URI toe".'
+                : 'Deze stukken staan al bij de opdracht.',
             );
             return;
           }
@@ -311,8 +310,8 @@ const NEEDS_NOTE = 'verbally_agreed';
 const ENDS_WITHOUT = 'cancelled';
 
 /**
- * The status steps the reader may take, as actions for the bar at the top of
- * the tab, with the sheet for the one step that needs a note.
+ * The status steps the reader may take, as actions under the facts, with the
+ * sheet for the one step that needs a note.
  */
 function useStatusActions(assignment: AssignmentDetail): {
   actions: RowAction[];
@@ -410,41 +409,18 @@ function useStatusActions(assignment: AssignmentDetail): {
   return { actions, problem: noting.open ? null : problem, sheet };
 }
 
-/**
- * The budget differs from the signed quote: said here too, from the same
- * signal as the Financieel tab, so nobody has to find it there.
- */
-function AgreedDifference({ assignmentId }: { assignmentId: string }) {
-  const query = useQuery({
-    queryKey: financeKeys.assignment(assignmentId, 'all'),
-    queryFn: () => fetchAssignmentFinance(assignmentId, 'all'),
-    retry: false,
-  });
-  const signal = query.data?.signals.find((item) => item.kind === 'budget_differs_from_agreed');
-  if (!signal || !query.data) return null;
-  const { variant, text } = signalText(signal, query.data.free_room_threshold_pct);
-  return <nldd-banner variant={variant} size="sm" text={text} />;
-}
-
 /** Who and what the assignment is: parties, people in charge, context. */
-export function OverviewTab() {
-  const assignment = useAssignmentShell();
-  if (!assignment) return null;
-  return <Overview assignment={assignment} />;
-}
-
-function Overview({ assignment }: { assignment: AssignmentDetail }) {
+function Details({ assignment }: { assignment: AssignmentDetail }) {
   const [editing, setEditing] = useState({ open: false, session: 0 });
   const status = useStatusActions(assignment);
   const mayEdit = assignment.permissions.edit_basic;
+  const relation = relationText(assignment.viewer_relations);
   return (
-    <nldd-simple-section>
+    <>
       <Stack gap="section">
         {/* The actions stand under the facts they change, as in every block here. */}
-        <Section title="Gegevens">
-          {assignment.permissions.read_financial && (
-            <AgreedDifference assignmentId={assignment.id} />
-          )}
+        <Stack gap="related">
+          {relation && <Quiet>{relation}</Quiet>}
           {status.problem && <ErrorNotice message={status.problem} />}
           {!mayEdit && <ReadOnlyNote assignment={assignment} what="deze gegevens" />}
           {mayEdit && !assignment.start_date && (
@@ -469,7 +445,7 @@ function Overview({ assignment }: { assignment: AssignmentDetail }) {
               )}
             </nldd-container>
           )}
-        </Section>
+        </Stack>
         <Roles assignment={assignment} />
         <ContextRefs assignment={assignment} />
       </Stack>
@@ -481,6 +457,15 @@ function Overview({ assignment }: { assignment: AssignmentDetail }) {
         onClose={() => setEditing((current) => ({ ...current, open: false }))}
         onSaved={() => setEditing((current) => ({ ...current, open: false }))}
       />
-    </nldd-simple-section>
+    </>
+  );
+}
+
+export function DetailsPart() {
+  const assignment = useAssignmentShell();
+  return (
+    <AssignmentPartPage part="details" kind="document">
+      {assignment && <Details assignment={assignment} />}
+    </AssignmentPartPage>
   );
 }

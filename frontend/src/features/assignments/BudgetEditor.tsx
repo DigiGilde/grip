@@ -1,5 +1,3 @@
-import { useNavigate } from 'react-router-dom';
-import { PATHS } from '@/paths';
 import { ActionBar, type ActionBarAction } from '@/ui/ActionBar';
 import {
   OpenCell,
@@ -8,17 +6,15 @@ import {
   RowActions,
   RowActionsHeader,
 } from '@/ui/RowActions';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
 import { RolePicker } from '@/features/roles';
-import { formatDate, formatEuro, formatFte, formatPeriod } from '@/lib/format';
+import { formatDate, formatEuro, formatPeriod } from '@/lib/format';
 import {
   addBudgetLine,
   assignmentKeys,
-  deleteBudgetLine,
   deriveBudgetLine,
-  fetchAssignment,
   fetchBudget,
   fetchPersonOptions,
   previewBudgetLine,
@@ -29,9 +25,10 @@ import {
   type BudgetLine,
   type BudgetLineInput,
 } from './api';
+import { lineName, lineSummary } from './budget/lineText';
+import { useLineActions } from './budget/useLineActions';
 import {
   effectivePeriod,
-  hasOwnPeriod,
   yearOutsidePeriod,
   checkLine,
   intendedText,
@@ -53,7 +50,6 @@ import {
   categoryText,
   useRateCards,
   useValidRates,
-  type CategoryNamer,
 } from './rateText';
 import {
   Button,
@@ -69,13 +65,14 @@ import { ConflictPanel } from '@/ui/ConflictPanel';
 import { LoadError } from '@/ui/layout';
 import { useStaleRecord } from '@/ui/stale';
 
-function LineSheet({
+export function LineSheet({
   assignmentId,
   line,
   assignment,
   open,
   session,
   onClose,
+  note,
 }: {
   assignmentId: string;
   line?: BudgetLine;
@@ -85,6 +82,8 @@ function LineSheet({
   /** Changes each time the sheet is opened, so the form starts fresh. */
   session: number;
   onClose: () => void;
+  /** What a change means right now, said above the button that saves it. */
+  note?: ReactNode;
 }) {
   const queryClient = useQueryClient();
   const parent = { start: assignment?.start_date, end: assignment?.end_date };
@@ -538,92 +537,29 @@ function LineSheet({
         </nldd-text>
       )}
       {preview.data?.reason && <nldd-text color="secondary">{preview.data.reason}</nldd-text>}
+      {note}
     </FormSheet>
   );
 }
 
-/** A personnel line is named by its role when it has no description of its own. */
-const lineName = (line: BudgetLine) => line.description || line.role || 'Begrotingsregel';
-
 const lower = (text: string) => text.charAt(0).toLowerCase() + text.slice(1);
 
-function lineSummary(line: BudgetLine, name: CategoryNamer, parent?: ParentPeriod): string {
-  if (line.kind === 'fixed') {
-    if (!line.year) return 'Vast bedrag';
-    return yearOutsidePeriod(line, parent)
-      ? `Vast bedrag, ${line.year}: buiten de looptijd`
-      : `Vast bedrag, ${line.year}`;
-  }
-  const parts = [
-    line.fte ? `${formatFte(line.fte)} FTE` : '',
-    line.rate_category ? name(line.rate_category, line.start_date) : '',
-    // Following the assignment is the normal case; only a deviation is said.
-    !parent || hasOwnPeriod(line, parent)
-      ? `afwijkende periode: ${formatPeriod(line.start_date, line.end_date)}`
-      : '',
-  ];
-  return parts.filter(Boolean).join(', ');
-}
-
-/** The budget lines of an assignment, with the computed amounts and a subtotal per year. */
-interface BudgetEditorProps {
-  assignmentId: string;
-  /** Actions of the tab that belong next to the one primary action. */
-  actions?: readonly ActionBarAction[];
-}
-
-export function BudgetEditor({ assignmentId, actions = [] }: BudgetEditorProps) {
-  const queryClient = useQueryClient();
-  const navigate = useNavigate();
-  const [sheet, setSheet] = useState<{ open: boolean; line?: BudgetLine; key: number }>({
-    open: false,
-    key: 0,
-  });
-  const [problem, setProblem] = useState<string | null>(null);
-  const query = useQuery({
-    queryKey: assignmentKeys.budget(assignmentId),
-    queryFn: () => fetchBudget(assignmentId),
-  });
-
-  const remove = useMutation({
-    mutationFn: (lineId: string) => deleteBudgetLine(lineId),
-    onSuccess: (budget) => {
-      queryClient.setQueryData(assignmentKeys.budget(assignmentId), budget);
-      void queryClient.invalidateQueries({ queryKey: ['overview'] });
-      setProblem(null);
-    },
-    onError: (error) => setProblem(errorMessage(error)),
-  });
-
-  // The assignment's period prices every line that follows it.
-  const assignment = useQuery({
-    queryKey: assignmentKeys.detail(assignmentId),
-    queryFn: () => fetchAssignment(assignmentId),
-    retry: false,
-  });
-  const parent = assignment.data
-    ? { start: assignment.data.start_date, end: assignment.data.end_date }
-    : undefined;
-  const rates = useRateCards();
-  const budget = query.data;
-  const lines = budget?.lines ?? [];
-  const showMoney = budget !== undefined && 'total_budgeted_cents' in budget;
-  const canEdit = budget?.can_edit ?? false;
-  const subtotals = Object.entries(budget?.subtotals_by_year ?? {});
+/** What is off about the lines of a budget: no period yet, or an amount outside it. */
+export function BudgetNotices({
+  budget,
+  parent,
+}: {
+  budget: Budget | undefined;
+  parent: ParentPeriod;
+}) {
   // Fixed amounts from before a year had to lie within the assignment's period.
-  const outside = lines.filter((line) => yearOutsidePeriod(line, parent));
-  const openSheet = (line?: BudgetLine) =>
-    setSheet((current) => ({ open: true, line, key: current.key + 1 }));
-
+  const outside = (budget?.lines ?? []).filter((line) => yearOutsidePeriod(line, parent));
   return (
-    <nldd-container gap="24">
-      {query.isPending && <Loading />}
-      {query.isError && <LoadError error={query.error} retry={() => void query.refetch()} />}
-      {problem && <ErrorNotice message={problem} />}
+    <>
       {budget?.period_missing && budget.period_message && (
         <nldd-banner variant="neutral" size="sm" text={budget.period_message} />
       )}
-      {outside.length > 0 && parent && (
+      {outside.length > 0 && (
         <nldd-banner
           variant="warning"
           size="sm"
@@ -634,12 +570,47 @@ export function BudgetEditor({ assignmentId, actions = [] }: BudgetEditorProps) 
           }
           supporting-text={
             `De opdracht loopt ${formatPeriod(parent.start, parent.end)}.` +
-            (canEdit
-              ? ' Open de regel en kies een jaar binnen de looptijd, of wijzig de looptijd op Overzicht.'
+            (budget?.can_edit
+              ? ' Open de regel en kies een jaar binnen de looptijd, of wijzig de looptijd.'
               : '')
           }
         />
       )}
+    </>
+  );
+}
+
+interface BudgetEditorProps {
+  assignment: AssignmentDetail;
+  /** Opens the sheet of a line. */
+  onOpenLine: (line: BudgetLine) => void;
+  /** Actions of the part that stand in the bar. */
+  actions?: readonly ActionBarAction[];
+}
+
+/** The budget lines of an assignment, with the computed amounts and a subtotal per year. */
+export function BudgetEditor({ assignment, onOpenLine, actions = [] }: BudgetEditorProps) {
+  const assignmentId = assignment.id;
+  const query = useQuery({
+    queryKey: assignmentKeys.budget(assignmentId),
+    queryFn: () => fetchBudget(assignmentId),
+  });
+  const { actionsOf, problem } = useLineActions(assignmentId);
+  // The assignment's period prices every line that follows it.
+  const parent = { start: assignment.start_date, end: assignment.end_date };
+  const rates = useRateCards();
+  const budget = query.data;
+  const lines = budget?.lines ?? [];
+  const showMoney = budget !== undefined && 'total_budgeted_cents' in budget;
+  const canEdit = budget?.can_edit ?? false;
+  const subtotals = Object.entries(budget?.subtotals_by_year ?? {});
+
+  return (
+    <nldd-container gap="24">
+      {query.isPending && <Loading />}
+      {query.isError && <LoadError error={query.error} retry={() => void query.refetch()} />}
+      {problem && <ErrorNotice message={problem} />}
+      <BudgetNotices budget={budget} parent={parent} />
       {budget?.pricing_error && (
         <nldd-banner
           variant="warning"
@@ -648,15 +619,7 @@ export function BudgetEditor({ assignmentId, actions = [] }: BudgetEditorProps) 
           supporting-text={budget.pricing_error}
         />
       )}
-      <ActionBar
-        label="Begroting"
-        actions={[
-          ...actions,
-          ...(canEdit
-            ? [{ text: 'Nieuwe begrotingsregel', primary: true, onClick: () => openSheet() }]
-            : []),
-        ]}
-      />
+      <ActionBar label="Begroting" actions={actions} />
       {budget && lines.length === 0 && (
         <EmptyNotice text="Deze opdracht heeft nog geen begrotingsregels" />
       )}
@@ -672,7 +635,7 @@ export function BudgetEditor({ assignmentId, actions = [] }: BudgetEditorProps) 
             {canEdit && <RowActionsHeader />}
           </nldd-table-row>
           {lines.map((line) => (
-            <OpenRow key={line.id} {...(canEdit ? { onOpen: () => openSheet(line) } : {})}>
+            <OpenRow key={line.id} {...(canEdit ? { onOpen: () => onOpenLine(line) } : {})}>
               <OpenCell
                 text={lineName(line)}
                 supportingText={
@@ -682,7 +645,7 @@ export function BudgetEditor({ assignmentId, actions = [] }: BudgetEditorProps) 
                     .join('. ')
                 }
                 {...(canEdit
-                  ? { onOpen: () => openSheet(line), accessibleLabel: `Bewerk ${lineName(line)}` }
+                  ? { onOpen: () => onOpenLine(line), accessibleLabel: `Bewerk ${lineName(line)}` }
                   : {})}
               >
                 {intendedText(line) && <nldd-tag size="sm" text={intendedText(line)} />}
@@ -695,34 +658,7 @@ export function BudgetEditor({ assignmentId, actions = [] }: BudgetEditorProps) 
                   horizontal-alignment="right"
                 />
               )}
-              {canEdit && (
-                <RowActions
-                  name={lineName(line)}
-                  actions={[
-                    ...(line.kind === 'personnel'
-                      ? [
-                          {
-                            text: 'Bekijk inzet',
-                            onSelect: () =>
-                              navigate(`${PATHS.allocations}?opdracht=${assignmentId}`),
-                          },
-                        ]
-                      : []),
-                    {
-                      text: 'Verwijder',
-                      destructive: true,
-                      confirm: {
-                        text: `${lineName(line)} verwijderen?`,
-                        supportingText: line.intended_person_name
-                          ? `De reservering van ${line.intended_person_name} vervalt ook. Een regel met inzet kan niet weg; haal dan eerst de inzet weg.`
-                          : 'Een regel met inzet kan niet weg; haal dan eerst de inzet weg.',
-                        confirmText: 'Verwijder',
-                      },
-                      onSelect: () => remove.mutate(line.id),
-                    },
-                  ]}
-                />
-              )}
+              {canEdit && <RowActions name={lineName(line)} actions={actionsOf(line)} />}
             </OpenRow>
           ))}
           {showMoney &&
@@ -730,14 +666,14 @@ export function BudgetEditor({ assignmentId, actions = [] }: BudgetEditorProps) 
             subtotals.length > 1 &&
             subtotals.map(([year, cents]) => (
               <nldd-table-row key={`year-${year}`}>
-                <nldd-text-cell text={`**Subtotaal ${year}**`} />
+                <nldd-text-cell row-header text={`**Subtotaal ${year}**`} />
                 <nldd-text-cell text={`**${formatEuro(cents)}**`} horizontal-alignment="right" />
                 {canEdit && <nldd-text-cell />}
               </nldd-table-row>
             ))}
           {showMoney && budget?.total_budgeted_cents != null && (
             <nldd-table-row>
-              <nldd-text-cell text="**Totaal begroot**" />
+              <nldd-text-cell row-header text="**Totaal begroot**" />
               <nldd-text-cell
                 text={`**${formatEuro(budget.total_budgeted_cents)}**`}
                 horizontal-alignment="right"
@@ -750,7 +686,7 @@ export function BudgetEditor({ assignmentId, actions = [] }: BudgetEditorProps) 
             // Said only when the signed amount is not the budget's total.
             budget.quoted_amount_cents !== budget.total_budgeted_cents && (
               <nldd-table-row>
-                <nldd-text-cell text="Offertebedrag" />
+                <nldd-text-cell row-header text="Offertebedrag" />
                 <nldd-text-cell
                   text={formatEuro(budget.quoted_amount_cents)}
                   horizontal-alignment="right"
@@ -760,14 +696,6 @@ export function BudgetEditor({ assignmentId, actions = [] }: BudgetEditorProps) 
             )}
         </nldd-table>
       )}
-      <LineSheet
-        session={sheet.key}
-        assignmentId={assignmentId}
-        line={sheet.line}
-        assignment={assignment.data}
-        open={sheet.open}
-        onClose={() => setSheet((current) => ({ ...current, open: false }))}
-      />
     </nldd-container>
   );
 }

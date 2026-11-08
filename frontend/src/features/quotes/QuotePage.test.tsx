@@ -1,6 +1,7 @@
 import { waitFor } from '@testing-library/react';
 import { Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { AssignmentFrameContext } from '@/features/assignments/shell';
 import { renderApp } from '@/test/utils';
 import { QuotePage } from './QuotePage';
 import { clickButton, mockApi, texts } from './testing';
@@ -176,6 +177,12 @@ function primaries(container: HTMLElement): string[] {
 }
 
 describe('QuotePage', () => {
+  it('leaves the heading and the section to the page of the part', async () => {
+    const container = await renderTab({});
+    expect(container.querySelector('h1')).toBeNull();
+    expect(container.querySelector('nldd-simple-section')).toBeNull();
+  });
+
   it('offers to make a quote from the budget when there is none', async () => {
     const container = await renderTab({});
     expect(primaries(container)).toEqual(['Maak offerte']);
@@ -254,8 +261,8 @@ describe('QuotePage', () => {
     expect(title?.getAttribute('text')).toMatch(/^€\s172\.800$/);
     expect(title?.getAttribute('overline')).toBe('Offerte VG-2026-0007');
     expect(texts(container, 'nldd-card nldd-badge')).toEqual(['Offerte gemaakt']);
-    // The steps are the assignment's, in its head: the card draws none.
-    expect(container.querySelector('nldd-step-bar')).toBeNull();
+    // The course is the assignment's, in its head: the card draws none.
+    expect(container.querySelector('[aria-label^="Verloop van"]')).toBeNull();
     expect(container.textContent).toContain('Geldig t/m 31 mrt 2026');
     expect(container.textContent).toContain('Gemaakt op 1 feb 2026 door Opdracht Manager');
     // The one thing to do after making a quote.
@@ -833,5 +840,53 @@ describe('QuotePage', () => {
     expect(lastCalls.slice(before).map((call) => call.url)).not.toContain(
       '/api/quotes/q-1/document',
     );
+  });
+});
+
+describe('QuotePage on an assignment this instance asked for', () => {
+  async function renderAsClient(quotes: object[]) {
+    mockApi({
+      '/api/assignments/a-1/quotes': { may_manage: false, quotes },
+      '/api/assignments/a-1/quote-preview': { ...PREVIEW, may_issue: false },
+    });
+    const frame = {
+      parts: {
+        assignment_id: 'a-1',
+        parts: [],
+        tasks_link: false,
+        is_client: true,
+        own_line: null,
+      },
+      course: null,
+    };
+    const view = renderApp(
+      <AssignmentFrameContext.Provider value={frame}>
+        <Routes>
+          <Route path="/opdrachten/:assignmentId/offerte" element={<QuotePage />} />
+        </Routes>
+      </AssignmentFrameContext.Provider>,
+      { path: '/opdrachten/a-1/offerte' },
+    );
+    await waitFor(() =>
+      expect(view.container.querySelector('nldd-inline-dialog[variant="loading"]')).toBeNull(),
+    );
+    return view.container;
+  }
+
+  it('waits quietly when there is no quote, with no button', async () => {
+    const container = await renderAsClient([]);
+    await waitFor(() =>
+      expect(container.textContent).toContain('Je wacht op de offerte van de opdrachtnemer.'),
+    );
+    expect(container.querySelector('nldd-button')).toBeNull();
+    expect(container.querySelector('nldd-link')).toBeNull();
+  });
+
+  it('leads a quote that came in to where it is judged, with no button of the contractor', async () => {
+    const container = await renderAsClient([QUOTE]);
+    await waitFor(() => expect(container.querySelector('nldd-link')).not.toBeNull());
+    expect(container.querySelector('nldd-link')).toHaveAttribute('href', '/aanvragen/offerte/q-1');
+    expect(container.querySelector('nldd-button')).toBeNull();
+    expect(container.textContent).not.toContain('Nieuwe offerte');
   });
 });

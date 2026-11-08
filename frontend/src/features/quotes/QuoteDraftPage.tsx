@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ApiError, errorMessage } from '@/api/client';
 import { useAuth } from '@/auth/context';
-import { assignmentTabPath } from '@/features/assignments/paths';
+import { assignmentPartPath } from '@/features/assignments/paths';
 import { Button, DateInput, TextInput } from '@/features/assignments/ui';
 import { useInstance } from '@/layout/useInstance';
 import { useRouterLinks } from '@/layout/useRouterLinks';
@@ -153,7 +153,7 @@ function SectionBlock({
               {section.body ? <Prose text={section.body} /> : null}
               {costs}
               <DocumentLink
-                href={assignmentTabPath(assignmentId, 'budget')}
+                href={assignmentPartPath(assignmentId, 'budget')}
                 text="Wijzig de bedragen in de begroting"
               />
             </Stack>
@@ -340,7 +340,7 @@ export function QuoteDraftPage() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['quotes'] });
       await queryClient.invalidateQueries({ queryKey: ['assignments'] });
-      navigate(assignmentTabPath(assignmentId, 'quote'));
+      navigate(assignmentPartPath(assignmentId, 'quote'));
     },
     onError: (failure) => setError(errorMessage(failure)),
   });
@@ -393,10 +393,11 @@ export function QuoteDraftPage() {
   return (
     <div ref={ref}>
       <Page
+        kind="document"
         title={title}
         instanceName={instance?.name}
-        width="960px"
-        back={{ href: assignmentTabPath(assignmentId, 'quote'), text: 'Terug naar de opdracht' }}
+       
+        back={{ href: assignmentPartPath(assignmentId, 'quote'), text: 'Terug naar de opdracht' }}
       >
         {query.isPending ? <Loading /> : null}
         {query.isError && hidden ? (
@@ -461,7 +462,7 @@ export function QuoteDraftPage() {
                 {showsMade ? (
                   <>
                     <nldd-link
-                      href={assignmentTabPath(assignmentId, 'quote')}
+                      href={assignmentPartPath(assignmentId, 'quote')}
                       text="Terug naar de offerte"
                       size="md"
                     />

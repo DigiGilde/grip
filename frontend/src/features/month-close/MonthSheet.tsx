@@ -252,6 +252,7 @@ export function MonthSheet({
       await queryClient.invalidateQueries({ queryKey: ['assignments'] });
       await queryClient.invalidateQueries({ queryKey: ['billing'] });
       await queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      await queryClient.invalidateQueries({ queryKey: ['overview'] });
       onClose();
     },
     onError: (failure) => setError(errorMessage(failure)),
@@ -331,7 +332,7 @@ export function MonthSheet({
     return (
       <FormSheet
         open={month !== null}
-        title={`Klopt dit met wat er in ${name} is gewerkt?`}
+        title={`${name.charAt(0).toUpperCase()}${name.slice(1)} afsluiten`}
         submitText={`Sluit ${name} af`}
         size="wide"
         busy={run.isPending}
@@ -339,6 +340,7 @@ export function MonthSheet({
         onClose={onClose}
         onSubmit={close}
       >
+        <nldd-text>Klopt dit met wat er in {name} is gewerkt?</nldd-text>
         {body}
         {previewNow?.total_cents !== undefined &&
         data?.planned_total_cents !== undefined &&

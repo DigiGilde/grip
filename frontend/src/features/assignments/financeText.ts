@@ -4,6 +4,7 @@ import type { Figures, Signal } from './financeApi';
 
 export const FIGURE_LABELS = {
   budgeted: 'Begroot',
+  realisedEffort: 'Gerealiseerde inzet',
   realised: 'Gerealiseerd',
   planned: 'Nog gepland',
   costs: 'Kosten',
@@ -86,17 +87,6 @@ export function signalText(signal: Signal, thresholdPct: string): SignalText {
         variant: 'critical',
         text: `${signal.count === 1 ? '1 regel kon' : `${signal.count} regels konden`} niet worden berekend. ${signal.description ?? ''}`.trim(),
       };
-    case 'budget_differs_from_agreed': {
-      // Agreed minus budgeted, as the server computed it.
-      const amount = signal.amount_cents ?? 0;
-      return {
-        variant: 'warning',
-        text:
-          amount < 0
-            ? `De begroting is ${formatEuro(Math.abs(amount))} hoger dan de getekende offerte`
-            : `De begroting is ${formatEuro(amount)} lager dan de getekende offerte`,
-      };
-    }
     case 'correction_due': {
       const names = signal.months.map((month) => formatMonth(month).split(' ')[0]);
       const months =

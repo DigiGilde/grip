@@ -1,14 +1,14 @@
-import { Fragment, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useNlddEvent } from '@/components/nldd/events';
-import { Button } from '@/features/assignments/ui';
+import { fetchAssignmentFinance, financeKeys } from '@/features/assignments/financeApi';
 import { useAssignmentShell } from '@/features/assignments/shell';
+import { Button } from '@/features/assignments/ui';
+import { WHOLE_PERIOD } from '@/features/overview/years';
 import { useCaseCourse } from '@/features/tasks/course';
 import { courseLine } from '@/ui/course';
 import { formatDate, formatEuro } from '@/lib/format';
-import { useInstance } from '@/layout/useInstance';
-import { PageHeading } from '@/pages/PageHeading';
 import {
   OpenRow,
   RowActions,
@@ -17,6 +17,7 @@ import {
   RowActionsHeader,
 } from '@/ui/RowActions';
 import { EmptyNotice, LoadError, Loading, Quiet, Stack } from '@/ui/layout';
+import { usePrimaryTaken } from '@/ui/primary';
 import { Invoices } from './BillingSection';
 import { billingKey, fetchBillingStatus } from './api';
 import {
@@ -28,6 +29,7 @@ import {
   type BillingPeriod,
   type PeriodMonth,
 } from './billingApi';
+import { BillingFigures } from './BillingFigures';
 import { DeliverSheet, PeriodInvoiceSheet, TermsSheet } from './BillingSheets';
 import { MonthSheet } from './MonthSheet';
 import { INVOICE_PARAM, MONTH_PARAM, PERIOD_PARAM, monthsFromParam } from './paths';
@@ -44,7 +46,9 @@ import {
 } from './periodText';
 
 const COLUMNS = `minmax(200px,2fr) 210px minmax(180px,2fr) minmax(120px,1fr) ${ROW_ACTIONS_COLUMN}`;
-const NARROW_COLUMNS = `minmax(140px,1fr) minmax(100px,auto) ${ROW_ACTIONS_COLUMN}`;
+const NARROW_COLUMNS = `minmax(96px,1fr) max-content max-content ${ROW_ACTIONS_COLUMN}`;
+const COLUMNS_WITHOUT_AMOUNT = `minmax(200px,2fr) 210px minmax(180px,2fr) ${ROW_ACTIONS_COLUMN}`;
+const NARROW_COLUMNS_WITHOUT_AMOUNT = `minmax(96px,1fr) max-content ${ROW_ACTIONS_COLUMN}`;
 
 function euro(cents: number | null | undefined): string {
   return cents === null || cents === undefined ? '' : formatEuro(cents);
@@ -68,17 +72,19 @@ interface NowProps {
 }
 
 /**
- * The work of the step the head of the assignment names. It is the first
- * thing on the tab and carries the only accent: its button. With nothing due it says so, and
- * names when the next thing comes.
+ * The work of the step when the head does not carry it. It carries the only
+ * accent: its button. With nothing due it says so, and names when the next
+ * thing comes.
  */
 function Now({ overview, onAct }: NowProps) {
+  const headHasIt = usePrimaryTaken();
   const step = overview.next_step;
   const may =
     (step.kind === 'close_month' && overview.may_close) ||
     (step.kind === 'deliver' && overview.may_deliver) ||
     (step.kind === 'record_invoice' && overview.may_record_invoice);
   const waiting = step.kind !== 'none' && !may;
+  if (headHasIt) return null;
   if (waiting) {
     // Someone who cannot act gets no call to act: what is open, and who can.
     const period = step.period_label ? periodName(step.period_label, true) : 'De periode';
@@ -104,7 +110,6 @@ function Now({ overview, onAct }: NowProps) {
       accessible-label={step.kind === 'none' ? 'Stand' : stepTitle(step)}
     >
       <nldd-container padding="24" gap="16">
-        {/* The head of the assignment says what to do now; this is the work. */}
         <nldd-title
           size={3}
           heading-level={2}
@@ -121,27 +126,37 @@ function Now({ overview, onAct }: NowProps) {
   );
 }
 
-/** Three small figures over the whole assignment; one that says nothing is left out. */
-function Figures({ overview }: { overview: BillingOverview }) {
-  const figures = [
-    { label: 'Afgesloten', cents: overview.closed_cents },
-    { label: 'Aangeleverd', cents: overview.delivered_cents },
-    { label: 'Gefactureerd', cents: overview.invoiced_cents },
-  ].filter((figure) => figure.cents);
-  if (figures.length === 0) return null;
-  return (
-    <nldd-text size="sm" color="secondary">
-      {figures.map((figure, index) => (
-        <Fragment key={figure.label}>
-          {index > 0 ? ' · ' : ''}
-          {figure.label} <strong>{euro(figure.cents)}</strong>
-        </Fragment>
-      ))}
-    </nldd-text>
-  );
+/** What the months of the periods still ask, and how an assignment that bills does that. */
+function periodsLine(overview: BillingOverview, bills: boolean): string {
+  const { terms } = overview;
+  const client = terms.details?.organisation ?? overview.client_name;
+  const toClose = overview.periods
+    .flatMap((period) => period.months)
+    .filter((month) => month.state === 'to_close').length;
+  const upcoming = overview.upcoming_count;
+  const upcomingUnit =
+    terms.rhythm === 'quarter'
+      ? upcoming === 1
+        ? 'kwartaal'
+        : 'kwartalen'
+      : upcoming === 1
+        ? 'maand'
+        : 'maanden';
+  return [
+    bills
+      ? `Factureren ${RHYTHM_TEXT[terms.rhythm]}${client && terms.details ? `, factuur aan ${client}` : ''}`
+      : null,
+    toClose > 0 ? `${toClose} ${toClose === 1 ? 'maand' : 'maanden'} af te sluiten` : null,
+    upcoming > 0
+      ? `Nog ${upcoming} ${upcomingUnit} te gaan, t/m ${overview.upcoming_until ?? ''}`
+      : null,
+  ]
+    .filter(Boolean)
+    .map((sentence) => `${sentence}.`)
+    .join(' ');
 }
 
-/** A link in a sentence that acts in place instead of leaving the page. */
+/** A link that acts in place instead of leaving the page. */
 function InlineAction({ text, onAct }: { text: string; onAct: () => void }) {
   const ref = useRef<HTMLElement>(null);
   useNlddEvent(ref, 'click', (event) => {
@@ -159,6 +174,8 @@ interface PeriodRowsProps {
   /** Whose move the period is, from its course; the last step when nobody's. */
   whose: string;
   expanded: boolean;
+  /** False for who may not read amounts: the column is left out. */
+  showAmount: boolean;
   onToggle: () => void;
   onMonth: (month: string) => void;
   /** Open a closed month at the question whether to reopen it. */
@@ -178,6 +195,7 @@ function PeriodRows({
   isNext,
   whose,
   expanded,
+  showAmount,
   onToggle,
   onMonth,
   onReopen,
@@ -218,6 +236,8 @@ function PeriodRows({
   }
   const amount = periodAmount(period);
   const done = period.state === 'invoiced';
+  const amountIsClosed =
+    period.state !== 'invoiced' && period.state !== 'delivered' && period.state !== 'ready';
   const open = single ? () => onMonth(period.months[0]?.month ?? '') : onToggle;
   return (
     <>
@@ -227,7 +247,7 @@ function PeriodRows({
           {...(period.months.length > 1 ? { 'supporting-text': period.span } : {})}
           {...(done ? { color: 'secondary' } : {})}
         />
-        <nldd-cell hide-below="md">
+        <nldd-cell>
           <nldd-badge
             color={isNext ? PERIOD_STATE_COLOR[period.state] : 'neutral'}
             text={periodStateText(period)}
@@ -239,19 +259,14 @@ function PeriodRows({
           color="secondary"
           text={whose || periodLine(period)}
         />
-        <nldd-text-cell
-          horizontal-alignment="right"
-          text={amount ? `**${euro(amount)}**` : ''}
-          {...(done ? { color: 'secondary' } : {})}
-          hide-above="sm"
-          supporting-text={periodStateText(period)}
-        />
-        <nldd-text-cell
-          hide-below="md"
-          horizontal-alignment="right"
-          text={amount ? `**${euro(amount)}**` : ''}
-          {...(done ? { color: 'secondary' } : {})}
-        />
+        {showAmount && (
+          <nldd-text-cell
+            horizontal-alignment="right"
+            text={amount ? `**${euro(amount)}**` : ''}
+            {...(amount && amountIsClosed ? { 'supporting-text': 'afgesloten' } : {})}
+            {...(done ? { color: 'secondary' } : {})}
+          />
+        )}
         <RowActions name={period.label} actions={actions} />
       </OpenRow>
       {expanded && !single
@@ -264,14 +279,16 @@ function PeriodRows({
                   </nldd-text>
                 </nldd-container>
               </nldd-cell>
-              <nldd-cell hide-below="md" />
+              <nldd-cell />
               <nldd-text-cell hide-below="md" size="sm" color="secondary" text={monthLine(month)} />
-              <nldd-text-cell
-                size="sm"
-                color="secondary"
-                horizontal-alignment="right"
-                text={euro(month.amount_cents)}
-              />
+              {showAmount && (
+                <nldd-text-cell
+                  size="sm"
+                  color="secondary"
+                  horizontal-alignment="right"
+                  text={euro(month.amount_cents)}
+                />
+              )}
               <nldd-cell />
             </OpenRow>
           ))
@@ -284,24 +301,33 @@ function PeriodRows({
  * Closing and billing of one assignment. Two acts with their own rhythm:
  * a month is settled soon after it ends; a billing period, a month or a
  * quarter by the agreement, goes to the financial administration once all
- * its months are settled. The tab leads with the one thing to do now, shows
- * the periods as the course, and keeps months and people for on demand.
+ * its months are settled. The part leads with where billing stands and the one
+ * thing to do now, shows the periods as the course, and keeps months and people
+ * for on demand.
  */
 export function MonthClosePage() {
   const { assignmentId = '' } = useParams();
-  const shell = useAssignmentShell();
   // Each period has its own course (afsluiten, aanleveren, factuur), from the
   // same facts as the tasks: a row says whose move it is in the same words.
   const parts = useCaseCourse('assignment', assignmentId).data?.parts ?? [];
   const whoseOf = (key: string) =>
     courseLine(parts.find((part) => part.subject === 'billing_period' && part.subject_key === key))
       ?.who ?? '';
-  const instance = useInstance();
   const [searchParams, setSearchParams] = useSearchParams();
 
+  const assignment = useAssignmentShell();
+  // Internal work is closed month by month and has no invoices.
+  const bills = assignment?.kind !== 'internal';
   const overview = useQuery({
     queryKey: billingOverviewKey(assignmentId),
     queryFn: () => fetchBillingOverview(assignmentId),
+  });
+  const figures = useQuery({
+    queryKey: financeKeys.assignment(assignmentId, WHOLE_PERIOD),
+    queryFn: () => fetchAssignmentFinance(assignmentId, WHOLE_PERIOD),
+    // Nobody else asks: the server would refuse who may not read the money.
+    enabled: assignment?.kind === 'external' && assignment.permissions.read_financial,
+    select: (finance) => finance.key_figures,
   });
   const data = overview.data;
   const started = data?.closing_started ?? false;
@@ -325,7 +351,7 @@ export function MonthClosePage() {
     else next.set(name, value);
     setSearchParams(next, { replace: true });
   };
-  const month = searchParams.get(MONTH_PARAM);
+  const askedMonth = searchParams.get(MONTH_PARAM);
   // An address can ask for a step: a period to deliver, months to invoice.
   const periodFromAddress = searchParams.get(PERIOD_PARAM);
   const invoiceMonths = monthsFromParam(searchParams.get(INVOICE_PARAM));
@@ -335,6 +361,21 @@ export function MonthClosePage() {
   const find = (key: string | null) => periods.find((period) => period.key === key) ?? null;
   const periodOfMonth = (wanted: string | null | undefined) =>
     periods.find((period) => period.months.some((entry) => entry.month === wanted)) ?? null;
+  const month = periodOfMonth(askedMonth) ? askedMonth : null;
+  // A month that is in no period opens nothing; the address drops it once the periods are known.
+  const unknownMonth = askedMonth !== null && data !== undefined && month === null;
+  useEffect(() => {
+    if (unknownMonth) {
+      setSearchParams(
+        (now) => {
+          const next = new URLSearchParams(now);
+          next.delete(MONTH_PARAM);
+          return next;
+        },
+        { replace: true },
+      );
+    }
+  }, [unknownMonth, setSearchParams]);
   // Open by default: only the period the next step is in.
   const current =
     step?.period_key ?? periodOfMonth(step?.month)?.key ?? periods.at(-1)?.key ?? null;
@@ -352,51 +393,48 @@ export function MonthClosePage() {
     delivering ?? (periodFromAddress && data?.may_deliver ? periodFromAddress : null);
   const deliverTarget = find(deliverKey);
   const invoiceTarget = find(invoicing ?? invoiceFromAddress);
-  const title = data
-    ? `Afsluiten en factureren ${data.assignment_name}`
-    : 'Afsluiten en factureren';
   const invoices = status.data?.invoices ?? [];
-  const client = data?.terms.details?.organisation ?? data?.client_name;
+  const line = data ? periodsLine(data, bills) : '';
+  const showAmount = assignment?.permissions.read_financial ?? false;
 
   return (
     <>
-      <nldd-simple-section>
-        {/* Inside the tabs of an assignment the shell shows the name and the way back. */}
-        {shell ? null : <PageHeading text={title} instanceName={instance?.name} />}
-        {overview.isPending ? <Loading /> : null}
-        {overview.isError ? (
-          <LoadError error={overview.error} retry={() => void overview.refetch()} />
-        ) : null}
-        {data && !started ? (
-          <EmptyNotice text="Maanden afsluiten kan zodra er een akkoord is" />
-        ) : null}
-        {data && started && periods.length === 0 && data.upcoming_count === 0 ? (
-          <EmptyNotice
-            text="Deze opdracht heeft nog geen maanden"
-            supportingText="Geef de opdracht een periode of zet iemand in."
-          />
-        ) : null}
+      {overview.isPending || figures.isLoading ? <Loading /> : null}
+      {overview.isError ? (
+        <LoadError error={overview.error} retry={() => void overview.refetch()} />
+      ) : null}
+      {data && !started ? (
+        <EmptyNotice text="Maanden afsluiten kan zodra er een akkoord is" />
+      ) : null}
+      {data && started && periods.length === 0 && data.upcoming_count === 0 ? (
+        <EmptyNotice
+          text="Deze opdracht heeft nog geen maanden"
+          supportingText="Geef de opdracht een periode of zet iemand in."
+        />
+      ) : null}
 
-        {data && started && (periods.length > 0 || data.upcoming_count > 0) ? (
-          <Stack gap="section">
+      {data && !figures.isLoading && started && (periods.length > 0 || data.upcoming_count > 0) ? (
+        <Stack gap="section">
+          <Stack gap="group">
+            {figures.data ? <BillingFigures figures={figures.data} /> : null}
             <Now overview={data} onAct={act} />
-
             <Stack gap="related">
-              <Stack gap="tight">
-                <nldd-title size={4} heading-level={2} text="Perioden" />
-                <Figures overview={data} />
-              </Stack>
+              {line ? (
+                <nldd-text color="secondary" data-periods-line>
+                  {line}
+                </nldd-text>
+              ) : null}
               {periods.length > 0 ? (
                 <nldd-table
                   accessible-label="Perioden van de opdracht"
-                  columns={COLUMNS}
-                  sm-columns={NARROW_COLUMNS}
+                  columns={showAmount ? COLUMNS : COLUMNS_WITHOUT_AMOUNT}
+                  sm-columns={showAmount ? NARROW_COLUMNS : NARROW_COLUMNS_WITHOUT_AMOUNT}
                 >
                   <nldd-table-row slot="header">
                     <nldd-text-cell text="Periode" />
-                    <nldd-text-cell hide-below="md" text="Stand" />
+                    <nldd-text-cell text="Stand" />
                     <nldd-text-cell hide-below="md" text="Stap" />
-                    <nldd-text-cell text="Bedrag" horizontal-alignment="right" />
+                    {showAmount && <nldd-text-cell text="Bedrag" horizontal-alignment="right" />}
                     <RowActionsHeader />
                   </nldd-table-row>
                   {periods.map((period) => (
@@ -407,6 +445,7 @@ export function MonthClosePage() {
                         isNext={period.key === current && data.next_step.kind !== 'none'}
                         whose={whoseOf(period.key)}
                         expanded={isExpanded(period.key)}
+                        showAmount={showAmount}
                         onToggle={() =>
                           setToggled((now) => ({ ...now, [period.key]: !isExpanded(period.key) }))
                         }
@@ -423,46 +462,38 @@ export function MonthClosePage() {
                       />
                     </Fragment>
                   ))}
+                  {showAmount && data.closed_cents ? (
+                    <nldd-table-row>
+                      <nldd-text-cell row-header text="**Totaal afgesloten**" />
+                      <nldd-cell />
+                      <nldd-text-cell hide-below="md" text="" />
+                      <nldd-text-cell
+                        horizontal-alignment="right"
+                        text={`**${euro(data.closed_cents)}**`}
+                      />
+                      <nldd-cell />
+                    </nldd-table-row>
+                  ) : null}
                 </nldd-table>
               ) : null}
-              <nldd-text size="sm" color="secondary">
-                {[
-                  data.upcoming_count > 0
-                    ? `Nog ${data.upcoming_count} ${
-                        data.terms.rhythm === 'quarter'
-                          ? data.upcoming_count === 1
-                            ? 'kwartaal'
-                            : 'kwartalen'
-                          : data.upcoming_count === 1
-                            ? 'maand'
-                            : 'maanden'
-                      } te gaan, t/m ${data.upcoming_until ?? ''}`
-                    : null,
-                  `Factureren ${RHYTHM_TEXT[data.terms.rhythm]}`,
-                  client && data.terms.details ? `factuur aan ${client}` : null,
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}
-                {data.may_edit_terms ? (
-                  <>
-                    {' · '}
-                    <InlineAction text="Wijzig factuurafspraken" onAct={() => setTerms(true)} />
-                  </>
-                ) : null}
-              </nldd-text>
+              {data.may_edit_terms && bills ? (
+                <div>
+                  <InlineAction text="Wijzig factuurafspraken" onAct={() => setTerms(true)} />
+                </div>
+              ) : null}
             </Stack>
-
-            {status.data && invoices.length > 0 ? (
-              <Invoices
-                assignmentId={assignmentId}
-                status={status.data}
-                recordFor={correcting}
-                onRecordDone={() => setCorrecting(null)}
-              />
-            ) : null}
           </Stack>
-        ) : null}
-      </nldd-simple-section>
+
+          {status.data && invoices.length > 0 ? (
+            <Invoices
+              assignmentId={assignmentId}
+              status={status.data}
+              recordFor={correcting}
+              onRecordDone={() => setCorrecting(null)}
+            />
+          ) : null}
+        </Stack>
+      ) : null}
 
       <MonthSheet
         assignmentId={assignmentId}

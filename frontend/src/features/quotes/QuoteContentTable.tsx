@@ -33,12 +33,71 @@ function periodText(line: QuoteLine): string {
   return formatPeriod(line.start_date, line.end_date);
 }
 
+/** What a line says under its name when the columns in between are folded into it. */
+function detailLine(line: QuoteLine): string {
+  const rate = rateCell(line);
+  return [
+    line.kind === 'personnel' ? `${formatFte(line.fte)} FTE` : '',
+    periodText(line),
+    line.kind === 'personnel' ? scaleText(line) : '',
+    rate.text ? `${rate.text} per maand` : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
+
+/**
+ * Description and amount only, the rest under the name: for a table that
+ * stands in a reading column, where the full set of columns does not fit.
+ */
+function CompactTable({ content, label }: { content: QuoteContent; label: string }) {
+  const showSubtotals = content.subtotals_per_year.length > 1;
+  return (
+    <nldd-table accessible-label={label} columns="minmax(140px,1fr) minmax(90px,auto)">
+      <nldd-table-row slot="header">
+        <nldd-text-cell text="Omschrijving" />
+        <nldd-text-cell text="Bedrag" horizontal-alignment="right" />
+      </nldd-table-row>
+      {content.lines.map((line) => (
+        <nldd-table-row key={line.position}>
+          <nldd-text-cell text={line.description} supporting-text={detailLine(line)} />
+          <nldd-text-cell text={formatEuro(line.amount_cents)} horizontal-alignment="right" />
+        </nldd-table-row>
+      ))}
+      {showSubtotals
+        ? content.subtotals_per_year.map((subtotal) => (
+            <nldd-table-row key={`subtotal-${subtotal.year}`}>
+              <nldd-text-cell text={`Subtotaal ${subtotal.year}`} />
+              <nldd-text-cell
+                text={formatEuro(subtotal.amount_cents)}
+                horizontal-alignment="right"
+              />
+            </nldd-table-row>
+          ))
+        : null}
+      <nldd-table-row>
+        <nldd-title-cell text="Totaal" />
+        <nldd-text-cell text={formatEuro(content.total_cents)} horizontal-alignment="right" />
+      </nldd-table-row>
+    </nldd-table>
+  );
+}
+
 /**
  * The lines of a quote with subtotals per year and the total. Used for the
- * preview, for an issued quote and for what a signer sees, so all three show
- * the same columns in the same order.
+ * preview, for an issued quote and for what a signer sees. `compact` keeps
+ * only description and amount.
  */
-export function QuoteContentTable({ content, label }: { content: QuoteContent; label: string }) {
+export function QuoteContentTable({
+  content,
+  label,
+  compact,
+}: {
+  content: QuoteContent;
+  label: string;
+  compact?: boolean;
+}) {
+  if (compact) return <CompactTable content={content} label={label} />;
   const showSubtotals = content.subtotals_per_year.length > 1;
   return (
     <nldd-table
@@ -69,14 +128,7 @@ export function QuoteContentTable({ content, label }: { content: QuoteContent; l
             <nldd-text-cell
               hide-above="sm"
               text={line.description}
-              supporting-text={[
-                line.kind === 'personnel' ? `${formatFte(line.fte)} FTE` : '',
-                periodText(line),
-                line.kind === 'personnel' ? scaleText(line) : '',
-                rate.text ? `${rate.text} per maand` : '',
-              ]
-                .filter(Boolean)
-                .join(' · ')}
+              supporting-text={detailLine(line)}
             />
             <nldd-text-cell
               hide-below="md"

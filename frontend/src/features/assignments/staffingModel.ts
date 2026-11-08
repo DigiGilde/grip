@@ -154,6 +154,7 @@ export function staffingRows(
         lane: 0,
         closedSpan: 0,
         label: `${formatFte(gap.open_fte)} FTE open`,
+        shortLabel: formatFte(gap.open_fte),
         description: `open: ${formatFte(gap.open_fte)} FTE niet ingevuld, ${formatMonth(gap.start)} t/m ${formatMonth(gap.end)}`,
         variant: 'open',
         data: { gap },

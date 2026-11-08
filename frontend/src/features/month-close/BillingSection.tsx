@@ -155,15 +155,19 @@ export function Invoices({ assignmentId, status, recordFor, onRecordDone }: Invo
     setDialog(null);
     onRecordDone();
   };
+  const refreshAround = async () => {
+    await queryClient.invalidateQueries({ queryKey: ['assignments'] });
+    await queryClient.invalidateQueries({ queryKey: ['overview'] });
+    await queryClient.invalidateQueries({ queryKey: ['reports'] });
+    await queryClient.invalidateQueries({ queryKey: ['tasks'] });
+  };
   const run = useMutation({
     mutationFn: (action: () => Promise<BillingStatus>) => action(),
     onSuccess: async (updated) => {
       queryClient.setQueryData(billingKey(assignmentId), updated);
       setFormError(null);
       close();
-      await queryClient.invalidateQueries({ queryKey: ['assignments'] });
-      await queryClient.invalidateQueries({ queryKey: ['reports'] });
-      await queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      await refreshAround();
     },
     onError: (failure) => setFormError(errorMessage(failure)),
   });
@@ -222,9 +226,7 @@ export function Invoices({ assignmentId, status, recordFor, onRecordDone }: Invo
       queryClient.setQueryData(billingKey(assignmentId), updated);
       setFormError(null);
       close();
-      await queryClient.invalidateQueries({ queryKey: ['assignments'] });
-      await queryClient.invalidateQueries({ queryKey: ['reports'] });
-      await queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      await refreshAround();
     },
     onError: setFormError,
     onTakeTheirs: close,

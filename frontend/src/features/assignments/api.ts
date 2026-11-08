@@ -222,6 +222,7 @@ export const assignmentKeys = {
     query ? (['assignments', 'list', query] as const) : (['assignments', 'list'] as const),
   detail: (id: string) => ['assignments', 'detail', id] as const,
   budget: (id: string) => ['assignments', 'budget', id] as const,
+  parts: (id: string) => ['assignments', 'parts', id] as const,
   organisations: ['organisations'] as const,
   personOptions: ['person-options'] as const,
   judgeOptions: ['person-options', 'judging'] as const,

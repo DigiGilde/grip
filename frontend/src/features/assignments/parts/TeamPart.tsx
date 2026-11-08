@@ -38,7 +38,8 @@ import {
   staffingSentence,
   type RoleBarData,
 } from '../staffingModel';
-import { assignmentTabPath } from '../paths';
+import { AssignmentPartPage } from '../AssignmentPartPage';
+import { assignmentPartPath } from '../paths';
 import { ownersText } from '../steps';
 import { Button, Loading } from '../ui';
 
@@ -66,9 +67,9 @@ type Bar = TimelineBar<RoleBarData>;
 /**
  * Per role what is asked (the frame), who fills it (the bars) and what is
  * still open (the dashed stretch). No amounts here at all: a planner and an
- * owner see the same picture, and money has its own tab.
+ * owner see the same picture, and money has its own part.
  */
-export function StaffingTab() {
+function Team() {
   const assignment = useAssignmentShell();
   const assignmentId = assignment?.id ?? '';
   const [sheet, setSheet] = useState<SheetState>({ open: false, session: 0 });
@@ -212,7 +213,7 @@ export function StaffingTab() {
         ? [
             {
               text: 'Wijzig de rol in de begroting',
-              onSelect: () => navigate(assignmentTabPath(assignment.id, 'budget')),
+              onSelect: () => navigate(assignmentPartPath(assignment.id, 'budget')),
             },
           ]
         : []),
@@ -222,11 +223,11 @@ export function StaffingTab() {
   const selectedMonth = selected ? months[selected.column] : undefined;
 
   return (
-    <nldd-simple-section>
+    <>
       <nldd-container gap="24">
         {staffing && hasRoles && seesTime && (
           <Stack gap="related">
-            {/* The state in one sentence: the first thing on the tab. */}
+            {/* The state in one sentence: the first thing on the part. */}
             <nldd-title size={5} heading-level={2} text={staffingSentence(staffing)} />
             {/* Attention only when there is something: who, when and how much. */}
             {overbookedSignals(staffing).length > 0 && (
@@ -238,7 +239,7 @@ export function StaffingTab() {
                     text: `${signal.text}.`,
                     tone: 'critical' as const,
                     ...(signal.personId
-                      ? { href: PATHS.teamPerson.replace(':personId', signal.personId) }
+                      ? { href: PATHS.person.replace(':personId', signal.personId) }
                       : {}),
                   }))}
                 />
@@ -248,11 +249,11 @@ export function StaffingTab() {
         )}
         {hasRoles && seesTime && (
           <ActionBar
-            label="Bemensing"
+            label="Team"
             actions={[
               {
-                text: 'Bekijk op het bord Inzet',
-                href: `${PATHS.allocations}?opdracht=${assignment.id}`,
+                text: 'Bekijk op het bord',
+                href: `${PATHS.peopleBoard}?opdracht=${assignment.id}`,
               },
               ...(canEdit
                 ? [{ text: 'Nieuwe inzet', onClick: () => openSheet({}), primary: true }]
@@ -263,7 +264,7 @@ export function StaffingTab() {
         {!canEdit && (
           <ReadOnlyNote
             assignment={assignment}
-            what="de bemensing"
+            what="het team"
             others=", een manager of een planner"
           />
         )}
@@ -292,7 +293,7 @@ export function StaffingTab() {
                 slot="actions"
                 appearance="primary"
                 text="Maak de begroting"
-                onClick={() => navigate(assignmentTabPath(assignment.id, 'budget'))}
+                onClick={() => navigate(assignmentPartPath(assignment.id, 'budget'))}
               />
             )}
           </nldd-inline-dialog>
@@ -319,7 +320,7 @@ export function StaffingTab() {
           <>
             <RouterLinks>
               <Timeline
-                label={`Bemensing per rol, ${formatMonth(first)} t/m ${formatMonth(last)}`}
+                label={`Team per rol, ${formatMonth(first)} t/m ${formatMonth(last)}`}
                 rowHeader="Rol"
                 months={months}
                 currentMonth={staffing.current_month}
@@ -391,6 +392,14 @@ export function StaffingTab() {
         closedMonths={sheet.closedMonths}
         onClose={() => setSheet((current) => ({ ...current, open: false }))}
       />
-    </nldd-simple-section>
+    </>
+  );
+}
+
+export function TeamPart() {
+  return (
+    <AssignmentPartPage part="team" kind="worksheet">
+      <Team />
+    </AssignmentPartPage>
   );
 }

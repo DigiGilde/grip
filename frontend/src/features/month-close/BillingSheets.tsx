@@ -39,6 +39,7 @@ function useRefresh(assignmentId: string) {
     await queryClient.invalidateQueries({ queryKey: ['billing'] });
     await queryClient.invalidateQueries({ queryKey: ['assignments'] });
     await queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    await queryClient.invalidateQueries({ queryKey: ['overview'] });
   };
 }
 
@@ -273,7 +274,7 @@ export function DeliverSheet({ overview, period, onClose }: DeliverSheetProps) {
       </Stack>
       {asked ? (
         <>
-          <nldd-title size={5} heading-level={2} text="Waar gaat de factuur heen?" />
+          <nldd-title size={5} heading-level={2} text="Adres voor de factuur" />
           <DetailFields
             keys={ADDRESS_KEYS}
             details={details}
