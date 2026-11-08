@@ -1,11 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { formatPeriod } from '@/lib/format';
 import { useInstance } from '@/layout/useInstance';
-import { ActionBar } from '@/ui/ActionBar';
 import { VACANCY_KEYS, fetchOpenRoles, type OpenRole } from './api';
 import { publishedOrigin, scaleAndFte } from './labels';
 import { Paragraphs } from './ui';
-import { useVacancyViewFilter } from './views';
+import { vacancyViewTabs } from './views';
 import { EmptyNotice, LoadError, Loading, Page, Quiet, Section, Stack } from '@/ui/layout';
 
 function roleFacts(role: OpenRole): string {
@@ -19,17 +18,20 @@ function roleFacts(role: OpenRole): string {
 }
 
 /**
- * The view "Open rollen" of the Vacatures page: published vacancies with
+ * The view "Opengesteld" of the Vacatures page: published vacancies with
  * their established text, for every person of the instance.
  */
-export function OpenRolesPage() {
+export function PublishedPage() {
   const instance = useInstance();
   const roles = useQuery({ queryKey: VACANCY_KEYS.openRoles, queryFn: fetchOpenRoles });
-  const viewFilter = useVacancyViewFilter('open');
 
   return (
-    <Page title="Vacatures" instanceName={instance?.name}>
-      <ActionBar label="Weergave van de vacatures" filters={[viewFilter]} actions={[]} />
+    <Page
+      kind="list"
+      title="Vacatures"
+      instanceName={instance?.name}
+      tabs={vacancyViewTabs('published')}
+    >
       {roles.isPending && <Loading />}
       {roles.isError && <LoadError error={roles.error} retry={() => void roles.refetch()} />}
       {roles.data?.length === 0 && <EmptyNotice text="Er staan nu geen rollen open" />}

@@ -21,7 +21,6 @@ import '@nldd/design-system/multi-line-text-field';
 import '@nldd/design-system/rich-text';
 import '@nldd/design-system/sheet';
 import '@nldd/design-system/spacer';
-import '@nldd/design-system/step-bar';
 import '@nldd/design-system/spacer-cell';
 import '@nldd/design-system/tag';
 import '@nldd/design-system/text';

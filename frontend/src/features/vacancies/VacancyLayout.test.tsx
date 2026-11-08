@@ -1,12 +1,18 @@
-import { screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PATHS } from '@/paths';
 import { renderApp } from '@/test/utils';
 import type { TextVersion, Vacancy, VacancyHire, VacancyOptions } from './api';
-import { VACANCY_TAB_SEGMENTS } from './paths';
-import { visibleTabs } from './shell';
-import { DecisionsTab, FulfilmentTab, ProcedureTab, RequestTab, TextTab } from './tabs/VacancyTabs';
+import { VACANCY_PART_SEGMENTS } from './paths';
+import { DecisionsPart } from './parts/DecisionsPart';
+import { DetailsPart } from './parts/DetailsPart';
+import { FulfilmentPart } from './parts/FulfilmentPart';
+import { RequestPart } from './parts/RequestPart';
+import { TasksPart } from './parts/TasksPart';
+import { TextPart } from './parts/TextPart';
+import type { VacancyPart } from './partsApi';
+import { VacancyLanding } from './VacancyLanding';
 import { VacancyLayout } from './VacancyLayout';
 
 const OPTIONS: VacancyOptions = {
@@ -164,9 +170,29 @@ function stubApi(routes: Record<string, unknown>) {
   );
 }
 
-function renderVacancy(vacancy: Vacancy, tab = '', extra: Record<string, unknown> = {}) {
+const part = (
+  key: VacancyPart['key'],
+  label: string,
+  state: VacancyPart['state'] = null,
+  notice: string | null = null,
+): VacancyPart => ({ key, label, state, notice });
+
+const REQUEST = part('request', 'Aanvraag', 'done');
+const DECISIONS = part('decisions', 'Advies en akkoord', 'waiting', 'Wacht op Fictief Directielid');
+const TEXT = part('text', 'Tekst en openstellen', 'future');
+const FULFILMENT = part('fulfilment', 'Vervullen', 'future');
+const DETAILS = part('details', 'Gegevens');
+const HISTORY = part('history', 'Geschiedenis');
+const ALL_PARTS = [REQUEST, DECISIONS, TEXT, FULFILMENT, DETAILS, HISTORY];
+
+const partsAre = (parts: VacancyPart[], tasksLink = true, id = 'v-1') => ({
+  [`/api/vacancies/${id}/parts`]: { vacancy_id: id, parts, tasks_link: tasksLink },
+});
+
+function renderVacancy(vacancy: Vacancy, tab = 'aanvraag', extra: Record<string, unknown> = {}) {
   stubApi({
     [`/api/vacancies/${vacancy.id}`]: vacancy,
+    ...partsAre(ALL_PARTS, true, vacancy.id),
     '/api/vacancies/options': OPTIONS,
     [`/api/vacancies/${vacancy.id}/request-forms`]: {
       available: true,
@@ -187,11 +213,13 @@ function renderVacancy(vacancy: Vacancy, tab = '', extra: Record<string, unknown
   return renderApp(
     <Routes>
       <Route path={PATHS.vacancyDetail} element={<VacancyLayout />}>
-        <Route index element={<RequestTab />} />
-        <Route path={VACANCY_TAB_SEGMENTS.decisions} element={<DecisionsTab />} />
-        <Route path={VACANCY_TAB_SEGMENTS.text} element={<TextTab />} />
-        <Route path={VACANCY_TAB_SEGMENTS.procedure} element={<ProcedureTab />} />
-        <Route path={VACANCY_TAB_SEGMENTS.fulfilment} element={<FulfilmentTab />} />
+        <Route index element={<VacancyLanding />} />
+        <Route path={VACANCY_PART_SEGMENTS.request} element={<RequestPart />} />
+        <Route path={VACANCY_PART_SEGMENTS.decisions} element={<DecisionsPart />} />
+        <Route path={VACANCY_PART_SEGMENTS.text} element={<TextPart />} />
+        <Route path={VACANCY_PART_SEGMENTS.fulfilment} element={<FulfilmentPart />} />
+        <Route path={VACANCY_PART_SEGMENTS.details} element={<DetailsPart />} />
+        <Route path={VACANCY_PART_SEGMENTS.tasks} element={<TasksPart />} />
       </Route>
     </Routes>,
     { path: `/vacatures/${vacancy.id}${tab ? `/${tab}` : ''}` },
@@ -241,14 +269,68 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-/** Position (from 1) of the step the bar marks as current. */
-function currentStep(container: HTMLElement): number {
-  const items = [...container.querySelectorAll('nldd-step-bar-item')];
-  return items.findIndex((item) => item.getAttribute('status') === 'current') + 1;
-}
+const rowsOf = (container: HTMLElement, label: string) =>
+  [...container.querySelectorAll(`nldd-list[accessible-label="${label}"] nldd-list-item`)].map(
+    (row) => {
+      const cell = row.querySelector('nldd-text-cell');
+      return [
+        cell?.getAttribute('text'),
+        cell?.getAttribute('supporting-text') ?? null,
+        row.querySelector('nldd-badge')?.getAttribute('text') ?? null,
+      ];
+    },
+  );
 
-describe('the header of a vacancy', () => {
-  it('says what it is, where it belongs and where it stands, with one primary action', async () => {
+describe('the landing of a vacancy', () => {
+  const STEPS_LABEL = 'Stappen van de vacature Backend-ontwikkelaar';
+  const ABOUT_LABEL = 'Over de vacature Backend-ontwikkelaar';
+
+  it('has the steps as rows with their stand, as the server gives them, and no step bar', async () => {
+    const { container } = renderVacancy(REQUESTED, '', {
+      ...partsAre([
+        REQUEST,
+        DECISIONS,
+        part('text', 'Tekst en openstellen', 'current', 'Leg de link naar de vacature vast'),
+        part('fulfilment', 'Vervullen', 'current', 'Leg vast wie is aangenomen'),
+        DETAILS,
+        HISTORY,
+      ]),
+    });
+    await waitFor(() => expect(rowsOf(container, STEPS_LABEL)).toHaveLength(4));
+    expect(rowsOf(container, STEPS_LABEL)).toEqual([
+      ['Aanvraag', null, 'Klaar'],
+      ['Advies en akkoord', 'Wacht op Fictief Directielid', null],
+      ['Tekst en openstellen', 'Jij: leg de link naar de vacature vast', 'Nu aan de beurt'],
+      ['Vervullen', 'Jij: leg vast wie is aangenomen', 'Nu aan de beurt'],
+    ]);
+    expect(rowsOf(container, ABOUT_LABEL).map(([text]) => text)).toEqual([
+      'Gegevens',
+      'Geschiedenis',
+    ]);
+    expect(
+      container.querySelector(`nldd-list[accessible-label="${STEPS_LABEL}"] nldd-list-item`),
+    ).toHaveAttribute('href', '/vacatures/v-1/aanvraag');
+    expect(container.querySelector('nldd-step-bar')).toBeNull();
+    expect(container.querySelector('[aria-label^="Verloop van"]')).toBeNull();
+    expect(container.querySelector('nldd-menu-bar')).toBeNull();
+  });
+
+  it('follows the answer: a row the server leaves out is not there', async () => {
+    const { container } = renderVacancy(
+      { ...REQUESTED, permissions: NO_PERMISSIONS },
+      '',
+      partsAre([REQUEST, DECISIONS, part('text', 'Tekst'), HISTORY]),
+    );
+    await waitFor(() => expect(rowsOf(container, STEPS_LABEL)).toHaveLength(3));
+    expect(rowsOf(container, STEPS_LABEL).map(([text]) => text)).toEqual([
+      'Aanvraag',
+      'Advies en akkoord',
+      'Tekst',
+    ]);
+    expect(rowsOf(container, ABOUT_LABEL).map(([text]) => text)).toEqual(['Geschiedenis']);
+  });
+
+  it('says what it is, where it belongs and what happens now', async () => {
     const { container } = renderVacancy(
       REQUESTED,
       '',
@@ -262,52 +344,109 @@ describe('the header of a vacancy', () => {
     await waitFor(() =>
       expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Backend-ontwikkelaar'),
     );
-    await waitFor(() => expect(currentStep(container)).toBe(2));
-    // The course says where it stands, so no tag repeats it; the sentence
-    // says whose move it is.
-    expect(container.querySelector('nldd-badge[text="Aangevraagd"]')).toBeNull();
-    expect(container.textContent).toContain('Je wacht op het advies van HR.');
-    // The assignment links to its Bemensing tab.
-    expect(container.querySelector('nldd-link[text="Opdracht Alfa"]')?.getAttribute('href')).toBe(
-      '/opdrachten/a-1/bemensing',
+    await waitFor(() => expect(container.textContent).toContain('Je wacht op het advies van HR.'));
+    expect(document.title).toContain('Backend-ontwikkelaar');
+    expect(container.querySelector('nldd-title')?.getAttribute('supporting-text')).toBe(
+      'Vacature bij Opdracht Alfa, schaal 11, 0,8 fte',
     );
-    expect(container.textContent).toContain('Regulier · Schaal 11, 0,8 fte');
-    expect(tabsOf(container)).toEqual([
-      ['Aanvraag', true],
-      ['Taken', false],
-      ['Advies en akkoord', false],
-      ['Tekst', false],
-      ['Procedure', false],
-      ['Vervulling', false],
-      ['Geschiedenis', false],
-    ]);
+    expect(container.querySelector('nldd-badge[text="Aangevraagd"]')).toBeNull();
     // Someone else has the move: nothing on the page takes the accent.
     expect(primaryOnPage(container)).toEqual([]);
     expect(container.querySelectorAll('h1')).toHaveLength(1);
+    expect(
+      container.querySelector('nldd-link[text="Alle taken van deze vacature"]'),
+    ).toHaveAttribute('href', '/vacatures/v-1/taken');
   });
 
-  it('leaves out the tab a reader has nothing on', () => {
-    expect(visibleTabs(REQUESTED)).toContain('fulfilment');
-    const reader = { ...REQUESTED, permissions: NO_PERMISSIONS };
-    expect(visibleTabs(reader)).toEqual([
-      'request',
-      'tasks',
-      'decisions',
-      'text',
-      'procedure',
-      'history',
-    ]);
-    expect(visibleTabs(PUBLIC)).toEqual([]);
+  it('keeps kind and period in the lead for a reader without the row Gegevens', async () => {
+    const dated: Vacancy = { ...REQUESTED, start_date: '2026-07-01', end_date: '2027-06-30' };
+    const without = renderVacancy(dated, '', partsAre([REQUEST, HISTORY]));
+    await waitFor(() => expect(rowsOf(without.container, ABOUT_LABEL)).toHaveLength(1));
+    expect(without.container.querySelector('nldd-title')?.getAttribute('supporting-text')).toBe(
+      'Vacature bij Opdracht Alfa, schaal 11, 0,8 fte, regulier, 1 jul 2026 t/m 30 jun 2027',
+    );
+    without.unmount();
+    const { container } = renderVacancy(dated, '');
+    await waitFor(() => expect(rowsOf(container, ABOUT_LABEL)).toHaveLength(2));
+    expect(container.querySelector('nldd-title')?.getAttribute('supporting-text')).toBe(
+      'Vacature bij Opdracht Alfa, schaal 11, 0,8 fte',
+    );
+    expect(rowsOf(container, ABOUT_LABEL)[0]?.[1]).toBe('Regulier, 1 jul 2026 t/m 30 jun 2027');
   });
 
-  it('shows the published text and nothing to do to someone without a role', async () => {
-    const { container } = renderVacancy(PUBLIC);
-    await waitFor(() => expect(container.textContent).toContain('Wij zoeken een productmanager.'));
-    expect(container.textContent).toContain('Een taalmodel (testmodel-1)');
-    expect(container.querySelector('nldd-menu-bar')).toBeNull();
-    expect(container.querySelector('nldd-step-bar')).toBeNull();
-    expect(container.querySelector('nldd-button')).toBeNull();
-    expect(document.body.querySelector('nldd-sheet')).toBeNull();
+  it('has no link to the tasks when the server says there is none for this reader', async () => {
+    const { container } = renderVacancy(REQUESTED, '', partsAre(ALL_PARTS, false));
+    await waitFor(() => expect(rowsOf(container, STEPS_LABEL)).toHaveLength(4));
+    expect(container.querySelector('nldd-link[text="Alle taken van deze vacature"]')).toBeNull();
+  });
+
+  it('links the tasks from the line about more to do, and not twice', async () => {
+    const withMore = courseAt(2, {
+      mine: true,
+      headline: 'Het advies van HR',
+      sentence: 'Geef je advies.',
+      action_text: 'Geef advies',
+      action_href: '/vacatures/v-1/advies',
+      task_key: 'werving.advies_hr',
+    });
+    const key = '/api/tasks/cases/vacancy/v-1/course';
+    Object.assign(withMore[key].course, { more_to_do: 2 });
+    const { container } = renderVacancy(REQUESTED, '', withMore);
+    await waitFor(() =>
+      expect(container.querySelector('nldd-link[text="En nog 2 taken voor jou"]')).toHaveAttribute(
+        'href',
+        '/vacatures/v-1/taken',
+      ),
+    );
+    expect(container.querySelector('nldd-link[text="Alle taken van deze vacature"]')).toBeNull();
+  });
+
+  it('carries the next step that is done in a sheet as its one primary button', async () => {
+    const { container } = renderVacancy(
+      REQUESTED,
+      '',
+      courseAt(4, {
+        mine: true,
+        headline: 'Leg vast wie is aangenomen',
+        sentence: 'De vacature kan worden vervuld.',
+        action_text: 'Vervul',
+        action_href: '/vacatures/v-1/vervulling',
+        task_key: 'werving.vervullen',
+      }),
+    );
+    await waitFor(() => expect(primaryOnPage(container)).toEqual(['Vervul']));
+  });
+
+  it('offers no step that leads to a part the reader does not have', async () => {
+    const { container } = renderVacancy(REQUESTED, '', {
+      ...partsAre([REQUEST, DECISIONS, TEXT, DETAILS, HISTORY]),
+      ...courseAt(4, {
+        mine: true,
+        headline: 'Leg vast wie is aangenomen',
+        sentence: 'De vacature kan worden vervuld.',
+        action_text: 'Bekijk de vervulling',
+        action_href: '/vacatures/v-1/vervulling',
+        task_key: 'werving.collega_voorstellen',
+      }),
+    });
+    await waitFor(() => expect(container.textContent).toContain('De vacature kan worden vervuld.'));
+    expect(primaryOnPage(container)).toEqual([]);
+  });
+
+  it('says how it ended, once it has ended', async () => {
+    const withdrawn: Vacancy = { ...REQUESTED, status: 'withdrawn' };
+    const { container } = renderVacancy(withdrawn, '', {
+      ...partsAre([REQUEST, HISTORY]),
+      '/api/tasks/cases/vacancy/v-1/course': {
+        case_kind: 'vacancy',
+        case_id: 'v-1',
+        course: { key: 'werving', label: 'Werving', steps: [], ended: 'Ingetrokken' },
+        parts: [],
+      },
+    });
+    await waitFor(() =>
+      expect(container.querySelector('nldd-badge[text="Ingetrokken"]')).not.toBeNull(),
+    );
   });
 
   it('says so when the vacancy is not there or not visible', async () => {
@@ -324,18 +463,94 @@ describe('the header of a vacancy', () => {
       ),
     );
   });
+});
 
-  it('carries the one primary action when the vacancy is approved', async () => {
+describe('a reader of only the published text', () => {
+  it('sees that text and nothing to do', async () => {
+    const { container } = renderVacancy(PUBLIC, '');
+    await waitFor(() => expect(container.textContent).toContain('Wij zoeken een productmanager.'));
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Productmanager');
+    expect(container.textContent).toContain('Een taalmodel (testmodel-1)');
+    expect(container.querySelector('nldd-menu-bar')).toBeNull();
+    expect(container.querySelector('nldd-list')).toBeNull();
+    expect(container.querySelector('nldd-button')).toBeNull();
+    expect(document.body.querySelector('nldd-sheet')).toBeNull();
+    const asked = vi.mocked(fetch).mock.calls.map(([input]) => String(input));
+    expect(asked.some((url) => url.includes('/parts'))).toBe(false);
+    expect(asked.some((url) => url.includes('/course'))).toBe(false);
+  });
+
+  it.each(['aanvraag', 'tekst', 'vervulling', 'taken'])('has no part at /%s', async (segment) => {
+    const { container } = renderVacancy(PUBLIC, segment);
+    await waitFor(() => expect(container.querySelector('[data-state="no-access"]')).not.toBeNull());
+    expect(container.textContent).not.toContain('Wij zoeken een productmanager.');
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Productmanager');
+  });
+});
+
+describe('a part of a vacancy', () => {
+  it('is a page with its name, the way back and the bar to the other parts', async () => {
+    const { container } = renderVacancy(REQUESTED, 'advies');
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Advies en akkoord'),
+    );
+    expect(document.title).toContain('Advies en akkoord, Backend-ontwikkelaar');
+    expect(
+      container.querySelector('nldd-link[text="Terug naar Backend-ontwikkelaar"]'),
+    ).toHaveAttribute('href', '/vacatures/v-1');
+    expect(tabsOf(container)).toEqual([
+      ['Aanvraag', false],
+      ['Advies en akkoord', true],
+      ['Tekst en openstellen', false],
+      ['Vervullen', false],
+      ['Gegevens', false],
+      ['Geschiedenis', false],
+    ]);
+  });
+
+  it('has no bar to the other parts on a narrow screen', async () => {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn().mockImplementation(() => ({
+        matches: true,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      })),
+    );
+    const { container } = renderVacancy(REQUESTED, 'advies');
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Advies en akkoord'),
+    );
+    expect(container.querySelector('nldd-menu-bar')).toBeNull();
+  });
+
+  it('says there is no access when the server gives the reader no such row', async () => {
+    const { container } = renderVacancy(
+      REQUESTED,
+      'vervulling',
+      partsAre([REQUEST, DECISIONS, TEXT, DETAILS, HISTORY]),
+    );
+    await waitFor(() => expect(container.querySelector('[data-state="no-access"]')).not.toBeNull());
+    expect(container.querySelector('nldd-button[text="Leg verwijzing vast"]')).toBeNull();
+    expect(container.querySelector('nldd-menu-bar')).toBeNull();
+  });
+
+  it('has the tasks only when the server gives the link', async () => {
+    const { container } = renderVacancy(REQUESTED, 'taken', partsAre(ALL_PARTS, false));
+    await waitFor(() => expect(container.querySelector('[data-state="no-access"]')).not.toBeNull());
+  });
+
+  it('carries the step that is done in a sheet here, and steps its own button back', async () => {
     const approved: Vacancy = { ...REQUESTED, status: 'approved' };
     const { container } = renderVacancy(
       approved,
-      'procedure',
+      'tekst',
       courseAt(3, {
         mine: true,
         headline: 'Stel de vacature open',
         sentence: 'Het akkoord is gegeven. Stel de vacature open.',
         action_text: 'Stel open',
-        action_href: '/vacatures/v-1/procedure',
+        action_href: '/vacatures/v-1/tekst',
         task_key: 'werving.openstellen',
       }),
     );
@@ -344,13 +559,135 @@ describe('the header of a vacancy', () => {
         container.querySelector('nldd-table[accessible-label="Stappen van de procedure"]'),
       ).not.toBeNull(),
     );
-    // "Stel open" once, in the header; the procedure tab has no primary of its own.
     await waitFor(() => expect(primaryOnPage(container)).toEqual(['Stel open']));
     expect(container.querySelectorAll('nldd-button[text="Stel open"]')).toHaveLength(1);
   });
+
+  it('does not carry a step that is done on another part', async () => {
+    const { container } = renderVacancy(
+      REQUESTED,
+      'gegevens',
+      courseAt(3, {
+        mine: true,
+        headline: 'Stel de vacature open',
+        sentence: 'Het akkoord is gegeven. Stel de vacature open.',
+        action_text: 'Stel open',
+        action_href: '/vacatures/v-1/tekst',
+        task_key: 'werving.openstellen',
+      }),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Gegevens'),
+    );
+    await waitFor(() =>
+      expect(vi.mocked(fetch).mock.calls.some(([url]) => String(url).includes('/course'))).toBe(
+        true,
+      ),
+    );
+    await new Promise((resolve) => setTimeout(resolve));
+    expect(primaryOnPage(container)).toEqual([]);
+  });
 });
 
-describe('the Aanvraag tab', () => {
+describe('one way to change the request', () => {
+  const PREPARE = courseAt(1, {
+    mine: true,
+    headline: 'Maak de aanvraag compleet',
+    sentence: 'De aanvraag mist nog gegevens.',
+    action_text: 'Bereid aanvraag voor',
+    action_href: '/vacatures/v-1/aanvraag',
+    missing: ['Functienaam uit het functiegebouw', 'Soort contract'],
+    task_key: 'werving.aanvraag_voorbereiden',
+  });
+  const DRAFT: Vacancy = { ...REQUESTED, status: 'draft', contract_type: null };
+  const editOn = (container: HTMLElement) =>
+    container.querySelector('nldd-button[text="Wijzig functie, fte of periode"]');
+
+  it('is the button on the landing, with what is missing', async () => {
+    const { container } = renderVacancy(DRAFT, '', PREPARE);
+    await waitFor(() => expect(primaryOnPage(container)).toEqual(['Bereid aanvraag voor']));
+    expect(container.textContent).toContain(
+      'Ontbreekt nog: Functienaam uit het functiegebouw, Soort contract.',
+    );
+    expect(editOn(container)).toBeNull();
+  });
+
+  it('is the rows on the request, without that button above them', async () => {
+    const { container } = renderVacancy(DRAFT, 'aanvraag', PREPARE);
+    await waitFor(() => expect(container.querySelector('nldd-list-item[button]')).not.toBeNull());
+    await waitFor(() =>
+      expect(vi.mocked(fetch).mock.calls.some(([url]) => String(url).includes('/course'))).toBe(
+        true,
+      ),
+    );
+    await new Promise((resolve) => setTimeout(resolve));
+    expect(primaryOnPage(container)).toEqual([]);
+    expect(container.querySelector('nldd-button[text="Bereid aanvraag voor"]')).toBeNull();
+    expect(editOn(container)).toBeNull();
+  });
+
+  it('keeps the request itself as the button on the request', async () => {
+    const { container } = renderVacancy(
+      DRAFT,
+      'aanvraag',
+      courseAt(1, {
+        mine: true,
+        headline: 'Vraag de vacature aan',
+        sentence: 'De aanvraag is compleet.',
+        action_text: 'Vraag aan',
+        action_href: '/vacatures/v-1/aanvraag',
+        missing: [],
+        task_key: 'werving.aanvraag_voorbereiden',
+      }),
+    );
+    await waitFor(() => expect(primaryOnPage(container)).toEqual(['Vraag aan']));
+  });
+
+  it('has function, fte and period under Gegevens, until the approval', async () => {
+    const { container, unmount } = renderVacancy(DRAFT, 'gegevens');
+    await waitFor(() => expect(editOn(container)).not.toBeNull());
+    expect(editOn(container)).toHaveAttribute('appearance', 'secondary');
+    unmount();
+    const approved = renderVacancy({ ...REQUESTED, status: 'approved' }, 'gegevens');
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Gegevens'),
+    );
+    expect(editOn(approved.container)).toBeNull();
+  });
+
+  it('says that a reader who cannot change the vacancy may only look, and who can', async () => {
+    const reader = renderVacancy({ ...REQUESTED, permissions: { ...NO_PERMISSIONS } }, 'gegevens');
+    await waitFor(() =>
+      expect(reader.container.textContent).toContain(
+        'Je kunt deze vacature bekijken. Wijzigen kan de aanvrager of wie de opdracht beheert.',
+      ),
+    );
+    reader.unmount();
+    const editor = renderVacancy(DRAFT, 'gegevens');
+    await waitFor(() => expect(editOn(editor.container)).not.toBeNull());
+    expect(editor.container.textContent).not.toContain('Je kunt deze vacature bekijken');
+  });
+
+  it('links the assignment from Gegevens to the assignment itself', async () => {
+    const { container } = renderVacancy(REQUESTED, 'gegevens');
+    await waitFor(() =>
+      expect(container.querySelector('nldd-link[text="Opdracht Alfa"]')).toHaveAttribute(
+        'href',
+        '/opdrachten/a-1',
+      ),
+    );
+  });
+});
+
+describe('Gegevens of a vacancy whose assignment the reader may not open', () => {
+  it('names the assignment as text when the server gives no id', async () => {
+    const { container } = renderVacancy({ ...REQUESTED, assignment_id: null }, 'gegevens');
+    await waitFor(() => expect(container.querySelector('[text="Opdracht Alfa"]')).not.toBeNull());
+    expect(container.querySelector('nldd-link[text="Opdracht Alfa"]')).toBeNull();
+  });
+});
+
+describe('the part Aanvraag', () => {
   it('lists what the form asks for, filled or visibly not, each the way to fill it', async () => {
     const draft: Vacancy = {
       ...REQUESTED,
@@ -361,13 +698,13 @@ describe('the Aanvraag tab', () => {
     };
     const { container } = renderVacancy(
       draft,
-      '',
+      'aanvraag',
       courseAt(1, {
         mine: true,
         headline: 'Vraag de vacature aan',
         sentence: 'De aanvraag mist nog gegevens. Vul ze in; daarna vraag je de vacature aan.',
         action_text: 'Bereid aanvraag voor',
-        action_href: '/vacatures/v-1',
+        action_href: '/vacatures/v-1/aanvraag',
         missing: ['Functienaam uit het functiegebouw', 'Soort contract'],
         task_key: 'werving.aanvraag_voorbereiden',
       }),
@@ -399,13 +736,6 @@ describe('the Aanvraag tab', () => {
       ['Aan', 'Fictief Directielid', 'check-circle-filled', true],
       ['Aanleiding en motivatie', 'Nog niet ingevuld', 'circle', true],
     ]);
-    // A fresh vacancy: the course is at its first step, the head carries the
-    // one primary action and says what still stands in its way.
-    await waitFor(() => expect(currentStep(container)).toBe(1));
-    expect(primaryOnPage(container)).toEqual(['Bereid aanvraag voor']);
-    expect(container.textContent).toContain(
-      'Ontbreekt nog: Functienaam uit het functiegebouw, Soort contract.',
-    );
     expect(
       container.querySelector('nldd-banner[variant="warning"]')?.getAttribute('text'),
     ).toContain('Schaal 11 valt buiten de tariefcategorie van de begrotingsregel');
@@ -419,21 +749,92 @@ describe('the Aanvraag tab', () => {
     const reader: Vacancy = { ...REQUESTED, permissions: NO_PERMISSIONS };
     delete reader.addressee_name;
     delete reader.addressee_has_account;
-    const { container } = renderVacancy(reader);
+    const { container } = renderVacancy(
+      reader,
+      'aanvraag',
+      partsAre([REQUEST, DECISIONS, TEXT, HISTORY]),
+    );
     await waitFor(() => expect(container.querySelector('nldd-list')).not.toBeNull());
     const labels = [...container.querySelectorAll('nldd-list nldd-list-item')].map((row) =>
       row.querySelector('nldd-text-cell')!.getAttribute('text'),
     );
     expect(labels).not.toContain('Aan');
     expect(container.querySelector('nldd-list-item[button]')).toBeNull();
-    expect(
-      container.querySelector('nldd-button[text="Wijzig functie, fte of periode"]'),
-    ).toBeNull();
-    expect(tabsOf(container).map(([text]) => text)).not.toContain('Vervulling');
+    expect(tabsOf(container).map(([text]) => text)).not.toContain('Vervullen');
   });
 });
 
-describe('the Advies en akkoord tab', () => {
+describe('the motivation on Aanvraag', () => {
+  const motivationRow = (container: HTMLElement) =>
+    [...container.querySelectorAll('nldd-list-item')].find(
+      (row) =>
+        row.querySelector('nldd-text-cell')?.getAttribute('text') === 'Aanleiding en motivatie',
+    );
+
+  it('links to the text only when the server gives the row Tekst', async () => {
+    const withRow = renderVacancy(REQUESTED, 'aanvraag');
+    await waitFor(() => expect(motivationRow(withRow.container)).toBeDefined());
+    expect(motivationRow(withRow.container)).toHaveAttribute('href', '/vacatures/v-1/tekst');
+    withRow.unmount();
+    const without = renderVacancy(
+      REQUESTED,
+      'aanvraag',
+      partsAre([REQUEST, DECISIONS, DETAILS, HISTORY]),
+    );
+    await waitFor(() => expect(motivationRow(without.container)).toBeDefined());
+    expect(motivationRow(without.container)).not.toHaveAttribute('href');
+    expect(motivationRow(without.container)).not.toHaveAttribute('button');
+  });
+});
+
+describe('a task at the request form', () => {
+  const FORMS = '/api/vacancies/v-1/request-forms';
+  const forms = (current: unknown) => ({
+    available: true,
+    may_make: true,
+    missing: [],
+    current,
+    earlier: [],
+    changed: [],
+    signed: [],
+  });
+  const next = (task: string, text: string) =>
+    courseAt(2, {
+      mine: true,
+      headline: text,
+      sentence: `${text}.`,
+      action_text: text,
+      action_href: '/vacatures/v-1/aanvraag',
+      task_key: task,
+    });
+  const MADE = { id: 'f-1', made_at: '2026-11-01T09:00:00Z' };
+
+  it.each([
+    ['werving.formulier_maken', 'Maak aanvraagformulier', null, 'Maak aanvraagformulier'],
+    [
+      'werving.getekend_formulier_vastleggen',
+      'Leg getekend formulier vast',
+      MADE,
+      'Leg het getekende formulier vast',
+    ],
+  ])(
+    '%s opens the request itself, with the step as its button',
+    async (task, text, made, there) => {
+      const { container } = renderVacancy(REQUESTED, '', {
+        ...next(task, text),
+        [FORMS]: forms(made),
+      });
+      await waitFor(() => expect(primaryOnPage(container)).toEqual([text]));
+      fireEvent.click(container.querySelector(`nldd-button[text="${text}"]`)!);
+      await waitFor(() =>
+        expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Aanvraag'),
+      );
+      await waitFor(() => expect(primaryOnPage(container)).toEqual([there]));
+    },
+  );
+});
+
+describe('the part Advies en akkoord', () => {
   it('shows the three decisions in columns and makes the next one to record primary', async () => {
     const adviser: Vacancy = {
       ...REQUESTED,
@@ -461,7 +862,7 @@ describe('the Advies en akkoord tab', () => {
       ),
     ).toEqual(['Advies HR']);
     expect(container.querySelectorAll('nldd-table nldd-button')).toHaveLength(0);
-    // On the tab of the current step the header has no button; the tab has the one.
+    // On the part of the current step the head has no button; the part has the one.
     expect(primaryOnPage(container)).toEqual(['Leg advies HR vast']);
     expect(tabsOf(container).find(([, current]) => current)?.[0]).toBe('Advies en akkoord');
   });
@@ -582,7 +983,7 @@ const TEXT_WORK = {
   ],
 };
 
-describe('the Tekst tab', () => {
+describe('the part Tekst en openstellen', () => {
   const WORK_PATH = '/api/vacancies/v-1/text-work';
 
   it('shows where each text stands, who has it and one next step', async () => {
@@ -592,7 +993,7 @@ describe('the Tekst tab', () => {
       [...container.querySelectorAll('nldd-title[heading-level="2"]')].map((el) =>
         el.getAttribute('text'),
       ),
-    ).toEqual(['Aanleiding en motivatie', 'Vacaturetekst']);
+    ).toEqual(['Aanleiding en motivatie', 'Vacaturetekst', 'Procedure']);
     expect(
       [...container.querySelectorAll('nldd-tag')].map((el) => el.getAttribute('text')),
     ).toEqual(expect.arrayContaining(['Ter beoordeling', 'Terug met opmerkingen']));
@@ -605,8 +1006,8 @@ describe('the Tekst tab', () => {
       [...container.querySelectorAll('nldd-rich-text li')].map((el) => el.textContent),
     ).toEqual(['ontwerpen', 'testen']);
     expect(container.textContent).not.toContain('## ');
-    // The header only points to another tab here, so the accent is on this
-    // tab: the next step of the text that leads. Everything else is a plain
+    // The head has no step here, so the accent is on this part: the next step
+    // of the text that leads. Everything else is a plain
     // button, never bare text.
     const within = (text: string) =>
       container.querySelector(`nldd-button[text="${text}"]`)?.getAttribute('appearance');
@@ -682,7 +1083,7 @@ describe('the Tekst tab', () => {
       container
         .querySelector('nldd-button[text="Begin met de standaardtekst"]')
         ?.getAttribute('appearance'),
-      // The header only points to another tab, so this next step is the accent.
+      // The head has no step here, so this next step is the accent.
     ).toBe('primary');
     expect(
       container
@@ -691,6 +1092,30 @@ describe('the Tekst tab', () => {
     ).toBe('secondary');
     expect(container.querySelector('nldd-button[text="Schrijf zelf"]')).not.toBeNull();
     expect(container.textContent).toContain('Er is een standaardtekst voor Software engineer.');
+  });
+
+  it('puts a link still to record above the texts, as the step of the page', async () => {
+    const settled = {
+      ...TEXT_WORK.texts[1],
+      state: 'settled',
+      action: { key: 'revise', text: 'Pas de vastgestelde tekst aan' },
+    };
+    const { container } = renderVacancy(REQUESTED, 'tekst', {
+      [WORK_PATH]: {
+        ...TEXT_WORK,
+        texts: [settled],
+        may_record_publication: true,
+        publication_missing: true,
+      },
+    });
+    const step = () =>
+      container.querySelector('nldd-button[text="Leg de link naar de vacature vast"]');
+    await waitFor(() => expect(step()).not.toBeNull());
+    expect(step()).toHaveAttribute('appearance', 'primary');
+    const titles = [...container.querySelectorAll('nldd-title[heading-level="2"]')].map((el) =>
+      el.getAttribute('text'),
+    );
+    expect(titles).toEqual(['Gepubliceerd', 'Vacaturetekst', 'Procedure']);
   });
 
   it('shows where the vacancy is published as the closing fact', async () => {
@@ -722,9 +1147,9 @@ describe('the Tekst tab', () => {
   });
 });
 
-describe('the Procedure tab', () => {
+describe('the procedure under Tekst en openstellen', () => {
   it('shows the steps with their dates and the minimum before it starts', async () => {
-    const { container } = renderVacancy(REQUESTED, 'procedure');
+    const { container } = renderVacancy(REQUESTED, 'tekst');
     await waitFor(() =>
       expect(
         container.querySelector('nldd-text-cell[text="5. Interne openstelling"]'),
@@ -739,7 +1164,7 @@ describe('the Procedure tab', () => {
   });
 });
 
-describe('the Vervulling tab', () => {
+describe('the part Vervullen', () => {
   it('shows the reference in the recruitment system and who was hired, with links', async () => {
     const filled: Vacancy = { ...REQUESTED, status: 'filled' };
     const { container } = renderVacancy(filled, 'vervulling', {
@@ -750,24 +1175,55 @@ describe('the Vervulling tab', () => {
     );
     expect(
       container.querySelector('nldd-link[text="Fictieve Collega"]')?.getAttribute('href'),
-    ).toBe('/team/p-7');
+    ).toBe('/mensen/p-7');
     expect(container.querySelector('nldd-link[text="V-2026-014"]')?.getAttribute('href')).toBe(
       'https://werving.example/v/14',
     );
     expect(container.querySelector('nldd-text-cell[text="Emply"]')).not.toBeNull();
     expect(container.querySelector('nldd-text-cell[text="4 jan 2027"]')).not.toBeNull();
     expect(
-      container
-        .querySelector('nldd-link[text="Bemensing van Opdracht Alfa"]')
-        ?.getAttribute('href'),
-    ).toBe('/opdrachten/a-1/bemensing');
+      container.querySelector('nldd-link[text="Team van Opdracht Alfa"]')?.getAttribute('href'),
+    ).toBe('/opdrachten/a-1/team');
     expect(container.querySelector('nldd-button[text="Aanname gaat niet door"]')).not.toBeNull();
-    // Filled: no step bar and no primary action left.
-    expect(container.querySelector('nldd-step-bar')).toBeNull();
+    // Filled: no primary action left.
     expect(primaryOnPage(container)).toEqual([]);
   });
 
-  it('offers to fill an open vacancy from the step bar, once', async () => {
+  it('offers to fill here when the next step of the reader is another one', async () => {
+    const open: Vacancy = {
+      ...REQUESTED,
+      status: 'open',
+      permissions: { ...REQUESTED.permissions, can_fill: true },
+    };
+    const { container } = renderVacancy(open, 'vervulling', {
+      ...partsAre([
+        REQUEST,
+        DECISIONS,
+        part('text', 'Tekst en openstellen', 'current', 'Leg de link vast'),
+        part('fulfilment', 'Vervullen', 'current', 'Leg vast wie is aangenomen'),
+        DETAILS,
+        HISTORY,
+      ]),
+      '/api/vacancies/v-1/hire': { vacancy_id: 'v-1', recruitment_ref: null, hire: null },
+      ...courseAt(4, {
+        mine: true,
+        headline: 'Leg de link vast',
+        sentence: 'Leg de link vast.',
+        action_text: 'Leg de link vast',
+        action_href: '/vacatures/v-1/tekst',
+        task_key: 'werving.link_vastleggen',
+      }),
+    });
+    await waitFor(() =>
+      expect(container.querySelector('nldd-button[text="Vervul"]')).toHaveAttribute(
+        'appearance',
+        'primary',
+      ),
+    );
+    expect(primaryOnPage(container)).toEqual(['Vervul']);
+  });
+
+  it('offers to fill an open vacancy from the head, once', async () => {
     const open: Vacancy = {
       ...REQUESTED,
       status: 'open',

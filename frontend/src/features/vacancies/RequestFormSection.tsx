@@ -17,6 +17,8 @@ import {
 import { VacancyShellContext } from './shell';
 import { Button, FileInput } from './ui';
 
+const SIGNED_FORM_TASK = 'werving.getekend_formulier_vastleggen';
+
 function madeLine(form: KeptForm): string {
   return [
     `gemaakt op ${formatDate(form.made_at)}`,
@@ -135,6 +137,11 @@ export function RequestFormSection({ vacancyId }: { vacancyId: string }) {
           {current ? (
             <Button
               text="Leg het getekende formulier vast"
+              appearance={
+                shell && !shell.headerPrimary && shell.nextTask === SIGNED_FORM_TASK
+                  ? 'primary'
+                  : 'secondary'
+              }
               onClick={() => {
                 setError(null);
                 setRecording(true);

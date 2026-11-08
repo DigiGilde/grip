@@ -4,7 +4,7 @@ import { renderApp } from '@/test/utils';
 import type { TextVersion, Vacancy, VacancyOptions, VacancySummary } from './api';
 import { parseFte, parseScale } from './hooks';
 import { originOf, publishedOrigin, scaleAndFte } from './labels';
-import { OpenRolesPage } from './OpenRolesPage';
+import { PublishedPage } from './PublishedPage';
 import { VacanciesPage } from './VacanciesPage';
 
 const OPTIONS: VacancyOptions = {
@@ -153,30 +153,59 @@ describe('VacanciesPage', () => {
       },
     });
     const { container } = renderApp(<VacanciesPage />);
-    await waitFor(() => expect(container.querySelector('nldd-link')).not.toBeNull());
-    const table = container.querySelector('nldd-table')!;
-    // One track list for all rows: that is what aligns the columns.
-    expect(table.getAttribute('columns')).toBe('minmax(240px,2fr) 150px minmax(260px,1.6fr)');
-    const header = [...table.querySelectorAll('nldd-table-row[slot="header"] nldd-text-cell')];
-    // The name, then where it stands and whose move: nothing else.
-    expect(header.map((cell) => cell.getAttribute('text'))).toEqual(['Vacature', 'Type', 'Stand']);
-    const row = table.querySelector('nldd-table-row:not([slot])')!;
-    const link = row.querySelector('nldd-link')!;
-    expect(link.getAttribute('href')).toBe('/vacatures/v-1');
-    expect(link.getAttribute('text')).toBe('Backend-ontwikkelaar');
-    expect(row.textContent).toContain('Opdracht Alfa · Schaal 11, 0,8 fte');
-    // The step in the words of the vacancy's own page, and who is waited on.
+    await waitFor(() => expect(container.querySelector('nldd-list-item')).not.toBeNull());
+    // Rows, not a table: no header over a single column.
+    expect(container.querySelector('nldd-table')).toBeNull();
+    const row = container.querySelector('nldd-list-item')!;
+    expect(row.getAttribute('href')).toBe('/vacatures/v-1');
+    const cell = row.querySelector('nldd-text-cell')!;
+    expect(cell.getAttribute('text')).toBe('Backend-ontwikkelaar');
+    // What it is for, then the step in the words of the vacancy's own page and who is waited on.
     await waitFor(() =>
-      expect(row.querySelector('nldd-text-cell[supporting-text]')?.getAttribute('text')).toBe(
-        'Advies en akkoord',
+      expect(cell.getAttribute('supporting-text')).toBe(
+        'Opdracht Alfa · Schaal 11, 0,8 fte · Advies en akkoord. Wacht op HR',
       ),
     );
-    expect(
-      row.querySelector('nldd-text-cell[supporting-text]')?.getAttribute('supporting-text'),
-    ).toBe('Wacht op HR');
     // The step says where it stands; no tag says it a second time.
     expect(row.querySelector('nldd-badge')).toBeNull();
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Vacatures');
+  });
+
+  it('names a known candidate in the row, and the usual kind not at all', async () => {
+    stubApi({
+      '/api/vacancies': [
+        SUMMARY,
+        { ...SUMMARY, id: 'v-3', function_title: 'Ontwerper', vacancy_type: 'gerede' },
+      ],
+      '/api/vacancies/unfilled-roles': [],
+      '/api/vacancies/options': OPTIONS,
+      '/api/tasks/courses': { items: [] },
+    });
+    const { container } = renderApp(<VacanciesPage />);
+    await waitFor(() => expect(container.querySelectorAll('nldd-list-item')).toHaveLength(2));
+    const notices = [...container.querySelectorAll('nldd-list-item nldd-text-cell')].map((cell) =>
+      cell.getAttribute('supporting-text'),
+    );
+    expect(notices[0]).not.toContain('Regulier');
+    expect(notices[1]).toContain('Gerede kandidaat');
+  });
+
+  it('puts the views under the title as one bar, with the current one marked', async () => {
+    stubApi({
+      '/api/vacancies': [],
+      '/api/vacancies/unfilled-roles': [],
+      '/api/vacancies/options': OPTIONS,
+    });
+    const { container } = renderApp(<VacanciesPage />);
+    await waitFor(() => expect(container.querySelector('nldd-inline-dialog')).not.toBeNull());
+    const tabs = [...container.querySelectorAll('.thing-tabs nldd-menu-bar-item')];
+    expect(tabs.map((tab) => tab.getAttribute('text'))).toEqual(['Alle vacatures', 'Opengesteld']);
+    expect(tabs.map((tab) => tab.getAttribute('href'))).toEqual([
+      '/vacatures',
+      '/vacatures/opengesteld',
+    ]);
+    expect(tabs.map((tab) => tab.hasAttribute('current'))).toEqual([true, false]);
+    expect(container.querySelector('nldd-dropdown option[value="open"]')).toBeNull();
   });
 
   it('offers a new vacancy only to who may create one', async () => {
@@ -186,15 +215,14 @@ describe('VacanciesPage', () => {
       '/api/vacancies/options': OPTIONS,
     });
     const { container, unmount } = renderApp(<VacanciesPage />);
-    await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
+    await waitFor(() => expect(container.querySelector('nldd-inline-dialog')).not.toBeNull());
     expect(container.querySelector('nldd-button[text="Nieuwe vacature"]')).toBeNull();
     expect(container.querySelector('nldd-button[text="Formulier en taalmodel"]')).toBeNull();
-    // Open roles are a view of this page: a choice in the bar, not a button.
-    expect(container.querySelector('nldd-button[text="Open rollen"]')).toBeNull();
+    // Published vacancies are a view of this page: a tab under the title, not a button.
+    expect(container.querySelector('nldd-button[text="Opengesteld"]')).toBeNull();
     expect(
-      [...container.querySelectorAll('nldd-dropdown option')].map((option) => option.textContent),
-    ).toContain('Open rollen');
-    expect(container.querySelector('nldd-inline-dialog[slot="empty"]')).not.toBeNull();
+      container.querySelector('.thing-tabs nldd-menu-bar-item[text="Opengesteld"]'),
+    ).not.toBeNull();
     unmount();
 
     stubApi({
@@ -213,8 +241,8 @@ describe('VacanciesPage', () => {
     // The settings are under Beheer; the bar holds one derived list and the action.
     expect(second.container.querySelector('nldd-button[text="Formulier en taalmodel"]')).toBeNull();
     expect(second.container.querySelector('nldd-button[text="Standaardteksten"]')).toBeNull();
-    // Open roles are a view of this page, chosen in the bar, not a link beside it.
-    expect(second.container.querySelector('nldd-button[text="Open rollen"]')).toBeNull();
+    // Published vacancies are a view of this page, chosen in the bar, not a link beside it.
+    expect(second.container.querySelector('nldd-button[text="Opengesteld"]')).toBeNull();
   });
 
   it('shows an error when the list cannot be loaded', async () => {
@@ -230,7 +258,7 @@ describe('VacanciesPage', () => {
   });
 });
 
-describe('OpenRolesPage', () => {
+describe('PublishedPage', () => {
   it('shows every open role with its text and origin', async () => {
     stubApi({
       '/api/vacancies/open-roles': [
@@ -243,7 +271,7 @@ describe('OpenRolesPage', () => {
         },
       ],
     });
-    const { container } = renderApp(<OpenRolesPage />);
+    const { container } = renderApp(<PublishedPage />);
     await waitFor(() => expect(container.textContent).toContain('Wij zoeken een productmanager.'));
     expect(
       container.querySelector('nldd-title[text="Productmanager"]')?.getAttribute('supporting-text'),
@@ -251,12 +279,15 @@ describe('OpenRolesPage', () => {
     // A view of the Vacatures page: the same title, no link back.
     expect(container.querySelector('nldd-link[text="Terug naar Vacatures"]')).toBeNull();
     expect(container.querySelector('h1')?.textContent).toBe('Vacatures');
+    const current = container.querySelector('.thing-tabs nldd-menu-bar-item[current]');
+    expect(current).toHaveAttribute('text', 'Opengesteld');
+    expect(current).toHaveAttribute('href', '/vacatures/opengesteld');
     expect(container.textContent).toContain('Geplaatst op');
   });
 
   it('has an empty state', async () => {
     stubApi({ '/api/vacancies/open-roles': [] });
-    const { container } = renderApp(<OpenRolesPage />);
+    const { container } = renderApp(<PublishedPage />);
     await waitFor(() =>
       expect(
         container.querySelector('nldd-inline-dialog[text="Er staan nu geen rollen open"]'),

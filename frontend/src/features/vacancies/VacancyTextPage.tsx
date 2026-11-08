@@ -30,7 +30,7 @@ import { VACANCY_TEXT_MARKS } from '@/ui/text/marks';
 import { TextEditor, type TextEditorHandle } from '@/ui/TextEditor';
 import { VACANCY_KEYS, fetchVacancy } from './api';
 import { factHref } from './factHref';
-import { vacancyTabPath } from './paths';
+import { vacancyPartPath } from './paths';
 import { TailoredSheet } from './TailoredSheet';
 import {
   TEXT_WORK_KEY,
@@ -87,7 +87,7 @@ export function VacancyTextPage() {
   const root = useRef<HTMLDivElement>(null);
   useRouterLinks(root);
   const editor = useRef<TextEditorHandle>(null);
-  const back = vacancyTabPath(vacancyId, 'text');
+  const back = vacancyPartPath(vacancyId, 'text');
 
   const vacancy = useQuery({
     queryKey: VACANCY_KEYS.detail(vacancyId),
@@ -187,9 +187,9 @@ export function VacancyTextPage() {
   return (
     <div ref={root}>
       <Page
+        kind="document"
         title={title}
         instanceName={instance?.name}
-        width="760px"
         back={{ href: back, text: 'Terug naar de vacature' }}
       >
         {work.isPending && <Loading />}

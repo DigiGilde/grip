@@ -794,9 +794,20 @@ export function TextWork({ vacancy }: { vacancy: Vacancy }) {
     data.texts.find((text) => text.action.key === 'revise' && !data.publication_missing)
   )?.kind;
   const current = sheet && 'text' in sheet ? workOf(sheet.text) : undefined;
+  // A link still to record is the step of this page: it stands above the texts it follows.
+  const publications = (
+    <Publications
+      vacancyId={vacancy.id}
+      data={data}
+      open={open}
+      leading={leadingKind === undefined}
+    />
+  );
+  const publicationFirst = data.publication_missing && leadingKind === undefined;
 
   return (
     <Stack gap="section">
+      {publicationFirst && publications}
       {data.texts.map((work) => (
         <TextBlock
           key={work.kind}
@@ -823,12 +834,7 @@ export function TextWork({ vacancy }: { vacancy: Vacancy }) {
           )}
         </Section>
       )}
-      <Publications
-        vacancyId={vacancy.id}
-        data={data}
-        open={open}
-        leading={leadingKind === undefined}
-      />
+      {!publicationFirst && publications}
       {sheet?.kind === 'write' && current && (
         <WriteSheet
           key={opened}

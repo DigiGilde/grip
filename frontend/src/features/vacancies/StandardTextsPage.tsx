@@ -394,6 +394,7 @@ export function StandardTextsPage() {
   return (
     <RouterLinks>
       <Page
+        kind="document"
         title="Standaardteksten voor vacatures"
         instanceName={instance?.name}
         spacing="sections"
