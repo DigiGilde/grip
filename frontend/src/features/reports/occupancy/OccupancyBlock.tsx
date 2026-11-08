@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { assignmentPath } from '@/features/assignments/paths';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { formatPercent } from '@/lib/format';
@@ -14,10 +14,20 @@ import { cellTitle, freeSummary, partStanding, sortPersons, type SortMode } from
 import { cellState } from './scale';
 import { groupPersons, sameGroup, useOccupancyView, type Groups, type Show } from './view';
 
-const LEGEND_CELL = { month: '', available: true, tentative_pct: '0', established: false, parts: [] };
+const LEGEND_CELL = {
+  month: '',
+  available: true,
+  tentative_pct: '0',
+  established: false,
+  parts: [],
+};
 
 function Legend() {
-  const sample = (cell: Partial<OccupancyCell>): OccupancyCell => ({ ...LEGEND_CELL, pct: '0', ...cell });
+  const sample = (cell: Partial<OccupancyCell>): OccupancyCell => ({
+    ...LEGEND_CELL,
+    pct: '0',
+    ...cell,
+  });
   const items: [OccupancyCell, string][] = [
     [sample({ pct: '25' }), '1 tot 25%'],
     [sample({ pct: '50' }), 'tot 50%'],
@@ -55,55 +65,35 @@ function TileView({
   current: boolean;
   onFollow: () => void;
 }) {
-  const className = [
-    'grip-tile',
-    tile.attention ? 'grip-tile--attention' : '',
-    tile.quiet ? 'grip-tile--quiet' : '',
-  ]
-    .filter(Boolean)
-    .join(' ');
-  const content = (
-    <>
-      <span className="grip-tile__label">{tile.label}</span>
-      <span className="grip-tile__value">{tile.value}</span>
+  const { pathname } = useLocation();
+  const months = (tile.months ?? []).map((month) => `${month.label} ${month.value}`).join(', ');
+  const body = (
+    <nldd-container gap="4" padding="16">
+      <nldd-title size={4} overline={tile.label} text={tile.value} />
       {tile.attention && (
-        <span className="grip-tile__flag" style={{ marginTop: 0 }}>
-          <span className="grip-mark" aria-hidden="true">
-            !
-          </span>
+        <nldd-text size="sm" weight="bold" color="critical">
           {tile.attention}
-        </span>
+        </nldd-text>
       )}
-      {tile.months && tile.months.length > 0 && (
-        <dl className="grip-tile__months">
-          {tile.months.map((month) => (
-            <div key={month.label}>
-              <dt>{month.label}</dt>
-              <dd>{month.value}</dd>
-            </div>
-          ))}
-        </dl>
-      )}
-      {tile.detail && <span className="grip-tile__context">{tile.detail}</span>}
-    </>
+      {months && <Quiet>{months}</Quiet>}
+      {tile.detail && <Quiet>{tile.detail}</Quiet>}
+    </nldd-container>
   );
-  if (to === null) {
-    return (
-      <div className={className} data-testid={`occupancy-tile-${tile.key}`}>
-        {content}
-      </div>
-    );
-  }
+  const common = {
+    'data-testid': `occupancy-tile-${tile.key}`,
+    background: current ? 'accent-tinted' : 'base',
+  } as const;
+  if (to === null) return <nldd-card {...common}>{body}</nldd-card>;
   return (
-    <Link
-      to={{ search: to }}
-      className={className}
-      data-testid={`occupancy-tile-${tile.key}`}
-      aria-current={current ? 'true' : undefined}
+    <nldd-card
+      {...common}
+      href={`${pathname}${to}`}
+      accessible-label={`${tile.label}: ${tile.value}${tile.attention ? `, ${tile.attention}` : ''}`}
+      {...(current ? { 'aria-current': 'true' } : {})}
       onClick={onFollow}
     >
-      {content}
-    </Link>
+      {body}
+    </nldd-card>
   );
 }
 
@@ -130,7 +120,10 @@ function CellDetail({ person, cell }: { person: PersonOccupancy; cell: Occupancy
                   {index > 0 && ', '}
                   {formatPercent(part.pct)} {partStanding(part)} op{' '}
                   {part.assignment_id && part.assignment_name ? (
-                    <nldd-link href={assignmentPath(part.assignment_id)} text={part.assignment_name} />
+                    <nldd-link
+                      href={assignmentPath(part.assignment_id)}
+                      text={part.assignment_name}
+                    />
                   ) : (
                     'een opdracht die je niet mag inzien'
                   )}
@@ -160,7 +153,14 @@ const SHOW_LABELS: Record<Show, (year: number, now: string) => string> = {
  * maanden"; when it is, the fact is said once.
  */
 function showOptions(groups: Groups, year: number, now: string) {
-  const order: Show[] = ['met-inzet', 'zonder-inzet', 'boven-100', 'vrij', 'zonder-inzet-jaar', 'iedereen'];
+  const order: Show[] = [
+    'met-inzet',
+    'zonder-inzet',
+    'boven-100',
+    'vrij',
+    'zonder-inzet-jaar',
+    'iedereen',
+  ];
   const yearIsAhead = sameGroup(groups['zonder-inzet-jaar'], groups['zonder-inzet']);
   return order
     .filter((show) => show !== 'zonder-inzet-jaar' || (!yearIsAhead && groups[show].length > 0))
@@ -212,8 +212,7 @@ export function OccupancyBlock({
   const viewKey = `${view.show}|${view.month ?? ''}`;
   const fromAddress = useMemo<CellRef | null>(() => {
     if (!view.month) return null;
-    const person =
-      persons.find((row) => row.over_months?.includes(view.month ?? '')) ?? persons[0];
+    const person = persons.find((row) => row.over_months?.includes(view.month ?? '')) ?? persons[0];
     return person && person.cells.some((cell) => cell.month === view.month)
       ? { personId: person.person_id, month: view.month }
       : null;
@@ -238,10 +237,11 @@ export function OccupancyBlock({
         'Alleen de personen van wie je de inzet mag zien.',
       )}
     >
-      <ul className="grip-tiles grip-tiles--compact" aria-label="Bezetting in het kort">
-        {tiles.map((tile) => (
-          <li key={tile.key}>
+      <RouterLinks>
+        <nldd-collection item-min-width="210px" gap="16" aria-label="Bezetting in het kort">
+          {tiles.map((tile) => (
             <TileView
+              key={tile.key}
               tile={tile}
               to={tile.target ? view.searchFor(tile.target) : null}
               current={tile.target !== undefined && tile.target.show === view.show}
@@ -250,9 +250,9 @@ export function OccupancyBlock({
                 if (tile.target?.month) setFocusRequest((request) => request + 1);
               }}
             />
-          </li>
-        ))}
-      </ul>
+          ))}
+        </nldd-collection>
+      </RouterLinks>
       <ActionBar
         label="Bezetting filteren"
         filters={[
@@ -271,7 +271,9 @@ export function OccupancyBlock({
             width: '220px',
           },
         ]}
-        actions={filtered ? [{ text: 'Toon iedereen', onClick: () => view.go({ show: 'iedereen' }) }] : []}
+        actions={
+          filtered ? [{ text: 'Toon iedereen', onClick: () => view.go({ show: 'iedereen' }) }] : []
+        }
       />
       {persons.length === 0 ? (
         <EmptyNotice text="Niemand in deze groep" />
@@ -295,21 +297,21 @@ export function OccupancyBlock({
             </div>
             <Legend />
             <Quiet>
-              Beschikbaar is 1 FTE per persoon per maand. Een naam opent het inzetbord van die
-              persoon, een cel laat zien waaruit het percentage bestaat.
+              Beschikbaar is 1 FTE per persoon per maand. Een naam opent het bord met die persoon,
+              een cel laat zien waaruit het percentage bestaat.
             </Quiet>
           </nldd-container>
         </div>
       )}
       {leftOut.length > 0 && (
-        <details className="grip-disclosure" data-testid="occupancy-left-out">
-          <summary>
+        <div data-testid="occupancy-left-out">
+          <Quiet>
             {leftOut.length === 1
               ? `1 persoon staat er niet in: zonder inzetschaal en zonder inzet in ${year}`
               : `${leftOut.length} mensen staan er niet in: zonder inzetschaal en zonder inzet in ${year}`}
-          </summary>
-          <Quiet>{leftOut.map((person) => person.person_name).join(', ')}</Quiet>
-        </details>
+            {`: ${leftOut.map((person) => person.person_name).join(', ')}.`}
+          </Quiet>
+        </div>
       )}
     </ReportBlock>
   );

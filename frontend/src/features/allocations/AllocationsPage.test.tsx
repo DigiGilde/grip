@@ -28,10 +28,79 @@ function renderPage(data = board(), vacancyRoles: unknown = [], options: unknown
   return { ...renderApp(<AllocationsPage />), fetchMock };
 }
 
+const rowName = (row: Element) => {
+  const name = row.querySelector('th[scope="row"] .grip-board__name');
+  return name?.querySelector('nldd-link')?.getAttribute('text') ?? name?.textContent;
+};
+
 const grid = async (container: HTMLElement) => {
   await waitFor(() => expect(container.querySelector('table[role="grid"]')).not.toBeNull());
   return container.querySelector('table[role="grid"]') as HTMLTableElement;
 };
+
+describe('Bord', () => {
+  it('names the page Bord and has no choice of view', async () => {
+    const { container } = renderPage();
+    await grid(container);
+    expect(container.querySelector('h1')).toHaveTextContent('Bord');
+    expect(container.querySelector('nldd-dropdown[accessible-label="Weergave"]')).toBeNull();
+  });
+
+  it('makes the name of a person a link to their page, and no one else', async () => {
+    const { container } = renderPage();
+    const table = await grid(container);
+    const links = [...table.querySelectorAll('.grip-board__name nldd-link')];
+    expect(links.map((link) => [link.getAttribute('text'), link.getAttribute('href')])).toEqual([
+      ['Voorbeeld Een', '/mensen/p1'],
+      ['Voorbeeld Twee', '/mensen/p2'],
+    ]);
+  });
+
+  it('says what a role is waiting for: a vacancy that runs, or the way to open one', async () => {
+    const data = board();
+    data.open_roles = [
+      { ...data.open_roles[0]!, vacancy_id: 'v1', vacancy_status: 'requested' },
+      {
+        ...data.open_roles[0]!,
+        budget_line_id: 'l10',
+        description: 'Tester',
+        role: 'Tester',
+      },
+    ];
+    const { container } = renderPage(data, [{ budget_line_id: 'l10' }]);
+    const table = await grid(container);
+    await waitFor(() =>
+      expect(table.querySelector('nldd-link[text="Open een vacature"]')).not.toBeNull(),
+    );
+    const roles = [...table.querySelectorAll('tbody tr')].filter((row) =>
+      row.querySelector('.grip-board__summary')?.textContent?.includes('niet ingevuld'),
+    );
+    expect(roles).toHaveLength(2);
+    expect(roles[0]!.querySelector('.grip-board__summary')).toHaveTextContent(
+      'vacature: aangevraagd',
+    );
+    expect(roles[0]!.querySelector('nldd-link[text="Bekijk de vacature"]')).toHaveAttribute(
+      'href',
+      '/vacatures/v1',
+    );
+    expect(roles[0]!.querySelector('nldd-link[text="Open een vacature"]')).toBeNull();
+    expect(roles[1]!.querySelector('.grip-board__summary')).not.toHaveTextContent('vacature:');
+    expect(roles[1]!.querySelector('nldd-link[text="Open een vacature"]')).not.toBeNull();
+  });
+
+  it('does not say the whole sentence of a bar in every month it covers', async () => {
+    const { container } = renderPage();
+    const table = await grid(container);
+    const row = [...table.querySelectorAll('tbody tr')].find(
+      (entry) => rowName(entry) === 'Voorbeeld Twee',
+    )!;
+    const said = [...row.querySelectorAll('.grip-board__sr-only')].map((cell) => cell.textContent);
+    expect(said.filter((text) => text?.includes('loopt door')).length).toBeGreaterThan(0);
+    expect(
+      said.filter((text) => text?.includes('100% Opdracht Alfa, Productmanager')),
+    ).toHaveLength(1);
+  });
+});
 
 describe('Inzet board', () => {
   it('is a table: a column header per month, a row header per person, text in every cell', async () => {
@@ -40,9 +109,7 @@ describe('Inzet board', () => {
     expect(table.querySelectorAll('thead th[scope="col"]')).toHaveLength(13);
     expect(table.querySelector('th[aria-current="date"]')).toHaveTextContent('nu');
     const rows = [...table.querySelectorAll('tbody tr:not(.grip-board__group)')];
-    expect(
-      rows.map((row) => row.querySelector('th[scope="row"] .grip-board__name')?.textContent),
-    ).toEqual(['Ontwerper', 'Voorbeeld Een', 'Voorbeeld Twee']);
+    expect(rows.map(rowName)).toEqual(['Ontwerper', 'Voorbeeld Een', 'Voorbeeld Twee']);
     for (const cell of table.querySelectorAll('td')) {
       expect(cell.querySelector('.grip-board__sr-only')?.textContent).not.toBe('');
     }
@@ -79,7 +146,7 @@ describe('Inzet board', () => {
     const { container } = renderPage();
     const table = await grid(container);
     const states = [...table.querySelectorAll('tbody tr')]
-      .find((row) => row.textContent?.includes('Voorbeeld Een'))!
+      .find((row) => rowName(row) === 'Voorbeeld Een')!
       .querySelectorAll('.grip-board__total');
     expect([...states].map((total) => total.getAttribute('data-state'))).toEqual([
       'quiet',
@@ -190,7 +257,7 @@ describe('Inzet board', () => {
     const toolbar = container.querySelector('nldd-toolbar')!;
     expect(
       [...toolbar.querySelectorAll('nldd-dropdown')].map((d) => d.getAttribute('accessible-label')),
-    ).toEqual(['Weergave', 'Toon']);
+    ).toEqual(['Groepering', 'Toon']);
     expect([...toolbar.querySelectorAll('nldd-button')].map((b) => b.getAttribute('text'))).toEqual(
       ['Eerdere maanden', 'Latere maanden'],
     );
@@ -200,7 +267,7 @@ describe('Inzet board', () => {
     const { container } = renderPage();
     await grid(container);
     container
-      .querySelector('nldd-dropdown[accessible-label="Weergave"]')
+      .querySelector('nldd-dropdown[accessible-label="Groepering"]')
       ?.dispatchEvent(new CustomEvent('change', { detail: { value: 'assignment' } }));
     await waitFor(() =>
       expect(container.querySelector('thead th[scope="col"]')).toHaveTextContent('Opdracht en rol'),

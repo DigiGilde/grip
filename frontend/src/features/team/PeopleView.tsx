@@ -6,7 +6,7 @@ import { boardKeys, fetchBoard } from '@/features/allocations/board/api';
 import { formatEuro, formatPercent, formatDate } from '@/lib/format';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { PATHS } from '@/paths';
-import { ActionBar, type ActionBarFilter } from '@/ui/ActionBar';
+import { ActionBar } from '@/ui/ActionBar';
 import { OpenCell, OpenRow } from '@/ui/RowActions';
 import { createPerson, fetchPeople, peopleKey, today, type Person } from './api';
 import { DateField, SelectField, TextField } from './ui/controls';
@@ -40,7 +40,7 @@ function listLine(person: Person): string {
  * only drawn when at least one row carries its field. The row opens the
  * person.
  */
-export function PeopleView({ viewFilter }: { viewFilter?: ActionBarFilter }) {
+export function PeopleView() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const day = today();
@@ -64,7 +64,7 @@ export function PeopleView({ viewFilter }: { viewFilter?: ActionBarFilter }) {
   const ordered = orderPeople(people, rows);
 
   const [adding, setAdding] = useState(false);
-  const openPerson = (id: string) => navigate(PATHS.teamPerson.replace(':personId', id));
+  const openPerson = (id: string) => navigate(PATHS.person.replace(':personId', id));
 
   const showRate = anyHas(people, 'billing_scale');
   // A list in which nobody has a manager named has no column for it.
@@ -83,7 +83,6 @@ export function PeopleView({ viewFilter }: { viewFilter?: ActionBarFilter }) {
         <ActionBar
           label="Personen filteren en acties"
           filters={[
-            ...(viewFilter ? [viewFilter] : []),
             ...(mayManage
               ? [
                   {

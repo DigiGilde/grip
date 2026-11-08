@@ -1,7 +1,7 @@
 import { ifMatch } from '@/ui/stale';
 import { documentTitle } from '@/brand/names';
 import { iconOf } from '@/ui/icons';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type MutableRefObject } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ApiError } from '@/api/client';
@@ -9,13 +9,14 @@ import { useAuth } from '@/auth/context';
 import { orUndef, useNlddEvent } from '@/components/nldd/events';
 import { boardKeys, fetchPersonBoard, type BoardPerson } from '@/features/allocations/board/api';
 import { buildGroups, toTimeline } from '@/features/allocations/board/model';
-import { assignmentTabPath } from '@/features/assignments/paths';
+import { assignmentPartPath } from '@/features/assignments/paths';
 import { WIES_KEYS, fetchReconciliation } from '@/features/wies/api';
 import { formatDate, formatEuro, formatMonth, formatPercent, formatPeriod } from '@/lib/format';
 import { useInstance } from '@/layout/useInstance';
 import { useRouterLinks } from '@/layout/useRouterLinks';
 import { PAGE_HEADING_ID } from '@/pages/PageHeading';
 import { PATHS } from '@/paths';
+import { BackLink } from '@/ui/Icon';
 import {
   EmptyNotice,
   ErrorNotice,
@@ -107,11 +108,16 @@ export function PersonPage() {
   });
   const person = query.data;
   const notFound = query.error instanceof ApiError && query.error.status === 404;
+  const handoverRef = useRef(false);
 
-  if (person) return <PersonScreen person={person} day={day} mayManage={mayManage} />;
+  if (person) {
+    return (
+      <PersonScreen person={person} day={day} mayManage={mayManage} handoverRef={handoverRef} />
+    );
+  }
   return (
     <nldd-simple-section>
-      <Heading name="Persoon" />
+      <Heading name="Persoon" handoverRef={handoverRef} />
       {notFound ? (
         <NotFound what="Deze persoon" />
       ) : query.isError ? (
@@ -127,6 +133,11 @@ export function PersonPage() {
 
 interface HeadingProps {
   name: string;
+  /**
+   * The page opens on a heading that says "Persoon" until the person has
+   * loaded; the heading that replaces it takes over the focus the first had.
+   */
+  handoverRef: MutableRefObject<boolean>;
   /** The one action of the page, at the end of the title line. */
   end?: React.ReactNode;
   children?: React.ReactNode;
@@ -137,16 +148,27 @@ interface HeadingProps {
  * line. Sits in the header slot of the section, so it keeps the design
  * system's distance to the content.
  */
-function Heading({ name, end, children }: HeadingProps) {
+function Heading({ name, handoverRef, end, children }: HeadingProps) {
   const instance = useInstance();
   const ref = useRef<HTMLElement>(null);
   useRouterLinks(ref);
+  useLayoutEffect(() => {
+    // The section draws its header slot a frame after it is added, and an
+    // element that is not drawn yet cannot take the focus.
+    if (handoverRef.current) {
+      handoverRef.current = false;
+      requestAnimationFrame(() => document.getElementById(PAGE_HEADING_ID)?.focus());
+    }
+    return () => {
+      if (document.activeElement?.id === PAGE_HEADING_ID) handoverRef.current = true;
+    };
+  }, [handoverRef]);
   useEffect(() => {
     document.title = documentTitle(name, instance?.name);
   }, [name, instance?.name]);
   return (
     <nldd-container ref={ref} slot="header" gap="8">
-      {/* No link back: the second bar of Team marks Mensen and leads there. */}
+      <BackLink href={PATHS.people} text="Terug naar Mensen" />
       <nldd-title size={2}>
         {/* The span takes the focus after navigation; see PageHeading. */}
         <h1>
@@ -220,9 +242,10 @@ interface ScreenProps {
   person: Person;
   day: string;
   mayManage: boolean;
+  handoverRef: MutableRefObject<boolean>;
 }
 
-function PersonScreen({ person, day, mayManage }: ScreenProps) {
+function PersonScreen({ person, day, mayManage, handoverRef }: ScreenProps) {
   const { state } = useAuth();
   const isSelf = state.status === 'authenticated' && state.person.id === person.id;
   const [open, setOpen] = useState<Open>(null);
@@ -285,6 +308,7 @@ function PersonScreen({ person, day, mayManage }: ScreenProps) {
     <nldd-simple-section>
       <Heading
         name={person.name}
+        handoverRef={handoverRef}
         end={mayManage ? <ChangeMenu groups={groups} onChoose={choose} /> : null}
       >
         <nldd-container layout="wrap" gap="8" vertical-alignment="center">
@@ -297,7 +321,7 @@ function PersonScreen({ person, day, mayManage }: ScreenProps) {
           {person.manager_id ? (
             <nldd-link
               size="sm"
-              href={`${PATHS.teamPerson.replace(':personId', person.manager_id)}?peildatum=${day}`}
+              href={`${PATHS.person.replace(':personId', person.manager_id)}?peildatum=${day}`}
               text={`Leidinggevende: ${person.manager_name ?? ''}`}
             />
           ) : person.manager_name ? (
@@ -317,6 +341,7 @@ function PersonScreen({ person, day, mayManage }: ScreenProps) {
               months={board.data?.months ?? []}
               currentMonth={board.data?.current_month ?? ''}
               loading={board.isPending}
+              canPlan={board.data?.can_add === true}
             />
           ) : null}
           {kpi.data ? (
@@ -465,6 +490,8 @@ interface DeploymentProps {
   months: string[];
   currentMonth: string;
   loading: boolean;
+  /** The reader may plan: the board is the place to do it. */
+  canPlan: boolean;
 }
 
 /**
@@ -473,7 +500,14 @@ interface DeploymentProps {
  * where it ends. The assignments are listed under the picture as links, which
  * is also how a keyboard reaches them.
  */
-function DeploymentSection({ person, row, months, currentMonth, loading }: DeploymentProps) {
+function DeploymentSection({
+  person,
+  row,
+  months,
+  currentMonth,
+  loading,
+  canPlan,
+}: DeploymentProps) {
   const navigate = useNavigate();
   const standing = deploymentOf(person, row);
   const groups = row
@@ -497,13 +531,14 @@ function DeploymentSection({ person, row, months, currentMonth, loading }: Deplo
         rows: group.rows.map((entry) => ({
           ...entry,
           label: 'Alle opdrachten',
+          labelHref: null,
           summary: '',
         })),
       }))
     : [];
   const bars = [...(row?.bars ?? [])].sort((a, b) => (a.end_date < b.end_date ? -1 : 1));
   const openAssignment = (id: string | undefined) => {
-    if (id) navigate(assignmentTabPath(id, 'staffing'));
+    if (id) navigate(assignmentPartPath(id, 'team'));
   };
   const first = months[0];
   const last = months[months.length - 1];
@@ -563,7 +598,7 @@ function DeploymentSection({ person, row, months, currentMonth, loading }: Deplo
                 <nldd-cell>
                   {bar.assignment_id ? (
                     <nldd-link
-                      href={assignmentTabPath(bar.assignment_id, 'staffing')}
+                      href={assignmentPartPath(bar.assignment_id, 'team')}
                       text={bar.assignment_name ?? 'Opdracht'}
                     />
                   ) : (
@@ -582,11 +617,13 @@ function DeploymentSection({ person, row, months, currentMonth, loading }: Deplo
           </nldd-table>
         </>
       ) : null}
-      <nldd-link
-        size="sm"
-        href={`${PATHS.allocations}?persoon=${person.id}`}
-        text="Plan op het Inzet-bord"
-      />
+      {canPlan ? (
+        <nldd-link
+          size="sm"
+          href={`${PATHS.peopleBoard}?persoon=${person.id}`}
+          text="Plan op het bord"
+        />
+      ) : null}
     </Section>
   );
 }
@@ -659,13 +696,13 @@ function KpiSection({
         size="lg"
         max={Math.max(target ?? 0, total, 1)}
         value-display="none"
-        accessible-label={`${title}: ${formatEuro(kpi.realised_cents)} gerealiseerd en ${formatEuro(kpi.forecast_cents)} nog gepland${target === null ? '' : `, target ${formatEuro(target)}`}`}
+        accessible-label={`${title}: ${formatEuro(kpi.realised_cents)} gerealiseerde inzet en ${formatEuro(kpi.forecast_cents)} nog gepland${target === null ? '' : `, target ${formatEuro(target)}`}`}
       >
         <nldd-progress-bar-segment-indicator
           value={kpi.realised_cents ?? 0}
           color="donkerblauw"
-          name="Gerealiseerd"
-          tooltip-text={`Gerealiseerd ${formatEuro(kpi.realised_cents)}`}
+          name="Gerealiseerde inzet"
+          tooltip-text={`Gerealiseerde inzet ${formatEuro(kpi.realised_cents)}`}
         />
         <nldd-progress-bar-segment-indicator
           value={kpi.forecast_cents ?? 0}
@@ -676,7 +713,7 @@ function KpiSection({
       </nldd-progress-bar>
       {/* The legend carries the values, so the bar is never colour alone. */}
       <nldd-container layout="wrap" gap="8" vertical-alignment="center">
-        <nldd-tag color="donkerblauw" size="sm" text="Gerealiseerd" />
+        <nldd-tag color="donkerblauw" size="sm" text="Gerealiseerde inzet" />
         <nldd-text>{formatEuro(kpi.realised_cents)}</nldd-text>
         <nldd-spacer size="8" />
         <nldd-tag color="hemelblauw" size="sm" text="Nog gepland" />
@@ -825,7 +862,7 @@ function HireSection({
                   hire.id
                     ? [
                         {
-                          text: 'Verwijder deze inhuur',
+                          text: 'Verwijder',
                           destructive: true,
                           onSelect: () => onRemove(hire),
                         },
@@ -913,6 +950,7 @@ function RightsSection({
                       : [
                           {
                             text: 'Trek in',
+                            withdraws: true,
                             destructive: true,
                             confirm: isSelf
                               ? {

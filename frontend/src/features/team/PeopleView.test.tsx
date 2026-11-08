@@ -1,7 +1,7 @@
 import { waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderApp } from '@/test/utils';
-import { TeamPage } from './TeamPage';
+import { PeoplePage } from './PeoplePage';
 import { mockApi, texts } from './ui/testing';
 
 const ROSTER = {
@@ -25,7 +25,7 @@ async function renderPeople(items: object[], mayManage = false, board?: object) 
       period_end: '2026-06-01',
     },
   });
-  const view = renderApp(<TeamPage />, { path: '/team' });
+  const view = renderApp(<PeoplePage />, { path: '/mensen' });
   await waitFor(() => expect(view.container.querySelector('nldd-table')).not.toBeNull());
   return view.container;
 }
@@ -138,9 +138,10 @@ describe('PeopleView', () => {
     const { calls } = mockApi({
       '/api/people': { items: [], may_manage: false, period_start: '', period_end: '' },
     });
-    renderApp(<TeamPage />, { path: '/team' });
-    await waitFor(() => expect(calls.length).toBeGreaterThan(0));
-    const url = new URL(calls[0] ?? '', 'http://test');
+    renderApp(<PeoplePage />, { path: '/mensen' });
+    const people = () => calls.find((call) => call.startsWith('/api/people?'));
+    await waitFor(() => expect(people()).toBeDefined());
+    const url = new URL(people() ?? '', 'http://test');
     expect(url.searchParams.get('period_start')).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(url.searchParams.get('period_start')).toBe(url.searchParams.get('period_end'));
   });

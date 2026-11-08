@@ -93,10 +93,10 @@ async function renderPerson(options: Mock, functions: string[] = [], asSelf = fa
   const viewer = asSelf ? { ...TEST_PERSON, id: 'p-1' } : { ...TEST_PERSON, id: 'p-viewer' };
   const view = renderApp(
     <Routes>
-      <Route path="/team/:personId" element={<PersonPage />} />
+      <Route path="/mensen/:personId" element={<PersonPage />} />
     </Routes>,
     {
-      path: '/team/p-1?peildatum=2026-06-01',
+      path: '/mensen/p-1?peildatum=2026-06-01',
       auth: { status: 'authenticated', person: viewer, functions },
     },
   );
@@ -114,7 +114,15 @@ function choose(root: ParentNode, text: string) {
   const item = [...root.querySelectorAll('nldd-menu-item')].find(
     (el) => el.getAttribute('text') === text,
   );
-  expect(item).toBeDefined();
+  if (!item) {
+    // A removal on its own is an icon button, not a menu of one.
+    const alone = [...root.querySelectorAll('nldd-icon-button')].find((el) =>
+      el.getAttribute('accessible-label')?.startsWith(`${text} `),
+    );
+    expect(alone).toBeDefined();
+    fireEvent.click(alone as Element);
+    return;
+  }
   fireEvent(item as Element, new CustomEvent('select'));
 }
 const identity = (container: HTMLElement) =>
@@ -191,8 +199,8 @@ describe('what each reader sees of a person', () => {
     expect(container.textContent).toContain('Laatste inzet eindigt op 30 sep 2026');
     expect(container.textContent).toContain('Geen inzet vanaf oktober 2026');
     // Every assignment is a link, and the board is one step away.
-    expect(container.querySelector('nldd-link[href="/opdrachten/a2/bemensing"]')).not.toBeNull();
-    expect(container.querySelector('nldd-link[href="/inzet?persoon=p-1"]')).not.toBeNull();
+    expect(container.querySelector('nldd-link[href="/opdrachten/a2/team"]')).not.toBeNull();
+    expect(container.querySelector('nldd-link[href="/mensen/bord?persoon=p-1"]')).not.toBeNull();
     expect(document.body.innerHTML).not.toContain('€');
     expect(buttons(document.body)).toEqual([]);
     expect(menuItems(document.body)).toEqual([]);
@@ -299,15 +307,71 @@ describe('what each reader sees of a person', () => {
     );
     const { container } = renderApp(
       <Routes>
-        <Route path="/team/:personId" element={<PersonPage />} />
+        <Route path="/mensen/:personId" element={<PersonPage />} />
       </Routes>,
-      { path: '/team/p-1' },
+      { path: '/mensen/p-1' },
     );
     await waitFor(() =>
       expect(container.querySelector('[data-state="not-found"]')?.textContent).toContain(
         'Deze persoon is niet gevonden',
       ),
     );
+  });
+});
+
+describe('the way around the page', () => {
+  it('leads back to Mensen with one link, not a trail', async () => {
+    const { container } = await renderPerson({ person: ROSTER });
+    const back = container.querySelectorAll('nldd-link[text="Terug naar Mensen"]');
+    expect(back).toHaveLength(1);
+    expect(back[0]).toHaveAttribute('href', '/mensen');
+    expect(container.querySelector('nldd-breadcrumb, nav[aria-label*="kruimel" i]')).toBeNull();
+  });
+
+  it('offers the board only to a reader who may plan', async () => {
+    const planning = await renderPerson({ person: { ...ROSTER, ...STAFFING }, board: BOARD });
+    await waitFor(() => expect(planning.container.querySelector('.grip-board')).not.toBeNull());
+    expect(planning.container.querySelector('nldd-link[text="Plan op het bord"]')).not.toBeNull();
+    planning.container.remove();
+    const reading = await renderPerson({
+      person: { ...ROSTER, ...STAFFING },
+      board: { ...BOARD, can_add: false },
+    });
+    await waitFor(() => expect(reading.container.querySelector('.grip-board')).not.toBeNull());
+    expect(reading.container.querySelector('nldd-link[text="Plan op het bord"]')).toBeNull();
+    expect(reading.container.querySelector('nldd-link[text="Alle opdrachten"]')).toBeNull();
+  });
+
+  it('keeps the focus on the heading when the person has loaded', async () => {
+    mock({ person: ROSTER });
+    const answer = globalThis.fetch;
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    vi.stubGlobal('fetch', (input: RequestInfo | URL, init?: RequestInit) =>
+      String(input).startsWith('/api/people/p-1?')
+        ? gate.then(() => answer(input, init))
+        : answer(input, init),
+    );
+    const { container } = renderApp(
+      <Routes>
+        <Route path="/mensen/:personId" element={<PersonPage />} />
+      </Routes>,
+      {
+        path: '/mensen/p-1?peildatum=2026-06-01',
+        auth: {
+          status: 'authenticated',
+          person: { ...TEST_PERSON, id: 'p-viewer' },
+          functions: [],
+        },
+      },
+    );
+    const heading = () => container.querySelector<HTMLElement>('h1 span');
+    expect(heading()).toHaveTextContent('Persoon');
+    heading()?.focus();
+    expect(document.activeElement).toBe(heading());
+    release();
+    await waitFor(() => expect(heading()).toHaveTextContent('Rik Medewerker'));
+    await waitFor(() => expect(document.activeElement).toBe(heading()));
   });
 });
 
@@ -337,7 +401,7 @@ describe('how a person is doing', () => {
       (el) => [el.getAttribute('name'), el.getAttribute('value')],
     );
     expect(segments).toEqual([
-      ['Gerealiseerd', '1800000'],
+      ['Gerealiseerde inzet', '1800000'],
       ['Nog gepland', '19800000'],
     ]);
   });
