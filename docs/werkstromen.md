@@ -17,7 +17,7 @@ Elk verloop dient een hoofdgeval en de varianten die echt voorkomen. De rol is e
 
 ### Een opdracht winnen
 
-**Hoofdgeval.** Een opdrachtmanager krijgt een vraag van een ministerie. Zij maakt een potentiële opdracht, begroot de rollen, maakt de offerte, laat haar zo nodig intern goedkeuren en biedt haar aan. De opdrachtgever tekent. Zij zet de opdracht in uitvoering. Begint op: Start, onder Mijn taken, of Opdrachten.
+**Hoofdgeval.** Een opdrachtmanager krijgt een vraag van een ministerie. Zij maakt een potentiële opdracht, begroot de rollen, maakt de offerte, laat haar zo nodig intern goedkeuren en biedt haar aan. De opdrachtgever tekent. Zij zet de opdracht in uitvoering. Begint op: Start, onder Te doen, of Opdrachten.
 
 | Variant | Wat het verloop toont | Wie is aan zet | Terug op het hoofdpad | Status |
 |---|---|---|---|---|
@@ -25,33 +25,33 @@ Elk verloop dient een hoofdgeval en de varianten die echt voorkomen. De rol is e
 | De begroting wijzigt na de offerte | Offerte is weer de huidige stap | eigenaar: "Maak een nieuwe offerte" | de nieuwe offerte vervangt de oude | nagelopen, werkt |
 | De offerte verloopt | Offerte is weer de huidige stap | eigenaar | een nieuwe offerte | getest, niet in de browser |
 | Een directeur moet goedkeuren | extra stap Interne goedkeuring, alleen waar de instelling het vraagt | eigenaar vraagt, goedkeurder beoordeelt | na goedkeuring Aanbieden | nagelopen, werkt |
-| Niemand heeft het recht om goed te keuren | de zin zegt dat en wie het kan oplossen | beheerder | recht toekennen bij Team | nagelopen, werkt |
+| Niemand heeft het recht om goed te keuren | de zin zegt dat en wie het kan oplossen | beheerder | recht toekennen onder Mensen | nagelopen, werkt |
 | Intern teruggestuurd | Offerte is weer de huidige stap | wie de offerte maakte | begroting aanpassen, nieuwe offerte | getest, niet in de browser |
 | Mondeling akkoord | stap Akkoord, met de zin dat het getekende akkoord nog moet | eigenaar | getekend akkoord vastleggen | nagelopen, werkt; de eigenaar leest waar het vast te leggen is en heeft hier geen knop |
 | De opdrachtgever heeft geen grip | geen verschil in het verloop; aanbieden als document of met een tekenlink | eigenaar | getekende pdf vastleggen | het verloop nagelopen, het tekenen zelf niet |
 | De offerte wordt afgewezen | De opdracht blijft potentieel en staat terug op Offerte; de kop zegt wie afwees, wanneer en waarom. Stoppen is een eigen besluit: "Sluit af zonder opdracht" met een reden, einde "Niet doorgegaan". Voor de opdrachtgever die afwees eindigt het verloop als Afgewezen | eigenaar | nieuwe offerte, of afsluiten zonder opdracht | nagelopen in de browser en getest |
-| De eigenaar is weg | het verloop blijft; de zin noemt de eigenaar | beheerder wijst een eigenaar aan | Overzicht, eigenaar en managers | niet nagelopen |
+| De eigenaar is weg | het verloop blijft; de zin noemt de eigenaar | beheerder wijst een eigenaar aan | Gegevens, eigenaar en managers | niet nagelopen |
 | Werven begint voor de handtekening | de vacature heeft een eigen verloop; de opdracht hoeft niet akkoord te zijn | planner of eigenaar | n.v.t. | getest in het plan, niet in de browser |
 | Een lezer kijkt mee | dezelfde stappen; de zin zegt wie aan zet is, zonder "je wacht", zonder termijn en zonder knop | niemand hier | n.v.t. | nagelopen, werkt |
 | Een manager doet de stap van de eigenaar | wie het recht van de stap zelf al heeft en niet aan zet is, ziet "Neem deze stap over"; daarna is de stap van haar en zegt een notitie op de taak van wie hij kwam. Overnemen geeft nooit een recht, en een stap waar een ander moet beslissen (interne goedkeuring, advies en akkoord, een oordeel over een tekst, het besluit van de opdrachtgever) kan niemand overnemen of doorgeven: in het plan staat bij die taken `separation` | manager of beheerder met het recht | de eigenaar kan hem terugnemen | nagelopen voor de eigenaarsstap; de weigeringen getest op de server |
 
 ### Een opdracht uitvoeren en factureren
 
-**Hoofdgeval.** De opdracht loopt. De planner vult de rollen. De opdrachtmanager sluit elke maand af, levert per factuurperiode aan en legt de factuur vast. Aan het eind levert zij het eindrapport op. Begint op: Start, onder Mijn taken.
+**Hoofdgeval.** De opdracht loopt. De planner vult de rollen. De opdrachtmanager sluit elke maand af, levert per factuurperiode aan en legt de factuur vast. Aan het eind levert zij het eindrapport op. Begint op: Start, onder Te doen.
 
 | Variant | Wat het verloop toont | Wie is aan zet | Status |
 |---|---|---|---|
-| Hoofdgeval | Uitvoeren, met de eerstvolgende taak als zin; per periode Maanden afsluiten, Aanleveren, Factuur | eigenaar of manager, planner | nagelopen: de kop, het werk van de stap op de tab en per periode wie aan zet is |
+| Hoofdgeval | Uitvoeren, met de eerstvolgende taak als zin; per periode Maanden afsluiten, Aanleveren, Factuur | eigenaar of manager, planner | nagelopen: de kop, het werk van de stap op zijn onderdeel en per periode wie aan zet is |
 | Een maand is te laat | de termijn staat rood onder de zin | eigenaar of manager | nagelopen, werkt |
 | Per kwartaal factureren, per maand afsluiten | aanleveren wordt pas gevraagd als de periode klaar is | eigenaar of manager | getest, niet in de browser |
 | Promotie of tarief met terugwerkende kracht, na aanleveren | de periode krijgt een vierde stap Naverrekening; de taak "Lever de naverrekening over <periode> aan" noemt het verschil en de oorzaak; aanleveren sluit haar. Wordt de wijziging teruggedraaid, dan verdwijnt alles. Twee wijzigingen voor aanleveren zijn een naverrekening met beide oorzaken | eigenaar of manager | nagelopen in de browser (rij, kop, taak, pdf) en getest |
-| Iemand is dubbel geboekt | geen stap; een signaal op Bemensing | planner | buiten het verloop, bewust |
+| Iemand is dubbel geboekt | geen stap; een signaal op Team | planner | buiten het verloop, bewust |
 | De opdracht wordt verlengd of de begroting groeit na akkoord | geen stap | eigenaar | **gat**; ontwerp hieronder, niet gebouwd |
 | Interne opdracht | een eigen kort verloop: Begroting, Starten, Uitvoeren; starten is een knop in de kop, zonder offerte of akkoord | eigenaar | nagelopen in de browser, werkt |
 
 ### Iemand werven
 
-**Hoofdgeval.** Een planner opent een vacature voor een open rol, vult de aanvraag in, vraagt aan, krijgt advies van HR en concern control en het akkoord, stelt open en legt vast wie is aangenomen. Begint op: Vacatures, of Bemensing van de opdracht.
+**Hoofdgeval.** Een planner opent een vacature voor een open rol, vult de aanvraag in, vraagt aan, krijgt advies van HR en concern control en het akkoord, stelt open en legt vast wie is aangenomen. Begint op: Vacatures, het bord onder Mensen, of Team van de opdracht.
 
 | Variant | Wat het verloop toont | Wie is aan zet | Status |
 |---|---|---|---|
@@ -66,11 +66,11 @@ Elk verloop dient een hoofdgeval en de varianten die echt voorkomen. De rol is e
 
 ### Een tekst schrijven
 
-**Hoofdgeval.** De aanvrager schrijft de vacaturetekst, biedt haar aan voor een oordeel, verwerkt de opmerkingen en stelt haar vast. Begint op: de tab Tekst van de vacature.
+**Hoofdgeval.** De aanvrager schrijft de vacaturetekst, biedt haar aan voor een oordeel, verwerkt de opmerkingen en stelt haar vast. Begint op: Tekst en openstellen van de vacature.
 
 | Variant | Wat het verloop toont | Status |
 |---|---|---|
-| Hoofdgeval | Schrijven, Beoordelen, Vaststellen | op de tab Tekst staat per tekst wie aan zet is; een lege tekstpagina biedt de standaardtekst, een tekst op maat of zelf schrijven. Nagelopen; het beoordelen zelf niet |
+| Hoofdgeval | Schrijven, Beoordelen, Vaststellen | op Tekst en openstellen staat per tekst wie aan zet is; een lege tekstpagina biedt de standaardtekst, een tekst op maat of zelf schrijven. Nagelopen; het beoordelen zelf niet |
 | De tekst komt twee keer terug | Schrijven is weer de huidige stap, zo vaak als nodig | idem |
 | Vaststellen zonder oordeel | Beoordelen telt als gedaan zodra de tekst is vastgesteld | idem |
 
@@ -83,7 +83,7 @@ Een verloop is er waar meer stappen over de tijd lopen, meer mensen handelen en 
 | Potentiële opdracht tot akkoord | ja | dagen tot weken, eigenaar, goedkeurder en opdrachtgever |
 | Opdracht in uitvoering | ja | maanden, planner, manager, eigenaar |
 | Ontvangen offerte bij de opdrachtgever | ja | aanvrager wacht, tekenbevoegde besluit |
-| Offerte zelf | nee; haar kaart toont een label en hoe ze is aangeboden | zij is de stappen Offerte tot Akkoord van de opdracht; een tweede balk zegt het twee keer |
+| Offerte zelf | nee; haar kaart toont een label en hoe ze is aangeboden | zij is de stappen Offerte tot Akkoord van de opdracht; een tweede verloop zegt het twee keer |
 | Vacature | ja | weken, aanvrager, adviseurs, directie |
 | Vacaturetekst en motivatie | ja | rondes tussen schrijver en beoordelaars |
 | Factuurperiode | ja | afsluiten, aanleveren, factuur, over maanden |
@@ -100,17 +100,17 @@ Een verloop is er waar meer stappen over de tijd lopen, meer mensen handelen en 
 
 Een pagina van een zaak met een verloop zegt van boven naar beneden, overal op dezelfde plek:
 
-1. **Wat er nu gebeurt**, in een zin aan de lezer, direct onder de titel. Is de lezer aan zet, dan staat rechts van de titel de ene knop die de stap zet, met de naam van de stap. Is een ander aan zet, dan zegt de zin wie en is er geen knop.
+1. **Wat er nu gebeurt**, in een zin aan de lezer, onder de titel. Is de lezer aan zet, dan staat rechts van de titel de ene knop die de stap zet, met de naam van de stap. Is een ander aan zet, dan zegt de zin wie en is er geen knop.
 2. **Wat nog ontbreekt** voor die stap, alleen zolang er iets ontbreekt, en de termijn. Een verlopen termijn staat rood.
-3. **Het verloop**: drie tot vijf stappen, klein en rustig. Een stap die niet van toepassing is ontbreekt. Een stap die gedaan is telt als gedaan waar hij ook staat.
-4. **Het werk** van de huidige stap op de tabs eronder.
-5. **Wat er gebeurd is**: de tab Geschiedenis.
+3. **Het verloop**, klein en rustig in één regel: de stap waar de zaak staat en de stap daarna. Op een opdracht staat die regel direct onder de titel, voor de zin; op een vacature zijn de stappen de rijen van de landing, elk met haar stand. Een stap die niet van toepassing is ontbreekt. Een stap die gedaan is telt als gedaan waar hij ook staat.
+4. **Het werk** van de huidige stap op het onderdeel waar de knop heen leidt. De onderdelen staan als rijen onder de zin.
+5. **Wat er gebeurd is**: het onderdeel Geschiedenis.
 
 Een lijst zegt per zaak hetzelfde in een kolom Stand: de stap, en eronder "Jij: ..." of "Wacht op ...".
 
 Regels:
 
-- **Een accent per pagina.** Draagt de kop de volgende stap, dan stapt de hoofdknop van de tab terug naar een gewone knop. Staat de lezer al op de plek waar de stap wordt gezet, dan draagt de pagina de knop en de kop niet.
+- **Een accent per pagina.** Draagt de kop van een onderdeel de volgende stap, dan stapt de hoofdknop van het onderdeel terug naar een gewone knop. Staat de lezer al op de plek waar de stap wordt gezet, dan draagt de pagina de knop en de kop niet.
 - **De knop doet de stap** waar dat een enkele beslissing is (in uitvoering zetten, een formulier openen); anders brengt hij naar de plek waar de stap wordt gezet.
 - **Dezelfde woorden** in de zin, de knop, de taak, de lijst en de melding. Ze staan op een plek: `backend/grip/data/tasks/guidance.json`.
 - **Geen doodlopend punt.** In elke stand is er een huidige stap die iemand iets vertelt, of het verloop is voorbij. Een test loopt elke combinatie van feiten na.
@@ -147,20 +147,20 @@ Elke stap waar iemand moet handelen is een taak voor precies die persoon. De taa
 | Stap | Wie handelt | Taak | Knop | Waar | Sluit als |
 |---|---|---|---|---|---|
 | Akkoord | niemand | | | | volgt uit de zaak zelf |
-| Starten | eigenaar | Zet de opdracht in uitvoering | Zet in uitvoering | Overzicht | de opdracht is in uitvoering |
-| Uitvoeren | planner | Vul de rol {rol} in | Vul de rol in | Bemensing | de rol is ingevuld |
+| Starten | eigenaar | Zet de opdracht in uitvoering | Zet in uitvoering | Landing van de opdracht | de opdracht is in uitvoering |
+| Uitvoeren | planner | Vul de rol {rol} in | Vul de rol in | Team | de rol is ingevuld |
 |  | eigenaar of manager | Sluit {maand} af, binnen 5 werkdagen | Sluit {maand} af | Afsluiten en factureren | de maand is afgesloten |
 |  | eigenaar of manager | Lever {periode} aan, binnen 5 werkdagen | Lever aan | Afsluiten en factureren | de periode is aangeleverd |
 |  | eigenaar of manager | Leg de factuur over {periode} vast, binnen 10 werkdagen | Leg factuur vast | Afsluiten en factureren | de factuur over de periode is vastgelegd |
 |  | eigenaar of manager | Lever de naverrekening van {maand} aan, binnen 5 werkdagen | Lever de naverrekening aan | Afsluiten en factureren | de naverrekening is aangeleverd |
-| Verantwoorden | eigenaar | Lever het eindrapport op | Maak het eindrapport | Rapportage van de opdracht | het eindrapport is uitgegeven |
+| Verantwoorden | eigenaar | Lever het eindrapport op | Maak het eindrapport | Eindrapport | het eindrapport is uitgegeven |
 
 ### Interne opdracht (de zaak zelf)
 
 | Stap | Wie handelt | Taak | Knop | Waar | Sluit als |
 |---|---|---|---|---|---|
 | Begroting | eigenaar | Maak de begroting | Maak de begroting | Begroting | de begroting heeft een regel |
-| Starten | eigenaar | Start de opdracht | Start de opdracht (in de kop, in een keer) | Overzicht | de opdracht is in uitvoering |
+| Starten | eigenaar | Start de opdracht | Start de opdracht (in de kop, in een keer) | Landing van de opdracht | de opdracht is in uitvoering |
 | Uitvoeren | planner, eigenaar of manager | dezelfde taken als bij Uitvoering | | | de opdracht is afgerond |
 
 ### Factuurperiode (per factuurperiode)
@@ -181,20 +181,20 @@ Elke stap waar iemand moet handelen is een taak voor precies die persoon. De taa
 |  | wie akkoord geeft | Geef akkoord op de vacature | Leg het akkoord vast | Advies en akkoord | het akkoord is vastgelegd |
 |  | aanvrager | Maak het aanvraagformulier | Maak aanvraagformulier | Aanvraag | het aanvraagformulier is gemaakt en klopt met de vacature |
 |  | aanvrager | Leg het getekende formulier vast | Leg getekend formulier vast | Aanvraag | het getekende formulier is vastgelegd |
-| Openstellen | aanvrager | Stel de vacature open | Stel open | Procedure | de vacature is opengesteld |
-| Vervullen | aanvrager | Leg vast wie is aangenomen | Vervul | Vervulling | de aanname is vastgelegd |
-|  | aanvrager | Leg de link naar de gepubliceerde vacature vast | Leg de link vast | Tekst | de link naar de gepubliceerde vacature is vastgelegd |
-|  | aanvrager | Stel de nieuwe collega voor aan Wies | Bekijk de vervulling | Vervulling | de collega is bekend in Wies |
-|  | aanvrager | Vraag een account en e-mailadres aan | Bekijk de vervulling | Vervulling | de collega heeft een e-mailadres |
+| Openstellen | aanvrager | Stel de vacature open | Stel open | Tekst en openstellen | de vacature is opengesteld |
+| Vervullen | aanvrager | Leg vast wie is aangenomen | Vervul | Vervullen | de aanname is vastgelegd |
+|  | aanvrager | Leg de link naar de gepubliceerde vacature vast | Leg de link vast | Tekst en openstellen | de link naar de gepubliceerde vacature is vastgelegd |
+|  | aanvrager | Stel de nieuwe collega voor aan Wies | Bekijk de vervulling | Vervullen | de collega is bekend in Wies |
+|  | aanvrager | Vraag een account en e-mailadres aan | Bekijk de vervulling | Vervullen | de collega heeft een e-mailadres |
 
 ### Tekst (per tekst)
 
 | Stap | Wie handelt | Taak | Knop | Waar | Sluit als |
 |---|---|---|---|---|---|
-| Schrijven | schrijver | Schrijf de {tekst} | Schrijf de {tekst} | Tekst | de tekst is vastgesteld |
-|  | schrijver | Verwerk de opmerkingen op de {tekst} | Verwerk de opmerkingen | Tekst | er is een nieuwe versie of de tekst is vastgesteld |
-| Beoordelen | beoordelaar | Beoordeel de {tekst}, binnen 3 werkdagen | Beoordeel de {tekst} | Tekst | het oordeel is gegeven |
-| Vaststellen | schrijver | Schrijf de {tekst} | Schrijf de {tekst} | Tekst | de tekst is vastgesteld |
+| Schrijven | schrijver | Schrijf de {tekst} | Schrijf de {tekst} | Tekst en openstellen | de tekst is vastgesteld |
+|  | schrijver | Verwerk de opmerkingen op de {tekst} | Verwerk de opmerkingen | Tekst en openstellen | er is een nieuwe versie of de tekst is vastgesteld |
+| Beoordelen | beoordelaar | Beoordeel de {tekst}, binnen 3 werkdagen | Beoordeel de {tekst} | Tekst en openstellen | het oordeel is gegeven |
+| Vaststellen | schrijver | Schrijf de {tekst} | Schrijf de {tekst} | Tekst en openstellen | de tekst is vastgesteld |
 
 Gaten die bij het opstellen van deze tabel zijn gevonden en gedicht:
 
@@ -216,7 +216,7 @@ Niet gebouwd. Het voorstel is een aanvullende offerte op dezelfde opdracht.
 
 **Waarom zo en niet anders.**
 
-- Een nieuwe opdracht voor de verlenging knipt de uitputting, de bemensing en de geschiedenis in tweeën, terwijl de opdrachtgever het als een opdracht ziet.
+- Een nieuwe opdracht voor de verlenging knipt de uitputting, het team en de geschiedenis in tweeën, terwijl de opdrachtgever het als een opdracht ziet.
 - De opdracht terugzetten naar potentieel zou afsluiten en factureren blokkeren voor werk dat al getekend is.
 - Een offerte is een bevroren momentopname. De aanvullende offerte bevriest dus alleen het verschil met wat eerder getekend is, of de nieuwe stand met een verwijzing naar de vorige; de eerste blijft ongewijzigd geldig.
 

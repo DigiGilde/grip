@@ -1,6 +1,6 @@
 # 0033 De hoofdnavigatie volgt het werk en de lezer
 
-Status: aanvaard (2026-10-08)
+Status: aanvaard (2026-10-08), vervangen door [ADR 0055](0055-vijf-plekken-en-een-rustig-geopend-ding.md) (2026-11-04)
 
 ## Context
 

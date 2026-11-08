@@ -70,7 +70,7 @@ Tijdens het bouwen is meer ontstaan dan het plan noemde, meestal omdat het gebru
 | Vacatureteksten | Standaardteksten per rol, de tekst als werk met een beoordeling | [vacatureteksten.md](vacatureteksten.md) |
 | Mail, meldingen, passkeys, installeerbaar | De tekenlink per mail; meldingen voor taken; passkeys; grip als applicatie | ADR 0031, ADR 0037, ADR 0040 |
 | Scheiding van taken en een klok | Wie het werk maakte beslist er niet over; een datum is de dag van de instantie | ADR 0048, ADR 0046 |
-| Ontwerp | Bouwstenen, zeven plekken in de balk, vaste woorden, een merk, en metingen voor tussenruimte en toegang | [ontwerp.md](ontwerp.md), [merk.md](merk.md) |
+| Ontwerp | Bouwstenen, vijf plekken in de balk, vaste woorden, een merk, en metingen voor tussenruimte en toegang | [ontwerp.md](ontwerp.md), [merk.md](merk.md), ADR 0055 |
 | Lokaal ontwikkelmodel | Teksten laten opstellen zonder VLAM, alleen in de ontwikkelmodus | ADR 0035 |
 
 ## Rapportages

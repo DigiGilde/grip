@@ -63,7 +63,7 @@ Een route roept een service aan, een service een repository. Sla geen laag over.
 De volledige regels staan in `docs/ontwerp.md`.
 
 - Bouw een pagina met `Page` en `Section` uit `frontend/src/ui/layout`. Schrijf geen marge of padding in pixels.
-- Zet filters en de hoofdactie in `ActionBar`. Een scherm heeft één primaire knop.
+- Zet de hoofdactie op de regel van de titel (`action` op `Page`) en filters in `ActionBar`. Een scherm heeft één primaire knop.
 - Toevoegen en wijzigen gebeurt in een `FormSheet`. Laat geen formulier standaard openstaan en controleer pas bij opslaan.
 - Toon niet wat er niet is: geen lege of vergrendelde onderdelen, geen melding over wat iets niet is.
 - Zet de velden van een `nldd-form` in één vast element (`FormFields`); het formulier verplaatst zijn directe kinderen.

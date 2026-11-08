@@ -27,9 +27,12 @@ De naam van een taak die jij moet doen, brengt je naar die pagina. Bovenaan staa
 
 | Plek | Wat er staat |
 |---|---|
-| Taken, in de navigatie | Twee groepen. "Te doen": wat jij nu moet doen, wat het eerst af moet bovenaan. "Wacht op anderen": wat van jou is en op een ander wacht, en de taken van anderen op de opdrachten waarvan je eigenaar bent en de vacatures die je hebt aangevraagd. Het getal in de navigatie telt alleen "Te doen". |
+| Start, Te doen | Je taken per zaak: één rij per opdracht of vacature, met de eerstvolgende taak, de zaak en wat erna komt ("daarna nog 7 maanden en 1 taak"), en "Te laat" als de termijn voorbij is. De zaken staan op volgorde van hun eerste taak: wat het eerst af moet bovenaan, zonder termijn achteraan. Hooguit vijf zaken; de laatste plek gaat naar de eerste zaak zonder termijn als die anders wegvalt, zodat late maanden "Bied de offerte aan" niet verdringen. Daaronder altijd "Alle taken" met het aantal. Het getal bij Start in de balk is hetzelfde getal. |
+| Taken (`/taken`), weergave Mijn taken | Twee groepen. "Te doen": wat jij nu moet doen, wat het eerst af moet bovenaan. "Wacht op anderen": wat van jou is en op een ander wacht, en de taken van anderen op de opdrachten waarvan je eigenaar bent en de vacatures die je hebt aangevraagd. Het getal bij Start telt alleen "Te doen". Wie offertes mag goedkeuren, vindt hier "Offertes ter goedkeuring". |
 | Taken, weergave Bord | Alle taken van de zaken die je mag inzien, in de kolommen te doen, bezig, wacht op een ander en klaar. Te filteren op opdracht of vacature, op persoon en op spoor. |
-| Tabblad Taken van een opdracht of vacature | De stand per spoor in één regel, en de taken per spoor. Wie de zaak mag bewerken, kan een eigen taak toevoegen. |
+| Alle taken van een opdracht of vacature | De taken per soort werk. Wie de taken van de zaak mag wijzigen, kan een eigen taak toevoegen met "Nieuwe taak", en vindt de link op de landing: bij een opdracht "En nog 2 taken voor jou" als die er zijn, anders "Alle taken van deze opdracht"; bij een vacature "Alle taken van deze vacature". |
+
+Taken staat niet in de balk: je komt er vanaf Start. Van de maanden die op afsluiten wachten is er steeds één taak, voor de eerste; "daarna nog 7 maanden" telt de maanden zelf, en alleen voor wie het geld of de inzet van de opdracht mag lezen.
 
 Een taak verplaats je met het menu aan het eind van de rij of op de kaart. Slepen is niet nodig. In hetzelfde menu staat "Bekijk de taak", met de notities.
 
@@ -172,7 +175,7 @@ Versie 2026.3, in `backend/grip/data/tasks/plan.json`; 29 sjablonen. De titels h
 | Offerte | Leg het akkoord van de opdrachtgever vast | Feit: de opdrachtgever heeft akkoord gegeven | Eigenaar |  |
 | Offerte | Maak een nieuwe offerte na de afwijzing | Feit: er is een nieuwe offerte uitgegeven | Eigenaar |  |
 | Offerte | Beoordeel de ontvangen offerte | Feit: er is akkoord gegeven of afgewezen | Tekenbevoegde |  |
-| Bemensing | Vul de rol (rol) in | Feit: de rol is ingevuld | Planner |  |
+| Team | Vul de rol (rol) in | Feit: de rol is ingevuld | Planner |  |
 | Uitvoering | Zet de opdracht in uitvoering | Feit: de opdracht is in uitvoering | Eigenaar |  |
 | Uitvoering | Sluit (maand) af | Feit: de maand is afgesloten | Eigenaar of manager | 5 werkdagen na het einde van de maand |
 | Uitvoering | Lever het eindrapport op | Feit: het eindrapport is uitgegeven | Eigenaar |  |

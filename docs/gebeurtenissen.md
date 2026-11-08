@@ -106,7 +106,7 @@ De parameter `kind` kiest tussen `changes` (de standaard: alles behalve inzage),
 
 Het antwoord bevat geen totaal. Een gebeurtenis die de lezer niet mag kennen is afwezig, ook als een filter er precies op past. Wie filtert op een persoon, krijgt alleen gebeurtenissen waarvan hij mag weten over wie ze gaan.
 
-In het scherm staat de geschiedenis als tabblad "Geschiedenis" bij een opdracht en een vacature, en als pagina "Activiteit" onder Beheer.
+In het scherm staat de geschiedenis als onderdeel "Geschiedenis" van een opdracht en een vacature, en als pagina "Activiteit" onder Beheer.
 
 ## Wat is er gebeurd
 

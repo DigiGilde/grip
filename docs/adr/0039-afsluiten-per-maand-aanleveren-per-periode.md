@@ -60,3 +60,7 @@ Hoe onderdelen van de Rijksoverheid onderling verrekenen, is niet uit openbare b
 ## Later gewijzigd (2026-10-09)
 
 Een wijziging achteraf is sindsdien een opgeslagen verschil per factuurperiode, met een eigen taak (ADR 0047). Een maand die na het aanleveren is heropend, wordt opnieuw volledig aangeleverd; dat verzoek vervangt het eerdere voor die maand, ook als het eerdere al gefactureerd was. Of dat laatste past bij hoe de financiële administratie werkt, is een open vraag; zie `docs/openstaand.md`.
+
+## Later gewijzigd (2026-11-04)
+
+Het tabblad is een onderdeel van de opdracht op een eigen adres (`/opdrachten/{id}/afsluiten`). Het heet Afsluiten en factureren op een externe opdracht, voor wie het geld van de opdracht mag lezen, en anders Afsluiten. Het staat er zodra de opdracht maanden mag afsluiten of er een maand is afgesloten (ADR 0055).

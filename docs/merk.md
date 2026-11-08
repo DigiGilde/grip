@@ -17,8 +17,8 @@ De organisatie is de afzender van alles wat de deur uit gaat. Het product is het
 
 | Plek | De organisatie | Het product |
 |---|---|---|
-| Balk bovenaan | De naam, als link naar de start | Het beeldmerk voor de naam |
-| Balk op een telefoon | Alleen in de naam voor een schermlezer | Het beeldmerk, als link naar de start |
+| Balk bovenaan | De naam, als link naar de start; onder 1200 pixels alleen in de naam van het beeldmerk, voor een schermlezer | Het beeldmerk voor de naam |
+| Balk op een telefoon | Alleen in de naam van de balk, voor een schermlezer | Niet: de balk staat onderaan en heeft alleen de plekken |
 | Inlogpagina | In de kop: "Inloggen bij <organisatie>" | Beeldmerk, naam en de zin, erboven |
 | Tekenpagina voor een gast | Eerst, vet: wiens pagina dit is | Eronder, klein: "met grip" |
 | Tabblad van de browser | In het midden | Achteraan |

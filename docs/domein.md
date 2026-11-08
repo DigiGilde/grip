@@ -22,12 +22,13 @@ UI-termen zijn Nederlands; code en schema gebruiken de Engelse naam.
 | Opdracht | `assignment` | De eenheid waarvoor een offerte wordt gemaakt |
 | Begrotingsregel | `budget_line` | Een regel van de begroting van een opdracht: een rol (personeel) of een vaste post |
 | Begroot | `budgeted` | Gepland bedrag |
-| Gerealiseerd | `realised` | Inzet van afgesloten maanden, tegen de vastgestelde inzet. Bij kosten: het deel dat op gerealiseerde factuurregels rust |
-| Nog gepland | `planned` | Inzet van open maanden, tegen de geplande inzet. De rapportages gebruiken hetzelfde woord |
+| Gerealiseerd | `realised_total` | Wat werkelijk is besteed: de gerealiseerde inzet plus de gerealiseerde kosten. Bij kosten alleen het deel dat op gerealiseerde factuurregels rust ("€ 3.000 gerealiseerd, € 1.500 ingeschat"); dat is hetzelfde begrip |
+| Gerealiseerde inzet | `realised` | Inzet van afgesloten maanden, tegen de vastgestelde inzet. Zo heet de inzet waar de kolommen optellen tot het verwacht totaal |
+| Nog gepland | `planned` | Inzet van open maanden, tegen de geplande inzet. De pagina's onder Geld gebruiken hetzelfde woord |
 | Kosten | `costs` | Externe kosten die een begrotingsregel dekt (R7), gesplitst in gerealiseerd en ingeschat |
-| Verwacht totaal | `expected_total` | Gerealiseerd plus nog gepland plus kosten: wat de regel naar verwachting kost als alles loopt zoals gepland. Dit is het bedrag dat R9 `used` noemt |
+| Verwacht totaal | `expected_total` | Gerealiseerde inzet plus nog gepland plus kosten: wat de regel naar verwachting kost als alles loopt zoals gepland. Dit is het bedrag dat R9 `used` noemt |
 | Afwijking | `variance` | Begroot min verwacht totaal, in euro en als percentage van begroot. Positief is ruimte, negatief is een overschrijding |
-| Uitputting | `realised_pct` | Het deel van de begroting dat al is gerealiseerd (inzet en kosten), als percentage. Grist gebruikte het woord voor het vastgelegde bedrag; dat heet in grip verwacht totaal |
+| Uitputting | `realised_pct` | Gerealiseerd als deel van de begroting, als percentage: inzet en kosten samen. Op een totaalrij staat het bedrag eronder. Grist gebruikte het woord voor het vastgelegde bedrag; dat heet in grip verwacht totaal |
 | Investeerruimte in geld (voorlopig) | `room` | Wat de organisatie in een jaar verdient boven wat zij moet verdienen: de verwachte omzet van externe opdrachten met akkoord (gerealiseerd plus nog gepland, ook op mondeling akkoord), min de som van de declarabiliteitstargets, min ongedekte kosten, min wat interne opdrachten volgens hun begroting gebruiken. Negatief is een tekort. Potentiële opdrachten tellen niet mee en staan er apart bij. De definitie is nog niet bevestigd; het scherm zegt daarom wat er geteld is |
 | Investeerruimte in tijd (voorlopig) | `free capacity` | De capaciteit die deze maand en de drie maanden erna niet is ingepland, in FTE en gewaardeerd tegen het inzettarief van elke persoon in die maand. Iedereen telt als voltijds, tot er een deeltijdfactor per persoon is |
 | Peildatum van de stand | `reference_month` | De laatst afgesloten maand van een opdracht. Tot en met die maand zijn bedragen werkelijk, daarna planning |
@@ -40,7 +41,9 @@ UI-termen zijn Nederlands; code en schema gebruiken de Engelse naam.
 | Gefactureerd | `invoiced` | Er is een factuur verstuurd. Grip weet dat alleen doordat iemand het heeft vastgelegd; tot dan heet geen bedrag gefactureerd |
 | Nog te factureren | `to_invoice` | Aangeleverd min gefactureerd: aangeleverd, en in grip nog geen factuur vastgelegd |
 | Potentiële opdracht | `phase: potential` | Een opdracht zonder akkoord van de opdrachtgever, ook als haar laatste offerte is afgewezen. Haar bedragen tellen nooit mee in het lopende werk en staan apart, onder "Potentieel" of "Potentiële opdrachten"; inzet erop is onder voorbehoud. In de code heet dat `pipeline`; op het scherm staat dat woord niet |
-| Team, medewerker | `person` | Iemand die kan worden ingezet |
+| Potentieel | `pipeline` | De potentiële opdrachten samen: de weergave van Opdrachten met de potentiële opdrachten, en de pagina onder Geld met de offertes die op een akkoord wachten, elk over de hele looptijd van haar opdracht. De Engelse namen in API en code (`pipeline_cents`, `Commitment.PIPELINE`) blijven; op het scherm, in adressen en in de namen van componenten heet het Potentieel |
+| Persoon, medewerker | `person` | Iemand die kan worden ingezet. Samen staan ze onder Mensen, de plek in de balk |
+| Team | `staffing` | Wie op een opdracht werkt, en welke rollen nog open zijn: het onderdeel Team van een opdracht. Niet de plek met alle mensen; die heet Mensen |
 | Inzetschaal | `billing_scale` | De schaal waartegen iemand wordt gedeclareerd |
 | Categorie | `rate_category` | Tariefband A t/m E, elk voor twee schalen |
 | Maandtarief | `monthly_rate` | Tarief per FTE per maand voor een categorie in een jaar |
@@ -64,7 +67,7 @@ UI-termen zijn Nederlands; code en schema gebruiken de Engelse naam.
 | Interne goedkeuring | `quote_approval` | De goedkeuring van een gemaakte offerte binnen de eigen organisatie, voordat ze wordt aangeboden. Per instantie in te stellen: nooit, altijd of vanaf een bedrag. Gaat over precies de bytes van die offerte en blijft intern |
 | Terugsturen | `sent_back` | De goedkeurder keurt een offerte niet goed en zegt waarom. De offerte verandert niet; de maker maakt een nieuwe |
 | Instelling van de instantie | `instance_setting` | Een regel van de organisatie die de beheerder wijzigt, zoals wanneer interne goedkeuring nodig is |
-| Maandafsluiting | `month_close` | De vastgestelde werkelijke inzet van een maand. Het tabblad waar dat gebeurt heet "Afsluiten en factureren" |
+| Maandafsluiting | `month_close` | De vastgestelde werkelijke inzet van een maand. Het onderdeel van de opdracht waar dat gebeurt heet "Afsluiten en factureren", of "Afsluiten" op een interne opdracht en voor wie het geld van de opdracht niet leest |
 | Naverrekening | `billing_correction` | Het verschil dat ontstaat als de prijs van een al aangeleverde maand verandert, bijvoorbeeld door een promotie met terugwerkende kracht. Het wordt per factuurperiode opgeslagen, met de oorzaak, en apart aangeleverd. Zie ADR 0047 |
 | Factuurgegevens, aanlevering | `billing_export` | Wat per afgesloten maand naar de financiële administratie gaat. Een export is een aanlevering |
 | Factuur | `outgoing_invoice` | De vastlegging dat een factuur aan de opdrachtgever is verstuurd, voor een of meer aanleveringen: nummer, datum, bedrag, wie het vastlegde en de bron (met de hand of het financiële systeem) |
@@ -74,16 +77,17 @@ UI-termen zijn Nederlands; code en schema gebruiken de Engelse naam.
 | Functie | `function_title` | De functie van iemand in de organisatie of op een vacature: de functietitel. Niet het recht in grip |
 | Functiegroep | `function_group` | De groep uit het Functiegebouw Rijk waar een functie onder valt |
 | Bijlage | `stored_document` | Een bestand dat bij precies een object hoort, zoals de ontvangen factuur bij een factuurregel of de getekende offerte bij een akkoord |
-| Vacature | `vacancy` | Een open rol op een begrotingsregel, met het soort vacature, het soort contract, de stappen van de procedure en een vacaturetekst |
+| Vacature | `vacancy` | Een open rol op een begrotingsregel, met het soort vacature, het soort contract, de stappen van de procedure en een vacaturetekst. Een opengestelde vacature heet op het scherm vacature, geen open rol |
+| Open rol | `open_role` | Een rol zonder persoon: het deel van een personeelsregel dat niemand vult, ook als er een vacature voor loopt. Een vacature zonder begrotingsregel is geen open rol. De FTE van een open rol is het open deel van de regel, ook als de vacature om iets anders vraagt. Het bord toont alle open rollen, met de stand van hun vacature |
 | Standaardtekst | `vacancy_text_template` | De tekst per rol waarmee een vacaturetekst begint, met gedeelde onderdelen die een keer zijn opgeslagen. Zie `docs/vacatureteksten.md` |
 | Taak | `task` | Wat iemand moet doen, ontstaan uit een feit en gesloten door een feit. Op het scherm in twee groepen: "Te doen" en "Wacht op anderen" |
 | Stand | `course` | Waar een opdracht of vacature staat, wat de volgende stap is en wie aan zet is. De kolom in een lijst heet "Stand"; de zin begint met "Jij:" of "Wacht op" |
 | Stap overnemen | `takeover` | Een stap van een ander doen als je de zaak leidt en de handeling zelf al mag. Zie ADR 0048 |
-| Geschiedenis, Activiteit | `stream_event` | Wat er met een opdracht of vacature is gebeurd (Geschiedenis, een tabblad) en wat er in de hele instantie is gebeurd (Activiteit, onder Beheer) |
+| Geschiedenis, Activiteit | `stream_event` | Wat er met een opdracht of vacature is gebeurd (Geschiedenis, een onderdeel) en wat er in de hele instantie is gebeurd (Activiteit, onder Beheer) |
 | Wat is er gebeurd | `updates` | Het nieuws voor de lezer: een selectie uit de gebeurtenissen die hem aangaan. Zie ADR 0043 |
 | Passkey | `passkey_credential` | Een sleutel op het eigen apparaat, om opnieuw in te loggen en om een besluit te bevestigen. Onder "Beveiliging" in het accountmenu |
 | Afzender | `quote.sender` | De gegevens van de organisatie op een offerte: naam, waar ze deel van is, adressen, contactpersoon en ondertekenaar. Onder Beheer |
-| Stand van zaken | `status_overview` | De startpagina: taken, aandachtspunten, wat er gebeurd is en de cijfers per opdracht. In de hoofdbalk heet ze "Start" |
+| Start | `start` | De startpagina: wat er voor de lezer te doen is, wat voor hem speelt en wat nieuw is. Zie ADR 0055 en `docs/ontwerp.md` |
 
 "Factuur" betekent in Grist een regel aan de inkoopkant, op een kostenpost. Het is geen verkoopfactuur. In grip heet die een factuurregel op een kostenpost. Wat grip richting de opdrachtgever oplevert heet factuurgegevens.
 
@@ -245,15 +249,17 @@ Een begrotingsregel houdt de categorie waarop ze is begroot. Na een promotie loo
 
 ## Schermen
 
-- **Stand van zaken** (in de balk: Start): bovenaan de taken van de lezer, wat aandacht vraagt en wat er gebeurd is; daaronder per opdracht Begroot, Gerealiseerd, Nog gepland, Kosten, Verwacht totaal, Afwijking en Uitputting, met de peildatum van de stand en een jaarfilter. Potentiële opdrachten staan apart van lopend werk, met een eigen subtotaal. Het tabblad Financieel van een opdracht toont dezelfde cijfers per begrotingsregel, de bedragen erachter, het verloop per maand en de aandachtspunten; bemensing staat op een eigen tabblad zonder bedragen.
-- **Opdrachten** met de begrotingseditor per opdracht.
-- **Inzet**: per persoon en per begrotingsregel, met de waarschuwingen van R14.
-- **Kosten en facturen**, met de dekking per kostenpost.
+Vijf plekken: Start, Opdrachten, Vacatures, Mensen en Geld, met Aanvragen voor wie aanvraagt of tekent en Beheer apart (ADR 0055). Hoe een scherm is opgebouwd staat in [ontwerp.md](ontwerp.md).
+
+- **Start**: wat er voor de lezer te doen is, per zaak; wat voor hem speelt, per recht en relatie; en wat nieuw is. Wie het geld van alle opdrachten leest, ziet er drie cijfers: verwacht totaal, investeerruimte en potentieel.
+- **Opdrachten**, met de weergaven Potentieel, Lopend en Afgesloten. Een opdracht opent op wat nu moet, met haar onderdelen als rijen. Begroting is tot het akkoord de invoer, en daarna per begrotingsregel Begroot, Gerealiseerde inzet, Nog gepland, Kosten, Verwacht totaal, Afwijking en Uitputting, met een totaalrij over de hele looptijd, de peildatum van de stand, de aandachtspunten en het verloop per maand. Team toont wie op de opdracht werkt, zonder bedragen.
+- **Vacatures**, met de weergaven Alle vacatures en Opengesteld. Een vacature opent op haar stappen als rijen.
+- **Mensen**: de lijst, het bord (inzet per persoon, per team of per opdracht, met de waarschuwingen van R14 en alle open rollen), Bezetting met de investeerruimte in tijd, en Declarabiliteit met de KPI per persoon, afgeschermd volgens [toegang.md](toegang.md).
+- **Geld**: Lopende opdrachten, Omzet, Investeerruimte, Potentieel, Kosten (met de dekking per kostenpost), Factureren over alle opdrachten, en Jaarverantwoording. De keuze van het jaar staat op de pagina die erop reageert.
 - **Tarieven**: een tijdlijn van tarievenkaarten, elk met een geldigheid.
-- **Team** en **KPI per persoon**, afgeschermd volgens [toegang.md](toegang.md).
 - **Offerte**: een brief. De kosten komen uit de begrotingsregels (per regel omschrijving, FTE, periode, categorie, maandtarief en bedrag; subtotalen per jaar; totaal); de tekst van de onderdelen schrijft een mens, met standaardteksten van de organisatie.
 - **Afsluiten en factureren** per opdracht, en **Factureren** over alle opdrachten.
-- **Taken**, en op elke opdracht en vacature in de kop: waar ze staat, wie aan zet is en de ene volgende stap.
+- **Taken**, bereikbaar vanaf Start, en op elke opdracht en vacature: waar ze staat, wie aan zet is en de ene volgende stap.
 
 ## Migratie vanuit Grist
 
