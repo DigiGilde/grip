@@ -6,7 +6,7 @@ import { ApiError, errorMessage } from '@/api/client';
 import { formatEuro, formatPercent } from '@/lib/format';
 import { useInstance } from '@/layout/useInstance';
 import { useRouterLinks } from '@/layout/useRouterLinks';
-import { assignmentTabPath } from '@/features/assignments/paths';
+import { assignmentPartPath } from '@/features/assignments/paths';
 import { Figures, type Figure } from '@/features/reports/ui';
 import { Button } from '@/features/team/ui/controls';
 import { ActionBar } from '@/ui/ActionBar';
@@ -54,6 +54,7 @@ import {
   YEAR_PARAM,
   addCoverageText,
   attachmentCount,
+  costsPath,
   coverageStep,
   inTimeOrder,
   lacksDocument,
@@ -112,12 +113,13 @@ export function CostItemPage() {
   return (
     <div ref={rootRef}>
       <Page
+        kind="document"
         title={item?.description ?? 'Kostenpost'}
         instanceName={instance?.name}
+        back={{ href: costsPath(year), text: 'Terug naar Kosten' }}
         spacing="sections"
       >
         <Stack gap="group">
-          {/* No link back: the second bar of Financieel marks Kosten and leads there. */}
           {notFound ? (
             <NotFound what="Deze kostenpost" />
           ) : query.isError ? (
@@ -296,7 +298,7 @@ function Invoices({ item, onOpen }: InvoicesProps) {
                   name={`factuur ${name}`}
                   actions={[
                     {
-                      text: 'Verwijder factuur',
+                      text: 'Verwijder',
                       destructive: true,
                       confirm: {
                         text: `Factuur '${name}' verwijderen?`,
@@ -351,7 +353,7 @@ function Coverages({ item, onOpen }: CoveragesProps) {
           {anyEditable && <RowActionsHeader />}
         </nldd-table-row>
         {item.coverages.map((coverage, index) => {
-          const finance = assignmentTabPath(coverage.assignment_id, 'finance');
+          const finance = assignmentPartPath(coverage.assignment_id, 'budget');
           return (
             <OpenRow key={coverage.budget_line_id} onOpen={() => navigate(finance)}>
               <nldd-cell>

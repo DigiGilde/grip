@@ -11,9 +11,13 @@ import {
 } from '@/features/month-close/billingApi';
 import { deliverPeriodPath, monthClosePath } from '@/features/month-close/paths';
 import { periodAmount, periodLine, periodStateText } from '@/features/month-close/periodText';
+import { fetchOverview, overviewKeys } from '@/features/overview/api';
+import { fetchSteering, reportKeys } from '@/features/reports/api';
+import { currentReportYear } from '@/features/reports/years';
 import { useInstance } from '@/layout/useInstance';
 import { useRouterLinks } from '@/layout/useRouterLinks';
 import { formatEuro } from '@/lib/format';
+import { PATHS } from '@/paths';
 import {
   EmptyNotice,
   FormSheet,
@@ -70,9 +74,18 @@ function capital(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
+/** The request a delivered period went out with, when the reader may open it. */
+function deliveryLink({ period }: Row): string | null {
+  const delivery = (period.deliveries ?? []).at(-1);
+  if (!delivery?.may_open) return null;
+  return PATHS.billingDelivery.replace(':deliveryId', delivery.id);
+}
+
 function link(row: Row): string {
   const { overview, period } = row;
   if (period.state === 'ready') return deliverPeriodPath(overview.assignment_id, period.key);
+  const request = deliveryLink(row);
+  if (request) return request;
   const month = period.months.find((entry) => entry.state === 'to_close');
   if (month) return monthClosePath(overview.assignment_id, month.month);
   return deliverPeriodPath(overview.assignment_id, period.key).split('?')[0] ?? '';
@@ -96,6 +109,18 @@ export function BillingPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   useRouterLinks(containerRef);
   const across = useQuery({ queryKey: billingAcrossKey, queryFn: fetchBillingAcross });
+  const thisYear = currentReportYear();
+  // The same figure as the row on Geld; billing itself has no year.
+  const open = useQuery({
+    queryKey: overviewKeys.list(thisYear),
+    queryFn: () => fetchOverview(thisYear),
+    select: (overview) => overview.to_deliver_cents ?? 0,
+  });
+  const scope = useQuery({
+    queryKey: reportKeys.steering(thisYear),
+    queryFn: () => fetchSteering(thisYear),
+    select: (steering) => steering.turnover?.scope,
+  });
   const [asking, setAsking] = useState(false);
   const [via, setVia] = useState<'mail' | 'self'>('self');
   const [error, setError] = useState<string | null>(null);
@@ -105,12 +130,10 @@ export function BillingPage() {
   const rows = all.filter(started);
   const untouched = all.length - rows.length;
   const nearest = rows.find((row) => row.period.state === 'to_close');
-  // The column of tags is there only when a row has something to say in it.
-  const tagged = rows.some((row) => row.period.state !== 'to_close');
   const batch = rows.filter(
     (row) => row.period.state === 'ready' && row.overview.may_deliver && complete(row.overview),
   );
-  const total = batch.reduce((sum, row) => sum + (row.period.to_deliver_cents ?? 0), 0);
+  const total = across.data?.ready_cents ?? 0;
   const canMail = Boolean(across.data?.can_mail);
 
   const deliver = useMutation({
@@ -143,9 +166,19 @@ export function BillingPage() {
     (row) => row.period.state === 'ready' && !row.overview.may_deliver,
   ).length;
   const corrections = batch.filter((row) => row.period.correction).length;
+  const toDeliver = open.data ?? 0;
+  // What is realised but not ready yet: its period still has months to close.
+  const notReady =
+    toDeliver === 0 || held > 0 || forOthers > 0
+      ? null
+      : count === 0
+        ? `De ${formatEuro(toDeliver)} die nog aan te leveren is, zit in perioden die nog niet helemaal zijn afgesloten.`
+        : toDeliver > total
+          ? `In totaal is ${formatEuro(toDeliver)} nog aan te leveren. De rest zit in perioden die nog niet helemaal zijn afgesloten.`
+          : null;
   const title =
     count === 0
-      ? 'Er staat niets klaar om aan te leveren'
+      ? 'Er staat nu niets klaar om aan te leveren'
       : corrections === count
         ? `${count} ${count === 1 ? 'naverrekening' : 'naverrekeningen'} aan te leveren: ${formatEuro(total)}`
         : corrections > 0
@@ -153,7 +186,18 @@ export function BillingPage() {
           : `${count} ${count === 1 ? 'periode is' : 'perioden zijn'} klaar: ${formatEuro(total)}`;
   return (
     <div ref={containerRef}>
-      <Page title="Factureren" instanceName={instance?.name} spacing="sections">
+      <Page
+        kind="list"
+        title="Factureren"
+        {...(scope.data
+          ? {
+              lead: `Wat er nu openstaat op ${scope.data === 'own' ? 'jouw' : 'alle'} opdrachten, over alle jaren.`,
+            }
+          : {})}
+        instanceName={instance?.name}
+        back={{ href: PATHS.money, text: 'Terug naar Geld' }}
+        spacing="sections"
+      >
         {across.isPending ? <Loading /> : null}
         {across.isError ? (
           <LoadError error={across.error} retry={() => void across.refetch()} />
@@ -164,22 +208,25 @@ export function BillingPage() {
         {across.data && across.data.reads_money !== false ? (
           <>
             {count > 0 ? (
-              <nldd-card background="tinted" accessible-label="Nu te doen">
-                <nldd-container padding="24" gap="16">
-                  <nldd-title size={2} heading-level={2} overline="Nu te doen" text={title} />
-                  <nldd-button-group>
-                    <Button
-                      appearance="primary"
-                      text={count === 1 ? 'Lever aan' : 'Lever alles aan'}
-                      onClick={() => {
-                        setError(null);
-                        setVia(canMail ? 'mail' : 'self');
-                        setAsking(true);
-                      }}
-                    />
-                  </nldd-button-group>
-                </nldd-container>
-              </nldd-card>
+              <Stack gap="related">
+                <nldd-card background="tinted" accessible-label="Nu te doen">
+                  <nldd-container padding="24" gap="16">
+                    <nldd-title size={2} heading-level={2} overline="Nu te doen" text={title} />
+                    <nldd-button-group>
+                      <Button
+                        appearance="primary"
+                        text={count === 1 ? 'Lever aan' : 'Lever alles aan'}
+                        onClick={() => {
+                          setError(null);
+                          setVia(canMail ? 'mail' : 'self');
+                          setAsking(true);
+                        }}
+                      />
+                    </nldd-button-group>
+                  </nldd-container>
+                </nldd-card>
+                {notReady ? <Quiet>{notReady}</Quiet> : null}
+              </Stack>
             ) : (
               <Stack gap="tight">
                 <nldd-text>
@@ -193,6 +240,7 @@ export function BillingPage() {
                       ? '1 periode is afgesloten, maar het factuuradres ontbreekt nog.'
                       : `${held} perioden zijn afgesloten, maar het factuuradres ontbreekt nog.`}
                 </nldd-text>
+                {notReady ? <Quiet>{notReady}</Quiet> : null}
                 {nearest && held === 0 && forOthers === 0 ? (
                   <Quiet>
                     Het dichtst bij: {nearest.overview.assignment_name}, {nearest.period.label},{' '}
@@ -207,18 +255,12 @@ export function BillingPage() {
                 <nldd-title size={4} heading-level={2} text="Perioden die lopen" />
                 <nldd-table
                   accessible-label="Open perioden van alle opdrachten"
-                  columns={
-                    tagged
-                      ? 'minmax(200px,2fr) minmax(170px,1.4fr) 210px minmax(180px,2fr) minmax(120px,1fr)'
-                      : 'minmax(200px,2fr) minmax(170px,1.4fr) minmax(180px,2fr) minmax(120px,1fr)'
-                  }
+                  columns="minmax(220px,1.2fr) minmax(220px,1.4fr) 120px"
                   sm-columns="minmax(140px,1fr) minmax(100px,auto)"
                 >
                   <nldd-table-row slot="header">
                     <nldd-text-cell text="Opdracht" />
-                    <nldd-text-cell hide-below="md" text="Periode" />
-                    {tagged ? <nldd-text-cell hide-below="md" text="Stand" /> : null}
-                    <nldd-text-cell hide-below="md" text="Laatste stap" />
+                    <nldd-text-cell hide-below="md" text="Stand" />
                     <nldd-text-cell text="Bedrag" horizontal-alignment="right" />
                   </nldd-table-row>
                   {rows.map((row) => {
@@ -226,31 +268,35 @@ export function BillingPage() {
                     const ready = row.period.state === 'ready';
                     return (
                       <nldd-table-row key={`${row.overview.assignment_id}-${row.period.key}`}>
-                        <nldd-cell>
-                          <nldd-link href={link(row)} text={row.overview.assignment_name} />
+                        <nldd-cell row-header>
+                          <nldd-container gap="4">
+                            <nldd-link href={link(row)} text={row.overview.assignment_name} />
+                            <Quiet>{capital(row.period.label)}</Quiet>
+                          </nldd-container>
                         </nldd-cell>
-                        <nldd-text-cell hide-below="md" text={capital(row.period.label)} />
-                        {tagged ? (
-                          <nldd-cell hide-below="md">
+                        <nldd-cell hide-below="md">
+                          <nldd-container gap="4">
                             {row.period.state === 'to_close' ? null : (
-                              <nldd-badge
-                                color={ready ? 'accent' : 'neutral'}
-                                text={periodStateText(row.period)}
-                              />
+                              <div>
+                                <nldd-badge
+                                  color={ready ? 'accent' : 'neutral'}
+                                  text={periodStateText(row.period)}
+                                />
+                              </div>
                             )}
-                          </nldd-cell>
-                        ) : null}
-                        <nldd-text-cell
-                          hide-below="md"
-                          size="sm"
-                          color={ready && !complete(row.overview) ? 'warning' : 'secondary'}
-                          text={remark(row)}
-                        />
+                            <nldd-text
+                              size="sm"
+                              color={ready && !complete(row.overview) ? 'warning' : 'secondary'}
+                            >
+                              {remark(row)}
+                            </nldd-text>
+                          </nldd-container>
+                        </nldd-cell>
                         <nldd-text-cell
                           horizontal-alignment="right"
                           text={amount ? `**${formatEuro(amount)}**` : ''}
                           hide-above="sm"
-                          supporting-text={`${capital(row.period.label)} · ${periodStateText(row.period).toLowerCase()}`}
+                          supporting-text={periodStateText(row.period)}
                         />
                         <nldd-text-cell
                           hide-below="md"

@@ -5,6 +5,7 @@ import { EmptyNotice, LoadError, Loading } from '@/ui/layout';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { fetchYearAccount, reportKeys, yearAccountCsvUrl, type YearAccountRow } from './api';
 import { KIND_LABELS, scopeNote } from './labels';
+import { assignmentPath } from '@/features/assignments/paths';
 import { assignmentReportPath } from './paths';
 import { formatEuro } from '@/lib/format';
 import { Figures, MoneyCell, ReportBlock } from './ui';
@@ -98,7 +99,7 @@ export function YearAccountView({ year, bare }: { year: string; bare?: boolean }
               quiet: totals.agreed_cents === 0,
             },
             {
-              label: 'Gerealiseerd',
+              label: 'Gerealiseerde inzet',
               value: formatEuro(totals.realised_cents),
               detail: `en ${formatEuro(totals.forecast_cents)} nog gepland`,
               quiet: totals.realised_cents === 0,
@@ -107,7 +108,7 @@ export function YearAccountView({ year, bare }: { year: string; bare?: boolean }
               ? {
                   label: 'Nog aan te leveren',
                   value: formatEuro(totals.to_deliver_cents),
-                  attention: 'Gerealiseerd, nog niet aangeleverd',
+                  attention: 'Gerealiseerde inzet, nog niet aangeleverd',
                   detail: `${formatEuro(totals.delivered_cents)} is aangeleverd`,
                 }
               : {
@@ -146,21 +147,28 @@ export function YearAccountView({ year, bare }: { year: string; bare?: boolean }
               <>
                 <nldd-text-cell text="Afgesproken" horizontal-alignment="right" />
                 <nldd-text-cell text="Begroot" horizontal-alignment="right" />
-                <nldd-text-cell text="Gerealiseerd" horizontal-alignment="right" />
+                <nldd-text-cell text="Gerealiseerde inzet" horizontal-alignment="right" />
                 <nldd-text-cell text="Nog gepland" horizontal-alignment="right" />
                 <nldd-text-cell text="Kosten" horizontal-alignment="right" />
                 <nldd-text-cell text="Aangeleverd" horizontal-alignment="right" />
                 <nldd-text-cell text="Nog aan te leveren" horizontal-alignment="right" />
                 <nldd-text-cell text="Gefactureerd" horizontal-alignment="right" />
                 <nldd-text-cell text="Nog te factureren" horizontal-alignment="right" />
-                <nldd-text-cell text="Afgesproken min gerealiseerd" horizontal-alignment="right" />
+                <nldd-text-cell text="Afgesproken min gerealiseerde inzet" horizontal-alignment="right" />
               </>
             )}
           </nldd-table-row>
           {rows.map((row) => (
             <nldd-table-row key={row.assignment_id}>
-              <nldd-cell>
-                <nldd-link href={assignmentReportPath(row.assignment_id)} text={row.name} />
+              <nldd-cell row-header>
+                <nldd-link
+                  href={
+                    hasAmounts(row)
+                      ? assignmentReportPath(row.assignment_id)
+                      : assignmentPath(row.assignment_id)
+                  }
+                  text={row.name}
+                />
               </nldd-cell>
               <nldd-text-cell text={row.client_name ?? ''} />
               <nldd-text-cell text={KIND_LABELS[row.kind] ?? row.kind} />
@@ -194,10 +202,10 @@ export function YearAccountView({ year, bare }: { year: string; bare?: boolean }
         </nldd-table>
       </RouterLinks>
       <nldd-text size="sm" color="secondary">
-        Een opdracht opent de rapportage van die opdracht. Aangeleverd is wat als factuurgegevens
-        van afgesloten maanden naar de financiële administratie is gegaan. Gefactureerd is een
-        factuur die in grip is vastgelegd als verstuurd; tot dat gebeurt telt niets als
-        gefactureerd.
+        Een opdracht met bedragen opent het rapport van die opdracht, een andere de opdracht zelf.
+        Aangeleverd is wat als factuurgegevens van afgesloten maanden naar de financiële
+        administratie is gegaan. Gefactureerd is een factuur die in grip is vastgelegd als
+        verstuurd; tot dat gebeurt telt niets als gefactureerd.
       </nldd-text>
       {totals && (
         <div>

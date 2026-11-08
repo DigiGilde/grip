@@ -1,14 +1,12 @@
 import { screen, waitFor } from '@testing-library/react';
-import { Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { PATHS } from '@/paths';
+import { InvestmentPage } from '@/features/money/InvestmentPage';
+import { PotentialPage } from '@/features/money/PotentialPage';
+import { TurnoverPage } from '@/features/money/TurnoverPage';
+import { YearAccountPage } from '@/features/money/YearAccountPage';
 import { renderApp } from '@/test/utils';
-import { AssignmentReportPage } from './AssignmentReportPage';
-import { ReportsPage } from './ReportsPage';
-import { investmentTile, landingTiles } from './tiles';
-import { ReportTopicPage } from './ReportTopicPage';
+import { AssignmentReportContent } from './AssignmentReportPage';
 import { YearAccountView } from './YearAccountView';
-import { currentReportYear } from './years';
 
 /** Answers every request with the body registered for the start of its path. */
 function respond(routes: Record<string, unknown>, status = 200) {
@@ -62,13 +60,15 @@ const TURNOVER = {
   unpriced_assignments: [],
 };
 
-function renderTopic(slug: string, year = '2026') {
-  return renderApp(
-    <Routes>
-      <Route path={PATHS.reportTopic} element={<ReportTopicPage />} />
-    </Routes>,
-    { path: `/rapportage/${slug}?jaar=${year}` },
-  );
+const TOPICS = {
+  omzet: { page: <TurnoverPage />, path: '/geld/omzet' },
+  potentieel: { page: <PotentialPage />, path: '/geld/potentieel' },
+  investeerruimte: { page: <InvestmentPage />, path: '/geld/investeerruimte' },
+  jaarverantwoording: { page: <YearAccountPage />, path: '/geld/jaarverantwoording' },
+};
+
+function renderTopic(slug: keyof typeof TOPICS, year = '2026') {
+  return renderApp(TOPICS[slug].page, { path: `${TOPICS[slug].path}?jaar=${year}` });
 }
 
 const cellTexts = (container: HTMLElement) =>
@@ -76,7 +76,7 @@ const cellTexts = (container: HTMLElement) =>
 
 afterEach(() => vi.unstubAllGlobals());
 
-describe('a topic of Rapportage', () => {
+describe('a topic of a report', () => {
   it('asks for the year in the address and offers the way back with it', async () => {
     const fetchMock = respond({ '/api/reports/steering': { year: 2025, turnover: TURNOVER } });
     const { container } = renderTopic('omzet', '2025');
@@ -86,9 +86,9 @@ describe('a topic of Rapportage', () => {
     );
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Omzet');
     const back = [...container.querySelectorAll('nldd-link')].find(
-      (link) => link.getAttribute('text') === 'Terug naar Rapportage',
+      (link) => link.getAttribute('text') === 'Terug naar Geld',
     );
-    expect(back).toHaveAttribute('href', '/rapportage?jaar=2025');
+    expect(back).toHaveAttribute('href', '/geld');
     expect(container.querySelector('nldd-toolbar select')).toHaveValue('2025');
   });
 
@@ -102,7 +102,7 @@ describe('a topic of Rapportage', () => {
     });
     renderTopic('omzet');
     await screen.findByTestId('turnover');
-    for (const other of ['occupancy', 'pipeline', 'costs', 'billability', 'open-roles']) {
+    for (const other of ['occupancy', 'potential', 'costs', 'billability']) {
       expect(screen.queryByTestId(other)).toBeNull();
     }
   });
@@ -179,33 +179,6 @@ describe('a topic of Rapportage', () => {
     expect(cellTexts(container).some((text) => text.startsWith('**€'))).toBe(true);
   });
 
-  it('calls out uncovered costs', async () => {
-    respond({ '/api/reports/steering': { year: 2026, costs: COSTS } });
-    renderTopic('kosten');
-    await screen.findByTestId('costs');
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Kosten');
-    expect(screen.getByLabelText('Kosten in het kort')).toHaveTextContent(
-      'Geen begrotingsregel dekt dit',
-    );
-  });
-
-  it('puts people below target first and says when there is no target', async () => {
-    respond({ '/api/reports/steering': { year: 2026, billability: BILLABILITY } });
-    const { container } = renderTopic('declarabiliteit');
-    await screen.findByTestId('billability');
-    const figures = screen.getByLabelText('Declarabiliteit in het kort');
-    expect(figures).toHaveTextContent('Verwacht onder target1 persoon');
-    expect(figures).toHaveTextContent('Haalt het target niet');
-    const names = cellTexts(container).filter((text) =>
-      ['Mila Medewerker', 'Cas Collega'].includes(text),
-    );
-    expect(names).toEqual(['Mila Medewerker', 'Cas Collega']);
-    expect(cellTexts(container)).toContain('Geen target');
-    expect(
-      container.querySelector('nldd-text-cell[supporting-text="Onder target"]'),
-    ).toHaveAttribute('color', 'critical');
-  });
-
   it('names what was left out of the turnover', async () => {
     respond({
       '/api/reports/steering': {
@@ -218,25 +191,13 @@ describe('a topic of Rapportage', () => {
     expect(container.querySelector('nldd-banner')?.getAttribute('text')).toContain('Opdracht Beta');
   });
 
-  it('says so when the topic is not for the reader', async () => {
+  it('says there is nothing to show when the block is not in the answer', async () => {
     respond({ '/api/reports/steering': { year: 2026, turnover: TURNOVER } });
-    const { container } = renderTopic('declarabiliteit');
+    const { container } = renderTopic('potentieel');
     await waitFor(() =>
-      expect(container.querySelector('nldd-inline-dialog')).toHaveAttribute(
-        'text',
-        'Dit onderdeel is er voor jou niet',
-      ),
+      expect(container.textContent).toContain('Voor 2026 is hier niets te tonen.'),
     );
     expect(screen.queryByTestId('turnover')).toBeNull();
-  });
-
-  it('has an answer for an address that is no topic', () => {
-    respond({});
-    const { container } = renderTopic('bestaat-niet');
-    expect(container.querySelector('nldd-inline-dialog')).toHaveAttribute(
-      'text',
-      'Deze rapportage bestaat niet',
-    );
   });
 
   it('shows the problem the API reports', async () => {
@@ -262,57 +223,6 @@ describe('a topic of Rapportage', () => {
     );
   });
 });
-
-const COSTS = {
-  scope: 'all',
-  forecast_cents: 2100000,
-  covered_cents: 1800000,
-  uncovered_cents: 300000,
-  items: [
-    {
-      cost_item_id: 'c1',
-      description: 'Hostingcontract',
-      forecast_cents: 2100000,
-      covered_cents: 1800000,
-      uncovered_cents: 300000,
-      pct_total: '80',
-    },
-  ],
-};
-
-const BILLABILITY = {
-  scope: 'own',
-  target_cents: 19440000,
-  realised_cents: 1440000,
-  forecast_cents: 9000000,
-  realisation_cents: 10440000,
-  with_target_count: 1,
-  below_target_count: 1,
-  persons: [
-    {
-      person_id: 'p2',
-      person_name: 'Cas Collega',
-      year: 2026,
-      target_pct: null,
-      target_cents: null,
-      realised_cents: 750000,
-      forecast_cents: 3750000,
-      realisation_cents: 4500000,
-      unavailable_reason: null,
-    },
-    {
-      person_id: 'p1',
-      person_name: 'Mila Medewerker',
-      year: 2026,
-      target_pct: '90',
-      target_cents: 19440000,
-      realised_cents: 1440000,
-      forecast_cents: 9000000,
-      realisation_cents: 10440000,
-      unavailable_reason: null,
-    },
-  ],
-};
 
 const ROW = {
   assignment_id: 'a1',
@@ -340,7 +250,7 @@ const AMOUNTS = {
 };
 
 describe('YearAccountView', () => {
-  it('links each assignment to its report and offers the CSV', async () => {
+  it('links each assignment and offers the CSV', async () => {
     respond({
       '/api/reports/year-account': {
         year: 2026,
@@ -354,7 +264,7 @@ describe('YearAccountView', () => {
     const links = [...container.querySelectorAll('nldd-link')].map((link) =>
       link.getAttribute('href'),
     );
-    expect(links).toContain('/rapportage/opdrachten/a1');
+    expect(links).toContain('/opdrachten/a1/rapport');
     expect(links).toContain('/api/reports/year-account/csv?year=2026');
     const texts = cellTexts(container);
     expect(texts).toContain('Afgesproken');
@@ -389,7 +299,7 @@ describe('YearAccountView', () => {
     const { container } = renderApp(<YearAccountView year="2026" />);
     await screen.findByTestId('year-account');
     expect(screen.getByLabelText('Jaarverantwoording in het kort')).toHaveTextContent(
-      'Gerealiseerd, nog niet aangeleverd',
+      'Gerealiseerde inzet, nog niet aangeleverd',
     );
     expect(
       container.querySelector('nldd-text-cell[supporting-text="Nog aan te leveren"]'),
@@ -404,7 +314,35 @@ describe('YearAccountView', () => {
     const links = [...container.querySelectorAll('nldd-link')].map((link) =>
       link.getAttribute('href'),
     );
-    expect(links).toEqual(['/rapportage/opdrachten/a1']);
+    expect(links).toEqual(['/opdrachten/a1']);
+  });
+
+  it('opens the report of a row with amounts and the landing of a row without', async () => {
+    respond({
+      '/api/reports/year-account': {
+        year: 2026,
+        scope: 'all',
+        rows: [
+          { ...ROW, ...AMOUNTS, status: 'completed' },
+          { ...ROW, assignment_id: 'a2', status: 'completed' },
+          { ...ROW, ...AMOUNTS, assignment_id: 'a3', status: 'accounted' },
+          { ...ROW, ...AMOUNTS, assignment_id: 'a4', status: 'in_progress' },
+        ],
+        totals: AMOUNTS,
+      },
+    });
+    const { container } = renderApp(<YearAccountView year="2026" />);
+    await screen.findByTestId('year-account');
+    expect(
+      [...container.querySelectorAll('nldd-table nldd-link')].map((link) =>
+        link.getAttribute('href'),
+      ),
+    ).toEqual([
+      '/opdrachten/a1/rapport',
+      '/opdrachten/a2',
+      '/opdrachten/a3/rapport',
+      '/opdrachten/a4/rapport',
+    ]);
   });
 
   it('says that an assignment has no agreement instead of showing zero', async () => {
@@ -524,12 +462,9 @@ const FINANCIAL = {
 };
 
 function renderReport() {
-  return renderApp(
-    <Routes>
-      <Route path={PATHS.reportAssignment} element={<AssignmentReportPage />} />
-    </Routes>,
-    { path: '/rapportage/opdrachten/a1' },
-  );
+  return renderApp(<AssignmentReportContent assignmentId="a1" />, {
+    path: '/opdrachten/a1/rapport',
+  });
 }
 
 describe('AssignmentReportPage', () => {
@@ -540,13 +475,11 @@ describe('AssignmentReportPage', () => {
     expect(String((fetchMock.mock.calls as unknown[][])[0]?.[0])).toBe(
       '/api/reports/assignments/a1?audience=client',
     );
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Rapportage Opdracht Alfa');
     const links = [...container.querySelectorAll('nldd-link')].map((link) =>
       link.getAttribute('href'),
     );
     expect(links).toContain('/api/reports/assignments/a1/document?audience=client');
-    expect(links).toContain('/rapportage');
-    expect(links).toContain('/opdrachten/a1');
+    expect(links).not.toContain('/opdrachten/a1');
     expect(screen.queryByTestId('staffing')).toBeNull();
   });
 
@@ -588,172 +521,6 @@ describe('AssignmentReportPage', () => {
     await waitFor(() =>
       expect(container.querySelector('[data-state="not-found"]')?.textContent).toContain(
         'Deze opdracht is niet gevonden',
-      ),
-    );
-  });
-});
-
-const OCCUPANCY_SUMMARY = {
-  scope: 'all',
-  summary: {
-    person_count: 13,
-    average_pct: '42.4',
-    over_count: 2,
-    over_months: ['2026-09'],
-    current_month: '2026-10',
-    window: ['2026-10', '2026-11', '2026-12', '2027-01'].map((month, index) => ({
-      month,
-      allocated_fte: '6',
-      tentative_fte: '0',
-      available_fte: '13',
-      free_fte: ['7', '7', '7.5', '12.5'][index],
-      pct: '46.2',
-      under: 6,
-      full: 5,
-      over: 2,
-    })),
-    idle_count: 6,
-  },
-  months: [],
-  persons: [],
-  not_deployable: [],
-};
-
-const OPEN_ROLES = {
-  scope: 'all',
-  unfilled_fte: '4.7',
-  roles: [
-    {
-      assignment_id: 'a1',
-      assignment_name: 'Opdracht Alfa',
-      budget_line_id: 'l1',
-      description: 'Ontwerper',
-      unfilled_fte: '0.6',
-      start_date: null,
-      end_date: null,
-      vacancy_status: null,
-    },
-  ],
-};
-
-const PIPELINE = {
-  scope: 'all',
-  statuses: [
-    { status: 'issued', count: 2, total_cents: 43440000 },
-    { status: 'accepted', count: 3, total_cents: 111290000 },
-  ],
-  waiting: [],
-};
-
-describe('landingTiles', () => {
-  it('gives one figure per block the reader got, with a line of context', () => {
-    const tiles = landingTiles({
-      year: 2026,
-      turnover: TURNOVER,
-      occupancy: OCCUPANCY_SUMMARY,
-      pipeline: PIPELINE,
-      costs: COSTS,
-      billability: BILLABILITY,
-      open_roles: OPEN_ROLES,
-    } as never);
-    // The formatter writes a non-breaking space after the euro sign.
-    const plain = (text: string | undefined) => text?.replace(/\s/g, ' ');
-    expect(tiles.map((tile) => [tile.topic, plain(tile.value)])).toEqual([
-      ['omzet', '€ 1.067.800'],
-      ['bezetting', '46,2%'],
-      ['pijplijn', '€ 434.400'],
-      ['kosten', '€ 3.000'],
-      ['declarabiliteit', '1 persoon'],
-      ['open-rollen', '4,7 FTE'],
-    ]);
-    const byTopic = Object.fromEntries(tiles.map((tile) => [tile.topic, tile]));
-    expect(plain(byTopic.omzet?.context)).toBe('van € 1.156.800 begroot, € 35.900 gerealiseerd');
-    expect(byTopic.bezetting?.label).toBe('Bezetting in oktober 2026');
-    expect(plain(byTopic.bezetting?.context)).toBe('vrij: nov 7, dec 7,5, jan 12,5 FTE');
-    expect(byTopic.pijplijn?.context).toBe('2 offertes');
-  });
-
-  it('signals only what needs attention', () => {
-    const tiles = landingTiles({
-      year: 2026,
-      turnover: TURNOVER,
-      occupancy: OCCUPANCY_SUMMARY,
-      pipeline: PIPELINE,
-      costs: { ...COSTS, uncovered_cents: 0 },
-      billability: { ...BILLABILITY, below_target_count: 0 },
-      open_roles: OPEN_ROLES,
-    } as never);
-    const attention = Object.fromEntries(tiles.map((tile) => [tile.topic, tile.attention]));
-    expect(attention).toEqual({
-      omzet: undefined,
-      bezetting: '2 mensen boven 100%',
-      pijplijn: undefined,
-      kosten: undefined,
-      declarabiliteit: undefined,
-      'open-rollen': '1 rol zonder vacature',
-    });
-  });
-
-  it('has no tile for a block the reader may not see', () => {
-    // What a planner gets: occupancy and open roles, nothing with money.
-    const tiles = landingTiles({
-      year: 2026,
-      occupancy: OCCUPANCY_SUMMARY,
-      open_roles: OPEN_ROLES,
-    } as never);
-    expect(tiles.map((tile) => tile.topic)).toEqual(['bezetting', 'open-rollen']);
-    expect(landingTiles({ year: 2026 })).toEqual([]);
-  });
-});
-
-describe('ReportsPage', () => {
-  it('opens on the headline figures of the current year and nothing else', async () => {
-    const fetchMock = respond({
-      '/api/reports/steering': { year: 2026, turnover: TURNOVER, costs: COSTS },
-    });
-    const { container } = renderApp(<ReportsPage />);
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Rapportage');
-    const list = await screen.findByRole('list', { name: `Kerncijfers ${currentReportYear()}` });
-    expect(String((fetchMock.mock.calls as unknown[][])[0]?.[0])).toBe(
-      `/api/reports/steering?year=${currentReportYear()}`,
-    );
-    expect(list.querySelectorAll('li')).toHaveLength(2);
-    // No table, no chart, no heat map on the landing view.
-    expect(container.querySelector('nldd-table, table, svg, figure')).toBeNull();
-    expect(container.querySelector('nldd-toolbar select')).toHaveValue(currentReportYear());
-  });
-
-  it('makes each tile the way into its own view, with the year', async () => {
-    respond({ '/api/reports/steering': { year: 2025, turnover: TURNOVER, costs: COSTS } });
-    renderApp(<ReportsPage />, { path: '/rapportage?jaar=2025' });
-    const turnover = await screen.findByTestId('tile-omzet');
-    expect(turnover).toHaveAttribute('href', '/rapportage/omzet?jaar=2025');
-    expect(turnover).toHaveTextContent('Omzet');
-    expect(turnover).toHaveTextContent('€ 1.067.800');
-    expect(turnover).not.toHaveClass('grip-tile--attention');
-    const costs = screen.getByTestId('tile-kosten');
-    expect(costs).toHaveAttribute('href', '/rapportage/kosten?jaar=2025');
-    expect(costs).toHaveClass('grip-tile--attention');
-    expect(costs).toHaveTextContent('Geen begrotingsregel dekt dit');
-    expect(screen.queryByTestId('tile-bezetting')).toBeNull();
-  });
-
-  it('links to the year account from the row of filters', async () => {
-    respond({ '/api/reports/steering': { year: 2026, turnover: TURNOVER } });
-    const { container } = renderApp(<ReportsPage />, { path: '/rapportage?jaar=2026' });
-    await screen.findByTestId('tile-omzet');
-    expect(
-      container.querySelector('nldd-toolbar nldd-button[text="Jaarverantwoording"]'),
-    ).toHaveAttribute('href', '/rapportage/jaarverantwoording?jaar=2026');
-  });
-
-  it('has an empty state for a reader without any block', async () => {
-    respond({ '/api/reports/steering': { year: 2026 } });
-    const { container } = renderApp(<ReportsPage />);
-    await waitFor(() =>
-      expect(container.querySelector('nldd-inline-dialog')).toHaveAttribute(
-        'text',
-        'Er is voor jou geen sturingsinformatie',
       ),
     );
   });
@@ -816,10 +583,10 @@ describe('Investeerruimte', () => {
       ['Ongedekte kosten', '− € 3.000'],
       ['Begroot voor interne opdrachten', '− € 41.000'],
       ['Investeerruimte', '€ 272.800'],
-      ['Als de pijplijn doorgaat', '€ 707.200'],
+      ['Als het potentieel doorgaat', '€ 707.200'],
     ]);
     // Realised to date and still expected are told apart.
-    expect(table).toHaveTextContent('€ 68.800 gerealiseerd, € 945.500 nog gepland');
+    expect(table).toHaveTextContent('€ 68.800 gerealiseerde inzet, € 945.500 nog gepland');
     expect(table).toHaveTextContent('wat 9 mensen samen moeten binnenbrengen');
     expect(table).toHaveTextContent('telt niet mee');
   });
@@ -828,11 +595,11 @@ describe('Investeerruimte', () => {
     renderInvestment({ year: 2026, money: MONEY });
     const table = await screen.findByTestId('investment-money');
     expect([...table.querySelectorAll('a')].map((link) => link.getAttribute('href'))).toEqual([
-      '/rapportage/omzet?jaar=2026',
-      '/rapportage/declarabiliteit?jaar=2026',
-      '/rapportage/kosten?jaar=2026',
-      '/rapportage/jaarverantwoording?jaar=2026',
-      '/rapportage/pijplijn?jaar=2026',
+      '/geld/omzet?jaar=2026',
+      '/mensen/declarabiliteit?jaar=2026',
+      '/geld/kosten?jaar=2026',
+      '/geld/jaarverantwoording?jaar=2026',
+      '/geld/potentieel?jaar=2026',
     ]);
   });
 
@@ -846,7 +613,7 @@ describe('Investeerruimte', () => {
     expect(total.querySelector('th')).toHaveTextContent('Tekort');
     // The word carries the sign; the amount is written without a minus.
     expect(screen.getByTestId('investment-room').textContent?.replace(/\s/g, ' ')).toBe('€ 55.500');
-    expect(table).not.toHaveTextContent('Als de pijplijn doorgaat');
+    expect(table).not.toHaveTextContent('Als het potentieel doorgaat');
   });
 
   it('says in one quiet line what each reading counts', async () => {
@@ -857,40 +624,21 @@ describe('Investeerruimte', () => {
     );
     expect(quiet.some((text) => text.includes('Voorlopige definitie'))).toBe(true);
     expect(quiet.some((text) => text.includes('min wat de mensen volgens hun target'))).toBe(true);
-    expect(quiet.some((text) => text.includes('Iedereen telt als voltijds'))).toBe(true);
   });
 
-  it('shows the time reading in FTE and valued at the billing rate', async () => {
+  it('leaves the time out: that reading is at Mensen', async () => {
     const { container } = renderInvestment({ year: 2026, money: MONEY, time: TIME });
-    const time = await screen.findByTestId('investment-time');
-    const texts = [...time.querySelectorAll('nldd-text-cell')].map(
-      (cell) => cell.getAttribute('text')?.replace(/\s/g, ' ') ?? '',
-    );
-    expect(texts).toContain('Vrij (FTE)');
-    expect(texts).toContain('Tegen inzettarief');
-    expect(texts).toContain('januari 2027');
-    expect(texts).toContain('12,5');
-    expect(texts).toContain('€ 168.000');
-    // Per month below: the turnover against the targets.
-    expect(cellTexts(container)).toContain('Omzet min targets');
+    await screen.findByTestId('investment-money');
+    expect(screen.queryByTestId('investment-time')).toBeNull();
+    expect(cellTexts(container)).not.toContain('Vrij (FTE)');
   });
 
-  it('gives a planner the time in FTE and nothing in money', async () => {
-    const months = TIME.months.map(({ month, available_fte, free_fte }) => ({
-      month,
-      available_fte,
-      free_fte,
-    }));
-    const { container } = renderInvestment({
-      year: 2026,
-      time: { person_count: 13, free_fte: '33.5', months },
-    });
-    const time = await screen.findByTestId('investment-time');
-    expect(screen.queryByTestId('investment-money')).toBeNull();
-    expect(cellTexts(container)).not.toContain('Tegen inzettarief');
-    expect(container.textContent).not.toContain('€');
-    expect(time).toHaveTextContent('Iedereen telt als voltijds');
-    expect(time).not.toHaveTextContent('inzettarief');
+  it('is not for a planner who has only the time', async () => {
+    const { container } = renderInvestment({ year: 2026, time: TIME });
+    await waitFor(() => expect(container.textContent).toContain('Je hebt hier geen toegang'));
+    expect(container.querySelector('[data-state="no-access"]')).not.toBeNull();
+    expect(container.textContent).not.toContain('er voor jou niet');
+    expect(container.textContent).not.toContain('FTE');
   });
 
   it('leaves the targets per month out for a reader who may not see them', async () => {
@@ -905,6 +653,10 @@ describe('Investeerruimte', () => {
     expect(texts).toContain('Nog gepland');
     expect(texts).not.toContain('Targets');
     expect(texts).not.toContain('Omzet min targets');
+    // Nor does the line lead to a page that is not for this reader.
+    const table = screen.getByTestId('investment-money');
+    expect(table).toHaveTextContent('Declarabiliteitstargets');
+    expect(table.querySelector('a[href^="/mensen"]')).toBeNull();
   });
 
   it('says why the money reading is not shown when it would give a target away', async () => {
@@ -919,55 +671,8 @@ describe('Investeerruimte', () => {
 
   it('has an answer for a reader it is not for', async () => {
     const { container } = renderInvestment({ year: 2026 });
-    await waitFor(() =>
-      expect(container.querySelector('nldd-inline-dialog')).toHaveAttribute(
-        'text',
-        'Dit onderdeel is er voor jou niet',
-      ),
-    );
-  });
-});
-
-describe('the investeerruimte on the landing view', () => {
-  const plain = (text: string | undefined) => text?.replace(/\s/g, ' ');
-
-  it('is the first tile, with a signal only when negative', () => {
-    const tile = investmentTile({ year: 2026, money: MONEY } as never);
-    expect(tile?.topic).toBe('investeerruimte');
-    expect(plain(tile?.value)).toBe('€ 272.800');
-    expect(tile?.attention).toBeUndefined();
-    const short = investmentTile({
-      year: 2026,
-      money: { ...MONEY, room_cents: -5550000, shortfall: true },
-    } as never);
-    expect(short?.label).toBe('Tekort in 2026');
-    expect(plain(short?.value)).toBe('€ 55.500');
-    expect(short?.attention).toBe('Minder omzet verwacht dan nodig');
-    expect(
-      landingTiles(
-        { year: 2026, turnover: TURNOVER } as never,
-        { year: 2026, money: MONEY } as never,
-      ).map((item) => item.topic),
-    ).toEqual(['investeerruimte', 'omzet']);
-  });
-
-  it('is the free capacity for a reader without the money reading, and absent without either', () => {
-    const tile = investmentTile({ year: 2026, time: TIME } as never);
-    expect(tile?.label).toBe('In tijd, oktober 2026');
-    expect(tile?.value).toBe('7 FTE vrij');
-    expect(investmentTile({ year: 2026 })).toBeNull();
-    expect(investmentTile(undefined)).toBeNull();
-  });
-
-  it('links the tile to its own view', async () => {
-    respond({
-      '/api/reports/steering': { year: 2026, turnover: TURNOVER },
-      '/api/reports/investment': { year: 2026, money: MONEY },
-    });
-    renderApp(<ReportsPage />, { path: '/rapportage?jaar=2026' });
-    const tile = await screen.findByTestId('tile-investeerruimte');
-    expect(tile).toHaveAttribute('href', '/rapportage/investeerruimte?jaar=2026');
-    expect(tile).toHaveTextContent('Investeerruimte');
-    expect(tile).not.toHaveClass('grip-tile--attention');
+    await waitFor(() => expect(container.textContent).toContain('Je hebt hier geen toegang'));
+    expect(container.querySelector('[data-state="no-access"]')).not.toBeNull();
+    expect(container.textContent).not.toContain('er voor jou niet');
   });
 });

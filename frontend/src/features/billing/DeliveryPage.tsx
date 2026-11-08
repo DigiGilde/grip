@@ -60,8 +60,10 @@ export function DeliveryPage() {
   const inForce = data?.in_force_cents ?? data?.total_cents ?? 0;
   return (
     <Page
+      kind="document"
       title={data ? `Factuurverzoek ${data.reference}` : 'Factuurverzoek'}
       instanceName={instance?.name}
+      back={{ href: PATHS.billing, text: 'Terug naar Factureren' }}
       spacing="sections"
     >
       {delivery.isPending ? <Loading /> : null}

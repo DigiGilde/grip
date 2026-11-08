@@ -1,4 +1,4 @@
-import { waitFor } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mockApi, texts } from '@/features/team/ui/testing';
 import { renderApp } from '@/test/utils';
@@ -35,8 +35,20 @@ const UNCOVERED = {
 
 afterEach(() => vi.unstubAllGlobals());
 
-async function renderCosts(body: object, path = '/kosten') {
-  const api = mockApi({ '/api/costs': body, '/api/costs/coverage-options': { items: [] } });
+const COVER = {
+  scope: 'all',
+  forecast_cents: 2100000,
+  covered_cents: 1800000,
+  uncovered_cents: 300000,
+  items: [],
+};
+
+async function renderCosts(body: object, path = '/geld/kosten', steering: object = { year: 2026 }) {
+  const api = mockApi({
+    '/api/costs': body,
+    '/api/costs/coverage-options': { items: [] },
+    '/api/reports/steering': steering,
+  });
   const view = renderApp(<CostsPage />, { path });
   await waitFor(() => expect(view.container.querySelector('nldd-table')).not.toBeNull());
   return { container: view.container, calls: api.calls };
@@ -48,11 +60,74 @@ const plain = (text: string | null | undefined) => (text ?? '').replace(/\u00a0/
 const names = (container: ParentNode) => texts(container, 'nldd-table nldd-link');
 
 describe('CostsPage', () => {
+  it('is one page with the way back to Geld', async () => {
+    const { container } = await renderCosts({ items: [ITEM], year: null, may_create: false });
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Kosten');
+    expect(
+      [...container.querySelectorAll('nldd-link')].find(
+        (link) => link.getAttribute('text') === 'Terug naar Geld',
+      ),
+    ).toHaveAttribute('href', '/geld');
+  });
+
+  it('leads with how the chosen year stands, and says what it counts', async () => {
+    const { container } = await renderCosts(
+      { items: [ITEM], year: 2026, may_create: false },
+      '/geld/kosten?jaar=2026',
+      { year: 2026, costs: COVER },
+    );
+    const figures = await screen.findByLabelText('Kosten in het kort');
+    expect(plain(figures.textContent)).toContain('Ongedekt€ 3.000');
+    expect(plain(figures.textContent)).toContain('Geen begrotingsregel dekt dit');
+    expect(plain(figures.textContent)).toContain('van € 21.000 verwachte kosten');
+    expect(plain(figures.textContent)).toContain('Gedekt door begrotingsregels€ 18.000');
+    expect(container.textContent).toContain('Alle kostenposten, met de facturen van 2026.');
+  });
+
+  it('says so when the figures are of the own assignments', async () => {
+    const { container } = await renderCosts(
+      { items: [ITEM], year: 2026, may_create: false },
+      '/geld/kosten?jaar=2026',
+      { year: 2026, costs: { ...COVER, scope: 'own' } },
+    );
+    await screen.findByLabelText('Kosten in het kort');
+    expect(container.textContent).toContain(
+      'De kostenposten die door je eigen opdrachten worden gedekt, met de facturen van 2026.',
+    );
+  });
+
+  it('has no totals over the whole duration, because the server has them per year', async () => {
+    const { container } = await renderCosts(
+      { items: [ITEM], year: null, may_create: false },
+      '/geld/kosten',
+      { year: 2026, costs: COVER },
+    );
+    await waitFor(() =>
+      expect(container.textContent).toContain('Alle kostenposten, over de hele looptijd.'),
+    );
+    expect(screen.queryByLabelText('Kosten in het kort')).toBeNull();
+  });
+
+  it('keeps the list when the figures cannot be read', async () => {
+    const { container } = await renderCosts(
+      { items: [ITEM], year: 2026, may_create: false },
+      '/geld/kosten?jaar=2026',
+      { year: 2026 },
+    );
+    expect(names(container)).toEqual(['Hostingcontract']);
+    expect(screen.queryByLabelText('Kosten in het kort')).toBeNull();
+  });
+
+  it('says the covered amount of an item, not only its share', async () => {
+    const { container } = await renderCosts({ items: [ITEM], year: null, may_create: false });
+    expect(plain(container.textContent)).toContain('100% gedekt, € 15.000');
+  });
+
   it('shows per cost item the expected total against the budget and the coverage', async () => {
     const { container } = await renderCosts({ items: [ITEM], year: null, may_create: false });
     const link = container.querySelector('nldd-table nldd-link');
     expect(link?.getAttribute('text')).toBe('Hostingcontract');
-    expect(link?.getAttribute('href')).toBe('/kosten/c-1');
+    expect(link?.getAttribute('href')).toBe('/geld/kosten/c-1');
     const cells = [...container.querySelectorAll('nldd-table nldd-text-cell')];
     expect(cells.some((cell) => cell.getAttribute('text')?.includes('15.000'))).toBe(true);
     expect(
@@ -99,7 +174,7 @@ describe('CostsPage', () => {
   it('asks for one page and shows where the reader is in a long list', async () => {
     const { container, calls } = await renderCosts(
       { items: [ITEM], total: 120, page: 2, page_size: 50, year: null, may_create: false },
-      '/kosten?pagina=2&zoek=host',
+      '/geld/kosten?pagina=2&zoek=host',
     );
     expect(calls.some((call) => call.includes('page=2') && call.includes('q=host'))).toBe(true);
     expect(container.querySelector('[data-page-range]')?.textContent).toBe(
@@ -109,7 +184,7 @@ describe('CostsPage', () => {
     expect(pager).toHaveAttribute('current', '2');
     expect(pager).toHaveAttribute('total', '3');
     // The other pages keep the search; the first page has the plain address.
-    expect(pager).toHaveAttribute('href-pattern', '/kosten?pagina={page}&zoek=host');
+    expect(pager).toHaveAttribute('href-pattern', '/geld/kosten?pagina={page}&zoek=host');
   });
 
   it('shows no pages for a list that fits on one', async () => {
@@ -141,11 +216,11 @@ describe('CostsPage', () => {
   it('asks for the year in the address and carries it to the cost item', async () => {
     const { container, calls } = await renderCosts(
       { items: [ITEM], year: 2026, may_create: false },
-      '/kosten?jaar=2026',
+      '/geld/kosten?jaar=2026',
     );
     expect(calls.some((url) => url.includes('year=2026'))).toBe(true);
     expect(container.querySelector('nldd-table nldd-link')?.getAttribute('href')).toBe(
-      '/kosten/c-1?jaar=2026',
+      '/geld/kosten/c-1?jaar=2026',
     );
   });
 

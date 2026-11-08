@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { SectionHeading } from '@/ui/layout';
 import { formatEuro } from '@/lib/format';
+import { Icon } from '@/ui/Icon';
 import type { Totals } from './api';
 import { hasAmounts } from './api';
 import './reports.css';
@@ -75,9 +76,7 @@ export function Figures({ figures, label }: { figures: Figure[]; label: string }
           <dd className="grip-figure__value">{figure.value}</dd>
           {figure.attention && (
             <dd className="grip-figure__flag">
-              <span className="grip-mark" aria-hidden="true">
-                !
-              </span>
+              <Icon concept="attention" />
               {figure.attention}
             </dd>
           )}
@@ -97,11 +96,14 @@ export function MoneyCell({
   bold,
   note,
   critical,
+  hideBelow,
 }: {
   cents: number | null | undefined;
   bold?: boolean;
   note?: string;
   critical?: boolean;
+  /** Leave the cell out below this width, with the column's header. */
+  hideBelow?: 'md';
 }) {
   const text = formatEuro(cents);
   const zero = cents === 0;
@@ -109,6 +111,7 @@ export function MoneyCell({
     <nldd-text-cell
       text={bold && text && !zero ? `**${text}**` : text}
       horizontal-alignment="right"
+      {...(hideBelow ? { 'hide-below': hideBelow } : {})}
       {...(note ? { 'supporting-text': note } : {})}
       {...(critical ? { color: 'critical' } : zero ? { color: 'secondary' } : {})}
     />
@@ -144,7 +147,7 @@ export function TotalsHeaderCells() {
   return (
     <>
       <nldd-text-cell text="Begroot" horizontal-alignment="right" />
-      <nldd-text-cell text="Gerealiseerd" horizontal-alignment="right" />
+      <nldd-text-cell text="Gerealiseerde inzet" horizontal-alignment="right" />
       <nldd-text-cell text="Nog gepland" horizontal-alignment="right" />
       <nldd-text-cell text="Kosten" horizontal-alignment="right" />
       <nldd-text-cell text="Verwacht totaal" horizontal-alignment="right" />
@@ -154,7 +157,7 @@ export function TotalsHeaderCells() {
 }
 
 /**
- * The amounts in the words of the assignment pages: begroot, gerealiseerd,
+ * The amounts in the words of the assignment pages: begroot, gerealiseerde inzet,
  * nog gepland, kosten, verwacht totaal and afwijking (begroot min verwacht
  * totaal). An overrun is said in words.
  */

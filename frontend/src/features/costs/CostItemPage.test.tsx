@@ -39,7 +39,15 @@ const ITEM: CostItem = {
   uncovered_pct: '20.00',
   hidden_coverage_pct: '0',
   invoice_lines: [
-    { ...RECEIVED, id: 'l-3', reference: 'HOST-26-03', kind: 'estimate', period: '2026-10-01', attachments: [], amount_cents: 750000 },
+    {
+      ...RECEIVED,
+      id: 'l-3',
+      reference: 'HOST-26-03',
+      kind: 'estimate',
+      period: '2026-10-01',
+      attachments: [],
+      amount_cents: 750000,
+    },
     { ...RECEIVED, id: 'l-2', reference: 'HOST-26-02', period: '2026-04-01', attachments: [] },
     RECEIVED,
   ],
@@ -96,10 +104,13 @@ async function renderPage(item: CostItem, refuse?: { status: number; detail: str
       calls.push({ method, url, body: typeof init?.body === 'string' ? init.body : undefined });
       if (method === 'PUT' && refuse) {
         return Promise.resolve(
-          new Response(JSON.stringify({ title: 'Fout', status: refuse.status, detail: refuse.detail }), {
-            status: refuse.status,
-            headers: { 'Content-Type': 'application/problem+json' },
-          }),
+          new Response(
+            JSON.stringify({ title: 'Fout', status: refuse.status, detail: refuse.detail }),
+            {
+              status: refuse.status,
+              headers: { 'Content-Type': 'application/problem+json' },
+            },
+          ),
         );
       }
       const body = url.startsWith('/api/costs/coverage-options') ? OPTIONS : item;
@@ -113,9 +124,9 @@ async function renderPage(item: CostItem, refuse?: { status: number; detail: str
   );
   const view = renderApp(
     <Routes>
-      <Route path="/kosten/:costItemId" element={<CostItemPage />} />
+      <Route path="/geld/kosten/:costItemId" element={<CostItemPage />} />
     </Routes>,
-    { path: '/kosten/c-1' },
+    { path: '/geld/kosten/c-1' },
   );
   await waitFor(() => expect(view.container.querySelector('nldd-table')).not.toBeNull());
   return { page: view.container, calls };
@@ -127,8 +138,7 @@ const plain = (text: string | null | undefined) => (text ?? '').replace(/\u00a0/
 const button = (root: ParentNode, text: string) =>
   [...root.querySelectorAll('nldd-button')].find((el) => el.getAttribute('text') === text);
 
-const openSheet = () =>
-  document.body.querySelector('nldd-sheet[open]') as HTMLElement | null;
+const openSheet = () => document.body.querySelector('nldd-sheet[open]') as HTMLElement | null;
 
 describe('CostItemPage', () => {
   it('leads with three figures and says the variance in words', async () => {
@@ -144,7 +154,11 @@ describe('CostItemPage', () => {
   });
 
   it('flags an overrun in the headline', async () => {
-    const { page } = await renderPage({ ...ITEM, forecast_cents: 1600000, variance_cents: -100000 });
+    const { page } = await renderPage({
+      ...ITEM,
+      forecast_cents: 1600000,
+      variance_cents: -100000,
+    });
     expect(page.querySelector('.grip-figure--attention')?.textContent).toContain('Overschrijding');
   });
 
@@ -158,18 +172,18 @@ describe('CostItemPage', () => {
     );
     expect(forecast.querySelectorAll('.cost-bar__track .cost-seg')).toHaveLength(2);
     expect(forecast.querySelector('.cost-bar__mark')).not.toBeNull();
-    expect(plain(forecast.querySelector('.cost-legend')?.textContent)).toContain('Nog verwacht € 7.500');
+    expect(plain(forecast.querySelector('.cost-legend')?.textContent)).toContain(
+      'Nog verwacht € 7.500',
+    );
   });
 
   it('marks what nobody pays for as a part of its own, with the amount', async () => {
     const { page } = await renderPage(ITEM);
     const coverage = page.querySelectorAll('.cost-bar')[1] as HTMLElement;
     const segments = [...coverage.querySelectorAll('.cost-bar__track .cost-seg')];
-    expect(segments.map((el) => el.getAttribute('data-kind') ?? el.getAttribute('data-step'))).toEqual([
-      '1',
-      '2',
-      'uncovered',
-    ]);
+    expect(
+      segments.map((el) => el.getAttribute('data-kind') ?? el.getAttribute('data-step')),
+    ).toEqual(['1', '2', 'uncovered']);
     expect(plain(coverage.querySelector('.cost-legend__attention')?.textContent)).toContain(
       'Ongedekt € 3.000 (20%)',
     );
@@ -187,11 +201,9 @@ describe('CostItemPage', () => {
       'HOST-26-02',
       'HOST-26-03',
     ]);
-    expect(rows.map((row) => row.querySelector('nldd-badge')?.getAttribute('text') ?? null)).toEqual([
-      null,
-      null,
-      'Verwacht',
-    ]);
+    expect(
+      rows.map((row) => row.querySelector('nldd-badge')?.getAttribute('text') ?? null),
+    ).toEqual([null, null, 'Verwacht']);
   });
 
   it('shows a document as a download, and says it is missing only on a received invoice', async () => {
@@ -200,7 +212,10 @@ describe('CostItemPage', () => {
     const download = table.querySelector('nldd-link[start-icon="download"]');
     expect(download?.getAttribute('href')).toBe('/api/costs/c-1/invoice-lines/l-1/attachments/a-1');
     expect(download?.getAttribute('accessible-label')).toBe('Download factuur-januari.pdf, 84 kB');
-    const missing = texts(table, 'nldd-table-row:not([slot]) nldd-text-cell[color="secondary"][size="sm"]');
+    const missing = texts(
+      table,
+      'nldd-table-row:not([slot]) nldd-text-cell[color="secondary"][size="sm"]',
+    );
     expect(missing).toEqual(['Bijlage ontbreekt', '']);
     expect(page.innerHTML).not.toContain('Geen bijlage');
   });
@@ -219,14 +234,20 @@ describe('CostItemPage', () => {
     fireEvent.click(page.querySelector('nldd-table nldd-link[text="HOST-26-01"]') as Element);
     await waitFor(() => expect(openSheet()).not.toBeNull());
     const sheet = openSheet() as HTMLElement;
-    expect(sheet.querySelector('nldd-top-title-bar')?.getAttribute('text')).toBe('Factuur HOST-26-01');
-    expect(sheet.querySelector('nldd-list nldd-link')?.getAttribute('text')).toBe('factuur-januari.pdf');
+    expect(sheet.querySelector('nldd-top-title-bar')?.getAttribute('text')).toBe(
+      'Factuur HOST-26-01',
+    );
+    expect(sheet.querySelector('nldd-list nldd-link')?.getAttribute('text')).toBe(
+      'factuur-januari.pdf',
+    );
     expect(sheet.querySelector('nldd-file-field')).not.toBeNull();
     expect(sheet.querySelector('nldd-banner')).toBeNull();
 
     fireEvent.click(button(page, 'Voeg factuur toe') as Element);
     await waitFor(() =>
-      expect(openSheet()?.querySelector('nldd-top-title-bar')?.getAttribute('text')).toBe('Nieuwe factuur'),
+      expect(openSheet()?.querySelector('nldd-top-title-bar')?.getAttribute('text')).toBe(
+        'Nieuwe factuur',
+      ),
     );
     const form = openSheet()?.querySelector('nldd-form') as HTMLElement;
     fireEvent(form, new Event('submit', { cancelable: true }));
@@ -240,11 +261,11 @@ describe('CostItemPage', () => {
 
   it('asks before deleting an invoice and says what goes with it', async () => {
     const { page, calls } = await renderPage(ITEM);
-    const item = [...page.querySelectorAll('nldd-menu-item')].find(
-      (el) => el.getAttribute('text') === 'Verwijder factuur',
+    const item = [...page.querySelectorAll('nldd-icon-button')].find((el) =>
+      el.getAttribute('accessible-label')?.startsWith('Verwijder factuur'),
     ) as HTMLElement;
-    expect(item.hasAttribute('destructive')).toBe(true);
-    fireEvent(item, new Event('select'));
+    expect(item.getAttribute('appearance')).toBe('critical-transparent');
+    fireEvent.click(item);
     expect(calls.some((call) => call.method === 'DELETE')).toBe(false);
     const dialog = [...document.body.querySelectorAll('nldd-modal-dialog[open]')].find((el) =>
       el.getAttribute('text')?.includes("Factuur 'HOST-26-01'"),
@@ -266,7 +287,7 @@ describe('CostItemPage', () => {
       'Opdracht Alfa 2026',
       'Opdracht Delta 2026-2027',
     ]);
-    expect(links[0]?.getAttribute('href')).toBe('/opdrachten/as-1/financieel');
+    expect(links[0]?.getAttribute('href')).toBe('/opdrachten/as-1/begroting');
     expect(table.textContent).toContain('Hosting en licenties');
     expect(table.textContent).toContain('Ongedekt');
     // Only the share on an assignment the reader manages can be changed.
@@ -295,7 +316,10 @@ describe('CostItemPage', () => {
     await waitFor(() => expect(openSheet()).not.toBeNull());
     const sheet = openSheet() as HTMLElement;
     expect(sheet.querySelector('nldd-text-field')?.getAttribute('value')).toBe('30');
-    fireEvent(sheet.querySelector('nldd-form') as HTMLElement, new Event('submit', { cancelable: true }));
+    fireEvent(
+      sheet.querySelector('nldd-form') as HTMLElement,
+      new Event('submit', { cancelable: true }),
+    );
     await waitFor(() => expect(calls.some((call) => call.method === 'PUT')).toBe(true));
     await waitFor(() =>
       expect(sheet.querySelector('nldd-validation-item')?.textContent).toBe(refusal),

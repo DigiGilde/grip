@@ -1,11 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { formatEuro, formatFte } from '@/lib/format';
-import { EmptyNotice, LoadError, Loading, Quiet } from '@/ui/layout';
-import { fetchInvestment, reportKeys, type InvestmentMoney, type InvestmentTime } from './api';
+import { costsPath } from '@/features/costs/costText';
+import { formatEuro } from '@/lib/format';
+import { PATHS } from '@/paths';
+import { Icon } from '@/ui/Icon';
+import { LoadError, Loading, NoAccess, Quiet } from '@/ui/layout';
+import { fetchInvestment, reportKeys, type InvestmentMoney } from './api';
 import { monthName } from './labels';
-import { topicPath } from './topics';
-import { MoneyCell, NumberCell, ReportBlock } from './ui';
+import { MoneyCell, ReportBlock } from './ui';
+import { pathWithYear } from './useReportYear';
 
 const count = (number: number, one: string, many: string) =>
   `${number} ${number === 1 ? one : many}`;
@@ -21,6 +24,8 @@ const minus = (cents: number) => (cents === 0 ? formatEuro(0) : `− ${formatEur
 function MoneyDerivation({ money, year }: { money: InvestmentMoney; year: number }) {
   const y = String(year);
   const hasVerbal = money.verbal_cents > 0;
+  // The targets per person are a page of Mensen, for who may read them.
+  const seesTargets = (money.months ?? []).some((month) => month.target_cents !== null);
   const zero = (cents: number) => (cents === 0 ? 'grip-derivation__zero' : undefined);
   return (
     <table className="grip-derivation" data-testid="investment-money">
@@ -28,9 +33,11 @@ function MoneyDerivation({ money, year }: { money: InvestmentMoney; year: number
       <tbody>
         <tr>
           <th scope="row">
-            <Link to={topicPath('omzet', y)}>Verwachte omzet van externe opdrachten</Link>
+            <Link to={pathWithYear(PATHS.moneyTurnover, y)}>
+              Verwachte omzet van externe opdrachten
+            </Link>
             <span className="grip-derivation__sub">
-              {formatEuro(money.realised_cents)} gerealiseerd, {formatEuro(money.planned_cents)} nog
+              {formatEuro(money.realised_cents)} gerealiseerde inzet, {formatEuro(money.planned_cents)} nog
               gepland
               {hasVerbal ? `, waarvan ${formatEuro(money.verbal_cents)} op mondeling akkoord` : ''}
             </span>
@@ -39,7 +46,11 @@ function MoneyDerivation({ money, year }: { money: InvestmentMoney; year: number
         </tr>
         <tr className={zero(money.target_cents)}>
           <th scope="row">
-            <Link to={topicPath('declarabiliteit', y)}>Declarabiliteitstargets</Link>
+            {seesTargets ? (
+              <Link to={pathWithYear(PATHS.peopleBillability, y)}>Declarabiliteitstargets</Link>
+            ) : (
+              'Declarabiliteitstargets'
+            )}
             <span className="grip-derivation__sub">
               {money.target_person_count === 0
                 ? 'niemand heeft een target'
@@ -52,14 +63,14 @@ function MoneyDerivation({ money, year }: { money: InvestmentMoney; year: number
         </tr>
         <tr className={zero(money.uncovered_cents)}>
           <th scope="row">
-            <Link to={topicPath('kosten', y)}>Ongedekte kosten</Link>
+            <Link to={costsPath(year)}>Ongedekte kosten</Link>
             <span className="grip-derivation__sub">kosten die geen begrotingsregel dekt</span>
           </th>
           <td>{minus(money.uncovered_cents)}</td>
         </tr>
         <tr className={zero(money.internal_budget_cents)}>
           <th scope="row">
-            <Link to={topicPath('jaarverantwoording', y)}>Begroot voor interne opdrachten</Link>
+            <Link to={pathWithYear(PATHS.yearAccount, y)}>Begroot voor interne opdrachten</Link>
             <span className="grip-derivation__sub">
               {count(money.internal_count, 'interne opdracht', 'interne opdrachten')} met akkoord
             </span>
@@ -70,10 +81,7 @@ function MoneyDerivation({ money, year }: { money: InvestmentMoney; year: number
           <th scope="row">
             {money.shortfall ? (
               <>
-                <span className="grip-mark" aria-hidden="true">
-                  !
-                </span>{' '}
-                Tekort
+                <Icon concept="attention" /> Tekort
               </>
             ) : (
               'Investeerruimte'
@@ -86,7 +94,7 @@ function MoneyDerivation({ money, year }: { money: InvestmentMoney; year: number
         {money.pipeline_cents > 0 && (
           <tr className="grip-derivation__apart">
             <th scope="row">
-              <Link to={topicPath('pijplijn', y)}>Als de pijplijn doorgaat</Link>
+              <Link to={pathWithYear(PATHS.moneyPotential, y)}>Als het potentieel doorgaat</Link>
               <span className="grip-derivation__sub">
                 {formatEuro(money.pipeline_cents)} gepland op opdrachten zonder akkoord, telt niet
                 mee
@@ -114,7 +122,7 @@ function MoneyMonths({ money, year }: { money: InvestmentMoney; year: number }) 
     >
       <nldd-table-row slot="header">
         <nldd-text-cell text="Maand" />
-        <nldd-text-cell text="Gerealiseerd" horizontal-alignment="right" />
+        <nldd-text-cell text="Gerealiseerde inzet" horizontal-alignment="right" />
         <nldd-text-cell text="Nog gepland" horizontal-alignment="right" />
         {withTargets && (
           <>
@@ -156,49 +164,9 @@ function MoneyMonths({ money, year }: { money: InvestmentMoney; year: number }) 
   );
 }
 
-/** The time reading: free capacity per month, in FTE and, for who may see rates, in money. */
-function TimeReading({ time }: { time: InvestmentTime }) {
-  const months = time.months ?? [];
-  const valued = 'value_cents' in time;
-  const unvalued = months.reduce((most, month) => Math.max(most, month.unvalued_count ?? 0), 0);
-  return (
-    <nldd-container gap="8" data-testid="investment-time">
-      <nldd-title size={5} text="Investeerruimte in tijd" heading-level={2} />
-      <nldd-table
-        accessible-label="Vrije capaciteit in de komende maanden"
-        columns={`minmax(130px,1fr) 100px${valued ? ' 150px' : ''}`}
-        sm-columns={`minmax(0,1fr) 80px${valued ? ' 110px' : ''}`}
-      >
-        <nldd-table-row slot="header">
-          <nldd-text-cell text="Maand" />
-          <nldd-text-cell text="Vrij (FTE)" horizontal-alignment="right" />
-          {valued && <nldd-text-cell text="Tegen inzettarief" horizontal-alignment="right" />}
-        </nldd-table-row>
-        {months.map((month) => (
-          <nldd-table-row key={month.month}>
-            <nldd-text-cell text={monthName(month.month)} />
-            <NumberCell text={formatFte(month.free_fte)} muted={Number(month.free_fte) === 0} />
-            {valued && <MoneyCell cents={month.value_cents} />}
-          </nldd-table-row>
-        ))}
-      </nldd-table>
-      <Quiet>
-        Wat geteld is: de capaciteit die deze maand en de drie maanden erna niet is ingepland, van{' '}
-        {count(time.person_count, 'inzetbare persoon', 'inzetbare mensen')}
-        {valued ? ', gewaardeerd tegen het inzettarief van elke persoon in die maand' : ''}.
-        Iedereen telt als voltijds, tot er een deeltijdfactor per persoon is.
-        {valued && unvalued > 0
-          ? ` Van ${count(unvalued, 'persoon', 'mensen')} is het tarief onbekend; hun ruimte zit wel in de FTE en niet in het bedrag.`
-          : ''}
-      </Quiet>
-    </nldd-container>
-  );
-}
-
 /**
- * Investeerruimte: what is left to invest, in money for the year and in
- * time for the coming months. The definition is provisional, so each
- * reading says in one quiet line what it counts.
+ * Investeerruimte in money for the year; the reading in time is at Mensen.
+ * The definition is provisional, so it says in one quiet line what it counts.
  */
 export function InvestmentView({ year, bare }: { year: string; bare?: boolean }) {
   const query = useQuery({
@@ -207,37 +175,29 @@ export function InvestmentView({ year, bare }: { year: string; bare?: boolean })
   });
   if (query.isPending) return <Loading />;
   if (query.isError) return <LoadError error={query.error} retry={() => void query.refetch()} />;
-  const { money, time, money_withheld: withheld } = query.data;
-  if (!money && !time && !withheld) {
-    return (
-      <EmptyNotice
-        text="Dit onderdeel is er voor jou niet"
-        supportingText="De investeerruimte gaat over de hele organisatie."
-      />
-    );
+  const { money, money_withheld: withheld } = query.data;
+  if (!money && !withheld) {
+    return <NoAccess who="De investeerruimte gaat over de hele organisatie." />;
   }
   return (
     <ReportBlock bare={bare} testId="investment" title="Investeerruimte">
-      <div className="grip-invest">
-        {money && (
-          <nldd-container gap="8">
-            <MoneyDerivation money={money} year={query.data.year} />
-            <Quiet>
-              Wat geteld is: de verwachte omzet van externe opdrachten met akkoord (ook mondeling),
-              min wat de mensen volgens hun target moeten binnenbrengen, min ongedekte kosten, min
-              wat interne opdrachten volgens hun begroting gebruiken. Voorlopige definitie.
-            </Quiet>
-          </nldd-container>
-        )}
-        {withheld && (
-          <nldd-inline-dialog
-            data-testid="investment-withheld"
-            text="De investeerruimte in geld is niet te tonen"
-            supporting-text={`Minder dan ${withheld.min_persons} mensen hebben een target. Het bedrag zou dan het target van een persoon verraden.`}
-          />
-        )}
-        {time && <TimeReading time={time} />}
-      </div>
+      {money && (
+        <nldd-container gap="8" max-width="720px">
+          <MoneyDerivation money={money} year={query.data.year} />
+          <Quiet>
+            Wat geteld is: de verwachte omzet van externe opdrachten met akkoord (ook mondeling),
+            min wat de mensen volgens hun target moeten binnenbrengen, min ongedekte kosten, min wat
+            interne opdrachten volgens hun begroting gebruiken. Voorlopige definitie.
+          </Quiet>
+        </nldd-container>
+      )}
+      {withheld && (
+        <nldd-inline-dialog
+          data-testid="investment-withheld"
+          text="De investeerruimte in geld is niet te tonen"
+          supporting-text={`Minder dan ${withheld.min_persons} mensen hebben een target. Het bedrag zou dan het target van een persoon verraden.`}
+        />
+      )}
       {money && (money.unpriced_assignments ?? []).length > 0 && (
         <nldd-banner
           variant="warning"
