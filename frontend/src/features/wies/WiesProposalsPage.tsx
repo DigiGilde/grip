@@ -139,13 +139,13 @@ export function WiesProposalsPage() {
 
   const data = query.data;
   return (
-    <Page title="Voorstellen uit Wies" instanceName={instance?.name} back={adminBack}>
+    <Page kind="list" title="Voorstellen uit Wies" instanceName={instance?.name} back={adminBack}>
       {query.isPending && <Loading text="Wies wordt geraadpleegd" />}
       {query.isError && <LoadError error={query.error} retry={() => void query.refetch()} />}
       {data && !data.configured && (
         <EmptyNotice
           text="De koppeling met Wies is niet ingesteld"
-          supportingText="Tot die tijd beheer je personen onder Team."
+          supportingText="Tot die tijd beheer je personen onder Mensen."
         />
       )}
       {confirm.isError && <ErrorNotice message={errorMessage(confirm.error)} />}

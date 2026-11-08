@@ -160,6 +160,7 @@ export function FormTemplatePage() {
   return (
     <div ref={containerRef}>
       <Page
+        kind="document"
         title={data?.name ?? 'Formulier'}
         instanceName={instance?.name}
         spacing="sections"
@@ -170,7 +171,7 @@ export function FormTemplatePage() {
           <LoadError
             error={detail.error}
             retry={() => void detail.refetch()}
-            who="Beheer is voor beheerders. Wie dat zijn zie je onder Team."
+            who="Beheer is voor beheerders. Wie dat zijn zie je onder Mensen."
           />
         ) : null}
 

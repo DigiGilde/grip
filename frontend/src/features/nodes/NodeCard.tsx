@@ -46,7 +46,7 @@ export function NodeCard({ item, onOpen, pending, hideReason, action }: NodeCard
       ref={ref}
       button={orUndef(clickable)}
       accessible-label={
-        pending ? 'Bezig met ophalen van een node' : clickable ? `Bekijk ${name}` : name
+        pending ? 'Bezig met ophalen van een stuk' : clickable ? `Bekijk ${name}` : name
       }
       data-node-uri={item.uri}
       aria-busy={pending ? 'true' : undefined}

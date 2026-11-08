@@ -88,6 +88,7 @@ export function SecurityPage() {
   return (
     <>
       <Page
+        kind="list"
         title="Beveiliging"
         instanceName={instance?.name}
         {...(list?.available ? { lead: purpose(list) } : {})}
@@ -150,6 +151,7 @@ export function SecurityPage() {
                             actions={[
                               {
                                 text: 'Trek in',
+                                withdraws: true,
                                 destructive: true,
                                 confirm: {
                                   text: `Passkey '${passkey.label}' intrekken?`,

@@ -195,6 +195,7 @@ export function SenderPage() {
   return (
     <>
       <Page
+        kind="document"
         title="Afzender en teksten van offertes"
         instanceName={instance?.name}
         spacing="sections"
@@ -205,7 +206,7 @@ export function SenderPage() {
           <LoadError
             error={query.error}
             retry={() => void query.refetch()}
-            who="Beheer is voor beheerders. Wie dat zijn zie je onder Team."
+            who="Beheer is voor beheerders. Wie dat zijn zie je onder Mensen."
           />
         ) : null}
 

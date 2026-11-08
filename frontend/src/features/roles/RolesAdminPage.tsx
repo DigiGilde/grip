@@ -241,7 +241,7 @@ export function RolesAdminPage() {
   return (
     <>
       <RouterLinks>
-        <Page title="Rollen" instanceName={instance?.name} back={adminBack}>
+        <Page kind="list" title="Rollen" instanceName={instance?.name} back={adminBack}>
           <ActionBar
             label="Rollen filteren en acties"
             filters={[

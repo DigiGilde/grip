@@ -116,6 +116,7 @@ export function NotificationsPage() {
   return (
     <>
       <Page
+        kind="list"
         title="Meldingen"
         instanceName={instance?.name}
         spacing="sections"
@@ -196,6 +197,7 @@ export function NotificationsPage() {
                         actions={[
                           {
                             text: 'Trek in',
+                            withdraws: true,
                             destructive: true,
                             confirm: {
                               text: `Meldingen op '${device.label}' stoppen?`,

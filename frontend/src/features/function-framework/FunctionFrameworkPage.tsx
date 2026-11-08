@@ -36,7 +36,6 @@ import {
 import { useAdminBack } from '@/layout/useAdminBack';
 
 if (import.meta.env.MODE !== 'test') {
-  void import('@nldd/design-system/search-field');
   void import('@nldd/design-system/tag');
 }
 
@@ -334,7 +333,7 @@ export function FunctionFrameworkPage() {
 
   return (
     <RouterLinks>
-      <Page title="Functiegebouw Rijk" instanceName={instance?.name} back={adminBack}>
+      <Page kind="list" title="Functiegebouw Rijk" instanceName={instance?.name} back={adminBack}>
         <Toolbar
           query={query}
           onQuery={setQuery}

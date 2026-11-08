@@ -68,9 +68,9 @@ export function LanguageModelPage() {
 
   return (
     <RouterLinks>
-      <Page title="Taalmodel" instanceName={instance?.name} spacing="sections" back={adminBack}>
+      <Page kind="document" title="Taalmodel" instanceName={instance?.name} spacing="sections" back={adminBack}>
         {denied ? (
-          <NoAccess who="Beheer is voor beheerders. Wie dat zijn zie je onder Team." />
+          <NoAccess who="Beheer is voor beheerders. Wie dat zijn zie je onder Mensen." />
         ) : (
           <>
             <Section title="Verbinding">

@@ -35,7 +35,7 @@ export function PeersPage() {
 
   return (
     <>
-      <Page title="Koppelingen" instanceName={instance?.name} back={adminBack}>
+      <Page kind="list" title="Koppelingen" instanceName={instance?.name} back={adminBack}>
         {/* Only once the list is there: who may not read it may not add to it. */}
         {query.isSuccess ? (
           <ActionBar
@@ -45,7 +45,7 @@ export function PeersPage() {
           />
         ) : null}
         {isAdmin ? null : (
-          <NoAccess who="Koppelingen zijn voor beheerders. Wie dat zijn zie je onder Team." />
+          <NoAccess who="Koppelingen zijn voor beheerders. Wie dat zijn zie je onder Mensen." />
         )}
         {isAdmin ? (
           <QueryState query={query}>

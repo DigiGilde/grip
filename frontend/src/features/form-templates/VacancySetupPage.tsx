@@ -326,13 +326,14 @@ export function VacancySetupPage() {
   return (
     <RouterLinks>
       <Page
+        kind="document"
         title="Aanvraagformulier"
         instanceName={instance?.name}
         spacing="sections"
         back={adminBack}
       >
         {denied ? (
-          <NoAccess who="Beheer is voor beheerders. Wie dat zijn zie je onder Team." />
+          <NoAccess who="Beheer is voor beheerders. Wie dat zijn zie je onder Mensen." />
         ) : (
           <Templates />
         )}
