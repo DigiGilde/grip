@@ -24,7 +24,7 @@ export function SigningListPage() {
   const invitations = query.data?.invitations ?? [];
 
   return (
-    <Page title="Offertes om te tekenen" instanceName={instance?.name} width="960px">
+    <Page kind="list" title="Offertes om te tekenen" instanceName={instance?.name}>
       {query.isPending ? <Loading /> : null}
       {query.isError ? <LoadError error={query.error} retry={() => void query.refetch()} /> : null}
       {query.data && invitations.length === 0 ? (

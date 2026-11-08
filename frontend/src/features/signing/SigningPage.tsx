@@ -1,34 +1,26 @@
 import { useState } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
-import { ApiError, errorMessage } from '@/api/client';
-import { Button, TextInput } from '@/features/assignments/ui';
-import { QuoteDetails } from '@/features/quotes/QuoteDetails';
-import { QuoteContentTable } from '@/features/quotes/QuoteContentTable';
+import { ApiError } from '@/api/client';
+import { TextInput } from '@/features/assignments/ui';
 import { formatDateTime } from '@/features/quotes/format';
-import { DecisionFailed, DecisionReceipt } from '@/features/quotes/DecisionReceipt';
 import {
-  beforeLeaving,
+  QuoteDecisionView,
+  type Decision,
+  type DecisionDraft,
+  type DecisionValues,
+} from '@/features/quotes/QuoteDecisionView';
+import {
   clearDraft,
   createSigningIntent,
-  leaveForDecision,
   readDraft,
   saveDraft,
   useDecisionReturn,
 } from '@/features/quotes/proof';
-import { CheckboxInput, DocumentLink } from '@/features/quotes/ui';
+import { CheckboxInput } from '@/features/quotes/ui';
 import { useInstance } from '@/layout/useInstance';
-import { formatDate, formatEuro } from '@/lib/format';
-import {
-  FormSheet,
-  LoadError,
-  Loading,
-  Page,
-  Quiet,
-  Section,
-  Stack,
-  StateNotice,
-} from '@/ui/layout';
+import { formatDate } from '@/lib/format';
+import { LoadError, Loading, Page, StateNotice } from '@/ui/layout';
 import { fetchSigningQuote, signingDocumentUrl, signingKeys, type SigningQuote } from './api';
 
 function Decided({ quote }: { quote: SigningQuote }) {
@@ -68,18 +60,15 @@ function byline(quote: SigningQuote): string {
   return [
     quote.client_name ? `Aan ${quote.client_name}` : null,
     quote.reference ? `kenmerk ${quote.reference}` : null,
-    quote.content.client_reference ? `uw kenmerk ${quote.content.client_reference}` : null,
+    quote.content.client_reference ? `jouw kenmerk ${quote.content.client_reference}` : null,
     quote.content.valid_until ? `geldig t/m ${formatDate(quote.content.valid_until)}` : null,
   ]
     .filter(Boolean)
     .join(' · ');
 }
 
-interface SigningDraft extends Record<string, unknown> {
-  decision?: 'accept' | 'reject';
-  signerFunction?: string;
+interface SigningDraft extends DecisionDraft, Record<string, unknown> {
   organisationName?: string;
-  reason?: string;
 }
 
 /**
@@ -99,50 +88,42 @@ export function SigningPage() {
   // What was filled in before leaving for the login; only needed when the
   // browser comes back without a decision.
   const [draft] = useState(() => readDraft<SigningDraft>(quoteId));
-  const [sheet, setSheet] = useState<'accept' | 'reject' | null>(null);
-  const [signerFunction, setSignerFunction] = useState(draft?.signerFunction ?? '');
   const [organisationName, setOrganisationName] = useState(draft?.organisationName ?? '');
   const [mandate, setMandate] = useState(false);
-  const [reason, setReason] = useState(draft?.reason ?? '');
-  const [error, setError] = useState<string | null>(null);
-
-  // Asking for the intent decides nothing: the decision is made when the
-  // browser is back from the identity provider.
-  const leave = useMutation({
-    mutationFn: (decision: 'accept' | 'reject') => {
-      if (!query.data) throw new Error('De offerte is nog niet geladen.');
-      saveDraft(quoteId, { decision, signerFunction, organisationName, reason });
-      return createSigningIntent(quoteId, {
-        decision,
-        quote_hash: query.data.snapshot_hash,
-        return_path: `/tekenen/${quoteId}`,
-        ...(decision === 'accept'
-          ? {
-              signer_function: signerFunction.trim() || null,
-              organisation_name: query.data.client_name ? null : organisationName.trim(),
-              confirm_mandate: true,
-            }
-          : { reason: reason.trim() || null }),
-      });
-    },
-    onSuccess: leaveForDecision,
-    onError: (failure) => setError(errorMessage(failure)),
-  });
-  const decided = back.evidenceId !== null;
-  if (decided) clearDraft(quoteId);
+  if (back.evidenceId !== null) clearDraft(quoteId);
 
   const quote = query.data;
   const notFound = query.error instanceof ApiError && query.error.status === 404;
-  const title = quote ? `Offerte ${quote.content.name}` : 'Offerte tekenen';
   const client = quote?.client_name ?? null;
-  const open = (next: 'accept' | 'reject') => {
-    setError(null);
-    setSheet(next);
+
+  // Asking for the intent decides nothing: the decision is made when the
+  // browser is back from the identity provider.
+  const createIntent = (decision: Decision, values: DecisionValues) => {
+    if (!quote) return Promise.reject(new Error('De offerte is nog niet geladen.'));
+    saveDraft(quoteId, { decision, ...values, organisationName });
+    return createSigningIntent(quoteId, {
+      decision,
+      quote_hash: quote.snapshot_hash,
+      return_path: `/tekenen/${quoteId}`,
+      ...(decision === 'accept'
+        ? {
+            signer_function: values.signerFunction.trim() || null,
+            organisation_name: client ? null : organisationName.trim(),
+            confirm_mandate: true,
+          }
+        : { reason: values.reason.trim() || null }),
+    });
   };
 
-  return (
-    <>
-      <Page title={title} instanceName={instance?.name} width="960px">
+  const checkAccept = () => {
+    if (!mandate) return 'Bevestig dat je namens de opdrachtgever mag tekenen.';
+    if (!client && !organisationName.trim()) return 'Vul de organisatie in namens wie je tekent.';
+    return null;
+  };
+
+  if (!quote) {
+    return (
+      <Page kind="document" title="Offerte tekenen" instanceName={instance?.name}>
         {query.isPending ? <Loading /> : null}
         {query.isError && notFound ? (
           <StateNotice
@@ -154,137 +135,52 @@ export function SigningPage() {
         {query.isError && !notFound ? (
           <LoadError error={query.error} retry={() => void query.refetch()} />
         ) : null}
-
-        {quote ? (
-          <>
-            {back.evidenceId ? (
-              <DecisionReceipt scope="signing" evidenceId={back.evidenceId} />
-            ) : quote.status !== 'issued' ? (
-              <Decided quote={quote} />
-            ) : null}
-            {back.errorCode && quote.status === 'issued' ? (
-              <DecisionFailed
-                code={back.errorCode}
-                onRetry={() => {
-                  back.dismiss();
-                  open(draft?.decision ?? 'accept');
-                }}
-              />
-            ) : null}
-            <Stack gap="close">
-              <nldd-title
-                size={3}
-                heading-level={2}
-                overline={`${quote.contractor_name} biedt aan`}
-                text={formatEuro(quote.content.total_cents)}
-              />
-              <Quiet>{byline(quote)}</Quiet>
-            </Stack>
-
-            <QuoteContentTable content={quote.content} label="Regels van de offerte" />
-
-            {quote.content.conditions ? (
-              <Section title="Voorwaarden" level={2}>
-                <nldd-text>{quote.content.conditions}</nldd-text>
-              </Section>
-            ) : null}
-
-            <nldd-container layout="row" gap="16" vertical-alignment="center">
-              <DocumentLink href={signingDocumentUrl(quote.id)} text="Bekijk pdf" newTab />
-              <QuoteDetails
-                hash={quote.snapshot_hash}
-                documentHref={signingDocumentUrl(quote.id)}
-                fileHash={quote.document_sha256 ?? null}
-                fileNote={quote.document_note ?? null}
-                facts={[{ label: 'Kenmerk', value: quote.reference ?? '' }]}
-              />
-            </nldd-container>
-
-            {quote.status === 'issued' ? (
-              <Stack gap="related">
-                <nldd-text>
-                  Met je akkoord gaat {client ?? 'je organisatie'} deze opdracht aan voor dit
-                  bedrag. Vastgelegd wordt wie je bent, namens wie je tekent en wanneer.
-                </nldd-text>
-                <nldd-button-group>
-                  <Button text="Geef akkoord" appearance="primary" onClick={() => open('accept')} />
-                  <Button text="Wijs af" onClick={() => open('reject')} />
-                </nldd-button-group>
-              </Stack>
-            ) : null}
-          </>
-        ) : null}
       </Page>
+    );
+  }
 
-      <FormSheet
-        open={sheet === 'accept'}
-        title="Akkoord geven"
-        submitText="Log in en geef akkoord"
-        busy={leave.isPending && sheet === 'accept'}
-        error={sheet === 'accept' ? error : null}
-        onClose={() => setSheet(null)}
-        onSubmit={() => {
-          if (!quote) return;
-          if (!mandate) {
-            setError('Bevestig dat je namens de opdrachtgever mag tekenen.');
-            return;
-          }
-          if (!client && !organisationName.trim()) {
-            setError('Vul de organisatie in namens wie je tekent.');
-            return;
-          }
-          setError(null);
-          leave.mutate('accept');
-        }}
-      >
-        <nldd-text>
-          Je geeft akkoord op offerte {quote?.reference ?? ''} van{' '}
-          {quote ? formatEuro(quote.content.total_cents) : ''}. Een akkoord is niet terug te
-          draaien.
-        </nldd-text>
-        <nldd-text>{beforeLeaving('accept', Boolean(leave.data?.passkey))}</nldd-text>
-        <TextInput
-          label="Je functie"
-          value={signerFunction}
-          onChange={setSignerFunction}
-          optional
-        />
-        {quote && !client ? (
-          <TextInput
-            label="Organisatie namens wie je tekent"
-            value={organisationName}
-            onChange={setOrganisationName}
+  return (
+    <QuoteDecisionView
+      title={`Offerte ${quote.content.name}`}
+      instanceName={instance?.name}
+      receipt={back.evidenceId ? { scope: 'signing', evidenceId: back.evidenceId } : null}
+      notice={quote.status !== 'issued' ? <Decided quote={quote} /> : null}
+      failure={
+        back.errorCode && quote.status === 'issued'
+          ? { code: back.errorCode, dismiss: back.dismiss }
+          : null
+      }
+      contractorName={quote.contractor_name}
+      signerLabel={client ?? 'je organisatie'}
+      content={quote.content}
+      byline={byline(quote)}
+      reference={quote.reference}
+      documentHref={signingDocumentUrl(quote.id)}
+      hash={quote.snapshot_hash}
+      fileHash={quote.document_sha256}
+      fileNote={quote.document_note}
+      canDecide={quote.status === 'issued'}
+      draft={draft}
+      createIntent={createIntent}
+      checkAccept={checkAccept}
+      acceptFields={
+        <>
+          {!client ? (
+            <TextInput
+              label="Organisatie namens wie je tekent"
+              value={organisationName}
+              onChange={setOrganisationName}
+              required
+            />
+          ) : null}
+          <CheckboxInput
+            label={`Ik ben bevoegd om namens ${client ?? 'de opdrachtgever'} akkoord te geven op deze offerte`}
+            checked={mandate}
+            onChange={setMandate}
             required
           />
-        ) : null}
-        <CheckboxInput
-          label={`Ik ben bevoegd om namens ${client ?? 'de opdrachtgever'} akkoord te geven op deze offerte`}
-          checked={mandate}
-          onChange={setMandate}
-          required
-        />
-      </FormSheet>
-
-      <FormSheet
-        open={sheet === 'reject'}
-        title="Offerte afwijzen"
-        submitText="Log in en wijs af"
-        busy={leave.isPending && sheet === 'reject'}
-        error={sheet === 'reject' ? error : null}
-        onClose={() => setSheet(null)}
-        onSubmit={() => {
-          if (!quote) return;
-          setError(null);
-          leave.mutate('reject');
-        }}
-      >
-        <nldd-text>
-          De opdrachtnemer ziet dat de offerte is afgewezen, met de reden die je hier geeft.
-          Afwijzen is niet terug te draaien.
-        </nldd-text>
-        <nldd-text>{beforeLeaving('reject', Boolean(leave.data?.passkey))}</nldd-text>
-        <TextInput label="Reden" value={reason} onChange={setReason} optional multiline />
-      </FormSheet>
-    </>
+        </>
+      }
+    />
   );
 }

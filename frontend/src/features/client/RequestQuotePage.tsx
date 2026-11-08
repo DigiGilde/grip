@@ -5,6 +5,7 @@ import { errorMessage } from '@/api/client';
 import { Button, DateInput, SelectInput, TextInput } from '@/features/assignments/ui';
 import { EmptyNotice, LoadError, Loading, SectionHeading } from '@/ui/layout';
 import { NodePicker } from '@/features/nodes';
+import { fetchCorpora, nodeKeys } from '@/features/nodes/api';
 import { useInstance } from '@/layout/useInstance';
 import { PageHeading } from '@/pages/PageHeading';
 import { PATHS } from '@/paths';
@@ -23,6 +24,13 @@ export function RequestQuotePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const options = useQuery({ queryKey: clientKeys.options(), queryFn: fetchClientOptions });
+  const corpora = useQuery({
+    queryKey: nodeKeys.corpora(),
+    queryFn: fetchCorpora,
+    enabled: options.data?.may_request === true,
+  });
+  // Context is picked from a corpus; without one to search there is nothing to pick.
+  const canPickContext = (corpora.data?.corpora ?? []).some((corpus) => corpus.searchable);
 
   const [contractor, setContractor] = useState('');
   const [name, setName] = useState('');
@@ -125,10 +133,12 @@ export function RequestQuotePage() {
 
       {options.data?.may_request ? (
         <>
-          <nldd-simple-section>
-            <SectionHeading text="Context (optioneel)" />
-            <NodePicker value={context} onChange={setContext} />
-          </nldd-simple-section>
+          {canPickContext ? (
+            <nldd-simple-section>
+              <SectionHeading text="Context (optioneel)" />
+              <NodePicker value={context} onChange={setContext} />
+            </nldd-simple-section>
+          ) : null}
           <nldd-simple-section>
             {error ? <nldd-banner variant="critical" size="sm" text={error} /> : null}
             <nldd-button-group>

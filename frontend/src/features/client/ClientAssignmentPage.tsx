@@ -22,7 +22,7 @@ import { useRouterLinks } from '@/layout/useRouterLinks';
 import { formatDate, formatEuro, formatPeriod } from '@/lib/format';
 import { PageHeading } from '@/pages/PageHeading';
 import { courseAction } from '@/ui/course';
-import { CourseBar, CourseNow } from '@/ui/Workflow';
+import { CourseLine, CourseNow } from '@/ui/Workflow';
 import {
   clientKeys,
   fetchClientAssignment,
@@ -311,7 +311,7 @@ export function ClientAssignmentPage() {
                 </nldd-button-group>
               ) : null}
               {course && !course.ended ? (
-                <CourseBar course={course} accessibleLabel={`Verloop van ${assignment.name}`} />
+                <CourseLine course={course} accessibleLabel={`Verloop van ${assignment.name}`} />
               ) : (
                 <div>
                   <nldd-badge
@@ -328,13 +328,15 @@ export function ClientAssignmentPage() {
 
       {assignment ? (
         <>
-          <nldd-simple-section>
-            <SectionHeading text="Context" />
-            <AssignmentContextView
-              assignmentId={assignment.id}
-              count={(assignment.context_refs ?? []).length}
-            />
-          </nldd-simple-section>
+          {(assignment.context_refs ?? []).length > 0 ? (
+            <nldd-simple-section>
+              <SectionHeading text="Context" />
+              <AssignmentContextView
+                assignmentId={assignment.id}
+                count={(assignment.context_refs ?? []).length}
+              />
+            </nldd-simple-section>
+          ) : null}
 
           <nldd-simple-section>
             <SectionHeading text="Offertes" />

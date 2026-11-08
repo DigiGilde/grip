@@ -1,24 +1,23 @@
-import { useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { STATUS_COLORS, statusLabel } from '@/features/assignments/labels';
 import { assignmentPath } from '@/features/assignments/paths';
 import { Button } from '@/features/assignments/ui';
-import { EmptyNotice, LoadError, Loading, TabNav } from '@/ui/layout';
+import { LinkRows } from '@/ui/LinkRows';
+import { EmptyNotice, LoadError, Loading, Page } from '@/ui/layout';
 import { QUOTE_STATUS_COLORS, QUOTE_STATUS_LABELS } from '@/features/quotes/api';
-import { formatDateTime } from '@/features/quotes/format';
 import { useInstance } from '@/layout/useInstance';
-import { useRouterLinks } from '@/layout/useRouterLinks';
-import { formatEuro, formatPeriod } from '@/lib/format';
-import { PageHeading } from '@/pages/PageHeading';
+import { useViewer } from '@/layout/useViewer';
+import { formatDate, formatEuro, formatPeriod } from '@/lib/format';
 import { PATHS } from '@/paths';
+import { routesFor } from '@/routes';
 import {
   clientKeys,
   fetchClientAssignments,
   fetchReceivedQuotes,
   fetchReceivedRequests,
 } from './api';
-import { DELIVERY_COLORS, DELIVERY_SHORT } from './labels';
+import { DELIVERY_COLORS, DELIVERY_SHORT, deliveryText } from './labels';
 import {
   CLIENT_VIEWS,
   clientAssignmentPath,
@@ -28,18 +27,19 @@ import {
 } from './paths';
 import './register';
 
-const VIEW_LABELS: Record<ClientView, string> = {
-  uitgezet: 'Uitgezette aanvragen',
-  offertes: 'Ontvangen offertes',
-  ontvangen: 'Ontvangen aanvragen',
+const VIEW_LABELS: Record<ClientView, { text: string; short: string }> = {
+  mijn: { text: 'Mijn aanvragen', short: 'Mijn aanvragen' },
+  offertes: { text: 'Ontvangen offertes', short: 'Offertes' },
+  ontvangen: { text: 'Ontvangen aanvragen', short: 'Ontvangen' },
 };
+
+const FAILED_DELIVERY = new Set(['rejected', 'dead']);
 
 /** The requests this instance sent to contractors, as client. */
 function SentRequests() {
   const navigate = useNavigate();
   const query = useQuery({ queryKey: clientKeys.assignments(), queryFn: fetchClientAssignments });
   const items = query.data?.items ?? [];
-  const showAmounts = items.some((item) => item.latest_quote && 'total_cents' in item.latest_quote);
   return (
     <nldd-container gap="16">
       {query.data?.may_request ? (
@@ -55,7 +55,7 @@ function SentRequests() {
       {query.isError ? <LoadError error={query.error} retry={() => void query.refetch()} /> : null}
       {query.isSuccess && items.length === 0 ? (
         <EmptyNotice
-          text="Er zijn geen uitgezette aanvragen"
+          text="Je hebt nog geen aanvragen"
           supportingText={
             query.data.may_request
               ? 'Vraag een offerte aan bij een opdrachtnemer waarmee deze instantie is gekoppeld.'
@@ -64,52 +64,36 @@ function SentRequests() {
         />
       ) : null}
       {items.length > 0 ? (
-        <nldd-table
-          accessible-label="Uitgezette aanvragen"
-          columns={`minmax(220px,2fr) 170px minmax(160px,1fr) minmax(190px,1fr) 180px${showAmounts ? ' 140px' : ''}`}
-        >
-          <nldd-table-row slot="header">
-            <nldd-text-cell text="Opdracht" />
-            <nldd-text-cell text="Status" />
-            <nldd-text-cell text="Opdrachtnemer" />
-            <nldd-text-cell text="Periode" />
-            <nldd-text-cell text="Verzending aanvraag" />
-            {showAmounts ? <nldd-text-cell text="Offerte" horizontal-alignment="right" /> : null}
-          </nldd-table-row>
-          {items.map((item) => (
-            <nldd-table-row key={item.id}>
-              <nldd-cell>
-                <nldd-link href={clientAssignmentPath(item.id)} text={item.name} />
-              </nldd-cell>
-              <nldd-cell>
-                <nldd-badge
-                  color={STATUS_COLORS[item.status] ?? 'neutral'}
-                  text={statusLabel(item.status)}
-                />
-              </nldd-cell>
-              <nldd-text-cell text={item.contractor_name ?? ''} />
-              <nldd-text-cell text={formatPeriod(item.start_date, item.end_date)} />
-              <nldd-cell>
-                {item.request_delivery ? (
-                  <nldd-badge
-                    color={DELIVERY_COLORS[item.request_delivery.status] ?? 'neutral'}
-                    text={
-                      DELIVERY_SHORT[item.request_delivery.status] ?? item.request_delivery.status
-                    }
-                  />
-                ) : (
-                  <nldd-text size="sm">Niet verstuurd</nldd-text>
-                )}
-              </nldd-cell>
-              {showAmounts ? (
-                <nldd-text-cell
-                  text={formatEuro(item.latest_quote?.total_cents)}
-                  horizontal-alignment="right"
-                />
-              ) : null}
-            </nldd-table-row>
-          ))}
-        </nldd-table>
+        <LinkRows
+          label="Mijn aanvragen"
+          rows={items.map((item) => {
+            const delivery = item.request_delivery;
+            // A request the other side does not have must not look like the rest.
+            const failed = delivery && FAILED_DELIVERY.has(delivery.status) ? delivery : null;
+            return {
+              key: item.id,
+              text: item.name,
+              href: clientAssignmentPath(item.id),
+              notice: [
+                item.contractor_name,
+                formatPeriod(item.start_date, item.end_date),
+                failed ? statusLabel(item.status) : '',
+                deliveryText(delivery),
+              ]
+                .filter(Boolean)
+                .join(' · '),
+              tag: failed
+                ? {
+                    text: DELIVERY_SHORT[failed.status] ?? failed.status,
+                    color: DELIVERY_COLORS[failed.status] ?? 'critical',
+                  }
+                : { text: statusLabel(item.status), color: STATUS_COLORS[item.status] ?? 'neutral' },
+              ...(item.latest_quote && 'total_cents' in item.latest_quote
+                ? { end: formatEuro(item.latest_quote.total_cents) }
+                : {}),
+            };
+          })}
+        />
       ) : null}
     </nldd-container>
   );
@@ -119,7 +103,6 @@ function SentRequests() {
 function ReceivedQuotes() {
   const query = useQuery({ queryKey: clientKeys.receivedQuotes(), queryFn: fetchReceivedQuotes });
   const items = query.data?.items ?? [];
-  const showAmounts = items.some((item) => 'total_cents' in item);
   return (
     <nldd-container gap="16">
       {query.isPending ? <Loading /> : null}
@@ -128,38 +111,26 @@ function ReceivedQuotes() {
         <EmptyNotice text="Er zijn geen ontvangen offertes" />
       ) : null}
       {items.length > 0 ? (
-        <nldd-table
-          accessible-label="Ontvangen offertes"
-          columns={`minmax(220px,2fr) minmax(160px,1fr) 170px 190px${showAmounts ? ' 140px' : ''} 170px`}
-        >
-          <nldd-table-row slot="header">
-            <nldd-text-cell text="Offerte voor" />
-            <nldd-text-cell text="Opdrachtnemer" />
-            <nldd-text-cell text="Status" />
-            <nldd-text-cell text="Uitgegeven" />
-            {showAmounts ? <nldd-text-cell text="Bedrag" horizontal-alignment="right" /> : null}
-            <nldd-text-cell text="Aan jou" />
-          </nldd-table-row>
-          {items.map((item) => (
-            <nldd-table-row key={item.id}>
-              <nldd-cell>
-                <nldd-link href={receivedQuotePath(item.id)} text={item.assignment_name} />
-              </nldd-cell>
-              <nldd-text-cell text={item.contractor_name ?? ''} />
-              <nldd-cell>
-                <nldd-badge
-                  color={QUOTE_STATUS_COLORS[item.status] ?? 'neutral'}
-                  text={QUOTE_STATUS_LABELS[item.status] ?? item.status}
-                />
-              </nldd-cell>
-              <nldd-text-cell text={formatDateTime(item.issued_at)} />
-              {showAmounts ? (
-                <nldd-text-cell text={formatEuro(item.total_cents)} horizontal-alignment="right" />
-              ) : null}
-              <nldd-text-cell text={item.may_decide ? 'Wacht op je besluit' : ''} />
-            </nldd-table-row>
-          ))}
-        </nldd-table>
+        <LinkRows
+          label="Ontvangen offertes"
+          rows={items.map((item) => ({
+            key: item.id,
+            text: item.assignment_name,
+            href: receivedQuotePath(item.id),
+            notice: [
+              item.contractor_name,
+              `uitgegeven op ${formatDate(item.issued_at)}`,
+              item.may_decide ? 'Wacht op je besluit' : '',
+            ]
+              .filter(Boolean)
+              .join(' · '),
+            tag: {
+              text: QUOTE_STATUS_LABELS[item.status] ?? item.status,
+              color: QUOTE_STATUS_COLORS[item.status] ?? 'neutral',
+            },
+            ...('total_cents' in item ? { end: formatEuro(item.total_cents) } : {}),
+          }))}
+        />
       ) : null}
     </nldd-container>
   );
@@ -180,47 +151,31 @@ function ReceivedRequests() {
         <EmptyNotice text="Er zijn geen ontvangen aanvragen" />
       ) : null}
       {items.length > 0 ? (
-        <nldd-table
-          accessible-label="Ontvangen aanvragen"
-          columns="minmax(220px,2fr) 170px minmax(160px,1fr) minmax(190px,1fr) 110px 110px 190px"
-        >
-          <nldd-table-row slot="header">
-            <nldd-text-cell text="Aanvraag" />
-            <nldd-text-cell text="Status" />
-            <nldd-text-cell text="Opdrachtgever" />
-            <nldd-text-cell text="Gewenste periode" />
-            <nldd-text-cell text="Context" horizontal-alignment="right" />
-            <nldd-text-cell text="Offertes" horizontal-alignment="right" />
-            <nldd-text-cell text="Ontvangen" />
-          </nldd-table-row>
-          {items.map((item) => (
-            <nldd-table-row key={item.id}>
-              <nldd-cell>
-                <nldd-link href={assignmentPath(item.id)} text={item.name} />
-              </nldd-cell>
-              <nldd-cell>
-                <nldd-badge
-                  color={STATUS_COLORS[item.status] ?? 'neutral'}
-                  text={statusLabel(item.status)}
-                />
-              </nldd-cell>
-              <nldd-text-cell text={item.client_name ?? ''} />
-              <nldd-text-cell text={formatPeriod(item.start_date, item.end_date)} />
-              <nldd-text-cell text={String(item.context_count ?? 0)} horizontal-alignment="right" />
-              <nldd-text-cell text={String(item.quote_count ?? 0)} horizontal-alignment="right" />
-              <nldd-text-cell text={formatDateTime(item.received_at)} />
-            </nldd-table-row>
-          ))}
-        </nldd-table>
+        <LinkRows
+          label="Ontvangen aanvragen"
+          rows={items.map((item) => ({
+            key: item.id,
+            text: item.name,
+            href: assignmentPath(item.id),
+            notice: [
+              item.client_name,
+              formatPeriod(item.start_date, item.end_date),
+              `Context: ${item.context_count ?? 0}`,
+              `ontvangen op ${formatDate(item.received_at)}`,
+            ]
+              .filter(Boolean)
+              .join(' · '),
+            tag: { text: statusLabel(item.status), color: STATUS_COLORS[item.status] ?? 'neutral' },
+            end: `${item.quote_count ?? 0} ${item.quote_count === 1 ? 'offerte' : 'offertes'}`,
+          }))}
+        />
       ) : null}
     </nldd-container>
   );
 }
 
-function parseView(value: string | null): ClientView {
-  return (CLIENT_VIEWS as readonly string[]).includes(value ?? '')
-    ? (value as ClientView)
-    : 'uitgezet';
+function parseView(value: string | null, views: readonly ClientView[]): ClientView {
+  return (views as readonly string[]).includes(value ?? '') ? (value as ClientView) : 'mijn';
 }
 
 /**
@@ -230,30 +185,33 @@ function parseView(value: string | null): ClientView {
  */
 export function ClientPage() {
   const instance = useInstance();
+  const viewer = useViewer();
   const [searchParams] = useSearchParams();
-  const view = parseView(searchParams.get('weergave'));
-  const ref = useRef<HTMLDivElement>(null);
-  useRouterLinks(ref);
+  // Requests that came in are for a contractor: who does not see Opdrachten has none.
+  const contractor = routesFor(viewer).some((route) => route.path === PATHS.assignments);
+  const views = CLIENT_VIEWS.filter((value) => value !== 'ontvangen' || contractor);
+  const view = parseView(searchParams.get('weergave'), views);
 
   return (
-    <nldd-simple-section>
-      <PageHeading text="Aanvragen" instanceName={instance?.name} />
-      <nldd-container gap="16">
-        <TabNav
-          label="Weergave van Aanvragen"
-          current={view}
-          items={CLIENT_VIEWS.map((value) => ({
-            key: value,
-            text: VIEW_LABELS[value],
-            href: clientPath(value),
-          }))}
-        />
-        <div ref={ref}>
-          {view === 'uitgezet' ? <SentRequests /> : null}
-          {view === 'offertes' ? <ReceivedQuotes /> : null}
-          {view === 'ontvangen' ? <ReceivedRequests /> : null}
-        </div>
-      </nldd-container>
-    </nldd-simple-section>
+    <Page
+      kind="list"
+      title="Aanvragen"
+      instanceName={instance?.name}
+      tabs={{
+        label: 'Weergave van Aanvragen',
+        current: view,
+        narrow: 'bar',
+        items: views.map((value) => ({
+          key: value,
+          text: VIEW_LABELS[value].text,
+          short: VIEW_LABELS[value].short,
+          href: clientPath(value),
+        })),
+      }}
+    >
+      {view === 'mijn' ? <SentRequests /> : null}
+      {view === 'offertes' ? <ReceivedQuotes /> : null}
+      {view === 'ontvangen' ? <ReceivedRequests /> : null}
+    </Page>
   );
 }
