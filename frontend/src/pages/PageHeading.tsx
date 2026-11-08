@@ -10,6 +10,8 @@ interface PageHeadingProps {
   instanceName?: string;
   /** One sentence under the title that says what the page is for. */
   lead?: string;
+  /** What the tab says when the heading alone does not say which thing this is. */
+  tabName?: string;
   /**
    * Keep the heading in the normal flow. By default it goes into the header
    * slot of the nldd-simple-section it sits in, which gives it the design
@@ -23,10 +25,11 @@ interface PageHeadingProps {
  * The single h1 of a page. It also sets the document title, so the tab, the
  * history and a screen reader's page announcement all say the same thing.
  */
-export function PageHeading({ text, instanceName, lead, inline }: PageHeadingProps) {
+export function PageHeading({ text, instanceName, lead, tabName, inline }: PageHeadingProps) {
+  const name = tabName ?? text;
   useEffect(() => {
-    document.title = documentTitle(text, instanceName);
-  }, [text, instanceName]);
+    document.title = documentTitle(name, instanceName);
+  }, [name, instanceName]);
 
   return (
     <nldd-title

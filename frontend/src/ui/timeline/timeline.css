@@ -405,6 +405,26 @@
   color: var(--board-ink);
 }
 
+/* The short form only takes the place of the label when it is chosen; until
+   then it is there to be measured. */
+.grip-board__bar-label[data-short] {
+  position: absolute;
+  visibility: hidden;
+  white-space: nowrap;
+}
+
+.grip-board__bar[data-label='short'] .grip-board__bar-label[data-short] {
+  position: relative;
+  visibility: visible;
+  color: inherit;
+}
+
+.grip-board__bar[data-label='short'] .grip-board__bar-label:not([data-short]),
+.grip-board__bar[data-label='none'] .grip-board__bar-label {
+  position: absolute;
+  visibility: hidden;
+}
+
 .grip-board__bar[data-label='after'] .grip-board__bar-label {
   left: 100%;
 }
@@ -451,7 +471,7 @@
 /* The whole period on screen in narrow columns: the figure per month gives
    way to the bars, and the month names lose their extras. */
 .grip-board[data-compact] .grip-board__total {
-  visibility: hidden;
+  display: none;
 }
 
 .grip-board[data-compact] .grip-board__closed-tag {

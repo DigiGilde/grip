@@ -100,16 +100,30 @@ function Bar<B>({ bar, onActivate, days, roomAfter, roomBefore, columnWidth }: B
   const frame = bar.variant === 'demand';
   const ref = useRef<HTMLSpanElement>(null);
   const labelRef = useRef<HTMLSpanElement>(null);
-  // A name is never cut off when there is room beside the bar: it moves there.
-  const [outside, setOutside] = useState<'' | 'after' | 'before'>('');
+  const shortRef = useRef<HTMLSpanElement>(null);
+  // A name is never cut off: beside the bar when there is room, else shorter,
+  // else not at all (the title and the cell still say it).
+  const [outside, setOutside] = useState<'' | 'after' | 'before' | 'short' | 'none'>('');
   useLayoutEffect(() => {
     const el = ref.current;
     const label = labelRef.current;
     if (!el || !label) return;
-    const fits = label.scrollWidth <= el.clientWidth + 1;
-    setOutside(fits ? '' : roomAfter ? 'after' : roomBefore ? 'before' : '');
+    const room = el.clientWidth + 1;
+    const shortFits = shortRef.current ? shortRef.current.scrollWidth <= room : false;
+    setOutside(
+      label.scrollWidth <= room
+        ? ''
+        : roomAfter
+          ? 'after'
+          : roomBefore
+            ? 'before'
+            : shortFits
+              ? 'short'
+              : 'none',
+    );
   }, [
     bar.label,
+    bar.shortLabel,
     bar.mark,
     bar.span,
     bar.startOffset,
@@ -160,13 +174,20 @@ function Bar<B>({ bar, onActivate, days, roomAfter, roomBefore, columnWidth }: B
         />
       )}
       {!frame && (
-        <span ref={labelRef} className="grip-board__bar-label">
-          {/* A signal is a sign before the label; the legend gives it its word. */}
-          {bar.mark === 'attention' ? <Icon concept="attention" /> : null}
-          {bar.mark === 'mismatch' ? <Icon concept="cost" /> : null}
-          {bar.mark ? ' ' : ''}
-          {bar.label}
-        </span>
+        <>
+          <span ref={labelRef} className="grip-board__bar-label">
+            {/* A signal is a sign before the label; the legend gives it its word. */}
+            {bar.mark === 'attention' ? <Icon concept="attention" /> : null}
+            {bar.mark === 'mismatch' ? <Icon concept="cost" /> : null}
+            {bar.mark ? ' ' : ''}
+            {bar.label}
+          </span>
+          {bar.shortLabel ? (
+            <span ref={shortRef} className="grip-board__bar-label" data-short>
+              {bar.shortLabel}
+            </span>
+          ) : null}
+        </>
       )}
     </span>
   );
@@ -357,7 +378,11 @@ export function Timeline<R, B>({
                   <tr key={row.key} style={{ '--lanes': row.lanes } as CSSProperties}>
                     <th scope="row">
                       <span className="grip-board__name">
-                        {row.label}
+                        {row.labelHref ? (
+                          <nldd-link href={row.labelHref} text={row.label} />
+                        ) : (
+                          row.label
+                        )}
                         {row.figure && <span className="grip-board__figure">{row.figure}</span>}
                       </span>
                       {row.attention && (

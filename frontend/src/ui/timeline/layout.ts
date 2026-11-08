@@ -22,6 +22,8 @@ export interface TimelineBar<B = unknown> {
   span: number;
   lane: number;
   label: string;
+  /** What the label says when it does not fit in the bar and nothing is free beside it. */
+  shortLabel?: string;
   /** The bar in words: tooltip, and the text of every cell it covers. */
   description: string;
   variant: BarVariant;
@@ -65,6 +67,8 @@ export interface TimelineRow<R = unknown, B = unknown> {
   figure?: string;
   /** One quiet line under the label. */
   summary: string;
+  /** Makes the label a link, to where the row's subject has its own page. */
+  labelHref?: string | null;
   /** Said louder than the summary, when something needs attention. */
   attention: string;
   cells: TimelineCell[];
@@ -168,12 +172,18 @@ export function barsInColumn<B>(row: { bars: TimelineBar<B>[] }, column: number)
   );
 }
 
-/** A cell in words: its figure, then every bar in it. */
+/**
+ * A cell in words: its figure, then every bar in it. A bar says all it has to
+ * say where it starts; in the months after that it only goes on, so a reader
+ * who walks along a row does not hear the same sentence in every cell.
+ */
 export function cellDescription(row: TimelineRow, column: number): string {
   const cell = row.cells[column];
   const parts = [
     cell?.description ?? '',
-    ...barsInColumn(row, column).map((bar) => bar.description),
+    ...barsInColumn(row, column).map((bar) =>
+      bar.column === column ? bar.description : `${bar.label}, loopt door`,
+    ),
   ];
   const text = parts.filter(Boolean).join('; ');
   return text || 'geen inzet';

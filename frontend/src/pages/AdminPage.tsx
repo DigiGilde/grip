@@ -101,7 +101,7 @@ export function AdminPage() {
   const isAdmin = state.status === 'authenticated' && state.functions.includes('beheerder');
 
   return (
-    <Page title="Beheer" instanceName={instance?.name} spacing="sections">
+    <Page kind="list" title="Beheer" instanceName={instance?.name} spacing="sections">
       {isAdmin ? (
         <div ref={ref}>
           <Stack gap="section">
@@ -120,7 +120,7 @@ export function AdminPage() {
           </Stack>
         </div>
       ) : (
-        <NoAccess who="Beheer is voor beheerders. Heb je hier iets nodig, vraag het dan aan een beheerder. Wie dat zijn zie je onder Team." />
+        <NoAccess who="Beheer is voor beheerders. Heb je hier iets nodig, vraag het dan aan een beheerder. Wie dat zijn zie je onder Mensen." />
       )}
     </Page>
   );

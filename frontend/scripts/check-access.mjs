@@ -24,7 +24,8 @@
  *
  * Use a host name of your own in --base: the person is chosen with the
  * development cookie, which must not land on the localhost you work in.
- * Exit code 1 when there are findings.
+ * Exit code 1 when there are findings, a page could not be measured, or there
+ * was nothing to measure.
  */
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
@@ -44,6 +45,9 @@ const VERBOSE = Boolean(args.verbose);
 const SHOTS = typeof args.shots === 'string' ? args.shots : null;
 const DEV_PERSON_COOKIE = 'grip_dev_person';
 const SETTLE_MS = 6000;
+
+/** Addresses left out because an id they need is not in the example data. */
+const skipped = new Set();
 
 /**
  * The readers, by what they are. The first example person that fits each kind
@@ -102,7 +106,18 @@ const SCALE = /\bschaal \d/i;
 // (docs/toegang.md, "De tarievenkaart heeft twee lagen"). There only an
 // amount is a leak; the names of categories and scales are what the page is.
 const AMOUNT = /€\s?\d/;
-const RATE_STRUCTURE_PAGES = [/^\/beheer\/tarieven/, /^\/tarieven/];
+const RATE_STRUCTURE_PAGES = [/^\/beheer\/tarieven/];
+// Anyone may see their own declarability there: the server answers with
+// scope "own" and only the row of the reader, with zeros for someone who has
+// no hours. It is a leak as soon as another person is named on the page.
+const OWN_FIGURE_PAGES = [/^\/mensen\/declarabiliteit/];
+
+function showsOnlyOwnFigures(url, person, everyone, text) {
+  return (
+    OWN_FIGURE_PAGES.some((page) => page.test(url)) &&
+    !everyone.some((other) => other.id !== person.id && text.includes(other.name))
+  );
+}
 
 const src = path.resolve(import.meta.dirname, '../src');
 
@@ -134,10 +149,11 @@ async function api(pathname, personId) {
 async function routes() {
   const paths = literal('paths.ts', 'PATHS');
   const assignmentTabs = Object.values(
-    literal('features/assignments/paths.ts', 'ASSIGNMENT_TAB_SEGMENTS'),
+    literal('features/assignments/paths.ts', 'ASSIGNMENT_PART_SEGMENTS'),
   );
-  const vacancyTabs = Object.values(literal('features/vacancies/paths.ts', 'VACANCY_TAB_SEGMENTS'));
-  const topics = Object.keys(literal('features/reports/topics.ts', 'TOPICS'));
+  const vacancyTabs = Object.values(
+    literal('features/vacancies/paths.ts', 'VACANCY_PART_SEGMENTS'),
+  );
 
   const assignments = (await api('/api/assignments')) ?? [];
   const perPhase = [...new Map(assignments.map((a) => [a.phase, a])).values()];
@@ -162,16 +178,7 @@ async function routes() {
     ':templateId': template?.id,
   };
   const out = [];
-  const skip = new Set([
-    'assignmentFinance',
-    'assignmentStaffing',
-    'assignmentBudget',
-    'assignmentQuote',
-    'assignmentMonthClose',
-    'ratesLegacy',
-    'login',
-    'noAccess',
-  ]);
+  const skip = new Set(['login', 'noAccess']);
   for (const [key, template_] of Object.entries(paths)) {
     if (skip.has(key)) continue;
     if (template_.includes(':assignmentId')) {
@@ -192,10 +199,9 @@ async function routes() {
           });
         }
       }
-    } else if (template_.includes(':topic')) {
-      for (const topic of topics)
-        out.push({ name: `rapportage /${topic}`, url: template_.replace(':topic', topic) });
-    } else if (key === 'vacancyDetail' && vacancy) {
+    } else if (key === 'vacancyDetail' && !vacancy) {
+      skipped.add(template_);
+    } else if (key === 'vacancyDetail') {
       const base = template_.replace(':vacancyId', vacancy.id);
       for (const tab of vacancyTabs)
         out.push({
@@ -205,7 +211,10 @@ async function routes() {
         });
     } else {
       const params = template_.match(/:\w+/g) ?? [];
-      if (params.some((param) => !fill[param])) continue;
+      if (params.some((param) => !fill[param])) {
+        skipped.add(template_);
+        continue;
+      }
       let url = template_;
       for (const param of params) url = url.replace(param, fill[param]);
       out.push({
@@ -343,6 +352,10 @@ async function main() {
   if (persons.length === 0)
     throw new Error(`Geen voorbeeldpersoon gevonden op ${BASE}; draaien de servers?`);
   const list = await routes();
+  if (list.length === 0) {
+    console.error('FOUT: er is niets gemeten (nul adressen).');
+    process.exit(1);
+  }
   if (SHOTS) mkdirSync(SHOTS, { recursive: true });
 
   const browser = await chromium.launch({ executablePath: browserPath(), headless: true });
@@ -400,7 +413,8 @@ async function main() {
         const ownPage =
           route.personId === person.id || OWN_PAGES.some((own) => own.test(route.url));
         const clientPage = route.url.startsWith('/aanvragen') && person.kind === 'aanvrager';
-        if (!READS_MONEY.has(person.kind) && !ownPage && !clientPage) {
+        const ownFigures = showsOnlyOwnFigures(route.url, person, described, found.text);
+        if (!READS_MONEY.has(person.kind) && !ownPage && !clientPage && !ownFigures) {
           const structure = RATE_STRUCTURE_PAGES.some((page) => page.test(route.url));
           const hit = structure
             ? found.text.match(AMOUNT)
@@ -449,6 +463,8 @@ async function main() {
     );
   }
   if (missing.length > 0) console.log(`\nNiet gevonden, dus niet nagelopen: ${missing.join(', ')}`);
+  if (skipped.size > 0)
+    console.error(`Overgeslagen, geen id in de voorbeeldgegevens: ${[...skipped].join(', ')}`);
   const withFindings = results.filter((r) => r.findings.length > 0);
   if (withFindings.length > 0) console.log('');
   for (const result of withFindings) {

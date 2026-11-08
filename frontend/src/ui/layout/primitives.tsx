@@ -62,7 +62,7 @@ export interface PageBack {
   text: string;
 }
 
-interface TitleBlockProps {
+interface HeadProps {
   /** The h1, the document title and the text a screen reader announces. */
   title: string;
   /** One sentence that says what the page is for. Leave out when the title says it. */
@@ -70,115 +70,104 @@ interface TitleBlockProps {
   instanceName?: string;
   /** The page this one belongs to. Stands above the title, never under it. */
   back?: PageBack;
+  /** What the tab says when the title alone does not say which thing this is. */
+  tabName?: string;
 }
 
-/**
- * The head of a page, in the header slot of the `nldd-simple-section` it sits
- * in: where the page belongs, then its title. `Page` uses it; a shell that
- * lays out its own section (a thing with tabs) uses it directly.
- */
-export function TitleBlock({ title, lead, instanceName, back }: TitleBlockProps) {
-  if (!back) return <PageHeading text={title} lead={lead} instanceName={instanceName} />;
-  return (
-    <nldd-container slot="header" gap={GAP.close}>
-      <BackLink href={back.href} text={back.text} />
-      <PageHeading text={title} lead={lead} instanceName={instanceName} inline />
-    </nldd-container>
-  );
+/** What a page is: decides how wide its content reads. */
+export type PageKind = 'list' | 'worksheet' | 'document';
+
+/** The tabs of a page, as `TabNav` takes them. */
+export interface PageTabs {
+  label: string;
+  items: readonly TabNavItem[];
+  current: string;
+  narrow?: 'hide' | 'bar';
 }
 
-interface PageProps extends TitleBlockProps {
+/** The width of the column a list or a document reads in. */
+const READING_WIDTH = '720px';
+
+interface PageProps extends HeadProps {
+  /**
+   * 'list': rows in a reading column. 'document': one thing read as a whole,
+   * in the same column. 'worksheet': dense columns over the full width. The
+   * column stands at the left edge, on the same line as a worksheet.
+   */
+  kind: PageKind;
   /**
    * 'blocks' for a page that is one thing (a filter row and a table);
    * 'sections' for a page made of Section parts.
    */
   spacing?: 'blocks' | 'sections';
-  /** Body width, for a page that reads better narrow (a form, a notice). */
-  width?: string;
+  /**
+   * The one next step of the page, as its primary button. It stands on the
+   * title line at the right (under the title on a narrow screen).
+   */
+  action?: ReactNode;
+  /** The parts of the page's thing, or the views of a list, under the title. */
+  tabs?: PageTabs;
   children: ReactNode;
 }
 
 /**
- * A page inside the application shell: the title in the section's header,
- * then the content at one rhythm. One Page per route.
+ * A page inside the application shell: its head in the section's header
+ * (where it belongs, its title with its one action, its tabs), then the
+ * content at one rhythm. One Page per route. The section is always full
+ * width and a list or a document puts head and content in a reading column
+ * inside it, so every screen has one left edge.
  */
 export function Page({
   title,
   lead,
   instanceName,
   back,
+  tabName,
+  kind,
   spacing = 'blocks',
-  width,
+  action,
+  tabs,
   children,
 }: PageProps) {
-  return (
-    <nldd-simple-section {...(width ? { width } : {})}>
-      <TitleBlock title={title} lead={lead} instanceName={instanceName} back={back} />
-      <Stack gap={spacing === 'sections' ? 'section' : 'group'}>{children}</Stack>
-    </nldd-simple-section>
+  const column = kind === 'worksheet' ? {} : { 'max-width': READING_WIDTH };
+  const heading = (
+    <PageHeading
+      text={title}
+      lead={action ? undefined : lead}
+      tabName={tabName}
+      instanceName={instanceName}
+      inline
+    />
   );
-}
-
-interface ThingHeadProps extends TitleBlockProps {
-  /**
-   * What says what state the thing is in, right under its name: one line of
-   * status and facts, its key figures.
-   */
-  children?: ReactNode;
-  /**
-   * The one next step on the thing, as its primary button. It stands on the
-   * title line at the right (under the title on a narrow screen): part of
-   * the head, never on top of the tabs.
-   */
-  action?: ReactNode;
-  /** The course of the thing (a step bar), between the head and the tabs. */
-  course?: ReactNode;
-  /** The tabs of the thing; left out while it is loading or was not found. */
-  tabs?: { label: string; items: readonly TabNavItem[]; current: string };
-}
-
-/** Spread as plain attributes; the package types do not list the padding overrides. */
-const NO_BOTTOM_PADDING: object = { 'padding-bottom': '0' };
-
-/**
- * The head of one open thing with tabs (an assignment, a vacancy): where it
- * belongs, its name with its one next step, what state it is in, its course,
- * and its tabs. Three kinds of thing stay apart: the action in the head, the
- * course, and the tabs after a clear distance. Each tab below is a section
- * of its own with its own top padding, so this section has none at the
- * bottom: the two would add up under the tabs.
- */
-export function ThingHead({
-  title,
-  lead,
-  instanceName,
-  back,
-  children,
-  action,
-  course,
-  tabs,
-}: ThingHeadProps) {
   return (
-    <nldd-simple-section {...NO_BOTTOM_PADDING}>
-      {/* The back link is an in-app link; the wrapper carries the header slot. */}
-      <RouterLinks slot="header">
+    <nldd-simple-section width="full">
+      <nldd-container slot="header" gap={GAP.related} {...column}>
         <nldd-container gap={GAP.close}>
-          {back && <BackLink href={back.href} text={back.text} />}
-          <div className="thing-title-line">
-            <PageHeading text={title} lead={lead} instanceName={instanceName} inline />
-            {action ? <div className="thing-action">{action}</div> : null}
-          </div>
+          {back && (
+            <RouterLinks>
+              <BackLink href={back.href} text={back.text} />
+            </RouterLinks>
+          )}
+          {action ? (
+            <>
+              <div className="thing-title-line">
+                {heading}
+                <div className="thing-action">{action}</div>
+              </div>
+              {/* Inside the title a long lead would push the step off its line. */}
+              {lead && <nldd-text color="secondary">{lead}</nldd-text>}
+            </>
+          ) : (
+            heading
+          )}
         </nldd-container>
-      </RouterLinks>
-      <Stack gap="section">
-        {children || course ? (
-          <Stack gap="group">
-            {children}
-            {course}
-          </Stack>
-        ) : null}
-        {tabs && <TabNav label={tabs.label} items={tabs.items} current={tabs.current} />}
-      </Stack>
+        {tabs && (
+          <TabNav label={tabs.label} items={tabs.items} current={tabs.current} narrow={tabs.narrow} />
+        )}
+      </nldd-container>
+      <nldd-container gap={GAP[spacing === 'sections' ? 'section' : 'group']} {...column}>
+        {children}
+      </nldd-container>
     </nldd-simple-section>
   );
 }

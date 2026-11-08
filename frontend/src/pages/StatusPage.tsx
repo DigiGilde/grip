@@ -48,7 +48,7 @@ export function StatusPage({
             vertical-alignment="center"
             horizontal-alignment="center"
           >
-            <div className="status-loading">
+            <div className="status-loading" data-state="loading">
               <Brand variant="compact" />
               <nldd-activity-indicator size="40" timing="instant" />
               <PageHeading text={title} inline />

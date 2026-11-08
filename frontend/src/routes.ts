@@ -27,54 +27,29 @@ export interface AppRoute {
   for?: readonly string[];
   /** Paths outside `path` that belong to this section, for the current mark. */
   also?: readonly string[];
-  /**
-   * The pages of this section that stand side by side, in the order of the
-   * second bar. A section without views is one page.
-   */
-  views?: readonly SectionView[];
-}
-
-/** One of the sibling pages of a section. */
-export interface SectionView {
-  path: string;
-  /** The word on the second bar and in the menu of a narrow screen. */
-  title: string;
-  /**
-   * Who lands here when they choose the section. Without it, and for
-   * everyone else, the section opens on its first view.
-   */
-  landingFor?: readonly string[];
+  /** Who opens this section elsewhere than on `path`, because that is where they work. */
+  landing?: { path: string; for: readonly string[] };
 }
 
 /**
  * The sections of the application, in the order of the bar.
  *
- * Seven places for the work, each a word the reader uses: what comes to you
- * (the start and your tasks), the work itself (assignments, the people who do
- * it, the vacancies that bring them in), the money across assignments, and
- * looking back. The role of client shows only to who holds it. Settings come
- * last and sit apart.
+ * What comes to you (the start, with your tasks in it), the work itself
+ * (assignments, requests, vacancies and the people who do it) and the money
+ * across assignments. The role of client shows only to who holds it. Settings
+ * come last and sit apart.
  *
  * A section earns a place when someone needs it weekly and it is a place you
- * go to, not something reached from an assignment or a vacancy. Two pages
- * about one thing share a section and stand side by side as its views:
- * people and their deployment, costs and billing.
+ * go to, not something reached from an assignment or a vacancy.
  */
 export const APP_ROUTES: readonly AppRoute[] = [
   {
-    path: PATHS.statusOverview,
-    title: 'Stand van zaken',
-    label: 'Start',
+    path: PATHS.start,
+    title: 'Start',
     icon: 'house',
     area: 'work',
-  },
-  {
-    path: PATHS.tasks,
-    title: 'Taken',
-    icon: 'check-list',
-    area: 'work',
-    // Approving a quote is work that reaches you as a task.
-    also: [PATHS.quoteApprovals],
+    // Your tasks and what reaches you as one; the feed is reached from the start.
+    also: [PATHS.tasks, PATHS.quoteApprovals, PATHS.updates],
   },
   {
     path: PATHS.assignments,
@@ -84,43 +59,29 @@ export const APP_ROUTES: readonly AppRoute[] = [
     for: ['beheerder', 'lezer', 'planner', 'assignment_manager', 'team_member'],
   },
   {
-    path: PATHS.team,
-    title: 'Team',
-    icon: 'person-2',
-    area: 'work',
-    for: ['beheerder', 'planner', 'assignment_manager', 'line_manager'],
-    views: [
-      { path: PATHS.team, title: 'Mensen' },
-      // The board is where a planner works every day.
-      { path: PATHS.allocations, title: 'Inzet', landingFor: ['planner'] },
-    ],
-  },
-  { path: PATHS.vacancies, title: 'Vacatures', icon: 'person-badge-plus', area: 'work' },
-  {
-    path: PATHS.costs,
-    title: 'Financieel',
-    icon: 'euro-sign',
-    area: 'work',
-    for: ['beheerder', 'lezer', 'assignment_manager'],
-    views: [
-      { path: PATHS.costs, title: 'Kosten' },
-      { path: PATHS.billing, title: 'Factureren' },
-    ],
-  },
-  {
-    path: PATHS.reports,
-    title: 'Rapportage',
-    icon: 'chart-x-y-axis-line',
-    area: 'work',
-    for: ['beheerder', 'lezer', 'assignment_manager'],
-  },
-  {
     // The role of client. A beheerder without that role reaches it from Beheer.
     path: PATHS.client,
     title: 'Aanvragen',
     icon: 'paper-plane',
     area: 'work',
     for: ['aanvrager', 'tekenbevoegde'],
+  },
+  { path: PATHS.vacancies, title: 'Vacatures', icon: 'person-badge-plus', area: 'work' },
+  {
+    path: PATHS.people,
+    title: 'Mensen',
+    icon: 'person-2',
+    area: 'work',
+    for: ['beheerder', 'planner', 'assignment_manager', 'line_manager'],
+    // The board is where a planner works every day.
+    landing: { path: PATHS.peopleBoard, for: ['planner'] },
+  },
+  {
+    path: PATHS.money,
+    title: 'Geld',
+    icon: 'euro-sign',
+    area: 'work',
+    for: ['beheerder', 'lezer', 'assignment_manager'],
   },
   {
     path: PATHS.admin,
@@ -129,7 +90,7 @@ export const APP_ROUTES: readonly AppRoute[] = [
     area: 'settings',
     for: ['beheerder'],
     // Reached from the Beheer page, whatever their address says.
-    also: [PATHS.ratesLegacy, PATHS.vacancySetup, PATHS.vacancyStandardTexts],
+    also: [PATHS.vacancySetup, PATHS.vacancyStandardTexts],
   },
 ];
 
@@ -154,31 +115,18 @@ export function isCurrentRoute(routePath: string, pathname: string): boolean {
   return pathname === routePath || pathname.startsWith(`${routePath}/`);
 }
 
-/** Every address that belongs to a section: its own, its views and what it names besides. */
+/** Every address that belongs to a section: its own and what it names besides. */
 function sectionPaths(route: AppRoute): string[] {
-  return [route.path, ...(route.views ?? []).map((view) => view.path), ...(route.also ?? [])];
+  return [route.path, ...(route.also ?? [])];
 }
 
 /**
- * Where a section opens for this viewer: the view that is theirs to land on,
- * otherwise the first. The section stands in the same place for everyone;
- * only the page it opens on follows the reader's work.
+ * Where a section opens for this viewer. The section stands in the same place
+ * for everyone; only the page it opens on follows the reader's work.
  */
 export function landingPath(route: AppRoute, viewer: Viewer): string {
   const held = new Set([...viewer.functions, ...viewer.relations]);
-  const own = (route.views ?? []).find((view) => view.landingFor?.some((name) => held.has(name)));
-  return own?.path ?? route.views?.[0]?.path ?? route.path;
-}
-
-/**
- * The view of a section a path belongs to, the longest match first, so a
- * deeper page keeps its view: a person under Mensen, a delivery under
- * Factureren.
- */
-export function currentView(route: AppRoute, pathname: string): SectionView | undefined {
-  return [...(route.views ?? [])]
-    .sort((a, b) => b.path.length - a.path.length)
-    .find((view) => isCurrentRoute(view.path, pathname));
+  return route.landing?.for.some((name) => held.has(name)) ? route.landing.path : route.path;
 }
 
 /**

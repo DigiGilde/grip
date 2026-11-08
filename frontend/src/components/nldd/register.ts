@@ -36,6 +36,7 @@ import '@nldd/design-system/title';
 // Navigation
 import '@nldd/design-system/menu-bar';
 import '@nldd/design-system/menu-bar-item';
+import '@nldd/design-system/search-field';
 import '@nldd/design-system/skip-link';
 import '@nldd/design-system/tab-bar';
 

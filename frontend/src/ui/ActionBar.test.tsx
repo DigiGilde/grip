@@ -8,6 +8,14 @@ const OPTIONS = [
 ];
 
 describe('ActionBar', () => {
+  it('shows a single control without a toolbar', () => {
+    const { container } = render(
+      <ActionBar label="x" actions={[{ text: 'Wijzig de looptijd', onClick: () => {} }]} />,
+    );
+    expect(container.querySelector('nldd-toolbar')).toBeNull();
+    expect(container.querySelector('nldd-button')).toHaveAttribute('size', 'md');
+  });
+
   it('draws every control at the same size step, inside one toolbar', () => {
     const { container } = render(
       <ActionBar

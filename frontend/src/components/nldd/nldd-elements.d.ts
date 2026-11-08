@@ -2118,11 +2118,6 @@ declare module 'react' {
 				/** Opt-in automatic hyphenation for running text (p, li, dd). Needs a correct `lang` on the page (`lang="nl"` on `<html>`, for instance): without language information the browser does not hyphenate. An `overflow-wrap: break-word` safety net on headings, p and li is always on, independent of this attribute, so a word wider than the column breaks instead of overflowing. Headings are hyphenated regardless of this attribute, but only a word of at least 12 letters, as in `nldd-title`, so a short word moves to the next line whole. A soft hyphen (`&shy;`) adds a place to break of your own. */
 				'hyphens'?: NLDDRichText['hyphens'];
 			};
-			/** NOT REGISTERED. Using this renders its children unstyled with no
-			 *  error. Add `import '@nldd/design-system/search-field';` to
-			 *  components/nldd/register.ts first. Some elements register through a
-			 *  parent's module (nldd-table-row with nldd-table); register.test.ts lists
-			 *  those. */
 			'nldd-search-field': NlddElement & {
 				/** Field size: 'sm' | 'md' (default: 'md') */
 				'size'?: NLDDSearchField['size'];

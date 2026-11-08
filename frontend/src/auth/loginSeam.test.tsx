@@ -10,7 +10,7 @@ import type { AuthState } from './context';
 const ANONYMOUS: AuthState = { status: 'unauthenticated', oidcConfigured: true };
 
 describe('return path', () => {
-  it.each(['/opdrachten', '/tarieven?jaar=2026', '/team#top'])('accepts %s', (path) => {
+  it.each(['/opdrachten', '/geld/kosten?jaar=2026', '/mensen#top'])('accepts %s', (path) => {
     expect(safeReturnPath(path)).toBe(path);
   });
 
@@ -30,7 +30,9 @@ describe('return path', () => {
   });
 
   it('sends the page to come back to as the next parameter', () => {
-    expect(loginUrl('/tarieven?jaar=2026')).toBe('/api/auth/login?next=%2Ftarieven%3Fjaar%3D2026');
+    expect(loginUrl('/geld/kosten?jaar=2026')).toBe(
+      '/api/auth/login?next=%2Fgeld%2Fkosten%3Fjaar%3D2026',
+    );
   });
 
   it('sends no next parameter for the start page or an unsafe value', () => {
@@ -95,13 +97,13 @@ describe('login page', () => {
   it('logs in with the page the guard sent the visitor away from', () => {
     const login = vi.fn();
     const { container } = renderApp(<LoginPage />, {
-      path: { pathname: PATHS.login, state: { from: '/tarieven?jaar=2026' } },
+      path: { pathname: PATHS.login, state: { from: '/geld/kosten?jaar=2026' } },
       auth: ANONYMOUS,
       login,
     });
 
     container.querySelector('nldd-button')?.dispatchEvent(new Event('click'));
-    expect(login).toHaveBeenCalledExactlyOnceWith('/tarieven?jaar=2026');
+    expect(login).toHaveBeenCalledExactlyOnceWith('/geld/kosten?jaar=2026');
   });
 
   it('falls back to the start page when the remembered page is not a safe path', () => {
@@ -113,6 +115,6 @@ describe('login page', () => {
     });
 
     container.querySelector('nldd-button')?.dispatchEvent(new Event('click'));
-    expect(login).toHaveBeenCalledExactlyOnceWith(PATHS.statusOverview);
+    expect(login).toHaveBeenCalledExactlyOnceWith(PATHS.start);
   });
 });
