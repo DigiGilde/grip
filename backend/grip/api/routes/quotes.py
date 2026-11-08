@@ -29,6 +29,7 @@ from grip.access import (
     schema_classes,
 )
 from grip.access.deps import AccessDecider, CurrentSubject, require
+from grip.api.quote_access import may_issue_quote, require_issue_quote
 from grip.core.auth import CurrentPerson
 from grip.core.config import get_settings
 from grip.core.database import get_db
@@ -233,8 +234,10 @@ async def detail(
     )
 
 
-async def manages(decider: Decider, subject: Subject, resource: Resource) -> bool:
-    return bool(await decide(decider, subject, Action.ISSUE_QUOTE, resource))
+async def manages(
+    db: AsyncSession, decider: Decider, subject: Subject, resource: Resource
+) -> bool:
+    return await may_issue_quote(db, decider, subject, resource)
 
 
 async def visible_quote(
@@ -290,7 +293,7 @@ async def preview_quote(
         assignment_status=assignment.status,
         can_issue=assignment.status in quote_views.ISSUABLE_STATUSES
         and content is not None,
-        may_issue=bool(await decide(decider, subject, Action.ISSUE_QUOTE, resource)),
+        may_issue=await may_issue_quote(db, decider, subject, resource),
         problem=problem,
         content=content,
         quoted_amount_cents=quoted,
@@ -325,7 +328,7 @@ async def list_quotes(
     value = QuoteListOut(
         budget_moved=moved,
         budget_compared_quote_id=compared,
-        may_manage=bool(await decide(decider, subject, Action.ISSUE_QUOTE, resource)),
+        may_manage=await may_issue_quote(db, decider, subject, resource),
         quotes=[QuoteSummaryOut(**summary_fields(b)) for b in bundles],
     )
     return await filtered(decider, subject, resource, value)
@@ -346,7 +349,7 @@ async def issue_quote(
 ) -> dict[str, Any]:
     """Issue a quote: freeze the budget as it is now."""
     resource = Resource.assignment(assignment_id)
-    await require(decider, subject, Action.ISSUE_QUOTE, resource)
+    await require_issue_quote(db, decider, subject, resource)
     try:
         quote = await quotes.issue_quote(
             db,
@@ -373,7 +376,9 @@ async def get_quote(
 ) -> dict[str, Any]:
     """One issued quote with its frozen content and its decision."""
     quote, resource = await visible_quote(db, decider, subject, quote_id)
-    value = await detail(db, quote, manage=await manages(decider, subject, resource))
+    value = await detail(
+        db, quote, manage=await manages(db, decider, subject, resource)
+    )
     return await filtered(decider, subject, resource, value)
 
 
@@ -397,7 +402,7 @@ async def offer_quote(
     all its offers.
     """
     quote, resource = await visible_quote(db, decider, subject, quote_id)
-    await require(decider, subject, Action.ISSUE_QUOTE, resource)
+    await require_issue_quote(db, decider, subject, resource)
     await quotes.offer_quote(
         db,
         quote.id,
@@ -424,7 +429,7 @@ async def withdraw_invitation(
 ) -> dict[str, Any]:
     """Take a signing link back: from now on it opens nothing."""
     quote, resource = await visible_quote(db, decider, subject, quote_id)
-    await require(decider, subject, Action.ISSUE_QUOTE, resource)
+    await require_issue_quote(db, decider, subject, resource)
     await quotes.withdraw_invitation(db, quote.id, invitation_id, actor=person)
     return await filtered(
         decider, subject, resource, await detail(db, quote, manage=True)
@@ -444,7 +449,7 @@ async def renew_invitation(
 ) -> dict[str, Any]:
     """Make a signing link work again, for the standard period from now."""
     quote, resource = await visible_quote(db, decider, subject, quote_id)
-    await require(decider, subject, Action.ISSUE_QUOTE, resource)
+    await require_issue_quote(db, decider, subject, resource)
     await quotes.renew_invitation(db, quote.id, invitation_id, actor=person)
     return await filtered(
         decider, subject, resource, await detail(db, quote, manage=True)
@@ -467,7 +472,7 @@ async def resend_signing_mail(
     one stands and nothing new is queued.
     """
     quote, resource = await visible_quote(db, decider, subject, quote_id)
-    await require(decider, subject, Action.ISSUE_QUOTE, resource)
+    await require_issue_quote(db, decider, subject, resource)
     if body is not None and body.renew:
         invitation = await quotes.renew_invitation(
             db, quote.id, invitation_id, actor=person
@@ -560,7 +565,7 @@ async def list_invitations(
 ) -> dict[str, Any]:
     """Who was invited to sign this quote. For whoever manages the assignment."""
     quote, resource = await visible_quote(db, decider, subject, quote_id)
-    await require(decider, subject, Action.ISSUE_QUOTE, resource)
+    await require_issue_quote(db, decider, subject, resource)
     invitations = await quote_views.invitations_of_quote(db, quote.id)
     value = InvitationListOut(
         invitations=[
@@ -592,7 +597,7 @@ async def invite_signer(
 ) -> dict[str, Any]:
     """Invite someone at the client to sign this quote through a signing link."""
     quote, resource = await visible_quote(db, decider, subject, quote_id)
-    await require(decider, subject, Action.ISSUE_QUOTE, resource)
+    await require_issue_quote(db, decider, subject, resource)
     invitation = await quotes.invite_signer(
         db, quote.id, body.email, actor=person, expires_at=body.expires_at
     )

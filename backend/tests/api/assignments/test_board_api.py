@@ -127,6 +127,134 @@ async def test_open_role_and_overbooking(world, as_person, db_session):
     assert role["start_date"] == still_open_from.isoformat()
 
 
+async def _open_line_with_vacancy(world, db_session):
+    from datetime import date
+
+    from grip.services import assignments
+    from grip.services.vacancies import service as vacancy_service
+
+    line = await assignments.add_budget_line(
+        db_session,
+        world.assignment.id,
+        description="Developer",
+        kind="personnel",
+        role="Developer",
+        fte=Decimal("1"),
+        rate_category="C",
+        start_date=date(2026, 4, 1),
+        end_date=date(2030, 12, 31),
+        actor=world.owner,
+    )
+    vacancy = await vacancy_service.create_vacancy_from_budget_line(
+        db_session, actor=world.owner, budget_line_id=line.id
+    )
+    return line, vacancy
+
+
+async def test_a_role_with_a_running_vacancy_stays_on_the_board(
+    world, as_person, db_session
+):
+    line, vacancy = await _open_line_with_vacancy(world, db_session)
+    for reader in (world.planner, world.beheerder, world.owner):
+        body = (await as_person(reader).get(URL)).json()
+        (role,) = body["open_roles"]
+        assert role["budget_line_id"] == str(line.id)
+        assert Decimal(role["unfilled_fte"]) == 1
+        assert role["vacancy_id"] == str(vacancy.id)
+        assert role["vacancy_status"] == "draft"
+
+
+async def test_a_role_without_a_vacancy_has_empty_vacancy_fields(
+    world, as_person, db_session
+):
+    from datetime import date
+
+    from grip.services import assignments
+
+    await assignments.add_budget_line(
+        db_session,
+        world.assignment.id,
+        description="Developer",
+        kind="personnel",
+        role="Developer",
+        fte=Decimal("1"),
+        rate_category="C",
+        start_date=date(2026, 4, 1),
+        end_date=date(2030, 12, 31),
+        actor=world.owner,
+    )
+    (role,) = (await as_person(world.planner).get(URL)).json()["open_roles"]
+    assert role["vacancy_id"] is None
+    assert role["vacancy_status"] is None
+
+
+async def test_nobody_without_staffing_sees_a_role_or_its_vacancy(
+    world, as_person, db_session
+):
+    _line, vacancy = await _open_line_with_vacancy(world, db_session)
+    for reader in (world.lezer, world.member, world.colleague, world.outsider):
+        response = await as_person(reader).get(URL)
+        body = response.json()
+        assert body["open_roles"] == [], reader.name
+        assert str(vacancy.id) not in response.text, reader.name
+        assert "vacancy_status" not in response.text, reader.name
+
+
+async def test_a_vacancy_the_reader_may_not_open_is_not_named_on_the_role(
+    world, as_person, db_session, _test_app
+):
+    from fastapi import Depends
+
+    from grip.access import LocalDecider, ResourceKind
+    from grip.access.deps import get_decider, get_relation_source
+    from grip.access.types import deny
+
+    line, vacancy = await _open_line_with_vacancy(world, db_session)
+
+    class NoVacancies(LocalDecider):
+        async def evaluate(self, request):
+            if request.resource.kind is ResourceKind.VACANCY:
+                return deny("test")
+            return await super().evaluate(request)
+
+    def decider(relations=Depends(get_relation_source)):
+        return NoVacancies(relations)
+
+    _test_app.dependency_overrides[get_decider] = decider
+    response = await as_person(world.planner).get(URL)
+    (role,) = response.json()["open_roles"]
+    assert role["budget_line_id"] == str(line.id)
+    assert role["vacancy_id"] is None
+    assert role["vacancy_status"] is None
+    assert str(vacancy.id) not in response.text
+
+
+async def test_a_withdrawn_vacancy_leaves_the_role_without_a_stand(
+    world, as_person, db_session
+):
+    from grip.services.vacancies import service as vacancy_service
+
+    _line, vacancy = await _open_line_with_vacancy(world, db_session)
+    await vacancy_service.withdraw_vacancy(db_session, vacancy.id, actor=world.owner)
+    (role,) = (await as_person(world.planner).get(URL)).json()["open_roles"]
+    assert role["vacancy_id"] is None
+
+
+async def test_a_vacancy_without_a_budget_line_is_no_open_role(
+    world, as_person, db_session
+):
+    from grip.services.vacancies import service as vacancy_service
+
+    await vacancy_service.create_vacancy(
+        db_session,
+        actor=world.planner,
+        function_title="Teamleider",
+        fte=Decimal("1"),
+        declarable=False,
+    )
+    assert (await as_person(world.planner).get(URL)).json()["open_roles"] == []
+
+
 async def test_bad_start_month(world, as_person):
     response = await as_person(world.planner).get("/api/allocations/board?start=april")
     assert response.status_code == 422

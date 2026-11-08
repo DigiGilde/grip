@@ -36,6 +36,24 @@ from grip.access.vacancies import (
     language_model_resource,
     vacancy_resource,
 )
+from grip.api.vacancy_support import (
+    assignment_of as _assignment_of,
+)
+from grip.api.vacancy_support import (
+    established as _established,
+)
+from grip.api.vacancy_support import (
+    is_open_role as _is_open_role,
+)
+from grip.api.vacancy_support import (
+    load as _load,
+)
+from grip.api.vacancy_support import (
+    permitted as _permitted,
+)
+from grip.api.vacancy_support import (
+    resource as _resource,
+)
 from grip.core import clock
 from grip.core.auth import CurrentPerson
 from grip.core.config import Settings, get_settings
@@ -107,8 +125,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/vacancies", tags=["vacancies"])
 
-_VIEWS = (DataClass.STAFFING, DataClass.STAFFING_COUNTS, DataClass.OPEN_ROLE)
-
 VACANCY_TYPE_LABELS = {
     VacancyType.regulier: "Regulier",
     VacancyType.specialistisch: "Specialistisch",
@@ -175,42 +191,6 @@ _OPENING_STEPS = (
 
 
 # --- building responses ------------------------------------------------------
-
-
-def _established(vacancy: Vacancy, kind: TextKind) -> VacancyText | None:
-    """The version of a text that was established last, from the loaded texts."""
-    candidates = [
-        text
-        for text in vacancy.texts
-        if text.kind == kind.value and text.established_at is not None
-    ]
-    if not candidates:
-        return None
-    return max(candidates, key=lambda text: (text.established_at, text.created_at))
-
-
-def _is_open_role(vacancy: Vacancy) -> bool:
-    return (
-        vacancy.status == VacancyStatus.open.value
-        and vacancy.published_at is not None
-        and _established(vacancy, TextKind.vacancy_text) is not None
-    )
-
-
-def _resource(
-    vacancy: Vacancy,
-    assignment_id: UUID | None,
-    *,
-    decision_kind: DecisionKind | None = None,
-) -> Resource:
-    return vacancy_resource(
-        vacancy.id,
-        assignment_id=assignment_id,
-        open_role=_is_open_role(vacancy),
-        named={decision.kind: decision.person_id for decision in vacancy.decisions},
-        decision_kind=decision_kind.value if decision_kind else None,
-        text_reviewers=getattr(vacancy, "text_reviewer_ids", ()),
-    )
 
 
 def _origin(vacancy: Vacancy, text: VacancyText) -> VacancyText | None:
@@ -405,23 +385,6 @@ def _texts(vacancy: Vacancy, names: dict[UUID, str]) -> list[TextOut]:
     return result
 
 
-async def _permitted(
-    decider: Decider, subject: Subject, resource: Resource
-) -> frozenset[DataClass]:
-    return await permitted_classes(decider, subject, resource, _VIEWS)
-
-
-async def _assignment_of(
-    db: AsyncSession, vacancy: Vacancy
-) -> tuple[UUID | None, str | None]:
-    if vacancy.budget_line_id is None:
-        return None, None
-    found = await VacancyRepository(db).assignments_of_budget_lines(
-        [vacancy.budget_line_id]
-    )
-    return found.get(vacancy.budget_line_id, (None, None))
-
-
 _WITHDRAWABLE = frozenset(
     {
         VacancyStatus.draft.value,
@@ -504,6 +467,15 @@ async def _vacancy_response(
             and set(candidate.scales) & set(line_scales)
         ]
     candidate = await service.candidate_of(db, vacancy)
+    opens_assignment = assignment_id is not None and bool(
+        await decide(
+            decider,
+            subject,
+            Action.READ,
+            Resource.assignment(assignment_id),
+            DataClass.ASSIGNMENT_BASIC,
+        )
+    )
     out = VacancyOut(
         id=vacancy.id,
         version=vacancy.version,
@@ -523,7 +495,7 @@ async def _vacancy_response(
         else None,
         channels=[VacancyChannel(channel) for channel in vacancy.channels or []],
         budget_line_id=vacancy.budget_line_id,
-        assignment_id=assignment_id,
+        assignment_id=assignment_id if opens_assignment else None,
         assignment_name=assignment_name,
         candidate_person_id=candidate[0] if candidate else None,
         candidate_name=candidate[1] if candidate else None,
@@ -558,40 +530,6 @@ async def _vacancy_response(
         ),
     )
     return build_response(out, permitted)
-
-
-async def _load(
-    db: AsyncSession,
-    decider: Decider,
-    subject: Subject,
-    vacancy_id: UUID,
-) -> tuple[Vacancy, UUID | None]:
-    """The vacancy and its assignment, or 404 when the viewer may not see it."""
-    try:
-        vacancy = await service.get_vacancy(db, vacancy_id)
-    except NotFoundError:
-        vacancy = None
-    if vacancy is None:
-        # Same answer as for a vacancy the viewer may not see.
-        await require(
-            decider,
-            subject,
-            Action.READ,
-            vacancy_resource(vacancy_id),
-            DataClass.STAFFING,
-            hide_existence=True,
-        )
-        raise NotFoundError("Vacature", vacancy_id)
-    assignment_id, _name = await _assignment_of(db, vacancy)
-    await require(
-        decider,
-        subject,
-        Action.READ,
-        _resource(vacancy, assignment_id),
-        DataClass.OPEN_ROLE,
-        hide_existence=True,
-    )
-    return vacancy, assignment_id
 
 
 async def _load_for_edit(

@@ -12,7 +12,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
-from typing import Any
+from typing import Any, Protocol
 from uuid import UUID
 
 from sqlalchemy import select
@@ -355,6 +355,16 @@ class Overview:
     upcoming: tuple[PeriodView, ...] = field(default_factory=tuple)
 
 
+class _Delivering(Protocol):
+    state: str
+    to_deliver_cents: int | None
+
+
+def ready_cents(periods: Iterable[_Delivering]) -> int:
+    """What a delivery made now would hold, over the periods that are ready."""
+    return sum(p.to_deliver_cents or 0 for p in periods if p.state == READY)
+
+
 async def _names(session: AsyncSession, ids: Iterable[UUID | None]) -> dict[UUID, str]:
     wanted = {i for i in ids if i is not None}
     if not wanted:
@@ -586,7 +596,10 @@ async def _overviews(
 def _overview(read: _Read, today: date) -> Overview:
     assignment_id = read.assignment.id
     terms = read.terms
-    billable = allows_billing(read.assignment.status)
+    # An internal assignment has no client to bill.
+    billable = (
+        allows_billing(read.assignment.status) and read.assignment.kind != "internal"
+    )
     timeline = read.timeline
     billing = read.billing
     deliveries = read.deliveries
@@ -1222,6 +1235,10 @@ async def deliver(
         )
     await month_close.ensure_billable(session, assignment_id)
     state = await overview(session, assignment_id, today=today)
+    if not state.billable:
+        raise DomainValidationError(
+            "Een interne opdracht heeft geen opdrachtgever; er is niets aan te leveren."
+        )
     view = next((v for v in state.periods if v.period.key == period_key), None)
     if view is None:
         raise DomainValidationError(
@@ -1370,7 +1387,7 @@ async def _fix_document(session: AsyncSession, delivery: BillingDelivery) -> Non
 
 
 def delivery_link(delivery_id: UUID) -> str:
-    return f"{get_settings().FRONTEND_URL.rstrip('/')}/factureren/{delivery_id}"
+    return f"{get_settings().FRONTEND_URL.rstrip('/')}/geld/factureren/{delivery_id}"
 
 
 async def _queue_mail(

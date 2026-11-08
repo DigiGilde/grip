@@ -129,7 +129,7 @@ def _head(labels: list[str], numeric_from: int) -> str:
 
 _TOTALS_HEAD = [
     "Begroot",
-    "Gerealiseerd",
+    "Gerealiseerde inzet",
     "Nog gepland",
     "Kosten",
     "Verwacht totaal",
@@ -290,8 +290,9 @@ def _cost_section(report: dict[str, Any]) -> str:
                 + "</tr>"
             )
         parts.append(
-            "<table>\n<caption>Per jaar. Gerealiseerd is de inzet van afgesloten "
-            "maanden; nog gepland is de geplande inzet van open maanden. Afwijking is "
+            "<table>\n<caption>Per jaar. Gerealiseerde inzet is de inzet van "
+            "afgesloten maanden; nog gepland is de geplande inzet van open maanden. "
+            "Afwijking is "
             "begroot min verwacht totaal.</caption>\n"
             + _head(["Periode"] + _TOTALS_HEAD, 1)
             + f"\n<tbody>\n{_rows(period_rows, 1)}\n{total_row}\n</tbody>\n</table>"
@@ -394,12 +395,12 @@ def render_report_html(report: dict[str, Any], *, instance_name: str) -> str:
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Rapportage {name}</title>
+<title>Eindrapport {name}</title>
 <style>{_STYLE}</style>
 </head>
 <body>
 <main>
-<h1>Rapportage</h1>
+<h1>Eindrapport</h1>
 <p class="lead">{name}</p>
 <dl class="meta">
 {meta_html}

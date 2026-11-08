@@ -125,7 +125,16 @@ class EventAccess:
         self._decider = decider
         self.subject = subject
         self._answers: dict[tuple[Resource, DataClass | None], bool] = {}
+        self._edits: dict[Resource, bool] = {}
         self._vacancies: dict[UUID, Resource | None] = {}
+
+    @property
+    def db(self) -> AsyncSession:
+        return self._db
+
+    @property
+    def decider(self) -> Decider:
+        return self._decider
 
     async def _vacancy(self, vacancy_id: UUID) -> Resource | None:
         if vacancy_id not in self._vacancies:
@@ -236,6 +245,13 @@ class EventAccess:
                 )
             self._answers[key] = decision.allowed
         return self._answers[key]
+
+    async def may_edit(self, resource: Resource) -> bool:
+        """Whether the reader may change this resource."""
+        if resource not in self._edits:
+            decision = await decide(self._decider, self.subject, Action.EDIT, resource)
+            self._edits[resource] = decision.allowed
+        return self._edits[resource]
 
     async def may_know(self, event: StreamEvent) -> bool:
         resource = await self.resource_of(event)

@@ -10,7 +10,7 @@
         },
         {
           "key": "bemensing",
-          "label": "Bemensing"
+          "label": "Team"
         },
         {
           "key": "uitvoering",
@@ -150,7 +150,7 @@
           ],
           "done_when": "role_staffed",
           "assignee": "planner",
-          "link": "/opdrachten/{assignment_id}/bemensing"
+          "link": "/opdrachten/{assignment_id}/team"
         },
         {
           "key": "uitvoering.starten",
@@ -181,7 +181,7 @@
             "working_days": 5,
             "after": "month_end"
           },
-          "link": "/opdrachten/{assignment_id}/maandafsluiting?maand={repeat_key}"
+          "link": "/opdrachten/{assignment_id}/afsluiten?maand={repeat_key}"
         },
         {
           "key": "uitvoering.eindrapport",
@@ -195,7 +195,7 @@
           ],
           "done_when": "final_report_issued",
           "assignee": "owner",
-          "link": "/rapportage/opdrachten/{assignment_id}"
+          "link": "/opdrachten/{assignment_id}/rapport"
         },
         {
           "key": "financien.factuurgegevens_aanleveren",
@@ -214,7 +214,7 @@
             "working_days": 5,
             "after": "closed_on"
           },
-          "link": "/opdrachten/{assignment_id}/maandafsluiting?maand={repeat_key}"
+          "link": "/opdrachten/{assignment_id}/afsluiten?maand={repeat_key}"
         },
         {
           "key": "financien.factuur_vastleggen",
@@ -234,7 +234,7 @@
             "working_days": 10,
             "after": "delivered_on"
           },
-          "link": "/opdrachten/{assignment_id}/maandafsluiting?maand={repeat_key}"
+          "link": "/opdrachten/{assignment_id}/afsluiten?maand={repeat_key}"
         },
         {
           "key": "financien.naverrekening_aanleveren",
@@ -252,7 +252,7 @@
             "working_days": 5,
             "after": "correction_arose_on"
           },
-          "link": "/opdrachten/{assignment_id}/maandafsluiting?maand={repeat_key}",
+          "link": "/opdrachten/{assignment_id}/afsluiten?maand={repeat_key}",
           "requires_event": "billing_correction.arose"
         }
       ]
@@ -275,7 +275,7 @@
           ],
           "done_when": "requested",
           "assignee": "requester",
-          "link": "/vacatures/{vacancy_id}"
+          "link": "/vacatures/{vacancy_id}/aanvraag"
         },
         {
           "key": "werving.advies_hr",
@@ -336,7 +336,7 @@
           ],
           "done_when": "opened",
           "assignee": "requester",
-          "link": "/vacatures/{vacancy_id}/procedure"
+          "link": "/vacatures/{vacancy_id}/tekst"
         },
         {
           "key": "werving.vervullen",

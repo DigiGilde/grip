@@ -48,8 +48,19 @@ from grip.services.reports import steering
 EXTERNAL = "external"
 INTERNAL = "internal"
 
+# A sum of targets is shown to a reader who may not see targets per person
+# only when it covers at least this many people. With fewer, the sum (and
+# the figure it is subtracted in) would give away one person's target.
+MIN_PERSONS_IN_TARGET_SUM = 5
+
 # Assignments that count: agreed formally or verbally.
 _AGREED = (Commitment.COMMITTED, Commitment.VERBAL)
+
+
+def money_withheld(target_person_count: int, *, sees_targets: bool) -> bool:
+    """Whether the reading in money is not for this reader: the figure minus the
+    other lines is the sum of the targets, so the whole derivation goes."""
+    return not sees_targets and 0 < target_person_count < MIN_PERSONS_IN_TARGET_SUM
 
 
 @dataclass(frozen=True)

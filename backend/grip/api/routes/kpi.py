@@ -6,6 +6,7 @@ person their own. The amounts come from the pricing service (R12 and R13).
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from typing import Annotated, Any
 from uuid import UUID
 
@@ -29,7 +30,7 @@ from grip.core import clock
 from grip.core.auth import CurrentPerson
 from grip.core.database import get_db
 from grip.models.person import Person
-from grip.schema.kpi import KpiOut, KpiTargetUpdate
+from grip.schema.kpi import KpiOut, KpiTargetUpdate, KpiTotalsOut
 from grip.services import pricing, rates, team
 
 router = APIRouter(prefix="/kpi", tags=["kpi"])
@@ -68,20 +69,21 @@ async def _kpi_out(db: AsyncSession, person: Person, year: int) -> KpiOut:
         realised_cents=overview.realised_cents,
         forecast_cents=overview.forecast_cents,
         realisation_cents=overview.realisation_cents,
+        gap_cents=overview.gap_cents,
         unavailable_reason=None,
     )
 
 
 async def _visible(
     db: AsyncSession, decider: Decider, subject: Subject, person: Person, year: int
-) -> dict[str, Any] | None:
-    """The KPI of a person, or ``None`` when the subject may not see it."""
+) -> tuple[KpiOut, set[DataClass]] | None:
+    """The KPI of a person with the classes the subject may read, or ``None``."""
     permitted = await permitted_classes(
         decider, subject, Resource.person(person.id), schema_classes(KpiOut)
     )
     if DataClass.PERSON_KPI not in permitted:
         return None
-    return build_response(await _kpi_out(db, person, year), permitted)
+    return await _kpi_out(db, person, year), permitted
 
 
 @router.get("", response_model=None)
@@ -91,15 +93,31 @@ async def list_kpi(
     year: YearQuery = None,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
-    """The KPI of every person whose KPI the asker may see."""
+    """The KPI of every person whose KPI the asker may see, below target first."""
     year = year or clock.today().year
-    items: list[dict[str, Any]] = []
+    visible: list[tuple[KpiOut, set[DataClass]]] = []
     for person in await team.list_persons(db):
-        item = await _visible(db, decider, subject, person, year)
-        if item is not None:
-            items.append(item)
+        found = await _visible(db, decider, subject, person, year)
+        if found is not None:
+            visible.append(found)
+    classes = {id(kpi): permitted for kpi, permitted in visible}
+    ordered = pricing.below_target_first(kpi for kpi, _ in visible)
     return {
-        "items": items,
+        "items": [build_response(kpi, classes[id(kpi)]) for kpi in ordered],
+        "totals": build_response(
+            KpiTotalsOut(**asdict(pricing.kpi_totals(ordered))), {DataClass.PERSON_KPI}
+        )
+        if ordered
+        else None,
+        "scope": "all"
+        if await may(
+            decider,
+            subject,
+            Action.READ,
+            Resource.person(),
+            DataClass.PERSON_KPI,
+        )
+        else "own",
         "year": year,
         "may_manage": await may(
             decider, subject, Action.MANAGE_USERS, Resource.person()
@@ -116,14 +134,14 @@ async def get_kpi(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     person = await db.get(Person, person_id)
-    item = (
+    found = (
         await _visible(db, decider, subject, person, year or clock.today().year)
         if person is not None
         else None
     )
-    if item is None:
+    if found is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Niet gevonden")
-    return item
+    return build_response(*found)
 
 
 @router.put("/{person_id}/{year}", response_model=None)
@@ -149,4 +167,4 @@ async def set_target(
     )
     item = await _visible(db, decider, subject, person, year)
     assert item is not None
-    return item
+    return build_response(*item)

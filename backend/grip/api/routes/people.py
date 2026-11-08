@@ -31,6 +31,7 @@ from grip.access import (
     schema_classes,
 )
 from grip.access.deps import AccessDecider, CurrentSubject, require
+from grip.api.assignment_support import DbSession, RequestAccess
 from grip.api.reference_support import may, period_or_today
 from grip.api.routes.rates import _impact_out as impact_out
 from grip.core.auth import CurrentPerson
@@ -49,7 +50,7 @@ from grip.schema.people import (
     ScaleOut,
     StartDateUpdate,
 )
-from grip.services import rates, standing, team
+from grip.services import people_views, rates, standing, team
 from grip.services.errors import NotFoundError
 
 router = APIRouter(prefix="/people", tags=["people"])
@@ -272,6 +273,27 @@ async def list_people(
         "period_start": period[0].isoformat(),
         "period_end": period[1].isoformat(),
     }
+
+
+@router.get("/views", response_model=None)
+async def get_views(access: RequestAccess, db: DbSession) -> dict[str, list[str]]:
+    """The views of the people this reader has something in, in a fixed order.
+
+    The list is for whoever sees at least one person. The board, Bezetting and
+    Declarabiliteit are offered when what they show is not empty for this
+    reader: the same answers as the board and the blocks of the overview.
+    """
+    views = [
+        name
+        for name, shown in (
+            ("list", await people_views.has_list(access, _PERSON_CLASSES)),
+            ("board", await people_views.has_board(access, db)),
+            ("occupancy", await people_views.has_occupancy(access, db)),
+            ("billability", await people_views.has_billability(access, db)),
+        )
+        if shown
+    ]
+    return {"views": views}
 
 
 @router.get("/{person_id}", response_model=None)

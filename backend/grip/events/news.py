@@ -33,6 +33,7 @@ from sqlalchemy import func, literal, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from grip.access.fields import schema_classes
 from grip.access.relations import RelationSource
 from grip.access.types import DataClass, Resource, ResourceKind, Subject
 from grip.core import clock
@@ -49,7 +50,12 @@ from grip.models.stream_event import (
 )
 from grip.models.update_feed import UpdateFeedMarker
 from grip.models.vacancy import Vacancy, VacancyDecision
+from grip.schema.people import PersonOut
+from grip.services import assignment_parts
 from grip.services.reports.labels import MONTH_NAMES
+from grip.services.vacancies import parts as vacancy_parts
+from grip.tasks.access import TaskAccess
+from grip.tasks.cases import load_vacancy_cases
 
 BEHEERDER, PLANNER, LEZER = "beheerder", "planner", "lezer"
 _ALL = frozenset({BEHEERDER, LEZER})
@@ -257,7 +263,7 @@ NEWS: tuple[News, ...] = (
         _MONEY,
         "{detail} afgesloten op {object}",
         "{n} maanden afgesloten op {object}",
-        tab="maandafsluiting",
+        tab="afsluiten",
         managers_only=True,
     ),
     News(
@@ -267,7 +273,7 @@ NEWS: tuple[News, ...] = (
         _MONEY,
         "Factuurgegevens van {detail} aangeleverd voor {object}",
         "Factuurgegevens van {n} maanden aangeleverd voor {object}",
-        tab="maandafsluiting",
+        tab="afsluiten",
         managers_only=True,
     ),
     News(
@@ -277,7 +283,7 @@ NEWS: tuple[News, ...] = (
         _MONEY,
         "Factuur vastgelegd voor {object}",
         "{n} facturen vastgelegd voor {object}",
-        tab="financieel",
+        tab="afsluiten",
         managers_only=True,
     ),
     # -- the team ---------------------------------------------------------
@@ -290,7 +296,7 @@ NEWS: tuple[News, ...] = (
         "{n} mensen ingezet op {object}",
         anonymous="Er is iemand ingezet op {object}",
         you="Je bent ingezet op {object}",
-        tab="bemensing",
+        tab="team",
     ),
     News(
         "left",
@@ -301,7 +307,7 @@ NEWS: tuple[News, ...] = (
         "{n} mensen zijn van {object} af",
         anonymous="Er is iemand van {object} af",
         you="Je bent van {object} af",
-        tab="bemensing",
+        tab="team",
     ),
     News(
         "scale",
@@ -342,7 +348,7 @@ NEWS: tuple[News, ...] = (
         "Vacature {object} is opengesteld",
         "{n} vacatures opengesteld",
         match=_status("open"),
-        tab="procedure",
+        tab="tekst",
     ),
     News(
         "vacancy_filled",
@@ -610,6 +616,8 @@ class _Raw:
     # someone they lead can name an assignment that stays closed to them:
     # the name is theirs to know, a link to it would lead nowhere.
     openable: bool = True
+    # The reader may also open the part of it the sentence points at.
+    tab_openable: bool = True
 
     @property
     def target(self) -> UUID | None:
@@ -812,6 +820,8 @@ def _combine(raws: list[_Raw]) -> list[_Raw]:
                 raw.detail_visible and first.detail_visible,
                 seqs=[*raw.seqs, *first.seqs],
                 actors=raw.actors | first.actors,
+                openable=raw.openable,
+                tab_openable=raw.tab_openable,
             )
         )
     result += [raw for raw in raws if id(raw) not in used]
@@ -892,7 +902,7 @@ def day_label(moment: datetime, now: datetime) -> str:
 _HREFS = {
     "assignment": "/opdrachten/{id}",
     "vacancy": "/vacatures/{id}",
-    "person": "/team/{id}",
+    "person": "/mensen/{id}",
 }
 
 
@@ -951,7 +961,7 @@ def _sentence(
     href = None
     if object_name and raw.object_kind and raw.object_id and raw.openable:
         href = _HREFS[raw.object_kind].format(id=raw.object_id)
-        if rule.tab and raw.object_kind != "person":
+        if rule.tab and raw.object_kind != "person" and raw.tab_openable:
             href += f"/{rule.tab}"
     label = object_name or fallback
     if not before and label:
@@ -1025,14 +1035,144 @@ async def _names(
 # -- the feed ------------------------------------------------------------------------
 
 
+_PERSON_CLASSES = schema_classes(PersonOut)
+
+
 async def _openable(
-    access: EventAccess, object_kind: str | None, object_id: UUID | None
+    access: EventAccess,
+    event: StreamEvent,
+    object_kind: str | None,
+    object_id: UUID | None,
 ) -> bool:
-    """Whether the reader can open the assignment a piece of news names."""
-    if object_kind != "assignment" or object_id is None:
+    """Whether the reader can open the page of the assignment, vacancy or
+    person a piece of news names."""
+    if object_id is None:
         return True
-    resource = Resource(ResourceKind.ASSIGNMENT, id=object_id, assignment_id=object_id)
-    return await access.may(resource, DataClass.ASSIGNMENT_BASIC)
+    if object_kind == "assignment":
+        resource = Resource(
+            ResourceKind.ASSIGNMENT, id=object_id, assignment_id=object_id
+        )
+        return await access.may(resource, DataClass.ASSIGNMENT_BASIC)
+    if object_kind == "vacancy":
+        resource = await access.resource_of(event)
+        return resource is not None and await access.may(
+            resource, DataClass.STAFFING_COUNTS
+        )
+    if object_kind == "person":
+        about = Resource.person(object_id)
+        for data_class in _PERSON_CLASSES:
+            if await access.may(about, data_class):
+                return True
+        return False
+    return True
+
+
+async def _tab_openable(
+    access: EventAccess,
+    event: StreamEvent,
+    tab: str,
+    object_kind: str | None,
+    object_id: UUID | None,
+) -> bool:
+    """Whether the reader may open the part of the object a sentence points
+    at. When not, the sentence links to the object itself."""
+    if not tab or object_id is None:
+        return True
+    if object_kind == "assignment":
+        needs = _TAB_NEEDS.get(tab)
+        if needs is None:
+            return True
+        resource = Resource(
+            ResourceKind.ASSIGNMENT, id=object_id, assignment_id=object_id
+        )
+        for data_class in needs:
+            if await access.may(resource, data_class):
+                return True
+        return False
+    if object_kind == "vacancy" and tab == "vervulling":
+        resource = await access.resource_of(event)
+        return resource is not None and await access.may_edit(resource)
+    return True
+
+
+_PART_OF_TAB = {
+    "assignment": {"offerte": "quote", "afsluiten": "close", "team": "team"},
+    "vacancy": {"advies": "decisions", "tekst": "text", "vervulling": "fulfilment"},
+}
+# What the part of an assignment a sentence points at shows. One class of the
+# list is enough.
+_TAB_NEEDS = {
+    tab: assignment_parts.PART_NEEDS[part]
+    for tab, part in _PART_OF_TAB["assignment"].items()
+}
+_ASSIGNMENT_CLASSES = (
+    DataClass.ASSIGNMENT_BASIC,
+    DataClass.ASSIGNMENT_FINANCIAL,
+    DataClass.STAFFING,
+    DataClass.STAFFING_ROSTER,
+    DataClass.RATE_MISMATCH_SIGNAL,
+)
+
+
+async def _part_keys(
+    access: EventAccess, wanted: Mapping[str, Iterable[_Raw]]
+) -> dict[tuple[str, UUID], set[str]]:
+    """The parts of the objects that their pages offer this reader: the same
+    decision as the parts routes, so a link never leads to a part the page
+    would refuse, but without reading what each part says."""
+    keys: dict[tuple[str, UUID], set[str]] = {}
+    assignments = {raw.object_id: raw for raw in wanted["assignment"] if raw.object_id}
+    classes: dict[UUID, set[DataClass]] = {}
+    for assignment_id in assignments:
+        resource = Resource.assignment(assignment_id)
+        classes[assignment_id] = {
+            data_class
+            for data_class in _ASSIGNMENT_CLASSES
+            if await access.may(resource, data_class)
+        }
+    for assignment_id, found in (
+        await assignment_parts.part_keys_of(access.db, classes)
+    ).items():
+        keys[("assignment", assignment_id)] = found
+
+    can_edit: dict[UUID, bool] = {}
+    for raw in wanted["vacancy"]:
+        assert raw.object_id is not None
+        resource = await access.resource_of(raw.event)
+        if resource is None:
+            keys[("vacancy", raw.object_id)] = set()
+        else:
+            can_edit[raw.object_id] = await access.may_edit(resource)
+    for vacancy_id, found in (
+        await vacancy_parts.part_keys_of(
+            access.db,
+            TaskAccess(access.db, access.decider, access.subject),
+            await load_vacancy_cases(access.db, set(can_edit)),
+            can_edit,
+        )
+    ).items():
+        keys[("vacancy", vacancy_id)] = set(found)
+    return keys
+
+
+async def _keep_to_existing_parts(access: EventAccess, shown: Sequence[_Raw]) -> None:
+    """A sentence points at a part only when this reader has that part."""
+    pointing: dict[str, list[_Raw]] = {"assignment": [], "vacancy": []}
+    for raw in shown:
+        if (
+            raw.rule.tab
+            and raw.object_kind in pointing
+            and raw.object_id
+            and raw.openable
+            and raw.tab_openable
+        ):
+            pointing[raw.object_kind].append(raw)
+    keys = await _part_keys(access, pointing)
+    for kind, raws in pointing.items():
+        for raw in raws:
+            part = _PART_OF_TAB[kind].get(raw.rule.tab)
+            if part not in keys.get((kind, raw.object_id), set()):
+                raw.tab_openable = False
 
 
 async def seen_seq(db: AsyncSession, person_id: UUID) -> int | None:
@@ -1124,7 +1264,10 @@ async def read(
                 seqs=[event.seq],
                 actors={(event.actor_kind, event.actor_person_id)},
                 about_reader=event.person_id == subject.person_id,
-                openable=await _openable(access, object_kind, object_id),
+                openable=await _openable(access, event, object_kind, object_id),
+                tab_openable=await _tab_openable(
+                    access, event, rule.tab, object_kind, object_id
+                ),
             )
         )
 
@@ -1138,6 +1281,7 @@ async def read(
     if cursor is not None:
         collapsed = [raw for raw in collapsed if raw.top < cursor]
     shown = collapsed[:limit]
+    await _keep_to_existing_parts(access, shown)
     names, people, refs = await _names(db, shown)
     for raw in shown:
         parts = _sentence(raw, names, people, refs)

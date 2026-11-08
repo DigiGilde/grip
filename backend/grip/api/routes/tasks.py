@@ -87,11 +87,11 @@ def _out(view: TaskView) -> TaskOut:
         origin=task.origin,
         due_on=task.due_on,
         overdue=view.overdue,
-        assignee_person_id=task.assignee_person_id,
+        assignee_person_id=task.assignee_person_id if view.may_name else None,
         assignee_role=task.assignee_role if task.assignee_person_id is None else None,
         assignee_label=view.assignee_label,
         waiting_on=task.waiting_on,
-        link=task.link,
+        link=told.work_href if told else task.link,
         is_mine=view.is_mine,
         can_change=view.can_change,
         can_complete=view.can_complete,
@@ -113,16 +113,6 @@ def _out(view: TaskView) -> TaskOut:
     )
 
 
-async def _look(db: AsyncSession, settings: Settings) -> engine.Outcome | None:
-    """Bring the tasks up to date, unless nothing changed since the last look."""
-    return await engine.ensure_current(
-        db,
-        today=clock.today(),
-        instance_base_uri=settings.INSTANCE_BASE_URI,
-        max_idle_seconds=settings.TASKS_EVALUATE_INTERVAL_SECONDS or 300,
-    )
-
-
 def _access(db: AsyncSession, decider: Any, subject: Any) -> TaskAccess:
     return TaskAccess(db, decider, subject)
 
@@ -135,7 +125,7 @@ async def list_my_tasks(
     settings: Settings = Depends(get_settings),
 ) -> dict[str, Any]:
     """The open tasks that are mine to do, soonest first."""
-    looked = await _look(db, settings)
+    looked = await engine.look(db, settings)
     access = _access(db, decider, subject)
     today = clock.today()
     views = await service.my_tasks(db, access, today=today)
@@ -163,7 +153,7 @@ async def count_my_tasks(
     settings: Settings = Depends(get_settings),
 ) -> dict[str, Any]:
     """How many tasks wait for me: the badge in the navigation."""
-    await _look(db, settings)
+    await engine.look(db, settings)
     access = _access(db, decider, subject)
     counts = await service.my_counts(db, access, today=clock.today())
     return build_response(TaskCountsOut(**counts), _CLASSES)
@@ -183,7 +173,7 @@ async def list_tasks(
     settings: Settings = Depends(get_settings),
 ) -> dict[str, Any]:
     """Tasks of every case I may see, for the board."""
-    await _look(db, settings)
+    await engine.look(db, settings)
     access = _access(db, decider, subject)
     views = await service.all_tasks(
         db,

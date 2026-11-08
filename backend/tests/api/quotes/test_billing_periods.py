@@ -2,6 +2,7 @@
 
 import io
 from datetime import date
+from uuid import uuid4
 
 import pytest
 from pypdf import PdfReader
@@ -78,6 +79,13 @@ async def test_the_rhythm_follows_the_instance_until_the_assignment_says(
     assert response.status_code == 200, response.text
     assert response.json()["terms"]["rhythm_is_default"] is False
     assert response.json()["periods"][0]["key"] == "2026-Q1"
+
+
+def test_the_link_of_a_delivery_is_the_page_of_the_delivery():
+    delivery_id = uuid4()
+    assert billing_deliveries.delivery_link(delivery_id).endswith(
+        f"/geld/factureren/{delivery_id}"
+    )
 
 
 async def test_the_oldest_month_to_close_is_what_is_asked_first(act_as, world):
@@ -346,6 +354,28 @@ async def test_names_are_on_the_specification_only_when_the_agreement_says(
     assert refused.status_code == 403
 
 
+@pytest.mark.parametrize("names", [False, True])
+async def test_may_open_says_what_the_page_of_the_request_answers(act_as, world, names):
+    manager = act_as(world.manager)
+    await _terms(manager, world, details=DETAILS, names_on_specification=names)
+    await _close(manager, world, "2026-01", "2026-02", "2026-03")
+    try:
+        delivered = await _deliver(manager, world, "2026-Q1")
+    except DocumentEngineError:
+        pytest.skip("the PDF engine's system libraries are not installed here")
+    assert delivered.status_code == 201, delivered.text
+
+    for person, expected in ((world.manager, True), (world.lezer, not names)):
+        client = act_as(person)
+        [entry] = (await client.get("/api/billing")).json()["assignments"]
+        [delivery] = _period(entry, "2026-Q1")["deliveries"]
+        assert delivery["may_open"] is expected
+        [own] = _period(await _overview(client, world), "2026-Q1")["deliveries"]
+        assert own["may_open"] is expected
+        page = await client.get(f"/api/billing/deliveries/{delivery['id']}")
+        assert page.status_code == (200 if expected else 403), page.text
+
+
 async def test_who_may_read_and_who_may_deliver(act_as, world):
     manager = act_as(world.manager)
     await _terms(manager, world, details=DETAILS)
@@ -452,6 +482,45 @@ async def test_ready_periods_over_all_assignments(act_as, world):
     # A reader without rights on the money sees no assignment here.
     planner = act_as(world.planner)
     assert (await planner.get("/api/billing")).json()["assignments"] == []
+
+
+async def test_ready_cents_is_what_the_reader_may_deliver_now(act_as, world):
+    manager = act_as(world.manager)
+    await _terms(manager, world, details=DETAILS)
+    await _close(manager, world, "2026-01", "2026-02", "2026-03")
+    assert (await manager.get("/api/billing")).json()["ready_cents"] == 3 * MONTH_CENTS
+
+    # A reader who may not deliver has nothing to deliver.
+    reader = (await act_as(world.lezer).get("/api/billing")).json()
+    assert reader["reads_money"] is True
+    assert reader["ready_cents"] == 0
+
+    # Without the class of the money the figure is not in the answer.
+    planner = (await act_as(world.planner).get("/api/billing")).json()
+    assert planner["reads_money"] is False
+    assert "ready_cents" not in planner
+
+
+async def test_ready_cents_leaves_out_a_period_without_invoice_details(act_as, world):
+    manager = act_as(world.manager)
+    await _close(manager, world, "2026-01", "2026-02", "2026-03")
+    assert (await manager.get("/api/billing")).json()["ready_cents"] == 0
+
+
+async def test_an_internal_assignment_is_not_billable(act_as, world, db_session):
+    manager = act_as(world.manager)
+    await _terms(manager, world, details=DETAILS)
+    await _close(manager, world, "2026-01", "2026-02", "2026-03")
+    world.assignment.kind = "internal"
+    await db_session.flush()
+
+    body = await _overview(manager, world)
+    assert body["billable"] is False
+    assert body["may_deliver"] is False
+    assert (await manager.get("/api/billing")).json()["assignments"] == []
+    refused = await _deliver(manager, world, "2026-Q1")
+    assert refused.status_code == 422, refused.text
+    assert "intern" in refused.text
 
 
 async def test_the_letter_of_a_quote_states_the_rhythm_of_the_assignment(

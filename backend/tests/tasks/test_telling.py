@@ -6,13 +6,15 @@ import re
 from dataclasses import dataclass
 from datetime import date, timedelta
 from pathlib import Path
+from uuid import uuid4
 
 import pytest
 
 from grip.models.person import Person
+from grip.models.task import Task
 from grip.models.vacancy import Vacancy
 from grip.tasks import telling
-from grip.tasks.plan import known_plans
+from grip.tasks.plan import known_plans, plan_for
 
 FRONTEND = Path(__file__).resolve().parents[3] / "frontend" / "src"
 
@@ -54,7 +56,7 @@ def _routes() -> list[re.Pattern[str]]:
         ("assignments", "/opdrachten/:id"),
     ):
         source = (FRONTEND / "features" / folder / "paths.ts").read_text()
-        block = source.split("TAB_SEGMENTS = {", 1)[1].split("}", 1)[0]
+        block = source.split("PART_SEGMENTS = {", 1)[1].split("}", 1)[0]
         for segment in re.findall(r":\s*'([^']*)'", block):
             paths.append(f"{base}/{segment}" if segment else base)
     return [re.compile("^" + re.sub(r":\w+", "[^/]+", path) + "$") for path in paths]
@@ -92,6 +94,72 @@ def test_guidance_that_reaches_past_what_is_offered_is_refused(change, message):
     data = {"destinations": {"hier": "/opdrachten/{assignment_id}"}}
     with pytest.raises(telling.GuidanceError, match=message):
         telling.parse_guidance({**data, "templates": {"x": {**entry, **change}}})
+
+
+# Where a task may lead, per address, with the query it may carry.
+_ASSIGNMENT = "/opdrachten/x"
+_VACANCY = "/vacatures/x"
+ALLOWED_ADDRESSES: dict[str, frozenset[str]] = {
+    _ASSIGNMENT: frozenset(),
+    f"{_ASSIGNMENT}/afsluiten": frozenset({"maand", "periode", "factuur"}),
+    f"{_ASSIGNMENT}/begroting": frozenset(),
+    f"{_ASSIGNMENT}/offerte": frozenset(),
+    f"{_ASSIGNMENT}/team": frozenset(),
+    f"{_ASSIGNMENT}/rapport": frozenset(),
+    f"{_VACANCY}/aanvraag": frozenset(),
+    f"{_VACANCY}/advies": frozenset({"besluit"}),
+    f"{_VACANCY}/tekst": frozenset({"schrijf"}),
+    f"{_VACANCY}/vervulling": frozenset(),
+    "/goedkeuren/x": frozenset(),
+    "/aanvragen/offerte/x": frozenset(),
+}
+
+
+def _plan_links() -> list[tuple[str, str]]:
+    found = []
+    for version in known_plans():
+        for templates in plan_for(version).templates.values():
+            for template in templates:
+                if template.link:
+                    found.append((f"{version}: {template.key}", template.link))
+    return found
+
+
+def _check_address(label: str, address: str) -> None:
+    path, _, query = re.sub(r"\{\w+\}", "x", address).partition("?")
+    assert path in ALLOWED_ADDRESSES, f"{label}: {address}"
+    names = {part.partition("=")[0] for part in query.split("&") if part}
+    assert names <= ALLOWED_ADDRESSES[path], f"{label}: {address}"
+
+
+def test_every_destination_is_an_address_of_today():
+    """An address from before the five places fails here."""
+    for name, path in telling.guidance().destinations.items():
+        _check_address(name, path)
+
+
+def test_every_link_of_every_plan_is_an_address_of_today():
+    links = _plan_links()
+    assert links
+    for label, link in links:
+        _check_address(label, link)
+
+
+def test_the_closing_and_the_requests_lead_to_their_new_addresses():
+    destinations = telling.guidance().destinations
+    assert destinations["assignment.staffing"] == "/opdrachten/{assignment_id}/team"
+    assert destinations["assignment.month"] == (
+        "/opdrachten/{assignment_id}/afsluiten?maand={repeat_key}"
+    )
+    assert destinations["assignment.period"] == (
+        "/opdrachten/{assignment_id}/afsluiten?periode={repeat_key}"
+    )
+    assert destinations["assignment.invoice"] == (
+        "/opdrachten/{assignment_id}/afsluiten?factuur={subject_id}"
+    )
+    assert destinations["assignment.report"] == "/opdrachten/{assignment_id}/rapport"
+    assert destinations["vacancy.request"] == "/vacatures/{vacancy_id}/aanvraag"
+    assert destinations["vacancy.procedure"] == "/vacatures/{vacancy_id}/tekst"
 
 
 def test_plans_known_here_include_the_running_ones():
@@ -153,10 +221,10 @@ async def test_the_doer_hears_what_to_do_and_where(as_person, world):
     body = await mine(as_person(world.owner))
     task = by_headline(body)["Zet de opdracht in uitvoering"]
     assert task["needs_me"] is True
-    assert task["instruction"].startswith("Er is akkoord op Opdracht Alfa 2026.")
+    assert task["instruction"].startswith("Er is akkoord.")
     assert task["action_text"] == "Zet in uitvoering"
     assert task["work_href"] == f"/opdrachten/{task['assignment_id']}"
-    assert task["why"] == "Er is akkoord gegeven op de offerte voor Opdracht Alfa 2026."
+    assert task["why"] == "Er is akkoord gegeven op de offerte."
     assert task["then"]
     assert "waits_on" not in task or task["waits_on"] is None
 
@@ -264,7 +332,7 @@ async def test_a_request_that_misses_something_lists_what(as_person, world, buil
     # While something is missing the task says so, as the head does.
     task = tasks["Maak de aanvraag compleet"]
     assert task["action_text"] == "Bereid aanvraag voor"
-    assert task["work_href"] == f"/vacatures/{draft.id}"
+    assert task["work_href"] == f"/vacatures/{draft.id}/aanvraag"
     assert [item["text"] for item in task["checklist"]] == [
         "FGR-functienaam",
         "Schaal",
@@ -331,6 +399,82 @@ async def test_what_a_person_must_do_now_can_be_read_for_a_notification(
         ("uitvoering.starten", "Zet de opdracht in uitvoering"),
     ]
     assert items[0].href and items[0].href.startswith("/opdrachten/")
+
+
+def test_what_a_destination_asks_of_the_reader_is_the_table_of_the_rules():
+    from grip.access import DataClass
+    from grip.tasks import access
+
+    money, staffing = DataClass.ASSIGNMENT_FINANCIAL, DataClass.STAFFING
+    assert access.DESTINATION_NEEDS == {
+        "assignment.budget": (money,),
+        "assignment.quote": (money,),
+        "assignment.invoice": (money,),
+        "assignment.period": (money,),
+        "assignment.report": (money,),
+        "assignment.month": (money, staffing),
+        "assignment.staffing": (staffing, DataClass.STAFFING_ROSTER),
+    }
+    assert access.EDIT_DESTINATIONS == {"vacancy.fulfilment"}
+    named = set(telling.guidance().destinations)
+    assert set(access.DESTINATION_NEEDS) | access.EDIT_DESTINATIONS <= named
+
+
+async def test_a_period_to_deliver_leads_to_the_closing_part_only_with_amounts(
+    db_session, world, build
+):
+    from grip.access import Subject
+    from grip.access.deps import get_decider, get_relation_source
+    from grip.core.config import get_settings
+    from grip.tasks.access import TaskAccess
+
+    assignment = await build.assignment(status="in_progress", owner=world.owner)
+    decider = get_decider(get_relation_source(db_session, get_settings()))
+    for key in (
+        "financien.factuurgegevens_aanleveren",
+        "financien.factuur_vastleggen",
+    ):
+        task = Task(
+            template_key=key,
+            case_kind="assignment",
+            assignment_id=assignment.id,
+            repeat_key="2026-Q1",
+        )
+        destination = telling.destination_of(task)
+        for person, functions, expected in (
+            (world.owner, frozenset(), True),
+            (world.planner, frozenset({"planner"}), False),
+        ):
+            access = TaskAccess(
+                db_session, decider, Subject.for_person(person.id, functions)
+            )
+            assert await access.may_open(task, destination) is expected, (
+                key,
+                person.name,
+            )
+
+
+def test_the_destination_of_a_task_is_the_one_its_guidance_names():
+    month = Task(
+        template_key="uitvoering.maand_afsluiten",
+        assignment_id=uuid4(),
+        repeat_key="2026-03",
+    )
+    assert telling.destination_of(month) == "assignment.month"
+    request = Task(template_key="werving.aanvraag_voorbereiden", vacancy_id=uuid4())
+    assert telling.destination_of(request) == "vacancy.request"
+
+
+def test_the_destination_of_a_task_follows_its_situation():
+    task = Task(template_key="teksten.schrijven", vacancy_id=uuid4())
+    assert telling.destination_of(task) == "vacancy.text.write"
+    task.situation = "text_agreed"
+    assert telling.destination_of(task) == "vacancy.text"
+
+
+def test_a_task_without_guidance_has_no_destination():
+    assert telling.destination_of(Task(title="Eigen taak")) is None
+    assert telling.destination_of(Task(template_key="bestaat.niet")) is None
 
 
 def test_a_written_text_is_offered_or_settled_on_the_tab_not_in_the_editor() -> None:

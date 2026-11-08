@@ -1,6 +1,6 @@
 """The financial read model of one assignment: what an analyst reads.
 
-Every figure on the Financieel tab comes from here, so the screen never
+Every figure in the Begroting part comes from here, so the screen never
 computes money. The figures say what state the money is in:
 
 - ``budgeted``: the budget (R4, R5).
@@ -462,7 +462,7 @@ def _month_rows(
     return tuple(rows)
 
 
-def _overdue_months(
+def overdue_months(
     allocations: Iterable[calc.Allocation], closed: Iterable[date], today: date
 ) -> tuple[date, ...]:
     """Months before the current one with inzet that are not closed."""
@@ -757,7 +757,7 @@ def _assemble(
         if totals is not None
         else 0,
         signals=_signals(
-            lines, _overdue_months(computed.allocations, computed.closed, today)
+            lines, overdue_months(computed.allocations, computed.closed, today)
         ),
         pricing_error=first_error,
     )
@@ -832,7 +832,7 @@ LINE_CSV_COLUMNS = (
     "description",
     "kind",
     "budgeted",
-    "realised",
+    "realised_effort",
     "planned",
     "costs_realised",
     "costs_forecast",
@@ -849,9 +849,9 @@ MONTH_CSV_COLUMNS = (
     "closed",
     "budgeted",
     "planned",
-    "realised",
+    "realised_effort",
     "cumulative_budgeted",
-    "cumulative_realised",
+    "cumulative_realised_effort",
     "cumulative_planned_open",
     "cumulative_expected",
     "cumulative_variance",

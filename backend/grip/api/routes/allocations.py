@@ -13,6 +13,7 @@ from grip.access import (
     build_response,
     schema_classes,
 )
+from grip.access.vacancies import vacancy_resource
 from grip.api.assignment_support import DbSession, RequestAccess, YearFilter, parse_year
 from grip.calc import Month
 from grip.core import clock
@@ -262,6 +263,15 @@ async def get_board(
         permitted = await access.classes(resource, {A, C})
         if C not in permitted:
             continue
+        opens_vacancy = role.vacancy_id is not None and await access.may(
+            Action.READ,
+            vacancy_resource(
+                role.vacancy_id,
+                assignment_id=role.assignment_id,
+                named=dict(role.vacancy_named),
+            ),
+            DataClass.STAFFING_COUNTS,
+        )
         roles.append(
             build_response(
                 BoardOpenRoleOut(
@@ -275,6 +285,8 @@ async def get_board(
                     start_date=role.start_date,
                     end_date=role.end_date,
                     can_fill=await access.may(Action.EDIT, resource, C),
+                    vacancy_id=role.vacancy_id if opens_vacancy else None,
+                    vacancy_status=role.vacancy_status if opens_vacancy else None,
                 ),
                 permitted,
             )
@@ -290,13 +302,7 @@ async def get_board(
 
 def _board_start(value: str | None) -> Month:
     if not value:
-        today = clock.today()
-        month = Month(today.year, today.month)
-        # Three months of what has been, nine of what is coming.
-        year, number = month.year, month.month - 3
-        if number < 1:
-            year, number = year - 1, number + 12
-        return Month(year, number)
+        return staffing_board.default_start(clock.today())
     try:
         year_text, month_text = value.split("-")
         return Month(int(year_text), int(month_text))

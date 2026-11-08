@@ -22,15 +22,32 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from grip.access import Action, DataClass, Resource, Subject
+from grip.access import Action, DataClass, Resource, ResourceKind, Subject
 from grip.access.decider import Decider, decide
 from grip.access.quote_approval import quote_resource
 from grip.access.vacancies import vacancy_resource
 from grip.models.assignment import AssignmentRole, BudgetLine
 from grip.models.task import Task
 from grip.models.vacancy import Vacancy, VacancyText
+from grip.services.assignment_parts import PART_NEEDS, PART_OF_DESTINATION
 from grip.tasks import catalogue
 from grip.tasks.plan import Template, current_plan, plan_for
+
+# What the page of a destination asks for, where that is more than reading
+# the case. Each entry lists classes of which one is enough. A destination not
+# here asks no more than the case itself (class A), except that the
+# fulfilment of a vacancy asks the right to edit it.
+DESTINATION_NEEDS: dict[str, tuple[DataClass, ...]] = {
+    destination: PART_NEEDS[part] for destination, part in PART_OF_DESTINATION.items()
+} | {
+    # Delivering a period and recording an invoice work on amounts, which
+    # only class B shows; with class C alone the closing part is for reading.
+    "assignment.period": (DataClass.ASSIGNMENT_FINANCIAL,),
+    "assignment.invoice": (DataClass.ASSIGNMENT_FINANCIAL,),
+}
+EDIT_DESTINATIONS = frozenset({"vacancy.fulfilment"})
+# Pages about one quote, decided as the routes behind them decide.
+QUOTE_DESTINATIONS = frozenset({"quote.approval", "received.quote"})
 
 
 @dataclass(frozen=True)
@@ -107,6 +124,53 @@ class TaskAccess:
             self._assignments[assignment_id] = rights
         return rights
 
+    async def may_open(self, task: Task, destination: str | None) -> bool:
+        """Whether the reader may open the page where the work of this task is
+        done. Without a destination the task leads to its case."""
+        rights = await self.of_task(task)
+        if not rights.read:
+            return False
+        if destination in EDIT_DESTINATIONS:
+            return rights.edit
+        if destination in QUOTE_DESTINATIONS:
+            return await self._may_open_quote(task, destination)
+        needs = DESTINATION_NEEDS.get(destination or "")
+        if needs is None or task.assignment_id is None:
+            return True
+        resource = Resource.assignment(task.assignment_id)
+        for data_class in needs:
+            if await self._may(Action.READ, resource, data_class):
+                return True
+        return False
+
+    async def _may_open_quote(self, task: Task, destination: str | None) -> bool:
+        from grip.models.quote import Quote
+        from grip.services import quote_approval
+
+        try:
+            quote = await self._db.get(Quote, UUID(task.subject_id or ""))
+        except ValueError:
+            return False
+        if quote is None:
+            return False
+        if destination == "received.quote":
+            resource = Resource.quote(quote.id, quote.assignment_id)
+            return await self._may(Action.READ, resource, DataClass.ASSIGNMENT_BASIC)
+        # The page of an approval: the right to decide, and the reading of the
+        # quote in full that the right brings once approval was asked.
+        if not await self._may(
+            Action.DECIDE_QUOTE_APPROVAL, Resource(ResourceKind.QUOTE)
+        ):
+            return False
+        resource = quote_resource(
+            quote.id,
+            quote.assignment_id,
+            approval_requested=await quote_approval.has_request(self._db, quote.id),
+        )
+        return await self._may(
+            Action.READ, resource, DataClass.ASSIGNMENT_BASIC
+        ) and await self._may(Action.READ, resource, DataClass.ASSIGNMENT_FINANCIAL)
+
     async def prime_vacancies(self, vacancy_ids: set[UUID]) -> None:
         """Decide for several vacancies with one query for their facts."""
         missing = vacancy_ids - self._vacancies.keys()
@@ -128,6 +192,11 @@ class TaskAccess:
                 )
             )
             assignment_of = {row[0]: row[1] for row in rows}
+        from grip.services.vacancies import service as vacancy_service
+
+        reviewers = await vacancy_service.text_reviewers(
+            self._db, [v.id for v in vacancies]
+        )
         for vacancy in vacancies:
             resource = vacancy_resource(
                 vacancy.id,
@@ -135,6 +204,7 @@ class TaskAccess:
                 if vacancy.budget_line_id
                 else None,
                 named={d.kind: d.person_id for d in vacancy.decisions},
+                text_reviewers=reviewers.get(vacancy.id, ()),
             )
             read = await self._may(Action.READ, resource, DataClass.STAFFING_COUNTS)
             edit = read and await self._may(Action.EDIT, resource)

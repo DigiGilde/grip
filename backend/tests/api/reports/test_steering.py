@@ -1,6 +1,9 @@
 """The steering overview: each block follows what the reader may see."""
 
+from datetime import date
+
 from grip.core import clock
+from grip.services import costs
 
 from .conftest import (
     ALFA_BUDGET_2026,
@@ -11,7 +14,7 @@ from .conftest import (
     BETA_PIPELINE_2026,
 )
 
-BLOCKS = {"turnover", "occupancy", "pipeline", "costs", "billability", "open_roles"}
+BLOCKS = {"turnover", "occupancy", "pipeline", "costs", "billability"}
 MONEY_BLOCKS = {"turnover", "pipeline", "costs"}
 
 
@@ -381,7 +384,7 @@ async def test_a_lezer_sees_money_totals_and_no_persons(as_person, world):
 async def test_a_planner_sees_occupancy_without_amounts(as_person, world):
     response = await _steering(as_person(world.planner))
     body = response.json()
-    assert set(body) == {"year", "occupancy", "open_roles"}
+    assert set(body) == {"year", "occupancy"}
     assert body["occupancy"]["scope"] == "all"
     assert "cents" not in response.text
 
@@ -461,12 +464,54 @@ async def test_a_person_sees_the_own_occupancy_and_kpi(as_person, world):
     assert _names(body["billability"]) == {world.member.name}
 
 
+async def test_the_cost_block_counts_received_invoices_without_a_document(
+    as_person, world, db_session
+):
+    await costs.add_invoice_line(
+        db_session,
+        world.cost_item.id,
+        kind="estimate",
+        amount_cents=100,
+        period=date(2026, 9, 1),
+        actor=world.owner,
+    )
+    await costs.add_invoice_line(
+        db_session,
+        world.cost_item.id,
+        kind="actual",
+        amount_cents=100,
+        period=date(2027, 1, 1),
+        actor=world.owner,
+    )
+    await db_session.commit()
+
+    for person in (world.beheerder, world.owner, world.lezer):
+        client = as_person(person)
+        listed = (await client.get("/api/costs", params={"year": 2026})).json()
+        missing = sum(
+            1
+            for item in listed["items"]
+            for line in item["invoice_lines"]
+            if line["kind"] == "actual" and not line["attachments"]
+        )
+        assert missing == 1
+        block = (await _steering(client)).json()["costs"]
+        assert block["without_document_count"] == missing
+
+    for person in (world.planner, world.member, world.outsider):
+        body = (await _steering(as_person(person))).json()
+        assert "costs" not in body
+        assert "without_document_count" not in str(body)
+
+
 async def test_someone_without_anything_gets_no_block(as_person, world):
     response = await _steering(as_person(world.outsider))
     assert response.json() == {"year": 2026}
 
 
-async def test_open_roles_follow_staffing_access(as_person, world, db_session):
+async def test_the_steering_overview_has_no_open_roles_block(
+    as_person, world, db_session
+):
     from datetime import date
     from decimal import Decimal
 
@@ -484,17 +529,10 @@ async def test_open_roles_follow_staffing_access(as_person, world, db_session):
         end_date=date(2027, 6, 30),
         actor=world.owner,
     )
-    planner = (await _steering(as_person(world.planner))).json()["open_roles"]
-    assert planner["scope"] == "all"
-    roles = {(r["assignment_name"], r["description"]) for r in planner["roles"]}
-    assert ("Opdracht Alfa", "Ontwerper") in roles
-
-    owner = (await _steering(as_person(world.owner))).json()["open_roles"]
-    assert owner["scope"] == "own"
-    assert {r["assignment_name"] for r in owner["roles"]} == {"Opdracht Alfa"}
-
-    lezer = (await _steering(as_person(world.lezer))).json()
-    assert "open_roles" not in lezer
+    for person in (world.beheerder, world.planner, world.owner, world.lezer):
+        response = await _steering(as_person(person))
+        assert "open_roles" not in response.json(), person.name
+        assert "Ontwerper" not in response.text, person.name
 
 
 async def test_an_unpriced_assignment_is_named_and_left_out(

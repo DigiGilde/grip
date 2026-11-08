@@ -640,6 +640,13 @@ def kpi_target(
     return round_cents(_exact(target.target_pct) / _HUNDRED * year_rate)
 
 
+def kpi_gap(realisation_cents: int, target_cents: int | None) -> int | None:
+    """Realisation against the target: negative when below it, None without a target."""
+    if target_cents is None:
+        return None
+    return realisation_cents - target_cents
+
+
 # R14
 
 

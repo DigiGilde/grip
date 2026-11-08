@@ -304,6 +304,8 @@ class CostCoverageOut(BaseModel):
     forecast_cents: Annotated[int, B]
     covered_cents: Annotated[int, B]
     uncovered_cents: Annotated[int, B]
+    # Received invoices of the year, over the items listed, with no document attached.
+    without_document_count: Annotated[int, B]
     items: Annotated[list[CostCoverageItemOut], nested()]
 
 
@@ -321,23 +323,6 @@ class BillabilityOut(BaseModel):
     # are expected to end the year below it.
     with_target_count: Annotated[int, F]
     below_target_count: Annotated[int, F]
-
-
-class OpenRoleOut(BaseModel):
-    assignment_id: Annotated[UUID | None, C]
-    assignment_name: Annotated[str | None, C]
-    budget_line_id: Annotated[UUID | None, C]
-    description: Annotated[str, C]
-    unfilled_fte: Annotated[Decimal, C]
-    start_date: Annotated[date | None, C]
-    end_date: Annotated[date | None, C]
-    vacancy_status: Annotated[str | None, C]
-
-
-class OpenRolesOut(BaseModel):
-    scope: Annotated[str, C]
-    unfilled_fte: Annotated[Decimal, C]
-    roles: Annotated[list[OpenRoleOut], nested()]
 
 
 # -- investeerruimte ----------------------------------------------------------

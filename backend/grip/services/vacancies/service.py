@@ -404,21 +404,34 @@ def _plain(value: Any) -> Any:
     return value
 
 
-async def get_vacancy(db: AsyncSession, vacancy_id: UUID) -> Vacancy:
-    vacancy = await _get(db, vacancy_id)
-    # Who was asked to review a text: a fact the access rules need, carried
-    # on the loaded object (see grip.access.vacancies).
+async def text_reviewers(
+    db: AsyncSession, vacancy_ids: Iterable[UUID]
+) -> dict[UUID, tuple[UUID, ...]]:
+    """Per vacancy, who was asked to review one of its texts: a fact the
+    access rules need (see grip.access.vacancies)."""
     from grip.models.vacancy_text_flow import VacancyTextReview, VacancyTextVerdict
 
-    rows = await db.scalars(
-        select(VacancyTextVerdict.reviewer_id)
-        .join(VacancyTextReview, VacancyTextReview.id == VacancyTextVerdict.review_id)
+    ids = list(vacancy_ids)
+    found: dict[UUID, set[UUID]] = {vacancy_id: set() for vacancy_id in ids}
+    if not ids:
+        return {}
+    rows = await db.execute(
+        select(VacancyTextReview.vacancy_id, VacancyTextVerdict.reviewer_id)
+        .join(VacancyTextVerdict, VacancyTextReview.id == VacancyTextVerdict.review_id)
         .where(
-            VacancyTextReview.vacancy_id == vacancy.id,
+            VacancyTextReview.vacancy_id.in_(ids),
             VacancyTextReview.withdrawn_at.is_(None),
         )
     )
-    vacancy.text_reviewer_ids = tuple(set(rows))  # type: ignore[attr-defined]
+    for vacancy_id, reviewer_id in rows:
+        found[vacancy_id].add(reviewer_id)
+    return {vacancy_id: tuple(people) for vacancy_id, people in found.items()}
+
+
+async def get_vacancy(db: AsyncSession, vacancy_id: UUID) -> Vacancy:
+    vacancy = await _get(db, vacancy_id)
+    # Carried on the loaded object, where the routes read it.
+    vacancy.text_reviewer_ids = (await text_reviewers(db, [vacancy.id]))[vacancy.id]  # type: ignore[attr-defined]
     return vacancy
 
 
@@ -533,20 +546,15 @@ _LIVE_STATUSES = (
 )
 
 
-async def unfilled_roles(
-    db: AsyncSession, *, today: date | None = None
-) -> list[UnfilledRole]:
-    """Personnel budget lines with room left and no vacancy running yet.
+async def _roles_with_room(db: AsyncSession, day: date) -> list[UnfilledRole]:
+    """Personnel budget lines with room left, whether or not a vacancy runs.
 
     The staffing of a line is the sum of the allocations that have not ended.
     A line whose own period is over is left out.
     """
-    day = today or clock.today()
-    repo = VacancyRepository(db)
-    taken = await repo.budget_lines_with_vacancy(_LIVE_STATUSES)
     roles: list[UnfilledRole] = []
-    for line, assignment in await repo.personnel_lines():
-        if line.id in taken or line.fte is None:
+    for line, assignment in await VacancyRepository(db).personnel_lines():
+        if line.fte is None:
             continue
         if line.end_date is not None and line.end_date < day:
             continue
@@ -569,6 +577,55 @@ async def unfilled_roles(
                 declarable=assignment.kind == "external",
                 tentative=is_tentative(assignment.status),
                 intended_person_id=line.intended_person_id,
+            )
+        )
+    return roles
+
+
+async def unfilled_roles(
+    db: AsyncSession, *, today: date | None = None
+) -> list[UnfilledRole]:
+    """Personnel budget lines with room left and no vacancy running yet.
+
+    These are the roles a vacancy may be opened for.
+    """
+    taken = await VacancyRepository(db).budget_lines_with_vacancy(_LIVE_STATUSES)
+    return [
+        role
+        for role in await _roles_with_room(db, today or clock.today())
+        if role.budget_line_id not in taken
+    ]
+
+
+@dataclass(frozen=True)
+class OpenRole(UnfilledRole):
+    """A personnel budget line with room left, with the vacancy that runs for
+    it, if there is one."""
+
+    vacancy_id: UUID | None = None
+    vacancy_status: str | None = None
+    # Who is named for which decision on that vacancy, for the access decision.
+    vacancy_named: tuple[tuple[str, UUID | None], ...] = ()
+
+
+async def open_roles(db: AsyncSession, *, today: date | None = None) -> list[OpenRole]:
+    """Every role nobody fills, also when a vacancy runs for it.
+
+    A vacancy that hangs on no budget line is no role. The open part is that
+    of the line, whatever the vacancy asks.
+    """
+    running = await VacancyRepository(db).newest_vacancy_per_line(_LIVE_STATUSES)
+    roles: list[OpenRole] = []
+    for role in await _roles_with_room(db, today or clock.today()):
+        vacancy = running.get(role.budget_line_id)
+        roles.append(
+            OpenRole(
+                **vars(role),
+                vacancy_id=vacancy.id if vacancy else None,
+                vacancy_status=vacancy.status if vacancy else None,
+                vacancy_named=tuple((d.kind, d.person_id) for d in vacancy.decisions)
+                if vacancy
+                else (),
             )
         )
     return roles
@@ -656,10 +713,26 @@ async def set_step(
     note: str | None = None,
 ) -> VacancyStep:
     """Record a step of the procedure, or change its dates."""
-    kind = StepKind(kind)
     vacancy = await _get(db, vacancy_id)
     await stale.check(db, vacancy, "deze vacature")
     stale.touch(vacancy)
+    return await _write_step(
+        db, vacancy, kind, started_on=started_on, ended_on=ended_on, note=note
+    )
+
+
+async def _write_step(
+    db: AsyncSession,
+    vacancy: Vacancy,
+    kind: StepKind | str,
+    *,
+    started_on: date,
+    ended_on: date | None = None,
+    note: str | None = None,
+) -> VacancyStep:
+    """The step itself, for a caller that already checked and touched the
+    vacancy: a second check would see the version its own flush raised."""
+    kind = StepKind(kind)
     others = {
         StepKind(step.kind): StepDates(step.started_on, step.ended_on)
         for step in vacancy.steps
@@ -830,8 +903,8 @@ async def record_decision(
     if agreed is not None:
         day = decided_on or clock.today()
         decided_at = datetime(day.year, day.month, day.day, tzinfo=UTC)
-        await set_step(
-            db, vacancy.id, _DECISION_STEP[kind], started_on=day, ended_on=day
+        await _write_step(
+            db, vacancy, _DECISION_STEP[kind], started_on=day, ended_on=day
         )
 
     decision = next((d for d in vacancy.decisions if d.kind == kind.value), None)

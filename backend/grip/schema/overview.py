@@ -1,4 +1,4 @@
-"""Schemas for the stand van zaken: budgeted, used and available."""
+"""Schemas for Lopende opdrachten: budgeted, used and available."""
 
 from datetime import date
 from decimal import Decimal
@@ -30,16 +30,6 @@ class TotalsOut(BaseModel):
     overrun: Annotated[bool, in_class(B)]
 
 
-class AttentionOut(BaseModel):
-    """One thing that needs attention. The route only adds the points the
-    reader may see, so the fields themselves are as open as the row."""
-
-    kind: Annotated[str, in_class(A)]
-    text: Annotated[str, in_class(A)]
-    # The tab of the assignment where the point is solved.
-    tab: Annotated[str, in_class(A)]
-
-
 class OverviewRowOut(BaseModel):
     assignment_id: Annotated[UUID, in_class(A)]
     name: Annotated[str, in_class(A)]
@@ -57,7 +47,6 @@ class OverviewRowOut(BaseModel):
     # False when the assignment has nothing in the chosen year: its period
     # lies outside it. The start page leaves such rows out and says so.
     in_year: Annotated[bool, in_class(A)] = True
-    attention: Annotated[list[AttentionOut], nested()] = []
 
 
 class OverviewOut(BaseModel):

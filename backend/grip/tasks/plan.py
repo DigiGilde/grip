@@ -153,7 +153,7 @@ def _template(case_kind: str, tracks: set[str], raw: dict[str, Any]) -> Template
     if subject not in catalogue.SUBJECTS[case_kind]:
         raise fail(f"onbekend onderwerp '{subject}'")
     if raw.get("track") not in tracks:
-        raise fail(f"onbekend spoor '{raw.get('track')}'")
+        raise fail(f"onbekende soort werk '{raw.get('track')}'")
     known = catalogue.facts_for(case_kind, subject)
     when = tuple(raw.get("when", ()))
     for condition in when:

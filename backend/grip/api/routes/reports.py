@@ -16,7 +16,6 @@ Three rules hold for everything here:
 from __future__ import annotations
 
 from datetime import date
-from decimal import Decimal
 from typing import Annotated, Any, Literal
 from uuid import UUID, uuid4
 
@@ -49,8 +48,6 @@ from grip.schema.reports import (
     OccupancyOut,
     OccupancyPartOut,
     OccupancySummaryOut,
-    OpenRoleOut,
-    OpenRolesOut,
     PersonOccupancyOut,
     PipelineOut,
     PipelineQuoteOut,
@@ -581,6 +578,12 @@ async def _costs_block(
             forecast_cents=sum(i.forecast_cents for i in items),
             covered_cents=sum(i.covered_cents or 0 for i in items),
             uncovered_cents=sum(i.uncovered_cents or 0 for i in items),
+            without_document_count=sum(
+                1
+                for i in items
+                for line in i.invoice_lines
+                if line.kind == "actual" and not i.attachments.get(line.id)
+            ),
             items=[
                 CostCoverageItemOut(
                     cost_item_id=i.item.id,
@@ -597,6 +600,18 @@ async def _costs_block(
     )
 
 
+async def readable_kpi_people(
+    access: RequestAccess, db: DbSession, year: int
+) -> list[tuple[UUID, str, Any]]:
+    """Who the reader may read a billability figure of, without building one."""
+    readable: list[tuple[UUID, str, Any]] = []
+    for person_id, person_name in await steering.kpi_person_ids(db, year):
+        classes = await access.classes(Resource.person(person_id), _KPI_CLASSES)
+        if F in classes:
+            readable.append((person_id, person_name, classes))
+    return readable
+
+
 async def _billability_block(
     access: RequestAccess, db: DbSession, year: int
 ) -> dict[str, Any] | None:
@@ -604,11 +619,7 @@ async def _billability_block(
     persons: list[dict[str, Any]] = []
     target = realised = forecast = 0
     with_target = below_target = 0
-    readable: list[tuple[UUID, str, Any]] = []
-    for person_id, person_name in await steering.kpi_person_ids(db, year):
-        classes = await access.classes(Resource.person(person_id), _KPI_CLASSES)
-        if F in classes:
-            readable.append((person_id, person_name, classes))
+    readable = await readable_kpi_people(access, db, year)
     rows = await steering.kpi_rows(
         db, [(person_id, name) for person_id, name, _ in readable], year
     )
@@ -633,6 +644,7 @@ async def _billability_block(
                     realised_cents=overview.realised_cents if overview else None,
                     forecast_cents=overview.forecast_cents if overview else None,
                     realisation_cents=overview.realisation_cents if overview else None,
+                    gap_cents=overview.gap_cents if overview else None,
                     unavailable_reason=None
                     if overview
                     else (
@@ -662,43 +674,6 @@ async def _billability_block(
     return block
 
 
-async def _open_roles_block(
-    access: RequestAccess, db: DbSession
-) -> dict[str, Any] | None:
-    sees_all = await access.may(Action.READ, Resource.assignment(), C)
-    roles = []
-    for role in await steering.open_roles(db):
-        if sees_all or (
-            role.assignment_id is not None
-            and await access.may(
-                Action.READ, Resource.assignment(role.assignment_id), C
-            )
-        ):
-            roles.append(role)
-    if not sees_all and not roles:
-        return None
-    return build_response(
-        OpenRolesOut(
-            scope="all" if sees_all else "own",
-            unfilled_fte=sum((r.unfilled_fte for r in roles), Decimal(0)),
-            roles=[
-                OpenRoleOut(
-                    assignment_id=r.assignment_id,
-                    assignment_name=r.assignment_name,
-                    budget_line_id=r.budget_line_id,
-                    description=r.description,
-                    unfilled_fte=r.unfilled_fte,
-                    start_date=r.start_date,
-                    end_date=r.end_date,
-                    vacancy_status=r.vacancy_status,
-                )
-                for r in roles
-            ],
-        ),
-        {C},
-    )
-
-
 @router.get("/steering", response_model=None)
 async def get_steering(
     access: RequestAccess, db: DbSession, year: Year = None
@@ -712,18 +687,12 @@ async def get_steering(
         "pipeline": await _pipeline_block(access, db, selected),
         "costs": await _costs_block(access, db, selected),
         "billability": await _billability_block(access, db, selected),
-        "open_roles": await _open_roles_block(access, db),
     }
     result.update({name: block for name, block in blocks.items() if block is not None})
     return result
 
 
 # -- investeerruimte ----------------------------------------------------------
-
-# A sum of targets is shown to a reader who may not see targets per person
-# only when it covers at least this many people. With fewer, the sum (and
-# the figure it is subtracted in) would give away one person's target.
-MIN_PERSONS_IN_TARGET_SUM = 5
 
 D = DataClass.PERSON_RATE
 
@@ -746,15 +715,12 @@ async def get_investment(
     if await _sees_all_financial(access):
         money = await investment.money_reading(db, selected)
         sees_targets = await access.may(Action.READ, Resource.person(), F)
-        if (
-            not sees_targets
-            and 0 < money.target_person_count < MIN_PERSONS_IN_TARGET_SUM
+        if investment.money_withheld(
+            money.target_person_count, sees_targets=sees_targets
         ):
-            # The figure minus the other lines is the sum of the targets,
-            # so the whole derivation is withheld, not only one line.
             result["money_withheld"] = {
                 "reason": "few_targets",
-                "min_persons": MIN_PERSONS_IN_TARGET_SUM,
+                "min_persons": investment.MIN_PERSONS_IN_TARGET_SUM,
             }
         else:
             result["money"] = build_response(

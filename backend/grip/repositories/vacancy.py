@@ -102,6 +102,26 @@ class VacancyRepository:
         )
         return {line_id for line_id in result.scalars() if line_id is not None}
 
+    async def newest_vacancy_per_line(
+        self, statuses: Iterable[str]
+    ) -> dict[UUID, Vacancy]:
+        """Per budget line, its newest vacancy in one of the statuses, with
+        the decisions loaded."""
+        result = await self.db.execute(
+            select(Vacancy)
+            .where(
+                Vacancy.budget_line_id.is_not(None),
+                Vacancy.status.in_(list(statuses)),
+            )
+            .options(selectinload(Vacancy.decisions))
+            .order_by(Vacancy.created_at.desc(), Vacancy.id)
+        )
+        found: dict[UUID, Vacancy] = {}
+        for vacancy in result.scalars():
+            if vacancy.budget_line_id is not None:
+                found.setdefault(vacancy.budget_line_id, vacancy)
+        return found
+
     async def person_names_by_id(self, person_ids: Iterable[UUID]) -> dict[UUID, str]:
         ids = list({pid for pid in person_ids if pid is not None})
         if not ids:

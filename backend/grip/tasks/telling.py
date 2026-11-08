@@ -40,6 +40,7 @@ from grip.models.role import PersonRole
 from grip.models.task import Task
 from grip.models.vacancy import Vacancy, VacancyText
 from grip.services import billing_corrections, quote_approval
+from grip.services.reports.labels import day
 from grip.services.vacancies import service as vacancy_service
 from grip.tasks import catalogue
 from grip.tasks.cases import period_words
@@ -150,20 +151,6 @@ _DECISION_WORDS = {
     "control_advice": "de controller",
     "approval": "wie akkoord moet geven",
 }
-_MONTHS_SHORT = (
-    "jan",
-    "feb",
-    "mrt",
-    "apr",
-    "mei",
-    "jun",
-    "jul",
-    "aug",
-    "sep",
-    "okt",
-    "nov",
-    "dec",
-)
 _MONTHS = (
     "januari",
     "februari",
@@ -324,10 +311,6 @@ class Telling:
     # Nobody can do this until something outside the task changes.
     blocked: str | None = None
     checklist: list[ChecklistItem] = field(default_factory=list)
-
-
-def day(value: date) -> str:
-    return f"{value.day} {_MONTHS_SHORT[value.month - 1]} {value.year}"
 
 
 def _euros(cents: int) -> str:
@@ -618,13 +601,23 @@ def _missing_request_fields(vacancy: Vacancy, motivated: bool) -> list[Checklist
     ]
 
 
+def _guide_of(task: Task) -> Guide | None:
+    guide = guidance().templates.get(task.template_key or "")
+    # The situation the facts gave the task may lead somewhere else.
+    return guide.in_situation(task.situation) if guide is not None else None
+
+
+def destination_of(task: Task) -> str | None:
+    """The name of the destination its guidance gives the task, if any."""
+    guide = _guide_of(task)
+    return guide.destination if guide is not None else None
+
+
 def work_href(task: Task) -> str | None:
     """Where the work of a task is done, from its guidance or else its plan."""
-    guide = guidance().templates.get(task.template_key or "")
+    guide = _guide_of(task)
     if guide is None:
         return task.link
-    # The situation the facts gave the task may lead somewhere else.
-    guide = guide.in_situation(task.situation)
     values = {
         "assignment_id": str(task.assignment_id or ""),
         "vacancy_id": str(task.vacancy_id or ""),
@@ -660,6 +653,8 @@ async def _tell_one(access: TaskAccess, view: TaskView, context: _Context) -> Te
     # A name of a person only where the reader runs the case or does the work.
     may_name = rights.edit or mine
     href = work_href(task)
+    if href is not None and not await access.may_open(task, destination_of(task)):
+        href = None
 
     if not task.is_open:
         closed = _closed_headline(task, guide, view, context, may_name)
@@ -760,7 +755,7 @@ async def _tell_one(access: TaskAccess, view: TaskView, context: _Context) -> Te
         label = catalogue.ROLE_LABELS.get(task.assignee_role or "", "dit recht")
         blocked = (
             f"Niemand heeft het recht {label} in grip. Een beheerder geeft dat "
-            "recht bij Team, op de pagina van een persoon."
+            "recht onder Mensen, op de pagina van een persoon."
         )
     elif (
         task.subject_kind == "quote_approval"
@@ -770,8 +765,8 @@ async def _tell_one(access: TaskAccess, view: TaskView, context: _Context) -> Te
         blocked = (
             "Niemand anders kan deze offerte goedkeuren: wie de offerte maakte "
             "of de goedkeuring vroeg, beslist er niet zelf over. Een beheerder "
-            "geeft een collega het recht Interne goedkeurder van offertes bij "
-            "Team, op de pagina van een persoon."
+            "geeft een collega het recht Interne goedkeurder van offertes onder "
+            "Mensen, op de pagina van een persoon."
         )
     if can_act:
         instruction = _fill(told.do, values) or told.do
@@ -845,6 +840,9 @@ def _values(
             if named_client and task.waiting_on == "de opdrachtgever"
             else task.waiting_on
         )
+    elif task.assignee_person_id is not None:
+        # Handed to a person the reader may not name.
+        values["wie"] = "een collega"
     elif (
         task.assignee_role in ("owner", "manager")
         and task.assignment_id in context.owners

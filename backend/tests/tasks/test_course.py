@@ -480,7 +480,7 @@ async def test_when_nobody_can_approve_the_head_says_who_grants_the_right(
     sentence = found["next"]["sentence"]
     assert found["current_label"] == "Interne goedkeuring"
     assert "Interne goedkeurder van offertes" in sentence
-    assert "Een beheerder geeft dat recht bij Team" in sentence
+    assert "Een beheerder geeft dat recht onder Mensen" in sentence
     assert "offertegoedkeurder" not in sentence
     assert found["next"]["action_text"] != "Vraag goedkeuring"
 
@@ -545,6 +545,39 @@ async def test_who_runs_the_case_can_do_a_step_for_the_one_at_move(
     ]["next"]
     assert owner["mine"] is False
     assert owner["who"] == "Mila Manager"
+
+
+async def test_a_month_to_close_on_a_completed_assignment_is_the_owners_move(
+    as_person, build, people, create_person
+):
+    person = await create_person("dev@example.org", name="Dee Developer")
+    assignment = await build.assignment(
+        status="completed",
+        owner=people.owner,
+        start=date(2025, 7, 1),
+        end=date(2025, 7, 31),
+    )
+    await build.allocation(await build.line(assignment), person)
+
+    async def month_task(who):
+        body = (
+            await as_person(who).get(f"/api/tasks/cases/assignment/{assignment.id}")
+        ).json()
+        return next(
+            task
+            for track in body["tracks"]
+            for task in track["tasks"]
+            if task["title"] == "Sluit juli 2025 af"
+        )
+
+    mine = await month_task(people.owner)
+    assert mine["is_mine"] is True
+    assert mine["needs_me"] is True
+    assert mine["headline"] == "Sluit juli 2025 af"
+
+    other = await month_task(people.reader)
+    assert other["is_mine"] is False
+    assert other["waits_on"] == "Eva Eigenaar of een manager van de opdracht"
 
 
 async def test_an_internal_assignment_has_a_short_course_of_its_own(

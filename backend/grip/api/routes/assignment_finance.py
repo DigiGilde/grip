@@ -1,4 +1,4 @@
-"""The financial state of one assignment: the Financieel tab and its export."""
+"""The financial state of one assignment: the Begroting part and its export."""
 
 from typing import Any, Literal
 from uuid import UUID
@@ -238,7 +238,7 @@ async def get_assignment_finance_csv(
     year: YearFilter = None,
     section: Literal["lines", "months"] = "lines",
 ) -> Response:
-    """The table of the Financieel tab as CSV. No names of persons.
+    """The table of the Begroting part as CSV. No names of persons.
 
     Columns: ``assignment_finance.LINE_CSV_COLUMNS`` or ``MONTH_CSV_COLUMNS``.
     """
@@ -255,7 +255,7 @@ async def get_assignment_finance_csv(
         media_type="text/csv; charset=utf-8",
         headers={
             "Content-Disposition": (
-                f'attachment; filename="financieel-{name}-{period}.csv"'
+                f'attachment; filename="begroting-{name}-{period}.csv"'
             ),
             "Cache-Control": "private, no-store",
         },
