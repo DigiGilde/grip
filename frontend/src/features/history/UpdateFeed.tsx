@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useRef } from 'react';
-import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { useInstance } from '@/layout/useInstance';
 import { ActionBar } from '@/ui/ActionBar';
 import { EmptyNotice, LoadError, Loading, Page, Quiet, SectionHeading, Stack } from '@/ui/layout';
-import { UPDATE_KEYS, byDay, fetchUpdates, markUpdatesSeen, type UpdateItem } from './updates';
+import { byDay, type UpdateItem } from './updates';
+import { useUpdateFeed } from './useUpdateFeed';
 
 /** One sentence; the thing it is about is a link to where it is to be seen. */
 function Sentence({ item }: { item: UpdateItem }) {
@@ -32,32 +32,11 @@ interface UpdateFeedProps {
 
 /**
  * What happened since the reader last looked: one sentence per row, the time
- * at the right, grouped by day. Showing it marks it as seen.
+ * at the right, grouped by day.
  */
 export function UpdateFeed({ limit = 10, paged = false, level = 3 }: UpdateFeedProps) {
-  const queryClient = useQueryClient();
-  const query = useInfiniteQuery({
-    queryKey: UPDATE_KEYS.list(limit),
-    queryFn: ({ pageParam }) => fetchUpdates(limit, pageParam),
-    initialPageParam: undefined as number | undefined,
-    getNextPageParam: (last) => last.next ?? undefined,
-  });
-  const days = useMemo(
-    () => byDay(query.data?.pages.flatMap((page) => page.items) ?? []),
-    [query.data],
-  );
-
-  // Seen is when the feed was shown, once; what was new stays marked on
-  // this screen until the reader comes back.
-  const marked = useRef(false);
-  const shown = query.isSuccess;
-  useEffect(() => {
-    if (!shown || marked.current) return;
-    marked.current = true;
-    void markUpdatesSeen().then(() =>
-      queryClient.invalidateQueries({ queryKey: ['updates', 'count'] }),
-    );
-  }, [shown, queryClient]);
+  const { query, items } = useUpdateFeed(limit, true);
+  const days = useMemo(() => byDay(items), [items]);
 
   if (query.isPending) return <Loading />;
   if (query.isError) return <LoadError error={query.error} retry={() => void query.refetch()} />;
@@ -104,7 +83,7 @@ export function UpdateFeed({ limit = 10, paged = false, level = 3 }: UpdateFeedP
 export function UpdatesPage() {
   const instance = useInstance();
   return (
-    <Page title="Wat is er gebeurd" instanceName={instance?.name}>
+    <Page kind="list" title="Wat is er gebeurd" instanceName={instance?.name}>
       <UpdateFeed limit={20} paged level={2} />
     </Page>
   );

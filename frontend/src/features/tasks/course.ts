@@ -2,7 +2,7 @@
 import { useEffect } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiGet } from '@/api/client';
-import type { Course } from '@/ui/course';
+import { courseLine, type Course } from '@/ui/course';
 
 export type CaseKind = 'assignment' | 'vacancy';
 
@@ -61,6 +61,20 @@ export function useCaseCourse(kind: CaseKind, id: string, enabled = true) {
     staleTime: 0,
     placeholderData: keepPreviousData,
   });
+}
+
+/**
+ * Where a case stands and whose move it is, as one sentence for a row. Empty
+ * until the course is known. A reader who only looks on is not told whose
+ * move it is: it is not theirs to wait for.
+ */
+export function standingText(course: Course | null | undefined): string {
+  const line = courseLine(course);
+  if (!line) return '';
+  // "Jij: ..." already names the step; for someone else's move the step comes first.
+  if (line.mine) return line.who;
+  const watching = course?.next?.part === 'watches';
+  return [line.step, watching ? '' : line.who].filter(Boolean).join('. ');
 }
 
 /** The courses of the cases in a list, by case id. */

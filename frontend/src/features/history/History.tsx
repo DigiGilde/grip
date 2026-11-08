@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { useParams } from 'react-router-dom';
 import { useAuth } from '@/auth/context';
 import { useInstance } from '@/layout/useInstance';
 import { Button } from '@/features/team/ui/controls';
@@ -150,23 +149,7 @@ function HistoryList({
 export function CaseHistory({ kind, caseId }: { kind: CaseKind; caseId: string }) {
   const filters = useMemo(() => ({ case_kind: kind, case_id: caseId }), [kind, caseId]);
   if (caseId === '') return null;
-  return (
-    <nldd-simple-section>
-      <HistoryList filters={filters} label="Geschiedenis" show="changes" />
-    </nldd-simple-section>
-  );
-}
-
-/** The tab "Geschiedenis" of an assignment. */
-export function AssignmentHistoryTab() {
-  const { assignmentId = '' } = useParams();
-  return <CaseHistory kind="assignment" caseId={assignmentId} />;
-}
-
-/** The tab "Geschiedenis" of a vacancy. */
-export function VacancyHistoryTab() {
-  const { vacancyId = '' } = useParams();
-  return <CaseHistory kind="vacancy" caseId={vacancyId} />;
+  return <HistoryList filters={filters} label="Geschiedenis" show="changes" />;
 }
 
 const ALL = 'all';
@@ -224,7 +207,7 @@ export function ActivityPage() {
   );
 
   return (
-    <Page title="Activiteit" instanceName={instance?.name} back={adminBack}>
+    <Page kind="list" title="Activiteit" instanceName={instance?.name} back={adminBack}>
       {isAdmin ? (
         <>
           <ActionBar
@@ -261,7 +244,7 @@ export function ActivityPage() {
           />
         </>
       ) : (
-        <NoAccess who="Activiteit is voor beheerders. Wie dat zijn zie je onder Team." />
+        <NoAccess who="Activiteit is voor beheerders. Wie dat zijn zie je onder Mensen." />
       )}
     </Page>
   );

@@ -1,5 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { mockApi } from '@/features/assignments/testing';
+import { renderApp } from '@/test/utils';
 import type { HistoryEvent } from './api';
+import { NewUpdates } from './NewUpdates';
+import { UpdateFeed } from './UpdateFeed';
+import type { UpdateItem } from './updates';
 import { actor, detail, headline, moments } from './words';
 
 function event(overrides: Partial<HistoryEvent>): HistoryEvent {
@@ -135,5 +141,105 @@ describe('moments', () => {
     ]);
     expect(rows).toHaveLength(1);
     expect(rows[0]?.lines).toEqual([]);
+  });
+});
+
+const requested = (fetchMock: { mock: { calls: unknown[][] } }) =>
+  fetchMock.mock.calls.map((call) => String(call[0]));
+
+describe('NewUpdates', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const item = (id: string, over: Partial<UpdateItem> = {}): UpdateItem => ({
+    id,
+    seq: 1,
+    kind: 'x',
+    when: '2026-11-04T08:00:00Z',
+    when_text: 'vanochtend',
+    day: 'Vandaag',
+    parts: [{ text: 'Opdracht Alfa', href: '/opdrachten/a1' }, { text: ' is gestart' }],
+    text: 'Opdracht Alfa is gestart',
+    count: 1,
+    new: false,
+    ...over,
+  });
+
+  function show(items: UpdateItem[]) {
+    const fetchMock = mockApi({
+      '/api/updates': { items, new_count: 0, next: null },
+      '/api/updates/seen': {},
+    });
+    return { ...renderApp(<NewUpdates limit={3} />), fetchMock };
+  }
+
+  it('asks for three, shows a row each to what it is about, and the way to all', async () => {
+    const { container, fetchMock } = show([
+      item('u1'),
+      item('u2', { parts: [{ text: 'Zonder adres' }] }),
+    ]);
+    await waitFor(() => expect(container.querySelector('nldd-list')).not.toBeNull());
+    expect((fetchMock.mock.calls as unknown[][]).map((call) => String(call[0]))).toContain(
+      '/api/updates?limiet=3',
+    );
+    const rows = [...container.querySelectorAll('nldd-list-item')];
+    expect(rows.map((row) => row.getAttribute('href'))).toEqual([
+      '/opdrachten/a1',
+      null,
+      '/wat-is-er-gebeurd',
+    ]);
+    expect(rows[2]!.querySelector('nldd-text-cell')?.getAttribute('text')).toBe(
+      'Alles wat er gebeurd is',
+    );
+  });
+
+  it('marks what is new', async () => {
+    const { container } = show([item('u1', { new: true })]);
+    await waitFor(() => expect(container.querySelector('nldd-list')).not.toBeNull());
+    expect(container.querySelector('nldd-text-cell')?.getAttribute('supporting-text')).toBe(
+      'nieuw · vanochtend',
+    );
+  });
+
+  it('is not there when nothing happened', async () => {
+    const { container, fetchMock } = show([]);
+    await waitFor(() => expect(requested(fetchMock)).toContain('/api/updates?limiet=3'));
+    expect(container.querySelector('nldd-title')).toBeNull();
+    expect(container.querySelector('nldd-list')).toBeNull();
+  });
+
+  it('does not mark the feed as seen: three rows are not all of it', async () => {
+    const { container, fetchMock } = show([item('u1', { new: true })]);
+    await waitFor(() => expect(container.querySelector('nldd-list')).not.toBeNull());
+    expect(requested(fetchMock)).not.toContain('/api/updates/seen');
+  });
+});
+
+describe('UpdateFeed', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('marks the feed as seen once it is shown', async () => {
+    const fetchMock = mockApi({
+      '/api/updates': {
+        items: [
+          {
+            id: 'u1',
+            seq: 1,
+            kind: 'x',
+            when: '2026-11-04T08:00:00Z',
+            when_text: 'vanochtend',
+            day: 'Vandaag',
+            parts: [{ text: 'Iets gebeurde' }],
+            text: 'Iets gebeurde',
+            count: 1,
+            new: true,
+          },
+        ],
+        new_count: 1,
+        next: null,
+      },
+      '/api/updates/seen': {},
+    });
+    renderApp(<UpdateFeed limit={20} paged level={2} />);
+    await waitFor(() => expect(requested(fetchMock)).toContain('/api/updates/seen'));
   });
 });

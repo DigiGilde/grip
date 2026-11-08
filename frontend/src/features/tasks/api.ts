@@ -66,8 +66,6 @@ export interface Task {
   assignee_person_id?: string | null;
   assignee_label: string;
   waiting_on?: string | null;
-  /** The link the plan gave the task. Use `work_href` instead. */
-  link?: string | null;
   is_mine?: boolean;
   can_change?: boolean;
   /** False for a task that only its fact closes. */

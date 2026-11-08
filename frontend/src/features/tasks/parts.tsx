@@ -1,5 +1,5 @@
 /**
- * The parts every task screen shares: the table of tasks, and the sheet that
+ * The parts every task screen shares: the rows of tasks, and the sheet that
  * tells one task.
  *
  * A task is told to its reader in this order: what to do (or who must do
@@ -15,14 +15,9 @@ import { errorMessage } from '@/api/client';
 import { orUndef, useNlddEvent } from '@/components/nldd/events';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { formatDate } from '@/lib/format';
+import { IconCell } from '@/ui/Icon';
 import { Facts, Quiet, Stack, type Fact } from '@/ui/layout';
-import {
-  OpenCell,
-  OpenRow,
-  ROW_ACTIONS_COLUMN,
-  RowActions,
-  RowActionsHeader,
-} from '@/ui/RowActions';
+import { RowActions } from '@/ui/RowActions';
 import { Button, TextInput } from '@/features/vacancies/ui';
 import { TASK_KEYS, addTaskNote, fetchTask, setTaskStatus, type Task } from './api';
 import { useTaskActions } from './actions';
@@ -31,15 +26,54 @@ import { useTellApart } from './tellApart';
 
 if (import.meta.env.MODE !== 'test') void import('./register');
 
-/** The quiet line under the name of a task in a list. */
+/** The quiet line under the name of a task in a list: whose, on what, by when. */
 function detailLine(task: Task, withCase: boolean, apart?: string): string | undefined {
   const parts = [
     task.needs_me !== true && task.waits_on ? `Wacht op ${task.waits_on}` : null,
     withCase ? aboutLine(task) : null,
     // Only when another task in the list reads the same: where its vacancy stands.
     withCase ? apart : null,
+    task.due_on ? `Vóór ${formatDate(task.due_on)}` : null,
   ].filter(Boolean);
   return parts.length > 0 ? parts.join(' · ') : undefined;
+}
+
+interface TaskRowProps {
+  task: Task;
+  detail: string | undefined;
+  onOpen: (id: string) => void;
+}
+
+/**
+ * One task as a row. The row leads to the place of the work when the task is
+ * the reader's to do, and opens the task to be read otherwise. The menu at
+ * the end holds the rest.
+ */
+function TaskRow({ task, detail, onOpen }: TaskRowProps) {
+  const actionsOf = useTaskActions(onOpen);
+  const ref = useRef<HTMLElement>(null);
+  const name = headlineOf(task);
+  const href = goesToWork(task) ? workHref(task) : null;
+  useNlddEvent(ref, 'click', href ? undefined : () => onOpen(task.id));
+  return (
+    <nldd-list-item>
+      <nldd-list-item-segment ref={ref} width="full" {...(href ? { href } : { button: true })}>
+        <nldd-text-cell text={name} {...(detail ? { 'supporting-text': detail } : {})} />
+        {task.overdue && (
+          <nldd-cell>
+            <nldd-badge size="sm" color="critical" text="Te laat" />
+          </nldd-cell>
+        )}
+        {task.status === 'done' && (
+          <nldd-cell>
+            <nldd-badge size="sm" color="success" text="Klaar" />
+          </nldd-cell>
+        )}
+        {href && <IconCell concept="open" />}
+      </nldd-list-item-segment>
+      <RowActions name={name} actions={actionsOf(task)} />
+    </nldd-list-item>
+  );
 }
 
 interface TaskTableProps {
@@ -52,48 +86,25 @@ interface TaskTableProps {
 }
 
 /**
- * Tasks as a table: what, on what and by when. The name of a task that is
- * the reader's to do leads to the place where it is done; the name of any
- * other task opens it. The menu at the end holds the rest.
+ * Tasks as rows: what, on what and by when. A task that is the reader's to
+ * do leads to the place where it is done; any other opens to be read. The
+ * list is one tab stop, and the arrows walk its rows.
  */
 export function TaskTable({ label, tasks, withCase = true, onOpen }: TaskTableProps) {
-  const navigate = useNavigate();
-  const actionsOf = useTaskActions(onOpen);
   const apartOf = useTellApart(tasks);
-  // A list in which nothing has a date has no column for it.
-  const withDue = tasks.some((task) => task.due_on);
-  const columns = `minmax(280px,1fr) ${withDue ? '180px ' : ''}${ROW_ACTIONS_COLUMN}`;
-  const narrow = `minmax(180px,1fr) ${withDue ? '110px ' : ''}${ROW_ACTIONS_COLUMN}`;
   return (
-    <nldd-table accessible-label={label} columns={columns} sm-columns={narrow}>
-      <nldd-table-row slot="header">
-        <nldd-text-cell text="Taak" />
-        {withDue && <nldd-text-cell text="Vóór" />}
-        <RowActionsHeader />
-      </nldd-table-row>
-      {tasks.map((task) => {
-        const name = headlineOf(task);
-        const href = workHref(task);
-        const activate = goesToWork(task) && href ? () => navigate(href) : () => onOpen(task.id);
-        return (
-          <OpenRow key={task.id} onOpen={activate}>
-            <OpenCell
-              text={name}
-              supportingText={detailLine(task, withCase, apartOf(task))}
-              accessibleLabel={goesToWork(task) ? `${name}: ga naar het werk` : `Bekijk ${name}`}
-              onOpen={activate}
-            />
-            {withDue && (
-              <nldd-text-cell
-                text={formatDate(task.due_on)}
-                {...(task.overdue ? { color: 'critical', 'supporting-text': 'Te laat' } : {})}
-              />
-            )}
-            <RowActions name={name} actions={actionsOf(task)} />
-          </OpenRow>
-        );
-      })}
-    </nldd-table>
+    <RouterLinks>
+      <nldd-list accessible-label={label}>
+        {tasks.map((task) => (
+          <TaskRow
+            key={task.id}
+            task={task}
+            detail={detailLine(task, withCase, apartOf(task))}
+            onOpen={onOpen}
+          />
+        ))}
+      </nldd-list>
+    </RouterLinks>
   );
 }
 

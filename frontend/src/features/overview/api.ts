@@ -1,5 +1,5 @@
 /**
- * The stand van zaken endpoints. Amounts are class B: for a reader without
+ * The endpoints of the running assignments. Amounts are class B: for a reader without
  * it, `figures` is absent or empty and the subtotals are absent.
  */
 import { apiGet } from '@/api/client';
@@ -22,15 +22,6 @@ export interface OverviewRow {
   reference_month?: string | null;
   /** False when the assignment has nothing in the chosen year. */
   in_year?: boolean;
-  /** What needs attention, as sentences the server built, each with its tab. */
-  attention?: AttentionPoint[];
-}
-
-export interface AttentionPoint {
-  kind: string;
-  text: string;
-  /** The tab of the assignment where the point is solved. */
-  tab: string;
 }
 
 export interface Overview {
@@ -45,48 +36,14 @@ export interface Overview {
   to_invoice_cents?: number | null;
 }
 
-export interface TeamMember {
-  allocation_id: string;
-  person_id: string;
-  person_name: string;
-  start_date?: string;
-  end_date?: string;
-  fte_pct?: string;
-  category_mismatch?: boolean;
-}
-
-export interface LineOverview {
-  budget_line_id: string;
-  description: string;
-  kind: string;
-  role?: string | null;
-  fte?: string | null;
-  start_date?: string | null;
-  end_date?: string | null;
-  team: TeamMember[];
-}
-
-/** The lines of one assignment with their team; the staffing tab reads this. */
-export interface AssignmentOverview {
-  assignment_id: string;
-  name: string;
-  status: string;
-  year: number | null;
-  lines: LineOverview[];
-}
-
 /** The year filter: a year, or 'all' for the whole period. */
 export type YearChoice = string;
 
 export const overviewKeys = {
   list: (year: YearChoice) => ['overview', 'list', year] as const,
-  assignment: (id: string, year: YearChoice) => ['overview', 'assignment', id, year] as const,
 };
 
 export const fetchOverview = (year: YearChoice) => apiGet<Overview>('/api/overview', { year });
-
-export const fetchAssignmentOverview = (id: string, year: YearChoice) =>
-  apiGet<AssignmentOverview>(`/api/assignments/${id}/overview`, { year });
 
 /** Whether the reader got amounts at all. */
 export function hasFigures(figures: Partial<Figures> | null | undefined): figures is Figures {
@@ -95,7 +52,7 @@ export function hasFigures(figures: Partial<Figures> | null | undefined): figure
 
 /**
  * The totals of the report screens (budgeted, realised, forecast, costs,
- * available), which still read `/api/reports`. The stand van zaken itself
+ * available), which still read `/api/reports`. The running assignments themselves
  * uses `Figures`.
  */
 export interface Totals {
