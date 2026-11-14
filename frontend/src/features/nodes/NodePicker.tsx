@@ -48,7 +48,7 @@ function SearchBox({
       value={value}
       placeholder="Zoek een stuk op titel"
       accessible-label="Zoek een stuk op titel"
-      show-search-button
+      search-button="secondary"
       disabled={orUndef(disabled)}
     />
   );

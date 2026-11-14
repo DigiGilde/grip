@@ -111,7 +111,7 @@ Wat de herinrichting van november 2026 liet staan, gemeten of gelezen bij de ein
 
 ## De makers van het designsysteem
 
-Voorstellen en fouten die uit het bouwen kwamen. Waar grip eromheen werkt, doet het dat op een plek. De punten uit de herinrichting van november 2026 zijn gezien in versie 0.15.0 en nog niet gemeld.
+Voorstellen en fouten die uit het bouwen kwamen. Waar grip eromheen werkt, doet het dat op een plek. De punten uit de herinrichting van november 2026 zijn gezien in versie 0.15.0 en nog niet gemeld. In 0.19.0 zijn alle punten opnieuw nagelopen: geen ervan is opgelost.
 
 | Voorstel | Waarom | Waar |
 |---|---|---|
@@ -124,7 +124,7 @@ Voorstellen en fouten die uit het bouwen kwamen. Waar grip eromheen werkt, doet 
 | De focus na een keuze in het menu Meer van een werkbalk | Wie in dat menu van `nldd-toolbar` een filter of actie kiest, met de muis of het toetsenbord, staat daarna met de focus op de pagina zelf en begint weer bovenaan. Escape zet de focus wel terug op Meer. Niet omzeild | [ontwerp.md](ontwerp.md), `ActionBar` |
 | Enter in een combobox waarvan de opties net zijn bijgewerkt | `nldd-combo-box` markeert de eerste optie. Vervangt de pagina daarna de opties door wat de server vond, dan kiest Enter niets en wist het veld; pijl omlaag kiest de tweede. Grip ziet het bij het kiezen van een opdrachtgever | `features/organisations/OrganisationPicker.tsx` |
 | Geen melding van Lit bij `collapse-anchor` | Elke `nldd-top-title-bar` met `collapse-anchor`, zoals in elk paneel van `FormSheet`, geeft bij het laden een waarschuwing in de console dat er na een update meteen een tweede komt. Geen gevolg gezien | `ui/layout/FormSheet.tsx` |
-| `validity` op `nldd-date-field` | De eigenschap ontbreekt in 0.15.0, al noemt de documentatie haar. Grip leest `ownValidity()` om een datum die niet bestaat te herkennen | `ui/layout/FormSheet.tsx` |
+| `validity` op `nldd-date-field` | De eigenschap ontbreekt in 0.15.0 en in 0.19.0, al noemt de documentatie haar. Grip leest `ownValidity()` om een datum die niet bestaat te herkennen | `ui/layout/FormSheet.tsx` |
 | Een eerste kolom die blijft staan als een tabel zijwaarts schuift | Op een telefoon schuift een werkblad zijwaarts en verdwijnt de naam van de rij uit beeld. Afsluiten toont op een smal scherm daarom alleen Periode, Stand en Bedrag | ADR 0055 |
 | Keuzelijsten met drie opties | `nldd lint` geeft `dropdown-needs-six-options` vijf keer: twee op het bord (Per persoon, Iedereen), twee op Begroting en een op Afsluiten. Het designsysteem wil bij een paar opties een segmentbesturing of radioknoppen. Grip laat ze staan; niet nagezocht welke de twee op Begroting en de ene op Afsluiten zijn | `ui/layout/FilterSelect.tsx` |
 | De schil van een pagina zonder sectie | `page-content-goes-in-section` komt op elke pagina, omdat de wrapper `div#inhoud` direct in `nldd-page` staat en de sectie bevat. Het is de schil, niet een pagina. Hint, geen fout; niet omzeild | `layout/AppShell.tsx` |

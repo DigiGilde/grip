@@ -24,7 +24,7 @@ if (import.meta.env.MODE !== 'test') void import('./register');
 /** Native validation bubbles would appear before submit; the form validates itself. */
 const NO_NATIVE_VALIDATION: object = { novalidate: '' };
 
-// `validity` is documented on the field but absent in 0.15.0; `ownValidity` has the flags.
+// `validity` is documented on the field but absent in 0.19.0; `ownValidity` has the flags.
 type DateField = HTMLElement & {
   invalid: boolean;
   ownValidity?: () => { flags: { badInput?: boolean } } | null;
