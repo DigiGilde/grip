@@ -4,22 +4,24 @@ import { ROUTES, SITE_NAME } from '../lib/site';
 ---
 
 <Base>
-  <nldd-hero main-width="full" padding-bottom="0">
-    <nldd-title size="1" heading-level="1" color="inherit" text={SITE_NAME}></nldd-title>
-    <nldd-spacer size="16"></nldd-spacer>
-    <nldd-rich-text color="inherit">
-      <p>
-        De documentatie, de besluiten en de persona’s van grip op één plek, met zoeken over alles. Deze site is
-        geen onderdeel van grip en bewaart geen gegevens.
-      </p>
-    </nldd-rich-text>
-    <nldd-spacer size="16"></nldd-spacer>
-    <nldd-button-group orientation="horizontal">
-      <nldd-button appearance="inherit-tinted" href={ROUTES.docs} text="Documentatie"></nldd-button>
-      <nldd-button appearance="inherit-tinted" href={ROUTES.adr} text="Besluiten"></nldd-button>
-      <nldd-button appearance="inherit-tinted" href={ROUTES.book} text="Personaboek"></nldd-button>
-    </nldd-button-group>
-  </nldd-hero>
+  <nldd-simple-section padding-bottom="0">
+    <nldd-container slot="header">
+      <nldd-title size="1" heading-level="1" text={SITE_NAME}></nldd-title>
+      <nldd-spacer size="16"></nldd-spacer>
+      <nldd-rich-text>
+        <p>
+          De documentatie, de besluiten en de persona’s van grip op één plek, met zoeken over alles. Deze site is
+          geen onderdeel van grip en bewaart geen gegevens.
+        </p>
+      </nldd-rich-text>
+      <nldd-spacer size="16"></nldd-spacer>
+      <nldd-button-group orientation="horizontal">
+        <nldd-button appearance="neutral-tinted" href={ROUTES.docs} text="Documentatie"></nldd-button>
+        <nldd-button appearance="neutral-tinted" href={ROUTES.adr} text="Besluiten"></nldd-button>
+        <nldd-button appearance="neutral-tinted" href={ROUTES.book} text="Personaboek"></nldd-button>
+      </nldd-button-group>
+    </nldd-container>
+  </nldd-simple-section>
 
   {/* Filled from /config.json at runtime; stays hidden when no instance is configured. */}
   <nldd-simple-section id="demo" hidden>
