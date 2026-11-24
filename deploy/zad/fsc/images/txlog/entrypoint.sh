@@ -13,7 +13,11 @@ fi
 # `migrate up` reads --postgres-dsn, not STORAGE_POSTGRES_DSN. It runs on every
 # start and takes a lock; run one replica.
 echo "txlog: running migrations"
-/usr/local/bin/txlog-api migrate up --postgres-dsn "$DSN"
+# Manager, controller and transaction log share the database of their
+# deployment. Their tables live in schemas of their own; only the table of
+# applied migrations would collide, so each keeps its own. `serve` gets the
+# plain DSN: pgx would send the parameter on to the server.
+/usr/local/bin/txlog-api migrate up --postgres-dsn "$DSN&x-migrations-table=fsc_migrations_txlog"
 
 echo "txlog: starting"
 exec /usr/local/bin/txlog-api serve

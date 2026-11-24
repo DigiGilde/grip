@@ -7,15 +7,16 @@
 #             subject serialNumber and the organisation name in O.
 #   internal  one CA per peer, for the traffic between its own components.
 #
-# Needs: BASE_DOMAIN, DEPLOYMENT, PROJECT_DIR, PROJECT_A, PROJECT_B, PROJECT_D
-# (the ZAD base domain, the deployment name and the five ZAD project names).
+# Needs: BASE_DOMAIN, PROJECT, DEPLOYMENT_DIR, DEPLOYMENT_A, DEPLOYMENT_B,
+# DEPLOYMENT_D (the ZAD base domain, the ZAD project and the deployment of
+# each peer in it).
 # Output goes to PKI_DIR (default: state/pki next to this script, gitignored):
 #
 #   group/ca.pem, group/ca-key.pem         the group CA
 #   peers/<k>/...                          issued certificates, per peer
-#   upload/<project>/<component>/*.pem     one directory per ZAD component, to
-#                                          upload as attachments
-#   upload/MANIFEST.tsv                    project, component, file, pod path
+#   upload/<deployment>/<component>/*.pem  one directory per component in a
+#                                          deployment, to upload as attachments
+#   upload/MANIFEST.tsv                    deployment, component, file, pod path
 #
 # Existing files are kept; pass --fresh to start over (the FSC databases must
 # then be emptied as well: contracts are signed with the old keys).
@@ -24,7 +25,7 @@ set -eu
 here="$(cd "$(dirname "$0")" && pwd)"
 PKI_DIR="${PKI_DIR:-$here/state/pki}"
 
-for var in BASE_DOMAIN DEPLOYMENT PROJECT_DIR PROJECT_A PROJECT_B PROJECT_D; do
+for var in BASE_DOMAIN PROJECT DEPLOYMENT_DIR DEPLOYMENT_A DEPLOYMENT_B DEPLOYMENT_D; do
     eval "[ -n \"\${$var:-}\" ]" || { echo "$var is not set" >&2; exit 1; }
 done
 
@@ -37,10 +38,11 @@ mkdir -p "$work"
 
 LEAF_DAYS=825
 CA_DAYS=3650
-MAX_ATTACHMENT_BYTES=262144
+# The platform takes attachments up to 64 KB.
+MAX_ATTACHMENT_BYTES=65536
 
-host() { # component, project
-    printf '%s-%s-%s.%s' "$1" "$DEPLOYMENT" "$2" "$BASE_DOMAIN"
+host() { # component, deployment
+    printf '%s-%s-%s.%s' "$1" "$2" "$PROJECT" "$BASE_DOMAIN"
 }
 
 # The inway refuses a caller whose certificate was issued by a CA without an
@@ -72,12 +74,12 @@ issue() { # ca dir, out dir, subject, subject alternative names (DNS:a,DNS:b)
     chmod 600 "$2/key.pem"
 }
 
-# A directory of attachment files for one ZAD component.
+# A directory of attachment files for one component in one deployment.
 manifest="$PKI_DIR/upload/MANIFEST.tsv"
 mkdir -p "$PKI_DIR/upload"
-printf 'project\tcomponent\tfile\tpod path\n' > "$manifest"
+printf 'deployment\tcomponent\tfile\tpod path\n' > "$manifest"
 
-attach() { # project, component, file name, source file, pod path
+attach() { # deployment, component, file name, source file, pod path
     out="$PKI_DIR/upload/$1/$2"
     mkdir -p "$out"
     cp "$4" "$out/$3"
@@ -86,13 +88,13 @@ attach() { # project, component, file name, source file, pod path
     printf '%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$5" >> "$manifest"
 }
 
-attach_group() { # project, component, directory with cert.pem and key.pem
+attach_group() { # deployment, component, directory with cert.pem and key.pem
     attach "$1" "$2" group-ca.pem "$PKI_DIR/group/ca.pem" /etc/fsc/group/ca.pem
     attach "$1" "$2" group-cert.pem "$3/cert.pem" /etc/fsc/group/cert.pem
     attach "$1" "$2" group-key.pem "$3/key.pem" /etc/fsc/group/key.pem
 }
 
-attach_internal() { # project, component, internal dir
+attach_internal() { # deployment, component, internal dir
     attach "$1" "$2" internal-ca.pem "$3/ca.pem" /etc/fsc/internal/ca.pem
     attach "$1" "$2" internal-cert.pem "$3/$2/cert.pem" /etc/fsc/internal/cert.pem
     attach "$1" "$2" internal-key.pem "$3/$2/key.pem" /etc/fsc/internal/key.pem
@@ -101,9 +103,9 @@ attach_internal() { # project, component, internal dir
 make_ca "$PKI_DIR/group" "grip voorbeeld FSC-groep"
 
 # Peer ids are fictional and only unique within this group.
-# key, project, peer id, organisation name
+# key, deployment, peer id, organisation name
 peer() {
-    key="$1"; project="$2"; peer_id="$3"; org="$4"
+    key="$1"; deployment="$2"; peer_id="$3"; org="$4"
     pdir="$PKI_DIR/peers/$key"
     idir="$pdir/internal"
     make_ca "$idir" "grip voorbeeld intern $key"
@@ -120,8 +122,8 @@ peer() {
         name="$component"
         [ "$component" = manager ] && name="$manager"
         issue "$PKI_DIR/group" "$pdir/group/$name" \
-            "/C=NL/O=$org/CN=$(host "$name" "$project")/serialNumber=$peer_id" \
-            "DNS:$(host "$name" "$project"),DNS:$name"
+            "/C=NL/O=$org/CN=$(host "$name" "$deployment")/serialNumber=$peer_id" \
+            "DNS:$(host "$name" "$deployment"),DNS:$name"
     done
 
     # Internal certificates: the controller, outway and inway check the
@@ -131,7 +133,7 @@ peer() {
         name="$component"
         [ "$component" = manager ] && name="$manager"
         issue "$idir" "$idir/$name" "/CN=$name-$key" \
-            "DNS:$(host "$name" "$project"),DNS:$DEPLOYMENT-$name,DNS:$name"
+            "DNS:$(host "$name" "$deployment"),DNS:$deployment-$name,DNS:$name"
     done
     # A client certificate for the bootstrap script, which calls the internal
     # APIs of manager and controller.
@@ -140,12 +142,12 @@ peer() {
     for component in $internal_components; do
         name="$component"
         [ "$component" = manager ] && name="$manager"
-        attach_internal "$project" "$name" "$idir"
+        attach_internal "$deployment" "$name" "$idir"
     done
     for component in $group_components; do
         name="$component"
         [ "$component" = manager ] && name="$manager"
-        attach_group "$project" "$name" "$pdir/group/$name"
+        attach_group "$deployment" "$name" "$pdir/group/$name"
     done
 }
 
@@ -154,14 +156,14 @@ peer() {
 # manager as the directory peer).
 group_components=manager
 internal_components=manager
-peer dir "$PROJECT_DIR" 01800000000000000099 "Voorbeeldgroep directory"
-attach_group "$PROJECT_DIR" dirui "$PKI_DIR/peers/dir/group/dirmgr"
+peer dir "$DEPLOYMENT_DIR" 01800000000000000099 "Voorbeeldgroep directory"
+attach_group "$DEPLOYMENT_DIR" dirui "$PKI_DIR/peers/dir/group/dirmgr"
 
 group_components="manager inway outway"
 internal_components="manager controller inway outway txlog"
-peer a "$PROJECT_A" 01800000000000000001 "DigiGilde voorbeeld"
-peer b "$PROJECT_B" 01800000000000000002 "Voorbeeldministerie"
-peer d "$PROJECT_D" 01800000000000000004 "Voorbeeldprogramma"
+peer a "$DEPLOYMENT_A" 01800000000000000001 "DigiGilde voorbeeld"
+peer b "$DEPLOYMENT_B" 01800000000000000002 "Voorbeeldministerie"
+peer d "$DEPLOYMENT_D" 01800000000000000004 "Voorbeeldprogramma"
 
 trash "$work"
 
