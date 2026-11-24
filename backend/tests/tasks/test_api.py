@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import timedelta
 
 import pytest
 
 from grip.access import unclassified_fields
+from grip.core import clock
 from grip.models.assignment import Assignment
 from grip.models.person import Person
 from grip.models.vacancy import Vacancy
@@ -42,7 +43,7 @@ async def world(build, create_person) -> World:
     # Accepted, with one role staffed and one open: the owner must start the
     # work, the planner must fill a role. It starts this month, so no month
     # has ended yet and nothing waits to be closed.
-    start = date.today().replace(day=1)
+    start = clock.today().replace(day=1)
     assignment = await build.assignment(
         status="accepted", owner=owner, start=start, end=start + timedelta(days=200)
     )
