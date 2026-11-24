@@ -15,11 +15,15 @@
 # Idempotent: existing services and valid contracts are reused, and the SQL
 # can be run again.
 #
-# Needs: BASE_DOMAIN, DEPLOYMENT, PROJECT_A, PROJECT_B, PROJECT_D, and PKI_DIR
+# Needs: BASE_DOMAIN, PROJECT, DEPLOYMENT_A, DEPLOYMENT_B, DEPLOYMENT_D, and PKI_DIR
 # from pki.sh. The internal APIs of the managers (port 8444) and controllers
 # (port 8444) must be reachable from where this runs; override the addresses
 # with MANAGER_URL_<A|B|D> and CONTROLLER_URL_<A|B|D>, the inway address with
 # INWAY_ADDRESS_<K> and the service endpoint with ENDPOINT_URL_<K>.
+#
+# PEERS names the instances that take part (default "a b d"); "a d" makes
+# the group with DigiGilde voorbeeld and the Voorbeeldprogramma only, and
+# DEPLOYMENT_B can then stay unset.
 #
 # --dry-run prints the calls and executes none.
 set -eu
@@ -30,7 +34,12 @@ OUT="${OUT:-$here/state/bootstrap}"
 dry_run=0
 [ "${1:-}" = "--dry-run" ] && dry_run=1
 
-for var in BASE_DOMAIN DEPLOYMENT PROJECT_A PROJECT_B PROJECT_D; do
+PEERS="${PEERS:-a b d}"
+for var in BASE_DOMAIN PROJECT; do
+    eval "[ -n \"\${$var:-}\" ]" || { echo "$var is not set" >&2; exit 1; }
+done
+for k in $PEERS; do
+    var="DEPLOYMENT_$(printf %s "$k" | tr '[:lower:]' '[:upper:]')"
     eval "[ -n \"\${$var:-}\" ]" || { echo "$var is not set" >&2; exit 1; }
 done
 
@@ -46,8 +55,8 @@ tooi_of() {
         b | d) echo "https://identifier.overheid.nl/tooi/id/ministerie/mnre9001" ;;
     esac
 }
-project_of() { case "$1" in a) echo "$PROJECT_A" ;; b) echo "$PROJECT_B" ;; d) echo "$PROJECT_D" ;; esac; }
-host_of() { printf '%s-%s-%s.%s' "$1" "$DEPLOYMENT" "$(project_of "$2")" "$BASE_DOMAIN"; }
+deployment_of() { case "$1" in a) echo "$DEPLOYMENT_A" ;; b) echo "$DEPLOYMENT_B" ;; d) echo "$DEPLOYMENT_D" ;; esac; }
+host_of() { printf '%s-%s-%s.%s' "$1" "$(deployment_of "$2")" "$PROJECT" "$BASE_DOMAIN"; }
 base_uri_of() { echo "https://$(host_of component-1 "$1")"; }
 
 # An address from the environment, or the default derived from the ZAD host name.
@@ -59,7 +68,7 @@ setting() { # variable name prefix, key, default
 manager_url() { setting MANAGER_URL "$1" "https://$(host_of manager "$1"):8444"; }
 controller_url() { setting CONTROLLER_URL "$1" "https://$(host_of controller "$1"):8444"; }
 inway_address() { setting INWAY_ADDRESS "$1" "https://$(host_of inway "$1"):443"; }
-endpoint_url() { setting ENDPOINT_URL "$1" "http://$DEPLOYMENT-federation:8090"; }
+endpoint_url() { setting ENDPOINT_URL "$1" "http://$(deployment_of "$1")-federation:8090"; }
 
 # curl with the admin client certificate of a peer. The internal APIs only
 # accept clients with a certificate of that peer's internal CA.
@@ -170,15 +179,17 @@ registry_row() { # instance key, counterpart key, grant hash
 }
 
 echo "1. services"
-for k in a b d; do register_service "$k"; done
+for k in $PEERS; do register_service "$k"; done
 echo "2. publications"
-for k in a b d; do publish "$k"; done
+for k in $PEERS; do publish "$k"; done
 [ "$dry_run" = 1 ] || sleep 3
 echo "3. connections"
-for k in a b d; do api "$k" -o /dev/null -X POST "$(manager_url "$k")/v1/peers/sync" || true; done
-for pair in "b a" "a b" "d a" "a d" "d b" "b d"; do
-    set -- $pair
-    connect "$1" "$2"
+for k in $PEERS; do api "$k" -o /dev/null -X POST "$(manager_url "$k")/v1/peers/sync" || true; done
+# Not k: api() sets it.
+for consumer in $PEERS; do
+    for provider in $PEERS; do
+        [ "$provider" = "$consumer" ] || connect "$consumer" "$provider"
+    done
 done
 [ "$dry_run" = 1 ] || sleep 3
 
@@ -190,10 +201,10 @@ fi
 mkdir -p "$OUT"
 table="$OUT/registry.txt"
 printf 'instance\tpeer id\tname\torganisation TOOI URI\tbase URI\trole\tgrant hash (%s)\tis_example\n' "$service" > "$table"
-for k in a b d; do
+for k in $PEERS; do
     sql="$OUT/registry-$k.sql"
     printf -- '-- Peer registry of instance %s (%s)\n' "$k" "$(name_of "$k")" > "$sql"
-    for o in a b d; do
+    for o in $PEERS; do
         [ "$o" = "$k" ] && continue
         grant="$(find_grant "$k" GRANT_TYPE_SERVICE_CONNECTION "$(peer_id_of "$o")" "$(peer_id_of "$k")" | cut -d' ' -f1)"
         [ -n "$grant" ] || { echo "no valid connection grant $k -> $o; see the manager logs" >&2; exit 1; }

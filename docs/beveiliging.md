@@ -127,7 +127,7 @@ Code kan dit niet regelen. De Baseline Informatiebeveiliging Overheid (BIO) is h
 | Wat | Stand |
 |---|---|
 | **Een pentest door een onafhankelijke partij** voordat er echte gegevens in grip komen. Geef de tester dit document mee. | niet geregeld |
-| **Een security.txt** op het adres van de instantie (RFC 9116, verplichte standaard voor de overheid). Grip verwijst door naar het bestand van de organisatie: zet `SECURITY_TXT_URL` op de frontend. | de doorverwijzing is gebouwd; het adres moet de organisatie aanleveren |
+| **Een security.txt** op het adres van de instantie (RFC 9116, verplichte standaard voor de overheid). Grip verwijst door naar het bestand van de organisatie: zet `SECURITY_TXT_URL` op de frontend. Een voorbeeldinstantie (`INSTANCE_MODE=voorbeeld` op de frontend) heeft een eigen bestand dat zegt dat het een proefomgeving is. | de doorverwijzing is gebouwd; het adres moet de organisatie aanleveren |
 | **Een manier om een kwetsbaarheid te melden** (coordinated vulnerability disclosure), met iemand die de melding leest. Zie ook `SECURITY.md` in de repository. | niet geregeld |
 | **Een risicoanalyse en classificatie** van de gegevens (BIO): grip bevat tarieven, inzet en namen van medewerkers. | niet geregeld |
 | **Een gegevensbeschermingseffectbeoordeling** voordat er echte personen in staan. | niet geregeld |

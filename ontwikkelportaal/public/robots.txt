@@ -1,0 +1,3 @@
+# Proefomgeving van grip, geen productie: alleen verzonnen gegevens.
+User-agent: *
+Disallow: /
