@@ -34,7 +34,18 @@ just local-nuke         # stoppen en alles van deze omgeving weggooien
 
 Bij de modi met FSC hoort ook het ontwikkelportaal op http://localhost:9000: de documentatie in hoofdstukken, de besluiten (ADR's) en het personaboek, met zoeken over alles. Onder Demo staan de drie instanties met een knop naar elk. Het portaal is geen onderdeel van grip en heeft geen gegevens.
 
-Het is een statische site in `ontwikkelportaal/`, gebouwd met Astro uit de Markdown in `docs/` en met de componenten van het NLDD Designsysteem. Welke instanties onder Demo staan, komt bij het starten uit de omgeving van de container (`ONTWIKKELPORTAAL_INSTANCES`, zie [uitrol-zad.md](uitrol-zad.md#ontwikkelportaal)); de lokale waarde staat in `deploy/local/compose.yml`. Zoeken is Pagefind: de index wordt bij het bouwen gemaakt en draait in de browser. De beveiligingskop staat daarvoor `'wasm-unsafe-eval'` toe en verder geen script uit de pagina zelf.
+Het is een statische site in `ontwikkelportaal/`, gebouwd met Astro uit de Markdown in `docs/` en met de componenten van het NLDD Designsysteem. Welke instanties onder Demo staan, komt bij het starten uit de omgeving van de container (`ONTWIKKELPORTAAL_INSTANCES`); de lokale waarde staat in `deploy/local/compose.yml`. Zoeken is Pagefind: de index wordt bij het bouwen gemaakt en draait in de browser. De beveiligingskop staat daarvoor `'wasm-unsafe-eval'` toe en verder geen script uit de pagina zelf.
+
+`ONTWIKKELPORTAAL_INSTANCES` is een JSON-lijst met per instantie:
+
+| Veld | Verplicht | Wat |
+|---|---|---|
+| `naam` | ja | De naam op de kaart en op de knop "Open ..." |
+| `url` | ja | Het adres van de instantie, `http` of `https` |
+| `rol` | nee | De regel onder de naam |
+| `omschrijving` | nee | Een zin over wat de instantie doet; getoond als tekst, zonder opmaak |
+
+Een instantie zonder naam of met een ander soort adres verschijnt niet. Zonder instanties heeft de startpagina geen Demo. De container schrijft de lijst bij het starten naar `/config.json` en de startpagina leest die.
 
 ```
 just ontwikkelportaal       # bouwen naar ontwikkelportaal/dist en links, scripts en navigatie controleren

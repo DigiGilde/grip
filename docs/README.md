@@ -15,7 +15,7 @@ Grip legt vast hoe een organisatie binnen de Rijksoverheid een opdracht uitvoert
 
 De code is Engels, de schermen en deze documentatie zijn Nederlands. Welke codenaam bij welk woord op het scherm hoort staat in de begrippenlijst van [domein.md](domein.md).
 
-Dezelfde pagina's, de besluiten en het personaboek staan ook opgemaakt en doorzoekbaar in het ontwikkelportaal, met een link naar de instanties van de demo. Hoe je het lokaal draait staat in [lokaal.md](lokaal.md#ontwikkelportaal), de uitrol in [uitrol-zad.md](uitrol-zad.md#ontwikkelportaal).
+Dezelfde pagina's, de besluiten en het personaboek staan ook opgemaakt en doorzoekbaar in het ontwikkelportaal, met een link naar de instanties van de demo. Hoe je het lokaal draait staat in [lokaal.md](lokaal.md#ontwikkelportaal).
 
 ## Waar begin je
 

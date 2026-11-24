@@ -25,7 +25,7 @@ COPY ontwikkelportaal/nginx.conf.template /etc/nginx/templates/nginx.conf.templa
 # Writes the config.json that the start page fetches.
 COPY --chmod=755 ontwikkelportaal/write-config.sh /docker-entrypoint.d/05-ontwikkelportaal-config.sh
 # ONTWIKKELPORTAAL_INSTANCES is a JSON list of {"naam", "rol", "omschrijving",
-# "url"}; see docs/uitrol-zad.md.
+# "url"}; see docs/lokaal.md.
 ENV NGINX_ENVSUBST_OUTPUT_DIR=/etc/nginx \
     NGINX_ENVSUBST_FILTER=GRIP_NOTHING_TO_SUBSTITUTE \
     ONTWIKKELPORTAAL_INSTANCES="[]"
