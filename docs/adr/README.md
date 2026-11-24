@@ -58,7 +58,7 @@ Een besluit dat anderen bindt staat hier als ADR: genummerd, met context, beslui
 | [0052](0052-een-kostenpost-bij-een-andere-partij.md) | Een kostenpost bij een andere partij | voorgesteld |
 | [0053](0053-een-gegeven-heeft-een-eigenaar-elders-een-verwijzing.md) | Een gegeven heeft één eigenaar, elders een verwijzing | voorgesteld |
 | [0054](0054-voorbeeldinstanties-federeren-in-een-besloten-groep.md) | Voorbeeldinstanties federeren in een besloten groep | voorgesteld |
-| [0052](0052-de-kroniek-van-een-opdracht-als-bron.md) | De kroniek van een opdracht als bron | voorstel |
+| [0056](0056-de-kroniek-van-een-opdracht-als-bron.md) | De kroniek van een opdracht als bron | voorstel |
 | [0058](0058-factuurinformatie-bij-het-akkoord.md) | Factuurinformatie wordt bij het akkoord opgegeven | voorgesteld |
 
 ## Welke besluiten later zijn bijgesteld
@@ -80,7 +80,7 @@ Een besluit wordt niet herschreven. Is het later bijgesteld, dan staat onderaan 
 | 0025 Interne goedkeuring | 0048 | Ook de maker keurt niet goed |
 | 0026 Kenmerk en pdf | 0030, 0032 | Het bestand ligt vast; de offerte is een brief; geen losse webweergave |
 | 0027 Tarievenkaart per periode | geen | Vervangt het uitgangspunt van een kaart per kalenderjaar |
-| 0028 Stroom van gebeurtenissen | 0043, 0052 | Inzage per verzoek; een selectie als nieuws; op het pad naar een opdracht een echte bron |
+| 0028 Stroom van gebeurtenissen | 0043, 0056 | Inzage per verzoek; een selectie als nieuws; op het pad naar een opdracht een echte bron |
 | 0029 Bewijs van een akkoord | 0030, 0037 | Het bestand in de bundel; een passkey als extra bevestiging |
 | 0033 Hoofdnavigatie | 0042 | Zeven plekken en een tweede balk |
 | 0036 Productmerk | open | De keuze voor het merk is voorlopig |

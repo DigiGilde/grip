@@ -54,7 +54,7 @@ Een route roept een service aan, een service een repository. Sla geen laag over.
 
 ## De kroniek
 
-- Op het pad naar een opdracht is een feit de bron (ADR 0052, `docs/kroniek.md`). De tabellen `assignment`, `assignment_role`, `budget_line` en de offertetabellen zijn leesmodellen.
+- Op het pad naar een opdracht is een feit de bron (ADR 0056, `docs/kroniek.md`). De tabellen `assignment`, `assignment_role`, `budget_line` en de offertetabellen zijn leesmodellen.
 - Schrijf die tabellen alleen met `grip.chronicle.writer.establish`. Controles eerst; wijzigingsregel en domeingebeurtenis erna.
 - Eén feit per handeling. De effecten van een feit lezen alleen de velden van het feit; wat besloten is staat erin.
 - Een feit zegt wie vaststelde: wie vastlegt dat een ander tekende, is iets anders dan wie tekent.

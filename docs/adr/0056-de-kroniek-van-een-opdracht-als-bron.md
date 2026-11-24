@@ -1,4 +1,4 @@
-# 0052 De kroniek van een opdracht als bron
+# 0056 De kroniek van een opdracht als bron
 
 Status: voorstel, draait als proef op deze branch (2026-11-04)
 

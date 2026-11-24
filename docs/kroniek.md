@@ -1,6 +1,6 @@
 # De kroniek van een opdracht
 
-Op het pad naar een opdracht legt grip elke handeling vast als één feit. De tabellen van dat pad worden uit die feiten afgeleid, en de stand op elk eerder moment ook. Het besluit staat in [ADR 0052](adr/0052-de-kroniek-van-een-opdracht-als-bron.md); dit document beschrijft hoe het werkt en hoe je het ziet.
+Op het pad naar een opdracht legt grip elke handeling vast als één feit. De tabellen van dat pad worden uit die feiten afgeleid, en de stand op elk eerder moment ook. Het besluit staat in [ADR 0056](adr/0056-de-kroniek-van-een-opdracht-als-bron.md); dit document beschrijft hoe het werkt en hoe je het ziet.
 
 ## Zien hoe het werkt
 
@@ -116,7 +116,7 @@ Elk veld hoort bij een gegevensklasse en heeft in een stand de klasse die het li
 - `outside` (klasse A) zegt zonder waarde wat er rond de zaak veranderde; `outside_values` (klasse B) zegt het met het bedrag en de dag en vervangt voor wie het krijgt `outside`. Voor klasse A zijn tarieven één regel, "De tarieven zijn gewijzigd.", hoeveel feiten er ook waren.
 - Is de stand onvolledig, dan noemt hij geen totaal, geen bedragen per regel, geen vorig totaal en geen status ("Onbekend"), en geeft hij geen verloop.
 
-Een feit is niet te lezen via `/api/events` voor wie geen beheerder is: het bevat waarden van meer klassen onder één sleutel. Het tabblad Wijzigingen is daarmee strenger dan een stand: een wijziging van een regel zegt aan klasse A alleen dat ze gebeurde. Een stand geeft die lezer de eerdere naam van een regel en de naam van een verwijderde regel, omdat de klasse van het veld op elk moment geldt (ADR 0052).
+Een feit is niet te lezen via `/api/events` voor wie geen beheerder is: het bevat waarden van meer klassen onder één sleutel. Het tabblad Wijzigingen is daarmee strenger dan een stand: een wijziging van een regel zegt aan klasse A alleen dat ze gebeurde. Een stand geeft die lezer de eerdere naam van een regel en de naam van een verwijderde regel, omdat de klasse van het veld op elk moment geldt (ADR 0056).
 
 ### Wat er in een stand gaat
 
@@ -164,4 +164,4 @@ Een test op de broncode (`tests/chronicle/test_read_models_only.py`) eist dat ni
 
 ## Wat een stand niet kan
 
-Zie de gevolgen in [ADR 0052](adr/0052-de-kroniek-van-een-opdracht-als-bron.md).
+Zie de gevolgen in [ADR 0056](adr/0056-de-kroniek-van-een-opdracht-als-bron.md).

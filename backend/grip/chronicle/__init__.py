@@ -9,5 +9,5 @@
 - ``words``: a fact in Dutch, in the form it was established.
 - ``guard``: for tests, nothing writes around the chronicle.
 
-The vocabulary comes from chronolexografie. See ADR 0052 and docs/kroniek.md.
+The vocabulary comes from chronolexografie. See ADR 0056 and docs/kroniek.md.
 """

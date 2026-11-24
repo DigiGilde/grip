@@ -45,4 +45,4 @@ Inzage wordt sindsdien per verzoek vastgelegd, niet per persoon: een pagina over
 
 ## Later gewijzigd (2026-11-04)
 
-Op het pad naar een opdracht is een feit de bron en zijn de tabellen afgeleid; de stroom is er niet meer alleen een verslag naast (ADR 0052). De wijzigingsregels en domeingebeurtenissen blijven ernaast bestaan.
+Op het pad naar een opdracht is een feit de bron en zijn de tabellen afgeleid; de stroom is er niet meer alleen een verslag naast (ADR 0056). De wijzigingsregels en domeingebeurtenissen blijven ernaast bestaan.

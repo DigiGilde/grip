@@ -498,7 +498,7 @@ def effects_of(name: str, fields: Fields) -> tuple[Effect, ...]:
 
 # Who someone is, or what they typed, where a stand needs only what the row holds
 # now: a column written once, or one no stand shows. A fact keeps the key without
-# the value and a stand reads the value in the row (ADR 0052), so erasing it is
+# the value and a stand reads the value in the row (ADR 0056), so erasing it is
 # changing that row, and nothing in the chronicle brings it back.
 ROW_ONLY_COLUMNS: dict[str, frozenset[str]] = {
     ASSIGNMENT: frozenset({"client_contact"}),

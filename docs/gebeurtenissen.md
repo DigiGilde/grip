@@ -79,7 +79,7 @@ Een wijziging van domeingegevens zonder gebeurtenis is een fout. De testsuite vo
 
 ## De kroniek
 
-Op het pad naar een opdracht schrijft een handeling eerst een feit: een gebeurtenis met onderwerp `chronolexogram` en type `chronolexogram.<feit>`, gevuld door `grip.chronicle.writer.establish`. De tabellen op dat pad worden uit de feiten afgeleid en de stand op elk eerder moment ook. De wijzigingsregels en domeingebeurtenissen hierboven blijven erachteraan komen. Zie [kroniek.md](kroniek.md) en ADR 0052.
+Op het pad naar een opdracht schrijft een handeling eerst een feit: een gebeurtenis met onderwerp `chronolexogram` en type `chronolexogram.<feit>`, gevuld door `grip.chronicle.writer.establish`. De tabellen op dat pad worden uit de feiten afgeleid en de stand op elk eerder moment ook. De wijzigingsregels en domeingebeurtenissen hierboven blijven erachteraan komen. Zie [kroniek.md](kroniek.md) en ADR 0056.
 
 Een feit staat niet in de lijst wijzigingen (`kind=changes`) en valt niet onder het nieuws. Het is alleen voor de beheerder te lezen via `/api/events`, omdat het waarden van meer klassen onder één sleutel heeft; de routes van de kroniek bouwen hun antwoord per klasse op. In de feed heet het `nl.grip.vastlegging.vastgelegd`, zonder waarden.
 
@@ -189,7 +189,7 @@ Nog niet gebouwd:
 
 ## Bewaren en wissen
 
-Twee instellingen van de instantie, in dagen, met nul voor "nooit": `events.retention_days` voor de waarden in de stroom en `events.read_retention_days` voor wie wat inzag. De taak `python -m grip.events.retention` wist wat ouder is. Uitgezonderd zijn de tarievenfeiten van de kroniek en de wijzigingen van de instelling voor interne goedkeuring: ze bevatten geen persoonsgegevens en elke latere stand heeft ze nodig (ADR 0052).
+Twee instellingen van de instantie, in dagen, met nul voor "nooit": `events.retention_days` voor de waarden in de stroom en `events.read_retention_days` voor wie wat inzag. De taak `python -m grip.events.retention` wist wat ouder is. Uitgezonderd zijn de tarievenfeiten van de kroniek en de wijzigingen van de instelling voor interne goedkeuring: ze bevatten geen persoonsgegevens en elke latere stand heeft ze nodig (ADR 0056).
 
 Wissen haalt de waarden en het zout van een gebeurtenis weg. De gebeurtenis zelf blijft, met haar afdrukken, zodat de keten controleerbaar blijft. Voor een verzoek om verwijdering van één persoon is er `retention.erase_person`. Elke wisactie is een gebeurtenis `stream.erased` met de reden en het bereik.
 
