@@ -8,7 +8,7 @@ amounts are fictional.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -21,10 +21,11 @@ from grip.core.auth import DEV_PERSON_COOKIE
 from grip.models.person import Person
 from grip.services import assignments, rates
 
-YEAR = date.today().year
+YEAR = clock.today().year
 RATES = {"A": 900000, "B": 1200000, "C": 1500000, "D": 1800000, "E": 2100000}
 SCALES = {8: "A", 10: "B", 12: "C", 14: "D", 16: "E"}
-START = datetime.now(UTC).replace(hour=10, minute=0, second=0, microsecond=0)
+# On the instance's calendar: a function granted today starts on that day.
+START = datetime.combine(clock.today(), time(10), tzinfo=clock.zone())
 PDF_BYTES = b"%PDF-1.4\n%voorbeeld\n"
 STARTED = ("in_progress", "completed", "accounted")
 
