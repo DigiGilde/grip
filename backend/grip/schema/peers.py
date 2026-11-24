@@ -34,6 +34,8 @@ class PeerIn(BaseModel):
     # FSC service name to the grant hash of the contract with this peer.
     grant_hashes: dict[str, str] = Field(default_factory=dict)
     financial_inspection: bool = False
+    # The peer is an example instance (ADR 0054).
+    is_example: bool = False
     is_active: bool = True
 
     @field_validator("grant_hashes")
@@ -56,6 +58,7 @@ class PeerUpdate(BaseModel):
     role: PeerRoleName | None = None
     grant_hashes: dict[str, str] | None = None
     financial_inspection: bool | None = None
+    is_example: bool | None = None
     is_active: bool | None = None
 
     @field_validator("grant_hashes")
@@ -80,6 +83,7 @@ class PeerOut(BaseModel):
     role: Annotated[str, in_class(M)]
     grant_hashes: Annotated[dict[str, str], in_class(M)]
     financial_inspection: Annotated[bool, in_class(M)]
+    is_example: Annotated[bool, in_class(M)]
     is_active: Annotated[bool, in_class(M)]
     # How many public keys of the peer are known here, and since when.
     key_count: Annotated[int, in_class(M)]

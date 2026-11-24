@@ -1,0 +1,86 @@
+worker_processes auto;
+error_log /var/log/nginx/error.log notice;
+pid /tmp/nginx.pid;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    client_body_temp_path /tmp/client_temp;
+    proxy_temp_path /tmp/proxy_temp;
+    fastcgi_temp_path /tmp/fastcgi_temp;
+    uwsgi_temp_path /tmp/uwsgi_temp;
+    scgi_temp_path /tmp/scgi_temp;
+
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+    sendfile on;
+    keepalive_timeout 65;
+
+    # Static pages only: everything comes from this address and no script runs
+    # from the page text. 'unsafe-inline' for styles only: the design system's
+    # components set style attributes and may fall back to style elements.
+    # 'wasm-unsafe-eval' lets the search (Pagefind) compile its WebAssembly;
+    # its worker and index files come from this address too.
+    map "" $portal_csp {
+        default "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'";
+    }
+    map "" $portal_permissions {
+        default "camera=(), microphone=(), geolocation=(), payment=(), usb=()";
+    }
+
+    server_tokens off;
+
+    server {
+        listen 8080;
+        server_name _;
+
+        root /usr/share/nginx/html;
+        index index.html;
+        absolute_redirect off;
+
+        # nginx drops these in a location that sets a header of its own,
+        # which is why every location below repeats them.
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "same-origin" always;
+        add_header X-Frame-Options "DENY" always;
+        add_header Content-Security-Policy $portal_csp always;
+        add_header Permissions-Policy $portal_permissions always;
+
+        # Written at start by write-config.sh.
+        location = /config.json {
+            alias /tmp/ontwikkelportaal-config.json;
+            default_type application/json;
+            add_header Cache-Control "no-cache";
+            add_header X-Content-Type-Options "nosniff" always;
+            add_header Referrer-Policy "same-origin" always;
+            add_header X-Frame-Options "DENY" always;
+            add_header Content-Security-Policy $portal_csp always;
+            add_header Permissions-Policy $portal_permissions always;
+        }
+
+        error_page 404 /404.html;
+
+        # File names under /_astro/ carry a hash of their content.
+        location /_astro/ {
+            add_header Cache-Control "public, max-age=31536000, immutable";
+            add_header X-Content-Type-Options "nosniff" always;
+            add_header Referrer-Policy "same-origin" always;
+            add_header X-Frame-Options "DENY" always;
+            add_header Content-Security-Policy $portal_csp always;
+            add_header Permissions-Policy $portal_permissions always;
+        }
+
+        location / {
+            # Every page is <route>/index.html: serve it without a redirect.
+            try_files $uri $uri/index.html $uri/ =404;
+            add_header Cache-Control "no-cache";
+            add_header X-Content-Type-Options "nosniff" always;
+            add_header Referrer-Policy "same-origin" always;
+            add_header X-Frame-Options "DENY" always;
+            add_header Content-Security-Policy $portal_csp always;
+            add_header Permissions-Policy $portal_permissions always;
+        }
+    }
+}

@@ -150,6 +150,17 @@ class AssignmentRepository:
         result = await self.db.execute(select(Assignment).where(Assignment.uri == uri))
         return result.scalar_one_or_none()
 
+    async def running_with_contractor(self, organisation_id: UUID) -> list[Assignment]:
+        """Shared assignments with an agreement that this contractor carries out."""
+        result = await self.db.execute(
+            select(Assignment).where(
+                Assignment.contractor_organisation_id == organisation_id,
+                Assignment.shared_with_instance_uri.is_not(None),
+                Assignment.status.in_(("accepted", "in_progress")),
+            )
+        )
+        return list(result.scalars())
+
     async def list(
         self, *, status: str | None = None, node_uri: str | None = None
     ) -> list[Assignment]:
@@ -222,6 +233,12 @@ class CostRepository:
             select(CostCoverage).where(CostCoverage.cost_item_id == cost_item_id)
         )
         return list(result.scalars())
+
+    async def by_reference_uri(self, reference_uri: str) -> CostItem | None:
+        """The item another organisation asked for, by the URI of its reference."""
+        return await self.db.scalar(
+            select(CostItem).where(CostItem.reference_uri == reference_uri)
+        )
 
     async def items(self, item_ids: Iterable[UUID]) -> list[CostItem]:
         ids = list(set(item_ids))

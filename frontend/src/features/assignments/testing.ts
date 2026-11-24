@@ -151,8 +151,11 @@ export function finance(overrides: Partial<AssignmentFinance> = {}): AssignmentF
             realised_cents: 300000,
             forecast_cents: 150000,
             total_cents: 450000,
+            executor_name: null,
+            reference_state: null,
           },
         ],
+        incomplete_by: [],
       },
     ],
     months: [
@@ -184,6 +187,7 @@ export function finance(overrides: Partial<AssignmentFinance> = {}): AssignmentF
     budgeted_outside_months_cents: 1500000,
     signals: [],
     free_room_threshold_pct: '10',
+    incomplete_by: [],
     ...overrides,
   };
 }

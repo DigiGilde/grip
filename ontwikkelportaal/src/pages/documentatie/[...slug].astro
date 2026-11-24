@@ -1,0 +1,131 @@
+---
+// A chapter of Documentatie, or a document in one. Both share /documentatie/,
+// so one route builds them and checks that they cannot collide.
+import { getCollection, render, type CollectionEntry } from 'astro:content';
+import Article from '../../layouts/Article.astro';
+import Base from '../../layouts/Base.astro';
+import Outline from '../../components/Outline.astro';
+import PrevNext from '../../components/PrevNext.astro';
+import { CHAPTERS, chapterDocs, chapterOf, chapterRoute, docRoute, type Chapter } from '../../lib/chapters.mjs';
+import { ROUTES } from '../../lib/site';
+
+type Doc = CollectionEntry<'docs'>;
+
+export async function getStaticPaths() {
+  const docs = (await getCollection('docs')).filter((e) => e.id !== 'README');
+  const ids = new Set(docs.map((e) => e.id));
+  for (const e of docs) {
+    if (!chapterOf(e.id)) throw new Error(`docs/${e.id}.md staat in geen hoofdstuk (src/lib/chapters.mjs)`);
+  }
+  for (const c of CHAPTERS) {
+    if (ids.has(c.slug)) throw new Error(`hoofdstuk "${c.slug}" heeft dezelfde naam als docs/${c.slug}.md`);
+    for (const id of chapterDocs(c)) {
+      if (!ids.has(id)) throw new Error(`hoofdstuk "${c.slug}" noemt docs/${id}.md, dat niet bestaat`);
+    }
+  }
+  const byId = new Map(docs.map((e) => [e.id, e]));
+  return [
+    ...CHAPTERS.map((chapter) => ({
+      params: { slug: chapter.slug },
+      props: { chapter, entry: undefined, byId },
+    })),
+    ...docs.map((entry) => ({
+      params: { slug: entry.id },
+      props: { chapter: chapterOf(entry.id)!, entry, byId },
+    })),
+  ];
+}
+
+interface Props {
+  chapter: Chapter;
+  entry?: Doc;
+  byId: Map<string, Doc>;
+}
+
+const { chapter, entry, byId } = Astro.props;
+const docsCrumb = { text: 'Documentatie', href: ROUTES.docs };
+const chapterCrumb = { text: chapter.title, href: chapterRoute(chapter) };
+const titleOf = (id: string) => byId.get(id)!.data.title;
+
+// A round on visual hierarchy is listed as "Ronde A" with its topic below.
+const ROUND = /^hierarchie\/([a-z])$/;
+const listed = (id: string) => {
+  const round = ROUND.exec(id);
+  if (!round) return { text: titleOf(id) };
+  const topic = titleOf(id).replace(/^Visuele hiërarchie(, deel [A-Z])?:\s*/, '');
+  return { text: `Ronde ${round[1].toUpperCase()}`, supporting: topic.charAt(0).toUpperCase() + topic.slice(1) };
+};
+
+const order = chapterDocs(chapter);
+const at = entry ? order.indexOf(entry.id) : -1;
+const neighbour = (id: string | undefined) => (id ? { href: docRoute(id), text: titleOf(id) } : undefined);
+const prev = neighbour(order[at - 1]);
+const next = neighbour(order[at + 1]);
+const rendered = entry ? await render(entry) : undefined;
+const Content = rendered?.Content;
+const hasOutline = (rendered?.headings ?? []).some((h) => h.depth === 2);
+---
+
+{
+  entry && Content ? (
+    <Article
+      title={entry.data.title}
+      sidebarLabel={hasOutline ? 'Op deze pagina' : chapter.title}
+      noCollapse
+      crumbs={[docsCrumb, chapterCrumb]}
+      search={{ onderdeel: 'Documentatie' }}
+    >
+      <Fragment slot="sidebar">
+        {hasOutline ? (
+          <Outline headings={rendered!.headings} />
+        ) : (
+          <nldd-list type="navigation" appearance="simple" aria-label={chapter.title}>
+            {order.map((id) => (
+              <nldd-list-item href={docRoute(id)} current={id === entry.id || undefined}>
+                <nldd-text-cell text={titleOf(id)} />
+              </nldd-list-item>
+            ))}
+          </nldd-list>
+        )}
+      </Fragment>
+      <nldd-rich-text>
+        <Content />
+        <PrevNext label={`Verder in ${chapter.title}`} prev={prev} next={next} />
+      </nldd-rich-text>
+    </Article>
+  ) : (
+    <Base title={chapter.title} crumbs={[docsCrumb]}>
+      <nldd-one-third-two-thirds-section>
+        <div slot="left">
+          <nldd-title size="2" heading-level="1" text={chapter.title} />
+          <nldd-spacer size="16" />
+          <nldd-rich-text>
+            <p>{chapter.description}</p>
+          </nldd-rich-text>
+        </div>
+        <div slot="right">
+          {chapter.groups.map((group, i) => (
+            <Fragment>
+              {i > 0 && <nldd-spacer size="24" />}
+              {group.title && (
+                <Fragment>
+                  <nldd-title size="5" heading-level="2" text={group.title} />
+                  <nldd-spacer size="8" />
+                </Fragment>
+              )}
+              <nldd-list type="navigation" appearance="box-tinted" aria-label={group.title ?? chapter.title}>
+                {group.docs.map((id) => (
+                  <nldd-list-item href={docRoute(id)}>
+                    <nldd-text-cell text={listed(id).text} supporting-text={listed(id).supporting} />
+                    <nldd-spacer-cell />
+                    <nldd-icon-cell size="20" icon="chevron-right" />
+                  </nldd-list-item>
+                ))}
+              </nldd-list>
+            </Fragment>
+          ))}
+        </div>
+      </nldd-one-third-two-thirds-section>
+    </Base>
+  )
+}

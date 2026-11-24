@@ -1,7 +1,7 @@
 import { formatEuro, formatPercent } from '@/lib/format';
 import '@/features/reports/reports.css';
 import type { CostItem, Coverage } from './api';
-import { COST_LABELS, coverageStep } from './costText';
+import { COST_LABELS, coverageStep, type CountedItem } from './costText';
 import './costs.css';
 
 function coverageTitle(coverage: Coverage): string {
@@ -23,7 +23,7 @@ function AttentionMark() {
  * line through it. The bar is as long as the larger of the two, so a bar
  * that passes the line is an overrun. Every value is also text under the bar.
  */
-export function ForecastBar({ item }: { item: CostItem }) {
+export function ForecastBar({ item }: { item: CountedItem }) {
   const longest = Math.max(item.budgeted_cents, item.forecast_cents);
   const room = Math.max(item.variance_cents, 0);
   const markAt = item.budgeted_cents > 0 ? (item.budgeted_cents / longest) * 100 : null;

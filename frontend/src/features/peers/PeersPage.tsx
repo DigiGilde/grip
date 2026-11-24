@@ -76,6 +76,12 @@ export function PeersPage() {
                     onOpen={() => setOpenId(peer.id)}
                   >
                     {peer.is_active ? null : <nldd-badge color="neutral" text="Uitgeschakeld" />}
+                    {peer.is_example === Boolean(instance?.example) ? null : (
+                      <nldd-badge
+                        color="neutral"
+                        text={peer.is_example ? 'Voorbeeld, geen verkeer' : 'Geen voorbeeld, geen verkeer'}
+                      />
+                    )}
                   </OpenCell>
                   <nldd-text-cell
                     hide-below="md"

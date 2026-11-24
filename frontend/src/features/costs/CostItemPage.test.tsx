@@ -38,6 +38,12 @@ const ITEM: CostItem = {
   pct_total: '80.00',
   uncovered_pct: '20.00',
   hidden_coverage_pct: '0',
+  executor_organisation_id: null,
+  executor_name: null,
+  reference_state: null,
+  change_state: null,
+  requested_by_name: null,
+  executor_lines: [],
   invoice_lines: [
     { ...RECEIVED, id: 'l-3', reference: 'HOST-26-03', kind: 'estimate', period: '2026-10-01', attachments: [], amount_cents: 750000 },
     { ...RECEIVED, id: 'l-2', reference: 'HOST-26-02', period: '2026-04-01', attachments: [] },
@@ -65,6 +71,49 @@ const ITEM: CostItem = {
   ],
   may_edit: true,
 };
+
+/** A cost item Voorbeeldgilde keeps, read there just now. */
+const REFERENCE: CostItem = {
+  ...ITEM,
+  description: 'Zaalhuur',
+  executor_organisation_id: 'o-1',
+  executor_name: 'Voorbeeldgilde',
+  reference_state: 'found',
+  invoice_lines: [],
+  executor_lines: [
+    {
+      reference: null,
+      description: 'Catering',
+      kind: 'estimate',
+      amount_cents: 750000,
+      period: '2026-05-01',
+    },
+    {
+      reference: 'ZAAL-26-04',
+      description: null,
+      kind: 'actual',
+      amount_cents: 750000,
+      period: '2026-04-01',
+    },
+  ],
+};
+
+/** Asked of Voorbeeldgilde, not made there yet: only the asked budget is known. */
+const ASKED: CostItem = {
+  ...REFERENCE,
+  budgeted_cents: 450000,
+  forecast_cents: null,
+  actual_cents: null,
+  estimate_cents: null,
+  variance_cents: null,
+  covered_cents: null,
+  uncovered_cents: null,
+  reference_state: 'waiting',
+  executor_lines: [],
+  coverages: ITEM.coverages.map((coverage) => ({ ...coverage, amount_cents: null })),
+};
+
+const EXECUTORS = { items: [{ organisation_id: 'o-1', name: 'Voorbeeldgilde' }] };
 
 const OPTIONS = {
   items: [
@@ -102,7 +151,11 @@ async function renderPage(item: CostItem, refuse?: { status: number; detail: str
           }),
         );
       }
-      const body = url.startsWith('/api/costs/coverage-options') ? OPTIONS : item;
+      const body = url.startsWith('/api/costs/coverage-options')
+        ? OPTIONS
+        : url.startsWith('/api/costs/executor-options')
+          ? EXECUTORS
+          : item;
       return Promise.resolve(
         new Response(JSON.stringify(body), {
           status: 200,
@@ -318,5 +371,123 @@ describe('CostItemPage', () => {
     );
     // The document itself stays within reach.
     expect(page.querySelector('nldd-link[start-icon="download"]')).not.toBeNull();
+  });
+
+  it('shows a found reference with the invoices of its executor, only to read', async () => {
+    const { page } = await renderPage(REFERENCE);
+    expect(page.textContent).toContain('Uitgevoerd door Voorbeeldgilde');
+    expect(page.querySelectorAll('.grip-figure')).toHaveLength(3);
+    expect(button(page, 'Voeg factuur toe')).toBeUndefined();
+    const primary = [...page.querySelectorAll('nldd-button[appearance="primary"]')];
+    expect(primary.map((el) => el.getAttribute('text'))).toEqual(['Wijzig gegevens']);
+    const invoices = page.querySelectorAll('nldd-table')[0] as HTMLElement;
+    expect(invoices.getAttribute('accessible-label')).toBe('Facturen van Zaalhuur');
+    const names = [...invoices.querySelectorAll('nldd-table-row:not([slot]) nldd-text:not([color])')];
+    expect(names.map((el) => el.textContent)).toEqual(['ZAAL-26-04', 'Catering']);
+    expect(invoices.querySelector('nldd-link')).toBeNull();
+    expect(invoices.querySelector('nldd-icon-button')).toBeNull();
+    expect(invoices.innerHTML).not.toContain('Bijlage');
+    const remove = [...page.querySelectorAll('nldd-menu-item')].find(
+      (el) => el.getAttribute('text') === 'Verwijder kostenpost',
+    );
+    expect(remove?.hasAttribute('destructive')).toBe(true);
+  });
+
+  it.each([
+    ['waiting', 'Wijziging gevraagd, wacht op Voorbeeldgilde'],
+    ['refused', 'Wijziging geweigerd door Voorbeeldgilde'],
+    ['undelivered', 'Wijziging niet aangekomen bij Voorbeeldgilde'],
+  ] as const)('says what became of a change the executor has not applied (%s)', async (state, text) => {
+    const { page } = await renderPage({ ...REFERENCE, change_state: state });
+    expect(page.textContent).toContain('Uitgevoerd door Voorbeeldgilde');
+    expect(page.textContent).toContain(text);
+  });
+
+  it('shows what was asked of an executor that has not made it yet', async () => {
+    const { page } = await renderPage(ASKED);
+    expect(page.textContent).toContain('Wacht op Voorbeeldgilde');
+    const figures = [...page.querySelectorAll('.grip-figure')].map((el) => plain(el.textContent));
+    expect(figures).toHaveLength(1);
+    expect(figures[0]).toContain('Begroot');
+    expect(figures[0]).toContain('€ 4.500');
+    expect(page.querySelector('.cost-bar')).toBeNull();
+    expect(texts(page, 'nldd-title[heading-level="2"]')).toEqual(['Dekking']);
+    expect(button(page, 'Voeg factuur toe')).toBeUndefined();
+  });
+
+  it.each([
+    ['refused', 'Geweigerd door Voorbeeldgilde'],
+    ['undelivered', 'Niet aangekomen bij Voorbeeldgilde'],
+  ] as const)('names a request that came to nothing (%s)', async (state, text) => {
+    const { page } = await renderPage({ ...ASKED, reference_state: state });
+    expect(page.textContent).toContain(text);
+    expect(button(page, 'Voeg factuur toe')).toBeUndefined();
+  });
+
+  it('shows no amount at all when the executor cannot be read', async () => {
+    const { page } = await renderPage({
+      ...ASKED,
+      description: '',
+      budgeted_cents: null,
+      reference_state: 'unreachable',
+    });
+    expect(page.textContent).toContain('Niet op te halen bij Voorbeeldgilde');
+    expect(page.querySelector('.grip-figure')).toBeNull();
+    expect(page.querySelector('.cost-bar')).toBeNull();
+    expect(page.innerHTML).not.toContain('€');
+    // The shares are this side's own: they stay, as percentages.
+    const coverage = page.querySelector('nldd-table') as HTMLElement;
+    expect(texts(coverage, 'nldd-table-row:not([slot]) nldd-text-cell')).toContain('30%');
+  });
+
+  it('asks before deleting a reference', async () => {
+    const { page, calls } = await renderPage({ ...ASKED, reference_state: 'refused' });
+    const remove = [...page.querySelectorAll('nldd-menu-item')].find(
+      (el) => el.getAttribute('text') === 'Verwijder kostenpost',
+    ) as HTMLElement;
+    fireEvent(remove, new Event('select'));
+    expect(calls.some((call) => call.method === 'DELETE')).toBe(false);
+    const dialog = [...document.body.querySelectorAll('nldd-modal-dialog[open]')].find(
+      (el) => el.getAttribute('text') === 'Deze kostenpost verwijderen?',
+    ) as HTMLElement;
+    fireEvent.click(button(dialog, 'Verwijder kostenpost') as Element);
+    await waitFor(() =>
+      expect(calls).toContainEqual(expect.objectContaining({ method: 'DELETE', url: '/api/costs/c-1' })),
+    );
+  });
+
+  it('asks the executor for a change and offers no other executor', async () => {
+    const { page, calls } = await renderPage(REFERENCE);
+    fireEvent.click(button(page, 'Wijzig gegevens') as Element);
+    await waitFor(() => expect(openSheet()).not.toBeNull());
+    const sheet = openSheet() as HTMLElement;
+    expect(sheet.textContent).toContain('Voorbeeldgilde past de wijziging toe');
+    expect(texts(sheet, 'nldd-button')).toContain('Vraag wijziging');
+    expect(sheet.querySelector('nldd-form-field[label="Uitgevoerd door"]')).toBeNull();
+    expect(calls.some((call) => call.url.startsWith('/api/costs/executor-options'))).toBe(false);
+  });
+
+  it('offers an executor for an own item without invoices', async () => {
+    const { page } = await renderPage({ ...ITEM, invoice_lines: [] });
+    fireEvent.click(button(page, 'Wijzig gegevens') as Element);
+    await waitFor(() =>
+      expect(openSheet()?.querySelector('nldd-form-field[label="Uitgevoerd door"]')).not.toBeNull(),
+    );
+  });
+
+  it('offers no executor for an own item with invoices', async () => {
+    const { page, calls } = await renderPage(ITEM);
+    fireEvent.click(button(page, 'Wijzig gegevens') as Element);
+    await waitFor(() => expect(openSheet()).not.toBeNull());
+    expect(openSheet()?.querySelector('nldd-form-field[label="Uitgevoerd door"]')).toBeNull();
+    expect(calls.some((call) => call.url.startsWith('/api/costs/executor-options'))).toBe(false);
+  });
+
+  it('says on the executor side who asked for the item, and keeps it an own item', async () => {
+    const { page } = await renderPage({ ...ITEM, requested_by_name: 'Voorbeeldprogramma' });
+    expect(page.textContent).toContain('Gevraagd door Voorbeeldprogramma');
+    expect(page.textContent).not.toContain('Uitgevoerd door');
+    expect(button(page, 'Voeg factuur toe')).toBeDefined();
+    expect(page.querySelector('nldd-menu-item[text="Verwijder kostenpost"]')).toBeNull();
   });
 });

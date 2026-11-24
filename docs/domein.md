@@ -51,6 +51,11 @@ UI-termen zijn Nederlands; code en schema gebruiken de Engelse naam.
 | Ontvangen, verwacht | `actual`, `estimate` | Soort factuurregel: de factuur is binnen, of wordt nog verwacht. Op een kostenpost heet de som van de ontvangen facturen "Ontvangen" (bij een opdracht: Gerealiseerd) en de som van de verwachte "Nog verwacht" (bij een opdracht: Nog gepland). Begroot, Verwacht totaal en Afwijking heten hetzelfde als bij een opdracht; een afwijking van nul heet "Precies begroot" |
 | Ongedekt | `uncovered` | Het deel van het verwacht totaal van een kostenpost dat geen begrotingsregel dekt |
 | Kostendekking | `cost_coverage` | Welke begrotingsregel welk deel van een kostenpost dekt |
+| Uitgevoerd door | `executor_organisation_id` | De organisatie die de uitgave van een kostenpost doet en de kostenpost heeft, bijvoorbeeld een leverancier die een zaal boekt. Alleen een organisatie waarmee grip gekoppeld is (ADR 0052) |
+| Verwijzing | `cost_item` met `executor_organisation_id` | Een kostenpost die een andere organisatie heeft (ADR 0053). Bewaart de eigen URI, de uitvoerder en de eigen dekking; omschrijving, bedrag en factuurregels worden bij de uitvoerder opgehaald |
+| Gevraagd door | `requester_organisation_id`, `reference_uri` | Bij de uitvoerder: de organisatie die om de kostenpost vroeg, en de URI van haar verwijzing |
+| Wacht op, Geweigerd door, Niet aangekomen bij, Niet op te halen bij | `request_status`, `ReferenceState` | Wat een verwijzing nu is: het verzoek wacht, de uitvoerder weigerde het, het kwam niet aan, of de uitvoerder is nu niet te lezen |
+| Onvolledig | `incomplete_by` | Een totaal waarin een verwijzing hoort die niet meetelt omdat ze niet is op te halen of nog wacht |
 | Target KPI % declarabel | `billability_target` | Deel van iemands jaar dat declarabel moet zijn |
 | Offerte | `quote` | Document dat uit de begroting van een opdracht wordt gemaakt. Na het maken wijzigt het niet meer |
 | Offerte maken | `issue_quote` | De begroting vastleggen als offerte. In de code heet dat uitgeven (`issued`); voor de gebruiker is het maken |
@@ -148,11 +153,15 @@ Statussen van een opdracht: concept, aangevraagd, offerte gemaakt, akkoord, in u
 
 | Entiteit | Velden | Bron in Grist |
 |---|---|---|
-| `cost_item` | `description`, `budgeted`; `forecast` en `covered` afgeleid | Kosten |
+| `cost_item` | `description`, `budgeted`; bij een verwijzing `executor_organisation_id`, `request_sequence`, `request_status`, `request_period`, `executor_has_item`; bij de uitvoerder `requester_organisation_id`, `reference_uri`, `reference_sequence`; `forecast` en `covered` afgeleid | Kosten; uitvoerder en vrager zijn nieuw |
 | `invoice_line` | `reference` (bijvoorbeeld "HOST-26-01"), `description`, `kind` (`actual`, `estimate`), `amount`, `cost_item_id`, `period` | Factuur; `period` is nieuw |
 | `cost_coverage` | `cost_item_id`, `budget_line_id`, `pct`; `amount` afgeleid | Kostendekking |
 
 Een kostenpost hoort niet bij een opdracht. De dekking kan over begrotingsregels van meerdere opdrachten verdeeld zijn.
+
+Een kostenpost kan worden uitgevoerd door een andere organisatie (ADR 0052, 0053). Die organisatie is eigenaar: zij heeft omschrijving, bedrag, factuurregels en bijlagen. Hier staat een verwijzing met de eigen dekking. Bij het opslaan vraagt grip de uitvoerder om de kostenpost aan te maken; een wijziging van omschrijving of bedrag is een nieuw verzoek, dat de uitvoerder uitvoert. Tot de uitvoerder het verzoek heeft uitgevoerd, bewaart de verwijzing wat is gevraagd; daarna niets van de uitvoerder.
+
+Grip leest omschrijving, bedrag en factuurregels bij de uitvoerder, met één verzoek per uitvoerder. Wat is opgehaald telt als gewone factuurregels in R6 tot en met R10; er komt geen rekenregel bij. Een verwijzing die niet is op te halen of nog wacht, telt niet mee, en elk totaal waar ze in hoort, heet onvolledig. Elke administratie telt de uitgave een keer: de uitvoerder in de begroting die haar dekt, het programma in de eigen.
 
 ### Federatie en controle
 

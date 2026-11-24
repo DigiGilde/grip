@@ -1,0 +1,16 @@
+{
+  "instances": [
+    {
+      "naam": "DigiGilde voorbeeld",
+      "rol": "Opdrachtnemer",
+      "omschrijving": "Maakt offertes, voert opdrachten uit, sluit maanden af en factureert.",
+      "url": "http://localhost:9001"
+    },
+    {
+      "naam": "Voorbeeldministerie",
+      "rol": "Opdrachtgever",
+      "omschrijving": "Vraagt werk aan bij DigiGilde voorbeeld, tekent offertes en volgt de uitputting.",
+      "url": "http://localhost:9002"
+    }
+  ]
+}

@@ -12,6 +12,7 @@ from typing import Any
 import httpx
 
 from grip.core.config import Settings
+from grip.federation.group import same_side
 from grip.federation.models import Peer
 
 GRANT_HASH_HEADER = "Fsc-Grant-Hash"
@@ -23,6 +24,15 @@ class OutwayNotConfiguredError(Exception):
 
 class MissingGrantError(Exception):
     """There is no grant hash for this service in the contract with the peer."""
+
+
+class PeerOutsideGroupError(MissingGrantError):
+    """The peer is an example instance and this one is not, or the reverse.
+
+    Nothing is sent: an example instance talks only to example instances
+    (ADR 0054). A caller that treats a missing grant as "no connection with
+    this peer" is right about this one as well.
+    """
 
 
 class OutwayClient:
@@ -51,6 +61,12 @@ class OutwayClient:
         params: dict[str, Any] | None = None,
         json: Any | None = None,
     ) -> httpx.Response:
+        if not same_side(peer, self._settings):
+            raise PeerOutsideGroupError(
+                f"Peer {peer.peer_id} is "
+                + ("not " if self._settings.is_example else "")
+                + "an example instance"
+            )
         base = self._settings.OUTWAY_URL.rstrip("/")
         if not base:
             raise OutwayNotConfiguredError("OUTWAY_URL is not set")

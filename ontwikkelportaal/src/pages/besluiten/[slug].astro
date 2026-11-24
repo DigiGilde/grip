@@ -1,0 +1,43 @@
+---
+import { getCollection, render } from 'astro:content';
+import Article from '../../layouts/Article.astro';
+import Outline from '../../components/Outline.astro';
+import PrevNext from '../../components/PrevNext.astro';
+import { ROUTES, STATUS_COLOR } from '../../lib/site';
+
+export async function getStaticPaths() {
+  const adrs = (await getCollection('adr')).sort((a, b) => a.id.localeCompare(b.id));
+  const link = (e?: (typeof adrs)[number]) =>
+    e && { href: `${ROUTES.adr}${e.id}/`, text: `ADR ${e.data.number} ${e.data.title}` };
+  return adrs.map((entry, i) => ({
+    params: { slug: entry.id },
+    props: { entry, prev: link(adrs[i - 1]), next: link(adrs[i + 1]) },
+  }));
+}
+
+const { entry, prev, next } = Astro.props;
+const { Content, headings } = await render(entry);
+const { number, title, status, date } = entry.data;
+---
+
+<Article
+  title={title}
+  overline={`ADR ${number}`}
+  sidebarLabel="Op deze pagina"
+  noCollapse
+  crumbs={[{ text: 'Besluiten', href: ROUTES.adr }]}
+  search={{ onderdeel: 'Besluiten', status }}
+  searchTitle={`ADR ${number} ${title}`}
+>
+  <Fragment slot="meta">
+    <nldd-container layout="wrap" gap="8" vertical-alignment="center">
+      <nldd-tag color={STATUS_COLOR[status]} text={status}></nldd-tag>
+      {date && <nldd-text size="sm" color="secondary">{date}</nldd-text>}
+    </nldd-container>
+  </Fragment>
+  <Outline slot="sidebar" headings={headings} />
+  <nldd-rich-text>
+    <Content />
+    <PrevNext label="Andere besluiten" prev={prev} next={next} />
+  </nldd-rich-text>
+</Article>

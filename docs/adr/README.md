@@ -55,6 +55,9 @@ Een besluit dat anderen bindt staat hier als ADR: genummerd, met context, beslui
 | [0049](0049-een-verouderde-opslag-wordt-geweigerd.md) | Een opslag op een verouderde versie wordt geweigerd, op een manier voor elk formulier | aanvaard |
 | [0050](0050-een-voorbeeldinstantie-is-een-eigen-soort-instantie.md) | Een voorbeeldinstantie is een eigen soort instantie | aanvaard |
 | [0051](0051-wat-berekend-is-wordt-onthouden-tot-er-iets-verandert.md) | Wat berekend is wordt onthouden tot er iets verandert | aanvaard |
+| [0052](0052-een-kostenpost-bij-een-andere-partij.md) | Een kostenpost bij een andere partij | voorgesteld |
+| [0053](0053-een-gegeven-heeft-een-eigenaar-elders-een-verwijzing.md) | Een gegeven heeft één eigenaar, elders een verwijzing | voorgesteld |
+| [0054](0054-voorbeeldinstanties-federeren-in-een-besloten-groep.md) | Voorbeeldinstanties federeren in een besloten groep | voorgesteld |
 
 ## Welke besluiten later zijn bijgesteld
 
@@ -82,3 +85,4 @@ Een besluit wordt niet herschreven. Is het later bijgesteld, dan staat onderaan 
 | 0038 Een taak vertelt | 0039, 0044, 0047 | Taken per factuurperiode; verloop uit dezelfde bron; een taak voor de naverrekening |
 | 0039 Afsluiten en aanleveren | 0047 | De naverrekening als opgeslagen verschil |
 | 0044 Een verloop per zaak | 0045, 0048 | Een afwijzing is een stap terug; overnemen geeft geen recht |
+| 0050 Een voorbeeldinstantie | 0054 | Voorbeelden federeren met elkaar, in een eigen groep |

@@ -20,6 +20,7 @@ import {
 } from '@/features/overview/years';
 import { MonthColumns } from '@/features/reports/charts/MonthColumns';
 import { SERIES_COLORS } from '@/features/reports/charts/colors';
+import { incompleteText, referenceStateText } from '@/features/costs/costText';
 import { formatEuro, formatMonth, formatPercent, formatPeriod } from '@/lib/format';
 import { ActionBar } from '@/ui/ActionBar';
 import {
@@ -163,12 +164,21 @@ function LineDetail({ line }: { line: FinanceLine }) {
             text={cost.description}
             supporting-text={`Kostenpost, ${formatPercent(cost.pct)} gedekt door deze regel`}
           />
-          <nldd-text-cell
-            width="fit-content"
-            text={formatEuro(cost.total_cents)}
-            supporting-text={`${formatEuro(cost.realised_cents)} gerealiseerd, ${formatEuro(cost.forecast_cents)} ingeschat`}
-            horizontal-alignment="right"
-          />
+          {cost.reference_state && cost.reference_state !== 'found' ? (
+            <nldd-text-cell
+              width="fit-content"
+              text={referenceStateText(cost.reference_state, cost.executor_name)}
+              color="secondary"
+              horizontal-alignment="right"
+            />
+          ) : (
+            <nldd-text-cell
+              width="fit-content"
+              text={formatEuro(cost.total_cents)}
+              supporting-text={`${formatEuro(cost.realised_cents)} gerealiseerd, ${formatEuro(cost.forecast_cents)} ingeschat`}
+              horizontal-alignment="right"
+            />
+          )}
         </nldd-list-item>
       ))}
       {figures &&
@@ -353,12 +363,17 @@ export function FinanceTab() {
                       <nldd-table-row key={line.budget_line_id}>
                         <nldd-text-cell
                           text={line.description}
-                          {...(line.rate_category || rateCauseText(line)
+                          {...(line.rate_category ||
+                          rateCauseText(line) ||
+                          line.incomplete_by.length > 0
                             ? {
                                 // The cause of a rate difference next to the line it explains.
                                 'supporting-text': [
                                   line.rate_category ? rates.name(line.rate_category) : '',
                                   rateCauseText(line),
+                                  line.incomplete_by.length > 0
+                                    ? incompleteText(line.incomplete_by)
+                                    : '',
                                 ]
                                   .filter(Boolean)
                                   .join('. '),
@@ -369,7 +384,12 @@ export function FinanceTab() {
                       </nldd-table-row>
                     ))}
                     <nldd-table-row>
-                      <nldd-text-cell text="**Totaal**" />
+                      <nldd-text-cell
+                        text="**Totaal**"
+                        {...(finance.incomplete_by.length > 0
+                          ? { 'supporting-text': incompleteText(finance.incomplete_by) }
+                          : {})}
+                      />
                       <FigureCells figures={finance.totals} error={finance.pricing_error} bold />
                     </nldd-table-row>
                   </nldd-table>

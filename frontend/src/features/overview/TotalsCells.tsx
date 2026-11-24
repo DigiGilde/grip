@@ -1,3 +1,4 @@
+import { incompleteText } from '@/features/costs/costText';
 import { formatEuro } from '@/lib/format';
 import type { Totals } from './api';
 import { hasAmounts } from './api';
@@ -47,7 +48,13 @@ export function TotalsCells({
   const money = (cents: number) => (bold ? `**${formatEuro(cents)}**` : formatEuro(cents));
   return (
     <>
-      <nldd-text-cell text={money(totals.budgeted_cents)} horizontal-alignment="right" />
+      <nldd-text-cell
+        text={money(totals.budgeted_cents)}
+        horizontal-alignment="right"
+        {...((totals.incomplete_by ?? []).length > 0
+          ? { 'supporting-text': incompleteText(totals.incomplete_by ?? []) }
+          : {})}
+      />
       <nldd-text-cell text={money(totals.realised_cents)} horizontal-alignment="right" />
       <nldd-text-cell text={money(totals.forecast_cents)} horizontal-alignment="right" />
       <nldd-text-cell text={money(totals.coverage_cents)} horizontal-alignment="right" />

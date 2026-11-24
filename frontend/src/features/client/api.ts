@@ -141,6 +141,7 @@ export interface BudgetUsage {
   used_cents?: number | null;
   available_cents?: number | null;
   lines?: UsageLine[];
+  incomplete_by?: string[];
 }
 
 export interface FinalReport {

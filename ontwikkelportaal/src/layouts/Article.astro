@@ -1,0 +1,71 @@
+---
+// A page with a sidebar beside the content. Below the large breakpoint the
+// sidebar folds into a sheet that the button under the title opens, unless
+// noCollapse stacks it above the content instead.
+import Base, { type Crumb } from './Base.astro';
+
+interface Props {
+  title: string;
+  sidebarLabel: string;
+  noCollapse?: boolean;
+  overline?: string;
+  supportingText?: string;
+  crumb?: string;
+  crumbs?: Crumb[];
+  back?: Crumb;
+  /** Pagefind filters of this page; without them the page is not indexed. */
+  search?: Record<string, string>;
+  searchTitle?: string;
+}
+
+const { title, sidebarLabel, noCollapse, overline, supportingText, crumb, crumbs, back, search, searchTitle } =
+  Astro.props;
+// Filters and title are read from attributes: Pagefind's inline syntax splits
+// on commas, which a title may contain.
+const searchAttrs = search
+  ? {
+      'data-pagefind-body': '',
+      'data-pagefind-filter': Object.keys(search)
+        .map((k) => `${k}[data-filter-${k}]`)
+        .join(', '),
+      'data-pagefind-meta': 'title[data-search-title]',
+      'data-search-title': searchTitle ?? title,
+      ...Object.fromEntries(Object.entries(search).map(([k, v]) => [`data-filter-${k}`, v])),
+    }
+  : {};
+---
+
+<Base title={title} crumb={crumb} crumbs={crumbs} back={back}>
+  <nldd-sidebar-section sidebar-label={sidebarLabel} no-collapse={noCollapse || undefined}>
+    <nldd-container slot="header">
+      <nldd-title
+        size="2"
+        heading-level="1"
+        text={title}
+        overline={overline}
+        supporting-text={supportingText}></nldd-title>
+      {
+        Astro.slots.has('meta') && (
+          <Fragment>
+            <nldd-spacer size="16" />
+            <slot name="meta" />
+          </Fragment>
+        )
+      }
+      {
+        !noCollapse && (
+          <div class="sidebar-trigger">
+            <nldd-spacer size="16" />
+            <nldd-button appearance="secondary" start-icon="sidebar-left" text={sidebarLabel} />
+          </div>
+        )
+      }
+    </nldd-container>
+    <nldd-container slot="sidebar" padding="16">
+      <slot name="sidebar" />
+    </nldd-container>
+    <div {...searchAttrs}>
+      <slot />
+    </div>
+  </nldd-sidebar-section>
+</Base>

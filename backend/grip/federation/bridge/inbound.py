@@ -23,14 +23,19 @@ from grip.access import Action, Resource
 from grip.core.audit import CREATE, record_audit
 from grip.federation import terms
 from grip.federation.bridge.access import peer_access
-from grip.federation.bridge.organisations import from_reference, own_organisation
+from grip.federation.bridge.organisations import (
+    from_reference,
+    own_organisation,
+    peer_organisation,
+)
 from grip.federation.models import Peer
+from grip.federation.peers import normalize_uri
 from grip.federation.problems import FederationProblem
 from grip.federation.registry import InboundMessage
 from grip.models.quote import Quote
-from grip.repositories.domain import AssignmentRepository
+from grip.repositories.domain import AssignmentRepository, CostRepository
 from grip.repositories.vacancy import VacancyRepository
-from grip.services import assignments, quotes
+from grip.services import assignments, quotes, requested_cost_items
 from grip.services.canonical import canonical_of_received
 from grip.services.errors import (
     DomainError,
@@ -294,6 +299,56 @@ async def receive_vacancy_offer(
     return {"vacancy_id": str(vacancy.id), "offer_id": body["id"]}
 
 
+async def receive_cost_item_request(
+    db: AsyncSession, peer: Peer, message: InboundMessage
+) -> dict[str, Any]:
+    """Another organisation asks this one to make or change a cost item.
+
+    The asker is the calling peer, never the organisation the message names.
+    The reference must be one that peer's instance minted, so an item can
+    only be changed by the peer that asked for it.
+    """
+    body = message.payload
+    uri = body["reference_uri"]
+    if not uri.startswith(f"{normalize_uri(peer.base_uri)}/id/kostenpost/"):
+        raise FederationProblem(
+            403,
+            "Geen toegang",
+            "De verwijzing hoort niet bij de instantie die om de kostenpost vraagt.",
+        )
+    existing = await CostRepository(db).by_reference_uri(uri)
+    decision = await peer_access(db, peer).may(
+        Action.REQUEST_COST_ITEM,
+        Resource.cost_item(existing.id if existing is not None else None),
+    )
+    if not decision.allowed:
+        raise FederationProblem(
+            403, "Geen toegang", "Deze peer mag hier niet om deze kostenpost vragen."
+        )
+    requester = await peer_organisation(db, peer)
+    assert requester is not None
+    try:
+        item, outcome = await requested_cost_items.receive_request(
+            db,
+            requester_organisation_id=requester.id,
+            reference_uri=uri,
+            sequence=body["sequence"],
+            description=body["description"],
+            budgeted_cents=body["budgeted"]["amount_cents"],
+            period=_date(body.get("period")),
+        )
+    except NotFoundError as error:
+        raise FederationProblem(
+            403, "Geen toegang", "Deze peer mag hier niet om deze kostenpost vragen."
+        ) from error
+    except DomainError as error:
+        raise _refuse(error) from error
+    result: dict[str, Any] = {"cost_item_id": str(item.id), "outcome": outcome}
+    if body.get("assignment_uri"):
+        result["assignment_uri"] = body["assignment_uri"]
+    return result
+
+
 HANDLERS = {
     "sendAssignmentRequest": receive_assignment_request,
     "sendQuote": receive_quote,
@@ -302,4 +357,5 @@ HANDLERS = {
     "sendFinalReport": receive_final_report,
     "sendVacancy": receive_vacancy,
     "sendVacancyOffer": receive_vacancy_offer,
+    "requestCostItem": receive_cost_item_request,
 }

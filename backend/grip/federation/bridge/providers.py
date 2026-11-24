@@ -32,7 +32,11 @@ from grip.access.peer_deps import PeerAccess
 from grip.calc import CalcError, Month
 from grip.core import clock
 from grip.federation.bridge.access import peer_access, pull_context
-from grip.federation.bridge.organisations import organisation_by_id, reference
+from grip.federation.bridge.organisations import (
+    organisation_by_id,
+    peer_organisation,
+    reference,
+)
 from grip.federation.models import Peer
 from grip.federation.problems import FederationProblem
 from grip.models.assignment import Allocation, Assignment, BudgetLine
@@ -45,8 +49,8 @@ from grip.repositories.domain import (
     CostRepository,
     MonthCloseRepository,
 )
-from grip.services import month_close, pricing
-from grip.services.assignments import is_shared_with
+from grip.services import cost_references, month_close, pricing, requested_cost_items
+from grip.services.assignments import is_shared_with, mint_uri
 from grip.services.errors import DomainError
 from grip.services.phase import counterparty_status
 
@@ -225,7 +229,7 @@ async def get_budget_usage(
         line.id: line
         for line in await AssignmentRepository(db).budget_lines([assignment.id])
     }
-    return {
+    answer: dict[str, Any] = {
         "assignment_uri": assignment.uri,
         "as_of": _today(),
         "year": year,
@@ -244,6 +248,9 @@ async def get_budget_usage(
             if item.budget_line_id in lines
         ],
     }
+    if overview.incomplete_by:
+        answer["incomplete_by"] = list(overview.incomplete_by)
+    return answer
 
 
 async def _billing_body(
@@ -535,23 +542,26 @@ async def get_handover_costs(
     ):
         raise _no_handover()
     year = parameters["year"]
-    items = (
-        (await db.execute(select(CostItem).order_by(CostItem.description)))
-        .scalars()
-        .all()
-    )
+    items = list((await db.execute(select(CostItem))).scalars())
+    # A cost item another organisation keeps counts with what was read
+    # there; one that could not be read is left out and named, as it is here.
+    references = await cost_references.read(db, items)
     costs = CostRepository(db)
     assignments = AssignmentRepository(db)
     results = []
-    for item in items:
+    incomplete_by: set[str] = set()
+    for item in sorted(items, key=lambda i: _cost_description(i, references)):
+        reference = references.get(item.id)
+        if reference is not None and not reference.counts:
+            if reference.unknown:
+                incomplete_by.add(reference.executor_name)
+            continue
         # Rules R6 to R8 live in the calculation module; this only selects
         # the invoice lines of the year and shapes the answer.
-        calc_item = pricing.to_calc_cost_item(item)
-        year_lines = tuple(
-            pricing.to_calc_invoice_line(line)
-            for line in await costs.invoice_lines([item.id])
-            if line.period is not None and line.period.year == year
+        calc_items, year_lines = pricing.calc_costs(
+            [item], await costs.invoice_lines([item.id]), references, year=year
         )
+        calc_item = calc_items[0]
         coverage = []
         covered = 0
         for share in await costs.coverages_of_item(item.id):
@@ -575,14 +585,76 @@ async def get_handover_costs(
             )
         results.append(
             {
-                "description": item.description,
-                "budgeted": _money(item.budgeted_cents),
+                "description": _cost_description(item, references),
+                "budgeted": _money(calc_item.budgeted_cents),
                 "forecast": _money(calc.forecast(calc_item, year_lines)),
                 "covered": _money(covered),
                 "coverage": coverage,
             }
         )
-    return {"year": year, "results": results}
+    answer: dict[str, Any] = {"year": year, "results": results}
+    if incomplete_by:
+        answer["incomplete_by"] = sorted(incomplete_by)
+    return answer
+
+
+def _cost_description(
+    item: CostItem, references: dict[UUID, cost_references.Reference]
+) -> str:
+    reference = references.get(item.id)
+    if reference is not None and reference.content is not None:
+        return reference.content.description
+    return item.description or ""
+
+
+def _invoice_line(line: Any) -> dict[str, Any]:
+    result: dict[str, Any] = {"kind": line.kind, "amount": _money(line.amount_cents)}
+    if line.reference:
+        result["reference"] = line.reference
+    if line.description:
+        result["description"] = line.description
+    if line.period is not None:
+        result["period"] = line.period.isoformat()
+    return result
+
+
+async def get_cost_items(
+    db: AsyncSession, peer: Peer, parameters: dict[str, Any]
+) -> Answer:
+    """The cost items this instance keeps behind the references of the peer.
+
+    Only the organisation that asked for a cost item reads it, and only
+    class B. Every reference is in the answer once; one the peer may not
+    read is "not created", so it learns nothing of what others asked.
+    """
+    uris = list(dict.fromkeys(parameters["referenceUri"]))
+    requester = await peer_organisation(db, peer, create=False)
+    found = (
+        await requested_cost_items.requested_by(db, requester.id, uris)
+        if requester is not None
+        else {}
+    )
+    access = peer_access(db, peer)
+    answer = []
+    for uri in uris:
+        requested = found.get(uri)
+        if requested is None or not await access.reads(
+            Resource.cost_item(requested.item.id), DataClass.ASSIGNMENT_FINANCIAL
+        ):
+            answer.append({"reference_uri": uri, "created": False})
+            continue
+        item = requested.item
+        answer.append(
+            {
+                "reference_uri": uri,
+                "created": True,
+                "uri": mint_uri("kostenpost", item.id),
+                "description": item.description,
+                "budgeted": _money(item.budgeted_cents or 0),
+                "lines": [_invoice_line(line) for line in requested.lines],
+            }
+        )
+    return {"cost_items": answer}
 
 
 PROVIDERS = {
@@ -596,4 +668,5 @@ PROVIDERS = {
     "getHandoverStaffing": get_handover_staffing,
     "getHandoverCapacity": get_handover_capacity,
     "getHandoverCosts": get_handover_costs,
+    "getCostItems": get_cost_items,
 }

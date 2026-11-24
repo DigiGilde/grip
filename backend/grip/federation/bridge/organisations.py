@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip.core.config import Settings, get_settings
+from grip.federation.models import Peer
 from grip.federation.peers import normalize_uri
 from grip.models.organisation import Organisation
 from grip.services.assignments import upsert_organisation
@@ -82,6 +83,23 @@ async def from_reference(db: AsyncSession, ref: dict[str, Any]) -> Organisation:
         tooi_uri=ref.get("tooi_uri") or None,
         unit_key=ref.get("unit_key"),
         instance_uri=normalize_uri(instance_uri) if instance_uri else None,
+    )
+
+
+async def peer_organisation(
+    db: AsyncSession, peer: Peer, *, create: bool = True
+) -> Organisation | None:
+    """The organisation behind a calling peer: the one with its instance.
+
+    Taken from what the beheerder recorded for the peer, never from a
+    message. Made, under the peer's name, when no organisation has that
+    instance yet and ``create`` is set.
+    """
+    found = await _by_instance(db, peer.base_uri)
+    if found is not None or not create:
+        return found
+    return await upsert_organisation(
+        db, name=peer.name, instance_uri=normalize_uri(peer.base_uri)
     )
 
 

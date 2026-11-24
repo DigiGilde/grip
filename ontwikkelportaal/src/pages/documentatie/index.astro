@@ -1,0 +1,47 @@
+---
+import { getEntry } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import { CHAPTERS, chapterRoute } from '../../lib/chapters.mjs';
+
+// The chapters below take the place of the README's own overview tables;
+// of the rest only its reading routes stay.
+const KEPT_SECTION = 'waar-begin-je';
+
+const readme = await getEntry('docs', 'README');
+const html = readme?.rendered?.html;
+if (!readme || !html) throw new Error('docs/README.md ontbreekt of is niet gerenderd');
+const [intro, ...sections] = html.split(/(?=<h2 )/);
+const routes = sections.filter((s) => s.startsWith(`<h2 id="${KEPT_SECTION}"`));
+if (routes.length !== 1) throw new Error(`docs/README.md: de sectie "${KEPT_SECTION}" ontbreekt`);
+---
+
+<Base title={readme.data.title} crumb="Documentatie">
+  <nldd-one-third-two-thirds-section
+    data-pagefind-body
+    data-pagefind-filter="onderdeel[data-filter-onderdeel]"
+    data-filter-onderdeel="Documentatie"
+    data-pagefind-meta="title[data-search-title]"
+    data-search-title={readme.data.title}
+  >
+    <div slot="left">
+      <nldd-title size="2" heading-level="1" text={readme.data.title}></nldd-title>
+      <nldd-spacer size="16"></nldd-spacer>
+      <nldd-rich-text set:html={intro} />
+    </div>
+    <div slot="right">
+      <nldd-list type="navigation" appearance="box-tinted" aria-label="Hoofdstukken">
+        {
+          CHAPTERS.map((c) => (
+            <nldd-list-item href={chapterRoute(c)}>
+              <nldd-text-cell text={c.title} supporting-text={c.description} />
+              <nldd-spacer-cell />
+              <nldd-icon-cell size="20" icon="chevron-right" />
+            </nldd-list-item>
+          ))
+        }
+      </nldd-list>
+      <nldd-spacer size="48"></nldd-spacer>
+      <nldd-rich-text set:html={routes[0]} />
+    </div>
+  </nldd-one-third-two-thirds-section>
+</Base>

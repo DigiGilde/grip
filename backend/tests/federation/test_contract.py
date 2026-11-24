@@ -69,7 +69,7 @@ def test_format_checks_are_real():
 
 def test_operation_table():
     ops = operations()
-    assert len(ops) == 19
+    assert len(ops) == 21
     quote = operation("sendQuote")
     assert (quote.method, quote.path, quote.caller) == (
         "POST",

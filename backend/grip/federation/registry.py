@@ -9,6 +9,12 @@ The federation module never touches domain tables. The domain registers:
 - a message builder per domain event, which turns the event into the
   contract-shaped message for another instance.
 
+- an outbox source, which queues what the domain has waiting for another
+  instance outside of an event, for example a request made while that
+  instance was not connected yet;
+- a delivery hook per pushed operation, which tells the domain what became
+  of a message it caused.
+
 Without a handler a message is stored and stays unprocessed. Without a
 provider a pull operation answers 501. Without a builder an event leads to
 no message.
@@ -25,7 +31,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip.federation.contract_loader import ContractError, operations
-from grip.federation.models import Peer
+from grip.federation.models import FederationOutbox, Peer
 from grip.services import quote_channels
 
 
@@ -72,9 +78,18 @@ MessageBuilder = Callable[
     [AsyncSession, dict[str, Any]], Awaitable[dict[str, Any] | None]
 ]
 
+# Runs at the start of every round of the outbox, in its transaction.
+OutboxSource = Callable[[AsyncSession], Awaitable[None]]
+
+# Runs when a message was sent, refused for good or given up, in the
+# transaction of the outbox; the row carries the status.
+DeliveryHook = Callable[[AsyncSession, FederationOutbox], Awaitable[None]]
+
 _inbound_handlers: dict[str, InboundHandler] = {}
 _providers: dict[str, Provider] = {}
 _message_builders: dict[str, MessageBuilder] = {}
+_outbox_sources: list[OutboxSource] = []
+_delivery_hooks: dict[str, DeliveryHook] = {}
 
 
 def _check_operation(operation: str, *, pushed: bool) -> None:
@@ -115,11 +130,39 @@ def get_message_builder(event_type: str) -> MessageBuilder | None:
     return _message_builders.get(event_type)
 
 
+def register_outbox_source(source: OutboxSource) -> None:
+    """Register a source of messages the outbox asks for before sending."""
+    if source not in _outbox_sources:
+        _outbox_sources.append(source)
+
+
+def outbox_sources() -> tuple[OutboxSource, ...]:
+    return tuple(_outbox_sources)
+
+
+def register_delivery_hook(operation: str, hook: DeliveryHook) -> None:
+    """Register what to tell the domain about a sent message (by operationId)."""
+    _check_operation(operation, pushed=True)
+    _delivery_hooks[operation] = hook
+
+
+def get_delivery_hook(operation: str) -> DeliveryHook | None:
+    return _delivery_hooks.get(operation)
+
+
 def clear_registries() -> None:
-    """Forget every handler, provider and builder. For tests."""
+    """Forget every handler, provider, builder, source and hook. For tests."""
     _inbound_handlers.clear()
     _providers.clear()
     _message_builders.clear()
+    _outbox_sources.clear()
+    _delivery_hooks.clear()
     # The bridge also answers the domain's questions about the channel to a
     # client's instance; forgetting the bridge includes those.
     quote_channels.clear()
+    # Imported here: the module reaches the audit log, which imports this one.
+    from grip.federation.bridge import cost_items
+    from grip.services import cost_references
+
+    cost_references.clear()
+    cost_items.forget()

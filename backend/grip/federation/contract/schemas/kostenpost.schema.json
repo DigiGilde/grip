@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Kostenpost bij de eigenaar",
+  "description": "Wat de eigenaar van een kostenpost teruggeeft aan de organisatie die erom vroeg, bij een verwijzing. Alleen omschrijving, bedrag en factuurregels: geen bijlagen en geen dekking bij de eigenaar.",
+  "type": "object",
+  "properties": {
+    "verwijzing_uri": {
+      "type": "string",
+      "format": "uri",
+      "description": "URI van de verwijzing bij de vrager, zoals die in het verzoek stond."
+    },
+    "aangemaakt": {
+      "type": "boolean",
+      "description": "`false`: de eigenaar heeft voor deze verwijzing geen kostenpost die de vrager mag lezen. De eigenaar maakt daarin geen onderscheid tussen nog niet aangemaakt en niet van de vrager."
+    },
+    "uri": {
+      "type": "string",
+      "format": "uri",
+      "description": "URI van de kostenpost bij de eigenaar, `{basis}/id/kostenpost/{uuid}`."
+    },
+    "omschrijving": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Omschrijving van de kostenpost, zoals de eigenaar haar voert."
+    },
+    "begroot": {
+      "$ref": "bedrag.schema.json",
+      "description": "Het verwachte bedrag van de kostenpost bij de eigenaar."
+    },
+    "regels": {
+      "type": "array",
+      "description": "Alle factuurregels van de kostenpost bij de eigenaar. Leeg als er geen zijn.",
+      "items": {
+        "$ref": "factuurregel.schema.json"
+      }
+    }
+  },
+  "required": [
+    "verwijzing_uri",
+    "aangemaakt"
+  ],
+  "if": {
+    "properties": {
+      "aangemaakt": {
+        "const": true
+      }
+    }
+  },
+  "then": {
+    "required": [
+      "uri",
+      "omschrijving",
+      "begroot",
+      "regels"
+    ]
+  },
+  "else": {
+    "not": {
+      "anyOf": [
+        {
+          "required": [
+            "uri"
+          ]
+        },
+        {
+          "required": [
+            "omschrijving"
+          ]
+        },
+        {
+          "required": [
+            "begroot"
+          ]
+        },
+        {
+          "required": [
+            "regels"
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -40,7 +40,6 @@ from grip import calc
 from grip.calc import AmountSource, InvoiceLineKind, Month
 from grip.core import clock
 from grip.models.assignment import Allocation, BudgetLine
-from grip.models.cost import CostItem
 from grip.models.month_close import MonthClose
 from grip.models.person import Person
 from grip.models.quote import Quote
@@ -52,7 +51,10 @@ from grip.services.pricing import (
     DEFAULT_OPTIONS,
     CalcInputs,
     PricingOptions,
+    cost_descriptions,
+    incomplete_names,
     inputs_digest,
+    line_incomplete_by,
     load_inputs_by_assignment,
 )
 
@@ -142,6 +144,10 @@ class CostAmount:
     pct: Decimal
     realised_cents: int
     forecast_cents: int
+    # For a cost item another organisation keeps: that organisation, and
+    # what the item stands for now (grip.services.cost_references).
+    executor_name: str | None = None
+    reference_state: str | None = None
 
     @property
     def total_cents(self) -> int:
@@ -156,6 +162,8 @@ class FinanceLine:
     pricing_error: str | None
     persons: tuple[PersonAmount, ...]
     costs: tuple[CostAmount, ...]
+    # Executors of cost items on the line that could not be counted.
+    incomplete_by: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -254,6 +262,9 @@ class AssignmentFinance:
     signals: tuple[Signal, ...]
     pricing_error: str | None
     free_room_threshold_pct: Decimal = field(default=FREE_ROOM_THRESHOLD_PCT)
+    # Executors of cost items that could not be counted: the figures of the
+    # lines they are on, and the totals, are incomplete.
+    incomplete_by: tuple[str, ...] = ()
 
 
 # -- building blocks ----------------------------------------------------------
@@ -343,6 +354,7 @@ def _cost_amounts(
             tuple(i for i in invoice_lines if i.kind is InvoiceLineKind.ACTUAL),
             basis=calc.CoverageBasis.FORECAST,
         )
+        reference = inputs.references.get(coverage.cost_item_id)
         result.append(
             CostAmount(
                 cost_item_id=UUID(coverage.cost_item_id),
@@ -350,6 +362,8 @@ def _cost_amounts(
                 pct=Decimal(coverage.pct),
                 realised_cents=realised,
                 forecast_cents=total - realised,
+                executor_name=reference.executor_name if reference else None,
+                reference_state=reference.state.value if reference else None,
             )
         )
     return tuple(result)
@@ -382,7 +396,14 @@ def _finance_line(
         )
     except calc.CalcError as exc:
         return FinanceLine(line, None, views.describe_calc_error(exc), (), ())
-    return FinanceLine(line, figures, None, persons, costs)
+    return FinanceLine(
+        line,
+        figures,
+        None,
+        persons,
+        costs,
+        line_incomplete_by(str(line.id), inputs),
+    )
 
 
 def _month_rows(
@@ -504,6 +525,10 @@ def _signals(
         figures = item.figures
         if figures is None or figures.variance_pct is None:
             continue
+        # Costs that could not be read are missing from the figures, so the
+        # room is unknown, not large.
+        if item.incomplete_by:
+            continue
         if (
             figures.variance_cents > 0
             and figures.variance_pct >= FREE_ROOM_THRESHOLD_PCT
@@ -548,6 +573,7 @@ class _LineFigures:
     pricing_error: str | None
     persons: tuple[PersonAmount, ...]
     costs: tuple[CostAmount, ...]
+    incomplete_by: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -594,14 +620,8 @@ async def _compute_many(
         )
         names = {r[0]: r[1] for r in rows}
     descriptions: dict[str, str] = {}
-    item_ids = {
-        UUID(item.id) for inputs in inputs_of.values() for item in inputs.cost_items
-    }
-    if item_ids:
-        rows = await session.execute(
-            select(CostItem.id, CostItem.description).where(CostItem.id.in_(item_ids))
-        )
-        descriptions = {str(r[0]): r[1] for r in rows}
+    for inputs in inputs_of.values():
+        descriptions.update(await cost_descriptions(session, inputs))
 
     closed_of: dict[UUID, set[date]] = {i: set() for i in ids}
     for assignment_id, month in await session.execute(
@@ -697,6 +717,7 @@ def _compute(
                 pricing_error=item.pricing_error,
                 persons=item.persons,
                 costs=item.costs,
+                incomplete_by=item.incomplete_by,
             )
             for item in lines
         ),
@@ -725,6 +746,7 @@ def _assemble(
             item.pricing_error,
             item.persons,
             item.costs,
+            item.incomplete_by,
         )
         for item in computed.lines
     )
@@ -760,6 +782,7 @@ def _assemble(
             lines, _overdue_months(computed.allocations, computed.closed, today)
         ),
         pricing_error=first_error,
+        incomplete_by=incomplete_names(lines),
     )
 
 

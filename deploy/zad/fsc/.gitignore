@@ -1,0 +1,6 @@
+/state/
+*.pem
+*.key
+*.crt
+*.srl
+*.csr

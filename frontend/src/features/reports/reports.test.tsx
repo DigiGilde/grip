@@ -189,6 +189,44 @@ describe('a topic of Rapportage', () => {
     );
   });
 
+  it('says under the costs that they miss what another organisation keeps', async () => {
+    const costs = {
+      ...COSTS,
+      incomplete_by: ['Voorbeeldgilde'],
+      items: [{ ...COSTS.items[0]!, incomplete_by: ['Voorbeeldgilde'] }],
+    };
+    respond({ '/api/reports/steering': { year: 2026, costs } });
+    const { container } = renderTopic('kosten');
+    await screen.findByTestId('costs');
+    const words = 'Onvolledig: niet alles is op te halen bij Voorbeeldgilde';
+    expect(screen.getByLabelText('Kosten in het kort').nextElementSibling).toHaveTextContent(words);
+    const notes = [...container.querySelectorAll('nldd-text-cell')].map((cell) =>
+      cell.getAttribute('supporting-text'),
+    );
+    expect(notes.filter((note) => note === words)).toHaveLength(2);
+  });
+
+  it('says nothing about completeness when nothing is missing', async () => {
+    respond({ '/api/reports/steering': { year: 2026, costs: COSTS } });
+    const { container } = renderTopic('kosten');
+    await screen.findByTestId('costs');
+    expect(container.innerHTML).not.toContain('Onvolledig');
+  });
+
+  it('says under the turnover that it misses what another organisation keeps', async () => {
+    respond({
+      '/api/reports/steering': {
+        year: 2026,
+        turnover: { ...TURNOVER, incomplete_by: ['Voorbeeldgilde', 'Voorbeeldwerkplaats'] },
+      },
+    });
+    renderTopic('omzet');
+    await screen.findByTestId('turnover');
+    expect(screen.getByLabelText('Omzet in het kort').nextElementSibling).toHaveTextContent(
+      'Onvolledig: niet alles is op te halen bij Voorbeeldgilde en Voorbeeldwerkplaats',
+    );
+  });
+
   it('puts people below target first and says when there is no target', async () => {
     respond({ '/api/reports/steering': { year: 2026, billability: BILLABILITY } });
     const { container } = renderTopic('declarabiliteit');

@@ -6,10 +6,13 @@
 - lets a visitor who logs in through the identity provider, and whose
   address is on the list of ``EXAMPLE_VISITORS``, look as one of the example
   persons (the visitor has no person record of their own);
-- goes back to its starting state every night (``EXAMPLE_RESET_HOUR``);
+- goes back to its starting state every night (``EXAMPLE_RESET_HOUR``),
+  keeping its peer registry;
 - marks every page and every document as an example and never carries the
   Rijkslogo;
-- never talks to another system (see ``Settings._validate_instance_mode``).
+- never talks to another system (see ``Settings._validate_instance_mode``),
+  except other example instances in its own FSC group (``EXAMPLE_FSC_GROUP``,
+  ADR 0054, see grip.federation.group).
 
 The separation from real work is enforced here, not left to discipline:
 
@@ -161,6 +164,22 @@ async def default_person(db: AsyncSession) -> Person | None:
 def visitor_of(session: dict[str, Any]) -> dict[str, Any] | None:
     visitor = session.get(VISITOR_SESSION_KEY)
     return visitor if isinstance(visitor, dict) else None
+
+
+# Minutes at the start of the reset hour in which an example instance sends
+# nothing to other instances. They all go back at that hour, each when its
+# own worker gets to it; a message sent before the receiver went back would
+# be lost with the receiver's data.
+RESET_QUIET_MINUTES = 10
+
+
+def in_reset_window(settings: Settings) -> bool:
+    """Whether the example instances may still be going back right now."""
+    hour = settings.EXAMPLE_RESET_HOUR.strip()
+    if not settings.is_example or not hour:
+        return False
+    local = clock.now().astimezone(clock.zone())
+    return local.hour == int(hour) and local.minute < RESET_QUIET_MINUTES
 
 
 def reset_due(last: datetime | None, settings: Settings) -> bool:

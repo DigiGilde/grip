@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 
 from fastapi import Depends, Request
-from sqlalchemy import select
+from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip.core.config import Settings, get_settings
@@ -17,6 +17,11 @@ from grip.federation.contract_loader import (
     SERVICE_OPDRACHTVERKEER,
     operation,
     validation_errors,
+)
+from grip.federation.group import (
+    FSC_AUTHORIZATION_HEADER,
+    call_in_own_group,
+    same_side,
 )
 from grip.federation.models import (
     PEER_ROLE_CHILD,
@@ -41,6 +46,9 @@ _ROLES_FOR_CALLER: dict[str, frozenset[str]] = {
     "client": _INSTANCE_ROLES,
     "contractor": _INSTANCE_ROLES,
     "peer": _INSTANCE_ROLES,
+    # The organisation that requested a cost item here; which items is
+    # decided by the provider.
+    "requester": frozenset({PEER_ROLE_COUNTERPART}),
     "parent": frozenset({PEER_ROLE_PARENT}),
     "corpus": frozenset({PEER_ROLE_CORPUS}),
 }
@@ -48,6 +56,15 @@ _ROLES_FOR_CALLER: dict[str, frozenset[str]] = {
 
 def normalize_uri(uri: str) -> str:
     return uri.strip().rstrip("/")
+
+
+def usable_peers() -> Select[tuple[Peer]]:
+    """Active peers on this instance's side of the boundary between example
+    instances and real work (ADR 0054); a peer on the other side is as good
+    as unknown."""
+    return select(Peer).where(
+        Peer.is_active.is_(True), Peer.is_example.is_(get_settings().is_example)
+    )
 
 
 async def get_current_peer(
@@ -77,8 +94,16 @@ async def get_current_peer(
     peer = (
         await db.execute(select(Peer).where(Peer.peer_id == peer_id))
     ).scalar_one_or_none()
-    if peer is None or not peer.is_active:
-        # Same answer for unknown and inactive: do not reveal which peers exist.
+    # Same answer for unknown, inactive and the other side of the boundary
+    # between examples and real work: do not reveal which peers exist.
+    if (
+        peer is None
+        or not peer.is_active
+        or not same_side(peer, settings)
+        or not call_in_own_group(
+            request.headers.get(FSC_AUTHORIZATION_HEADER, ""), settings
+        )
+    ):
         raise FederationProblem(
             403, "Geen toegang", "Deze peer is niet bekend bij deze instantie."
         )
@@ -122,9 +147,7 @@ async def find_peer_for_organisation(
     Returns None for a counterpart without grip.
     """
     instance_uri = organisation.get("instance_uri")
-    query = select(Peer).where(
-        Peer.is_active.is_(True), Peer.role.in_(sorted(_INSTANCE_ROLES))
-    )
+    query = usable_peers().where(Peer.role.in_(sorted(_INSTANCE_ROLES)))
     if instance_uri:
         rows = (await db.execute(query)).scalars().all()
         wanted = normalize_uri(instance_uri)
@@ -143,13 +166,7 @@ async def find_peer_for_organisation(
 async def find_corpus_peer(db: AsyncSession, uri: str) -> Peer | None:
     """The corpus system that minted ``uri``: longest matching base wins."""
     rows = (
-        (
-            await db.execute(
-                select(Peer).where(
-                    Peer.is_active.is_(True), Peer.role == PEER_ROLE_CORPUS
-                )
-            )
-        )
+        (await db.execute(usable_peers().where(Peer.role == PEER_ROLE_CORPUS)))
         .scalars()
         .all()
     )

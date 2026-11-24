@@ -45,7 +45,7 @@ De sporen lopen tegelijk. Spoor A vervangt Grist, spoor B bouwt de federatie. Wa
 | Stap | Stand | Toelichting |
 |---|---|---|
 | 1. Proef | Deels | Lokaal draait een eigen FSC-groep met twee grip-instanties en een Bouwmeester, en een echt bericht in beide richtingen. De vragen aan het platformteam zijn niet beantwoord |
-| 2. Contract | Klaar | De contractrepo met `grip-opdrachtverkeer` en `corpus-context` 1.0.0, in het Nederlands (ADR 0019). Twee aanvullingen staan lokaal klaar en zijn niet gepubliceerd; grip heeft de laatste nog niet overgenomen |
+| 2. Contract | Klaar | De contractrepo met `grip-opdrachtverkeer` en `corpus-context`, in het Nederlands (ADR 0019). Grip volgt 1.1.0: de eerdere lokale aanvullingen plus de kostenpost bij een andere partij (ADR 0052), op de tak `cost-item-operations` van de contractrepo. Die tak is nog niet gepubliceerd |
 | 3. Federatiemodule | Klaar | Peerregister, outbox en inbox met worker, aanroep via de outway, inkomende routes op een eigen proces |
 | 4. Aanvraag, offerte en akkoord | Deels | Gebouwd en getest met twee instanties in de tests; lokaal is een bericht over FSC aangetoond. De hele gang van aanvraag tot akkoord is niet in een browser tussen twee gekoppelde instanties doorlopen |
 | 5. Bouwmeester | Deels | `corpus-context` en "opdrachten bij een node" staan op lokale branches van Bouwmeester, niet voorgelegd. Een opdracht met nodes uit twee corpora is niet aangetoond |

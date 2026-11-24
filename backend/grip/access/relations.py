@@ -83,6 +83,10 @@ class RelationSource(Protocol):
         """The peer stands for the contractor organisation of the assignment."""
         ...
 
+    async def peer_requested_cost_item(self, peer_id: str, cost_item_id: UUID) -> bool:
+        """The peer stands for the organisation that asked for the cost item."""
+        ...
+
     async def assignment_references_corpus(
         self, peer_id: str, assignment_id: UUID
     ) -> bool:
@@ -122,6 +126,8 @@ class InMemoryRelationSource:
     # (peer_id, assignment_id)
     peer_clients: set[tuple[str, UUID]] = field(default_factory=set)
     peer_contractors: set[tuple[str, UUID]] = field(default_factory=set)
+    # (peer_id, cost_item_id)
+    peer_cost_item_requesters: set[tuple[str, UUID]] = field(default_factory=set)
     corpus_references: set[tuple[str, UUID]] = field(default_factory=set)
 
     async def assignment_role(
@@ -186,6 +192,9 @@ class InMemoryRelationSource:
 
     async def peer_is_contractor_of(self, peer_id: str, assignment_id: UUID) -> bool:
         return (peer_id, assignment_id) in self.peer_contractors
+
+    async def peer_requested_cost_item(self, peer_id: str, cost_item_id: UUID) -> bool:
+        return (peer_id, cost_item_id) in self.peer_cost_item_requesters
 
     async def assignment_references_corpus(
         self, peer_id: str, assignment_id: UUID

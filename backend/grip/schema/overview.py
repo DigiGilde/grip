@@ -28,6 +28,9 @@ class TotalsOut(BaseModel):
     used_cents: Annotated[int, in_class(B)]
     available_cents: Annotated[int, in_class(B)]
     overrun: Annotated[bool, in_class(B)]
+    # The organisations whose cost items could not be counted (ADR 0052):
+    # these totals are incomplete.
+    incomplete_by: Annotated[list[str], in_class(B)] = []
 
 
 class AttentionOut(BaseModel):
@@ -92,6 +95,10 @@ class LineCostOut(BaseModel):
     description: Annotated[str, in_class(B)]
     pct: Annotated[Decimal, in_class(B)]
     amount_cents: Annotated[int | None, in_class(B)]
+    # A cost item another organisation keeps: that organisation, and what
+    # the item stands for now.
+    executor_name: Annotated[str | None, in_class(B)] = None
+    reference_state: Annotated[str | None, in_class(B)] = None
 
 
 class LineOverviewOut(BaseModel):

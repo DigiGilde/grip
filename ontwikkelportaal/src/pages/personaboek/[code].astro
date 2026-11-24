@@ -1,0 +1,120 @@
+---
+import { getCollection, render } from 'astro:content';
+import Article from '../../layouts/Article.astro';
+import BookNav from '../../components/BookNav.astro';
+import { ACCESS_LABELS, ROUTES, orgRoute } from '../../lib/site';
+
+export async function getStaticPaths() {
+  const personas = await getCollection('personas');
+  return personas.map((entry) => ({ params: { code: entry.data.code }, props: { entry } }));
+}
+
+const { entry } = Astro.props;
+const { Content } = await render(entry);
+const p = entry.data;
+const isUrl = (value: string) => /^https?:\/\//.test(value);
+const list = (items: string[]) => items.join(', ');
+---
+
+<Article
+  title={p.naam}
+  overline={p.code}
+  supportingText={p.rol}
+  sidebarLabel="Personaboek"
+  crumbs={[
+    { text: 'Personaboek', href: ROUTES.book },
+    { text: p.organisatie, href: orgRoute(p.organisatie) },
+  ]}
+  back={{ text: 'Personaboek', href: ROUTES.book }}
+  search={{ onderdeel: 'Personaboek', organisatie: p.organisatie }}
+  searchTitle={`${p.code} ${p.naam}`}
+>
+  <Fragment slot="meta">
+    <nldd-text color="secondary">{p.organisatie} · {p.eenheid}</nldd-text>
+  </Fragment>
+  <BookNav slot="sidebar" current={p.code} />
+
+  <nldd-list appearance="box-tinted" aria-label="Functie en mandaat">
+    <nldd-list-item>
+      <nldd-text-cell width="160px" vertical-alignment="top" color="secondary" text="Functie (FGR)" />
+      <nldd-cell width="full" vertical-alignment="top">
+        <nldd-text>
+          <nldd-link href={p.fgr.url} text={p.fgr.functie} />
+          {p.fgr.inschatting && (
+            <Fragment>
+              {' '}
+              <nldd-tag size="sm" color="warning" text="eigen inschatting" />
+            </Fragment>
+          )}
+        </nldd-text>
+        <nldd-text size="sm" color="secondary">Schaal {p.fgr.schaal} · familie {p.fgr.familie}</nldd-text>
+      </nldd-cell>
+    </nldd-list-item>
+    <nldd-list-item>
+      <nldd-text-cell width="160px" vertical-alignment="top" color="secondary" text="Mandaat" />
+      <nldd-cell width="full" vertical-alignment="top">
+        <nldd-text>
+          {p.mandaat.tekst}
+          {
+            isUrl(p.mandaat.bron) ? (
+              <Fragment>
+                {' '}(<nldd-link href={p.mandaat.bron} text="bron" />)
+              </Fragment>
+            ) : (
+              <Fragment>
+                {' '}
+                <nldd-tag size="sm" color="warning" text={p.mandaat.bron} />
+              </Fragment>
+            )
+          }
+        </nldd-text>
+      </nldd-cell>
+    </nldd-list-item>
+  </nldd-list>
+
+  {
+    p.grips.length > 0 && (
+      <Fragment>
+        <nldd-spacer size="48" />
+        <nldd-title size="4" heading-level="2" text="Grips" />
+        <nldd-spacer size="16" />
+        <nldd-collection layout="grid" item-width="280px">
+          {p.grips.map((g) => (
+            <nldd-card accessible-label={g.instantie}>
+              <nldd-container padding="16" gap="8">
+                <nldd-title size="5" heading-level="3" text={g.instantie} />
+                <nldd-container layout="wrap">
+                  <nldd-tag text={ACCESS_LABELS[g.toegang] ?? g.toegang} />
+                </nldd-container>
+                {g.rechten.length > 0 && (
+                  <nldd-text size="sm">Rechten in grip: {list(g.rechten)}</nldd-text>
+                )}
+                {g.relaties.length > 0 && <nldd-text size="sm">Relaties: {list(g.relaties)}</nldd-text>}
+                <nldd-text size="sm">
+                  {g.voorbeeldpersoon
+                    ? `Voorbeeld: ${g.voorbeeldpersoon}${g.dataset ? `, dataset ${g.dataset}` : ''}`
+                    : 'Nog niet in een dataset'}
+                </nldd-text>
+              </nldd-container>
+              <div slot="footer" data-instance={g.instantie} hidden>
+                <nldd-container padding="16" padding-top="0" gap="4">
+                  <nldd-link text="Kijk in deze grip" />
+                  <nldd-text size="sm" color="secondary">
+                    {g.voorbeeldpersoon
+                      ? `Kies daar voorbeeldpersoon ${g.voorbeeldpersoon} in het accountmenu (online: na het inloggen).`
+                      : 'Kies daar een voorbeeldpersoon in het accountmenu.'}
+                  </nldd-text>
+                </nldd-container>
+              </div>
+            </nldd-card>
+          ))}
+        </nldd-collection>
+      </Fragment>
+    )
+  }
+
+  <nldd-spacer size="48"></nldd-spacer>
+  <nldd-rich-text>
+    <Content />
+  </nldd-rich-text>
+</Article>
