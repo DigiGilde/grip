@@ -195,6 +195,57 @@ De workflow kent één project. Zolang de voorbeeldinstantie het doel is, wijst 
 
 Niets buiten een eigen project met een eigen database. Ze gebruikt dezelfde twee onderdelen en dezelfde login. Mail hoeft niet te worden aangevraagd. De worker moet draaien (`GRIP_PROCESS=all`), anders gaat ze 's nachts niet terug naar de beginstand.
 
+## Startpagina: het ontwikkelportaal
+
+Eén adres voor wie de voorbeelden wil zien: onder Demo een knop naar elke voorbeeldinstantie, met haar rol en een zin uitleg, en verder de documentatie, de besluiten en het personaboek, met zoeken over alles. Het portaal is geen onderdeel van grip en heeft geen backend, login of gegevens. Niets hiervan is al op het platform gedraaid.
+
+Het staat in het project van de voorbeeldinstantie, in een eigen uitrol `portaal`, en wordt bijgewerkt bij elke push naar `main` (`Build and deploy`, de stappen `build-ontwikkelportaal` en `deploy-ontwikkelportaal`). Een pull request krijgt geen eigen uitrol.
+
+| Onderdeel | Image | Poort | Pad | Gezondheidscontrole |
+|---|---|---|---|---|
+| `ontwikkelportaal` | `ghcr.io/digigilde/grip/ontwikkelportaal` | 8080 | `/` | HTTP `GET /` |
+
+Het image bouwt de site met de zoekindex in de bouwfase en controleert daar de links; het uiteindelijke image is nginx met alleen de uitkomst. Het draait als gewone gebruiker en schrijft alleen in `/tmp`. De beveiligingskop staat `'wasm-unsafe-eval'` toe, anders start zoeken niet, en verder geen script uit de pagina zelf.
+
+### Eenmalig
+
+In het project van de voorbeeldinstantie, met de sleutel van dat project:
+
+```sh
+zadctl component add ontwikkelportaal --port 8080 --path / --service publish-on-web
+zadctl service config set health-check --component ontwikkelportaal \
+  --set scheme=http --set port=8080 --set liveness-path=/ --set readiness-path=/
+zadctl env add -c ontwikkelportaal 'ONTWIKKELPORTAAL_INSTANCES=[...]'
+```
+
+De variabele `ZAD_PROJECT_ID` en het geheim `ZAD_API_KEY` uit stap 4 zijn genoeg; er komt niets bij. Maak na de eerste bouw het pakket `ontwikkelportaal` openbaar, net als de images van de instantie.
+
+### Welke instanties erop staan
+
+`ONTWIKKELPORTAAL_INSTANCES` is een JSON-lijst met per instantie `naam`, `url` en optioneel `rol` en `omschrijving`; de velden staan in [lokaal.md](lokaal.md#ontwikkelportaal). Een latere wijziging gaat met `zadctl env set` en geldt vanaf de volgende start van de container. Met de voorbeeldinstanties uit [Voorbeeldinstanties met federatie](#voorbeeldinstanties-met-federatie):
+
+```json
+[
+  {"naam": "Voorbeeldprogramma", "rol": "Programma",
+   "omschrijving": "Geeft opdrachten aan DigiGilde voorbeeld en boekt kosten die een leverancier voor het programma doet.",
+   "url": "https://component-1-programma-<project>.<basisdomein>"},
+  {"naam": "DigiGilde voorbeeld", "rol": "Opdrachtnemer",
+   "omschrijving": "Maakt offertes, voert opdrachten uit, sluit maanden af en factureert.",
+   "url": "https://component-1-gilde-<project>.<basisdomein>"}
+]
+```
+
+### Het adres
+
+Zonder verdere instelling krijgt het portaal het standaardadres van het cluster, `ontwikkelportaal-portaal-<project>.<cluster>`; `zadctl deployment url portaal --component ontwikkelportaal` toont het. Een eigen adres, bijvoorbeeld `grip-demo.rijks.app`, vraag je aan op de uitrol:
+
+```sh
+zadctl deployment create portaal --domain-format subdomain \
+  --subdomain grip-demo --base-domain rijks.app --dry-run
+```
+
+Zonder `--dry-run` wordt dat een aanvraag die een beheerder van het platform goedkeurt; tot die tijd blijft het standaardadres werken. De workflow laat de instellingen van het adres staan als hij een nieuw image uitrolt.
+
 ## Voorbeeldinstanties met federatie
 
 Voorbeeldinstanties laten pas zien wat grip doet als ze met elkaar praten: een kostenpost bij de leverancier, een aanvraag die aankomt. Ze federeren in een eigen FSC-groep, `grip-voorbeeld`, met een eigen test-CA en een eigen directory, en alleen met elkaar (ADR 0054). De opzet volgt het FSC-testnet van MijnOverheid Zakelijk (`MinBZK/moza-fsc-testnet`). Alles staat in `deploy/zad/fsc/`; niets daarvan is al op het platform gedraaid.
