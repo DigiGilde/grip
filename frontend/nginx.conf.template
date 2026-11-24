@@ -68,6 +68,7 @@ http {
         add_header X-Frame-Options "DENY" always;
         add_header Content-Security-Policy $grip_csp always;
         add_header Permissions-Policy $grip_permissions always;
+        add_header X-Robots-Tag $grip_robots always;
 
         # The API on the same origin as the frontend: the session and CSRF
         # cookies stay first-party and no CORS configuration is needed.
@@ -77,8 +78,8 @@ http {
         # address of this container is in its TRUSTED_PROXIES setting.
         include /tmp/grip-api.conf;
 
-        # Where to report a vulnerability; written by the same script from
-        # SECURITY_TXT_URL.
+        # Where to report a vulnerability, and $grip_robots (noindex in an
+        # example instance, else empty and not sent); written by the same script.
         include /tmp/grip-security.conf;
 
         # Hashed assets: immutable, cache forever.
@@ -89,6 +90,7 @@ http {
             add_header X-Frame-Options "DENY" always;
             add_header Content-Security-Policy $grip_csp always;
             add_header Permissions-Policy $grip_permissions always;
+            add_header X-Robots-Tag $grip_robots always;
             try_files $uri =404;
         }
 
@@ -100,6 +102,7 @@ http {
             add_header X-Frame-Options "DENY" always;
             add_header Content-Security-Policy $grip_csp always;
             add_header Permissions-Policy $grip_permissions always;
+            add_header X-Robots-Tag $grip_robots always;
             try_files $uri =404;
         }
         location = /manifest.webmanifest {
@@ -109,6 +112,7 @@ http {
             add_header X-Frame-Options "DENY" always;
             add_header Content-Security-Policy $grip_csp always;
             add_header Permissions-Policy $grip_permissions always;
+            add_header X-Robots-Tag $grip_robots always;
             try_files $uri =404;
         }
 
@@ -120,6 +124,7 @@ http {
             add_header X-Frame-Options "DENY" always;
             add_header Content-Security-Policy $grip_csp always;
             add_header Permissions-Policy $grip_permissions always;
+            add_header X-Robots-Tag $grip_robots always;
             add_header Referrer-Policy "same-origin" always;
         }
     }

@@ -144,7 +144,7 @@ De voorwaarden voor het logo en het lettertype staan in het image in `/app/huiss
 
 De frontend heeft bij één adres met twee paden geen instellingen nodig.
 
-**Op de frontend (`component-1`):** zet `SECURITY_TXT_URL` op het adres van de security.txt van de organisatie die de instantie beheert (https). `/.well-known/security.txt` verwijst daar dan naar. Zonder die waarde antwoordt het adres 404. Wat er verder voor de beveiliging geregeld moet zijn staat in [beveiliging.md](beveiliging.md).
+**Op de frontend (`component-1`):** zet `SECURITY_TXT_URL` op het adres van de security.txt van de organisatie die de instantie beheert (https). `/.well-known/security.txt` verwijst daar dan naar. Zonder die waarde antwoordt het adres 404. Een voorbeeldinstantie is een proefomgeving: zet daar `INSTANCE_MODE=voorbeeld` ook op de frontend. Die antwoordt dan met een eigen security.txt die zegt dat het geen productie is, geeft een `robots.txt` die zoekmachines weert en zet `X-Robots-Tag: noindex`; `SECURITY_TXT_URL` telt dan niet. Wat er verder voor de beveiliging geregeld moet zijn staat in [beveiliging.md](beveiliging.md).
 
 ## 4. De koppeling met GitHub
 

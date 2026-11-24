@@ -472,6 +472,8 @@ def test_every_location_of_the_frontend_sends_the_page_policy() -> None:
             assert "Content-Security-Policy $grip_csp" in block
             assert 'X-Frame-Options "DENY"' in block
             assert "X-Content-Type-Options" in block
+            # Empty, and so not sent, unless the instance is an example.
+            assert "X-Robots-Tag $grip_robots" in block
 
     # The API location keeps the backend's own, closed policy: it sets a
     # header of its own so the page policy is not added on top.
@@ -481,3 +483,11 @@ def test_every_location_of_the_frontend_sends_the_page_policy() -> None:
     assert "Content-Security-Policy" not in proxy
     assert "/.well-known/security.txt" in script
     assert "include /tmp/grip-security.conf;" in template
+    # Every branch sets $grip_robots; an example instance says it is a test
+    # environment and keeps out of search engines.
+    assert script.count("set $grip_robots") + script.count("set \\$grip_robots") == 3
+    example = script.split('if [ "${INSTANCE_MODE:-}" = "voorbeeld" ]; then', 1)[1]
+    example = example.split("\nelse\n", 1)[0]
+    assert "Proefomgeving" in example
+    assert "Disallow: /" in example
+    assert 'set $grip_robots "noindex, nofollow";' in example

@@ -43,7 +43,50 @@ fi
 # security.txt of the organisation that runs this instance; this address
 # sends the reader on to it, so one file is kept up to date. Without it the
 # address answers 404 and not the front page.
+#
+# An example instance (INSTANCE_MODE=voorbeeld, ADR 0050) is a test
+# environment, not production: it answers with a security.txt of its own that
+# says so, keeps out of search engines, and ignores SECURITY_TXT_URL.
 SECURITY_OUT=/tmp/grip-security.conf
+if [ "${INSTANCE_MODE:-}" = "voorbeeld" ]; then
+    if [ -n "${SECURITY_TXT_URL:-}" ]; then
+        echo "grip: an example instance has its own security.txt; SECURITY_TXT_URL is ignored"
+    fi
+    # Written at start: Expires may lie at most a year ahead.
+    expires="$(date -u -d "@$(($(date +%s) + 365 * 24 * 3600))" +%Y-%m-%dT%H:%M:%SZ)"
+    cat > /tmp/grip-security.txt <<EOF
+# Proefomgeving van grip, geen productie. Deze instantie bevat alleen
+# verzonnen organisaties, personen en bedragen. Er draait hier geen dienst
+# voor echt werk.
+Contact: https://github.com/DigiGilde/grip/security/advisories/new
+Policy: https://github.com/DigiGilde/grip/blob/main/SECURITY.md
+Preferred-Languages: nl, en
+Expires: $expires
+EOF
+    printf '%s\n' '# Proefomgeving van grip, geen productie: alleen verzonnen gegevens.' \
+        'User-agent: *' 'Disallow: /' > /tmp/grip-robots.txt
+    cat > "$SECURITY_OUT" <<'CONF'
+set $grip_robots "noindex, nofollow";
+location = /.well-known/security.txt {
+    alias /tmp/grip-security.txt;
+    # The RFC asks for the charset; the .txt extension would win over default_type.
+    types { }
+    default_type "text/plain; charset=utf-8";
+    add_header Cache-Control "no-cache";
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Robots-Tag $grip_robots always;
+}
+location = /robots.txt {
+    alias /tmp/grip-robots.txt;
+    types { }
+    default_type "text/plain; charset=utf-8";
+    add_header Cache-Control "no-cache";
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Robots-Tag $grip_robots always;
+}
+CONF
+    echo "grip: example instance, /.well-known/security.txt says it is a test environment"
+else
 case "${SECURITY_TXT_URL:-}" in
     https://*)
         case "$SECURITY_TXT_URL" in
@@ -53,6 +96,7 @@ case "${SECURITY_TXT_URL:-}" in
                 ;;
         esac
         cat > "$SECURITY_OUT" <<CONF
+set \$grip_robots "";
 location = /.well-known/security.txt {
     add_header X-Content-Type-Options "nosniff" always;
     return 302 ${SECURITY_TXT_URL};
@@ -62,6 +106,7 @@ CONF
         ;;
     "")
         cat > "$SECURITY_OUT" <<'CONF'
+set $grip_robots "";
 location = /.well-known/security.txt {
     add_header X-Content-Type-Options "nosniff" always;
     return 404;
@@ -74,3 +119,4 @@ CONF
         exit 64
         ;;
 esac
+fi
