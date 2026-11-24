@@ -47,6 +47,8 @@ http {
         add_header X-Frame-Options "DENY" always;
         add_header Content-Security-Policy $portal_csp always;
         add_header Permissions-Policy $portal_permissions always;
+        # A test environment: kept out of search engines (also robots.txt).
+        add_header X-Robots-Tag "noindex, nofollow" always;
 
         # Written at start by write-config.sh.
         location = /config.json {
@@ -58,6 +60,22 @@ http {
             add_header X-Frame-Options "DENY" always;
             add_header Content-Security-Policy $portal_csp always;
             add_header Permissions-Policy $portal_permissions always;
+            add_header X-Robots-Tag "noindex, nofollow" always;
+        }
+
+        # Written at start by write-config.sh (RFC 9116).
+        location = /.well-known/security.txt {
+            alias /tmp/ontwikkelportaal-security.txt;
+            # The RFC asks for the charset; the .txt extension would win over default_type.
+            types { }
+            default_type "text/plain; charset=utf-8";
+            add_header Cache-Control "no-cache";
+            add_header X-Content-Type-Options "nosniff" always;
+            add_header Referrer-Policy "same-origin" always;
+            add_header X-Frame-Options "DENY" always;
+            add_header Content-Security-Policy $portal_csp always;
+            add_header Permissions-Policy $portal_permissions always;
+            add_header X-Robots-Tag "noindex, nofollow" always;
         }
 
         error_page 404 /404.html;
@@ -70,6 +88,7 @@ http {
             add_header X-Frame-Options "DENY" always;
             add_header Content-Security-Policy $portal_csp always;
             add_header Permissions-Policy $portal_permissions always;
+            add_header X-Robots-Tag "noindex, nofollow" always;
         }
 
         location / {
@@ -81,6 +100,7 @@ http {
             add_header X-Frame-Options "DENY" always;
             add_header Content-Security-Policy $portal_csp always;
             add_header Permissions-Policy $portal_permissions always;
+            add_header X-Robots-Tag "noindex, nofollow" always;
         }
     }
 }
