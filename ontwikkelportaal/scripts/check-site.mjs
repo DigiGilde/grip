@@ -56,7 +56,8 @@ function targetFile(url, from) {
   return existsSync(index) ? index : null;
 }
 
-const decode = (s) => s.replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+// &amp; last, so an escaped entity stays what it is.
+const decode = (s) => s.replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&');
 
 for (const [file, text] of html) {
   // A moved page: only a redirect to a page that is checked itself.
@@ -86,8 +87,8 @@ for (const [file, text] of html) {
   }
 
   // Scripts the policy would block.
-  for (const m of text.matchAll(/<script\b([^>]*)>/g)) {
-    if (!/\ssrc=/.test(m[1])) problem(file, 'inline script');
+  for (const m of text.matchAll(/<script\b([^>]*)>/gi)) {
+    if (!/\ssrc=/i.test(m[1])) problem(file, 'inline script');
   }
   if (/<[a-z][^>]*\son[a-z]+=/i.test(text)) problem(file, 'inline event handler');
 
