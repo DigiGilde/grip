@@ -156,7 +156,7 @@ gh variable set ZAD_PROJECT_ID --repo DigiGilde/grip --body "<project-id>"
 gh variable set ZAD_DEPLOYMENT_NAME --repo DigiGilde/grip --body "main"
 ```
 
-De workflow kent één project. Zolang de voorbeeldinstantie het doel is, wijst `ZAD_PROJECT_ID` naar dat project.
+De workflow kent één project. Zolang de voorbeeldinstantie het doel is, wijst `ZAD_PROJECT_ID` naar dat project. Daar heet de uitrol van DigiGilde voorbeeld `gilde`, dus staat `ZAD_DEPLOYMENT_NAME` op `gilde` (zie [Hoe het project van de voorbeelden nu staat](#hoe-het-project-van-de-voorbeelden-nu-staat)).
 
 ## 5. De eerste uitrol
 
@@ -237,14 +237,28 @@ De variabele `ZAD_PROJECT_ID` en het geheim `ZAD_API_KEY` uit stap 4 zijn genoeg
 
 ### Het adres
 
-Zonder verdere instelling krijgt het portaal het standaardadres van het cluster, `ontwikkelportaal-portaal-<project>.<cluster>`; `zadctl deployment url portaal --component ontwikkelportaal` toont het. Een eigen adres, bijvoorbeeld `grip-demo.rijks.app`, vraag je aan op de uitrol:
+Het portaal staat op https://grip-voorbeeld.rijks.app/, het adres waar eerder de voorbeeldinstantie stond. Zonder die instelling krijgt het het standaardadres van het cluster, `ontwikkelportaal-portaal-<project>.<cluster>`. Het adres staat op de uitrol:
 
 ```sh
 zadctl deployment create portaal --domain-format subdomain \
-  --subdomain grip-demo --base-domain rijks.app --dry-run
+  --subdomain grip-voorbeeld --base-domain rijks.app
 ```
 
-Zonder `--dry-run` wordt dat een aanvraag die een beheerder van het platform goedkeurt; tot die tijd blijft het standaardadres werken. De workflow laat de instellingen van het adres staan als hij een nieuw image uitrolt.
+`zadctl project check-subdomain <naam> rijks.app` zegt vooraf of een naam vrij is; `rijks.app` is een domein van het cluster. De workflow laat de instellingen van het adres staan als hij een nieuw image uitrolt.
+
+## Hoe het project van de voorbeelden nu staat
+
+Het project `gv-ukr` heeft een uitrol per organisatie en één voor de startpagina. Een database hoort bij een uitrol; de voorbeelden mogen worden weggegooid en opnieuw opgebouwd.
+
+| Uitrol | Wat | Adres |
+|---|---|---|
+| `portaal` | De startpagina (het ontwikkelportaal) | https://grip-voorbeeld.rijks.app/ |
+| `gilde` | DigiGilde voorbeeld, nog zonder FSC | `component-1-gilde-gv-ukr.<cluster>` |
+
+- **De workflow rolt grip uit naar `gilde`** (`ZAD_DEPLOYMENT_NAME=gilde`) en de startpagina naar `portaal`.
+- **Wat per instantie verschilt, staat op het onderdeel in de uitrol**, niet op het onderdeel zelf: `BACKEND_URL` op `component-1` (`http://gilde-component-2:8080`) en `INSTANCE_BASE_URI` op `component-2`. Zo: `zadctl env add -c component-2 --deployment gilde INSTANCE_BASE_URI=...`. Wat voor alle voorbeelden gelijk is, zoals `INSTANCE_MODE` en `EXAMPLE_VISITORS`, staat op het onderdeel.
+- **Keycloak maakt per uitrol een eigen client** (`gv-ukr-gilde`). Het adres van elke frontend staat in `additional_redirect_uris` van de dienst `keycloak` op projectniveau; `service config set` schrijft het hele document, dus geef de volledige lijst mee.
+- **De onderdelen voor FSC en de directory bestaan al** in het project, nog zonder uitrol (zie hierna).
 
 ## Voorbeeldinstanties met federatie
 
@@ -263,7 +277,7 @@ Eén project, dat van de voorbeeldinstantie, met per peer een eigen uitrol. Een 
 | `programma` | d, Voorbeeldprogramma | hetzelfde |
 | `ministerie` | b, Voorbeeldministerie (later) | hetzelfde |
 
-De uitrol `main` (https://grip-voorbeeld.rijks.app/) blijft zoals hij is. Die zet frontend en `/api` op één adres, en passthrough kan alleen als een onderdeel een eigen host heeft.
+Een uitrol met FSC kan niet frontend en `/api` op één adres zetten, zoals de vroegere uitrol `main` deed: passthrough kan alleen als een onderdeel een eigen host heeft. Daarom heeft elke instantie de domeinvorm `component-deployment-project`, en is de startpagina het vaste adres.
 
 Een onderdeel bestaat één keer in het project en draait in elke uitrol waaraan het gekoppeld is. Nieuw in het project zijn er acht: `federation`, `manager`, `controller`, `inway`, `outway`, `txlog`, `dirmgr` en `dirui`. `component-1` en `component-2` bestaan al.
 
@@ -330,6 +344,8 @@ De eerste uitrol, een voorbeeldinstantie, is gedaan op 9 oktober 2026 met `zadct
 - **Keycloak kent alleen het adres van het onderdeel waaraan de dienst hangt** als terugkeeradres. Op de clusteradressen is dat de backend, terwijl grip via de frontend terugkeert: de login geeft dan "Invalid parameter: redirect_uri". Zet het adres van de frontend in `additional_redirect_uris` van de dienst.
 - **De sleutel van de instantie** gaat als bijlage die het onderdeel als omgevingsvariabele krijgt (`FEDERATION_SIGNING_KEY`); regeleinden blijven dan heel.
 - **De gezondheidscontrole** staat per onderdeel als HTTP op poort 8080: `/` voor de frontend, `/api/health/live` en `/api/health/ready` voor de backend.
+- **Een API-sleutel hoort bij een lid, niet bij een project** (zad-cli 0.14). `zadctl project use` geeft dan "No API key": maak een token op het tabblad Team van het project, onder Leden en tokens, en zet het als `ZAD_API_KEY` in `.env.zadctl`.
+- **Opgeslagen maar niet uitgerolde wijzigingen laten de uitrol in de workflow falen.** Wie met `--no-rollout` werkt, rolt daarna zelf uit met `zadctl project refresh`; anders meldt de deploy-action "saved but not rolled out" en stopt de stap, ook als de nieuwe image wel draait.
 
 De opdrachten, in volgorde, voor een nieuw project (de geheimen ontstaan in de opdracht zelf en komen in geen logboek):
 
