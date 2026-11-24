@@ -92,6 +92,9 @@ class Action(StrEnum):
     # Accept or reject a quote.
     ACCEPT_QUOTE = "accept_quote"
     DELIVER_REPORT = "deliver_report"
+    # Ask the organisation that makes an expense to make or change the cost
+    # item for it (ADR 0052). Only peers do this.
+    REQUEST_COST_ITEM = "request_cost_item"
     CLOSE_MONTH = "close_month"
     REOPEN_MONTH = "reopen_month"
     # Record, correct or withdraw the fact that an invoice was sent.

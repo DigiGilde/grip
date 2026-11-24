@@ -97,6 +97,11 @@ class Peer(Base):
     financial_inspection: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default=text("false")
     )
+    # The peer is an example instance (ADR 0054). An example instance only
+    # talks to peers marked so, an instance for real work never does.
+    is_example: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

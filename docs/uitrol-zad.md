@@ -54,7 +54,8 @@ Wat hierbij stuk ging en is hersteld:
 | Instelling | `INSTANCE_MODE=voorbeeld` | geen `INSTANCE_MODE` |
 | Wie komt binnen | wie op `EXAMPLE_VISITORS` staat, als bezoeker | wie een beheerder heeft toegevoegd |
 | Eerste beheerder | niet van toepassing; `BOOTSTRAP_BEHEERDER_EMAILS` is hier een startfout | `BOOTSTRAP_BEHEERDER_EMAILS` |
-| Mail, meldingen, federatie, Wies | uit, ook als het platform ze aanreikt | naar keuze |
+| Mail, meldingen, Wies | uit, ook als het platform ze aanreikt | naar keuze |
+| Federatie | alleen met andere voorbeelden, in een eigen FSC-groep (`EXAMPLE_FSC_GROUP`, ADR 0054) | naar keuze, nooit met een voorbeeld |
 | Rijkslogo op documenten | nooit | naar keuze |
 | Elke nacht | terug naar de beginstand | niets |
 
@@ -184,7 +185,7 @@ De workflow kent één project. Zolang de voorbeeldinstantie het doel is, wijst 
 - **Federatie, Wies en de corpuskoppeling.** Staan uit. Federatie vraagt een eigen poort (8090).
 - **Een taalmodel.** Zonder `VLAM_*` of een andere aanbieder werken de schrijfhulpen niet.
 - **Twee projecten uit één workflow.** De workflow rolt naar één project uit. Een echte instantie naast de voorbeeldinstantie vraagt een tweede uitrolstap of een tweede set variabelen.
-- **Meeschuivende voorbeeldgegevens.** De voorbeeldgegevens hebben vaste jaren, 2025 tot en met 2028, en zijn geschreven voor oktober 2026. Ze verschuiven niet mee met de dag van vandaag. Nu al zichtbaar: de maanden vanaf maart 2026 staan open en taken zijn sinds februari te laat. Vanaf december 2026 is de offerte van de opdracht voor 2027 verlopen, en vanaf januari 2027 klopt het lopende jaar niet meer. Wat mee moet schuiven: het lopende jaar met de tarievenkaarten eromheen en de namen van de opdrachten, tot welke maand er is afgesloten, en de data van lopende zaken (vacatures, de openstaande offerte) als een aantal dagen voor vandaag. Dat is een herschrijving van de voorbeeldgegevens en hun tests, en is nog niet gedaan.
+- **Meeschuivende voorbeeldgegevens.** De voorbeeldgegevens hebben vaste jaren, 2025 tot en met 2028, en zijn geschreven voor oktober 2026. Ze verschuiven niet mee met de dag van vandaag. Nu al zichtbaar: de maanden vanaf maart 2026 staan open en taken zijn sinds februari te laat. Vanaf december 2026 is de offerte van de opdracht voor 2027 verlopen, en vanaf januari 2027 klopt het lopende jaar niet meer. Wat mee moet schuiven: het lopende jaar met de tarievenkaarten eromheen en de namen van de opdrachten, tot welke maand er is afgesloten, en de data van lopende zaken (vacatures, de openstaande offerte) als een aantal dagen voor vandaag. Dat is een herschrijving van de voorbeeldgegevens en hun tests, en is nog niet gedaan. Welke set een voorbeeldinstantie laadt, kies je met `SEED_DATASET`: `voorbeeld` (standaard) of `programma`.
 - **Bewaartermijnen.** De worker past de bewaartermijnen niet toe. Dat is een losse taak, `python -m grip.events.retention` in de container van de backend; lokaal gedraaid, met de standaardtermijn (nooit) wist ze niets. Wie een termijn instelt in Beheer moet die taak zelf elke nacht laten draaien, bijvoorbeeld met een geplande taak van het platform.
 - **De bezoeker in Activiteit.** De gebeurtenis legt vast welke bezoeker iets deed; het scherm toont alleen de voorbeeldpersoon.
 - **Standaardteksten in het voorbeeld.** De afzender van het voorbeeld heeft geen ondertekenaar en geen standaardteksten; een nieuwe offerte in het voorbeeld meldt die als ontbrekend.
@@ -193,6 +194,58 @@ De workflow kent één project. Zolang de voorbeeldinstantie het doel is, wijst 
 ## Wat een voorbeeldinstantie extra vraagt van het platform
 
 Niets buiten een eigen project met een eigen database. Ze gebruikt dezelfde twee onderdelen en dezelfde login. Mail hoeft niet te worden aangevraagd. De worker moet draaien (`GRIP_PROCESS=all`), anders gaat ze 's nachts niet terug naar de beginstand.
+
+## Drie voorbeeldinstanties met federatie
+
+Drie voorbeeldinstanties (DigiGilde voorbeeld, Voorbeeldministerie, Voorbeeldprogramma) laten pas zien wat grip doet als ze met elkaar praten: een kostenpost bij de leverancier, een aanvraag die aankomt. Ze federeren in een eigen FSC-groep, `grip-voorbeeld`, met een eigen test-CA en een eigen directory, en alleen met elkaar (ADR 0054). De opzet volgt het FSC-testnet van MijnOverheid Zakelijk (`MinBZK/moza-fsc-testnet`). Alles staat in `deploy/zad/fsc/`; niets daarvan is al op het platform gedraaid.
+
+### Topologie
+
+Vier projecten. De namen van onderdelen zijn kleine letters en cijfers, ten hoogste twaalf tekens; een hostnaam is `<onderdeel>-<uitrol>-<project>.<basisdomein>`, binnen een uitrol heet een onderdeel `<uitrol>-<onderdeel>`.
+
+| Project | Onderdelen | Databases |
+|---|---|---|
+| directory | `dirmgr` (manager in directorymodus), `dirui` (overzicht van de groep) | 1 |
+| DigiGilde voorbeeld | `component-1` (frontend), `component-2` (backend, `GRIP_PROCESS=all`), `federation` (de listener, alleen voor de inway), `manager`, `controller`, `inway`, `outway`, `txlog` | 4 |
+| Voorbeeldministerie | hetzelfde | 4 |
+| Voorbeeldprogramma | hetzelfde | 4 |
+
+Samen 26 onderdelen: 17 voor FSC en 9 voor grip. De backend en de listener delen de database van de instantie; manager, controller en transactielog hebben elk een eigen database, omdat hun migraties dezelfde tabelnaam gebruiken.
+
+| Onderdeel | Image | Publicatie | Bijlagen |
+|---|---|---|---|
+| `manager`, `dirmgr` | `fsc-manager` (wrapper) | TLS-modus 2, eigen certificaat op de pod, op `:443` via SNI | groep en intern |
+| `inway` | `federatedserviceconnectivity/inway` | TLS-modus 2 | groep en intern |
+| `outway` | `federatedserviceconnectivity/outway` | niet gepubliceerd | groep en intern |
+| `controller` | `fsc-controller` (wrapper) | niet gepubliceerd: het scherm heeft geen login | intern |
+| `txlog` | `fsc-txlog` (wrapper) | niet gepubliceerd | intern |
+| `dirui` | `federatedserviceconnectivity/directory-ui` | gewoon, met het certificaat van het platform | groep |
+| `component-1`, `component-2` | `frontend`, `backend` | gewoon, `/` en `/api` | geen |
+| `federation` | `backend` met `GRIP_PROCESS=federation` | niet gepubliceerd; alleen de inway bereikt poort 8090 | geen |
+
+Het platform kent geen init-containers en geen argumenten. Daarom draaien manager, controller en transactielog in een dun wrapper-image dat eerst `migrate up` doet en daarna `serve`. De workflow bouwt ze naast de andere images (`fsc-manager`, `fsc-controller`, `fsc-txlog`). De andere onderdelen gebruiken de images van OpenFSC zoals ze worden geleverd, versie 2.8.0.
+
+### Stappen
+
+1. **Certificaten.** `deploy/zad/fsc/pki.sh` met `BASE_DOMAIN`, `DEPLOYMENT` en de vier projectnamen (`PROJECT_DIR`, `PROJECT_A`, `PROJECT_B`, `PROJECT_D`). Het maakt de test-CA van de groep, per instantie een interne CA, en per onderdeel een map onder `state/pki/upload/<project>/<onderdeel>/` die als bijlagen kan worden geüpload; `MANIFEST.tsv` zegt welk bestand op welk pad in de pod hoort (`/etc/fsc/group/` en `/etc/fsc/internal/`). De sleutel van de groeps-CA gaat nooit in de repo en niet mee naar het platform.
+2. **Projecten en onderdelen.** Maak de vier projecten en de onderdelen uit de tabel, met de databases en de bijlagen. Eerst de directory, dan de drie instanties.
+3. **Instellingen.** Per onderdeel staat een sjabloon in `deploy/zad/fsc/env/`: `directory-manager.env`, `directory-ui.env` en per instantie (`a`, `b`, `d`) `-manager`, `-controller`, `-inway`, `-outway`, `-txlog`, `-grip` (voor `component-2`) en `-federation`. Vul `${BASE_DOMAIN}`, `${DEPLOYMENT}` en `${PROJECT_*}` in (bijvoorbeeld met `envsubst`); `$DATABASE_*` laat je staan, die vult het platform. De instellingen gaan eenmalig per onderdeel in de Operations Manager.
+4. **Grip.** In `-grip.env` en `-federation.env` staan de instellingen van een voorbeeldinstantie met federatie: `INSTANCE_MODE=voorbeeld`, `EXAMPLE_FSC_GROUP=grip-voorbeeld`, `EXAMPLE_VISITORS`, `EXAMPLE_RESET_HOUR` (op alle drie hetzelfde uur), `SEED_DATASET`, `INSTANCE_NAME`, `INSTANCE_KEY`, `INSTANCE_TOOI_URI`, `INSTANCE_BASE_URI`, `EXAMPLE_INSTANCE_URIS` (waar de andere twee staan; op alle drie gelijk), `FEDERATION_INBOUND_ENABLED`, `FEDERATION_OUTBOUND_ENABLED`, `OUTWAY_URL` en `FEDERATION_SIGNING_KEY` (als bijlage, zie [Wat op het platform bleek](#wat-op-het-platform-bleek); dezelfde sleutel op `component-2` en `federation`). De login en de sessie gaan zoals bij elke instantie (stap 3). `BOOTSTRAP_BEHEERDER_EMAILS` blijft weg: dat is in een voorbeeld een startfout.
+5. **De groep inrichten.** `deploy/zad/fsc/bootstrap.sh` registreert per instantie de dienst `grip-opdrachtverkeer`, publiceert die in de directory, sluit contracten in beide richtingen (A met B, A met D, B met D) en accepteert ze. `--dry-run` toont eerst wat het zou doen. Het schrijft per instantie `registry-<k>.sql` met de twee peers, gemarkeerd als voorbeeld, en een tabel met dezelfde waarden.
+6. **Het peerregister van grip.** Heb je geen toegang tot de database, voer de twee peers dan per instantie in onder Beheer > Koppelingen, met de schakelaar Voorbeeldinstantie aan, en test de verbinding. Het register blijft bij de nachtelijke reset staan.
+7. **Controle.** Log in als bezoeker op het Voorbeeldprogramma. De kostenpost "Zaalhuur bijeenkomst ondernemers november" wacht op het Voorbeeldgilde; binnen een minuut staat hij daar aangemaakt en leest het programma hem terug.
+
+### Wat het platformteam moet bevestigen
+
+- Hoeveel onderdelen en databases een project mag hebben: hier acht onderdelen en vier databases per instantie.
+- Of TLS-modus 2 (eigen certificaat op de pod) en bijlagen voor deze projecten beschikbaar zijn, en of een gepubliceerde poort 443 naar poort 8443 in de pod mag.
+- Hoe de beheer-API's van manager en controller (poort 8444) bereikbaar zijn voor `bootstrap.sh`; het script neemt de adressen uit `MANAGER_URL_<K>` en `CONTROLLER_URL_<K>`.
+- Of een sleutel als bijlage met rechten 0600 kan worden gekoppeld; nu meldt OpenFSC een waarschuwing die niets tegenhoudt.
+- Waar de sleutel van de test-CA staat. Niet op een werkplek; dat is nog open.
+
+### Een andere weg
+
+In plaats van een eigen groep kunnen de voorbeelden aansluiten bij het testnet van MijnOverheid Zakelijk of bij de demogroep van OpenFSC. Dat scheelt de directory en de test-CA, maar vraagt hun akkoord, en de grens van ADR 0054 leunt dan alleen nog op het peerregister: `EXAMPLE_FSC_GROUP` is dan de id van die gedeelde groep.
 
 ## Wat eerder al was aangetoond
 

@@ -171,6 +171,8 @@ class TurnoverOut(BaseModel):
     # that are agreed formally or verbally: budgeted, realised, planned,
     # costs, expected total, variance and the share realised.
     figures: Annotated[FiguresOut, nested()]
+    # The organisations whose cost items could not be counted in the figures.
+    incomplete_by: Annotated[list[str], B] = []
     # Assignments left out because their inzet could not be priced.
     unpriced_assignments: Annotated[list[str], B]
 
@@ -297,6 +299,8 @@ class CostCoverageItemOut(BaseModel):
     covered_cents: Annotated[int | None, B]
     uncovered_cents: Annotated[int | None, B]
     pct_total: Annotated[Decimal, B]
+    # The organisation that keeps this item when it cannot be read there.
+    incomplete_by: Annotated[list[str], B] = []
 
 
 class CostCoverageOut(BaseModel):
@@ -304,6 +308,8 @@ class CostCoverageOut(BaseModel):
     forecast_cents: Annotated[int, B]
     covered_cents: Annotated[int, B]
     uncovered_cents: Annotated[int, B]
+    # The organisations whose cost items could not be counted in the totals.
+    incomplete_by: Annotated[list[str], B] = []
     items: Annotated[list[CostCoverageItemOut], nested()]
 
 

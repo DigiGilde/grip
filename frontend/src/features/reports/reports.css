@@ -47,6 +47,10 @@
   color: var(--primitives-color-neutral-650);
 }
 
+.grip-figures__note {
+  margin: var(--primitives-space-8) 0 0;
+}
+
 /* Nothing to report: the figure steps back. */
 .grip-figure--quiet .grip-figure__value {
   color: var(--primitives-color-neutral-600);

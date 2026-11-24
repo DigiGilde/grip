@@ -7,3 +7,6 @@ CREATE DATABASE fsc_manager_b;
 CREATE DATABASE fsc_controller_b;
 CREATE DATABASE fsc_txlog_a;
 CREATE DATABASE fsc_txlog_b;
+CREATE DATABASE fsc_manager_d;
+CREATE DATABASE fsc_controller_d;
+CREATE DATABASE fsc_txlog_d;

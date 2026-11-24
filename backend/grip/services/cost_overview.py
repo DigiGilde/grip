@@ -1,7 +1,9 @@
 """Reads for the costs screen: cost items with forecast, coverage and remainder.
 
 Every amount comes from the calculation module (R6 to R8); this file only
-loads the rows and puts names next to them.
+loads the rows and puts names next to them. A cost item another organisation
+keeps is read there (grip.services.cost_references) and counts with what was
+read, or not at all.
 """
 
 from __future__ import annotations
@@ -17,16 +19,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from grip import calc
 from grip.models.assignment import Assignment, BudgetLine
 from grip.models.cost import CostCoverage, CostItem, InvoiceLine
+from grip.models.organisation import Organisation
 from grip.models.person import Person
 from grip.models.stored_document import StoredDocument
-from grip.services import stored_documents
+from grip.services import cost_references, stored_documents
+from grip.services.cost_references import FetchedLine, Reference
 from grip.services.errors import NotFoundError
 from grip.services.pricing import (
     DEFAULT_OPTIONS,
     PricingOptions,
-    to_calc_cost_item,
+    calc_costs,
     to_calc_coverage,
-    to_calc_invoice_line,
 )
 
 
@@ -60,11 +63,42 @@ class CostItemOverview:
     covered_cents: int | None
     uncovered_cents: int | None
     pct_total: Decimal
+    # For a cost item another organisation keeps: what it stands for now,
+    # and the invoice lines read there (of the year, when a year is given).
+    reference: Reference | None = None
+    fetched_lines: tuple[FetchedLine, ...] = ()
+    # At the executor: the organisation that asked for the cost item.
+    requester_name: str | None = None
+
+    @property
+    def counts(self) -> bool:
+        """The amounts are known: an own item, or one read just now."""
+        return self.reference is None or self.reference.counts
+
+    @property
+    def incomplete_by(self) -> tuple[str, ...]:
+        """The executor, when this reference is spent but cannot be counted."""
+        if self.reference is not None and self.reference.unknown:
+            return (self.reference.executor_name,)
+        return ()
+
+    @property
+    def description(self) -> str:
+        if self.reference is not None and self.reference.content is not None:
+            return self.reference.content.description
+        return self.item.description or ""
+
+    @property
+    def budgeted_cents(self) -> int | None:
+        """For a reference: what its executor has, or else what was asked."""
+        if self.reference is not None and self.reference.content is not None:
+            return self.reference.content.budgeted_cents
+        return self.item.budgeted_cents
 
     @property
     def variance_cents(self) -> int:
         """Budgeted minus the expected total; negative means over budget."""
-        return self.item.budgeted_cents - self.forecast_cents
+        return (self.budgeted_cents or 0) - self.forecast_cents
 
     @property
     def uncovered_pct(self) -> Decimal | None:
@@ -78,6 +112,8 @@ class CostItemOverview:
         """Where the item stands in a list that puts what needs attention
         first: money nobody pays for, then an overrun, then a received
         invoice without its document, then everything else."""
+        if not self.counts:
+            return 3
         if self.uncovered_cents is None or self.uncovered_cents > 0:
             return 0
         if self.variance_cents < 0:
@@ -115,7 +151,7 @@ async def cost_item_overviews(
     With a year only invoice lines whose period falls in that year count, in
     the forecast and therefore in the coverage amounts.
     """
-    query = select(CostItem).order_by(func.lower(CostItem.description), CostItem.id)
+    query = select(CostItem)
     if cost_item_id is not None:
         query = query.where(CostItem.id == cost_item_id)
     items = list((await session.execute(query)).scalars())
@@ -164,16 +200,43 @@ async def cost_item_overviews(
         )
         uploader_names = {person_id: name for person_id, name in people}
 
+    references = await cost_references.read(session, items)
+    requester_ids = {
+        item.requester_organisation_id
+        for item in items
+        if item.requester_organisation_id is not None
+    }
+    requester_names: dict[UUID, str] = {}
+    if requester_ids:
+        organisations = await session.execute(
+            select(Organisation.id, Organisation.label, Organisation.name).where(
+                Organisation.id.in_(requester_ids)
+            )
+        )
+        requester_names = {
+            organisation_id: label or name
+            for organisation_id, label, name in organisations
+        }
     result: list[CostItemOverview] = []
     for item in items:
-        calc_item = to_calc_cost_item(item)
         own_invoices = invoices.get(item.id, [])
         in_scope = [
             line
             for line in own_invoices
             if year is None or (line.period is not None and line.period.year == year)
         ]
-        calc_invoices = tuple(to_calc_invoice_line(line) for line in in_scope)
+        calc_items, calc_invoices = calc_costs([item], in_scope, references, year=year)
+        calc_item = calc_items[0]
+        reference = references.get(item.id)
+        fetched = tuple(
+            line
+            for line in (
+                reference.content.lines
+                if reference is not None and reference.content is not None
+                else ()
+            )
+            if year is None or (line.period is not None and line.period.year == year)
+        )
         own_coverages = coverages.get(item.id, [])
         calc_coverages = tuple(to_calc_coverage(c) for c, _l, _a in own_coverages)
 
@@ -215,16 +278,28 @@ async def cost_item_overviews(
                 ),
                 forecast_cents=calc.forecast(calc_item, calc_invoices),
                 actual_cents=sum(
-                    line.amount_cents for line in in_scope if line.kind == "actual"
+                    line.amount_cents
+                    for line in calc_invoices
+                    if line.kind.value == "actual"
                 ),
                 estimate_cents=sum(
-                    line.amount_cents for line in in_scope if line.kind == "estimate"
+                    line.amount_cents
+                    for line in calc_invoices
+                    if line.kind.value == "estimate"
                 ),
                 covered_cents=covered,
                 uncovered_cents=uncovered,
                 pct_total=sum((c.pct for c, _l, _a in own_coverages), Decimal(0)),
+                reference=reference,
+                fetched_lines=fetched,
+                requester_name=requester_names.get(item.requester_organisation_id)
+                if item.requester_organisation_id is not None
+                else None,
             )
         )
+    result.sort(
+        key=lambda overview: (overview.description.casefold(), overview.item.id)
+    )
     return result
 
 

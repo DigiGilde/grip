@@ -31,12 +31,14 @@ import {
   COVERAGE_OPTIONS_KEY,
   attachmentUrl,
   costItemKey,
+  deleteCostItem,
   deleteInvoiceLine,
   fetchCostItem,
   fetchCoverageOptions,
   formatBytes,
   removeCoverage,
   type CostItem,
+  type ExecutorLine,
   type InvoiceLine,
 } from './api';
 import { CoverageBar, ForecastBar } from './CostBars';
@@ -54,15 +56,21 @@ import {
   YEAR_PARAM,
   addCoverageText,
   attachmentCount,
+  changeStateText,
+  costsPath,
   coverageStep,
   inTimeOrder,
+  isCounted,
   lacksDocument,
   lineDetail,
   lineLabel,
   parseYear,
+  referenceStateText,
+  requestedByText,
   varianceWord,
   whoCanEdit,
   yearOptions,
+  type CountedItem,
 } from './costText';
 import './costs.css';
 
@@ -97,6 +105,7 @@ export function CostItemPage() {
   const [editingItem, setEditingItem] = useState<ItemTarget | null>(null);
   const [invoice, setInvoice] = useState<InvoiceTarget | null>(null);
   const [coverage, setCoverageTarget] = useState<CoverageTarget | null>(null);
+  const removal = useRemoval(year);
 
   const setYear = (value: string) =>
     setSearchParams(
@@ -112,7 +121,7 @@ export function CostItemPage() {
   return (
     <div ref={rootRef}>
       <Page
-        title={item?.description ?? 'Kostenpost'}
+        title={item?.description || 'Kostenpost'}
         instanceName={instance?.name}
         spacing="sections"
       >
@@ -138,26 +147,59 @@ export function CostItemPage() {
                   },
                 ]}
                 actions={
-                  item.may_edit
-                    ? [
-                        { text: 'Wijzig gegevens', onClick: () => setEditingItem({ item }) },
-                        {
-                          text: 'Voeg factuur toe',
-                          onClick: () => setInvoice({ lineId: null }),
-                          primary: true,
-                        },
-                      ]
-                    : []
+                  !item.may_edit
+                    ? []
+                    : item.reference_state !== null
+                      ? [
+                          {
+                            text: 'Wijzig gegevens',
+                            onClick: () => setEditingItem({ item }),
+                            primary: true,
+                          },
+                        ]
+                      : [
+                          { text: 'Wijzig gegevens', onClick: () => setEditingItem({ item }) },
+                          {
+                            text: 'Voeg factuur toe',
+                            onClick: () => setInvoice({ lineId: null }),
+                            primary: true,
+                          },
+                        ]
                 }
+                {...(item.may_edit && item.reference_state !== null
+                  ? {
+                      more: {
+                        name: item.description || 'deze kostenpost',
+                        actions: [
+                          {
+                            text: 'Verwijder kostenpost',
+                            destructive: true,
+                            confirm: {
+                              text: 'Deze kostenpost verwijderen?',
+                              supportingText: `De kostenpost en haar dekking verdwijnen hier. Wat ${item.executor_name ?? 'de uitvoerder'} ervan heeft, blijft daar.`,
+                              confirmText: 'Verwijder kostenpost',
+                            },
+                            onSelect: () => removal.run(item.id),
+                          },
+                        ],
+                      },
+                    }
+                  : {})}
               />
+              {removal.error && <ErrorNotice message={removal.error} />}
+              {standing(item) && <Quiet>{standing(item)}</Quiet>}
               {!item.may_edit && <Quiet>{whoCanEdit(item)}</Quiet>}
-              <State item={item} />
+              {isCounted(item) ? <State item={item} /> : <Asked item={item} />}
             </>
           )}
         </Stack>
         {item && !notFound && !query.isError && (
           <>
-            <Invoices item={item} onOpen={(lineId) => setInvoice({ lineId })} />
+            {item.reference_state === null ? (
+              <Invoices item={item} onOpen={(lineId) => setInvoice({ lineId })} />
+            ) : (
+              item.reference_state === 'found' && <ExecutorInvoices item={item} />
+            )}
             <Coverages item={item} onOpen={setCoverageTarget} />
           </>
         )}
@@ -173,8 +215,46 @@ export function CostItemPage() {
   );
 }
 
+/**
+ * Where the cost item stands, as one quiet line: who keeps it when another
+ * organisation does, or who asked for it when this one keeps it for another.
+ */
+function standing(item: CostItem): string {
+  if (item.reference_state !== null) {
+    return [
+      referenceStateText(item.reference_state, item.executor_name),
+      item.reference_state === 'found' && item.change_state
+        ? changeStateText(item.change_state, item.executor_name)
+        : '',
+    ]
+      .filter(Boolean)
+      .join(' · ');
+  }
+  return item.requested_by_name ? requestedByText(item.requested_by_name) : '';
+}
+
+/** What was asked of the executor; the other amounts are not known here. */
+function Asked({ item }: { item: CostItem }) {
+  if (item.budgeted_cents === null) return null;
+  return (
+    <Figures
+      label={`Stand van ${item.description}`}
+      figures={[
+        item.budgeted_cents === 0
+          ? {
+              label: COST_LABELS.budgeted,
+              value: formatEuro(0),
+              detail: 'Nog niet begroot',
+              quiet: true,
+            }
+          : { label: COST_LABELS.budgeted, value: formatEuro(item.budgeted_cents) },
+      ]}
+    />
+  );
+}
+
 /** The three figures a reader comes for, then the two bars that show them. */
-function State({ item }: { item: CostItem }) {
+function State({ item }: { item: CountedItem }) {
   const over = item.variance_cents < 0;
   const figures: Figure[] = [
     item.budgeted_cents === 0
@@ -200,6 +280,24 @@ function State({ item }: { item: CostItem }) {
       <CoverageBar item={item} />
     </div>
   );
+}
+
+/** Deletes a reference and goes back to the list. */
+function useRemoval(year: number | null) {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [error, setError] = useState<string | null>(null);
+  const mutation = useMutation({
+    mutationFn: (id: string) => deleteCostItem(id),
+    onSuccess: async () => {
+      setError(null);
+      navigate(costsPath(year));
+      // Not the item itself: it is gone, and asking for it again would fail.
+      await queryClient.invalidateQueries({ queryKey: ['costs', 'items'] });
+    },
+    onError: (caught) => setError(errorMessage(caught)),
+  });
+  return { run: mutation.mutate, error };
 }
 
 function useChange() {
@@ -317,6 +415,41 @@ function Invoices({ item, onOpen }: InvoicesProps) {
   );
 }
 
+/** The invoices the executor keeps, as read there just now; only to read. */
+function ExecutorInvoices({ item }: { item: CostItem }) {
+  const lines: ExecutorLine[] = inTimeOrder(item.executor_lines);
+  return (
+    <Section title="Facturen">
+      <nldd-table
+        accessible-label={`Facturen van ${item.description}`}
+        columns="minmax(200px,1fr) 130px"
+        sm-columns="minmax(140px,1fr) 110px"
+      >
+        <nldd-table-row slot="header">
+          <nldd-text-cell text="Factuur" />
+          <nldd-text-cell text="Bedrag" horizontal-alignment="right" />
+        </nldd-table-row>
+        {lines.map((line, index) => {
+          const expected = line.kind === 'estimate';
+          return (
+            <OpenRow key={index}>
+              <OpenCell text={lineLabel(line)} supportingText={lineDetail(line)}>
+                {expected && <nldd-badge size="sm" color="neutral" text="Verwacht" />}
+              </OpenCell>
+              <nldd-text-cell
+                text={formatEuro(line.amount_cents)}
+                horizontal-alignment="right"
+                {...(expected ? { color: 'secondary' } : {})}
+              />
+            </OpenRow>
+          );
+        })}
+        <nldd-inline-dialog slot="empty" text="Nog geen facturen vastgelegd" />
+      </nldd-table>
+    </Section>
+  );
+}
+
 interface CoveragesProps {
   item: CostItem;
   onOpen: (target: CoverageTarget) => void;
@@ -333,7 +466,10 @@ function Coverages({ item, onOpen }: CoveragesProps) {
   const covering = new Set(item.coverages.map((coverage) => coverage.budget_line_id));
   const mayAdd = (options.data?.items ?? []).some((line) => !covering.has(line.budget_line_id));
   const hidden = Number(item.hidden_coverage_pct) > 0;
-  const uncovered = item.uncovered_cents !== null && item.uncovered_cents > 0;
+  // Without known amounts the shares still say what nobody covers.
+  const uncovered = isCounted(item)
+    ? item.uncovered_cents !== null && item.uncovered_cents > 0
+    : Number(item.uncovered_pct ?? 0) > 0;
   const anyEditable = item.coverages.some((coverage) => coverage.may_edit);
   const actions = anyEditable ? ` ${ROW_ACTIONS_COLUMN}` : '';
 
@@ -369,11 +505,7 @@ function Coverages({ item, onOpen }: CoveragesProps) {
                   </nldd-text>
                 </nldd-container>
               </nldd-cell>
-              <nldd-text-cell
-                text={formatEuro(coverage.amount_cents)}
-                supporting-text={formatPercent(coverage.pct)}
-                horizontal-alignment="right"
-              />
+              <ShareCell cents={coverage.amount_cents} pct={coverage.pct} />
               {anyEditable && (
                 <RowActions
                   name={`de dekking door ${coverage.assignment_name}`}
@@ -426,11 +558,7 @@ function Coverages({ item, onOpen }: CoveragesProps) {
                 <nldd-text>{COST_LABELS.uncovered}</nldd-text>
               </span>
             </nldd-cell>
-            <nldd-text-cell
-              text={formatEuro(item.uncovered_cents)}
-              supporting-text={formatPercent(item.uncovered_pct)}
-              horizontal-alignment="right"
-            />
+            <ShareCell cents={item.uncovered_cents} pct={item.uncovered_pct} />
             {anyEditable && <nldd-cell />}
           </nldd-table-row>
         )}
@@ -448,5 +576,18 @@ function Coverages({ item, onOpen }: CoveragesProps) {
         </nldd-button-group>
       )}
     </Section>
+  );
+}
+
+/** The amount of a share with its percentage; only the percentage while the amount is not known. */
+function ShareCell({ cents, pct }: { cents: number | null; pct: string | null }) {
+  return cents === null ? (
+    <nldd-text-cell text={formatPercent(pct)} horizontal-alignment="right" />
+  ) : (
+    <nldd-text-cell
+      text={formatEuro(cents)}
+      supporting-text={formatPercent(pct)}
+      horizontal-alignment="right"
+    />
   );
 }

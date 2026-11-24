@@ -103,6 +103,8 @@ def world() -> World:
         },
         peer_clients={("peer-client", own)},
         peer_contractors={("peer-contractor", commissioned)},
+        # The client asked this instance to make one cost item (ADR 0052).
+        peer_cost_item_requesters={("peer-client", other_cost_item)},
         corpus_references={("peer-corpus", own)},
     )
 

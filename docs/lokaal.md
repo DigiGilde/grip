@@ -1,6 +1,6 @@
 # Lokale omgeving
 
-Grip draait op je eigen machine zoals het straks op het platform draait: gebouwde images achter nginx, met een echte login en met FSC tussen twee instanties. Deze pagina beschrijft hoe je dat start en wat ermee is aangetoond.
+Grip draait op je eigen machine zoals het straks op het platform draait: gebouwde images achter nginx, met een echte login en met FSC tussen drie instanties. Deze pagina beschrijft hoe je dat start en wat ermee is aangetoond.
 
 Dit is iets anders dan `just dev`. Dat start de ontwikkelopzet met hot reload op poort 5183. De lokale omgeving hier is een eigen compose-project (`grip-local`) op poorten vanaf 9000, met eigen databases. De twee zitten elkaar niet in de weg.
 
@@ -25,13 +25,14 @@ just local-nuke         # stoppen en alles van deze omgeving weggooien
 | `just local-up` | Een instantie op http://localhost:9001, ingelogd als plaatsvervangende beheerder |
 | `just local-up keycloak` | Dezelfde instantie met een echte login via een lokale Keycloak |
 | `just local-up sso` | Dezelfde instantie met login via SSO Rijk |
-| `just local-up fsc` | Twee instanties met FSC ertussen |
+| `just local-up fsc` | Drie instanties met FSC ertussen |
 | `just local-up fsc-keycloak` | Hetzelfde, met de lokale Keycloak |
-| `just local-up fsc-corpus` | Twee instanties met FSC, plus een derde deelnemer voor de lokale Bouwmeester |
+| `just local-up fsc-corpus` | Drie instanties met FSC, plus een vierde deelnemer voor de lokale Bouwmeester |
+| `just local-up fsc-voorbeeld` | Drie voorbeeldinstanties die met elkaar federeren, met de lokale Keycloak |
 
 ## Ontwikkelportaal
 
-Bij de modi met FSC hoort ook het ontwikkelportaal op http://localhost:9000: de documentatie in hoofdstukken, de besluiten (ADR's) en het personaboek, met zoeken over alles. Onder Demo staan de twee instanties met een knop naar elk. Het portaal is geen onderdeel van grip en heeft geen gegevens.
+Bij de modi met FSC hoort ook het ontwikkelportaal op http://localhost:9000: de documentatie in hoofdstukken, de besluiten (ADR's) en het personaboek, met zoeken over alles. Onder Demo staan de drie instanties met een knop naar elk. Het portaal is geen onderdeel van grip en heeft geen gegevens.
 
 Het is een statische site in `ontwikkelportaal/`, gebouwd met Astro uit de Markdown in `docs/` en met de componenten van het NLDD Designsysteem. Welke instanties onder Demo staan, komt bij het starten uit de omgeving van de container (`ONTWIKKELPORTAAL_INSTANCES`, zie [uitrol-zad.md](uitrol-zad.md#ontwikkelportaal)); de lokale waarde staat in `deploy/local/compose.yml`. Zoeken is Pagefind: de index wordt bij het bouwen gemaakt en draait in de browser. De beveiligingskop staat daarvoor `'wasm-unsafe-eval'` toe en verder geen script uit de pagina zelf.
 
@@ -100,17 +101,19 @@ Wat de provider volgens de configuratie van het platform stuurt, en wat het plat
 
 De lokale Keycloak (`just local-up keycloak`) heeft drie gebruikers om de paden te zien: `testbeheerder` (bekend, met een organisatie in de claims), `onbekend` (geen persoon in grip) en `onbevestigd` (bekend in grip, maar de provider staat niet in voor het adres).
 
-## Twee instanties met FSC
+## Drie instanties met FSC
 
-`just local-up fsc` start een tweede instantie en FSC tussen de twee, in een eigen groep met eigen certificaten. Er is niets van PKIoverheid bij.
+`just local-up fsc` start een tweede en een derde instantie en FSC tussen de drie, in een eigen groep met eigen certificaten. Er is niets van PKIoverheid bij.
 
-| | Instantie A | Instantie B |
-|---|---|---|
-| Naam | DigiGilde voorbeeld | Voorbeeldministerie |
-| Rol | opdrachtnemer | opdrachtgever |
-| Adres | http://localhost:9001 | http://localhost:9002 |
-| Peer-id | 01700000000000000001 | 01700000000000000002 |
-| FSC-controller | http://localhost:9101 | http://localhost:9102 |
+| | Instantie A | Instantie B | Instantie D |
+|---|---|---|---|
+| Naam | DigiGilde voorbeeld | Voorbeeldministerie | Voorbeeldprogramma |
+| Rol | opdrachtnemer | opdrachtgever (financiert het programma) | programma (geeft opdrachten aan A) |
+| Adres | http://localhost:9001 | http://localhost:9002 | http://localhost:9003 |
+| Peer-id | 01700000000000000001 | 01700000000000000002 | 01700000000000000004 |
+| FSC-controller | http://localhost:9101 | http://localhost:9102 | http://localhost:9104 |
+
+A en B zijn elkaars tegenpartij, en D is dat voor A en voor B. De C ontbreekt met opzet: peer C is het corpus (Bouwmeester). Instantie D laadt de vacatureteksten van DigiGilde niet en gebruikt de dataset `programma`.
 
 Per deelnemer draaien een manager, een controller, een inway, een outway en een transactielog, elk met een eigen database. Voor de groep draait een directory: een manager die publicaties automatisch tekent, met zijn controller op http://localhost:9100. De images zijn Open FSC 2.8.0, de huidige naam van wat FSC NLX heette. De auditlog gaat naar de containerlog; het losse auditlog-onderdeel is weggelaten.
 
@@ -127,10 +130,25 @@ deploy/local/local.sh check-fsc        # een bericht van B naar A
 
 1. Elke deelnemer registreert de dienst `grip-opdrachtverkeer`, met als doel de eigen federatielistener achter de eigen inway.
 2. Elke deelnemer publiceert die dienst in de directory.
-3. Elke deelnemer vraagt een verbinding aan met de dienst van de ander, voor de eigen outway, en de ander accepteert.
+3. Elke deelnemer vraagt een verbinding aan met de dienst van elke andere deelnemer (A, B en D onderling), voor de eigen outway, en de ander accepteert.
 4. De grant-hashes komen in het peerregister van grip.
 
 `check-fsc` zet een aanvraag in de outbox van instantie B. De worker van B stuurt die via de outway van B en de inway van A naar de federatielistener van A, die hem in de inbox bewaart. Het script toont de regel in de outbox en de regel in de inbox.
+
+### Als voorbeeldinstanties
+
+`just local-up fsc-voorbeeld` start dezelfde drie instanties als voorbeeldinstanties die met elkaar federeren (ADR 0050 en 0054), zoals ze op het platform zouden draaien. Ze krijgen elk een eigen database (`db-a-voorbeeld` enzovoort), want een voorbeeld start niet op een database met andere gegevens, en een gewone instantie niet op een database die een voorbeeld was. Elke instantie vult zichzelf bij de eerste start: A en B met de dataset `voorbeeld`, D met `programma`.
+
+```
+just local-up fsc-voorbeeld
+just local-fsc-init --voorbeeld   # met elke peer als voorbeeld gemarkeerd
+```
+
+Log in als `testbeheerder` (wachtwoord in `deploy/local/state/secrets.env`). Je komt binnen als bezoeker en kijkt als een voorbeeldpersoon; `EXAMPLE_VISITORS` is `grip.invalid`. De instellingen staan in `deploy/local/compose.fsc-voorbeeld.yml`: `INSTANCE_MODE=voorbeeld`, `EXAMPLE_FSC_GROUP=grip-local` (de groep van de lokale contracten) en geen `BOOTSTRAP_BEHEERDER_EMAILS`.
+
+Wat je ziet: de kostenpost "Zaalhuur bijeenkomst ondernemers november" van het Voorbeeldprogramma gaat na `fsc-init` naar het Voorbeeldgilde, en het programma leest hem daar terug. Terugzetten met de hand: `docker compose -p grip-local exec worker-d python -m grip.core.example` (en hetzelfde voor A); daarna gaat het wachtende verzoek opnieuw. Zet je `EXAMPLE_RESET_HOUR` op het huidige uur om de nachtelijke reset te zien, dan verstuurt een voorbeeld in de eerste tien minuten van dat uur niets.
+
+Zonder `--voorbeeld` zijn de peers niet gemarkeerd en wisselen de voorbeelden niets uit: dat is de grens van ADR 0054. Terug naar de gewone modi kan zonder iets weg te gooien; `just local-nuke` gooit ook de voorbeelddatabases weg.
 
 De inway geeft de aanroeper door in de header `Fsc-Request-Peer-Id`. Dat is op het netwerk vastgesteld en het is de naam die grip verwacht. De inway stuurt ook `Fsc-Authorization` met het toegangstoken door naar de dienst; die header hoort niet in een log.
 

@@ -34,6 +34,7 @@ from grip.federation.outway import (
     OutwayClient,
     OutwayNotConfiguredError,
 )
+from grip.federation.registry import get_delivery_hook, outbox_sources
 
 logger = logging.getLogger(__name__)
 
@@ -205,7 +206,21 @@ async def send_due(
     Rows are locked with SKIP LOCKED, so two workers never send the same
     message at the same moment. A receiver handles a repeat anyway: the
     message id makes every push idempotent.
+
+    First the registered sources queue what waits outside of an event;
+    after each message that was sent, refused or given up, its delivery
+    hook hears of it.
+
+    An example instance sends nothing in the first minutes of its reset
+    hour (:func:`grip.core.example.in_reset_window`).
     """
+    # Imported here: grip.core.example reaches the models, which import this.
+    from grip.core.example import in_reset_window
+
+    if in_reset_window(settings):
+        return SendStats()
+    for source in outbox_sources():
+        await source(db)
     rows = (
         (
             await db.execute(
@@ -225,6 +240,9 @@ async def send_due(
     stats = SendStats()
     for row in rows:
         await _send_one(row, outway, settings, stats)
+        hook = get_delivery_hook(row.operation)
+        if hook is not None and row.status != OUTBOX_PENDING:
+            await hook(db, row)
     await db.flush()
     return stats
 

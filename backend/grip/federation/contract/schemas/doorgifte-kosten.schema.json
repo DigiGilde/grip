@@ -67,6 +67,14 @@
           "kostendekking"
         ]
       }
+    },
+    "onvolledig_door": {
+      "type": "array",
+      "description": "Organisaties waar een kostenpost van deze instantie niet is op te halen. Hun kosten tellen niet mee: staat hier een naam, dan zijn de bedragen onvolledig. Ontbreekt het veld of is de lijst leeg, dan is alles meegeteld.",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
     }
   },
   "required": [

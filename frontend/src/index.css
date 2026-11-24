@@ -89,6 +89,10 @@ nldd-simple-section > div:not([slot]) > :not(nldd-spacer) + :not(nldd-spacer) {
   color: var(--primitives-color-neutral-650);
 }
 
+.key-figures-note {
+  margin: var(--primitives-space-8) 0 0;
+}
+
 .key-figure dd {
   margin: 0;
 }

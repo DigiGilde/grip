@@ -18,6 +18,12 @@ const ITEM: CostItem = {
   pct_total: '100.00',
   uncovered_pct: '0.00',
   hidden_coverage_pct: '0',
+  executor_organisation_id: null,
+  executor_name: null,
+  reference_state: null,
+  change_state: null,
+  requested_by_name: null,
+  executor_lines: [],
   invoice_lines: [],
   coverages: [],
   may_edit: false,
@@ -75,6 +81,43 @@ describe('CostsPage', () => {
     expect(container.textContent).toContain('Overschrijding');
     expect(container.querySelector('.cost-mini [data-kind="uncovered"]')).not.toBeNull();
     expect(container.querySelectorAll('nldd-text-cell[color="critical"]')).toHaveLength(1);
+  });
+
+  it('says where a reference stands and shows no amounts it does not have', async () => {
+    const waiting: CostItem = {
+      ...ITEM,
+      id: 'c-5',
+      description: 'Zaalhuur',
+      budgeted_cents: 200000,
+      forecast_cents: null,
+      actual_cents: null,
+      estimate_cents: null,
+      variance_cents: null,
+      covered_cents: null,
+      uncovered_cents: null,
+      executor_organisation_id: 'o-1',
+      executor_name: 'Voorbeeldgilde',
+      reference_state: 'waiting',
+    };
+    const unreachable: CostItem = {
+      ...waiting,
+      id: 'c-6',
+      description: 'Catering',
+      budgeted_cents: null,
+      reference_state: 'unreachable',
+    };
+    const { container } = await renderCosts({
+      items: [waiting, unreachable],
+      year: null,
+      may_create: false,
+    });
+    expect(container.textContent).toContain('Wacht op Voorbeeldgilde');
+    expect(container.textContent).toContain('Niet op te halen bij Voorbeeldgilde');
+    expect(container.textContent).not.toContain('Nog geen facturen');
+    expect(container.querySelector('.cost-mini')).toBeNull();
+    const amounts = [...container.querySelectorAll('nldd-table-row:not([slot]) nldd-text-cell')];
+    expect(amounts.map((cell) => plain(cell.getAttribute('text')))).toEqual(['€ 2.000', '']);
+    expect(container.innerHTML).not.toContain('van ');
   });
 
   it('counts a received invoice without its document as attention', async () => {

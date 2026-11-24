@@ -19,7 +19,9 @@ import {
   attentionPoints,
   costItemPath,
   coverageText,
+  isCounted,
   parseYear,
+  referenceStateText,
   yearOptions,
 } from './costText';
 import './costs.css';
@@ -27,7 +29,8 @@ import './costs.css';
 if (import.meta.env.MODE !== 'test') void import('./register');
 
 function invoiceCount(item: CostItem): string {
-  const count = item.invoice_lines.length;
+  const count =
+    item.reference_state === null ? item.invoice_lines.length : item.executor_lines.length;
   if (count === 0) return 'Nog geen facturen';
   return count === 1 ? '1 factuur' : `${count} facturen`;
 }
@@ -115,31 +118,48 @@ export function CostsPage() {
               {items.map((item) => {
                 const path = costItemPath(item.id, year);
                 const points = attentionPoints(item);
-                const over = item.variance_cents < 0;
+                const counted = isCounted(item);
+                const over = counted && item.variance_cents < 0;
+                const detail = [
+                  ...(item.reference_state === null
+                    ? []
+                    : [referenceStateText(item.reference_state, item.executor_name)]),
+                  ...(counted ? [invoiceCount(item)] : []),
+                  ...points,
+                ];
                 return (
                   <OpenRow key={item.id} onOpen={() => navigate(path)}>
                     <nldd-cell>
                       <nldd-container gap="4">
                         <nldd-link href={path} text={item.description} />
                         <nldd-text size="sm" color="secondary">
-                          {[invoiceCount(item), ...points].join(' · ')}
+                          {detail.join(' · ')}
                         </nldd-text>
                       </nldd-container>
                     </nldd-cell>
                     <nldd-cell hide-below="md">
                       <nldd-container gap="4">
-                        <CoverageMiniBar item={item} />
+                        {counted && <CoverageMiniBar item={item} />}
                         <nldd-text size="sm" color="secondary">
                           {coverageText(item)}
                         </nldd-text>
                       </nldd-container>
                     </nldd-cell>
-                    <nldd-text-cell
-                      text={formatEuro(item.forecast_cents)}
-                      supporting-text={`van ${formatEuro(item.budgeted_cents)} begroot`}
-                      horizontal-alignment="right"
-                      {...(over ? { color: 'critical' } : {})}
-                    />
+                    {counted ? (
+                      <nldd-text-cell
+                        text={formatEuro(item.forecast_cents)}
+                        supporting-text={`van ${formatEuro(item.budgeted_cents)} begroot`}
+                        horizontal-alignment="right"
+                        {...(over ? { color: 'critical' } : {})}
+                      />
+                    ) : (
+                      <nldd-text-cell
+                        text={formatEuro(item.budgeted_cents)}
+                        {...(item.budgeted_cents === null ? {} : { 'supporting-text': 'begroot' })}
+                        horizontal-alignment="right"
+                        color="secondary"
+                      />
+                    )}
                   </OpenRow>
                 );
               })}

@@ -55,6 +55,7 @@ def _totals(totals: Any) -> TotalsOut | None:
         used_cents=totals.used_cents,
         available_cents=totals.available_cents,
         overrun=totals.overrun,
+        incomplete_by=list(totals.incomplete_by),
     )
 
 
@@ -194,6 +195,8 @@ async def get_assignment_overview(
                         description=c.description,
                         pct=c.pct,
                         amount_cents=c.amount_cents,
+                        executor_name=c.executor_name,
+                        reference_state=c.reference_state,
                     )
                     for c in line_view.coverages
                 ],

@@ -209,6 +209,9 @@ class BudgetUsageOut(BaseModel):
     used_cents: Annotated[int | None, B] = None
     available_cents: Annotated[int | None, B] = None
     lines: Annotated[list[UsageLineOut], nested()] = Field(default_factory=list)
+    # The organisations whose cost items the contractor could not read: the
+    # figures are incomplete.
+    incomplete_by: Annotated[list[str], B] = Field(default_factory=list)
 
 
 class NotDeliveredOut(BaseModel):
