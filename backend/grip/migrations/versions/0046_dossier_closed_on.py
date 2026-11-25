@@ -1,7 +1,7 @@
 """Assignment: the day its dossier closed (ADR 0057).
 
-Revision ID: 0045_dossier_closed_on
-Revises: 0044_peer_is_example
+Revision ID: 0046_dossier_closed_on
+Revises: 0045_billing_details_given
 Create Date: 2026-11-25
 
 """
@@ -11,8 +11,8 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "0045_dossier_closed_on"
-down_revision: str | None = "0044_peer_is_example"
+revision: str = "0046_dossier_closed_on"
+down_revision: str | None = "0045_billing_details_given"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
