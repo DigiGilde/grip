@@ -22,7 +22,7 @@ const DIST = join(ROOT, 'dist');
 const DOCS = join(ROOT, '..', 'docs');
 const ELEMENT_SLOTS = new Set([
   'header', 'sidebar', 'footer', 'global', 'utility', 'breadcrumbs', 'legal-bar', 'start', 'end',
-  'actions', 'no-results', 'empty', 'left', 'right', 'media',
+  'actions', 'no-results', 'empty', 'left', 'right', 'media', 'overflow',
 ]);
 const START = join(DIST, 'index.html');
 const GRIP_ICONS = ['/favicon.ico', '/favicon.svg', '/apple-touch-icon.png'];
@@ -97,19 +97,20 @@ for (const [file, text] of html) {
   if (!/<nldd-window[^>]*\sid="zoekvenster"/.test(text) || !/id="zoekvenster-veld"/.test(text)) problem(file, 'zoekvenster ontbreekt');
   if (!/<nldd-menu-bar-item[^>]*\sid="zoeken-knop"[^>]*\shref="\/zoeken\/"/.test(text)) problem(file, 'Zoeken in de bovenbalk wijst niet naar /zoeken/');
 
-  // Navigation: the name above the bar leads home, a deeper page goes up with the back button.
-  if (/<nldd-menu-bar slot="global"/.test(text)) problem(file, 'bovenbalk heeft onderdelen');
-  const bar = /<nldd-top-navigation-bar\b([^>]*)>/.exec(text)?.[1] ?? '';
-  const back = /\sback-href="([^"]*)"/.exec(bar)?.[1];
+  // Navigation: the name in the bar leads home, a page below another goes up with the back button.
+  if (/<nldd-top-navigation-bar\b/.test(text)) problem(file, 'tweede bovenbalk');
+  const bar = /<nldd-menu-bar-item\b(?=[^>]*\sid="terug")([^>]*)>/.exec(text)?.[1] ?? '';
+  const back = /\shref="([^"]*)"/.exec(bar)?.[1];
   if (file === START) {
     if (back !== undefined) problem(file, 'de start heeft een terugknop');
     if (/<nldd-breadcrumbs\b/.test(text)) problem(file, 'de start heeft een kruimelpad');
   } else {
-    if (!back) problem(file, 'terugknop ontbreekt');
-    else if (!targetFile(decode(back).split('?')[0], file)) problem(file, `terugknop wijst naar niets: ${back}`);
-    if (!/\sback-text="[^"]+"/.test(bar)) problem(file, 'terugknop zonder tekst');
     const crumbs = /<nldd-breadcrumbs\b[^>]*>([\s\S]*?)<\/nldd-breadcrumbs>/.exec(text)?.[1] ?? '';
     const items = [...crumbs.matchAll(/<nldd-breadcrumbs-item\b([^>]*)>/g)].map((m) => m[1]);
+    if (back === '/') problem(file, 'terugknop naar de start, naast de naam die er al heen gaat');
+    else if (!back && items.length > 2) problem(file, 'terugknop ontbreekt');
+    else if (back && !targetFile(decode(back).split('?')[0], file)) problem(file, `terugknop wijst naar niets: ${back}`);
+    if (back && !/\stext="[^"]+"/.test(bar)) problem(file, 'terugknop zonder tekst');
     if (items.length < 2) problem(file, 'kruimelpad ontbreekt');
     else if (!/\scurrent\b/.test(items[items.length - 1])) problem(file, 'kruimelpad eindigt niet bij de pagina zelf');
   }

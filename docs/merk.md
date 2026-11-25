@@ -62,7 +62,7 @@ De bron is `frontend/brand/mark.svg`. Alle afgeleide bestanden maakt `just brand
 
 In de schermen is het beeldmerk het onderdeel `BrandMark` uit `frontend/src/brand`. Naam en beeldmerk samen buiten de balk is `Brand`, in drie vormen: `login`, `signing` en `compact`.
 
-In het ontwikkelportaal is het beeldmerk `BrandMark.astro` uit `ontwikkelportaal/src/components`, gekleurd door `.brand-mark` in `site.css`. De balk van het designsysteem heeft geen plek voor een beeldmerk naast de titel. Beeldmerk en naam staan daarom als `nldd-toolbar-title` op een eigen regel boven de balk; de balk houdt de terugknop en Zoeken. De startpagina toont de vorm `login`: beeldmerk, naam en de zin.
+In het ontwikkelportaal is het beeldmerk `BrandMark.astro` uit `ontwikkelportaal/src/components`, gekleurd door `.brand-mark` in `site.css`. De bovenbalk is één `nldd-toolbar`, zoals in grip zelf: beeldmerk en naam als `nldd-toolbar-title`, daarnaast de terugknop naar het onderdeel erboven, en rechts Zoeken. Naar de start is er geen terugknop, want de naam gaat daar al heen. Op een telefoon blijven de naam en het zoekicoon; het kruimelpad onder de pagina leidt omhoog. De startpagina toont de vorm `login`: beeldmerk, naam en de zin.
 
 ### De richtingen die zijn getekend
 
