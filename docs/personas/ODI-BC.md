@@ -57,7 +57,7 @@ Geen mandaat [aanname]. Zij adviseert en toetst; de directeur bedrijfsvoering st
 
 ## In Grip
 
-**Rijksorganisatie Voorbeeld ODI** (account, lezer; de moederinstantie van DigiGilde). In de voorbeelden bestaat die instantie nog niet: er zijn er drie, DigiGilde voorbeeld, Voorbeeldministerie en Voorbeeldprogramma. Wat hieronder staat, is wat de bestaande doorgifte van DigiGilde aan de moeder oplevert, niet wat een scherm toont.
+**Rijksorganisatie Voorbeeld ODI** (account, lezer; de moederinstantie van DigiGilde). In de voorbeelden bestaat die instantie nog niet: er zijn er drie, DigiGilde voorbeeld, Ministerie van BZK voorbeeld en MOZa voorbeeld. Wat hieronder staat, is wat de bestaande doorgifte van DigiGilde aan de moeder oplevert, niet wat een scherm toont.
 
 **DigiGilde voorbeeld** (via federatie). Ze leest factuurgegevens en kosten met overhead en dekking van de opdrachten. Ze legt zelf niets vast.
 

@@ -43,7 +43,7 @@ for pair in "a $peer_a" "b $peer_b"; do
     set -- $pair
     grant="$(find_grant "$1" GRANT_TYPE_SERVICE_CONNECTION "$peer_c" "$2" | cut -d' ' -f1)"
     [ -n "$grant" ] || { echo "no valid grant for $1 -> corpus-context"; exit 1; }
-    registry "$1" "$peer_c" "Corpus Voorbeeldministerie (lokaal)" "$corpus_base" "$grant" corpus
+    registry "$1" "$peer_c" "Corpus Ministerie van BZK voorbeeld (lokaal)" "$corpus_base" "$grant" corpus
 done
 
 echo "4. peer table of Bouwmeester"
@@ -57,7 +57,7 @@ units = json.load(sys.stdin)
 pick = [u for u in units if u.get("type") == "ministerie"] or units
 print(pick[0]["id"])')"
 routes=""
-for triple in "a $peer_a DigiGilde-voorbeeld-(FSC) https://grip-a.fsc.localhost" "b $peer_b Voorbeeldministerie-(FSC) https://grip-b.fsc.localhost"; do
+for triple in "a $peer_a DigiGilde-voorbeeld-(FSC) https://grip-a.fsc.localhost" "b $peer_b Ministerie-van-BZK-voorbeeld-(FSC) https://grip-b.fsc.localhost"; do
     set -- $triple
     name="$(printf %s "$3" | tr '-' ' ')"
     grant="$(find_grant c GRANT_TYPE_SERVICE_CONNECTION "$2" "$peer_c" | cut -d' ' -f1)"

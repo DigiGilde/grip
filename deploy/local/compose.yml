@@ -39,7 +39,7 @@ x-instance-a-env: &instance-a-env
 
 x-instance-b-env: &instance-b-env
   DATABASE_URL: postgresql+asyncpg://grip:grip@db-b:5432/grip
-  INSTANCE_NAME: Voorbeeldministerie
+  INSTANCE_NAME: Ministerie van BZK voorbeeld
   INSTANCE_KEY: voorbeeldministerie
   INSTANCE_TOOI_URI: https://identifier.overheid.nl/tooi/id/ministerie/mnre9001
   INSTANCE_BASE_URI: http://localhost:9002
@@ -57,7 +57,7 @@ x-instance-b-env: &instance-b-env
 
 x-instance-d-env: &instance-d-env
   DATABASE_URL: postgresql+asyncpg://grip:grip@db-d:5432/grip
-  INSTANCE_NAME: Voorbeeldprogramma
+  INSTANCE_NAME: MOZa voorbeeld
   INSTANCE_KEY: programma
   INSTANCE_TOOI_URI: https://identifier.overheid.nl/tooi/id/ministerie/mnre9001
   INSTANCE_BASE_URI: http://localhost:9003
@@ -203,10 +203,10 @@ services:
     image: grip-local/ontwikkelportaal
     environment:
       ONTWIKKELPORTAAL_INSTANCES: >-
-        [{"naam": "Voorbeeldministerie", "rol": "Opdrachtgever",
-          "omschrijving": "Financiert het Voorbeeldprogramma met een jaarbudget en volgt de uitputting.",
+        [{"naam": "Ministerie van BZK voorbeeld", "rol": "Opdrachtgever",
+          "omschrijving": "Financiert MOZa voorbeeld met een jaarbudget en volgt de uitputting.",
           "url": "http://localhost:9002"},
-         {"naam": "Voorbeeldprogramma", "rol": "Programma",
+         {"naam": "MOZa voorbeeld", "rol": "Programma",
           "omschrijving": "Geeft opdrachten aan DigiGilde voorbeeld en boekt kosten die een leverancier voor het programma doet.",
           "url": "http://localhost:9003"},
          {"naam": "DigiGilde voorbeeld", "rol": "Opdrachtnemer",

@@ -4,12 +4,12 @@
     {
       "key": "voorbeeldministerie",
       "corpus": "https://corpus.voorbeeldministerie.example",
-      "naam": "Corpus Voorbeeldministerie (fictief)",
+      "naam": "Corpus Ministerie van BZK voorbeeld (fictief)",
       "peer_id": "00000000000000000101",
       "grant_hash": "dev-grant-corpus-voorbeeldministerie",
       "beherende_organisatie": {
         "tooi_uri": "https://identifier.overheid.nl/tooi/id/ministerie/mnre0000",
-        "naam": "Voorbeeldministerie"
+        "naam": "Ministerie van BZK voorbeeld"
       },
       "nodes": [
         {

@@ -92,18 +92,18 @@ case "$cmd" in
     urls)
         cat <<URLS
 
-  Ontwikkelportaal, docs and demo      http://localhost:9000   (modes fsc)
-                                       (mode fsc-voorbeeld: log in as testbeheerder, a visitor)
-  Instance A, DigiGilde voorbeeld      http://localhost:9001
-  Instance B, Voorbeeldministerie      http://localhost:9002   (modes fsc)
-  Instance D, Voorbeeldprogramma  http://localhost:9003   (modes fsc)
-  Local Keycloak                       https://localhost:9443  (modes keycloak; admin / state/secrets.env)
-  FSC controller, directory            http://localhost:9100   (modes fsc)
-  FSC controller, peer A               http://localhost:9101
-  FSC controller, peer B               http://localhost:9102
-  FSC controller, peer D               http://localhost:9104
-  FSC controller, peer C (corpus)      http://localhost:9103   (mode fsc-corpus)
-  FSC outway of peer C                 http://localhost:9240   (for Bouwmeester on the host)
+  Ontwikkelportaal, docs and demo           http://localhost:9000   (modes fsc)
+                                            (mode fsc-voorbeeld: log in as testbeheerder, a visitor)
+  Instance A, DigiGilde voorbeeld           http://localhost:9001
+  Instance B, Ministerie van BZK voorbeeld  http://localhost:9002   (modes fsc)
+  Instance D, MOZa voorbeeld                http://localhost:9003   (modes fsc)
+  Local Keycloak                            https://localhost:9443  (modes keycloak; admin / state/secrets.env)
+  FSC controller, directory                 http://localhost:9100   (modes fsc)
+  FSC controller, peer A                    http://localhost:9101
+  FSC controller, peer B                    http://localhost:9102
+  FSC controller, peer D                    http://localhost:9104
+  FSC controller, peer C (corpus)           http://localhost:9103   (mode fsc-corpus)
+  FSC outway of peer C                      http://localhost:9240   (for Bouwmeester on the host)
 
   Running now:
 URLS

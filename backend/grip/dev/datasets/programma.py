@@ -1,7 +1,8 @@
 """Example dataset ``programma``: a programme team with a budget of a ministry.
 
-The instance is the fictional "Voorbeeldprogramma". The Voorbeeldministerie
-funds it with one assignment, "Voorbeeldprogramma 2026", whose budget is the
+The instance is "MOZa voorbeeld", an example after the MOZa programme; its
+people and amounts are invented. The Ministerie van BZK voorbeeld funds it
+from the GDI with one assignment, "MOZa voorbeeld 2026", whose budget is the
 programme's budget for the year. The programme in its turn gives work to two
 suppliers: the Voorbeeldgilde (which runs grip, instance "DigiGilde
 voorbeeld") and the Voorbeeldbeheerorganisatie (which does not). What it
@@ -250,14 +251,14 @@ async def fill(db: AsyncSession, settings: Settings) -> SeedResult:
     elsewhere = settings.example_instance_uris
     ministry = await assignments.upsert_organisation(
         db,
-        name="Voorbeeldministerie",
+        name="Ministerie van BZK voorbeeld",
         tooi_uri=MINISTRY_TOOI,
         instance_uri=elsewhere.get("ministerie", MINISTRY_INSTANCE_URI),
     )
     # A unit of the ministry: its TOOI URI plus a key of its own.
     own = await assignments.upsert_organisation(
         db,
-        name="Voorbeeldprogramma",
+        name="MOZa voorbeeld",
         tooi_uri=MINISTRY_TOOI,
         unit_key="programma",
         instance_uri=settings.INSTANCE_BASE_URI,
@@ -279,17 +280,20 @@ async def fill(db: AsyncSession, settings: Settings) -> SeedResult:
     mila = result.people["mila.programma"]
     fenna = result.people["fenna.financien"]
 
-    # -- The programme budget: Voorbeeldprogramma 2026 ------------------------
+    # -- The programme budget: MOZa voorbeeld 2026 ------------------------
     programme = await assignments.create_assignment(
         db,
-        name="Voorbeeldprogramma 2026",
+        name="MOZa voorbeeld 2026",
         kind="external",
         client_organisation_id=ministry.id,
         contractor_organisation_id=own.id,
-        client_contact="Contactpersoon Voorbeeldministerie",
+        client_contact="Contactpersoon Ministerie van BZK voorbeeld",
         start_date=date(2026, 1, 1),
         end_date=date(2026, 12, 31),
-        notes="Fictief programma, gefinancierd door het Voorbeeldministerie.",
+        notes=(
+            "Voorbeeldprogramma, gefinancierd uit de GDI door het Ministerie van BZK "
+            "voorbeeld."
+        ),
         actor=mila,
     )
     await _roles(
@@ -361,7 +365,7 @@ async def fill(db: AsyncSession, settings: Settings) -> SeedResult:
         db,
         quote,
         _ref(ministry),
-        "Opdrachtgever Voorbeeldministerie",
+        "Opdrachtgever Ministerie van BZK voorbeeld",
         date(2025, 12, 11),
         mila,
     )

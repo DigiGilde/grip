@@ -2,8 +2,8 @@
 code: MIN-DIR
 naam: Tess Teken
 rol: Directeur, budgethouder
-organisatie: Voorbeeldministerie
-eenheid: Directie Voorbeeld Digitale Overheid
+organisatie: Ministerie van BZK voorbeeld
+eenheid: Directie Digitale Overheid voorbeeld
 fgr:
   functie: Manager
   familie: Lijnmanagement
@@ -14,7 +14,7 @@ mandaat:
   tekst: "Naar het voorbeeld van het Mandaatbesluit BZK 2025: tot € 2 miljoen per verplichting; meer alleen met instemming van de FEZ-controller (art. 7.6). Mag ondermandaat geven tot € 50.000 zonder instemming (art. 7.8)"
   bron: https://wetten.overheid.nl/BWBR0051453/
 grips:
-  - instantie: Voorbeeldministerie
+  - instantie: Ministerie van BZK voorbeeld
     toegang: account
     rechten: [tekenbevoegde]
     relaties: []
@@ -32,7 +32,7 @@ grips:
 
 ## Wie
 
-Tess is directeur van de directie die de programma's van het DG uitvoert, en budgethouder van het Voorbeeldprogramma. Haar agenda zit vol; een offerte tekent ze tussen twee overleggen door, op basis van wat haar beleidsmedewerker en de controller erover zeggen.
+Tess is directeur van de directie die de programma's van het DG uitvoert, en budgethouder van MOZa voorbeeld. Haar agenda zit vol; een offerte tekent ze tussen twee overleggen door, op basis van wat haar beleidsmedewerker en de controller erover zeggen.
 
 ## Verantwoordelijk voor
 
@@ -58,7 +58,7 @@ Naar het voorbeeld van het Mandaatbesluit BZK 2025 gaat een directeur verplichti
 
 ## In Grip
 
-**Voorbeeldministerie** (account, tekenbevoegde). Ze landt op Start en ziet Start, Taken, Vacatures en Aanvragen. Onder Taken staat "Beoordeel de ontvangen offerte"; de knop brengt haar naar de ontvangen offerte, waar ze akkoord geeft of afwijst. Dat is de werkstroom "Ontvangen offerte bij de opdrachtgever". Bij een aanvraag kan zij de uitputting opvragen bij de grip van de opdrachtnemer, als die dat toestaat.
+**Ministerie van BZK voorbeeld** (account, tekenbevoegde). Ze landt op Start en ziet Start, Taken, Vacatures en Aanvragen. Onder Taken staat "Beoordeel de ontvangen offerte"; de knop brengt haar naar de ontvangen offerte, waar ze akkoord geeft of afwijst. Dat is de werkstroom "Ontvangen offerte bij de opdrachtgever". Bij een aanvraag kan zij de uitputting opvragen bij de grip van de opdrachtnemer, als die dat toestaat.
 
 **DigiGilde voorbeeld** (gast). Biedt het gilde een offerte aan met een tekenlink, dan logt zij in, krijgt een gastsessie en tekent op de tekenpagina. Ze ziet alleen die offerte. In de dataset `voorbeeld` gaat Opdracht Delta 2026-2027 zo naar een tekenaar van het ministerie.
 
@@ -71,7 +71,7 @@ In de dataset `voorbeeld` speelt Tess Teken de tekenbevoegde van de opdrachtgeve
 - **Budget van een programma.** Geen budget boven de opdrachten van het programma.
 - **Verlengen of groeien na akkoord.** Een aanvullende offerte bestaat nog niet; een verlenging is een nieuwe opdracht of een nieuwe offerte.
 - **Overleg.** Stuurgroepbesluiten en acties leven buiten grip.
-- **Dataset voor het Voorbeeldministerie.** Haar voorbeeldpersoon staat nu in de dataset van het gilde.
+- **Dataset voor het Ministerie van BZK voorbeeld.** Haar voorbeeldpersoon staat nu in de dataset van het gilde.
 
 ## Bronnen
 

@@ -162,8 +162,8 @@ attach_group "$DEPLOYMENT_DIR" dirui "$PKI_DIR/peers/dir/group/dirmgr"
 group_components="manager inway outway"
 internal_components="manager controller inway outway txlog"
 peer a "$DEPLOYMENT_A" 01800000000000000001 "DigiGilde voorbeeld"
-peer b "$DEPLOYMENT_B" 01800000000000000002 "Voorbeeldministerie"
-peer d "$DEPLOYMENT_D" 01800000000000000004 "Voorbeeldprogramma"
+peer b "$DEPLOYMENT_B" 01800000000000000002 "Ministerie van BZK voorbeeld"
+peer d "$DEPLOYMENT_D" 01800000000000000004 "MOZa voorbeeld"
 
 trash "$work"
 

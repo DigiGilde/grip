@@ -100,7 +100,7 @@ SURNAMES = (
     "Schrijver Onderzoek Architect Beheer Regie Proces"
 ).split()
 CLIENTS = (
-    "Voorbeeldministerie",
+    "Ministerie van BZK voorbeeld",
     "Voorbeelddienst Uitvoering",
     "Voorbeeldagentschap Noord",
     "Voorbeeldagentschap Zuid",

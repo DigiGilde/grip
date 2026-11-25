@@ -2,7 +2,7 @@
 code: PRG-MGR
 naam: Mark Manager
 rol: Programmamanager
-organisatie: Voorbeeldprogramma
+organisatie: MOZa voorbeeld
 eenheid: Programmaleiding
 fgr:
   functie: Project-/Programmamanager
@@ -14,7 +14,7 @@ mandaat:
   tekst: "Naar het voorbeeld van het Mandaatbesluit BZK 2025: middenmanager, programmamanager, afdelingshoofd en bureauhoofd in het kerndepartement tot € 50.000 per verplichting. Dat dit voor hem geldt en dat hij het ondermandaat van de programmadirecteur heeft, is een aanname"
   bron: https://wetten.overheid.nl/BWBR0051453/
 grips:
-  - instantie: Voorbeeldprogramma
+  - instantie: MOZa voorbeeld
     toegang: account
     rechten: [lezer]
     relaties: [lid, leidinggevende, zelf]
@@ -26,7 +26,7 @@ grips:
 
 ## Wie
 
-Mark is programmamanager van het Voorbeeldprogramma. Hij staat tussen de programmadirecteur en de diensten: hij stuurt de product owners en de teamleden van de diensten dagelijks aan en zorgt dat wat in het programmaoverleg is besloten ook gebeurt. Hij hoort bij een dienst, maar niet met een vast deel van zijn tijd; wat hij kost, is voor alle diensten samen.
+Mark is programmamanager van MOZa voorbeeld. Hij staat tussen de programmadirecteur en de diensten: hij stuurt de product owners en de teamleden van de diensten dagelijks aan en zorgt dat wat in het programmaoverleg is besloten ook gebeurt. Hij hoort bij een dienst, maar niet met een vast deel van zijn tijd; wat hij kost, is voor alle diensten samen.
 
 ## Verantwoordelijk voor
 
@@ -54,7 +54,7 @@ Het Functiegebouw Rijk zegt dat een project-/programmamanager werkt binnen de ka
 
 ## In Grip
 
-**Voorbeeldprogramma** (account, lezer, lid van de opdracht van het programma en leidinggevende van de teamleden van de diensten). Hij landt op Start en ziet Start, Taken, Opdrachten, Team, Vacatures, Financieel en Rapportage. Als lezer leest hij de basis en de bedragen van alle opdrachten, en de rapportage. Hij heeft geen stap in een werkstroom en kan zelf niets begroten, aanbieden of afsluiten.
+**MOZa voorbeeld** (account, lezer, lid van de opdracht van het programma en leidinggevende van de teamleden van de diensten). Hij landt op Start en ziet Start, Taken, Opdrachten, Team, Vacatures, Financieel en Rapportage. Als lezer leest hij de basis en de bedragen van alle opdrachten, en de rapportage. Hij heeft geen stap in een werkstroom en kan zelf niets begroten, aanbieden of afsluiten.
 
 Hij is het voorbeeld van een lid zonder bekend aandeel in een dienst. Zodra diensten bestaan, bereiken zijn kosten de diensten via de algemene verdeelsleutel: standaard het aandeel directe kosten, met de hand aan te passen.
 

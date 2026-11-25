@@ -2,8 +2,8 @@
 code: MIN-BEL
 naam: Anouk Aanvraag
 rol: Senior beleidsmedewerker, opdrachtgever namens de directie
-organisatie: Voorbeeldministerie
-eenheid: Directie Voorbeeld Digitale Overheid
+organisatie: Ministerie van BZK voorbeeld
+eenheid: Directie Digitale Overheid voorbeeld
 fgr:
   functie: (Senior) Beleidsmedewerker
   familie: Beleid
@@ -14,13 +14,13 @@ mandaat:
   tekst: "Geen mandaat om te verplichten; bereidt de opdracht voor en vraagt aan, de directeur tekent"
   bron: aanname
 grips:
-  - instantie: Voorbeeldministerie
+  - instantie: Ministerie van BZK voorbeeld
     toegang: account
     rechten: [aanvrager]
     relaties: [eigenaar]
     voorbeeldpersoon: Anouk Aanvraag
     dataset: voorbeeld
-  - instantie: Voorbeeldprogramma
+  - instantie: MOZa voorbeeld
     toegang: via-federatie
     rechten: []
     relaties: []
@@ -38,7 +38,7 @@ grips:
 
 ## Wie
 
-Anouk is de vaste opdrachtgever van het Voorbeeldprogramma namens de directie. Ze schrijft de opdracht, zit bij de stuurgroep aan tafel en is het eerste aanspreekpunt als het programma geld of een besluit nodig heeft. Ze kent het beleid goed, de bedrijfsvoering minder.
+Anouk is de vaste opdrachtgever van MOZa voorbeeld namens de directie. Ze schrijft de opdracht, zit bij de stuurgroep aan tafel en is het eerste aanspreekpunt als het programma geld of een besluit nodig heeft. Ze kent het beleid goed, de bedrijfsvoering minder.
 
 ## Verantwoordelijk voor
 
@@ -64,9 +64,9 @@ Geen eigen mandaat om verplichtingen aan te gaan [aanname]. Zij vraagt aan; de d
 
 ## In Grip
 
-**Voorbeeldministerie** (account, aanvrager). Ze landt op Start en ziet Start, Taken, Vacatures en Aanvragen. Onder Aanvragen stuurt ze een aanvraag naar een gekoppelde grip en wordt ze eigenaar van die aanvraag in de eigen grip. Ze volgt de werkstroom "Ontvangen offerte bij de opdrachtgever": aanvraag, offerte ontvangen, besluit door de tekenbevoegde. Daarna vraagt ze de uitputting op, als de opdrachtnemer dat in de koppeling toestaat.
+**Ministerie van BZK voorbeeld** (account, aanvrager). Ze landt op Start en ziet Start, Taken, Vacatures en Aanvragen. Onder Aanvragen stuurt ze een aanvraag naar een gekoppelde grip en wordt ze eigenaar van die aanvraag in de eigen grip. Ze volgt de werkstroom "Ontvangen offerte bij de opdrachtgever": aanvraag, offerte ontvangen, besluit door de tekenbevoegde. Daarna vraagt ze de uitputting op, als de opdrachtnemer dat in de koppeling toestaat.
 
-**Voorbeeldprogramma en DigiGilde voorbeeld** (via federatie). Ze komt daar nooit binnen. Haar grip haalt de stand en, op verzoek, de uitputting en de factuurgegevens op; namen van mensen gaan niet over de grens.
+**MOZa voorbeeld en DigiGilde voorbeeld** (via federatie). Ze komt daar nooit binnen. Haar grip haalt de stand en, op verzoek, de uitputting en de factuurgegevens op; namen van mensen gaan niet over de grens.
 
 In de dataset `voorbeeld` speelt Anouk Aanvraag deze rol na binnen DigiGilde voorbeeld; zie de [README](README.md).
 
@@ -76,7 +76,7 @@ In de dataset `voorbeeld` speelt Anouk Aanvraag deze rol na binnen DigiGilde voo
 - **Diensten.** Ze ziet niet wat er per dienst is uitgegeven of opgeleverd.
 - **Budget van een programma.** Het programma heeft geen budget boven zijn opdrachten.
 - **Prestatieverklaring.** Er is geen stap waarin de opdrachtgever bevestigt dat geleverd is.
-- **Dataset voor het Voorbeeldministerie.** Haar voorbeeldpersoon staat nu in de dataset van het gilde.
+- **Dataset voor het Ministerie van BZK voorbeeld.** Haar voorbeeldpersoon staat nu in de dataset van het gilde.
 
 ## Bronnen
 

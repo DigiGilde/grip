@@ -1,11 +1,11 @@
 {
   "profile": "programma",
-  "title": "Voorbeeldprogramma (fictief)",
-  "description": "Startwaarden voor de afzender, de onderdelen en de standaardteksten van een offerte van het fictieve Voorbeeldprogramma aan het Voorbeeldministerie. Gegevens op het niveau van het programma; een contactpersoon en een ondertekenaar vult de beheerder zelf in.",
+  "title": "MOZa voorbeeld",
+  "description": "Startwaarden voor de afzender, de onderdelen en de standaardteksten van een offerte van MOZa voorbeeld aan het Ministerie van BZK voorbeeld. Gegevens op het niveau van het programma; een contactpersoon en een ondertekenaar vult de beheerder zelf in.",
   "sender": {
-    "organisation": "Voorbeeldprogramma",
+    "organisation": "MOZa voorbeeld",
     "part_of": [
-      "Voorbeeldministerie"
+      "Ministerie van BZK voorbeeld"
     ],
     "unit": "Programmabureau",
     "visiting_address": [
@@ -18,8 +18,8 @@
     ],
     "orders_email": "programmabureau@programma.example",
     "signatory": {
-      "on_behalf_of": "het Voorbeeldprogramma",
-      "organisation": "Voorbeeldministerie"
+      "on_behalf_of": "MOZa voorbeeld",
+      "organisation": "Ministerie van BZK voorbeeld"
     }
   },
   "letter": {
@@ -63,7 +63,7 @@
       "key": "governance",
       "heading": "Governance",
       "draftable": true,
-      "body": "Opdrachtgever: het Voorbeeldministerie, verantwoordelijk voor de kaders en het budget.\nProgramma: verantwoordelijk voor de uitvoering en de verantwoording van de uitgaven.\n\nOverlegstructuur:\n- Maandelijks overleg met de opdrachtgever\n- Kwartaalrapportage over de uitputting\n- Jaarverantwoording",
+      "body": "Opdrachtgever: het Ministerie van BZK voorbeeld, verantwoordelijk voor de kaders en het budget.\nProgramma: verantwoordelijk voor de uitvoering en de verantwoording van de uitgaven.\n\nOverlegstructuur:\n- Maandelijks overleg met de opdrachtgever\n- Kwartaalrapportage over de uitputting\n- Jaarverantwoording",
       "hint": "Wie stuurt, wie uitvoert, en welk overleg er is."
     },
     {

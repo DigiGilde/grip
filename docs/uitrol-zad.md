@@ -226,7 +226,7 @@ De variabele `ZAD_PROJECT_ID` en het geheim `ZAD_API_KEY` uit stap 4 zijn genoeg
 
 ```json
 [
-  {"naam": "Voorbeeldprogramma", "rol": "Programma",
+  {"naam": "MOZa voorbeeld", "rol": "Programma",
    "omschrijving": "Geeft opdrachten aan DigiGilde voorbeeld en boekt kosten die een leverancier voor het programma doet.",
    "url": "https://component-1-programma-<project>.<basisdomein>"},
   {"naam": "DigiGilde voorbeeld", "rol": "Opdrachtnemer",
@@ -264,7 +264,7 @@ Het project `gv-ukr` heeft een uitrol per organisatie en één voor de startpagi
 
 Voorbeeldinstanties laten pas zien wat grip doet als ze met elkaar praten: een kostenpost bij de leverancier, een aanvraag die aankomt. Ze federeren in een eigen FSC-groep, `grip-voorbeeld`, met een eigen test-CA en een eigen directory, en alleen met elkaar (ADR 0054). De opzet volgt het FSC-testnet van MijnOverheid Zakelijk (`MinBZK/moza-fsc-testnet`). Alles staat in `deploy/zad/fsc/`; niets daarvan is al op het platform gedraaid.
 
-Eerst DigiGilde voorbeeld en het Voorbeeldprogramma: daarmee is de kostenpost met een uitvoerder te zien. Het Voorbeeldministerie komt er later bij als derde uitrol.
+Eerst DigiGilde voorbeeld en MOZa voorbeeld: daarmee is de kostenpost met een uitvoerder te zien. Het Ministerie van BZK voorbeeld komt er later bij als derde uitrol.
 
 ### Topologie
 
@@ -274,8 +274,8 @@ Eén project, dat van de voorbeeldinstantie, met per peer een eigen uitrol. Een 
 |---|---|---|
 | `directory` | de directory | `dirmgr` (manager in directorymodus), `dirui` (overzicht van de groep) |
 | `gilde` | a, DigiGilde voorbeeld | `component-1` (frontend), `component-2` (backend, `GRIP_PROCESS=all`), `federation` (de listener, alleen voor de inway), `manager`, `controller`, `inway`, `outway`, `txlog` |
-| `programma` | d, Voorbeeldprogramma | hetzelfde |
-| `ministerie` | b, Voorbeeldministerie (later) | hetzelfde |
+| `programma` | d, MOZa voorbeeld | hetzelfde |
+| `ministerie` | b, Ministerie van BZK voorbeeld (later) | hetzelfde |
 
 Een uitrol met FSC kan niet frontend en `/api` op één adres zetten, zoals de vroegere uitrol `main` deed: passthrough kan alleen als een onderdeel een eigen host heeft. Daarom heeft elke instantie de domeinvorm `component-deployment-project`, en is de startpagina het vaste adres.
 
@@ -308,7 +308,7 @@ Het platform kent geen init-containers. Daarom draaien manager, controller en tr
 5. **Grip.** In `-grip.env` en `-federation.env` staan de instellingen van een voorbeeldinstantie met federatie: `INSTANCE_MODE=voorbeeld`, `EXAMPLE_FSC_GROUP=grip-voorbeeld`, `EXAMPLE_VISITORS`, `EXAMPLE_RESET_HOUR` (op alle instanties hetzelfde uur), `SEED_DATASET`, `INSTANCE_NAME`, `INSTANCE_KEY`, `INSTANCE_TOOI_URI`, `INSTANCE_BASE_URI`, `EXAMPLE_INSTANCE_URIS` (waar de andere staan; op alle instanties gelijk), `FEDERATION_INBOUND_ENABLED`, `FEDERATION_OUTBOUND_ENABLED`, `OUTWAY_URL` en `FEDERATION_SIGNING_KEY` (als bijlage, zie [Wat op het platform bleek](#wat-op-het-platform-bleek); dezelfde sleutel op `component-2` en `federation`). De login en de sessie gaan zoals bij elke instantie (stap 3). `BOOTSTRAP_BEHEERDER_EMAILS` blijft weg: dat is in een voorbeeld een startfout. Elke frontend is een eigen adres om na het inloggen naar terug te keren: zet het adres van `component-1` in elke uitrol in `additional_redirect_uris` van de dienst `keycloak`, anders weigert de login met "Invalid parameter: redirect_uri" (zie [Wat op het platform bleek](#wat-op-het-platform-bleek)).
 6. **De groep inrichten.** `deploy/zad/fsc/bootstrap.sh` registreert per instantie de dienst `grip-opdrachtverkeer`, publiceert die in de directory, sluit contracten in beide richtingen en accepteert ze. `PEERS="a d"` beperkt dat tot gilde en programma. `--dry-run` toont eerst wat het zou doen. Het schrijft per instantie `registry-<k>.sql` met de andere peers, gemarkeerd als voorbeeld, en een tabel met dezelfde waarden.
 7. **Het peerregister van grip.** Heb je geen toegang tot de database, voer de peers dan per instantie in onder Beheer > Koppelingen, met de schakelaar Voorbeeldinstantie aan, en test de verbinding. Het register blijft bij de nachtelijke reset staan.
-8. **Controle.** Log in als bezoeker op het Voorbeeldprogramma. De kostenpost "Zaalhuur bijeenkomst ondernemers november" wacht op DigiGilde voorbeeld; binnen een minuut staat hij daar aangemaakt en leest het programma hem terug.
+8. **Controle.** Log in als bezoeker op MOZa voorbeeld. De kostenpost "Zaalhuur bijeenkomst ondernemers november" wacht op DigiGilde voorbeeld; binnen een minuut staat hij daar aangemaakt en leest het programma hem terug.
 
 ### Wat het platformteam moet bevestigen
 

@@ -26,7 +26,7 @@ grips:
 
 ## Wie
 
-Daan is ontwikkelaar bij het gilde en zit nu bij het team dat voor het Voorbeeldprogramma bouwt. Hij werkt in de tools van het team, niet in grip; daar komt hij als iemand hem vraagt te kijken waar hij na de zomer staat. Dewi Developer, Olaf Ontwerp en Anna Analist hebben dezelfde plek in grip.
+Daan is ontwikkelaar bij het gilde en zit nu bij het team dat voor MOZa voorbeeld bouwt. Hij werkt in de tools van het team, niet in grip; daar komt hij als iemand hem vraagt te kijken waar hij na de zomer staat. Dewi Developer, Olaf Ontwerp en Anna Analist hebben dezelfde plek in grip.
 
 ## Verantwoordelijk voor
 

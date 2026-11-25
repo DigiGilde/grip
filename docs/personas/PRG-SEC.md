@@ -2,7 +2,7 @@
 code: PRG-SEC
 naam: Sanne Secretariaat
 rol: Secretaris en PMO
-organisatie: Voorbeeldprogramma
+organisatie: MOZa voorbeeld
 eenheid: Programmabureau
 fgr:
   functie: Adviseur Bedrijfsvoering
@@ -14,7 +14,7 @@ mandaat:
   tekst: "Geen mandaat"
   bron: aanname
 grips:
-  - instantie: Voorbeeldprogramma
+  - instantie: MOZa voorbeeld
     toegang: account
     rechten: [lezer]
     relaties: [lid]
@@ -51,7 +51,7 @@ Geen mandaat [aanname]. Zij legt besluiten vast, neemt ze niet.
 
 ## In Grip
 
-**Voorbeeldprogramma** (account, lezer). Ze landt op Start en ziet Start, Taken, Opdrachten, Vacatures, Financieel en Rapportage. Als lezer leest ze de basis en de bedragen van alle opdrachten, en de rapportage. Een eigen taak toevoegen kan alleen wie de zaak mag bewerken; als lezer kan zij dat niet. De functiegroep is een inschatting: Managementondersteuner (schaal 5-10) past ook.
+**MOZa voorbeeld** (account, lezer). Ze landt op Start en ziet Start, Taken, Opdrachten, Vacatures, Financieel en Rapportage. Als lezer leest ze de basis en de bedragen van alle opdrachten, en de rapportage. Een eigen taak toevoegen kan alleen wie de zaak mag bewerken; als lezer kan zij dat niet. De functiegroep is een inschatting: Managementondersteuner (schaal 5-10) past ook.
 
 ## Wat Grip nog niet kan
 

@@ -45,7 +45,7 @@ export SESSION_SECRET_KEY=lokale-omgeving-geen-geheim
 export FRONTEND_URL="http://localhost:$FRONTEND_PORT"
 export BACKEND_URL="http://localhost:$BACKEND_PORT"
 export CORPUS_BASE_URI
-export CORPUS_NAME="Corpus Voorbeeldministerie (lokaal)"
+export CORPUS_NAME="Corpus Ministerie van BZK voorbeeld (lokaal)"
 # A real ministry identifier, because the contract asks for a TOOI URI; the
 # corpus behind it is demo data.
 export CORPUS_ORGANISATIE_TOOI_URI="https://identifier.overheid.nl/tooi/id/ministerie/mnre1034"
