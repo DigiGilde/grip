@@ -7,6 +7,9 @@ import { QuoteDetails } from '@/features/quotes/QuoteDetails';
 import { QuoteContentTable } from '@/features/quotes/QuoteContentTable';
 import { formatDateTime } from '@/features/quotes/format';
 import { DecisionFailed, DecisionReceipt } from '@/features/quotes/DecisionReceipt';
+import type { BillingDetails } from '@/features/month-close/billingApi';
+import { BillingDetailsFields } from '@/features/month-close/BillingDetailFields';
+import { filledDetails, missingText, startDetails } from '@/features/month-close/billingDetails';
 import {
   beforeLeaving,
   clearDraft,
@@ -80,6 +83,7 @@ interface SigningDraft extends Record<string, unknown> {
   signerFunction?: string;
   organisationName?: string;
   reason?: string;
+  billingDetails?: BillingDetails;
 }
 
 /**
@@ -104,6 +108,7 @@ export function SigningPage() {
   const [organisationName, setOrganisationName] = useState(draft?.organisationName ?? '');
   const [mandate, setMandate] = useState(false);
   const [reason, setReason] = useState(draft?.reason ?? '');
+  const [details, setDetails] = useState<BillingDetails>(draft?.billingDetails ?? {});
   const [error, setError] = useState<string | null>(null);
 
   // Asking for the intent decides nothing: the decision is made when the
@@ -111,7 +116,14 @@ export function SigningPage() {
   const leave = useMutation({
     mutationFn: (decision: 'accept' | 'reject') => {
       if (!query.data) throw new Error('De offerte is nog niet geladen.');
-      saveDraft(quoteId, { decision, signerFunction, organisationName, reason });
+      saveDraft(quoteId, {
+        decision,
+        signerFunction,
+        organisationName,
+        reason,
+        billingDetails: details,
+      });
+      const billing = filledDetails(details);
       return createSigningIntent(quoteId, {
         decision,
         quote_hash: query.data.snapshot_hash,
@@ -121,6 +133,7 @@ export function SigningPage() {
               signer_function: signerFunction.trim() || null,
               organisation_name: query.data.client_name ? null : organisationName.trim(),
               confirm_mandate: true,
+              ...(billing ? { billing_details: billing } : {}),
             }
           : { reason: reason.trim() || null }),
       });
@@ -135,8 +148,14 @@ export function SigningPage() {
   const notFound = query.error instanceof ApiError && query.error.status === 404;
   const title = quote ? `Offerte ${quote.content.name}` : 'Offerte tekenen';
   const client = quote?.client_name ?? null;
+  const annex = quote?.billing_annex === true;
   const open = (next: 'accept' | 'reject') => {
     setError(null);
+    if (next === 'accept') {
+      setDetails((now) =>
+        startDetails(now, quote?.client_reference ?? quote?.content.client_reference),
+      );
+    }
     setSheet(next);
   };
 
@@ -233,6 +252,11 @@ export function SigningPage() {
             setError('Vul de organisatie in namens wie je tekent.');
             return;
           }
+          const gap = annex ? missingText(details) : null;
+          if (gap) {
+            setError(gap);
+            return;
+          }
           setError(null);
           leave.mutate('accept');
         }}
@@ -257,6 +281,7 @@ export function SigningPage() {
             required
           />
         ) : null}
+        <BillingDetailsFields details={details} onChange={setDetails} required={annex} />
         <CheckboxInput
           label={`Ik ben bevoegd om namens ${client ?? 'de opdrachtgever'} akkoord te geven op deze offerte`}
           checked={mandate}

@@ -3,6 +3,7 @@
  * absent from a response, not null, so most fields are optional here.
  */
 import { ApiError, apiGet, apiPost, getCsrfToken, type ProblemDetails } from '@/api/client';
+import type { BillingDetails } from '@/features/month-close/billingApi';
 
 export interface YearRate {
   year: number;
@@ -246,6 +247,7 @@ export interface UploadedAcceptanceInput {
   signer_function: string;
   organisation_name: string;
   signed_at: string;
+  billing_details?: BillingDetails | null;
 }
 
 /** Sends the signed pdf with the details of who signed, as a multipart form. */
@@ -262,6 +264,7 @@ export async function recordUploadedAcceptance(
   // The date field gives a day; the moment of signing is recorded at noon UTC
   // so the day does not shift with the time zone.
   if (input.signed_at) form.append('signed_at', `${input.signed_at}T12:00:00Z`);
+  if (input.billing_details) form.append('billing_details', JSON.stringify(input.billing_details));
 
   const response = await fetch(`/api/quotes/${quoteId}/acceptance/uploaded-pdf`, {
     method: 'POST',

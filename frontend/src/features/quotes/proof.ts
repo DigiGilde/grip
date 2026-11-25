@@ -11,6 +11,7 @@ import type { Fact } from '@/ui/layout';
 import { formatDateTime } from './format';
 import { PATHS } from '@/paths';
 import { confirmWithPasskey, type PasskeyStep } from '@/features/passkeys/api';
+import type { BillingDetails } from '@/features/month-close/billingApi';
 
 export interface DecisionIntent {
   id: string;
@@ -97,6 +98,7 @@ export function createSigningIntent(
     confirm_mandate?: boolean;
     organisation_name?: string | null;
     reason?: string | null;
+    billing_details?: BillingDetails;
     return_path: string;
   },
 ): Promise<DecisionIntent> {
@@ -109,6 +111,7 @@ export function createDecisionIntent(input: {
   quote_hash: string;
   signer_function?: string | null;
   note?: string | null;
+  billing_details?: BillingDetails;
   return_path: string;
 }): Promise<DecisionIntent> {
   return apiPost('/api/proof/intents', input);
