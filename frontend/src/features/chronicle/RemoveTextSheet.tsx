@@ -67,9 +67,9 @@ export function RemoveTextSheet({ assignmentId, seq, texts, open, onClose }: Rem
       error={problem}
     >
       <Quiet>
-        Grip wist dit moment en legt het opnieuw vast zonder de gekozen tekst. Andere vastleggingen
-        van deze opdracht met dezelfde tekst worden ook gewist. Wat al naar een andere organisatie
-        is gestuurd, haalt dit niet terug.
+        Grip wist dit moment en legt het opnieuw vast zonder de gekozen tekst. Wijzigingen van deze
+        opdracht met dezelfde naam, notities, omschrijving of reden worden ook gewist. Wat al naar
+        een andere organisatie is gestuurd, haalt dit niet terug.
       </Quiet>
       {texts.map((text) => (
         <nldd-form-field

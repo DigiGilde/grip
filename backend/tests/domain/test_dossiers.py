@@ -435,14 +435,46 @@ async def test_taking_a_text_out_of_the_record_is_no_activity(
             StreamEvent.type == "chronolexogram.assignment_changed",
         )
     )
-    # Its own act, as a request of its own would be.
-    with context.scope():
+    await restatements.restate_moment(
+        db_session, assignment.id, changed, ["assignment.notes"], actor=beheerder
+    )
+    await db_session.flush()
+    assert before is not None and before < clock.today()
+    assert await dossiers.last_activity_on(db_session, assignment.id) == before
+
+
+async def test_a_change_in_the_trace_of_a_herstelfeit_still_counts(
+    db_session, beheerder, make_assignment
+):
+    # A caller chooses its trace id (traceparent): sharing the one of a
+    # herstelfeit must not hide a change.
+    trace = "4bf92f3577b34da6a3ce929d0e0e4736"
+    with stream.recording_at(datetime.now(UTC) - timedelta(days=7)):
+        assignment = await make_assignment()
+        await assignments.update_assignment(
+            db_session,
+            assignment.id,
+            actor=beheerder,
+            notes="Afwezig wegens een operatie aan de knie",
+        )
+        await _finish(db_session, assignment, beheerder)
+        await db_session.flush()
+    changed = await db_session.scalar(
+        select(StreamEvent.seq).where(
+            StreamEvent.subject_kind == "chronolexogram",
+            StreamEvent.subject_id == str(assignment.id),
+            StreamEvent.type == "chronolexogram.assignment_changed",
+        )
+    )
+    with context.scope(correlation_id=trace):
         await restatements.restate_moment(
             db_session, assignment.id, changed, ["assignment.notes"], actor=beheerder
         )
         await db_session.flush()
-    assert before is not None and before < clock.today()
-    assert await dossiers.last_activity_on(db_session, assignment.id) == before
+    with context.scope(correlation_id=trace):
+        await dossiers.keep_dossier_open(db_session, assignment.id, actor=beheerder)
+        await db_session.flush()
+    assert await dossiers.last_activity_on(db_session, assignment.id) == clock.today()
 
 
 async def test_without_any_activity_a_case_counts_from_its_row(db_session, ended):

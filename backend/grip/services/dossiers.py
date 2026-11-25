@@ -14,7 +14,7 @@ from datetime import date
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip.chronicle.restate import RESTATED
@@ -23,6 +23,7 @@ from grip.core import clock
 from grip.core.audit import UPDATE, record_audit
 from grip.events import context, stream
 from grip.events.reading import READ_TYPE
+from grip.events.retention import ERASED_TYPE
 from grip.models.assignment import Assignment
 from grip.models.person import Person
 from grip.models.stream_event import (
@@ -65,6 +66,10 @@ CLOSE_AFTER_PROPOSAL_DAYS = instance_settings.declare(
 )
 
 _ACTIVE_ACTORS = (ACTOR_PERSON, ACTOR_GUEST, ACTOR_PEER)
+# A read changes nothing, and neither does taking a text out of the record: the
+# herstelfeit and its erasure correct the record, not the case. Grip itself
+# writes the change lines of a herstelfeit.
+_NOT_ACTIVITY = (READ_TYPE, event_type(RESTATED), ERASED_TYPE)
 # Taking up a task about the case is work on the case, not a change to it.
 # Otherwise touching the proposal would withdraw it.
 _NOT_A_CHANGE = ("task", "task_note")
@@ -213,26 +218,14 @@ async def last_activity(
     ids = list(set(assignment_ids))
     if not ids:
         return {}
-    # Taking a text out of the record corrects the record, not the case: the
-    # herstelfeit and what was recorded in the same act do not count.
-    restating = select(StreamEvent.correlation_id).where(
-        StreamEvent.type == event_type(RESTATED),
-        StreamEvent.case_kind == CASE_ASSIGNMENT,
-        StreamEvent.case_id.in_(ids),
-        StreamEvent.correlation_id.is_not(None),
-    )
     rows = await session.execute(
         select(StreamEvent.case_id, func.max(StreamEvent.occurred_at))
         .where(
             StreamEvent.case_kind == CASE_ASSIGNMENT,
             StreamEvent.case_id.in_(ids),
-            StreamEvent.type != READ_TYPE,
+            StreamEvent.type.notin_(_NOT_ACTIVITY),
             StreamEvent.actor_kind.in_(_ACTIVE_ACTORS),
             StreamEvent.subject_kind.notin_(_NOT_A_CHANGE),
-            or_(
-                StreamEvent.correlation_id.is_(None),
-                StreamEvent.correlation_id.notin_(restating),
-            ),
         )
         .group_by(StreamEvent.case_id)
     )

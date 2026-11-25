@@ -18,6 +18,7 @@ from grip.chronicle import words
 from grip.chronicle.restate import PLACEHOLDER, RESTATED, contains
 from grip.chronicle.verify import differences
 from grip.core import clock
+from grip.events import stream
 from grip.events.check import verify_stream
 from grip.events.retention import ERASED_TYPE, _erase
 from grip.models.assignment import Assignment, BudgetLine
@@ -231,6 +232,34 @@ async def test_a_note_changed_later_leaves_the_row_alone(walk, db_session):
     assert await _still_holding(db_session, walk, TEXT) == []
     assert (await walk.stand(born))["assignment"]["notes"] is None
     assert (await walk.stand(noted))["assignment"]["notes"] == "Iets anders"
+
+
+async def test_only_typed_text_elsewhere_is_erased_never_a_mention(walk, db_session):
+    await walk.begin(0, notes=TEXT)
+    born = walk.seen[0].seq
+    aid = UUID(walk.assignment_id)
+    # A copy of the note as typed text, and a record that only mentions it.
+    copy = stream.append(
+        db_session,
+        subject=("assignment", aid),
+        action="update",
+        assignment_id=aid,
+        old={"notes": TEXT},
+        new={"notes": "Bijgewerkt"},
+    )
+    mention = stream.append(
+        db_session,
+        "assignment.reviewed",
+        subject=("assignment", aid),
+        assignment_id=aid,
+        new={"status": "accepted", "summary": f"Gemeld: {TEXT}."},
+    )
+    await db_session.flush()
+
+    await _restate(walk, born, "assignment.notes", on=2)
+
+    assert await _erased(db_session, copy.seq)
+    assert not await _erased(db_session, mention.seq), "a mention keeps its values"
 
 
 async def test_the_same_text_in_another_fact_goes_with_it(walk, db_session):

@@ -28,7 +28,7 @@ Grip wiste tot nu toe op leeftijd, per gebeurtenis (ADR 0028), en niets voerde d
 
 **De worker voert het uit.** Eén keer per dag, op het uur `RETENTION_HOUR` in de zone van de instantie: dossiers sluiten waarvan het voorstel onbeantwoord bleef, wissen op leeftijd, kandidaten verwijderen en aanvraagformulieren verwijderen. Het vernietigen van zaken komt erbij zodra het is gebouwd.
 
-**Een tekst die er nooit in hoorde, gaat eruit met een herstelfeit.** Een beheerder kiest in een moment een getypte tekst: een naam, notities, een omschrijving of een reden. Grip wist alle waarden van dat feit en legt in dezelfde transactie `fact_restated` vast: dezelfde vaststelling zonder die tekst, met wat er is weggehaald. Bij het lezen neemt het herstelfeit de plek in van het gewiste feit. De stand blijft dus compleet en zegt dat er later een tekst is verwijderd. Andere gebeurtenissen van de zaak waarin dezelfde tekst staat, worden ook gewist.
+**Een tekst die er nooit in hoorde, gaat eruit met een herstelfeit.** Een beheerder kiest in een moment een getypte tekst: een naam, notities, een omschrijving of een reden. Grip wist alle waarden van dat feit en legt in dezelfde transactie `fact_restated` vast: dezelfde vaststelling zonder die tekst, met wat er is weggehaald. Bij het lezen neemt het herstelfeit de plek in van het gewiste feit. De stand blijft dus compleet en zegt dat er later een tekst is verwijderd. Andere gebeurtenissen van de zaak die dezelfde tekst als getypte tekst bevatten, zoals een wijzigingsregel, worden ook gewist. Een gebeurtenis die de tekst alleen ergens anders noemt, houdt haar waarden: een besluit, een status of bewijs verdwijnt niet door een toevallige overeenkomst.
 
 ## Gevolgen
 
@@ -38,7 +38,7 @@ Grip wiste tot nu toe op leeftijd, per gebeurtenis (ADR 0028), en niets voerde d
 - Het takenplan krijgt versie 2026.4 met de taak om een dossier te sluiten. Die versie neemt de lopende zaken van 2026.2 en 2026.3 over, anders krijgt geen bestaande zaak het voorstel. De takenmotor kijkt ook naar verantwoorde en geannuleerde opdrachten, tot hun dossier gesloten is; zo'n zaak krijgt dan alleen die taak.
 - Een dossier dat Grip zelf sluit, staat in de kroniek met Grip als wie vaststelde, niet met een persoon.
 - Na vernietiging is er geen rij meer, dus `kroniek-check` vindt de zaak niet. De verklaring is het spoor.
-- Een herstelfeit haalt niets terug wat al naar een andere organisatie is gestuurd. De vaste kolommen van een gebeurtenis (wie, wanneer, welk type) blijven; alleen de waarden gaan.
+- Een herstelfeit haalt niets terug wat al naar een andere organisatie is gestuurd. De vaste kolommen van een gebeurtenis (wie, wanneer, welk type) blijven; alleen de waarden gaan. Een kopie buiten de getypte tekst, zoals de titel van een taak of een melding, blijft ook.
 - Een ander feit van de zaak met dezelfde tekst krijgt ook een herstelfeit, en wordt nooit alleen gewist. Een uitgegeven offerte houdt haar bevroren inhoud, ook met die tekst.
 - Een tekst korter dan acht tekens gaat alleen waar hij de hele waarde is; een langere ook als woord of zin binnen een andere waarde.
 - Een vacature heeft nog geen kroniek. Tot ze een sluitdag en een vernietiging heeft, wist de leeftijdsregel haar gebeurtenissen; de termijnen per soort gegeven gelden al.

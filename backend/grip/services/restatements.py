@@ -3,14 +3,15 @@
 A beheerder chooses texts in one moment of an assignment. In one transaction
 grip records every fact of the case that holds one of them again without it,
 as a herstelfeit (``fact_restated``), and then erases the values of those facts
-and of every other event of the case whose values hold it. The database only
-erases every value of an event, never one field. Not touched: the frozen content
-of an issued quote, and what was sent to another organisation.
+and of every other event of the case that holds it as typed text. The database
+only erases every value of an event, never one field. Not touched: the frozen
+content of an issued quote, what was sent to another organisation, and an event
+that only mentions the text elsewhere.
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
@@ -23,7 +24,7 @@ from grip.chronicle.facts import FACTS, LINE
 from grip.chronicle.ledger import Gram
 from grip.chronicle.writer import SUBJECT_KIND, establish
 from grip.core.audit import UPDATE, record_audit
-from grip.events import retention, stream
+from grip.events import context, retention, stream
 from grip.models.assignment import Assignment
 from grip.models.person import Person
 from grip.models.quote import Quote
@@ -34,11 +35,35 @@ from grip.services.errors import DomainValidationError, NotFoundError
 
 # The reason an erasure gives in the stream.
 REASON = "restated"
+# Grip writes the change lines that bring the rows in line with a herstelfeit;
+# who chose to take the text out is the actor of the herstelfeit.
+JOB = "restatement"
 # Who is on which line holds no typed text, and a stand reads it: a match there
 # is a coincidence of a short text, and erasing it would leave stands unknown.
 _NEVER_ERASED = ("allocation",)
 # A change record of a line names its detail as the screens do.
 _AUDIT_KEYS = {(LINE, "detail"): "description"}
+# The keys under which another event can hold one of the typed texts. Only
+# these are searched: a decision, a status or a piece of evidence that happens
+# to mention the text elsewhere keeps its values.
+_TEXT_KEYS = frozenset(
+    {text.column for text in restate.TYPED_TEXTS} | set(_AUDIT_KEYS.values())
+)
+
+
+def _typed(value: Any) -> list[str]:
+    """The values under the keys of typed text, at any depth."""
+    if isinstance(value, Mapping):
+        found: list[str] = []
+        for key, item in value.items():
+            if key in _TEXT_KEYS and isinstance(item, str):
+                found.append(item)
+            else:
+                found += _typed(item)
+        return found
+    if isinstance(value, list | tuple):
+        return [text for item in value for text in _typed(item)]
+    return []
 
 
 @dataclass(frozen=True)
@@ -113,33 +138,38 @@ async def _holding(
     return [
         row.seq
         for row in rows
-        if any(
-            restate.contains(value, texts)
-            for value in (row.old_value, row.new_value, row.payload, row.note)
+        if restate.contains(
+            [
+                *_typed(row.old_value),
+                *_typed(row.new_value),
+                *_typed(row.payload),
+                row.note or "",
+            ],
+            texts,
         )
     ]
 
 
-def _audit(
-    session: AsyncSession,
-    patch: dict[str, Any],
-    *,
-    actor: Person | None,
-    assignment_id: UUID,
+async def _audit(
+    session: AsyncSession, patch: dict[str, Any], *, assignment_id: UUID
 ) -> None:
-    # What the row holds now; what it held is the text that went.
-    record_audit(
-        session,
-        actor=actor,
-        action=UPDATE,
-        entity=patch["table"],
-        entity_id=patch["id"],
-        new_value={
-            _AUDIT_KEYS.get((patch["table"], column), column): value
-            for column, value in patch["values"].items()
-        },
-        assignment_id=assignment_id,
-    )
+    # What the row holds now; what it held is the text that went. The stream
+    # fills in the actor when it flushes, so the flush is inside the scope.
+    await session.flush()
+    with context.scope(correlation_id=context.current().correlation_id, job=JOB):
+        record_audit(
+            session,
+            actor=None,
+            action=UPDATE,
+            entity=patch["table"],
+            entity_id=patch["id"],
+            new_value={
+                _AUDIT_KEYS.get((patch["table"], column), column): value
+                for column, value in patch["values"].items()
+            },
+            assignment_id=assignment_id,
+        )
+        await session.flush()
 
 
 async def restate_moment(
@@ -183,7 +213,7 @@ async def restate_moment(
         )
         seqs.append(established.event.seq)
         for patch in fields["patches"]:
-            _audit(session, patch, actor=actor, assignment_id=assignment_id)
+            await _audit(session, patch, assignment_id=assignment_id)
     others = await _holding(session, assignment_id, texts)
     erased = await retention.erase_events(
         session,
