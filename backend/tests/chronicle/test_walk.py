@@ -372,6 +372,34 @@ async def test_the_status_menu_says_what_happened(walk):
     ]
 
 
+async def test_a_closed_dossier_ends_the_course_in_its_look_back(walk):
+    await walk.begin(0)
+    await _line(walk, 1)
+    targets = ("requested", "quoted", "accepted", "in_progress", "completed")
+    for on, target in enumerate(targets, start=2):
+        await walk.step(
+            target,
+            walk.cast.owner,
+            "post",
+            f"/api/assignments/{walk.assignment_id}/transition",
+            on=on,
+            json={"target": target},
+        )
+    await walk.step(
+        "dossier gesloten",
+        walk.cast.owner,
+        "post",
+        f"/api/assignments/{walk.assignment_id}/dossier/close",
+        on=8,
+        json={},
+    )
+    await walk.check_every_look_back()
+
+    stand = await walk.stand(walk.seen[-1].seq)
+    assert stand["course"]["ended"] == "Dossier gesloten"
+    assert stand["moment"]["statement"].startswith("Dossier gesloten op ")
+
+
 async def test_a_changed_line_and_case_say_what_changed(walk):
     await walk.begin(0)
     line = (await _line(walk, 1))["lines"][0]

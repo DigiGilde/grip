@@ -92,6 +92,10 @@ UI-termen zijn Nederlands; code en schema gebruiken de Engelse naam.
 | Wat is er gebeurd | `updates` | Het nieuws voor de lezer: een selectie uit de gebeurtenissen die hem aangaan. Zie ADR 0043 |
 | Passkey | `passkey_credential` | Een sleutel op het eigen apparaat, om opnieuw in te loggen en om een besluit te bevestigen. Onder "Beveiliging" in het accountmenu |
 | Afzender | `quote.sender` | De gegevens van de organisatie op een offerte: naam, waar ze deel van is, adressen, contactpersoon en ondertekenaar. Onder Beheer |
+| Dossier sluiten, Gesloten op | `dossier_closed`, `dossier_closed_on` | Het dossier van een afgeronde, verantwoorde of geannuleerde opdracht sluiten, op een dag tot en met vandaag en niet voor de laatste wijziging aan de opdracht. Vanaf die dag loopt de bewaartermijn, en de opdracht verandert niet meer. Niet te verwarren met de fase Afgesloten (de status) of een afgesloten maand. Zie ADR 0057 |
+| Heropen dossier | `dossier_reopened` | Een gesloten dossier weer openen, zodat de opdracht kan veranderen. Er loopt dan geen bewaartermijn meer |
+| Houd dossier open | `dossier_kept_open` | Vastleggen dat een dossier open blijft, na het voorstel om het te sluiten. Het telt als activiteit: het volgende voorstel komt pas na een nieuwe periode zonder wijziging |
+| Voorstel om het dossier te sluiten | `dossier_due`, taakfeit `dossier_due_for_closing` | Een afgesloten opdracht met een open dossier die een jaar (instelling `dossier.propose_close_after_days`) niet is gewijzigd door een persoon of een andere organisatie. De eigenaar krijgt de taak "Sluit het dossier"; na `dossier.close_after_proposal_days` dagen sluit grip het dossier zelf |
 | Stand van zaken | `status_overview` | De startpagina: taken, aandachtspunten, wat er gebeurd is en de cijfers per opdracht. In de hoofdbalk heet ze "Start" |
 
 "Factuur" betekent in Grist een regel aan de inkoopkant, op een kostenpost. Het is geen verkoopfactuur. In grip heet die een factuurregel op een kostenpost. Wat grip richting de opdrachtgever oplevert heet factuurgegevens.

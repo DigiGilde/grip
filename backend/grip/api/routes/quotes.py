@@ -284,7 +284,8 @@ async def preview_quote(
         assignment_status=assignment.status,
         can_issue=assignment.status in quote_views.ISSUABLE_STATUSES
         and content is not None,
-        may_issue=bool(await decide(decider, subject, Action.ISSUE_QUOTE, resource)),
+        may_issue=assignment.dossier_closed_on is None
+        and bool(await decide(decider, subject, Action.ISSUE_QUOTE, resource)),
         problem=problem,
         content=content,
         quoted_amount_cents=quoted,

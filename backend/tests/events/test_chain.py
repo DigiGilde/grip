@@ -252,6 +252,106 @@ async def test_retention_is_a_setting(db_session):
         )
 
 
+async def test_retention_by_age_leaves_what_goes_with_an_assignment(db_session):
+    assignment, vacancy = uuid4(), uuid4()
+    of_assignment = stream.append(
+        db_session,
+        subject=("assignment", str(assignment)),
+        action="update",
+        new={"notes": "Voorbeeldnotitie"},
+    )
+    of_vacancy = stream.append(
+        db_session,
+        subject=("vacancy", str(vacancy)),
+        action="update",
+        new={"title": "Voorbeeldvacature"},
+    )
+    [loose] = await _write(db_session, 1)
+    read_in_assignment = stream.append(
+        db_session,
+        "data.read",
+        subject=("person", "p"),
+        assignment_id=assignment,
+        new={"classes": ["person_rate"]},
+        existence_class="person_rate",
+        field_classes={"*": "person_rate"},
+    )
+    await db_session.flush()
+    assert of_assignment.case_kind == "assignment"
+    assert of_vacancy.case_kind == "vacancy"
+    assert loose.case_kind is None
+    await instance_settings.set_values(
+        db_session,
+        {
+            retention.RETENTION_DAYS.key: 365,
+            retention.READ_RETENTION_DAYS.key: 365,
+        },
+        actor=None,
+    )
+    await db_session.flush()
+
+    later = datetime.now(UTC) + timedelta(days=400)
+    assert await retention.apply_retention(db_session, now=later) >= 3
+
+    table = StreamEvent.__table__
+    erased = {
+        row.seq: row.erased_at is not None
+        for row in await db_session.execute(
+            select(table.c.seq, table.c.erased_at).where(
+                table.c.seq.in_(
+                    [
+                        of_assignment.seq,
+                        of_vacancy.seq,
+                        loose.seq,
+                        read_in_assignment.seq,
+                    ]
+                )
+            )
+        )
+    }
+    assert erased == {
+        of_assignment.seq: False,
+        of_vacancy.seq: True,
+        loose.seq: True,
+        # Who read what has a term of its own, inside an assignment too.
+        read_in_assignment.seq: True,
+    }
+
+
+async def test_retention_by_age_follows_a_row_to_its_assignment(db_session, world):
+    by_row = stream.append(
+        db_session,
+        subject=("budget_line", str(world.line.id)),
+        action="update",
+        new={"description": "Voorbeeldregel"},
+    )
+    by_link = stream.append(
+        db_session,
+        subject=("voorbeeld", str(uuid4())),
+        action="update",
+        new={"budget_line_id": str(world.line.id)},
+    )
+    await db_session.flush()
+    assert (by_row.case_kind, by_row.case_id) == ("assignment", world.assignment.id)
+    assert (by_link.case_kind, by_link.case_id) == ("assignment", world.assignment.id)
+    await instance_settings.set_values(
+        db_session, {retention.RETENTION_DAYS.key: 1}, actor=None
+    )
+    await db_session.flush()
+
+    await retention.apply_retention(
+        db_session, now=datetime.now(UTC) + timedelta(days=30)
+    )
+
+    table = StreamEvent.__table__
+    left = await db_session.scalars(
+        select(table.c.seq).where(
+            table.c.seq.in_([by_row.seq, by_link.seq]), table.c.erased_at.is_(None)
+        )
+    )
+    assert set(left) == {by_row.seq, by_link.seq}
+
+
 async def test_the_beheerder_can_have_the_chain_checked(client, as_person, world):
     answer = await as_person(world.beheerder).get("/api/events/chain")
     assert answer.status_code == 200

@@ -12,10 +12,14 @@ import { useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
 import { formatDate } from '@/lib/format';
+import { todayIso } from '@/lib/today';
 import { AssignmentContextView, NodePicker } from '../../nodes';
 import {
   assignmentKeys,
+  closeDossier,
   fetchPersonOptions,
+  keepDossierOpen,
+  reopenDossier,
   removeAssignmentRole,
   setAssignmentRole,
   transitionAssignment,
@@ -26,7 +30,15 @@ import { AssignmentFormSheet } from '../AssignmentFormSheet';
 import { KIND_LABELS, ROLE_LABELS, TRANSITION_LABELS, statusLabel } from '../labels';
 import { useAssignmentShell } from '../shell';
 import { ReadOnlyNote } from '../ReadOnlyNote';
-import { Button, EmptyNotice, ErrorNotice, FormSheet, SelectInput, TextInput } from '../ui';
+import {
+  Button,
+  DateInput,
+  EmptyNotice,
+  ErrorNotice,
+  FormSheet,
+  SelectInput,
+  TextInput,
+} from '../ui';
 
 /**
  * What the head of the page does not already say: the client and the period
@@ -52,6 +64,7 @@ function Facts({ assignment }: { assignment: AssignmentDetail }) {
         : '',
     ],
     ['Notities', assignment.notes ?? ''],
+    ['Dossier gesloten op', formatDate(assignment.dossier_closed_on)],
   ];
   return (
     <FactList
@@ -411,6 +424,103 @@ function useStatusActions(assignment: AssignmentDetail): {
 }
 
 /**
+ * Closing the dossier of an ended assignment, reopening it, or keeping it
+ * open after the proposal to close it (ADR 0057). Items of the same menu as
+ * the status steps: closing is no next step of the page.
+ */
+function useDossierActions(assignment: AssignmentDetail): {
+  actions: RowAction[];
+  problem: string | null;
+  sheet: ReactNode;
+} {
+  const [problem, setProblem] = useState<string | null>(null);
+  const [sheet, setSheet] = useState<{ open: boolean; reopen: boolean }>({
+    open: false,
+    reopen: false,
+  });
+  const [closedOn, setClosedOn] = useState('');
+  const close = useAssignmentMutation(
+    (day: string) => closeDossier(assignment.id, day, assignment.version),
+    setProblem,
+  );
+  const reopen = useAssignmentMutation(
+    () => reopenDossier(assignment.id, assignment.version),
+    setProblem,
+  );
+  const keep = useAssignmentMutation(() => keepDossierOpen(assignment.id), setProblem);
+  const closedDay = assignment.dossier_closed_on;
+  const actions: RowAction[] = [];
+  if (assignment.permissions.close_dossier && assignment.phase === 'closed') {
+    if (closedDay) {
+      actions.push({
+        text: 'Heropen dossier',
+        onSelect: () => {
+          setProblem(null);
+          setSheet({ open: true, reopen: true });
+        },
+      });
+    } else {
+      actions.push({
+        text: 'Sluit dossier',
+        onSelect: () => {
+          setClosedOn(todayIso());
+          setProblem(null);
+          setSheet({ open: true, reopen: false });
+        },
+      });
+      if (assignment.dossier_due) {
+        actions.push({ text: 'Houd dossier open', onSelect: () => keep.mutate(undefined) });
+      }
+    }
+  }
+  const done = { onSuccess: () => setSheet((current) => ({ ...current, open: false })) };
+  const form = sheet.reopen ? (
+    <FormSheet
+      open={sheet.open}
+      title={`Dossier van ${assignment.name} heropenen`}
+      submitText="Heropen dossier"
+      busy={reopen.isPending}
+      error={sheet.open ? problem : null}
+      onClose={() => setSheet((current) => ({ ...current, open: false }))}
+      onSubmit={() => reopen.mutate(undefined, done)}
+    >
+      <nldd-text>
+        {`Het dossier is gesloten op ${formatDate(closedDay)}. Na heropenen kan de opdracht weer veranderen en loopt er geen bewaartermijn.`}
+      </nldd-text>
+    </FormSheet>
+  ) : (
+    <FormSheet
+      open={sheet.open}
+      title={`Dossier van ${assignment.name} sluiten`}
+      submitText="Sluit dossier"
+      busy={close.isPending}
+      error={sheet.open ? problem : null}
+      onClose={() => setSheet((current) => ({ ...current, open: false }))}
+      onSubmit={() => {
+        if (!closedOn) {
+          setProblem('Kies de dag waarop het dossier sluit.');
+          return;
+        }
+        if (closedOn > todayIso()) {
+          setProblem('Die dag ligt na vandaag. Kies vandaag of een eerdere dag.');
+          return;
+        }
+        close.mutate(closedOn, done);
+      }}
+    >
+      <DateInput
+        label="Gesloten op"
+        hint="Vanaf deze dag loopt de bewaartermijn. Daarna verandert de opdracht niet meer, tot iemand het dossier heropent."
+        value={closedOn}
+        onChange={setClosedOn}
+        required
+      />
+    </FormSheet>
+  );
+  return { actions, problem: sheet.open ? null : problem, sheet: form };
+}
+
+/**
  * The budget differs from the signed quote: said here too, from the same
  * signal as the Financieel tab, so nobody has to find it there.
  */
@@ -436,6 +546,9 @@ export function OverviewTab() {
 function Overview({ assignment }: { assignment: AssignmentDetail }) {
   const [editing, setEditing] = useState({ open: false, session: 0 });
   const status = useStatusActions(assignment);
+  const dossier = useDossierActions(assignment);
+  const menu = [...status.actions, ...dossier.actions];
+  const problem = status.problem ?? dossier.problem;
   const mayEdit = assignment.permissions.edit_basic;
   return (
     <nldd-simple-section>
@@ -445,7 +558,7 @@ function Overview({ assignment }: { assignment: AssignmentDetail }) {
           {assignment.permissions.read_financial && (
             <AgreedDifference assignmentId={assignment.id} />
           )}
-          {status.problem && <ErrorNotice message={status.problem} />}
+          {problem && <ErrorNotice message={problem} />}
           {!mayEdit && <ReadOnlyNote assignment={assignment} what="deze gegevens" />}
           {mayEdit && !assignment.start_date && (
             <Quiet>
@@ -454,7 +567,7 @@ function Overview({ assignment }: { assignment: AssignmentDetail }) {
             </Quiet>
           )}
           <Facts assignment={assignment} />
-          {(mayEdit || status.actions.length > 0) && (
+          {(mayEdit || menu.length > 0) && (
             <nldd-container layout="row" gap="8">
               {mayEdit && (
                 <Button
@@ -464,9 +577,7 @@ function Overview({ assignment }: { assignment: AssignmentDetail }) {
                   }
                 />
               )}
-              {status.actions.length > 0 && (
-                <RowMenu name={assignment.name} actions={status.actions} size="md" />
-              )}
+              {menu.length > 0 && <RowMenu name={assignment.name} actions={menu} size="md" />}
             </nldd-container>
           )}
         </Section>
@@ -474,6 +585,7 @@ function Overview({ assignment }: { assignment: AssignmentDetail }) {
         <ContextRefs assignment={assignment} />
       </Stack>
       {status.sheet}
+      {dossier.sheet}
       <AssignmentFormSheet
         open={editing.open}
         session={editing.session}

@@ -189,7 +189,22 @@ Nog niet gebouwd:
 
 ## Bewaren en wissen
 
-Twee instellingen van de instantie, in dagen, met nul voor "nooit": `events.retention_days` voor de waarden in de stroom en `events.read_retention_days` voor wie wat inzag. De taak `python -m grip.events.retention` wist wat ouder is. Uitgezonderd zijn de tarievenfeiten van de kroniek en de wijzigingen van de instelling voor interne goedkeuring: ze bevatten geen persoonsgegevens en elke latere stand heeft ze nodig (ADR 0056).
+Wat bij een zaak hoort, gaat met de zaak; per soort gegeven kan een kortere termijn gelden (ADR 0057). De beheerder stelt de termijnen in onder Beheer, Bewaartermijnen. Het zijn instellingen van de instantie:
+
+| Instelling | Wat ze zegt |
+|---|---|
+| `retention.assignment` | Wat er met een opdracht gebeurt nadat het dossier is gesloten: `{"outcome": "destroy", "years": n}` (vernietigen na 1 tot en met 100 jaar) of `{"outcome": "keep"}` (blijvend bewaren). Leeg: er wordt niets vernietigd. Nog niets voert deze instelling uit |
+| `events.retention_days` | Na hoeveel dagen de waarden in de stroom worden gewist, voor gebeurtenissen die niet bij een opdracht horen. Nul is nooit, ten hoogste 36500 |
+| `events.read_retention_days` | Na hoeveel dagen wie wat inzag (de klassen D, E en F) wordt gewist, ook binnen een opdracht. Nul is nooit, ten hoogste 36500 |
+| `vacancy.request_form_retention_days` | Hoeveel dagen de aanvraagformulieren van een vacature blijven nadat ze is vervuld, ingetrokken of afgewezen. Nul is meteen bij de volgende ronde |
+
+Een kandidaat die niet doorging blijft `PROSPECTIVE_RETENTION_DAYS` dagen bewaard; die termijn is een instelling van de omgeving en wordt vastgelegd op de dag dat de aanstelling niet doorgaat.
+
+Wissen op leeftijd raakt geen gebeurtenis van een opdracht: niet die over de opdracht zelf en niet die over een rij die aan de opdracht hangt, zoals een begrotingsregel of een offerte. Een vacature heeft nog geen sluitdag en geen vernietiging; tot ze die heeft, wist de leeftijdsregel haar gebeurtenissen. Uitgezonderd zijn ook de tarievenfeiten van de kroniek en de wijzigingen van de instelling voor interne goedkeuring: ze bevatten geen persoonsgegevens en elke latere stand heeft ze nodig (ADR 0056).
+
+De worker voert de termijnen eens per dag uit, op het uur `RETENTION_HOUR` in de zone van de instantie (standaard 4; leeg zet de ronde uit). De ronde (`grip.services.retention`) is een vaste rij regels: dossiers sluiten waarvan het voorstel onbeantwoord bleef, wissen op leeftijd, kandidaten verwijderen, aanvraagformulieren verwijderen. Elke regel draait in een eigen transactie, zodat een regel die faalt de andere niet tegenhoudt; de worker schrijft per regel een logregel met het aantal. Wat de ronde schrijft, staat in de stroom met `retention` als wie het deed; een dossier dat Grip sluit, met `dossiers.close_overdue`. Twee workers draaien de ronde nooit tegelijk. Met de hand: `just retention-run`.
+
+De worker onthoudt alleen in het geheugen dat de ronde die dag al liep. Start hij binnen het uur opnieuw, dan loopt de ronde nog een keer; dat kan geen kwaad. Kies niet het uur 2: in de nacht dat de klok vooruit gaat bestaat dat uur in de zone Europe/Amsterdam niet, en dan slaat de ronde een dag over. Op een voorbeeldinstantie mag `RETENTION_HOUR` niet gelijk zijn aan `EXAMPLE_RESET_HOUR`.
 
 Wissen haalt de waarden en het zout van een gebeurtenis weg. De gebeurtenis zelf blijft, met haar afdrukken, zodat de keten controleerbaar blijft. Voor een verzoek om verwijdering van één persoon is er `retention.erase_person`. Elke wisactie is een gebeurtenis `stream.erased` met de reden en het bereik.
 

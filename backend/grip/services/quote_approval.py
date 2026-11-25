@@ -53,6 +53,11 @@ from grip.models.quote import (
 from grip.models.role import PersonRole
 from grip.services import events, instance_settings
 from grip.services.errors import DomainValidationError, NotFoundError
+from grip.services.guards import (
+    DossierClosedError,
+    dossier_closed,
+    ensure_dossier_open,
+)
 
 # The right to approve quotes internally. The user-facing word is "recht";
 # in code a right is a function.
@@ -342,6 +347,7 @@ async def request_approval(
     a maker may want a second pair of eyes anyway.
     """
     quote = await _quote(db, quote_id)
+    await ensure_dossier_open(db, quote.assignment_id)
     if quote.status != "issued":
         raise DomainValidationError(
             "Voor deze offerte kan geen goedkeuring meer worden gevraagd: er is "
@@ -410,6 +416,9 @@ async def check_decision(
     lets the actor approve her own.
     """
     quote = await _quote(db, quote_id)
+    # Only a question: deciding asks again, under the lock on the stream.
+    if await dossier_closed(db, quote.assignment_id):
+        raise DossierClosedError()
     state = await state_of(db, quote)
     approval = state.current
     if approval is None or approval.status != APPROVAL_REQUESTED:
@@ -467,6 +476,7 @@ async def decide(
     quote, approval, self_approved = await check_decision(
         db, quote_id, approve=approve, actor=actor, quote_hash=quote_hash
     )
+    await ensure_dossier_open(db, quote.assignment_id)
     note = (note or "").strip() or None
     if not approve and note is None:
         raise DomainValidationError(
@@ -524,6 +534,7 @@ async def withdraw(
 ) -> QuoteApproval:
     """Take back an open request, or an approval of a quote not yet offered."""
     quote = await _quote(db, quote_id)
+    await ensure_dossier_open(db, quote.assignment_id)
     state = await state_of(db, quote)
     approval = state.current
     if approval is None:

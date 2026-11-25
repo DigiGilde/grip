@@ -293,6 +293,10 @@ brand:
 vacancy-forms-retention:
     cd backend && uv run python -m grip.services.vacancies.request_forms
 
+# Run the daily retention round once, as the worker does at RETENTION_HOUR
+retention-run:
+    cd backend && uv run python -m grip.services.retention
+
 # Bring an example database from before the rule on who judges something internal
 # in line with today's seed (a director approves vacancies; client-side people have
 # no inzetschaal). Idempotent; only touches persons in the example domain.

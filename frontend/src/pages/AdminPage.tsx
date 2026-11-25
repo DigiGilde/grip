@@ -88,6 +88,11 @@ const GROUPS: { title: string; entries: Entry[] }[] = [
     title: 'Toezicht',
     entries: [
       { path: PATHS.activity, title: 'Activiteit', text: 'Wie wat heeft gewijzigd of ingezien' },
+      {
+        path: PATHS.retention,
+        title: 'Bewaartermijnen',
+        text: 'Hoe lang grip gegevens bewaart en wanneer een dossier sluit',
+      },
     ],
   },
 ];

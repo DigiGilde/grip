@@ -62,6 +62,9 @@ FACT_NAMES = frozenset(
         "budget_line_removed",
         "budget_lines_role_merged",
         "chronicle_rebuilt",
+        "dossier_closed",
+        "dossier_kept_open",
+        "dossier_reopened",
         "invitation_opened",
         "invitation_renewed",
         "invitation_withdrawn",
@@ -609,6 +612,10 @@ def test_no_fact_writes_an_attribute_that_is_not_a_column():
         *effects_of(
             "acceptance_date_corrected", {"acceptance_id": "x", "signed_at": "t"}
         ),
+        *effects_of(
+            "dossier_closed", {"assignment_id": "a", "dossier_closed_on": "2026-11-25"}
+        ),
+        *effects_of("dossier_reopened", {"assignment_id": "a"}),
     ):
         if isinstance(effect, Flush):
             continue

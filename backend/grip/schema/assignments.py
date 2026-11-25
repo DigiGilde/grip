@@ -36,6 +36,9 @@ class AssignmentPermissionsOut(BaseModel):
     read_staffing: Annotated[bool, in_class(A)]
     # Who is on the team, by name and role: what a team member may see.
     read_roster: Annotated[bool, in_class(A)]
+    # Close, reopen or keep open the dossier (ADR 0057). Like manage_roles, the
+    # beheerder may do this on any assignment.
+    close_dossier: Annotated[bool, in_class(A)] = False
 
 
 class AssignmentSummaryOut(BaseModel):
@@ -64,6 +67,10 @@ class AssignmentSummaryOut(BaseModel):
     pipeline_amount_cents: Annotated[int | None, in_class(B)]
     # "quote" or "budget"; null when there is no amount.
     pipeline_amount_source: Annotated[str | None, in_class(B)]
+    # The day the dossier closed; null while it is open.
+    dossier_closed_on: Annotated[date | None, in_class(A)] = None
+    # Ended, open, and quiet for long enough that closing is proposed.
+    dossier_due: Annotated[bool, in_class(A)] = False
 
 
 class AssignmentListOut(BaseModel):
@@ -120,6 +127,11 @@ class AssignmentUpdate(BaseModel):
 class TransitionIn(BaseModel):
     target: str
     reason: str | None = Field(default=None, max_length=1000)
+
+
+class DossierCloseIn(BaseModel):
+    # Today when it is not given.
+    closed_on: date | None = None
 
 
 class RoleIn(BaseModel):

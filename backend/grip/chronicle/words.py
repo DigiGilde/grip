@@ -151,6 +151,18 @@ def _approved(fields: Fields, actor: str | None) -> str:
     return "Offerte intern goedgekeurd door wie haar maakte."
 
 
+def _dossier_closed(fields: Fields, actor: str | None) -> str:
+    return f"Dossier gesloten op {day_words(fields.get('dossier_closed_on'))}."
+
+
+def _dossier_reopened(fields: Fields, actor: str | None) -> str:
+    return "Dossier heropend. Het kan weer worden gewijzigd."
+
+
+def _dossier_kept_open(fields: Fields, actor: str | None) -> str:
+    return "Vastgelegd dat het dossier open blijft."
+
+
 _STATEMENTS = {
     "quote_issued": _issued,
     "quote_received": _received,
@@ -163,6 +175,9 @@ _STATEMENTS = {
     "budget_line_removed": _line_named("verwijderd"),
     "assignment_changed": _assignment_changed,
     "approval_approved": _approved,
+    "dossier_closed": _dossier_closed,
+    "dossier_reopened": _dossier_reopened,
+    "dossier_kept_open": _dossier_kept_open,
 }
 
 

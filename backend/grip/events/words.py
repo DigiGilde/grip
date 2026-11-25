@@ -136,6 +136,7 @@ FIELD_LABELS: dict[str, str] = {
     "end_date": "Einddatum",
     "started_on": "Begonnen op",
     "ended_on": "Afgerond op",
+    "dossier_closed_on": "Dossier gesloten op",
     "valid_from": "Ingangsdatum",
     "valid_to": "Einddatum",
     "billing_scale": "Schaal",

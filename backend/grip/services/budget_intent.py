@@ -68,6 +68,7 @@ from grip.services.errors import (
     MonthClosedError,
     NotFoundError,
 )
+from grip.services.guards import ensure_dossier_open
 from grip.services.phase import is_tentative
 from grip.services.pricing import (
     DEFAULT_OPTIONS,
@@ -650,6 +651,7 @@ async def update_line(
     it is sent, or when ``derive_category`` asks to take it from the person.
     """
     line = await assignments.get_budget_line(session, line_id)
+    await ensure_dossier_open(session, line.assignment_id)
     set_person = "intended_person_id" in changes
     old_person = line.intended_person_id
     person_id = changes.pop("intended_person_id", old_person)
@@ -721,6 +723,8 @@ async def delete_line(
 
     Other inzet on the line still blocks the delete, as before.
     """
+    line = await assignments.get_budget_line(session, line_id)
+    await ensure_dossier_open(session, line.assignment_id)
     reservation = await reservation_of(session, line_id)
     if reservation is not None:
         await _release(

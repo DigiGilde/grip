@@ -695,6 +695,7 @@ describe('AdminPage', () => {
       PATHS.languageModel,
       PATHS.client,
       PATHS.activity,
+      PATHS.retention,
     ]);
     expect(
       [...container.querySelectorAll('nldd-title[heading-level="2"]')].map((el) =>

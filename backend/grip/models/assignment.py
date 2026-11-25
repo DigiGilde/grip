@@ -76,6 +76,11 @@ class Assignment(Versioned, Base):
             "quoted_amount_cents IS NULL OR quoted_amount_cents >= 0",
             name="quoted_amount_not_negative",
         ),
+        Index(
+            "ix_assignment_dossier_closed_on",
+            "dossier_closed_on",
+            postgresql_where=text("dossier_closed_on IS NOT NULL"),
+        ),
     )
 
     id: Mapped[uuid.UUID] = uuid_pk()
@@ -133,6 +138,9 @@ class Assignment(Versioned, Base):
     verbal_agreement_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # The day the dossier closed (ADR 0057); its retention period runs from
+    # here. NULL while it is open.
+    dossier_closed_on: Mapped[date | None] = mapped_column(Date, nullable=True)
     created_at: Mapped[datetime] = created_at()
     updated_at: Mapped[datetime] = updated_at()
 

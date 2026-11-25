@@ -54,6 +54,13 @@ CASE_FACTS: dict[str, frozenset[str]] = {
             "may_close_months",
             "may_bill",
             "final_report_issued",
+            "dossier_closed",
+            # Ended, its dossier still open, and quiet for long enough that
+            # closing it is proposed (ADR 0057).
+            "dossier_due_for_closing",
+            # Nothing but its dossier asks for work: the dossier is closed, or
+            # the case ended with no other task of the plan left open.
+            "at_rest",
             # For the course of a case: where it stands and how it ended.
             "approval_needed",
             "approval_given",
@@ -239,6 +246,7 @@ FACT_LABELS: dict[str, str] = {
     "started": "de opdracht is in uitvoering",
     "month_closed": "de maand is afgesloten",
     "final_report_issued": "het eindrapport is uitgegeven",
+    "dossier_closed": "het dossier is gesloten",
     "billing_delivered": "de factuurgegevens zijn aangeleverd",
     "invoice_recorded": "de factuur is vastgelegd",
     "period_delivered": "de periode is aangeleverd",

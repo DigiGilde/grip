@@ -69,6 +69,8 @@ Het backend-image kan vier processen draaien. `GRIP_PROCESS` of het eerste argum
 | `worker` | De achtergrondlussen die berichten versturen |
 | `all` | `web`, met de andere twee erbij als federatie aan staat. Voor een platform dat per instantie een backendcontainer geeft |
 
+De worker voert ook eens per dag de bewaartermijnen uit, op het uur `RETENTION_HOUR` in de zone van de instantie (standaard 4, leeg zet het uit). Lokaal draai je die ronde met de hand met `just retention-run`; hij schrijft per regel een logregel met wat hij deed. Wat elke termijn betekent staat in [gebeurtenissen.md](gebeurtenissen.md#bewaren-en-wissen).
+
 ## Inloggen via de lokale Keycloak
 
 `just local-up keycloak` zet er een Keycloak bij met een realm, een client en twee fictieve mensen. Het script `setup.sh` maakt die realm en de wachtwoorden aan; ze staan in `deploy/local/state/secrets.env`.

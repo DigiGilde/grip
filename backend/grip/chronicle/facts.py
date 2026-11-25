@@ -273,6 +273,22 @@ def _rejected(fields: Fields) -> tuple[Effect, ...]:
     )
 
 
+def _dossier_closed(fields: Fields) -> tuple[Effect, ...]:
+    return (
+        Patch(
+            ASSIGNMENT,
+            str(fields["assignment_id"]),
+            {"dossier_closed_on": fields["dossier_closed_on"]},
+        ),
+    )
+
+
+def _dossier_reopened(fields: Fields) -> tuple[Effect, ...]:
+    return (
+        Patch(ASSIGNMENT, str(fields["assignment_id"]), {"dossier_closed_on": None}),
+    )
+
+
 def _nothing(fields: Fields) -> tuple[Effect, ...]:
     return ()
 
@@ -427,6 +443,11 @@ FACTS: dict[str, Fact] = {
             _acceptance_corrected,
         ),
         Fact("quote_rejected", _rejection_kind, "Offerte afgewezen", _rejected),
+        # ADR 0057: the closing day starts the retention period of the case.
+        Fact("dossier_closed", DECRETOGRAM, "Dossier gesloten", _dossier_closed),
+        Fact("dossier_reopened", DECRETOGRAM, "Dossier heropend", _dossier_reopened),
+        # Changes no row: the decision itself is what counts, as activity.
+        Fact("dossier_kept_open", DECRETOGRAM, "Dossier blijft open", _nothing),
         Fact(
             "chronicle_rebuilt",
             GENERAL,

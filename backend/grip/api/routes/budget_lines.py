@@ -134,7 +134,8 @@ async def _budget(
     model = BudgetOut(
         assignment_id=assignment_id,
         assignment_name=view.row.assignment.name,
-        can_edit=await access.may(Action.EDIT, resource, B),
+        can_edit=view.row.assignment.dossier_closed_on is None
+        and await access.may(Action.EDIT, resource, B),
         assignment_start_date=follows[0],
         assignment_end_date=follows[1],
         period_missing=waiting,

@@ -64,6 +64,11 @@ from grip.services.errors import (
     QuoteAlreadyDecidedError,
     QuoteHashMismatchError,
 )
+from grip.services.guards import (
+    DossierClosedError,
+    dossier_closed,
+    ensure_dossier_open,
+)
 from grip.services.pricing import (
     DEFAULT_OPTIONS,
     PricingOptions,
@@ -314,6 +319,10 @@ async def issue_quote(
     offered, through a channel chosen then (``offer_quote``).
     """
     assignment = await get_assignment(session, assignment_id)
+    # Asked again under the lock on the stream once the file is laid out:
+    # laying it out under that lock would keep everyone else from writing.
+    if await dossier_closed(session, assignment.id):
+        raise DossierClosedError()
     if assignment.status not in ("draft", "requested", "quoted", "rejected"):
         raise DomainValidationError(
             f"Voor een opdracht met status '{assignment.status}' kan geen offerte "
@@ -377,6 +386,7 @@ async def issue_quote(
         quote_files.ORIGIN_ISSUE,
         issued_at,
     )
+    await ensure_dossier_open(session, assignment.id)
     old_status = assignment.status
     moves = old_status != "quoted"
     if moves:
@@ -505,6 +515,7 @@ async def receive_quote(
             "De ontvangen offerte heeft geen leesbaar totaal."
         ) from exc
     assignment = await get_assignment(session, assignment_id)
+    await ensure_dossier_open(session, assignment.id)
     issued_at = _instant(issued_at)
     old_status = assignment.status
     moves = old_status != "quoted"
@@ -582,6 +593,7 @@ async def withdraw_invitation(
         )
     if invitation.withdrawn_at is None:
         quote = await get_quote(session, quote_id)
+        await ensure_dossier_open(session, quote.assignment_id)
         await establish(
             session,
             "invitation_withdrawn",
@@ -611,6 +623,7 @@ async def renew_invitation(
     """Make a signing link work again for the standard period from now."""
     invitation = await get_invitation(session, quote_id, invitation_id)
     quote = await get_quote(session, quote_id)
+    await ensure_dossier_open(session, quote.assignment_id)
     if quote.status != "issued":
         raise QuoteAlreadyDecidedError(quote.status)
     await _renew(session, quote, invitation, default_invitation_expiry(), actor)
@@ -674,6 +687,8 @@ async def mark_invitation_opened(
         if invitation.opened_at is not None or invitation.withdrawn_at is not None:
             return
         quote = await get_quote(session, quote_id)
+        if await dossier_closed(session, quote.assignment_id):
+            return
         opened_at = clock.now()
         await establish(
             session,
@@ -717,6 +732,7 @@ async def invite_signer(
     The invited person logs in with SSO Rijk and sees only this quote.
     """
     quote = await get_quote(session, quote_id)
+    await ensure_dossier_open(session, quote.assignment_id)
     if quote.status != "issued":
         raise QuoteAlreadyDecidedError(quote.status)
     # Inviting a signer is offering the quote; a quote that still needs
@@ -928,6 +944,7 @@ async def offer_quote(
     if channel not in OFFER_CHANNELS:
         raise DomainValidationError(f"Onbekend kanaal: {channel}")
     quote = await get_quote(session, quote_id)
+    await ensure_dossier_open(session, quote.assignment_id)
     if quote.status != "issued":
         raise QuoteAlreadyDecidedError(quote.status)
     assignment = await get_assignment(session, quote.assignment_id)
@@ -1104,6 +1121,7 @@ async def accept_quote(
                 )
             return existing
     quote = await get_quote(session, quote_id)
+    await ensure_dossier_open(session, quote.assignment_id)
     if quote.status != "issued":
         raise QuoteAlreadyDecidedError(quote.status)
     if quote_hash != quote.snapshot_hash:
@@ -1269,6 +1287,7 @@ async def reject_quote(
                 )
             return existing
     quote = await get_quote(session, quote_id)
+    await ensure_dossier_open(session, quote.assignment_id)
     if quote.status != "issued":
         raise QuoteAlreadyDecidedError(quote.status)
     if quote_hash != quote.snapshot_hash:
@@ -1361,6 +1380,7 @@ async def correct_acceptance_date(
     compared, as for a save without ``If-Match``.
     """
     quote = await get_quote(session, quote_id)
+    await ensure_dossier_open(session, quote.assignment_id)
     acceptance = await session.scalar(
         select(QuoteAcceptance).where(QuoteAcceptance.quote_id == quote_id)
     )

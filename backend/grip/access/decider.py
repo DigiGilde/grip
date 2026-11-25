@@ -140,11 +140,12 @@ class LocalDecider:
                 if BEHEERDER in functions
                 else deny(_NO_GRANT)
             )
-        if action is Action.MANAGE_ROLES:
-            # Who owns or manages an assignment is decided by whoever already
-            # does, and by the beheerder on any assignment: an owner may have
-            # left. The relation is checked first, so the reason says when the
-            # beheerder acted on the function alone.
+        if action is Action.MANAGE_ROLES or action is Action.CLOSE_DOSSIER:
+            # Who owns or manages an assignment, and whether its dossier is
+            # closed, is decided by whoever already owns or manages it, and by
+            # the beheerder on any assignment: an owner may have left. The
+            # relation is checked first, so the reason says when the beheerder
+            # acted on the function alone.
             if (
                 req.resource.kind is not ResourceKind.ASSIGNMENT
                 or req.resource.assignment_id is None

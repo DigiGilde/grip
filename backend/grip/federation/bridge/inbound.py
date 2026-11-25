@@ -36,7 +36,7 @@ from grip.federation.registry import InboundMessage
 from grip.models.quote import Quote
 from grip.repositories.domain import AssignmentRepository, CostRepository
 from grip.repositories.vacancy import VacancyRepository
-from grip.services import assignments, quotes, requested_cost_items
+from grip.services import assignments, guards, quotes, requested_cost_items
 from grip.services import billing_details as client_billing
 from grip.services.canonical import canonical_of_received
 from grip.services.errors import (
@@ -352,6 +352,10 @@ async def receive_final_report(
         assignment, peer.base_uri
     ):
         raise _not_found()
+    try:
+        await guards.ensure_dossier_open(db, assignment.id)
+    except DomainError as error:
+        raise _refuse(error) from error
     record_audit(
         db,
         actor=None,

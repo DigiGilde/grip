@@ -644,7 +644,7 @@ async def test_an_erased_allocation_of_the_case_makes_its_stand_incomplete(
     await other.check_every_look_back()
 
 
-async def test_after_retention_a_new_case_stands_whole_and_an_old_one_says_it_is_not(
+async def test_after_retention_a_new_case_stands_whole_and_an_erased_one_says_it_is_not(
     client, db_session, cast
 ):
     old = Walk(client, db_session, cast)
@@ -668,7 +668,16 @@ async def test_after_retention_a_new_case_stands_whole_and_an_old_one_says_it_is
     )
     await db_session.flush()
     later = datetime.now(UTC) + timedelta(days=400)
-    assert await apply_retention(db_session, now=later) > 0
+    await apply_retention(db_session, now=later)
+    kept = await old.stand(old.seen[-1].seq)
+    assert kept["incomplete"] is False, "erasing by age leaves an assignment alone"
+    # A case goes whole at the end of its own period (ADR 0057).
+    assert await _erase(
+        db_session,
+        StreamEvent.case_id == UUID(old.assignment_id),
+        reason="retention",
+        about={},
+    )
 
     await rates.set_rate_band(db_session, YEAR, "D", 1900000, actor=cast.beheerder)
     new = Walk(client, db_session, cast)

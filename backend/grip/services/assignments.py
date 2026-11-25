@@ -51,6 +51,7 @@ from grip.services.guards import (
     audit_fields,
     audit_value,
     ensure_closed_months_unchanged,
+    ensure_dossier_open,
     ensure_years_open,
     years_between,
 )
@@ -412,6 +413,7 @@ async def update_assignment(
         )
     assignment = await get_assignment(session, assignment_id)
     await stale.check(session, assignment, "deze opdracht")
+    await ensure_dossier_open(session, assignment.id)
     if "kind" in changes and changes["kind"] not in ASSIGNMENT_KINDS:
         raise DomainValidationError(f"Onbekend soort opdracht: {changes['kind']}")
     if "context_refs" in changes:
@@ -595,6 +597,7 @@ async def transition(
     if target not in ASSIGNMENT_STATUSES:
         raise DomainValidationError(f"Onbekende status: {target}")
     assignment = await get_assignment(session, assignment_id)
+    await ensure_dossier_open(session, assignment.id)
     await check_transition(session, assignment, target, reason, enforce_readiness)
     old = assignment.status
     fields: dict[str, Any] = {
@@ -772,6 +775,7 @@ async def issue_final_report(
     kept in the audit log and handed to the event handlers.
     """
     assignment = await get_assignment(session, assignment_id)
+    await ensure_dossier_open(session, assignment.id)
     if assignment.status not in ("completed", "accounted"):
         raise DomainValidationError(
             "Een eindrapport kan pas worden uitgegeven als de opdracht is afgerond."
@@ -839,6 +843,7 @@ async def set_assignment_role(
         raise DomainValidationError(f"Onbekende rol op een opdracht: {role}")
     assignment = await get_assignment(session, assignment_id)
     await stale.check(session, assignment, "deze opdracht")
+    await ensure_dossier_open(session, assignment.id)
     if await session.get(Person, person_id) is None:
         raise NotFoundError("Persoon", person_id)
     result = await session.execute(
@@ -914,6 +919,7 @@ async def remove_assignment_role(
     role = result.scalar_one_or_none()
     if role is None:
         raise NotFoundError("Rol op de opdracht", person_id)
+    await ensure_dossier_open(session, assignment_id)
     if role.role == ROLE_OWNER:
         raise DomainValidationError(_OWNER_REQUIRED)
     role_id, held = role.id, role.role
@@ -1056,6 +1062,7 @@ async def add_budget_line(
     ``intended_person_id``; it comes here so it is in the one fact.
     """
     assignment = await get_assignment(session, assignment_id)
+    await ensure_dossier_open(session, assignment.id)
     if kind == "personnel":
         period_source, start_date, end_date = periods.line_period(
             assignment, period_source, start_date, end_date
@@ -1149,6 +1156,7 @@ async def update_budget_line(
         )
     line = await get_budget_line(session, line_id)
     await stale.check(session, line, "deze begrotingsregel")
+    await ensure_dossier_open(session, line.assignment_id)
     before = {f: getattr(line, f) for f in _LINE_FIELDS}
     if line.kind == "personnel" and {"period_source", "start_date", "end_date"} & set(
         changes
@@ -1235,6 +1243,7 @@ async def delete_budget_line(
 ) -> None:
     line = await get_budget_line(session, line_id)
     await stale.check(session, line, "deze begrotingsregel")
+    await ensure_dossier_open(session, line.assignment_id)
     result = await session.execute(
         select(Allocation.id).where(Allocation.budget_line_id == line_id).limit(1)
     )
@@ -1300,6 +1309,7 @@ async def add_allocation(
     line = await session.get(BudgetLine, budget_line_id, populate_existing=True)
     if line is None:
         raise NotFoundError("Begrotingsregel", budget_line_id)
+    await ensure_dossier_open(session, line.assignment_id)
     if line.kind != "personnel":
         raise DomainValidationError("Inzet kan alleen op een personeelsregel.")
     if await session.get(Person, person_id) is None:
@@ -1373,6 +1383,7 @@ async def update_allocation(
     allocation = await get_allocation(session, allocation_id)
     await stale.check(session, allocation, "deze inzet")
     line = await get_budget_line(session, allocation.budget_line_id)
+    await ensure_dossier_open(session, line.assignment_id)
     new_source = allocation.period_source
     new_start = start_date or allocation.start_date
     new_end = end_date or allocation.end_date
@@ -1428,6 +1439,7 @@ async def delete_allocation(
     allocation = await get_allocation(session, allocation_id)
     await stale.check(session, allocation, "deze inzet")
     line = await get_budget_line(session, allocation.budget_line_id)
+    await ensure_dossier_open(session, line.assignment_id)
     closed = await ensure_years_open(
         session,
         years_between(allocation.start_date, allocation.end_date),

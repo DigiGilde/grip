@@ -89,6 +89,8 @@ export function QuotePage() {
   });
   const quotes = list.data?.quotes ?? [];
   const mayManage = list.data?.may_manage ?? false;
+  // A closed dossier refuses every change to a quote (ADR 0057).
+  const mayChange = mayManage && !shell?.dossier_closed_on;
   // The quote the tab is about: the newest that was not replaced.
   const current: QuoteSummary | null =
     quotes.find((quote) => quote.status !== 'superseded') ?? null;
@@ -268,6 +270,7 @@ export function QuotePage() {
                 detail={detail.data}
                 approval={approvals.isPending ? undefined : approval}
                 mayManage={mayManage}
+                mayChange={mayChange}
                 isAdmin={isAdmin}
                 outdated={budgetMoved && canIssue}
                 {...(evidence.data ? { evidence: evidence.data.items } : {})}

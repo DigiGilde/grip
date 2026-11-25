@@ -3,6 +3,8 @@ import { Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { todayIso } from '@/lib/today';
 import { renderApp } from '@/test/utils';
+import type { AssignmentDetail } from '@/features/assignments/api';
+import { AssignmentShellContext } from '@/features/assignments/shell';
 import { correctAcceptanceDate } from './api';
 import { QuotePage } from './QuotePage';
 import { clickButton, mockApi, texts } from './testing';
@@ -114,6 +116,8 @@ interface Setup {
   mayManage?: boolean;
   offers?: object[];
   replies?: Record<string, unknown>;
+  /** The assignment around the tab, when the page is rendered in its shell. */
+  shell?: AssignmentDetail;
 }
 
 async function renderTab({
@@ -126,6 +130,7 @@ async function renderTab({
   evidence,
   detail = {},
   replies = {},
+  shell,
 }: Setup) {
   const { calls } = mockApi({
     ...replies,
@@ -151,9 +156,16 @@ async function renderTab({
       ...detail,
     },
   });
+  const page = shell ? (
+    <AssignmentShellContext.Provider value={shell}>
+      <QuotePage />
+    </AssignmentShellContext.Provider>
+  ) : (
+    <QuotePage />
+  );
   const view = renderApp(
     <Routes>
-      <Route path="/opdrachten/:assignmentId/offerte" element={<QuotePage />} />
+      <Route path="/opdrachten/:assignmentId/offerte" element={page} />
     </Routes>,
     { path: '/opdrachten/a-1/offerte' },
   );
@@ -577,6 +589,25 @@ describe('QuotePage', () => {
       expect(texts(reader, 'nldd-menu-item')).toEqual([]);
       const link = await renderTab(accepted('signing_link'));
       expect(texts(link, 'nldd-menu-item')).toEqual([]);
+    });
+
+    it('is not offered on a closed dossier, where the proof stays to download', async () => {
+      const container = await renderTab({
+        ...accepted('uploaded_pdf'),
+        evidence: [
+          {
+            id: 'ev-1',
+            decision: 'accept',
+            channel: 'uploaded_pdf',
+            created_at: '2026-02-10T12:00:00Z',
+          },
+        ],
+        shell: { id: 'a-1', dossier_closed_on: '2026-11-25' } as unknown as AssignmentDetail,
+      });
+      await waitFor(() =>
+        expect(texts(container, 'nldd-card nldd-link')).toContain('Download bewijs'),
+      );
+      expect(texts(container, 'nldd-menu-item')).toEqual([]);
     });
 
     it('sends the day as recording does, at noon UTC', async () => {

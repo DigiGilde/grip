@@ -442,6 +442,7 @@ async def _course(
             budget_moved=not outside.book_erased
             and _budget_moved(lines, own_quotes, outside.rates),
             final_report_issued=bool(reported),
+            dossier_closed=row.dossier_closed_on is not None,
         ),
         today=today,
     )

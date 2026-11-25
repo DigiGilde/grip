@@ -109,6 +109,8 @@ class Action(StrEnum):
     # Name or remove the owner and the managers of an assignment. Its own
     # action: it never implies editing the content of the assignment.
     MANAGE_ROLES = "manage_roles"
+    # Close, reopen or keep open the dossier of an ended assignment (ADR 0057).
+    CLOSE_DOSSIER = "close_dossier"
     # Record an advice or the approval on a vacancy request.
     RECORD_DECISION = "record_decision"
     # Judge a text of a vacancy that was offered for review, and remark on it.

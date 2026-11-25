@@ -208,7 +208,11 @@ async def _overview_value(
             else None
         )
         client_name = client.name if client is not None else None
-    may_edit = bool(await decide(decider, subject, Action.EDIT, resource, B))
+    # A closed dossier changes nothing: no month, delivery, invoice or terms.
+    open_dossier = assignment.dossier_closed_on is None
+    may_edit = open_dossier and bool(
+        await decide(decider, subject, Action.EDIT, resource, B)
+    )
     upcoming = state.upcoming
     return BillingOverviewOut(
         assignment_id=assignment.id,
@@ -216,12 +220,13 @@ async def _overview_value(
         client_name=client_name,
         closing_started=allows_month_close(assignment.status),
         billable=state.billable,
-        may_close=bool(await decide(decider, subject, Action.CLOSE_MONTH, resource)),
-        may_reopen=bool(await decide(decider, subject, Action.REOPEN_MONTH, resource)),
+        may_close=open_dossier
+        and bool(await decide(decider, subject, Action.CLOSE_MONTH, resource)),
+        may_reopen=open_dossier
+        and bool(await decide(decider, subject, Action.REOPEN_MONTH, resource)),
         may_deliver=may_edit,
-        may_record_invoice=bool(
-            await decide(decider, subject, Action.RECORD_INVOICE, resource)
-        ),
+        may_record_invoice=open_dossier
+        and bool(await decide(decider, subject, Action.RECORD_INVOICE, resource)),
         may_edit_terms=may_edit,
         terms=_terms_out(state.terms),
         next_step=_next_out(state),

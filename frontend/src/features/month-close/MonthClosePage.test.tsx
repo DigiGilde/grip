@@ -1,6 +1,8 @@
 import { waitFor } from '@testing-library/react';
 import { Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { AssignmentDetail } from '@/features/assignments/api';
+import { AssignmentShellContext } from '@/features/assignments/shell';
 import { clickButton, mockApi, texts } from '@/features/quotes/testing';
 import { renderApp } from '@/test/utils';
 import { normalisePercent, percentInput } from './api';
@@ -646,5 +648,38 @@ describe('MonthClosePage', () => {
       'Dit kan de eigenaar of een manager van de opdracht.',
     );
     expect(container.textContent).not.toContain('Wijzig factuurafspraken');
+  });
+
+  it('says the dossier is closed instead of who can act', async () => {
+    mockApi({
+      '/api/assignments/a-1/billing': {
+        ...OVERVIEW,
+        may_close: false,
+        may_reopen: false,
+        may_deliver: false,
+        may_record_invoice: false,
+        may_edit_terms: false,
+      },
+      '/api/assignments/a-1/billing-status': { ...NO_INVOICES, may_record_invoice: false },
+    });
+    const shell = { id: 'a-1', dossier_closed_on: '2026-11-25' } as unknown as AssignmentDetail;
+    const { container } = renderApp(
+      <Routes>
+        <Route
+          path="/opdrachten/:assignmentId/maandafsluiting"
+          element={
+            <AssignmentShellContext.Provider value={shell}>
+              <MonthClosePage />
+            </AssignmentShellContext.Provider>
+          }
+        />
+      </Routes>,
+      { path: '/opdrachten/a-1/maandafsluiting' },
+    );
+    await waitFor(() => expect(container.querySelector('[data-waiting]')).not.toBeNull());
+    const waiting = container.querySelector('[data-waiting]')?.textContent ?? '';
+    expect(waiting).toContain('Het dossier is gesloten; wijzigen kan weer als het is heropend.');
+    expect(waiting).not.toContain('Dit kan de eigenaar');
+    expect(primaryButtons(container)).toEqual([]);
   });
 });

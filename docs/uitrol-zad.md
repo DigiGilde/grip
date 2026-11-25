@@ -110,6 +110,7 @@ Zet deze als omgevingsvariabelen van `component-2`. Wat het platform aanreikt st
 | `ORGANISATION_NAME` | de organisatie zoals ze een offerte ondertekent | nee |
 | `FEDERATION_SIGNING_KEY` | de sleutel waarmee de instantie besluiten ondertekent (ES256, PEM); zie hieronder | ja |
 | `TRUSTED_PROXIES` | het adresbereik van de proxy's voor de backend; zie stap 6 | nee |
+| `RETENTION_HOUR` | het uur waarop de worker eens per dag de bewaartermijnen uitvoert, in de zone van de instantie; standaard `4`, leeg zet het uit; op een voorbeeldinstantie niet hetzelfde uur als `EXAMPLE_RESET_HOUR`. De termijnen zelf stelt de beheerder in onder Beheer, Bewaartermijnen | nee |
 
 Zonder `INSTANCE_NAME`, `INSTANCE_KEY` en `INSTANCE_BASE_URI` start de instantie wel, maar heet ze "Grip (lokaal)" en beginnen haar URI's met `http://localhost:8010`. Een URI die eenmaal is uitgegeven verandert niet meer, dus zet deze drie voor de eerste start.
 
@@ -186,7 +187,6 @@ De workflow kent één project. Zolang de voorbeeldinstantie het doel is, wijst 
 - **Een taalmodel.** Zonder `VLAM_*` of een andere aanbieder werken de schrijfhulpen niet.
 - **Twee projecten uit één workflow.** De workflow rolt naar één project uit. Een echte instantie naast de voorbeeldinstantie vraagt een tweede uitrolstap of een tweede set variabelen.
 - **Meeschuivende voorbeeldgegevens.** De voorbeeldgegevens hebben vaste jaren, 2025 tot en met 2028, en zijn geschreven voor oktober 2026. Ze verschuiven niet mee met de dag van vandaag. Nu al zichtbaar: de maanden vanaf maart 2026 staan open en taken zijn sinds februari te laat. Vanaf december 2026 is de offerte van de opdracht voor 2027 verlopen, en vanaf januari 2027 klopt het lopende jaar niet meer. Wat mee moet schuiven: het lopende jaar met de tarievenkaarten eromheen en de namen van de opdrachten, tot welke maand er is afgesloten, en de data van lopende zaken (vacatures, de openstaande offerte) als een aantal dagen voor vandaag. Dat is een herschrijving van de voorbeeldgegevens en hun tests, en is nog niet gedaan. Welke set een voorbeeldinstantie laadt, kies je met `SEED_DATASET`: `voorbeeld` (standaard) of `programma`.
-- **Bewaartermijnen.** De worker past de bewaartermijnen niet toe. Dat is een losse taak, `python -m grip.events.retention` in de container van de backend; lokaal gedraaid, met de standaardtermijn (nooit) wist ze niets. Wie een termijn instelt in Beheer moet die taak zelf elke nacht laten draaien, bijvoorbeeld met een geplande taak van het platform.
 - **De bezoeker in Activiteit.** De gebeurtenis legt vast welke bezoeker iets deed; het scherm toont alleen de voorbeeldpersoon.
 - **Standaardteksten in het voorbeeld.** De afzender van het voorbeeld heeft geen ondertekenaar en geen standaardteksten; een nieuwe offerte in het voorbeeld meldt die als ontbrekend.
 - **Een eigen domein.** Vraag je aan bij het platform. Zet daarna `INSTANCE_BASE_URI` niet om: uitgegeven URI's blijven wat ze waren.

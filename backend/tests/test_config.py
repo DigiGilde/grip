@@ -172,3 +172,33 @@ def test_https_identity_provider_needs_no_opt_out():
         OIDC_ISSUER="https://idp.example/realms/x", SESSION_SECRET_KEY=_SECRET
     )
     assert settings.OIDC_ALLOW_INSECURE_HTTP is False
+
+
+@pytest.mark.parametrize("mode", ["", "voorbeeld"])
+@pytest.mark.parametrize("hour", ["", " ", "0", "4", "23", " 7 "])
+def test_retention_hour_is_an_hour_or_empty(mode, hour):
+    settings = _settings(DEV_NO_AUTH=True, INSTANCE_MODE=mode, RETENTION_HOUR=hour)
+    assert settings.RETENTION_HOUR == hour
+
+
+@pytest.mark.parametrize("mode", ["", "voorbeeld"])
+@pytest.mark.parametrize("hour", ["24", "-1", "4.5", "vier", "²", "04:00"])
+def test_retention_hour_refuses_anything_else(mode, hour):
+    with pytest.raises(ValidationError, match="RETENTION_HOUR"):
+        _settings(DEV_NO_AUTH=True, INSTANCE_MODE=mode, RETENTION_HOUR=hour)
+
+
+def test_an_example_instance_keeps_the_round_apart_from_the_reset():
+    with pytest.raises(ValidationError, match="EXAMPLE_RESET_HOUR"):
+        _settings(
+            DEV_NO_AUTH=True,
+            INSTANCE_MODE="voorbeeld",
+            RETENTION_HOUR=" 3 ",
+            EXAMPLE_RESET_HOUR="3",
+        )
+    settings = _settings(DEV_NO_AUTH=True, RETENTION_HOUR="3", EXAMPLE_RESET_HOUR="3")
+    assert settings.RETENTION_HOUR == "3"
+
+
+def test_retention_runs_at_four_by_default():
+    assert _settings(DEV_NO_AUTH=True).RETENTION_HOUR == "4"

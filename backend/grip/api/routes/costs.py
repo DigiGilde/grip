@@ -62,6 +62,7 @@ from grip.services import (
     cost_overview,
     cost_references,
     costs,
+    guards,
     invoice_lines,
     stored_documents,
 )
@@ -79,12 +80,17 @@ def _resource(overview: CostItemOverview) -> Resource:
 
 
 class _AssignmentRights:
-    """Read and edit rights on class B per assignment, asked once each."""
+    """Read and edit rights on class B per assignment, asked once each.
 
-    def __init__(self, decider: Decider, subject: Subject) -> None:
+    Nobody edits on an assignment whose dossier is closed.
+    """
+
+    def __init__(self, db: AsyncSession, decider: Decider, subject: Subject) -> None:
+        self._db = db
         self._decider = decider
         self._subject = subject
         self._cache: dict[tuple[Action, UUID], bool] = {}
+        self._closed: dict[UUID, bool] = {}
 
     async def _ask(self, action: Action, assignment_id: UUID) -> bool:
         key = (action, assignment_id)
@@ -102,6 +108,12 @@ class _AssignmentRights:
         return await self._ask(Action.READ, assignment_id)
 
     async def edit(self, assignment_id: UUID) -> bool:
+        if assignment_id not in self._closed:
+            self._closed[assignment_id] = await guards.dossier_closed(
+                self._db, assignment_id
+            )
+        if self._closed[assignment_id]:
+            return False
         return await self._ask(Action.EDIT, assignment_id)
 
 
@@ -224,7 +236,7 @@ async def _one(
 ) -> dict[str, Any]:
     overview = await _overview(db, cost_item_id, year)
     item = await _item_out(
-        decider, subject, overview, _AssignmentRights(decider, subject)
+        decider, subject, overview, _AssignmentRights(db, decider, subject)
     )
     if item is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Niet gevonden")
@@ -263,7 +275,7 @@ async def list_cost_items(
     for one page. ``total`` counts only what the asker may see: the list is
     searched, ordered and cut after the access decision.
     """
-    rights = _AssignmentRights(decider, subject)
+    rights = _AssignmentRights(db, decider, subject)
     words = (search or "").strip().casefold()
     visible: list[tuple[int, str, dict[str, Any]]] = []
     for overview in await cost_overview.cost_item_overviews(db, year=year):
@@ -296,7 +308,7 @@ async def list_coverage_options(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     """The budget lines the asker may let cover a cost item."""
-    rights = _AssignmentRights(decider, subject)
+    rights = _AssignmentRights(db, decider, subject)
     items: list[dict[str, Any]] = []
     for option in await cost_overview.budget_line_options(db):
         if not await rights.edit(option.assignment_id):

@@ -15,7 +15,7 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -34,6 +34,7 @@ from grip.models.vacancy_hire import VacancyHire
 from grip.services import (
     billing_corrections,
     billing_periods,
+    dossiers,
     phase,
     quote_approval,
     quote_budget,
@@ -62,7 +63,7 @@ MAX_MONTHS_BACK = 36
 # How long after a hire the follow-up tasks of a filled vacancy stay in view.
 HIRE_FOLLOW_UP_DAYS = 180
 
-# Statuses in which nothing is left to do on a case.
+# Statuses in which nothing is left to do on a case but closing its dossier.
 _ASSIGNMENT_DONE = ("accounted", "cancelled")
 _VACANCY_LIVE = ("draft", "requested", "approved", "open")
 _VACANCY_NEEDS_OPENING = ("regulier", "specialistisch")
@@ -141,9 +142,17 @@ async def open_task_case_ids(db: AsyncSession, case_kind: str) -> set[UUID]:
 
 
 async def live_assignment_ids(db: AsyncSession) -> set[UUID]:
-    """Assignments on which work may still arise, or that have open tasks."""
+    """Assignments on which work may still arise, or that have open tasks.
+
+    An ended assignment stays in view until its dossier is closed.
+    """
     rows = await db.execute(
-        select(Assignment.id).where(Assignment.status.notin_(_ASSIGNMENT_DONE))
+        select(Assignment.id).where(
+            or_(
+                Assignment.status.notin_(_ASSIGNMENT_DONE),
+                Assignment.dossier_closed_on.is_(None),
+            )
+        )
     )
     return {row[0] for row in rows} | await open_task_case_ids(db, "assignment")
 
@@ -239,6 +248,12 @@ class AssignmentInputs:
     rhythm: str = billing_periods.MONTHLY
     deliveries: Sequence[Any] = ()
     corrections: Sequence[Any] = ()
+    dossier_closed: bool = False
+    dossier_due: bool = False
+    # An open task of the plan besides the proposal to close the dossier. An
+    # ended case without one gets no new work: it was only taken in for its
+    # dossier.
+    plan_work_open: bool = True
 
 
 def is_client_of(client_uri: str | None, instance_base_uri: str) -> bool:
@@ -303,6 +318,10 @@ def assignment_snapshot(inputs: AssignmentInputs, *, today: date) -> CaseSnapsho
         # no it is the end, until a new quote comes in.
         "declined": status == "rejected" and is_client,
         "not_proceeded": status == "cancelled" and not ever_agreed,
+        "dossier_closed": inputs.dossier_closed,
+        "dossier_due_for_closing": inputs.dossier_due,
+        "at_rest": inputs.dossier_closed
+        or (status in _ASSIGNMENT_DONE and not inputs.plan_work_open),
     }
 
     rejected = [quote for quote in own_quotes if quote.status == "rejected"]
@@ -643,6 +662,19 @@ async def load_assignment_cases(
         )
     )
     reported = {row[0] for row in rows}
+    due = await dossiers.due_ids(db, assignments, today=today)
+    rows = await db.execute(
+        select(Task.assignment_id)
+        .where(
+            Task.case_kind == "assignment",
+            Task.origin == "plan",
+            Task.status.in_(OPEN_STATUSES),
+            Task.template_key != dossiers.PROPOSAL_TASK,
+            Task.assignment_id.in_(ids),
+        )
+        .distinct()
+    )
+    working = {row[0] for row in rows}
 
     snapshots = []
     for assignment in assignments:
@@ -697,6 +729,9 @@ async def load_assignment_cases(
                     rhythm=rhythms.get(assignment.id, default_rhythm),
                     deliveries=deliveries_by_assignment.get(assignment.id, []),
                     corrections=corrections_by_assignment.get(assignment.id, []),
+                    dossier_closed=assignment.dossier_closed_on is not None,
+                    dossier_due=assignment.id in due,
+                    plan_work_open=assignment.id in working,
                 ),
                 today=today,
             )
