@@ -4,7 +4,8 @@
  * the person may not see are absent from a response, not null, so most
  * fields are optional here.
  */
-import { apiGet, apiPost } from '@/api/client';
+import { apiGet, apiPost, apiPut } from '@/api/client';
+import type { BillingDetails } from '@/features/month-close/billingApi';
 import type { QuoteContent, QuoteSummary } from '@/features/quotes/api';
 
 export interface ContractorOption {
@@ -60,6 +61,8 @@ export interface ClientAssignmentDetail extends ClientAssignment {
   quotes?: QuoteRef[];
   contractor_reachable?: boolean;
   may_request_usage?: boolean;
+  /** Where the contractor sends the invoice; absent for who may not read it. */
+  billing_details?: BillingDetails | null;
 }
 
 export interface AssignmentRequestInput {
@@ -103,6 +106,9 @@ export interface ReceivedQuoteDetail {
   may_decide?: boolean;
   quote: QuoteSummary & { content?: QuoteContent | null };
   deliveries?: Delivery[];
+  /** Whether the quote asks for the factuurinformatie in an annex. */
+  billing_annex?: boolean;
+  client_reference?: string | null;
 }
 
 export interface Milestone {
@@ -211,6 +217,10 @@ export function acceptReceivedQuote(id: string, signerFunction: string | null): 
 
 export function rejectReceivedQuote(id: string, reason: string | null): Promise<Decision> {
   return apiPost(`/api/received-quotes/${id}/rejection`, { reason });
+}
+
+export function saveBillingDetails(id: string, details: BillingDetails): Promise<unknown> {
+  return apiPut(`/api/client/assignments/${id}/billing-details`, details);
 }
 
 export function fetchProgress(id: string): Promise<Progress> {

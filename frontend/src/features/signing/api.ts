@@ -26,6 +26,9 @@ export interface SigningQuote {
   snapshot_hash: string;
   content: QuoteContent;
   decided_at: string | null;
+  /** Whether the quote asks for the factuurinformatie in an annex. */
+  billing_annex?: boolean;
+  client_reference?: string | null;
 }
 
 export const signingKeys = {

@@ -22,7 +22,9 @@ import {
   useDecisionReturn,
 } from '@/features/quotes/proof';
 import { QuoteContentTable } from '@/features/quotes/QuoteContentTable';
-import { ConfirmDialog } from '@/features/team/ui/overlays';
+import type { BillingDetails } from '@/features/month-close/billingApi';
+import { BillingDetailsFields } from '@/features/month-close/BillingDetailFields';
+import { filledDetails, missingText, startDetails } from '@/features/month-close/billingDetails';
 import { useInstance } from '@/layout/useInstance';
 import { useRouterLinks } from '@/layout/useRouterLinks';
 import { formatDate } from '@/lib/format';
@@ -138,24 +140,31 @@ export function ReceivedQuotePage() {
   });
 
   const [signerFunction, setSignerFunction] = useState('');
-  const [confirming, setConfirming] = useState(false);
+  const [details, setDetails] = useState<BillingDetails>({});
+  const [accepting, setAccepting] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [rejectError, setRejectError] = useState<string | null>(null);
 
   const back = useDecisionReturn();
-  const [draft] = useState(() => readDraft<{ signerFunction?: string; reason?: string }>(quoteId));
+  const [draft] = useState(() =>
+    readDraft<{ signerFunction?: string; reason?: string; billingDetails?: BillingDetails }>(
+      quoteId,
+    ),
+  );
   // The decision is made when the browser is back from the identity
   // provider; asking for the intent records nothing.
   const leaveFor = (kind: 'accept_received' | 'reject_received') => {
-    saveDraft(quoteId, { signerFunction, reason });
+    saveDraft(quoteId, { signerFunction, reason, billingDetails: details });
+    const billing = kind === 'accept_received' ? filledDetails(details) : null;
     return createDecisionIntent({
       kind,
       quote_id: quoteId,
       quote_hash: query.data?.quote.snapshot_hash ?? '',
       signer_function: signerFunction.trim() || null,
       note: kind === 'reject_received' ? reason.trim() || null : null,
+      ...(billing ? { billing_details: billing } : {}),
       return_path: receivedQuotePath(quoteId),
     });
   };
@@ -176,6 +185,7 @@ export function ReceivedQuotePage() {
     setRestored(true);
     setSignerFunction(draft.signerFunction ?? '');
     setReason(draft.reason ?? '');
+    setDetails(draft.billingDetails ?? {});
   }
 
   const detail = query.data;
@@ -184,6 +194,7 @@ export function ReceivedQuotePage() {
   const notFound = query.error instanceof ApiError && query.error.status === 404;
   const contractor = detail?.contractor_name ?? 'de opdrachtnemer';
   const deliveries = detail?.deliveries ?? [];
+  const annex = detail?.billing_annex === true;
 
   return (
     <div ref={ref}>
@@ -257,26 +268,23 @@ export function ReceivedQuotePage() {
         <nldd-simple-section>
           <SectionHeading text="Besluiten" />
           <nldd-container gap="16">
-            {error ? <nldd-banner variant="critical" size="sm" text={error} /> : null}
             <nldd-text>
               Je bent tekenbevoegd voor deze organisatie. Met je akkoord leggen we vast wie je bent,
               namens welke organisatie je tekent en op welk moment. Het akkoord wordt ondertekend
               met de sleutel van deze instantie en naar {contractor} gestuurd.
             </nldd-text>
             <nldd-text>{beforeLeaving('accept', Boolean(accept.data?.passkey))}</nldd-text>
-            <TextInput
-              label="Je functie"
-              value={signerFunction}
-              onChange={setSignerFunction}
-              optional
-              hint="Staat bij je akkoord, bijvoorbeeld Directeur."
-            />
             <nldd-button-group>
               <Button
                 text="Geef akkoord"
                 appearance="primary"
-                loading={accept.isPending}
-                onClick={() => setConfirming(true)}
+                onClick={() => {
+                  setError(null);
+                  setDetails((now) =>
+                    startDetails(now, detail.client_reference ?? content?.client_reference),
+                  );
+                  setAccepting(true);
+                }}
               />
               <Button
                 text="Wijs af"
@@ -297,17 +305,36 @@ export function ReceivedQuotePage() {
         </nldd-simple-section>
       ) : null}
 
-      <ConfirmDialog
-        open={confirming}
-        text="Akkoord geven op deze offerte?"
-        supportingText={`Je geeft namens deze organisatie akkoord aan ${contractor}. Een akkoord is niet terug te draaien.`}
-        confirmText="Geef akkoord"
-        onClose={() => setConfirming(false)}
-        onConfirm={() => {
-          setConfirming(false);
+      <FormSheet
+        open={accepting}
+        title="Akkoord geven"
+        submitText="Geef akkoord"
+        busy={accept.isPending}
+        error={error}
+        onClose={() => setAccepting(false)}
+        onSubmit={() => {
+          const gap = annex ? missingText(details) : null;
+          if (gap) {
+            setError(gap);
+            return;
+          }
+          setError(null);
           accept.mutate();
         }}
-      />
+      >
+        <nldd-text>
+          Je geeft namens deze organisatie akkoord aan {contractor}. Een akkoord is niet terug te
+          draaien.
+        </nldd-text>
+        <TextInput
+          label="Je functie"
+          value={signerFunction}
+          onChange={setSignerFunction}
+          optional
+          hint="Staat bij je akkoord, bijvoorbeeld Directeur."
+        />
+        <BillingDetailsFields details={details} onChange={setDetails} required={annex} />
+      </FormSheet>
       <FormSheet
         open={rejecting}
         title="Offerte afwijzen"
