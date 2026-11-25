@@ -10,3 +10,33 @@ nldd-sidebar-section:not([collapsed]) .sidebar-trigger {
   max-height: 50vh;
   overflow-y: auto;
 }
+
+/* grip's mark and the login variant of its brand, as frontend/src/brand/brand.css draws them. */
+.brand-mark {
+  flex: none;
+  fill: light-dark(var(--primitives-color-reference-lintblauw), var(--primitives-color-lintblauw-750));
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--primitives-space-12);
+}
+
+.brand-lines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--primitives-space-2);
+}
+
+.brand-word {
+  font-weight: var(--primitives-font-weight-body-bold);
+  font-size: 1.75rem;
+  line-height: 1.2;
+}
+
+.brand-quiet {
+  color: var(--semantics-content-secondary-color);
+  font-size: 0.875rem;
+  line-height: 1.3;
+}

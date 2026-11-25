@@ -34,6 +34,7 @@ import '@nldd/design-system/tag';
 import '@nldd/design-system/text';
 import '@nldd/design-system/text-cell';
 import '@nldd/design-system/title';
+import '@nldd/design-system/toolbar';
 import '@nldd/design-system/top-navigation-bar';
 import '@nldd/design-system/window';
 import '@nldd/design-system/table';
