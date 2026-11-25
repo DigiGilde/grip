@@ -27,7 +27,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip import calc
-from grip.chronicle import words
+from grip.chronicle import restate, words
 from grip.chronicle.facts import (
     ACCEPTANCE,
     APPROVAL,
@@ -54,6 +54,8 @@ from grip.schema.chronicle import (
     LaterKnownOut,
     MomentOut,
     MomentsOut,
+    RemovableTextOut,
+    RestatementOut,
     StandAcceptanceOut,
     StandApprovalOut,
     StandAssignmentOut,
@@ -77,6 +79,7 @@ from grip.services import (
     quote_channels,
     quote_views,
     quotes,
+    restatements,
 )
 from grip.services.canonical import read
 from grip.services.errors import DomainValidationError, NotFoundError
@@ -109,6 +112,8 @@ class Reader:
 
     # Runs the assignment: the address a signing link went to is theirs to know.
     manages: bool
+    # May take a typed text out of a moment (ADR 0057).
+    restates: bool = False
 
 
 def _row(table: str, values: Mapping[str, Any]) -> SimpleNamespace:
@@ -818,6 +823,45 @@ def _later_known(
     return found
 
 
+def _restatements(grams: Sequence[Gram], gram: Gram) -> list[RestatementOut]:
+    """The moments that later took a typed text out of this one, oldest first."""
+    by_seq = {item.seq: item for item in grams}
+    found = []
+    for seq in gram.restated_by:
+        herstel = by_seq.get(seq)
+        if herstel is None:
+            continue
+        removed = (herstel.fields or {}).get("removed") or ()
+        found.append(
+            RestatementOut(
+                seq=seq,
+                occurred_at=herstel.occurred_at,
+                removed=list(dict.fromkeys(item["label"] for item in removed)),
+            )
+        )
+    return found
+
+
+async def _removable(
+    session: AsyncSession, assignment_id: UUID, gram: Gram
+) -> list[RemovableTextOut]:
+    """The typed texts of this moment that can be taken out, and the quotes that
+    keep them all the same."""
+    found = restate.removable(gram.fact, gram.fields)
+    if not found:
+        return []
+    contents = await restatements.quote_contents(session, assignment_id)
+    return [
+        RemovableTextOut(
+            key=text.key,
+            label=text.label,
+            text=value,
+            kept=restatements.kept(contents, restate.wanted([value])),
+        )
+        for text, value in found
+    ]
+
+
 async def _assignment_out(
     session: AsyncSession,
     repository: ChronicleRepository,
@@ -951,9 +995,13 @@ async def stand(
         outside=around,
         outside_values=around_values,
         later_known=_later_known(shown, gram, reader, names),
+        restated=_restatements(grams, gram),
         budget=budget,
         quotes=await _quotes_out(session, ledger, before, reader, gram.occurred_at),
         incomplete=incomplete,
+        removable_texts=await _removable(session, assignment_id, gram)
+        if reader.restates
+        else None,
     )
 
 

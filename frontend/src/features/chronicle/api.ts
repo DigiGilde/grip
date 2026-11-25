@@ -3,7 +3,7 @@
  * Fields of a data class the reader may not see are absent, not null.
  */
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { apiGet } from '@/api/client';
+import { apiGet, apiPost } from '@/api/client';
 import type { QuoteContent } from '@/features/quotes/api';
 import type { Course } from '@/ui/course';
 
@@ -41,6 +41,24 @@ export interface LaterKnown {
   title: string;
   statement?: string;
   effective_on?: string;
+}
+
+/** A later moment took a text out of this one. Oldest first. */
+export interface Restatement {
+  /** The moment that took the text out. */
+  seq: number;
+  occurred_at: string;
+  /** Dutch labels of what was taken out. */
+  removed: string[];
+}
+
+/** A typed text of this moment that may be taken out. Only for who may do that. */
+export interface RemovableText {
+  key: string;
+  label: string;
+  text?: string;
+  /** What stays as it was made, in sentences. */
+  kept: string[];
 }
 
 export interface StandBudgetLine {
@@ -141,6 +159,8 @@ export interface Stand {
   /** The same with its values, for who reads them: replaces `outside`. */
   outside_values?: string[];
   later_known: LaterKnown[];
+  restated: Restatement[];
+  removable_texts?: RemovableText[] | null;
   budget?: StandBudget;
   quotes: StandQuote[];
   incomplete: boolean;
@@ -169,6 +189,20 @@ export function fetchMoments(assignmentId: string): Promise<{ items: Moment[] }>
 
 export function fetchStand(assignmentId: string, seq: number): Promise<Stand> {
   return apiGet(`/api/assignments/${assignmentId}/chronicle/${seq}`);
+}
+
+export interface RestatedStand {
+  stand: Stand;
+  kept: string[];
+}
+
+/** Erase a moment and record it again without the chosen texts. */
+export function restateMoment(
+  assignmentId: string,
+  seq: number,
+  columns: string[],
+): Promise<RestatedStand> {
+  return apiPost(`/api/assignments/${assignmentId}/chronicle/${seq}/restate`, { columns });
 }
 
 export function useMoments(assignmentId: string) {

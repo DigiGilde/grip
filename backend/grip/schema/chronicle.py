@@ -72,6 +72,26 @@ class LaterKnownOut(BaseModel):
     effective_on: Annotated[date, B]
 
 
+class RestatementOut(BaseModel):
+    """A later moment took a typed text out of this one (ADR 0057)."""
+
+    seq: Annotated[int, A]
+    occurred_at: Annotated[datetime, A]
+    # What was taken out, by its label; never the text.
+    removed: Annotated[list[str], A] = Field(default_factory=list)
+
+
+class RemovableTextOut(BaseModel):
+    """A typed text of this moment that may be taken out of it."""
+
+    key: Annotated[str, A]
+    label: Annotated[str, A]
+    # A name or a note is A, a reason under a moment B: the stricter one.
+    text: Annotated[str, B]
+    # Quotes that hold the text too: they stay as they were made.
+    kept: Annotated[list[str], A] = Field(default_factory=list)
+
+
 class StandLineOut(BaseModel):
     id: Annotated[UUID, A]
     description: Annotated[str, A]
@@ -182,7 +202,24 @@ class StandOut(BaseModel):
     # reads this, it replaces the list above.
     outside_values: Annotated[list[str], B] = Field(default_factory=list)
     later_known: Annotated[list[LaterKnownOut], nested()] = Field(default_factory=list)
+    restated: Annotated[list[RestatementOut], nested()] = Field(default_factory=list)
     budget: Annotated[StandBudgetOut | None, nested()] = None
     quotes: Annotated[list[StandQuoteOut], nested()] = Field(default_factory=list)
     # Values of a fact up to here were erased: this stand is not whole.
     incomplete: Annotated[bool, A] = False
+    # Only for who may take a text out of a moment.
+    removable_texts: Annotated[list[RemovableTextOut] | None, nested()] = None
+
+
+class RestateIn(BaseModel):
+    """The typed texts to take out of a moment, by key."""
+
+    columns: list[str]
+
+
+class RestatedStandOut(BaseModel):
+    """The moment after a text was taken out of it."""
+
+    stand: Annotated[StandOut, nested()]
+    # Quotes that hold a text that was taken out: they stay as they were made.
+    kept: Annotated[list[str], A] = Field(default_factory=list)

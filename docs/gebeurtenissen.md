@@ -206,7 +206,9 @@ De worker voert de termijnen eens per dag uit, op het uur `RETENTION_HOUR` in de
 
 De worker onthoudt alleen in het geheugen dat de ronde die dag al liep. Start hij binnen het uur opnieuw, dan loopt de ronde nog een keer; dat kan geen kwaad. Kies niet het uur 2: in de nacht dat de klok vooruit gaat bestaat dat uur in de zone Europe/Amsterdam niet, en dan slaat de ronde een dag over. Op een voorbeeldinstantie mag `RETENTION_HOUR` niet gelijk zijn aan `EXAMPLE_RESET_HOUR`.
 
-Wissen haalt de waarden en het zout van een gebeurtenis weg. De gebeurtenis zelf blijft, met haar afdrukken, zodat de keten controleerbaar blijft. Voor een verzoek om verwijdering van één persoon is er `retention.erase_person`. Elke wisactie is een gebeurtenis `stream.erased` met de reden en het bereik.
+Wissen haalt de waarden en het zout van een gebeurtenis weg. De gebeurtenis zelf blijft, met haar afdrukken, zodat de keten controleerbaar blijft. Voor een verzoek om verwijdering van één persoon is er `retention.erase_person`, voor gegeven gebeurtenissen `retention.erase_events`. Elke wisactie is een gebeurtenis `stream.erased` met de reden en het bereik.
+
+Haalt een beheerder een getypte tekst uit een moment van een opdracht (ADR 0057, zie [kroniek.md](kroniek.md)), dan wist Grip met reden `restated` de feiten die de tekst hielden, nadat elk een herstelfeit kreeg, en elke andere gebeurtenis van die opdracht waarvan de waarden de tekst bevatten: wijzigingsregels met de oude en de nieuwe waarde, domeingebeurtenissen en regels over mail. Een wijzigingsregel van wie op een regel staat blijft staan. De gebeurtenis `stream.erased` noemt de opdracht (`assignment_id`) en de herstelfeiten (`restated_by`), zodat ze bij de zaak hoort.
 
 Wat blijft staan na wissen: dat er iets gebeurde, wanneer, over welk onderwerp en door wie, als id. Het id van een persoon verwijst na verwijdering van die persoon nergens meer naar.
 

@@ -19,7 +19,15 @@ from grip.chronicle.facts import (
     with_row_values,
 )
 from grip.chronicle.ledger import Gram
-from grip.chronicle.writer import MODELS, RATE_BOOK, SUBJECT_KIND, fact_of, normal
+from grip.chronicle.restate import RESTATED, substituted
+from grip.chronicle.writer import (
+    MODELS,
+    RATE_BOOK,
+    SUBJECT_KIND,
+    event_type,
+    fact_of,
+    normal,
+)
 from grip.models.organisation import Organisation
 from grip.models.stream_event import CASE_ASSIGNMENT, StreamEvent
 
@@ -68,7 +76,9 @@ class ChronicleRepository:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
-    async def _grams(self, subject_id: str, upto: int | None) -> list[Gram]:
+    async def _recorded(
+        self, subject_id: str, upto: int | None, *, fact: str | None = None
+    ) -> list[Gram]:
         query = select(*_COLUMNS).where(
             StreamEvent.subject_kind == SUBJECT_KIND,
             StreamEvent.subject_id == subject_id,
@@ -77,10 +87,22 @@ class ChronicleRepository:
         )
         if upto is not None:
             query = query.where(StreamEvent.seq <= upto)
+        if fact is not None:
+            query = query.where(StreamEvent.type == event_type(fact))
         rows = await self.db.execute(query.order_by(StreamEvent.seq))
-        return await self._with_rows(
-            [gram for gram in map(_gram, rows) if gram is not None]
-        )
+        return [gram for gram in map(_gram, rows) if gram is not None]
+
+    async def _grams(self, subject_id: str, upto: int | None) -> list[Gram]:
+        grams = await self._recorded(subject_id, upto)
+        if any(gram.erased for gram in grams):
+            # What restated an erased fact can stand after the cut (ADR 0057).
+            restating = (
+                grams
+                if upto is None
+                else await self._recorded(subject_id, None, fact=RESTATED)
+            )
+            grams = substituted(grams, restating)
+        return await self._with_rows(grams)
 
     async def _with_rows(self, grams: list[Gram]) -> list[Gram]:
         """Put back what a fact leaves in its row, as the row holds it now."""
@@ -114,8 +136,17 @@ class ChronicleRepository:
         ]
 
     async def grams(self, assignment_id: UUID, upto: int | None = None) -> list[Gram]:
-        """The facts of one assignment in the order they were recorded."""
+        """The facts of one assignment in the order they were recorded.
+
+        An erased fact that a herstelfeit restated reads as what that one
+        recorded; the values only a row holds are put back as it holds them.
+        """
         return await self._grams(str(assignment_id), upto)
+
+    async def recorded(self, assignment_id: UUID) -> list[Gram]:
+        """The facts of one assignment as the stream holds them: an erased one
+        without values, and nothing put back from a row."""
+        return await self._recorded(str(assignment_id), None)
 
     async def rate_grams(self, upto: int | None = None) -> list[Gram]:
         """The facts of the rate book in the order they were recorded."""

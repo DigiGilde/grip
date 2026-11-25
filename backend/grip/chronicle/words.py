@@ -13,7 +13,7 @@ from collections.abc import Callable, Mapping
 from datetime import date, datetime
 from typing import Any
 
-from grip.chronicle.facts import received_from, title_of
+from grip.chronicle.facts import FACTS, received_from, title_of
 from grip.core import clock
 from grip.events.words import FIELD_LABELS
 from grip.models.assignment import line_display_name
@@ -163,6 +163,28 @@ def _dossier_kept_open(fields: Fields, actor: str | None) -> str:
     return "Vastgelegd dat het dossier open blijft."
 
 
+def _listed(words: list[str]) -> str:
+    return f"{', '.join(words[:-1])} en {words[-1]}" if words[1:] else words[0]
+
+
+def _restated(fields: Fields, actor: str | None) -> str:
+    labels = list(dict.fromkeys(item["label"] for item in fields.get("removed") or ()))
+    what = _capital(_listed([label.lower() for label in labels])) if labels else "Tekst"
+    # A herstelfeit can restate one that came before it: name the moment itself.
+    fact, inner = fields.get("fact"), fields.get("fields")
+    recorded_on = fields.get("recorded_on")
+    while fact == "fact_restated" and isinstance(inner, Mapping):
+        fact, recorded_on, inner = (
+            inner.get("fact"),
+            inner.get("recorded_on"),
+            inner.get("fields"),
+        )
+    title = title_of(fact, inner) if fact in FACTS else None
+    moment = f" uit het moment {title}" if title else ""
+    on = f" van {day_words(recorded_on)}" if recorded_on else ""
+    return f"{what} verwijderd{moment}{on}."
+
+
 _STATEMENTS = {
     "quote_issued": _issued,
     "quote_received": _received,
@@ -178,6 +200,7 @@ _STATEMENTS = {
     "dossier_closed": _dossier_closed,
     "dossier_reopened": _dossier_reopened,
     "dossier_kept_open": _dossier_kept_open,
+    "fact_restated": _restated,
 }
 
 

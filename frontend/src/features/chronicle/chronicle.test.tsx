@@ -1,4 +1,4 @@
-import { act, waitFor } from '@testing-library/react';
+import { act, fireEvent, waitFor } from '@testing-library/react';
 import { StrictMode, useEffect } from 'react';
 import { Route, Routes, useNavigate } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -21,6 +21,7 @@ import {
   laterKnownText,
   momentByline,
   offerTold,
+  restatedText,
   standQuoteLabel,
   standTitle,
 } from './words';
@@ -137,6 +138,7 @@ const FULL: Stand = {
   course: COURSE,
   outside: ['De tarieven zijn gewijzigd.'],
   outside_values: ['Tarief van categorie A op Tarieven 2027 gewijzigd.'],
+  restated: [],
   later_known: [
     {
       seq: 9,
@@ -273,6 +275,7 @@ const CLASS_A: Stand = {
   assignment: ASSIGNMENT,
   course: COURSE,
   outside: ['De tarieven zijn gewijzigd.'],
+  restated: [],
   later_known: [{ seq: 9, title: 'Offerte getekend' }],
   budget: {
     lines: [
@@ -300,8 +303,9 @@ const CLASS_A: Stand = {
 
 /** Answers by the exact path, so a moment without an entry is a 404 as on the server. */
 function stubApi(routes: Record<string, unknown>) {
-  const fetchMock = vi.fn((input: RequestInfo | URL) => {
-    const reply = routes[String(input).split('?')[0]!];
+  const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+    const path = String(input).split('?')[0]!;
+    const reply = routes[init?.method === 'POST' ? `POST ${path}` : path];
     return Promise.resolve(
       new Response(JSON.stringify(reply ?? { title: 'Niet gevonden', status: 404 }), {
         status: reply === undefined ? 404 : 200,
@@ -332,13 +336,21 @@ function renderTab(
     stand,
     laterStand,
     strict = false,
-  }: { moments?: Moment[]; stand?: Stand; laterStand?: Stand; strict?: boolean } = {},
+    extra = {},
+  }: {
+    moments?: Moment[];
+    stand?: Stand;
+    laterStand?: Stand;
+    strict?: boolean;
+    extra?: Record<string, unknown>;
+  } = {},
 ) {
   const fetchMock = stubApi({
     '/api/assignments/a1/chronicle': { items: moments },
     ...(stand ? { '/api/assignments/a1/chronicle/7': stand } : {}),
     ...(laterStand ? { '/api/assignments/a1/chronicle/9': laterStand } : {}),
     '/api/events': { items: [], next_before: null },
+    ...extra,
   });
   const tab = (
     <>
@@ -1107,5 +1119,139 @@ describe('the address and the cache', () => {
   it('keeps away from the key every save invalidates', () => {
     expect(chronicleKeys.moments('a1')).toEqual(['chronicle', 'a1']);
     expect(chronicleKeys.stand('a1', 7)).toEqual(['chronicle', 'a1', 7]);
+  });
+});
+
+describe('taking a text out of a moment', () => {
+  const NOTES = {
+    key: 'assignment.notes',
+    label: 'Notities',
+    text: 'Bel de heer Voorbeeld terug.',
+    kept: ['De tekst staat ook in offerte VG-2026-0007; die blijft zoals ze is gemaakt.'],
+  };
+  const NAME = { key: 'assignment.name', label: 'Naam', kept: [] };
+
+  const opened = async (stand: Stand, extra: Record<string, unknown> = {}) => {
+    const view = renderTab('/opdrachten/a1/geschiedenis?moment=7', { stand, extra });
+    await waitFor(() =>
+      expect(view.container.querySelector(`nldd-title[text="${HEADING}"]`)).not.toBeNull(),
+    );
+    return view;
+  };
+
+  const menuItem = (root: ParentNode) =>
+    root.querySelector('nldd-menu-item[text="Verwijder een tekst"]');
+
+  const posts = (fetchMock: ReturnType<typeof stubApi>) =>
+    (fetchMock.mock.calls as [RequestInfo | URL, RequestInit?][]).filter(
+      ([, init]) => init?.method === 'POST',
+    );
+
+  const openSheet = async (view: Awaited<ReturnType<typeof opened>>) => {
+    await waitFor(() => expect(menuItem(view.container)).not.toBeNull());
+    act(() => {
+      menuItem(view.container)?.dispatchEvent(new CustomEvent('select'));
+    });
+    await waitFor(() => expect(document.querySelector('nldd-sheet[open]')).not.toBeNull());
+    return document.querySelector('nldd-sheet[open]') as Element;
+  };
+
+  it('offers the menu item only for a moment with texts that may be taken out', async () => {
+    const withTexts = await opened({ ...FULL, removable_texts: [NOTES] });
+    await waitFor(() => expect(menuItem(withTexts.container)).not.toBeNull());
+    expect(
+      withTexts.container.querySelector('nldd-menu-item[text="Verwijder een tekst"]'),
+    ).not.toBeNull();
+    withTexts.unmount();
+    for (const removable of [undefined, null, []] as Stand['removable_texts'][]) {
+      const { container, unmount } = await opened({ ...FULL, removable_texts: removable });
+      expect(menuItem(container)).toBeNull();
+      unmount();
+    }
+  });
+
+  it('shows each text with its label and what stays, and asks to choose before sending', async () => {
+    const view = await opened({ ...FULL, removable_texts: [NOTES, NAME] });
+    const sheet = await openSheet(view);
+    expect(sheet.querySelector('nldd-title')?.getAttribute('text')).toBe(
+      'Tekst verwijderen uit dit moment',
+    );
+    const fields = [...sheet.querySelectorAll('nldd-form-field')];
+    expect(fields.map((field) => field.getAttribute('label'))).toEqual(['Notities', 'Naam']);
+    expect(fields[0]?.getAttribute('supporting-label')).toBe(NOTES.kept[0]);
+    expect(fields[1]?.hasAttribute('supporting-label')).toBe(false);
+    expect(
+      [...sheet.querySelectorAll('nldd-checkbox-field')].map((box) => box.getAttribute('label')),
+    ).toEqual(['Bel de heer Voorbeeld terug.', 'Naam']);
+    expect(sheet.querySelectorAll('nldd-checkbox-field[checked]')).toHaveLength(0);
+    sheet.querySelector('nldd-form')?.dispatchEvent(new Event('submit', { cancelable: true }));
+    await waitFor(() =>
+      expect(sheet.querySelector('nldd-banner[variant="critical"]')?.getAttribute('text')).toBe(
+        'Kies de tekst die je wilt verwijderen.',
+      ),
+    );
+    expect(posts(view.fetchMock)).toEqual([]);
+  });
+
+  it('sends the chosen keys and closes the sheet', async () => {
+    const view = await opened(
+      { ...FULL, removable_texts: [NOTES, NAME] },
+      {
+        'POST /api/assignments/a1/chronicle/7/restate': {
+          stand: { ...FULL, removable_texts: [NAME] },
+          kept: [],
+        },
+      },
+    );
+    const sheet = await openSheet(view);
+    act(() => {
+      sheet
+        .querySelector('nldd-checkbox-field')
+        ?.dispatchEvent(new CustomEvent('change', { detail: { checked: true } }));
+    });
+    await waitFor(() =>
+      expect(sheet.querySelector('nldd-checkbox-field')?.hasAttribute('checked')).toBe(true),
+    );
+    fireEvent.submit(sheet.querySelector('nldd-form')!);
+    await waitFor(() => expect(posts(view.fetchMock)).toHaveLength(1));
+    const [url, init] = posts(view.fetchMock)[0]!;
+    expect(String(url)).toBe('/api/assignments/a1/chronicle/7/restate');
+    expect(JSON.parse(String(init?.body))).toEqual({ columns: ['assignment.notes'] });
+    await waitFor(() => expect(document.querySelector('nldd-sheet[open]')).toBeNull());
+  });
+
+  it('keeps the sheet open and says why when the server refuses', async () => {
+    const view = await opened({ ...FULL, removable_texts: [NOTES] });
+    const sheet = await openSheet(view);
+    act(() => {
+      sheet
+        .querySelector('nldd-checkbox-field')
+        ?.dispatchEvent(new CustomEvent('change', { detail: { checked: true } }));
+    });
+    fireEvent.submit(sheet.querySelector('nldd-form')!);
+    await waitFor(() => expect(posts(view.fetchMock)).toHaveLength(1));
+    await waitFor(() =>
+      expect(sheet.querySelector('nldd-banner[variant="critical"]')).not.toBeNull(),
+    );
+    expect(document.querySelector('nldd-sheet[open]')).not.toBeNull();
+  });
+
+  it('links to the moment that took a text out', async () => {
+    const { container } = await opened({
+      ...FULL,
+      restated: [{ seq: 12, occurred_at: '2026-11-20T09:00:00Z', removed: ['Notities'] }],
+    });
+    const link = container.querySelector('nldd-link[text="Later verwijderd: notities"]');
+    expect(link).toHaveAttribute('href', '/opdrachten/a1/geschiedenis?moment=12');
+  });
+
+  it('says in words what was taken out', () => {
+    const at = (removed: string[]) =>
+      restatedText({ seq: 12, occurred_at: '2026-11-20T09:00:00Z', removed });
+    expect(at(['Notities'])).toBe('Later verwijderd: notities');
+    expect(at(['Naam', 'Notities'])).toBe('Later verwijderd: naam en notities');
+    expect(at(['Naam', 'Notities', 'Omschrijving'])).toBe(
+      'Later verwijderd: naam, notities en omschrijving',
+    );
   });
 });

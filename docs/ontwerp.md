@@ -171,6 +171,7 @@ Een bewaarde tekst wordt overal getoond met `RichText` uit `@/ui/RichText`, uit 
 | Stand op ... | Hoe opdracht, begroting en offerte er op een moment voorstonden. De kop van een stand noemt de dag en het uur van het moment |
 | Besluit | Het merkteken op een moment waarop wie het vastlegde zelf besloot. Nooit "decretogram", "uitvoering" of "regel" |
 | Later vastgelegd | Wat na een moment is vastgelegd maar al telde vanaf een dag die dat moment had gezien, onder de stand van dat moment |
+| Later verwijderd, Tekst verwijderd | Een getypte tekst die een beheerder later uit een moment haalde, onder de stand van dat moment; "Tekst verwijderd" staat waar een naam of omschrijving niet leeg mag zijn |
 | Te doen, Wacht op anderen | De twee groepen taken |
 | Start, Taken, Opdrachten, Team, Vacatures, Financieel, Rapportage, Beheer | De plekken in de hoofdbalk. Onder Team: Mensen en Inzet. Onder Financieel: Kosten en Factureren |
 | Geschiedenis, Activiteit, Wat is er gebeurd | Wat er met een zaak gebeurde, wat er in de instantie gebeurde, en het nieuws voor de lezer |

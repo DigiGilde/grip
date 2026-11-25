@@ -17,6 +17,7 @@ their case (ADR 0057). The worker runs retention once a day
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
@@ -111,6 +112,22 @@ async def _erase(
     )
     await db.flush()
     return len(seqs)
+
+
+async def erase_events(
+    db: AsyncSession,
+    seqs: Iterable[int],
+    *,
+    reason: str,
+    about: dict[str, Any] | None = None,
+) -> int:
+    """Erase the values of these events; returns how many still had them."""
+    wanted = sorted(set(seqs))
+    if not wanted:
+        return 0
+    return await _erase(
+        db, StreamEvent.seq.in_(wanted), reason=reason, about=about or {}
+    )
 
 
 async def erase_person(db: AsyncSession, person_id: UUID, *, reason: str) -> int:

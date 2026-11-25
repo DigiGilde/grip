@@ -293,6 +293,15 @@ def _nothing(fields: Fields) -> tuple[Effect, ...]:
     return ()
 
 
+def _restated(fields: Fields) -> tuple[Effect, ...]:
+    # The rows that still held the text when it was taken out; what the fact it
+    # restates says comes in its place when the chronicle is read.
+    return tuple(
+        Patch(patch["table"], str(patch["id"]), patch["values"])
+        for patch in fields.get("patches") or ()
+    )
+
+
 def _status_kind(fields: Fields) -> str:
     target = fields.get("to")
     if target in ("in_progress", "cancelled", "completed", "accounted"):
@@ -448,6 +457,8 @@ FACTS: dict[str, Fact] = {
         Fact("dossier_reopened", DECRETOGRAM, "Dossier heropend", _dossier_reopened),
         # Changes no row: the decision itself is what counts, as activity.
         Fact("dossier_kept_open", DECRETOGRAM, "Dossier blijft open", _nothing),
+        # ADR 0057: an erased fact again, without a typed text that never belonged.
+        Fact("fact_restated", GENERAL, "Tekst verwijderd", _restated),
         Fact(
             "chronicle_rebuilt",
             GENERAL,

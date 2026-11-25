@@ -400,6 +400,49 @@ async def test_a_closed_dossier_ends_the_course_in_its_look_back(walk):
     assert stand["moment"]["statement"].startswith("Dossier gesloten op ")
 
 
+async def test_a_look_back_after_a_text_was_taken_out_is_whole(walk):
+    name, notes = "Traject rond een zieke medewerker", "Hersteld na een operatie"
+    await _mode(walk)
+    await walk.begin(0, name=name, notes=notes)
+    await _line(walk, 1)
+    quote = await _quote(walk, 2)
+    await _ask(walk, 3, quote)
+    await _decide(walk, 4, quote)
+    await _offer(walk, 5, quote)
+    await _sign(walk, 6, quote)
+    await _start(walk, 7)
+    body = await walk.step(
+        "tekst verwijderd",
+        walk.cast.beheerder,
+        "post",
+        f"/api/assignments/{walk.assignment_id}/chronicle/{walk.seen[0].seq}/restate",
+        on=8,
+        json={"columns": ["assignment.name", "assignment.notes"]},
+    )
+    assert body["kept"] == [
+        f"De tekst staat ook in offerte {quote['reference']}; "
+        "die blijft zoals ze is gemaakt."
+    ]
+    # What was seen live, with the placeholder or nothing where the text stood.
+    for seen in walk.seen:
+        assert seen.assignment["name"] in (name, "Tekst verwijderd")
+        seen.assignment = {**seen.assignment, "name": "Tekst verwijderd", "notes": None}
+    await walk.check_every_look_back()
+
+    moments = await walk.moments(walk.cast.beheerder)
+    assert moments[-1]["title"] == "Tekst verwijderd"
+    assert moments[-1]["actor_name"] == walk.cast.beheerder.name
+    for moment in moments:
+        stand = await walk.stand(moment["seq"])
+        told = json.dumps({**stand, "quotes": None})
+        assert name not in told and notes not in told, moment["fact"]
+    first = await walk.stand(walk.seen[0].seq)
+    assert [item["removed"] for item in first["restated"]] == [["Naam", "Notities"]]
+    # A quote is a frozen snapshot: it keeps the name it was made with.
+    last = await walk.stand(moments[-1]["seq"])
+    assert name in json.dumps(last["quotes"][0]["content"])
+
+
 async def test_a_changed_line_and_case_say_what_changed(walk):
     await walk.begin(0)
     line = (await _line(walk, 1))["lines"][0]

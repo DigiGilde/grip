@@ -26,6 +26,7 @@ from grip.services import (
     quote_approval,
     quote_drafts,
     quotes,
+    restatements,
 )
 from grip.services.errors import DomainValidationError
 from grip.services.guards import DossierClosedError
@@ -411,6 +412,37 @@ async def test_taking_up_a_task_of_the_case_is_no_activity(
     await task_service.set_status(db_session, task, "doing", actor=beheerder)
     await db_session.flush()
     assert await dossiers.last_activity_on(db_session, ended_earlier.id) == before
+
+
+async def test_taking_a_text_out_of_the_record_is_no_activity(
+    db_session, beheerder, make_assignment
+):
+    with stream.recording_at(datetime.now(UTC) - timedelta(days=7)):
+        assignment = await make_assignment()
+        await assignments.update_assignment(
+            db_session,
+            assignment.id,
+            actor=beheerder,
+            notes="Afwezig wegens een operatie aan de knie",
+        )
+        await _finish(db_session, assignment, beheerder)
+        await db_session.flush()
+    before = await dossiers.last_activity_on(db_session, assignment.id)
+    changed = await db_session.scalar(
+        select(StreamEvent.seq).where(
+            StreamEvent.subject_kind == "chronolexogram",
+            StreamEvent.subject_id == str(assignment.id),
+            StreamEvent.type == "chronolexogram.assignment_changed",
+        )
+    )
+    # Its own act, as a request of its own would be.
+    with context.scope():
+        await restatements.restate_moment(
+            db_session, assignment.id, changed, ["assignment.notes"], actor=beheerder
+        )
+        await db_session.flush()
+    assert before is not None and before < clock.today()
+    assert await dossiers.last_activity_on(db_session, assignment.id) == before
 
 
 async def test_without_any_activity_a_case_counts_from_its_row(db_session, ended):

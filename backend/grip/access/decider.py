@@ -157,6 +157,19 @@ class LocalDecider:
             if BEHEERDER in functions:
                 return allow("function:beheerder")
             return deny(_NO_GRANT)
+        if action is Action.RESTATE_FACT:
+            # Taking a text out of the record of a case is for whoever keeps the
+            # instance, not for whoever runs the case.
+            if (
+                req.resource.kind is not ResourceKind.ASSIGNMENT
+                or req.resource.assignment_id is None
+            ):
+                return deny("not_applicable")
+            return (
+                allow("function:beheerder")
+                if BEHEERDER in functions
+                else deny(_NO_GRANT)
+            )
         if action is Action.RECORD_INVOICE:
             # Whoever manages the assignment, and the beheerder.
             if BEHEERDER in functions:

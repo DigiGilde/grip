@@ -14,10 +14,11 @@ from datetime import date
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from grip.chronicle.writer import changes_of, establish
+from grip.chronicle.restate import RESTATED
+from grip.chronicle.writer import changes_of, establish, event_type
 from grip.core import clock
 from grip.core.audit import UPDATE, record_audit
 from grip.events import context, stream
@@ -212,6 +213,14 @@ async def last_activity(
     ids = list(set(assignment_ids))
     if not ids:
         return {}
+    # Taking a text out of the record corrects the record, not the case: the
+    # herstelfeit and what was recorded in the same act do not count.
+    restating = select(StreamEvent.correlation_id).where(
+        StreamEvent.type == event_type(RESTATED),
+        StreamEvent.case_kind == CASE_ASSIGNMENT,
+        StreamEvent.case_id.in_(ids),
+        StreamEvent.correlation_id.is_not(None),
+    )
     rows = await session.execute(
         select(StreamEvent.case_id, func.max(StreamEvent.occurred_at))
         .where(
@@ -220,6 +229,10 @@ async def last_activity(
             StreamEvent.type != READ_TYPE,
             StreamEvent.actor_kind.in_(_ACTIVE_ACTORS),
             StreamEvent.subject_kind.notin_(_NOT_A_CHANGE),
+            or_(
+                StreamEvent.correlation_id.is_(None),
+                StreamEvent.correlation_id.notin_(restating),
+            ),
         )
         .group_by(StreamEvent.case_id)
     )

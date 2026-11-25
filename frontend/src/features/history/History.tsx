@@ -2,11 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/auth/context';
-import { momentOf, useMoments } from '@/features/chronicle/api';
+import { momentOf, useMoments, useStand } from '@/features/chronicle/api';
 import { ChronicleView } from '@/features/chronicle/ChronicleView';
+import { RemoveTextSheet } from '@/features/chronicle/RemoveTextSheet';
 import { useInstance } from '@/layout/useInstance';
 import { Button } from '@/features/team/ui/controls';
-import { ActionBar } from '@/ui/ActionBar';
+import { ActionBar, type ActionBarFilter } from '@/ui/ActionBar';
 import { EmptyNotice, LoadError, Loading, Page, Quiet, Stack, NoAccess } from '@/ui/layout';
 import {
   HISTORY_KEYS,
@@ -167,6 +168,44 @@ const SHOW_CASE_OPTIONS = [
   { value: SHOW_CHANGES, label: 'Wijzigingen' },
 ];
 
+/** The bar over one moment: the beheerder may take a typed text out of it. */
+function MomentBar({
+  assignmentId,
+  seq,
+  filters,
+}: {
+  assignmentId: string;
+  seq: number;
+  filters: readonly ActionBarFilter[];
+}) {
+  const stand = useStand(assignmentId, seq);
+  const [removing, setRemoving] = useState(false);
+  const texts = stand.isPlaceholderData ? [] : (stand.data?.removable_texts ?? []);
+  return (
+    <>
+      <ActionBar
+        label="Geschiedenis filteren"
+        filters={filters}
+        {...(texts.length > 0
+          ? {
+              more: {
+                name: 'dit moment',
+                actions: [{ text: 'Verwijder een tekst', onSelect: () => setRemoving(true) }],
+              },
+            }
+          : {})}
+      />
+      <RemoveTextSheet
+        assignmentId={assignmentId}
+        seq={seq}
+        texts={texts}
+        open={removing}
+        onClose={() => setRemoving(false)}
+      />
+    </>
+  );
+}
+
 /** The tab "Geschiedenis" of an assignment. */
 export function AssignmentHistoryTab() {
   const { assignmentId = '' } = useParams();
@@ -184,6 +223,16 @@ export function AssignmentHistoryTab() {
     if (value === SHOW_CHANGES) next.set(SHOW_PARAM, SHOW_CHANGES);
     setParams(next);
   };
+
+  const barFilters = [
+    {
+      label: 'Toon',
+      value: show,
+      onChange: setShow,
+      options: SHOW_CASE_OPTIONS,
+      width: '200px',
+    },
+  ];
 
   if (chronicle.isPending || chronicle.isError) {
     return (
@@ -203,18 +252,11 @@ export function AssignmentHistoryTab() {
   return (
     <nldd-simple-section>
       <Stack gap="group">
-        <ActionBar
-          label="Geschiedenis filteren"
-          filters={[
-            {
-              label: 'Toon',
-              value: show,
-              onChange: setShow,
-              options: SHOW_CASE_OPTIONS,
-              width: '200px',
-            },
-          ]}
-        />
+        {seq === null ? (
+          <ActionBar label="Geschiedenis filteren" filters={barFilters} />
+        ) : (
+          <MomentBar assignmentId={assignmentId} seq={seq} filters={barFilters} />
+        )}
         {show === SHOW_CHANGES ? (
           <HistoryList filters={filters} label="Geschiedenis" show="changes" />
         ) : (

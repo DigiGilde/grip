@@ -601,6 +601,7 @@ describe('where an assignment stands, in its head', () => {
         course: null,
         outside: [],
         later_known: [],
+        restated: [],
         quotes: [],
         incomplete: false,
       },

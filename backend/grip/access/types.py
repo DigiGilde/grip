@@ -111,6 +111,9 @@ class Action(StrEnum):
     MANAGE_ROLES = "manage_roles"
     # Close, reopen or keep open the dossier of an ended assignment (ADR 0057).
     CLOSE_DOSSIER = "close_dossier"
+    # Take a typed text that never belonged out of a moment of an assignment,
+    # with a herstelfeit (ADR 0057).
+    RESTATE_FACT = "restate_fact"
     # Record an advice or the approval on a vacancy request.
     RECORD_DECISION = "record_decision"
     # Judge a text of a vacancy that was offered for review, and remark on it.

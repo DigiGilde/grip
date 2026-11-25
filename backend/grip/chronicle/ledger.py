@@ -35,6 +35,9 @@ class Gram:
     origin: str | None = None
     origin_peer: str | None = None
     correlation_id: str | None = None
+    # The facts that later took a typed text out of this one, oldest first: its
+    # fields are what the last of them recorded (ADR 0057).
+    restated_by: tuple[int, ...] = ()
 
     @property
     def erased(self) -> bool:

@@ -8,6 +8,7 @@ import { ZONE } from '@/lib/today';
 import type {
   LaterKnown,
   Moment,
+  Restatement,
   StandAcceptance,
   StandApproval,
   StandBudgetLine,
@@ -57,6 +58,14 @@ export function momentByline(moment: Moment): string {
 /** A sentence names its own day; who gets only a title may not know that day. */
 export function laterKnownText(later: LaterKnown): string {
   return `Later vastgelegd: ${later.statement ?? later.title}`;
+}
+
+const DUTCH_LIST = new Intl.ListFormat('nl', { style: 'long', type: 'conjunction' });
+
+/** Where a text of this moment was taken out later, without saying what it was. */
+export function restatedText(restatement: Restatement): string {
+  const labels = restatement.removed.map((label) => label.charAt(0).toLowerCase() + label.slice(1));
+  return `Later verwijderd: ${DUTCH_LIST.format(labels)}`;
 }
 
 /** The quiet line under a budget line: what the reader may see of it, unless its name says it. */

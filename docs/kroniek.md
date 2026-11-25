@@ -106,6 +106,7 @@ Een feit wordt nooit herschreven, dus een feit van vóór een nieuwe kolom zegt 
 |---|---|
 | `GET /api/assignments/{id}/chronicle` | De momenten, oudste eerst. |
 | `GET /api/assignments/{id}/chronicle/{seq}` | De stand op dat moment. Een `seq` die geen moment van deze opdracht is, geeft 404. |
+| `POST /api/assignments/{id}/chronicle/{seq}/restate` | Een getypte tekst uit dat moment halen (zie hieronder). |
 
 De service (`grip.services.chronicle`) maakt het antwoord; de route beslist alleen wie wat mag lezen.
 
@@ -136,6 +137,27 @@ Op positie N:
 Het feit is het eerste van zijn handeling: wijzigingsregels komen erna. Wat buiten de zaak ligt, wordt daarom gesneden aan het einde van de handeling: het hoogste volgnummer met hetzelfde correlatie-id én hetzelfde moment van de transactie, onder het volgende feit van de kroniek. Een correlatie-id alleen is niet genoeg: een aanroeper kan hem zelf kiezen (een traceparent) en zo meerdere verzoeken onder één id brengen.
 
 Geen regel wordt herhaald. De feiten van het verloop komen uit `assignment_snapshot`, het verloop uit `course.at_moment` (dezelfde `views_of` als live), de bedragen uit `grip.calc`, en de vraag of de begroting verschoof uit `budget_fingerprint`.
+
+## Een tekst die er nooit in hoorde
+
+Een beheerder haalt in een moment een getypte tekst weg die er nooit in hoorde, zoals gegevens over iemands gezondheid in de notities (ADR 0057). Het kan gaan om de naam of de notities van de opdracht, de toelichting bij een mondeling akkoord, de omschrijving van een begrotingsregel en de reden bij een statuswijziging of een gecorrigeerde datum. De lijst staat op één plek: `TYPED_TEXTS` in `grip.chronicle.restate`, met het label per tekst. Wat alleen in de rij staat (`ROW_ONLY_COLUMNS`) hoort er niet bij: dat is de rij bijwerken.
+
+De database wist alleen alle waarden van een gebeurtenis tegelijk, nooit één veld. Daarom doet `grip.services.restatements` in één transactie dit:
+
+- Elk feit van de zaak waarin de tekst staat, krijgt een herstelfeit (`fact_restated`, op het scherm "Tekst verwijderd"): hetzelfde feit zonder de tekst. Dat geldt ook voor een herstelfeit zelf, als later nog een tekst uit hetzelfde moment gaat. Ook de naam van een regel in een later feit verliest zo de omschrijving.
+- Een kolom die leeg mag zijn, wordt leeg. Een kolom die dat niet mag (de naam, de omschrijving) krijgt "Tekst verwijderd". Staat de tekst als woord of zin in een langere tekst, dan komt "Tekst verwijderd" op haar plaats. Een tekst van minder dan acht tekens (`MIN_EMBEDDED`) gaat alleen waar hij de hele waarde is: binnen een langere waarde is zo'n kort stukje te vaak toeval.
+- Een herstelfeit telt niet als activiteit voor het dossier (`grip.services.dossiers.last_activity`): het herstelt de vastlegging, niet de zaak. Wat in dezelfde handeling is vastgelegd, telt ook niet.
+- Het herstelfeit bevat het volgnummer en de naam van het feit dat het herstelt, de velden zonder de tekst, de soort, het plan en de dagen van dat feit, waar de tekst stond met het label (nooit de tekst), en de rijen die de tekst nog hebben (`patches`). Een rij krijgt alleen een patch als het laatste feit dat die kolom schreef een herstelde is; heeft een later feit de kolom al veranderd, dan blijft de rij zoals ze is. Het wordt geschreven met `establish`, zoals elk feit.
+- Daarna worden de herstelde feiten gewist, en elke andere gebeurtenis van de zaak waarin de tekst staat: wijzigingsregels, domeingebeurtenissen, regels over mail. Een feit wordt nooit alleen gewist. Wie op een regel staat (`allocation`) blijft staan: daar staat geen getypte tekst in, en een stand leest het.
+- Niet geraakt: de bevroren inhoud van een uitgegeven offerte en wat al naar een andere organisatie is gestuurd. Staat de tekst in een offerte, dan zeggen het scherm en het antwoord dat.
+
+Bij het lezen zet `ChronicleRepository` het herstelfeit op de plaats van het gewiste feit: zelfde positie, met de velden, de soort en de dagen uit het herstelfeit, en in `Gram.restated_by` welke herstelfeiten er een tekst uit haalden. Het leest de herstelfeiten ook voorbij de snede, dus een stand van vóór het herstelfeit is ook heel. Het herstelfeit zelf vouwt als zijn patches; na de vervanging verandert dat niets meer. De vouwing blijft puur (`grip.chronicle.restate.substituted`). Zo blijven de stand van het herstelde moment en elke latere stand compleet, en vergelijken `differences` en `kroniek-check` gewoon verder.
+
+`POST /api/assignments/{id}/chronicle/{seq}/restate` krijgt `{"columns": [...]}`, de sleutels uit `TYPED_TEXTS`, en antwoordt met de stand van dat moment (`stand`) en de offertes die de tekst houden (`kept`). Alleen de beheerder mag het (`restate_fact`). Een `seq` die geen moment van deze opdracht is, of een moment dat gewist is zonder herstelfeit, geeft 404; een sleutel zonder tekst in dat moment geeft 422 met een zin.
+
+Een stand noemt in `restated` de herstelfeiten die later een tekst uit dat moment haalden, met de labels; het herstelfeit is een eigen moment in de lijst. Alleen wie een tekst mag weghalen, krijgt in een stand `removable_texts`: per tekst de sleutel, het label, de tekst en de offertes waarin ze ook staat. Voor ieder ander is dat veld leeg.
+
+Een omschrijving die ook in een uitgegeven offerte staat, wijkt daarna af van die offerte. Zolang die offerte openstaat, zegt het verloop dan dat de offerte niet meer bij de begroting past, live en in een stand van na de offerte.
 
 ## Controleren
 

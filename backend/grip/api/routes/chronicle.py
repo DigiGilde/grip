@@ -1,6 +1,7 @@
 """The chronicle of an assignment: its moments, and how things stood at each.
 
-Rights are those of now. Nothing here writes.
+Rights are those of now. Reading writes nothing; taking a typed text out of a
+moment is the one act here (ADR 0057).
 """
 
 from __future__ import annotations
@@ -12,13 +13,15 @@ from fastapi import APIRouter, Depends
 
 from grip.access import Action, DataClass, Resource, build_response, schema_classes
 from grip.api.assignment_support import DbSession, RequestAccess
+from grip.core.auth import CurrentPerson
 from grip.core.config import Settings, get_settings
-from grip.schema.chronicle import MomentsOut, StandOut
-from grip.services import chronicle
+from grip.schema.chronicle import MomentsOut, RestatedStandOut, RestateIn, StandOut
+from grip.services import chronicle, restatements
 
 router = APIRouter(tags=["chronicle"])
 
 _CLASSES = schema_classes(StandOut)
+_RESTATED_CLASSES = schema_classes(RestatedStandOut)
 
 
 async def _reader(
@@ -30,7 +33,10 @@ async def _reader(
     )
     classes = await access.classes(resource, _CLASSES)
     return (
-        chronicle.Reader(manages=await access.may(Action.ISSUE_QUOTE, resource)),
+        chronicle.Reader(
+            manages=await access.may(Action.ISSUE_QUOTE, resource),
+            restates=await access.may(Action.RESTATE_FACT, resource),
+        ),
         classes,
     )
 
@@ -63,3 +69,38 @@ async def read_stand(
         instance_base_uri=settings.INSTANCE_BASE_URI,
     )
     return build_response(stand, classes)
+
+
+@router.post(
+    "/assignments/{assignment_id}/chronicle/{seq}/restate", response_model=None
+)
+async def restate_moment(
+    assignment_id: UUID,
+    seq: int,
+    body: RestateIn,
+    person: CurrentPerson,
+    access: RequestAccess,
+    db: DbSession,
+    settings: Settings = Depends(get_settings),
+) -> dict[str, Any]:
+    """Take typed texts out of a moment: it is recorded again without them."""
+    resource = Resource.assignment(assignment_id)
+    await access.require(
+        Action.READ, resource, DataClass.ASSIGNMENT_BASIC, hide_existence=True
+    )
+    await access.require(Action.RESTATE_FACT, resource)
+    done = await restatements.restate_moment(
+        db, assignment_id, seq, body.columns, actor=person
+    )
+    reader, _classes = await _reader(access, assignment_id)
+    stand = await chronicle.stand(
+        db,
+        assignment_id,
+        seq,
+        reader,
+        instance_base_uri=settings.INSTANCE_BASE_URI,
+    )
+    return build_response(
+        RestatedStandOut(stand=stand, kept=done.kept),
+        await access.classes(resource, _RESTATED_CLASSES),
+    )

@@ -65,6 +65,7 @@ FACT_NAMES = frozenset(
         "dossier_closed",
         "dossier_kept_open",
         "dossier_reopened",
+        "fact_restated",
         "invitation_opened",
         "invitation_renewed",
         "invitation_withdrawn",

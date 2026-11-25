@@ -11,7 +11,7 @@ import { MOMENT_PARAM, useStand, type Moment, type Stand } from './api';
 import { StandAssignmentPart } from './StandAssignmentPart';
 import { StandBudgetPart } from './StandBudgetPart';
 import { StandQuotesPart } from './StandQuotesPart';
-import { laterKnownText, momentByline, momentText, standTitle } from './words';
+import { laterKnownText, momentByline, momentText, restatedText, standTitle } from './words';
 
 const DECISION = 'Besluit';
 
@@ -161,6 +161,14 @@ function StandAtMoment({
             key={later.seq}
             href={momentHref(assignmentId, later.seq)}
             text={laterKnownText(later)}
+            size="sm"
+          />
+        ))}
+        {stand.restated.map((entry) => (
+          <nldd-link
+            key={entry.seq}
+            href={momentHref(assignmentId, entry.seq)}
+            text={restatedText(entry)}
             size="sm"
           />
         ))}
