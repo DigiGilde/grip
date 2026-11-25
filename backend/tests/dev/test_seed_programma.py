@@ -79,10 +79,11 @@ async def test_organisations_match_the_instances(db_session, seeded):
     }
     assert rows["MOZa voorbeeld"].instance_uri == get_settings().INSTANCE_BASE_URI
     assert rows["Voorbeeldgilde"].instance_uri == programma.DIGIGILDE_INSTANCE_URI
-    assert rows["Ministerie van BZK voorbeeld"].instance_uri == programma.MINISTRY_INSTANCE_URI
+    ministry = rows["Ministerie van BZK voorbeeld"]
+    assert ministry.instance_uri == programma.MINISTRY_INSTANCE_URI
     assert rows["Voorbeeldbeheerorganisatie"].instance_uri is None
     # The identifiers of the default dataset, so the instances agree.
-    assert rows["Ministerie van BZK voorbeeld"].tooi_uri.endswith("/ministerie/mnre9001")
+    assert ministry.tooi_uri.endswith("/ministerie/mnre9001")
     assert rows["Voorbeeldgilde"].tooi_uri.endswith("/oorg/oorg99002")
 
 
