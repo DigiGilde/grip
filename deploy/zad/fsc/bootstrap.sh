@@ -22,7 +22,7 @@
 # INWAY_ADDRESS_<K> and the service endpoint with ENDPOINT_URL_<K>.
 #
 # PEERS names the instances that take part (default "a b d"); "a d" makes
-# the group with DigiGilde voorbeeld and the Voorbeeldprogramma only, and
+# the group with DigiGilde voorbeeld and MOZa voorbeeld only, and
 # DEPLOYMENT_B can then stay unset.
 #
 # --dry-run prints the calls and executes none.
@@ -48,7 +48,7 @@ group="grip-voorbeeld"
 dir_peer="01800000000000000099"
 
 peer_id_of() { case "$1" in a) echo 01800000000000000001 ;; b) echo 01800000000000000002 ;; d) echo 01800000000000000004 ;; esac; }
-name_of() { case "$1" in a) echo "DigiGilde voorbeeld" ;; b) echo "Voorbeeldministerie" ;; d) echo "Voorbeeldprogramma" ;; esac; }
+name_of() { case "$1" in a) echo "DigiGilde voorbeeld" ;; b) echo "Ministerie van BZK voorbeeld" ;; d) echo "MOZa voorbeeld" ;; esac; }
 tooi_of() {
     case "$1" in
         a) echo "https://identifier.overheid.nl/tooi/id/oorg/oorg99002" ;;

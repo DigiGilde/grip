@@ -2,8 +2,8 @@
 code: MIN-FEZ
 naam: Coen Controle
 rol: Controller FEZ
-organisatie: Voorbeeldministerie
-eenheid: Directie Financieel-Economische Zaken Voorbeeld
+organisatie: Ministerie van BZK voorbeeld
+eenheid: Directie Financieel-Economische Zaken BZK voorbeeld
 fgr:
   functie: Senior Adviseur Bedrijfsvoering
   familie: Bedrijfsvoering
@@ -14,7 +14,7 @@ mandaat:
   tekst: "Geen mandaat om te verplichten; adviseert over en houdt toezicht op voorstellen met financiële gevolgen. Naar het voorbeeld van het Mandaatbesluit BZK 2025 is instemming van de FEZ-controller nodig als een directeur boven zijn grens wil verplichten"
   bron: https://wetten.overheid.nl/BWBR0041910/
 grips:
-  - instantie: Voorbeeldministerie
+  - instantie: Ministerie van BZK voorbeeld
     toegang: account
     rechten: [lezer]
     relaties: []
@@ -52,7 +52,7 @@ Hij verplicht niets zelf. Zijn instemming is een voorwaarde voor wat boven de gr
 
 ## In Grip
 
-**Voorbeeldministerie** (account, lezer). Hij landt op Start en ziet Start, Taken, Opdrachten, Vacatures, Financieel en Rapportage. Als lezer leest hij de basis en de bedragen van alle opdrachten in de grip van het ministerie, maar niet wie erop werkt of tegen welk tarief. Aanvragen staat niet in zijn balk. Hij doet geen stap in een werkstroom.
+**Ministerie van BZK voorbeeld** (account, lezer). Hij landt op Start en ziet Start, Taken, Opdrachten, Vacatures, Financieel en Rapportage. Als lezer leest hij de basis en de bedragen van alle opdrachten in de grip van het ministerie, maar niet wie erop werkt of tegen welk tarief. Aanvragen staat niet in zijn balk. Hij doet geen stap in een werkstroom.
 
 ## Wat Grip nog niet kan
 
@@ -63,7 +63,7 @@ Hij verplicht niets zelf. Zijn instemming is een voorwaarde voor wat boven de gr
 - **Verrekenen tussen onderdelen.** Factuur, doorbelasting of overboeking is een open vraag.
 - **Prestatieverklaring.** Er is geen bewijs dat geleverd is voor er betaald wordt.
 - **Budget van een programma.** Geen budget boven de opdrachten.
-- **Dataset voor het Voorbeeldministerie.**
+- **Dataset voor het Ministerie van BZK voorbeeld.**
 
 ## Bronnen
 

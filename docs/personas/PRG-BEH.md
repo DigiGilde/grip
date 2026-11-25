@@ -2,7 +2,7 @@
 code: PRG-BEH
 naam: Bram Beheer
 rol: Beheerder van de grip van het programma
-organisatie: Voorbeeldprogramma
+organisatie: MOZa voorbeeld
 eenheid: Programmabureau
 fgr:
   functie: Senior Medewerker IV
@@ -14,7 +14,7 @@ mandaat:
   tekst: "Geen financieel mandaat; beheert de rechten in grip in opdracht van de programmadirecteur"
   bron: aanname
 grips:
-  - instantie: Voorbeeldprogramma
+  - instantie: MOZa voorbeeld
     toegang: account
     rechten: [beheerder]
     relaties: []
@@ -52,7 +52,7 @@ Geen financieel mandaat [aanname]. Een beheerder wijzigt geen begroting, inzet o
 
 ## In Grip
 
-**Voorbeeldprogramma** (account, beheerder). Hij landt op Start en ziet alle plekken, ook Beheer. Hij leest alle gegevensklassen. "De dag van de beheerder" uit de rondgang is zijn reis: opdracht aanmaken, persoon toevoegen, rechten toekennen, eigenaar aanwijzen, koppelingen, "Bekijk als". In "Een opdracht uitvoeren en factureren" is hij de enige die een maand heropent; in "Iemand werven" kan hij een vacature maken en een advies vastleggen van iemand zonder account. Een offerte maken en een maand afsluiten kan hij niet, ook als beheerder niet.
+**MOZa voorbeeld** (account, beheerder). Hij landt op Start en ziet alle plekken, ook Beheer. Hij leest alle gegevensklassen. "De dag van de beheerder" uit de rondgang is zijn reis: opdracht aanmaken, persoon toevoegen, rechten toekennen, eigenaar aanwijzen, koppelingen, "Bekijk als". In "Een opdracht uitvoeren en factureren" is hij de enige die een maand heropent; in "Iemand werven" kan hij een vacature maken en een advies vastleggen van iemand zonder account. Een offerte maken en een maand afsluiten kan hij niet, ook als beheerder niet.
 
 ## Wat Grip nog niet kan
 

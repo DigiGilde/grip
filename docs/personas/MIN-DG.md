@@ -2,8 +2,8 @@
 code: MIN-DG
 naam: Dorien Digitalisering
 rol: Directeur-generaal, beleidsverantwoordelijke
-organisatie: Voorbeeldministerie
-eenheid: DG Voorbeeld Digitalisering
+organisatie: Ministerie van BZK voorbeeld
+eenheid: DG Digitalisering en Overheid voorbeeld
 fgr:
   functie: Topmanager
   familie: Lijnmanagement
@@ -14,7 +14,7 @@ mandaat:
   tekst: "Naar het voorbeeld van het Mandaatbesluit BZK 2025: tot € 10 miljoen per verplichting; daarboven schriftelijk mandaat en instemming van de directeur FEZ. ICT-verplichtingen boven € 10 miljoen met een gezamenlijke volmacht van SG of plv-SG en DG"
   bron: https://wetten.overheid.nl/BWBR0051453/
 grips:
-  - instantie: Voorbeeldministerie
+  - instantie: Ministerie van BZK voorbeeld
     toegang: account
     rechten: [lezer]
     relaties: []
@@ -32,11 +32,11 @@ Dorien is directeur-generaal en draagt de politieke opdracht voor digitalisering
 
 - Het beleid en het budget van het DG, en de keuze welke programma's er zijn.
 - Beleidsverantwoordelijke voor wat het DG afneemt bij de agentschappen van het ministerie, in de termen van de Regeling agentschappen 2024 ([bron](https://wetten.overheid.nl/BWBR0050264/)). In oudere stukken heet dat opdrachtgever, naast eigenaar en opdrachtnemer.
-- Voorzitter van de stuurgroep van het Voorbeeldprogramma [aanname].
+- Voorzitter van de stuurgroep van MOZa voorbeeld [aanname].
 
 ## Mandaat en handtekening
 
-Naar het voorbeeld van het Mandaatbesluit BZK 2025 gaat een DG verplichtingen aan tot € 10 miljoen; daarboven alleen met schriftelijk mandaat en instemming van de directeur FEZ. Een ICT-verplichting boven € 10 miljoen vraagt een gezamenlijke volmacht van SG of plv-SG en DG ([bron](https://wetten.overheid.nl/BWBR0051453/)). Het Voorbeeldministerie heeft geen eigen besluit; dit is het voorbeeld. In de praktijk tekent Dorien zelden: de meeste offertes liggen binnen het mandaat van een directeur [aanname].
+Naar het voorbeeld van het Mandaatbesluit BZK 2025 gaat een DG verplichtingen aan tot € 10 miljoen; daarboven alleen met schriftelijk mandaat en instemming van de directeur FEZ. Een ICT-verplichting boven € 10 miljoen vraagt een gezamenlijke volmacht van SG of plv-SG en DG ([bron](https://wetten.overheid.nl/BWBR0051453/)). Het Ministerie van BZK voorbeeld heeft geen eigen besluit; dit is het voorbeeld. In de praktijk tekent Dorien zelden: de meeste offertes liggen binnen het mandaat van een directeur [aanname].
 
 ## Wat die nodig heeft
 
@@ -52,7 +52,7 @@ Naar het voorbeeld van het Mandaatbesluit BZK 2025 gaat een DG verplichtingen aa
 
 ## In Grip
 
-**Voorbeeldministerie** (account, lezer). Ze landt op Start en ziet Start, Taken, Opdrachten, Vacatures, Financieel en Rapportage. Als lezer leest ze de basis en de bedragen van alle opdrachten in de grip van het ministerie, maar niet wie erop werkt of tegen welk tarief. Aanvragen, de plek waar de ontvangen offertes en aanvragen van het ministerie staan, staat niet in haar balk. Ze doet geen stap in een werkstroom; ze kijkt mee zoals de lezer in "Een opdracht winnen".
+**Ministerie van BZK voorbeeld** (account, lezer). Ze landt op Start en ziet Start, Taken, Opdrachten, Vacatures, Financieel en Rapportage. Als lezer leest ze de basis en de bedragen van alle opdrachten in de grip van het ministerie, maar niet wie erop werkt of tegen welk tarief. Aanvragen, de plek waar de ontvangen offertes en aanvragen van het ministerie staan, staat niet in haar balk. Ze doet geen stap in een werkstroom; ze kijkt mee zoals de lezer in "Een opdracht winnen".
 
 ## Wat Grip nog niet kan
 
@@ -61,7 +61,7 @@ Naar het voorbeeld van het Mandaatbesluit BZK 2025 gaat een DG verplichtingen aa
 - **Budget van een programma.** Het jaarbudget van het programma is in grip één opdracht, geen budget boven de opdrachten.
 - **Overleg.** Gepland: de stuurgroep als reeks, besluiten en acties als taken die zij via federatie kan volgen, een vastgesteld verslag.
 - **Grote ICT-activiteit.** Geen kenmerk en geen plek voor het oordeel van de CIO.
-- **Dataset voor het Voorbeeldministerie.** Er is geen voorbeeldpersoon voor deze persona.
+- **Dataset voor het Ministerie van BZK voorbeeld.** Er is geen voorbeeldpersoon voor deze persona.
 
 ## Bronnen
 

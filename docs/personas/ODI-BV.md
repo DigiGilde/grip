@@ -57,7 +57,7 @@ Naar het voorbeeld van het Mandaatbesluit BZK 2025 (bijlage 1) gaat een directeu
 
 ## In Grip
 
-**Rijksorganisatie Voorbeeld ODI** (account, lezer; de moederinstantie van DigiGilde). In de voorbeelden bestaat die instantie nog niet: er zijn er drie, DigiGilde voorbeeld, Voorbeeldministerie en Voorbeeldprogramma. Wat hieronder staat, is wat de bestaande doorgifte van DigiGilde aan de moeder oplevert, niet wat een scherm toont.
+**Rijksorganisatie Voorbeeld ODI** (account, lezer; de moederinstantie van DigiGilde). In de voorbeelden bestaat die instantie nog niet: er zijn er drie, DigiGilde voorbeeld, Ministerie van BZK voorbeeld en MOZa voorbeeld. Wat hieronder staat, is wat de bestaande doorgifte van DigiGilde aan de moeder oplevert, niet wat een scherm toont.
 
 **DigiGilde voorbeeld** (via federatie). Hij leest de kosten met overhead en dekking en de factuurgegevens die het gilde doorgeeft, naast de omzet.
 

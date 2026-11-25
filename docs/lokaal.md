@@ -118,7 +118,7 @@ De lokale Keycloak (`just local-up keycloak`) heeft drie gebruikers om de paden 
 
 | | Instantie A | Instantie B | Instantie D |
 |---|---|---|---|
-| Naam | DigiGilde voorbeeld | Voorbeeldministerie | Voorbeeldprogramma |
+| Naam | DigiGilde voorbeeld | Ministerie van BZK voorbeeld | MOZa voorbeeld |
 | Rol | opdrachtnemer | opdrachtgever (financiert het programma) | programma (geeft opdrachten aan A) |
 | Adres | http://localhost:9001 | http://localhost:9002 | http://localhost:9003 |
 | Peer-id | 01700000000000000001 | 01700000000000000002 | 01700000000000000004 |
@@ -157,7 +157,7 @@ just local-fsc-init --voorbeeld   # met elke peer als voorbeeld gemarkeerd
 
 Log in als `testbeheerder` (wachtwoord in `deploy/local/state/secrets.env`). Je komt binnen als bezoeker en kijkt als een voorbeeldpersoon; `EXAMPLE_VISITORS` is `grip.invalid`. De instellingen staan in `deploy/local/compose.fsc-voorbeeld.yml`: `INSTANCE_MODE=voorbeeld`, `EXAMPLE_FSC_GROUP=grip-local` (de groep van de lokale contracten) en geen `BOOTSTRAP_BEHEERDER_EMAILS`.
 
-Wat je ziet: de kostenpost "Zaalhuur bijeenkomst ondernemers november" van het Voorbeeldprogramma gaat na `fsc-init` naar het Voorbeeldgilde, en het programma leest hem daar terug. Terugzetten met de hand: `docker compose -p grip-local exec worker-d python -m grip.core.example` (en hetzelfde voor A); daarna gaat het wachtende verzoek opnieuw. Zet je `EXAMPLE_RESET_HOUR` op het huidige uur om de nachtelijke reset te zien, dan verstuurt een voorbeeld in de eerste tien minuten van dat uur niets.
+Wat je ziet: de kostenpost "Zaalhuur bijeenkomst ondernemers november" van MOZa voorbeeld gaat na `fsc-init` naar het Voorbeeldgilde, en het programma leest hem daar terug. Terugzetten met de hand: `docker compose -p grip-local exec worker-d python -m grip.core.example` (en hetzelfde voor A); daarna gaat het wachtende verzoek opnieuw. Zet je `EXAMPLE_RESET_HOUR` op het huidige uur om de nachtelijke reset te zien, dan verstuurt een voorbeeld in de eerste tien minuten van dat uur niets.
 
 Zonder `--voorbeeld` zijn de peers niet gemarkeerd en wisselen de voorbeelden niets uit: dat is de grens van ADR 0054. Terug naar de gewone modi kan zonder iets weg te gooien; `just local-nuke` gooit ook de voorbeelddatabases weg.
 
@@ -254,7 +254,7 @@ De voorbeeldgegevens van grip en van Wies kennen elkaars mensen niet. Het voorst
 
 | | Deelnemer C |
 |---|---|
-| Naam | Corpus Voorbeeldministerie |
+| Naam | Corpus Ministerie van BZK voorbeeld |
 | Peer-id | 01700000000000000003 |
 | Dienst | `corpus-context` |
 | FSC-controller | http://localhost:9103 |

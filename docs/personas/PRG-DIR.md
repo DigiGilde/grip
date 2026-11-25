@@ -2,7 +2,7 @@
 code: PRG-DIR
 naam: Mila Programma
 rol: Programmadirecteur
-organisatie: Voorbeeldprogramma
+organisatie: MOZa voorbeeld
 eenheid: Programmaleiding
 fgr:
   functie: Project-/Programmadirecteur
@@ -14,7 +14,7 @@ mandaat:
   tekst: "Naar het voorbeeld van het Mandaatbesluit BZK 2025: als programmamanager in het kerndepartement tot € 50.000 per verplichting; is zij als directeur aangewezen, dan tot € 2 miljoen. Welke grens geldt, regelt het mandaatbesluit van het eigen ministerie"
   bron: https://wetten.overheid.nl/BWBR0051453/
 grips:
-  - instantie: Voorbeeldprogramma
+  - instantie: MOZa voorbeeld
     toegang: account
     rechten: [aanvrager, tekenbevoegde]
     relaties: [eigenaar, lid, leidinggevende]
@@ -26,7 +26,7 @@ grips:
     relaties: []
     voorbeeldpersoon: null
     dataset: null
-  - instantie: Voorbeeldministerie
+  - instantie: Ministerie van BZK voorbeeld
     toegang: via-federatie
     rechten: []
     relaties: []
@@ -38,13 +38,13 @@ grips:
 
 ## Wie
 
-Mila leidt het Voorbeeldprogramma: drie diensten, een klein vast team en een groot deel van het werk bij het gilde en de beheerorganisatie. Ze staat tussen de directeur die het geld geeft en de teams die het uitgeven, en moet aan beide kanten kunnen uitleggen waar het staat.
+Mila leidt MOZa voorbeeld: drie diensten, een klein vast team en een groot deel van het werk bij het gilde en de beheerorganisatie. Ze staat tussen de directeur die het geld geeft en de teams die het uitgeven, en moet aan beide kanten kunnen uitleggen waar het staat.
 
 ## Verantwoordelijk voor
 
 - Het resultaat van het programma binnen het budget dat de directie toekent.
 - Opdrachten aan het gilde en de beheerorganisatie: aanvragen en tekenen.
-- Het jaarbudget van het programma, dat in de dataset de opdracht "Voorbeeldprogramma 2026" van het ministerie is.
+- Het jaarbudget van het programma, dat in de dataset de opdracht "MOZa voorbeeld 2026" van het ministerie is.
 - Leidinggevende van het vaste team van het programma.
 
 ## Mandaat en handtekening
@@ -65,7 +65,7 @@ Het Functiegebouw Rijk zegt dat een programmadirecteur werkt "binnen geldende af
 
 ## In Grip
 
-**Voorbeeldprogramma** (account, aanvrager en tekenbevoegde, eigenaar van de opdracht van het programma). Ze landt op Start en ziet Start, Taken, Opdrachten, Team, Vacatures, Financieel, Rapportage en Aanvragen.
+**MOZa voorbeeld** (account, aanvrager en tekenbevoegde, eigenaar van de opdracht van het programma). Ze landt op Start en ziet Start, Taken, Opdrachten, Team, Vacatures, Financieel, Rapportage en Aanvragen.
 
 - Als eigenaar loopt ze "Een opdracht winnen" voor het jaarbudget: begroting, offerte, aanbieden aan het ministerie, akkoord, starten.
 - In "Een opdracht uitvoeren en factureren" kan zij maanden afsluiten en aanleveren; in de dataset doet de controller dat.
@@ -74,7 +74,7 @@ Het Functiegebouw Rijk zegt dat een programmadirecteur werkt "binnen geldende af
 
 **DigiGilde voorbeeld** (via federatie). De aanvraag gaat naar het gilde, de offerte komt terug, haar akkoord gaat ondertekend terug. De uitputting vraagt ze op als het gilde dat toestaat.
 
-**Voorbeeldministerie** (via federatie). De offerte voor het jaarbudget gaat naar de grip van het ministerie, waar de directeur tekent.
+**Ministerie van BZK voorbeeld** (via federatie). De offerte voor het jaarbudget gaat naar de grip van het ministerie, waar de directeur tekent.
 
 ## Wat Grip nog niet kan
 

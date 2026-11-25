@@ -2,38 +2,38 @@
 
 Wie werkt met grip, wat die persoon in het werk moet doen, en wat grip daarvoor biedt of nog niet biedt. Elke persona heeft een vaste code, zodat documentatie, ADR's, taken en tests naar dezelfde persoon kunnen wijzen.
 
-De personas zijn verzonnen. De organisaties zijn een spiegel van hoe de Rijksoverheid echt is ingericht, met verzonnen namen. Wetten, regelingen, fiches en functiegroepen zijn echt en staan met een bron onderaan. Echte personen worden nooit genoemd.
+De personas zijn verzonnen. De organisaties zijn een spiegel van hoe de Rijksoverheid echt is ingericht. Een organisatie die echt bestaat draagt haar echte naam met "voorbeeld" erachter, zoals Ministerie van BZK voorbeeld; de mensen en bedragen zijn verzonnen. ODI en de beheerorganisatie hebben een verzonnen naam. Wetten, regelingen, fiches en functiegroepen zijn echt en staan met een bron onderaan. Echte personen worden nooit genoemd.
 
 ## Een persona noemen
 
 - Gebruik de code als linktekst: `[PRG-PO](personas/PRG-PO.md)` vanuit `docs/`, `[PRG-PO](../personas/PRG-PO.md)` vanuit `docs/adr/`.
 - In code, tests en issues noem je alleen de code: "persona PRG-PO".
 - Een code wordt nooit hergebruikt of hernoemd. Valt een persona af, dan blijft het bestand staan met bovenaan waarom.
-- De code bestaat uit de plek en de rol: `MIN` het Voorbeeldministerie, `PRG` het Voorbeeldprogramma, `GLD` DigiGilde voorbeeld, `ODI` Rijksorganisatie Voorbeeld ODI, het agentschap waar DigiGilde onder valt, `BHO` de Voorbeeldbeheerorganisatie.
+- De code bestaat uit de plek en de rol: `MIN` het Ministerie van BZK voorbeeld, `PRG` MOZa voorbeeld, `GLD` DigiGilde voorbeeld, `ODI` Rijksorganisatie Voorbeeld ODI, het agentschap waar DigiGilde onder valt, `BHO` de Voorbeeldbeheerorganisatie.
 
 Elk bestand begint met vaste gegevens (front matter): code, naam, rol, organisatie, eenheid, de functiegroep uit het Functiegebouw Rijk, het mandaat en per grip de toegang, de rechten in grip, de relaties en de persoon uit een voorbeelddataset. Daarna volgen dezelfde koppen in dezelfde volgorde: Wie, Verantwoordelijk voor, Mandaat en handtekening, Wat die nodig heeft, Ritme, In Grip, Wat Grip nog niet kan, Bronnen.
 
 ## De organisaties
 
-De boom volgt het patroon van een echt ministerie met een directoraat-generaal voor digitalisering, een directie die programma's uitvoert, een CIO-directie, een agentschap met een gilde van experts en een agentschap voor beheer. Het patroon komt uit het register [organisaties.overheid.nl](https://organisaties.overheid.nl). De namen zijn verzonnen.
+De boom volgt het patroon van een echt ministerie met een directoraat-generaal voor digitalisering, een directie die programma's uitvoert, een CIO-directie, een agentschap met een gilde van experts en een agentschap voor beheer. Het patroon komt uit het register [organisaties.overheid.nl](https://organisaties.overheid.nl). MOZa voorbeeld wordt, zoals het echte programma, gefinancierd uit de middelen voor de GDI. Waar ODI, het gilde en de beheerorganisatie in de boom hangen, is een aanname.
 
 ```
-Voorbeeldministerie                                     grip: Voorbeeldministerie (instantie B)
-├── SG Voorbeeldministerie
-├── Directie Financieel-Economische Zaken Voorbeeld     plaats in de boom: aanname
-├── DG Voorbeeld Digitalisering
-│   ├── Directie CIO Voorbeeld
-│   └── Directie Voorbeeld Digitale Overheid
-│       └── Voorbeeldprogramma                          grip: Voorbeeldprogramma (instantie D)
+Ministerie van BZK voorbeeld                              grip: Ministerie van BZK voorbeeld (instantie B)
+├── SG BZK voorbeeld
+├── Directie Financieel-Economische Zaken BZK voorbeeld   plaats in de boom: aanname
+├── DG Digitalisering en Overheid voorbeeld
+│   ├── Directie CIO Rijk voorbeeld
+│   └── Directie Digitale Overheid voorbeeld
+│       └── MOZa voorbeeld                                grip: MOZa voorbeeld (instantie D)
 │           ├── Dienst Voorbeeld Aanmelden
 │           ├── Dienst Voorbeeld Berichten
 │           └── Dienst Voorbeeld Machtigen
-├── Rijksorganisatie Voorbeeld ODI (agentschap)         grip: bestaat nog niet (moederinstantie)
+├── Rijksorganisatie Voorbeeld ODI (agentschap)           grip: bestaat nog niet (moederinstantie)
 │   ├── Algemeen directeur
 │   ├── Directie Bedrijfsvoering ODI
 │   └── Directie Digitalisering ODI
-│       └── DigiGilde voorbeeld                         grip: DigiGilde voorbeeld (instantie A)
-└── Voorbeeldbeheerorganisatie (agentschap)             geen eigen grip
+│       └── DigiGilde voorbeeld                           grip: DigiGilde voorbeeld (instantie A)
+└── Voorbeeldbeheerorganisatie (agentschap)               geen eigen grip
 ```
 
 - Een dienst bestaat nog niet als begrip in grip. De drie diensten staan hier omdat het werk van een programma zo is ingedeeld.
@@ -45,22 +45,22 @@ Voorbeeldministerie                                     grip: Voorbeeldministeri
 
 | Code | Naam | Organisatie | Rol | Grips |
 |---|---|---|---|---|
-| [MIN-DG](MIN-DG.md) | Dorien Digitalisering | Voorbeeldministerie | Directeur-generaal, beleidsverantwoordelijke | Voorbeeldministerie |
-| [MIN-DIR](MIN-DIR.md) | Tess Teken | Voorbeeldministerie | Directeur, budgethouder | Voorbeeldministerie; DigiGilde voorbeeld als gast |
-| [MIN-BEL](MIN-BEL.md) | Anouk Aanvraag | Voorbeeldministerie | Senior beleidsmedewerker, opdrachtgever namens de directie | Voorbeeldministerie; Voorbeeldprogramma en DigiGilde voorbeeld via federatie |
-| [MIN-FEZ](MIN-FEZ.md) | Coen Controle | Voorbeeldministerie | Controller FEZ | Voorbeeldministerie |
-| [MIN-ADM](MIN-ADM.md) | Astrid Administratie | Voorbeeldministerie | Medewerker financiële administratie, prestatieverklaarder | Voorbeeldministerie |
-| [MIN-CIO](MIN-CIO.md) | Ivo Informatie | Voorbeeldministerie | Adviseur CIO-office | Voorbeeldministerie |
-| [PRG-DIR](PRG-DIR.md) | Mila Programma | Voorbeeldprogramma | Programmadirecteur | Voorbeeldprogramma; DigiGilde voorbeeld en Voorbeeldministerie via federatie |
-| [PRG-MGR](PRG-MGR.md) | Mark Manager | Voorbeeldprogramma | Programmamanager | Voorbeeldprogramma |
-| [PRG-CTRL](PRG-CTRL.md) | Fenna Financien | Voorbeeldprogramma | Programmacontroller, ondersteunt de budgethouder | Voorbeeldprogramma; DigiGilde voorbeeld via federatie |
-| [PRG-SEC](PRG-SEC.md) | Sanne Secretariaat | Voorbeeldprogramma | Secretaris en PMO | Voorbeeldprogramma |
-| [PRG-PO](PRG-PO.md) | Pieter Product | Voorbeeldprogramma | Product owner van een dienst | Voorbeeldprogramma |
-| [PRG-TEAM](PRG-TEAM.md) | Dirk Dienstverlening | Voorbeeldprogramma | Teamlid van een dienst | Voorbeeldprogramma |
-| [PRG-BEH](PRG-BEH.md) | Bram Beheer | Voorbeeldprogramma | Beheerder van de grip van het programma | Voorbeeldprogramma |
+| [MIN-DG](MIN-DG.md) | Dorien Digitalisering | Ministerie van BZK voorbeeld | Directeur-generaal, beleidsverantwoordelijke | Ministerie van BZK voorbeeld |
+| [MIN-DIR](MIN-DIR.md) | Tess Teken | Ministerie van BZK voorbeeld | Directeur, budgethouder | Ministerie van BZK voorbeeld; DigiGilde voorbeeld als gast |
+| [MIN-BEL](MIN-BEL.md) | Anouk Aanvraag | Ministerie van BZK voorbeeld | Senior beleidsmedewerker, opdrachtgever namens de directie | Ministerie van BZK voorbeeld; MOZa voorbeeld en DigiGilde voorbeeld via federatie |
+| [MIN-FEZ](MIN-FEZ.md) | Coen Controle | Ministerie van BZK voorbeeld | Controller FEZ | Ministerie van BZK voorbeeld |
+| [MIN-ADM](MIN-ADM.md) | Astrid Administratie | Ministerie van BZK voorbeeld | Medewerker financiële administratie, prestatieverklaarder | Ministerie van BZK voorbeeld |
+| [MIN-CIO](MIN-CIO.md) | Ivo Informatie | Ministerie van BZK voorbeeld | Adviseur CIO-office | Ministerie van BZK voorbeeld |
+| [PRG-DIR](PRG-DIR.md) | Mila Programma | MOZa voorbeeld | Programmadirecteur | MOZa voorbeeld; DigiGilde voorbeeld en Ministerie van BZK voorbeeld via federatie |
+| [PRG-MGR](PRG-MGR.md) | Mark Manager | MOZa voorbeeld | Programmamanager | MOZa voorbeeld |
+| [PRG-CTRL](PRG-CTRL.md) | Fenna Financien | MOZa voorbeeld | Programmacontroller, ondersteunt de budgethouder | MOZa voorbeeld; DigiGilde voorbeeld via federatie |
+| [PRG-SEC](PRG-SEC.md) | Sanne Secretariaat | MOZa voorbeeld | Secretaris en PMO | MOZa voorbeeld |
+| [PRG-PO](PRG-PO.md) | Pieter Product | MOZa voorbeeld | Product owner van een dienst | MOZa voorbeeld |
+| [PRG-TEAM](PRG-TEAM.md) | Dirk Dienstverlening | MOZa voorbeeld | Teamlid van een dienst | MOZa voorbeeld |
+| [PRG-BEH](PRG-BEH.md) | Bram Beheer | MOZa voorbeeld | Beheerder van de grip van het programma | MOZa voorbeeld |
 | [GLD-MGR](GLD-MGR.md) | Dana Directie | DigiGilde voorbeeld | Hoofd DigiGilde | DigiGilde voorbeeld |
-| [GLD-ACC](GLD-ACC.md) | Lars Lezer | DigiGilde voorbeeld | Accountmanager | DigiGilde voorbeeld; Voorbeeldprogramma via federatie |
-| [GLD-EIG](GLD-EIG.md) | Priya Product | DigiGilde voorbeeld | Opdrachteigenaar en opdrachtmanager | DigiGilde voorbeeld; Voorbeeldprogramma via federatie |
+| [GLD-ACC](GLD-ACC.md) | Lars Lezer | DigiGilde voorbeeld | Accountmanager | DigiGilde voorbeeld; MOZa voorbeeld via federatie |
+| [GLD-EIG](GLD-EIG.md) | Priya Product | DigiGilde voorbeeld | Opdrachteigenaar en opdrachtmanager | DigiGilde voorbeeld; MOZa voorbeeld via federatie |
 | [GLD-PLAN](GLD-PLAN.md) | Pim Planner | DigiGilde voorbeeld | Planner en teamleider | DigiGilde voorbeeld |
 | [GLD-VAK](GLD-VAK.md) | Lotte Leiding | DigiGilde voorbeeld | Vakgroepleider, leidinggevende | DigiGilde voorbeeld |
 | [GLD-DEV](GLD-DEV.md) | Daan Developer | DigiGilde voorbeeld | Ontwikkelaar | DigiGilde voorbeeld |
@@ -121,12 +121,12 @@ Een persona kan op drie manieren met een grip te maken hebben. Met een **account
 
 | Code | Eigen grip | Elders | Hoe |
 |---|---|---|---|
-| MIN-DIR | Voorbeeldministerie, tekenbevoegde | DigiGilde voorbeeld | Als gast: een offerte die het gilde met een tekenlink aanbiedt, zoals Opdracht Delta 2026-2027 in de dataset `voorbeeld` |
-| MIN-BEL | Voorbeeldministerie, aanvrager | Voorbeeldprogramma, DigiGilde voorbeeld | Via federatie: zij volgt de stand en vraagt de uitputting op |
-| PRG-DIR | Voorbeeldprogramma, aanvrager en tekenbevoegde | DigiGilde voorbeeld, Voorbeeldministerie | Via federatie: aanvraag en akkoord naar het gilde, de jaarofferte van het programma naar het ministerie |
-| PRG-CTRL | Voorbeeldprogramma, planner en lezer | DigiGilde voorbeeld | Via federatie: een kostenpost die het gilde uitvoert; het programma houdt een verwijzing en leest omschrijving, bedrag en factuurregels bij het gilde (ADR 0052, 0053) |
-| GLD-ACC | DigiGilde voorbeeld, lezer | Voorbeeldprogramma | Via federatie: de aanvraag van het programma komt binnen als potentiële opdracht. Zij tekent niets |
-| GLD-EIG | DigiGilde voorbeeld, eigenaar | Voorbeeldprogramma | Via federatie: de offerte gaat via de grip van het programma, het akkoord komt terug |
+| MIN-DIR | Ministerie van BZK voorbeeld, tekenbevoegde | DigiGilde voorbeeld | Als gast: een offerte die het gilde met een tekenlink aanbiedt, zoals Opdracht Delta 2026-2027 in de dataset `voorbeeld` |
+| MIN-BEL | Ministerie van BZK voorbeeld, aanvrager | MOZa voorbeeld, DigiGilde voorbeeld | Via federatie: zij volgt de stand en vraagt de uitputting op |
+| PRG-DIR | MOZa voorbeeld, aanvrager en tekenbevoegde | DigiGilde voorbeeld, Ministerie van BZK voorbeeld | Via federatie: aanvraag en akkoord naar het gilde, de jaarofferte van het programma naar het ministerie |
+| PRG-CTRL | MOZa voorbeeld, planner en lezer | DigiGilde voorbeeld | Via federatie: een kostenpost die het gilde uitvoert; het programma houdt een verwijzing en leest omschrijving, bedrag en factuurregels bij het gilde (ADR 0052, 0053) |
+| GLD-ACC | DigiGilde voorbeeld, lezer | MOZa voorbeeld | Via federatie: de aanvraag van het programma komt binnen als potentiële opdracht. Zij tekent niets |
+| GLD-EIG | DigiGilde voorbeeld, eigenaar | MOZa voorbeeld | Via federatie: de offerte gaat via de grip van het programma, het akkoord komt terug |
 | BHO-PM | geen | DigiGilde voorbeeld | Als gast: tekent een offerte van het gilde met een tekenlink |
 | ODI-AD, ODI-DIG, ODI-BV, ODI-BC | ODI als moederinstantie (bestaat nog niet) | DigiGilde voorbeeld | Via federatie: de moeder haalt op wat het gilde doorgeeft (opdrachten, factuurgegevens, bezetting en capaciteit als aantallen, kosten met overhead en dekking). Geen van de vier heeft een account in een bestaande instantie |
 | BHO-SVC | geen | geen | De Voorbeeldbeheerorganisatie staat als organisatie in de grip van het programma; de servicemanager zelf komt in geen grip |
@@ -136,9 +136,9 @@ Een persona kan op drie manieren met een grip te maken hebben. Met een **account
 De personen uit de datasets blijven bestaan en zijn aan een persona gekoppeld. Wie nog ontbreekt, komt er later bij.
 
 - Dataset `voorbeeld` (DigiGilde voorbeeld): Bente Beheer (GLD-BEH), Pim Planner (GLD-PLAN), Lotte Leiding (GLD-VAK), Dana Directie (GLD-MGR), Lars Lezer (GLD-ACC), Priya Product (GLD-EIG), Daan Developer (GLD-DEV), Sem Senior (GLD-GOED). Dewi Developer, Olaf Ontwerp en Anna Analist zijn ook GLD-DEV; Ilse Inhuur is een ingehuurd teamlid zonder eigen persona.
-- Dataset `programma` (Voorbeeldprogramma): Bram Beheer (PRG-BEH), Mila Programma (PRG-DIR), Fenna Financien (PRG-CTRL), Pieter Product (PRG-PO), Dirk Dienstverlening (PRG-TEAM). Chantal Communicatie is ook PRG-TEAM.
+- Dataset `programma` (MOZa voorbeeld): Bram Beheer (PRG-BEH), Mila Programma (PRG-DIR), Fenna Financien (PRG-CTRL), Pieter Product (PRG-PO), Dirk Dienstverlening (PRG-TEAM). Chantal Communicatie is ook PRG-TEAM.
 - **Anouk Aanvraag en Tess Teken** staan in de dataset `voorbeeld`, met alleen een recht aan de kant van de opdrachtgever en zonder inzetschaal. Ze spelen daar binnen één instantie de opdrachtgever na, zodat de hele reis van aanvraag tot akkoord in één grip te zien is. Het personaboek koppelt ze aan MIN-BEL en MIN-DIR, de personen die dat werk in het echt in de grip van het ministerie doen. Hun gegevens in het personaboek noemen de dataset `voorbeeld`, ook al hoort de persona bij de grip van het ministerie.
-- Voor het Voorbeeldministerie is er nog geen dataset. MIN-DG, MIN-FEZ, MIN-ADM en MIN-CIO hebben daarom geen voorbeeldpersoon.
+- Voor het Ministerie van BZK voorbeeld is er nog geen dataset. MIN-DG, MIN-FEZ, MIN-ADM en MIN-CIO hebben daarom geen voorbeeldpersoon.
 
 Waar de persona afwijkt van de dataset:
 
@@ -155,7 +155,7 @@ Waar de persona afwijkt van de dataset:
 - **Zevenentwintig personas.** De lijst volgt de rollen die in het werk van een programma, een ministerie, een gilde en een beheerorganisatie voorkomen. Wie in grip hetzelfde doet en in het werk ook, is een persona: de vier ontwikkelaars, de ontwerper en de analist uit de dataset zijn samen GLD-DEV.
 - **De accountmanager is lezer.** Een binnenkomende aanvraag is te zien voor wie klasse A van alle opdrachten leest. Dat is het recht lezer, en een accountmanager wil ook de potentiële opdrachten en de totalen zien.
 - **Het hoofd van het gilde tekent in grip niet.** Een opdrachtnemer tekent in grip niets: het akkoord is van de opdrachtgever. Haar handtekening staat als naam in het tekenblok van de offerte (Beheer, Afzender en teksten van offertes). Wat grip haar wel geeft, is de interne goedkeuring.
-- **Het budget van het programma is een opdracht.** In de dataset `programma` is het jaarbudget de opdracht "Voorbeeldprogramma 2026" van het ministerie, met een offerte en een akkoord. In het echt is het een toedeling uit de begroting van de directie. ADR 0052 zegt dat een budget op het niveau van een programma nog niet bestaat.
+- **Het budget van het programma is een opdracht.** In de dataset `programma` is het jaarbudget de opdracht "MOZa voorbeeld 2026" van het ministerie, met een offerte en een akkoord. In het echt is het een toedeling uit de begroting van de directie. ADR 0052 zegt dat een budget op het niveau van een programma nog niet bestaat.
 
 ## Wat Grip nog niet kan
 
@@ -172,7 +172,7 @@ Per gat de personas die het raken. Geplande onderdelen staan bovenaan.
 | Instantie voor ODI | DigiGilde geeft door aan de instantie van ODI (ADR 0016); de routes bestaan met tests, maar er is geen voorbeeldinstantie voor ODI en geen scherm voor de moeder | ODI-AD, ODI-DIG, ODI-BV, ODI-BC, GLD-MGR, GLD-BEH |
 | Tertaalrapportage | ODI rapporteert per tertaal aan het ministerie. Rapportage in grip staat per jaar (steering, jaarverantwoording); een stand per tertaal ontbreekt | ODI-AD, ODI-DIG, ODI-BV, ODI-BC, GLD-MGR |
 | Afstemmen met bedrijfsvoering | De financiële cijfers voor de rapportage worden buiten grip naast de administratie van ODI gelegd. Grip kent geen vastgestelde stand per moment, geen gedeeld overzicht voor het gilde en bedrijfsvoering en geen plek voor een verschil met de reden | ODI-DIG, ODI-BV, ODI-BC, GLD-MGR |
-| Dataset voor het Voorbeeldministerie | De grip van het ministerie heeft geen eigen voorbeeldgegevens; de kant van de opdrachtgever is alleen na te spelen met Anouk Aanvraag en Tess Teken in DigiGilde voorbeeld | MIN-DG, MIN-DIR, MIN-BEL, MIN-FEZ, MIN-ADM, MIN-CIO |
+| Dataset voor het Ministerie van BZK voorbeeld | De grip van het ministerie heeft geen eigen voorbeeldgegevens; de kant van de opdrachtgever is alleen na te spelen met Anouk Aanvraag en Tess Teken in DigiGilde voorbeeld | MIN-DG, MIN-DIR, MIN-BEL, MIN-FEZ, MIN-ADM, MIN-CIO |
 | Verrekenen tussen onderdelen van het Rijk | Factuur, interne doorbelasting of budgetoverboeking: de vraag aan de financiële administratie staat open ([openstaand.md](../openstaand.md), ADR 0039) | MIN-ADM, MIN-FEZ, PRG-CTRL, GLD-EIG, GLD-BEH |
 | Meekijken bij de opdrachtgever | Aanvragen staat alleen in de balk van een aanvrager en een tekenbevoegde. Voor leiding, controller en CIO-office is er geen overzicht van wat het ministerie heeft gevraagd, getekend en uitgegeven | MIN-DG, MIN-FEZ, MIN-CIO, MIN-ADM |
 | Een uitvoerder zonder grip | Alleen een organisatie met een actieve koppeling kan een kostenpost uitvoeren; het programma leest haar daar (ADR 0052). Facturen van de beheerorganisatie legt het programma zelf vast | BHO-SVC, BHO-PM, PRG-CTRL |
@@ -188,7 +188,7 @@ Per gat de personas die het raken. Geplande onderdelen staan bovenaan.
 | Bron | Waarvoor |
 |---|---|
 | [Regeling agentschappen 2024](https://wetten.overheid.nl/BWBR0050264/) | Continuïteitsverantwoordelijke, beleidsverantwoordelijke, eindverantwoordelijke; werkafspraken en jaarplan |
-| [Mandaatbesluit BZK 2025](https://wetten.overheid.nl/BWBR0051453/) | De bedragen per functie, bijlage 1. In dit boek altijd "naar het voorbeeld van": het Voorbeeldministerie heeft geen eigen besluit |
+| [Mandaatbesluit BZK 2025](https://wetten.overheid.nl/BWBR0051453/) | De bedragen per functie, bijlage 1. In dit boek altijd "naar het voorbeeld van": het Ministerie van BZK voorbeeld heeft geen eigen besluit |
 | [Regeling financieel beheer van het Rijk 2026](https://wetten.overheid.nl/BWBR0051547/2026-07-01/0) | Controles voor betalen (art. 10), betalen tussen onderdelen (art. 12), verplichtingen met einddatum en kasprognose (art. 20 en 21) |
 | [Besluit taak FEZ](https://wetten.overheid.nl/BWBR0041910/) | Wat de directie FEZ doet |
 | [Besluit CIO-stelsel Rijksdienst](https://wetten.overheid.nl/BWBR0044613/) | De departementale CIO, het informatieplan, het CIO-oordeel |

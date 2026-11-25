@@ -537,7 +537,7 @@ services:
       txlog-a:
         condition: service_started
 
-  # --- Peer B: Voorbeeldministerie (opdrachtgever) ------------------------
+  # --- Peer B: Ministerie van BZK voorbeeld (opdrachtgever) ---------------
 
   fsc-migrate-manager-b:
     image: federatedserviceconnectivity/manager:v2.8.0
@@ -798,7 +798,7 @@ services:
       txlog-b:
         condition: service_started
 
-  # --- Peer D: Voorbeeldprogramma (programma, opdrachtgever van A) ------------------------
+  # --- Peer D: MOZa voorbeeld (programma, opdrachtgever van A) ------------
 
   fsc-migrate-manager-d:
     image: federatedserviceconnectivity/manager:v2.8.0

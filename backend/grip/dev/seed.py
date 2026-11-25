@@ -528,7 +528,7 @@ async def _seed_voorbeeld(db: AsyncSession, settings: Settings) -> SeedResult:
 
     ministry = await assignments.upsert_organisation(
         db,
-        name="Voorbeeldministerie",
+        name="Ministerie van BZK voorbeeld",
         tooi_uri=f"{EXAMPLE_TOOI}/ministerie/mnre9001",
     )
     agency = await assignments.upsert_organisation(
@@ -616,7 +616,7 @@ async def _seed_voorbeeld(db: AsyncSession, settings: Settings) -> SeedResult:
         traffic_form="document",
         client_organisation_id=ministry.id,
         contractor_organisation_id=own.id,
-        client_contact="Contactpersoon Voorbeeldministerie",
+        client_contact="Contactpersoon Ministerie van BZK voorbeeld",
         start_date=date(2026, 1, 1),
         end_date=date(2026, 12, 31),
         notes="Fictieve opdracht uit de domeinbeschrijving.",
@@ -659,7 +659,7 @@ async def _seed_voorbeeld(db: AsyncSession, settings: Settings) -> SeedResult:
         db,
         quote,
         ministry_ref,
-        "Opdrachtgever Voorbeeldministerie",
+        "Opdrachtgever Ministerie van BZK voorbeeld",
         date(2025, 12, 18),
         priya,
     )
@@ -749,7 +749,7 @@ async def _seed_voorbeeld(db: AsyncSession, settings: Settings) -> SeedResult:
         traffic_form="document",
         client_organisation_id=ministry.id,
         contractor_organisation_id=own.id,
-        client_contact="Contactpersoon Voorbeeldministerie",
+        client_contact="Contactpersoon Ministerie van BZK voorbeeld",
         start_date=date(2026, 7, 1),
         end_date=date(2027, 6, 30),
         notes="Fictieve opdracht die over de jaargrens loopt.",
@@ -777,7 +777,7 @@ async def _seed_voorbeeld(db: AsyncSession, settings: Settings) -> SeedResult:
         db,
         quote.id,
         quote_hash=quote.snapshot_hash,
-        signer_name="Tekenaar Voorbeeldministerie",
+        signer_name="Tekenaar Ministerie van BZK voorbeeld",
         signer_email=signer_email,
         signer_function="Tekenbevoegde (fictief)",
         organisation=ministry_ref,
@@ -987,7 +987,7 @@ async def _seed_voorbeeld(db: AsyncSession, settings: Settings) -> SeedResult:
         actor=priya,
         body=(
             "Fictieve vacaturetekst. Als developer bouw je mee aan een "
-            "voorbeeldproduct voor het Voorbeeldministerie. Je werkt in een "
+            "voorbeeldproduct voor het Ministerie van BZK voorbeeld. Je werkt in een "
             "klein team, dicht op de gebruiker, en je hebt ervaring met het "
             "bouwen en beheren van webapplicaties."
         ),

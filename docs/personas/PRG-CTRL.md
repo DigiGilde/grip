@@ -2,7 +2,7 @@
 code: PRG-CTRL
 naam: Fenna Financien
 rol: Programmacontroller, ondersteunt de budgethouder
-organisatie: Voorbeeldprogramma
+organisatie: MOZa voorbeeld
 eenheid: Programmabureau
 fgr:
   functie: Coördinerend Specialistisch Adviseur Bedrijfsvoering
@@ -14,7 +14,7 @@ mandaat:
   tekst: "Ondermandaat van de directeur tot € 50.000 per verplichting, naar het voorbeeld van art. 7.8 van het Mandaatbesluit BZK 2025; dat het zo is toegekend, is een aanname"
   bron: https://wetten.overheid.nl/BWBR0051453/
 grips:
-  - instantie: Voorbeeldprogramma
+  - instantie: MOZa voorbeeld
     toegang: account
     rechten: [planner, lezer]
     relaties: [manager, lid, zelf]
@@ -59,7 +59,7 @@ Naar het voorbeeld van art. 7.8 van het Mandaatbesluit BZK 2025 kan een directeu
 
 ## In Grip
 
-**Voorbeeldprogramma** (account, planner en lezer, manager van de opdracht van het programma). Ze landt op Team, Inzet, omdat ze planner is, en ziet Start, Taken, Opdrachten, Team, Vacatures, Financieel en Rapportage.
+**MOZa voorbeeld** (account, planner en lezer, manager van de opdracht van het programma). Ze landt op Team, Inzet, omdat ze planner is, en ziet Start, Taken, Opdrachten, Team, Vacatures, Financieel en Rapportage.
 
 - In "Een opdracht uitvoeren en factureren" sluit zij de maanden af ("Sluit {maand} af, binnen 5 werkdagen"), levert aan en legt de factuur vast.
 - Onder Financieel, Kosten maakt zij kostenposten en laat een begrotingsregel ze dekken.

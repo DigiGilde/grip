@@ -2,8 +2,8 @@
 code: MIN-CIO
 naam: Ivo Informatie
 rol: Adviseur CIO-office
-organisatie: Voorbeeldministerie
-eenheid: Directie CIO Voorbeeld
+organisatie: Ministerie van BZK voorbeeld
+eenheid: Directie CIO Rijk voorbeeld
 fgr:
   functie: (Senior) Adviseur
   familie: Advisering
@@ -14,7 +14,7 @@ mandaat:
   tekst: "Geen financieel mandaat; bereidt het CIO-oordeel voor dat de departementale CIO geeft"
   bron: https://wetten.overheid.nl/BWBR0044613/
 grips:
-  - instantie: Voorbeeldministerie
+  - instantie: Ministerie van BZK voorbeeld
     toegang: account
     rechten: [lezer]
     relaties: []
@@ -51,13 +51,13 @@ Geen financieel mandaat. Het oordeel is van de CIO; Ivo bereidt het voor.
 
 ## In Grip
 
-**Voorbeeldministerie** (account, lezer). Hij leest de basis en de bedragen van alle opdrachten in de grip van het ministerie, met de context-URI's die naar het corpus wijzen. Hij heeft geen stap in een werkstroom.
+**Ministerie van BZK voorbeeld** (account, lezer). Hij leest de basis en de bedragen van alle opdrachten in de grip van het ministerie, met de context-URI's die naar het corpus wijzen. Hij heeft geen stap in een werkstroom.
 
 ## Wat Grip nog niet kan
 
 - **Grote ICT-activiteit en CIO-oordeel.** Geen kenmerk voor een ICT-activiteit, geen drempel, geen plek voor het oordeel.
 - **Meekijken bij de opdrachtgever.** Geen overzicht van wat het ministerie heeft gevraagd en getekend, voor wie geen aanvrager of tekenbevoegde is.
-- **Dataset voor het Voorbeeldministerie.**
+- **Dataset voor het Ministerie van BZK voorbeeld.**
 
 ## Bronnen
 

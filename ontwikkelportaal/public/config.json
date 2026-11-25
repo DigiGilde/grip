@@ -7,7 +7,7 @@
       "url": "http://localhost:9001"
     },
     {
-      "naam": "Voorbeeldministerie",
+      "naam": "Ministerie van BZK voorbeeld",
       "rol": "Opdrachtgever",
       "omschrijving": "Vraagt werk aan bij DigiGilde voorbeeld, tekent offertes en volgt de uitputting.",
       "url": "http://localhost:9002"

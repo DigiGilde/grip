@@ -52,15 +52,15 @@ grant_b_to_a="$(find_grant b GRANT_TYPE_SERVICE_CONNECTION "$peer_a" "$peer_b" |
 grant_a_to_b="$(find_grant a GRANT_TYPE_SERVICE_CONNECTION "$peer_b" "$peer_a" | cut -d' ' -f1)"
 [ -n "$grant_b_to_a" ] && [ -n "$grant_a_to_b" ] || { echo "no valid connection grant found; see the manager logs"; exit 1; }
 registry b "$peer_a" "DigiGilde voorbeeld" "http://localhost:9001" "$grant_b_to_a"
-registry a "$peer_b" "Voorbeeldministerie" "http://localhost:9002" "$grant_a_to_b"
+registry a "$peer_b" "Ministerie van BZK voorbeeld" "http://localhost:9002" "$grant_a_to_b"
 for pair in "d $peer_d a $peer_a" "a $peer_a d $peer_d" "d $peer_d b $peer_b" "b $peer_b d $peer_d"; do
     set -- $pair
     grant="$(find_grant "$1" GRANT_TYPE_SERVICE_CONNECTION "$4" "$2" | cut -d' ' -f1)"
     [ -n "$grant" ] || { echo "no valid connection grant $1 -> $3; see the manager logs"; exit 1; }
     case "$3" in
         a) name="DigiGilde voorbeeld"; uri="http://localhost:9001" ;;
-        b) name="Voorbeeldministerie"; uri="http://localhost:9002" ;;
-        d) name="Voorbeeldprogramma"; uri="http://localhost:9003" ;;
+        b) name="Ministerie van BZK voorbeeld"; uri="http://localhost:9002" ;;
+        d) name="MOZa voorbeeld"; uri="http://localhost:9003" ;;
     esac
     registry "$1" "$4" "$name" "$uri" "$grant"
 done

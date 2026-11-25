@@ -4,10 +4,10 @@ export { ROUTES };
 
 export const SITE_NAME = 'Ontwikkelportaal van grip';
 
-/** The organisations of the fictional chain, in the order of the chain. */
+/** The organisations of the example chain, in the order of the chain. */
 export const ORGANISATIONS = [
-  'Voorbeeldministerie',
-  'Voorbeeldprogramma',
+  'Ministerie van BZK voorbeeld',
+  'MOZa voorbeeld',
   'DigiGilde voorbeeld',
   'Rijksorganisatie Voorbeeld ODI',
   'Voorbeeldbeheerorganisatie',
@@ -17,8 +17,8 @@ export type Organisation = (typeof ORGANISATIONS)[number];
 
 /** The code prefix of an organisation's personas: PRG for the programme. */
 export const PREFIX: Record<Organisation, string> = {
-  Voorbeeldministerie: 'MIN',
-  Voorbeeldprogramma: 'PRG',
+  'Ministerie van BZK voorbeeld': 'MIN',
+  'MOZa voorbeeld': 'PRG',
   'DigiGilde voorbeeld': 'GLD',
   'Rijksorganisatie Voorbeeld ODI': 'ODI',
   Voorbeeldbeheerorganisatie: 'BHO',

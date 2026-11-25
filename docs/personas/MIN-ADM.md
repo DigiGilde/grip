@@ -2,8 +2,8 @@
 code: MIN-ADM
 naam: Astrid Administratie
 rol: Medewerker financiële administratie, prestatieverklaarder
-organisatie: Voorbeeldministerie
-eenheid: Financiële administratie, Directie FEZ Voorbeeld
+organisatie: Ministerie van BZK voorbeeld
+eenheid: Financiële administratie, Directie FEZ BZK voorbeeld
 fgr:
   functie: Medewerker Administratie
   familie: Bedrijfsvoering
@@ -14,7 +14,7 @@ mandaat:
   tekst: "Geen mandaat; legt prestatieverklaringen vast en betaalt pas na de controles uit de regeling"
   bron: https://rijksfinancien.nl/sites/default/files/hafir/fiches/Fiche-prestatieverklaringen-van-het-Rijk.pdf
 grips:
-  - instantie: Voorbeeldministerie
+  - instantie: Ministerie van BZK voorbeeld
     toegang: account
     rechten: [lezer]
     relaties: []
@@ -51,7 +51,7 @@ Geen mandaat om te verplichten. De prestatieverklaring tekent een budgethouder o
 
 ## In Grip
 
-**Voorbeeldministerie** (account, lezer). Ze ziet de opdrachten en hun bedragen. Er is geen werkstroom aan de kant van de opdrachtgever waar zij een stap in heeft. Het factuurverzoek dat de opdrachtnemer maakt bij "Een opdracht uitvoeren en factureren" gaat naar de financiële administratie van de opdrachtnemer, niet naar haar.
+**Ministerie van BZK voorbeeld** (account, lezer). Ze ziet de opdrachten en hun bedragen. Er is geen werkstroom aan de kant van de opdrachtgever waar zij een stap in heeft. Het factuurverzoek dat de opdrachtnemer maakt bij "Een opdracht uitvoeren en factureren" gaat naar de financiële administratie van de opdrachtnemer, niet naar haar.
 
 ## Wat Grip nog niet kan
 
@@ -59,7 +59,7 @@ Geen mandaat om te verplichten. De prestatieverklaring tekent een budgethouder o
 - **Verplichtingen met kasprognose.** Een akkoord wordt geen verplichting waar een factuur onder valt.
 - **Verrekenen tussen onderdelen.** De vragen aan de financiële administratie staan open (openstaand.md, ADR 0039).
 - **Meekijken bij de opdrachtgever.** Geen overzicht van ontvangen offertes, akkoorden en facturen voor wie niet aanvraagt of tekent.
-- **Dataset voor het Voorbeeldministerie.**
+- **Dataset voor het Ministerie van BZK voorbeeld.**
 
 ## Bronnen
 

@@ -2,7 +2,7 @@
 code: PRG-TEAM
 naam: Dirk Dienstverlening
 rol: Teamlid van een dienst
-organisatie: Voorbeeldprogramma
+organisatie: MOZa voorbeeld
 eenheid: Dienst Voorbeeld Berichten
 fgr:
   functie: (Senior) Adviseur
@@ -14,7 +14,7 @@ mandaat:
   tekst: "Geen mandaat"
   bron: aanname
 grips:
-  - instantie: Voorbeeldprogramma
+  - instantie: MOZa voorbeeld
     toegang: account
     rechten: []
     relaties: [lid, zelf]
@@ -48,7 +48,7 @@ Geen mandaat [aanname].
 
 ## In Grip
 
-**Voorbeeldprogramma** (account, geen recht in grip, lid van de opdracht van het programma). Hij landt op Start en ziet Start, Taken, Opdrachten en Vacatures. Hij leest de basis van de opdracht en de namen en rollen van het team, en zijn eigen inzet en tarief (zelf). Geen bedragen van de opdracht.
+**MOZa voorbeeld** (account, geen recht in grip, lid van de opdracht van het programma). Hij landt op Start en ziet Start, Taken, Opdrachten en Vacatures. Hij leest de basis van de opdracht en de namen en rollen van het team, en zijn eigen inzet en tarief (zelf). Geen bedragen van de opdracht.
 
 ## Wat Grip nog niet kan
 

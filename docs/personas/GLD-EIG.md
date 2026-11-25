@@ -20,7 +20,7 @@ grips:
     relaties: [eigenaar, lid, zelf]
     voorbeeldpersoon: Priya Product
     dataset: voorbeeld
-  - instantie: Voorbeeldprogramma
+  - instantie: MOZa voorbeeld
     toegang: via-federatie
     rechten: []
     relaties: []
@@ -32,7 +32,7 @@ grips:
 
 ## Wie
 
-Priya is eigenaar van een handvol opdrachten van het gilde, waaronder het werk voor het Voorbeeldprogramma. Ze maakt de begroting en de offerte, zorgt dat de rollen gevuld raken en sluit elke maand af. Ze werkt zelf ook mee op een van haar opdrachten.
+Priya is eigenaar van een handvol opdrachten van het gilde, waaronder het werk voor MOZa voorbeeld. Ze maakt de begroting en de offerte, zorgt dat de rollen gevuld raken en sluit elke maand af. Ze werkt zelf ook mee op een van haar opdrachten.
 
 ## Verantwoordelijk voor
 
@@ -64,7 +64,7 @@ Geen mandaat om te verplichten [aanname]. Zij maakt de offerte; de handtekening 
 - "Iemand werven": een vacature voor een rol op haar opdracht.
 - Onder Financieel, Kosten dekt zij een kostenpost die het programma bij het gilde vraagt, met "Gevraagd door" erbij, met een begrotingsregel van haar opdracht (ADR 0052).
 
-**Voorbeeldprogramma** (via federatie). De offerte gaat via de grip van het programma; het akkoord, en het verzoek om een kostenpost, komen terug. Het programma leest die kostenpost bij het gilde.
+**MOZa voorbeeld** (via federatie). De offerte gaat via de grip van het programma; het akkoord, en het verzoek om een kostenpost, komen terug. Het programma leest die kostenpost bij het gilde.
 
 ## Wat Grip nog niet kan
 

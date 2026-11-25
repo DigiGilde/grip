@@ -2,7 +2,7 @@
 code: PRG-PO
 naam: Pieter Product
 rol: Product owner van een dienst
-organisatie: Voorbeeldprogramma
+organisatie: MOZa voorbeeld
 eenheid: Dienst Voorbeeld Aanmelden
 fgr:
   functie: Expert IV
@@ -14,7 +14,7 @@ mandaat:
   tekst: "Geen financieel mandaat; prioriteert binnen het kader van de programmadirecteur"
   bron: aanname
 grips:
-  - instantie: Voorbeeldprogramma
+  - instantie: MOZa voorbeeld
     toegang: account
     rechten: []
     relaties: [lid, zelf]
@@ -51,7 +51,7 @@ Geen financieel mandaat [aanname]. Product owners zonder echt mandaat zijn een b
 
 ## In Grip
 
-**Voorbeeldprogramma** (account, geen recht in grip, lid van de opdracht van het programma). Hij landt op Start en ziet Start, Taken, Opdrachten en Vacatures. Als lid leest hij de basis van de opdracht en de namen en rollen van het team, geen geld. Hij heeft geen stap in een werkstroom.
+**MOZa voorbeeld** (account, geen recht in grip, lid van de opdracht van het programma). Hij landt op Start en ziet Start, Taken, Opdrachten en Vacatures. Als lid leest hij de basis van de opdracht en de namen en rollen van het team, geen geld. Hij heeft geen stap in een werkstroom.
 
 ## Wat Grip nog niet kan
 
