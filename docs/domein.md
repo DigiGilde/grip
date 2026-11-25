@@ -34,6 +34,7 @@ UI-termen zijn Nederlands; code en schema gebruiken de Engelse naam.
 | Aangeleverd | `delivered` | De factuurgegevens van een factuurperiode zijn als factuurverzoek aan de financiële administratie gegeven: per mail met een link, of door de opdrachtmanager zelf. Het is geen factuur |
 | Factuurperiode | `billing period` | De periode waarover wordt gefactureerd: een maand of een kalenderkwartaal, volgens de factuurafspraken van de opdracht. Zie ADR 0039 |
 | Factuurafspraken | `billing_terms` | Het ritme van factureren, het factuuradres en het kenmerk van de opdrachtgever |
+| Factuurinformatie | `billing_details` | Waar de factuur heen gaat: het factuuradres, een kenmerk en een contactpersoon. De opdrachtgever geeft het bij het akkoord en kan het met een eigen grip later wijzigen (ADR 0058) |
 | Aanlevering | `billing_delivery` | Wat voor één factuurperiode aan de financiële administratie is gegeven, met het factuurverzoek als bewaard document |
 | Factuurverzoek | `factuurverzoek` | Het document van een aanlevering: bedrag, factuuradres, afspraak en specificatie per maand |
 | Nog aan te leveren | `to_deliver` | De vastgestelde inzet van afgesloten maanden, geprijsd, min wat is aangeleverd |
