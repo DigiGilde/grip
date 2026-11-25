@@ -67,11 +67,16 @@ function PersonItem({ person, current }: { person: ExamplePerson; current: boole
     // The server keeps the choice; every screen is loaded again as that person.
     void chooseExamplePerson(person.id).then(() => window.location.reload());
   });
+  const details = current
+    ? person.role
+      ? `${person.role}, zo kijk je nu`
+      : 'Zo kijk je nu'
+    : person.role;
   return (
     <nldd-menu-item
       ref={ref}
       text={current ? `**${person.name}**` : person.name}
-      {...(current ? { details: 'Zo kijk je nu' } : {})}
+      {...(details ? { details } : {})}
     />
   );
 }

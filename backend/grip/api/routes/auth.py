@@ -557,6 +557,14 @@ def _visitor(request: Request, settings: Settings) -> dict:
     return visitor
 
 
+def _role_text(labels: list[str]) -> str:
+    """One line in sentence case: "Opdrachteigenaar, leidinggevende"."""
+    return ", ".join(
+        label if index == 0 else label[:1].lower() + label[1:]
+        for index, label in enumerate(labels)
+    )
+
+
 @router.get("/example-persons", response_model=list[ExamplePerson])
 async def example_persons(
     request: Request,
@@ -572,6 +580,7 @@ async def example_persons(
             id=person.id,
             name=person.name,
             functions=await people.active_function_ids(person.id),
+            role=_role_text(await people.role_labels(person.id)),
         )
         for person in await people.active_with_email()
     ]
