@@ -47,6 +47,9 @@ class ExamplePerson(BaseModel):
     id: UUID
     name: str
     functions: list[str] = []
+    # What the person is here, e.g. "Opdrachteigenaar, leidinggevende"; empty
+    # when they hold no function and no relation.
+    role: str = ""
 
 
 class ExamplePersonChoice(BaseModel):

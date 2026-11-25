@@ -44,6 +44,8 @@ export interface ExamplePerson {
   id: string;
   name: string;
   functions: string[];
+  /** What the person is here, e.g. "Opdrachteigenaar, leidinggevende"; may be empty. */
+  role: string;
 }
 
 export function fetchExamplePersons(): Promise<ExamplePerson[]> {

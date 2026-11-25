@@ -324,6 +324,22 @@ async def test_a_visitor_chooses_whom_to_look_as(db_session, provider):
     assert event.actor_person_id is None or event.actor_ref
 
 
+async def test_the_list_says_what_each_person_is(db_session):
+    settings = _example(EXAMPLE_VISITORS="voorbeeld.example")
+    session = await _visitor_session(db_session, settings)
+    listed = await auth_routes.example_persons(
+        _request(session), None, db_session, settings
+    )
+    roles = {p.name: p.role for p in listed}
+    assert roles["Priya Product"] == "Opdrachteigenaar"
+    assert roles["Lotte Leiding"] == "Opdrachteigenaar, leidinggevende"
+    assert roles["Pim Planner"] == "Opdrachtmanager, planner, leidinggevende"
+    assert roles["Bente Beheer"] == "Beheerder"
+    assert roles["Daan Developer"] == ""
+    # Only names, functions and a label: nothing from the staffing or rate classes.
+    assert set(listed[0].model_dump()) == {"id", "name", "functions", "role"}
+
+
 async def test_what_a_visitor_does_carries_both_identities(db_session, provider):
     from grip.access.deps import get_subject
     from grip.core.audit import UPDATE, record_audit
