@@ -184,9 +184,8 @@ async def _detail(
         contractor_reachable=reachable,
         may_request_usage=reachable and await access.may(Action.READ, resource, _B),
         billing_details=await _given_billing_details(db, assignment.id),
-        may_give_billing_details=await access.may(
-            Action.GIVE_BILLING_DETAILS, resource
-        ),
+        may_give_billing_details=assignment.dossier_closed_on is None
+        and await access.may(Action.GIVE_BILLING_DETAILS, resource),
     )
     permitted = await access.classes(resource, schema_classes(type(value)))
     return build_response(value, permitted)
