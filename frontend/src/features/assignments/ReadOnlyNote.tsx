@@ -17,7 +17,7 @@ interface ReadOnlyNoteProps {
 export function ReadOnlyNote({ assignment, what, others = ' of een manager' }: ReadOnlyNoteProps) {
   if (assignment.dossier_closed_on) {
     return (
-      <Quiet>{`Je kunt ${what} bekijken. Het dossier is gesloten; wijzigen kan weer als het is heropend.`}</Quiet>
+      <Quiet>{`Je kunt ${what} bekijken. Het dossier is gesloten; wijzigen kan weer als de beheerder het heropent.`}</Quiet>
     );
   }
   const owner = assignment.roles.find((holder) => holder.role === 'owner');

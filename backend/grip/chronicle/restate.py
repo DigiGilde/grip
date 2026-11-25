@@ -52,7 +52,8 @@ TYPED_TEXTS: tuple[TypedText, ...] = (
         "verbal_agreement_note",
     ),
     TypedText("budget_line.detail", "Omschrijving", LINE, "detail", required=True),
-    # Given with a change of status or a corrected date; shown under the moment.
+    # Given with a change of status, a corrected date or a reopened dossier;
+    # shown under the moment.
     TypedText("reason", "Reden", None, "reason"),
 )
 BY_KEY: dict[str, TypedText] = {text.key: text for text in TYPED_TEXTS}
@@ -76,6 +77,7 @@ _ROWS: dict[str, tuple[tuple[str | None, str], ...]] = {
 _OWN: dict[str, tuple[str, ...]] = {
     "assignment_status_changed": ("reason",),
     "acceptance_date_corrected": ("reason",),
+    "dossier_reopened": ("reason",),
 }
 # The name of a line as it was shown is its role and its detail.
 _LINE_NAMES = frozenset({"budget_line_changed", "budget_line_removed"})

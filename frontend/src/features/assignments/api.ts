@@ -73,8 +73,10 @@ export interface AssignmentPermissions {
   read_roster: boolean;
   /** May assign owner and managers, also without any other edit right. */
   manage_roles?: boolean;
-  /** May close, reopen or keep open the dossier; also the beheerder. */
+  /** May close the dossier or keep it open; also the beheerder. */
   close_dossier?: boolean;
+  /** May reopen a closed dossier, with a reason: the beheerder. */
+  reopen_dossier?: boolean;
 }
 
 export interface AssignmentDetail extends AssignmentSummary {
@@ -267,8 +269,12 @@ export const closeDossier = (id: string, closedOn: string, version?: number) =>
     ifMatch(id, version),
   );
 
-export const reopenDossier = (id: string, version?: number) =>
-  apiPost<AssignmentDetail>(`/api/assignments/${id}/dossier/reopen`, {}, ifMatch(id, version));
+export const reopenDossier = (id: string, reason: string, version?: number) =>
+  apiPost<AssignmentDetail>(
+    `/api/assignments/${id}/dossier/reopen`,
+    { reason },
+    ifMatch(id, version),
+  );
 
 export const keepDossierOpen = (id: string) =>
   apiPost<AssignmentDetail>(`/api/assignments/${id}/dossier/keep-open`, {});

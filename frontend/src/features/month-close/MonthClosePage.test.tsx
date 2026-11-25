@@ -678,7 +678,9 @@ describe('MonthClosePage', () => {
     );
     await waitFor(() => expect(container.querySelector('[data-waiting]')).not.toBeNull());
     const waiting = container.querySelector('[data-waiting]')?.textContent ?? '';
-    expect(waiting).toContain('Het dossier is gesloten; wijzigen kan weer als het is heropend.');
+    expect(waiting).toContain(
+      'Het dossier is gesloten; wijzigen kan weer als de beheerder het heropent.',
+    );
     expect(waiting).not.toContain('Dit kan de eigenaar');
     expect(primaryButtons(container)).toEqual([]);
   });

@@ -168,7 +168,9 @@ async def test_closing_the_dossier_ends_the_other_tasks_of_the_case(
     [report] = await tasks(db_session, key="uitvoering.eindrapport")
     assert report.status == "obsolete"
 
-    await dossiers.reopen_dossier(db_session, assignment.id, actor=owner)
+    await dossiers.reopen_dossier(
+        db_session, assignment.id, actor=owner, reason="Het eindrapport ontbreekt."
+    )
     await evaluate()
     [report] = await tasks(db_session, key="uitvoering.eindrapport")
     assert report.status == "todo"

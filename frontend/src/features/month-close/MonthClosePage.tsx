@@ -96,7 +96,7 @@ function Now({ overview, onAct }: NowProps) {
           <nldd-text>{open}</nldd-text>
           <Quiet>
             {shell?.dossier_closed_on
-              ? 'Het dossier is gesloten; wijzigen kan weer als het is heropend.'
+              ? 'Het dossier is gesloten; wijzigen kan weer als de beheerder het heropent.'
               : 'Dit kan de eigenaar of een manager van de opdracht.'}
           </Quiet>
         </Stack>

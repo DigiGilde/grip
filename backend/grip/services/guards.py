@@ -88,7 +88,9 @@ class DossierClosedError(DomainError):
     http_status = 409
 
     def __init__(self) -> None:
-        super().__init__("Het dossier is gesloten. Heropen het eerst.")
+        super().__init__(
+            "Het dossier is gesloten. Wijzigen kan weer als de beheerder het heropent."
+        )
 
 
 async def dossier_closed(session: AsyncSession, assignment_id: UUID) -> bool:

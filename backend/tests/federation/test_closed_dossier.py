@@ -61,7 +61,7 @@ async def test_a_rejection_for_a_closed_dossier_is_refused(
     rejection[t("quote_hash")] = quote.snapshot_hash
     response = await _post(fed_client, quote.id, rejection)
     assert response.status_code == 400
-    assert "Het dossier is gesloten. Heropen het eerst." in response.text
+    assert "Het dossier is gesloten. Wijzigen kan weer" in response.text
     await db_session.refresh(quote)
     assert quote.status == "issued"
 
@@ -98,7 +98,7 @@ async def test_a_final_report_for_a_closed_dossier_is_refused(
         headers=as_peer(CONTRACTOR_PEER_ID),
     )
     assert response.status_code == 400
-    assert "Het dossier is gesloten. Heropen het eerst." in response.text
+    assert "Het dossier is gesloten. Wijzigen kan weer" in response.text
     received = await db_session.scalar(
         select(func.count())
         .select_from(StreamEvent)

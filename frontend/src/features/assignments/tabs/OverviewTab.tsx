@@ -424,9 +424,10 @@ function useStatusActions(assignment: AssignmentDetail): {
 }
 
 /**
- * Closing the dossier of an ended assignment, reopening it, or keeping it
- * open after the proposal to close it (ADR 0057). Items of the same menu as
- * the status steps: closing is no next step of the page.
+ * Closing the dossier of an ended assignment, keeping it open after the
+ * proposal to close it, or reopening it with a reason, which only the
+ * beheerder does (ADR 0057). Items of the same menu as the status steps:
+ * closing is no next step of the page.
  */
 function useDossierActions(assignment: AssignmentDetail): {
   actions: RowAction[];
@@ -439,27 +440,31 @@ function useDossierActions(assignment: AssignmentDetail): {
     reopen: false,
   });
   const [closedOn, setClosedOn] = useState('');
+  const [reason, setReason] = useState('');
   const close = useAssignmentMutation(
     (day: string) => closeDossier(assignment.id, day, assignment.version),
     setProblem,
   );
   const reopen = useAssignmentMutation(
-    () => reopenDossier(assignment.id, assignment.version),
+    (why: string) => reopenDossier(assignment.id, why, assignment.version),
     setProblem,
   );
   const keep = useAssignmentMutation(() => keepDossierOpen(assignment.id), setProblem);
   const closedDay = assignment.dossier_closed_on;
   const actions: RowAction[] = [];
-  if (assignment.permissions.close_dossier && assignment.phase === 'closed') {
+  if (assignment.phase === 'closed') {
     if (closedDay) {
-      actions.push({
-        text: 'Heropen dossier',
-        onSelect: () => {
-          setProblem(null);
-          setSheet({ open: true, reopen: true });
-        },
-      });
-    } else {
+      if (assignment.permissions.reopen_dossier) {
+        actions.push({
+          text: 'Heropen dossier',
+          onSelect: () => {
+            setReason('');
+            setProblem(null);
+            setSheet({ open: true, reopen: true });
+          },
+        });
+      }
+    } else if (assignment.permissions.close_dossier) {
       actions.push({
         text: 'Sluit dossier',
         onSelect: () => {
@@ -482,11 +487,25 @@ function useDossierActions(assignment: AssignmentDetail): {
       busy={reopen.isPending}
       error={sheet.open ? problem : null}
       onClose={() => setSheet((current) => ({ ...current, open: false }))}
-      onSubmit={() => reopen.mutate(undefined, done)}
+      onSubmit={() => {
+        if (!reason.trim()) {
+          setProblem('Geef een reden voor het heropenen.');
+          return;
+        }
+        reopen.mutate(reason.trim(), done);
+      }}
     >
       <nldd-text>
-        {`Het dossier is gesloten op ${formatDate(closedDay)}. Na heropenen kan de opdracht weer veranderen en loopt er geen bewaartermijn.`}
+        {`Het dossier is gesloten op ${formatDate(closedDay)}. Na heropenen kan de opdracht weer veranderen en loopt er geen bewaartermijn. De reden komt in de kroniek.`}
       </nldd-text>
+      <TextInput
+        label="Reden"
+        hint="Bijvoorbeeld: het dossier is onterecht gesloten, of er moet nog worden gefactureerd. Geen namen."
+        multiline
+        value={reason}
+        onChange={setReason}
+        required
+      />
     </FormSheet>
   ) : (
     <FormSheet
@@ -510,7 +529,7 @@ function useDossierActions(assignment: AssignmentDetail): {
     >
       <DateInput
         label="Gesloten op"
-        hint="Vanaf deze dag loopt de bewaartermijn. Daarna verandert de opdracht niet meer, tot iemand het dossier heropent."
+        hint="Vanaf deze dag loopt de bewaartermijn. Daarna verandert de opdracht niet meer, tot de beheerder het dossier heropent."
         value={closedOn}
         onChange={setClosedOn}
         required

@@ -22,7 +22,7 @@ from grip.chronicle import ledger
 from grip.chronicle.effects import Insert
 from grip.chronicle.facts import effects_of
 from grip.chronicle.verify import differences
-from grip.chronicle.writer import MODELS, columns_of
+from grip.chronicle.writer import MODELS, columns_of, establish
 from grip.core import clock
 from grip.core.config import get_settings
 from grip.dev import chronicle_walk
@@ -60,6 +60,7 @@ from tests.federation.conftest import (
 
 BUDGET = 1800000 * 6  # 0.5 FTE in category D for twelve months
 FEDERATED_ASSIGNMENT_ID = "3f2a8c54-6d1b-4f0e-9a77-1c2b3d4e5f61"
+REOPENED = "Te vroeg gesloten: de eindafrekening volgt nog."
 
 
 @pytest.fixture(autouse=True)
@@ -398,6 +399,87 @@ async def test_a_closed_dossier_ends_the_course_in_its_look_back(walk):
     stand = await walk.stand(walk.seen[-1].seq)
     assert stand["course"]["ended"] == "Dossier gesloten"
     assert stand["moment"]["statement"].startswith("Dossier gesloten op ")
+
+
+async def _closed(walk):
+    """A completed assignment whose owner closed its dossier on day 8."""
+    await walk.begin(0)
+    await _line(walk, 1)
+    targets = ("requested", "quoted", "accepted", "in_progress", "completed")
+    for on, target in enumerate(targets, start=2):
+        await walk.step(
+            target,
+            walk.cast.owner,
+            "post",
+            f"/api/assignments/{walk.assignment_id}/transition",
+            on=on,
+            json={"target": target},
+        )
+    await walk.step(
+        "dossier gesloten",
+        walk.cast.owner,
+        "post",
+        f"/api/assignments/{walk.assignment_id}/dossier/close",
+        on=8,
+        json={},
+    )
+
+
+async def _reopened(walk, person) -> dict:
+    [moment] = [
+        moment
+        for moment in await walk.moments(person)
+        if moment["fact"] == "dossier_reopened"
+    ]
+    return moment
+
+
+async def test_a_reopened_dossier_says_why_and_who_reopened_it(walk):
+    await _closed(walk)
+    await walk.step(
+        "dossier heropend",
+        walk.cast.beheerder,
+        "post",
+        f"/api/assignments/{walk.assignment_id}/dossier/reopen",
+        on=9,
+        json={"reason": f"  {REOPENED}\n"},
+    )
+    await walk.check_every_look_back()
+
+    moment = await _reopened(walk, walk.cast.beheerder)
+    assert moment["title"] == "Dossier heropend"
+    assert moment["actor_name"] == walk.cast.beheerder.name
+    assert moment["statement"] == "Dossier heropend. Het kan weer worden gewijzigd."
+    assert moment["lines"] == [REOPENED]
+    stand = await walk.stand(moment["seq"])
+    assert stand["moment"]["lines"] == [REOPENED]
+    assert stand["course"]["ended"] is None
+    # The reason is part of what was established: who reads only the basics
+    # hears the title and who did it.
+    told = await _reopened(walk, walk.cast.planner)
+    assert told["actor_name"] == walk.cast.beheerder.name
+    assert "lines" not in told and REOPENED not in json.dumps(told)
+
+
+async def test_a_dossier_reopened_without_a_reason_shows_no_line(walk):
+    await _closed(walk)
+    aid = UUID(walk.assignment_id)
+    with clock.at(day(9)):
+        # As a reopen was recorded before it asked for a reason.
+        await establish(
+            walk.db,
+            "dossier_reopened",
+            assignment_id=aid,
+            actor=walk.cast.beheerder,
+            fields={"assignment_id": aid},
+        )
+        await walk.look("dossier heropend zonder reden")
+    await walk.check_every_look_back()
+
+    moment = await _reopened(walk, walk.cast.beheerder)
+    assert moment["actor_name"] == walk.cast.beheerder.name
+    assert moment["lines"] == []
+    assert (await walk.stand(moment["seq"]))["moment"]["lines"] == []
 
 
 async def test_a_look_back_after_a_text_was_taken_out_is_whole(walk):

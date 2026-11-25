@@ -228,6 +228,23 @@ def test_a_reason_alone_can_go():
     assert [(text.key, text.label) for text, _ in offered] == [("reason", "Reden")]
 
 
+def test_the_reason_of_a_reopened_dossier_can_go():
+    fields = {"assignment_id": "a", "reason": TEXT}
+    offered = removable("dossier_reopened", fields)
+    assert [(text.key, text.label, value) for text, value in offered] == [
+        ("reason", "Reden", TEXT)
+    ]
+    assert words.lines("dossier_reopened", fields) == (TEXT,)
+    kept, removed = without("dossier_reopened", fields, [TEXT])
+    assert kept == {"assignment_id": "a", "reason": None}
+    assert removed == [{"path": "reason", "label": "Reden"}]
+    assert words.lines("dossier_reopened", kept) == ()
+    # Reopened before a reopen asked for a reason: nothing to show or take out.
+    older = {"assignment_id": "a"}
+    assert removable("dossier_reopened", older) == []
+    assert words.lines("dossier_reopened", older) == ()
+
+
 def test_the_name_of_a_line_loses_its_detail_too():
     aid = str(uuid4())
     added = _gram(1, "budget_line_added", _line(aid, detail=TEXT))

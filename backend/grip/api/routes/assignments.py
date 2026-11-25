@@ -22,6 +22,7 @@ from grip.schema.assignments import (
     AssignmentSummaryOut,
     AssignmentUpdate,
     DossierCloseIn,
+    DossierReopenIn,
     PersonOptionOut,
     RoleHolderOut,
     RoleIn,
@@ -137,6 +138,7 @@ async def _detail(
                 Action.READ, resource, DataClass.STAFFING_ROSTER
             ),
             close_dossier=await access.may(Action.CLOSE_DOSSIER, resource),
+            reopen_dossier=await access.may(Action.REOPEN_DOSSIER, resource),
         ),
     )
     return build_response(model, await access.classes(resource, _DETAIL_CLASSES))
@@ -408,10 +410,16 @@ async def close_dossier(
 
 @router.post("/assignments/{assignment_id}/dossier/reopen", response_model=None)
 async def reopen_dossier(
-    assignment_id: UUID, person: CurrentPerson, access: RequestAccess, db: DbSession
+    assignment_id: UUID,
+    body: DossierReopenIn,
+    person: CurrentPerson,
+    access: RequestAccess,
+    db: DbSession,
 ) -> dict[str, Any]:
-    await _dossier_access(access, assignment_id)
-    await dossiers.reopen_dossier(db, assignment_id, actor=person)
+    resource = Resource.assignment(assignment_id)
+    await access.require(Action.READ, resource, A, hide_existence=True)
+    await access.require(Action.REOPEN_DOSSIER, resource)
+    await dossiers.reopen_dossier(db, assignment_id, actor=person, reason=body.reason)
     return await _detail(await views.assignment_row(db, assignment_id), access, db)
 
 

@@ -472,6 +472,74 @@ async def test_a_closed_dossier_keeps_no_text_that_never_belonged(walk, db_sessi
     assert last["course"]["ended"] == "Dossier gesloten"
 
 
+async def test_the_reason_of_a_reopened_dossier_goes_with_its_change_line(
+    walk, db_session
+):
+    await walk.begin(0)
+    await _line(walk, 1)
+    targets = ("requested", "quoted", "accepted", "in_progress", "completed")
+    for on, target in enumerate(targets, start=2):
+        await walk.step(
+            target,
+            walk.cast.owner,
+            "post",
+            f"/api/assignments/{walk.assignment_id}/transition",
+            on=on,
+            json={"target": target},
+        )
+    dossier = f"/api/assignments/{walk.assignment_id}/dossier"
+    await walk.step("gesloten", walk.cast.owner, "post", f"{dossier}/close", on=8)
+    await walk.step(
+        "heropend",
+        walk.cast.beheerder,
+        "post",
+        f"{dossier}/reopen",
+        on=9,
+        json={"reason": TEXT},
+    )
+    reopened = walk.seen[-1].seq
+    aid = UUID(walk.assignment_id)
+    changes = await db_session.execute(
+        select(StreamEvent.seq, StreamEvent.new_value).where(
+            StreamEvent.case_id == aid,
+            StreamEvent.subject_kind == "assignment",
+            StreamEvent.action.is_not(None),
+        )
+    )
+    [held] = [row.seq for row in changes if (row.new_value or {}).get("reason") == TEXT]
+    stand = await walk.stand(reopened)
+    assert stand["moment"]["lines"] == [TEXT]
+    assert stand["removable_texts"] == [
+        {"key": "reason", "label": "Reden", "text": TEXT, "kept": []}
+    ]
+
+    body = await _restate(walk, reopened, "reason", on=10)
+
+    (herstel,) = await _herstelfeiten(db_session, walk)
+    assert herstel.fields["restates"] == reopened
+    assert herstel.fields["fact"] == "dossier_reopened"
+    assert herstel.fields["removed"] == [{"path": "reason", "label": "Reden"}]
+    assert herstel.fields["patches"] == []
+    assert await _erased(db_session, reopened)
+    assert await _erased(db_session, held), "the change line that held the reason"
+    assert await _still_holding(db_session, walk, TEXT) == []
+    assert body["stand"]["moment"]["lines"] == []
+    assert body["stand"]["removable_texts"] == []
+    report = await differences(db_session, aid)
+    assert report.checked and report.differences == []
+    [moment] = [
+        moment
+        for moment in await walk.moments(walk.cast.beheerder)
+        if moment["fact"] == "dossier_reopened"
+    ]
+    assert moment["lines"] == []
+    assert moment["actor_name"] == walk.cast.beheerder.name
+    closed_on = await db_session.scalar(
+        select(Assignment.dossier_closed_on).where(Assignment.id == aid)
+    )
+    assert closed_on is None, "the dossier stays open"
+
+
 # -- who may, and what is not there ------------------------------------------
 
 

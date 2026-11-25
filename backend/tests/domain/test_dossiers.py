@@ -6,7 +6,7 @@ from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from grip.calc import Month
 from grip.chronicle.verify import differences
@@ -33,6 +33,7 @@ from grip.services.guards import DossierClosedError
 
 PROPOSE = dossiers.PROPOSE_CLOSE_AFTER_DAYS.key
 AFTER = dossiers.CLOSE_AFTER_PROPOSAL_DAYS.key
+REASON = "Te vroeg gesloten: de eindafrekening volgt nog."
 
 
 async def _finish(db, assignment, actor, *, to: str = "completed"):
@@ -110,7 +111,7 @@ async def test_reopening_clears_the_day_and_keeping_open_changes_no_row(
     await dossiers.close_dossier(
         db_session, ended.id, actor=beheerder, closed_on=clock.today()
     )
-    await dossiers.reopen_dossier(db_session, ended.id, actor=beheerder)
+    await dossiers.reopen_dossier(db_session, ended.id, actor=beheerder, reason=REASON)
 
     assert ended.dossier_closed_on is None
     facts = await _facts(db_session, ended.id)
@@ -120,9 +121,67 @@ async def test_reopening_clears_the_day_and_keeping_open_changes_no_row(
         "dossier_reopened",
     ]
     assert facts[0].new_value["fields"] == {"assignment_id": str(ended.id)}
-    assert facts[2].new_value["fields"] == {"assignment_id": str(ended.id)}
+    assert facts[2].new_value["fields"] == {
+        "assignment_id": str(ended.id),
+        "reason": REASON,
+    }
     report = await differences(db_session, ended.id)
     assert report.checked and not report.differences
+
+
+async def test_a_reopen_holds_its_reason_in_the_fact_and_the_change_line(
+    db_session, beheerder, ended
+):
+    await dossiers.close_dossier(
+        db_session, ended.id, actor=beheerder, closed_on=clock.today()
+    )
+    await dossiers.reopen_dossier(
+        db_session, ended.id, actor=beheerder, reason=f"  {REASON} Zie één memo.\n"
+    )
+
+    said = f"{REASON} Zie één memo."
+    [_, fact] = await _facts(db_session, ended.id)
+    assert fact.type == "chronolexogram.dossier_reopened"
+    assert fact.actor_person_id == beheerder.id
+    assert fact.new_value["fields"]["reason"] == said
+    changes = await db_session.scalars(
+        select(StreamEvent)
+        .where(
+            StreamEvent.subject_kind == "assignment",
+            StreamEvent.subject_id == str(ended.id),
+            StreamEvent.action.is_not(None),
+        )
+        .order_by(StreamEvent.seq)
+    )
+    [line] = [c for c in changes if (c.old_value or {}).get("dossier_closed_on")]
+    assert line.actor_person_id == beheerder.id
+    assert line.old_value == {"dossier_closed_on": clock.today().isoformat()}
+    assert line.new_value == {"dossier_closed_on": None, "reason": said}
+
+
+async def test_a_reopen_without_a_reason_is_refused_and_writes_nothing(
+    db_session, beheerder, ended
+):
+    await dossiers.close_dossier(
+        db_session, ended.id, actor=beheerder, closed_on=clock.today()
+    )
+
+    async def recorded() -> int:
+        await db_session.flush()
+        return await db_session.scalar(
+            select(func.count())
+            .select_from(StreamEvent)
+            .where(StreamEvent.case_id == ended.id)
+        )
+
+    before = await recorded()
+    for blank in ("", " ", "\n\t  "):
+        with pytest.raises(DomainValidationError, match="Geef een reden"):
+            await dossiers.reopen_dossier(
+                db_session, ended.id, actor=beheerder, reason=blank
+            )
+    assert await recorded() == before
+    assert ended.dossier_closed_on == clock.today()
 
 
 @pytest.mark.parametrize("to", ["completed", "accounted"])
@@ -212,7 +271,9 @@ async def test_after_a_reopen_the_dossier_closes_no_earlier_than_that(
     await dossiers.close_dossier(
         db_session, ended_earlier.id, actor=beheerder, closed_on=week_ago
     )
-    await dossiers.reopen_dossier(db_session, ended_earlier.id, actor=beheerder)
+    await dossiers.reopen_dossier(
+        db_session, ended_earlier.id, actor=beheerder, reason=REASON
+    )
     with pytest.raises(DomainValidationError, match="voor de laatste wijziging"):
         await dossiers.close_dossier(
             db_session, ended_earlier.id, actor=beheerder, closed_on=week_ago
@@ -221,7 +282,9 @@ async def test_after_a_reopen_the_dossier_closes_no_earlier_than_that(
 
 async def test_an_open_dossier_does_not_reopen(db_session, beheerder, ended):
     with pytest.raises(DomainValidationError, match="niet gesloten"):
-        await dossiers.reopen_dossier(db_session, ended.id, actor=beheerder)
+        await dossiers.reopen_dossier(
+            db_session, ended.id, actor=beheerder, reason=REASON
+        )
 
 
 # --- a closed dossier changes nothing ----------------------------------------
@@ -336,7 +399,7 @@ async def test_every_write_path_refuses_a_closed_dossier(
         ),
     }
     for name, write in writes.items():
-        with pytest.raises(DossierClosedError, match="Heropen het eerst"):
+        with pytest.raises(DossierClosedError, match="de beheerder het heropent"):
             await write()
             pytest.fail(f"{name} changed a closed dossier")
 
@@ -349,7 +412,7 @@ async def test_a_reopened_dossier_can_change_again(db_session, beheerder, ended)
         await assignments.update_assignment(
             db_session, ended.id, actor=beheerder, notes="Later"
         )
-    await dossiers.reopen_dossier(db_session, ended.id, actor=beheerder)
+    await dossiers.reopen_dossier(db_session, ended.id, actor=beheerder, reason=REASON)
     await assignments.update_assignment(
         db_session, ended.id, actor=beheerder, notes="Later"
     )

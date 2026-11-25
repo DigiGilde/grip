@@ -36,9 +36,11 @@ class AssignmentPermissionsOut(BaseModel):
     read_staffing: Annotated[bool, in_class(A)]
     # Who is on the team, by name and role: what a team member may see.
     read_roster: Annotated[bool, in_class(A)]
-    # Close, reopen or keep open the dossier (ADR 0057). Like manage_roles, the
+    # Close or keep open the dossier (ADR 0057). Like manage_roles, the
     # beheerder may do this on any assignment.
     close_dossier: Annotated[bool, in_class(A)] = False
+    # Reopen a closed dossier, with a reason: the beheerder only.
+    reopen_dossier: Annotated[bool, in_class(A)] = False
 
 
 class AssignmentSummaryOut(BaseModel):
@@ -132,6 +134,10 @@ class TransitionIn(BaseModel):
 class DossierCloseIn(BaseModel):
     # Today when it is not given.
     closed_on: date | None = None
+
+
+class DossierReopenIn(BaseModel):
+    reason: str = Field(min_length=1, max_length=2000)
 
 
 class RoleIn(BaseModel):

@@ -162,9 +162,16 @@ async def close_dossier(
 
 
 async def reopen_dossier(
-    session: AsyncSession, assignment_id: UUID, *, actor: Person | None
+    session: AsyncSession, assignment_id: UUID, *, actor: Person | None, reason: str
 ) -> Assignment:
-    """Open a closed dossier again, so the case can change."""
+    """Open a closed dossier again, so the case can change.
+
+    The reason goes into the fact and its change line, as the reason of a
+    change of status does.
+    """
+    reason = reason.strip()
+    if not reason:
+        raise DomainValidationError("Geef een reden voor het heropenen.")
     assignment = await _held(session, assignment_id)
     await stale.check(session, assignment, "deze opdracht")
     if assignment.dossier_closed_on is None:
@@ -175,7 +182,7 @@ async def reopen_dossier(
         "dossier_reopened",
         assignment_id=assignment.id,
         actor=actor,
-        fields={"assignment_id": assignment.id},
+        fields={"assignment_id": assignment.id, "reason": reason},
     )
     record_audit(
         session,
@@ -184,7 +191,7 @@ async def reopen_dossier(
         entity="assignment",
         entity_id=assignment.id,
         old_value={"dossier_closed_on": old.isoformat()},
-        new_value={"dossier_closed_on": None},
+        new_value={"dossier_closed_on": None, "reason": reason},
     )
     return assignment
 

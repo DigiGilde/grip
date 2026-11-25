@@ -140,7 +140,7 @@ Geen regel wordt herhaald. De feiten van het verloop komen uit `assignment_snaps
 
 ## Een tekst die er nooit in hoorde
 
-Een beheerder haalt in een moment een getypte tekst weg die er nooit in hoorde, zoals gegevens over iemands gezondheid in de notities (ADR 0057). Het kan gaan om de naam of de notities van de opdracht, de toelichting bij een mondeling akkoord, de omschrijving van een begrotingsregel en de reden bij een statuswijziging of een gecorrigeerde datum. De lijst staat op één plek: `TYPED_TEXTS` in `grip.chronicle.restate`, met het label per tekst. Wat alleen in de rij staat (`ROW_ONLY_COLUMNS`) hoort er niet bij: dat is de rij bijwerken.
+Een beheerder haalt in een moment een getypte tekst weg die er nooit in hoorde, zoals gegevens over iemands gezondheid in de notities (ADR 0057). Het kan gaan om de naam of de notities van de opdracht, de toelichting bij een mondeling akkoord, de omschrijving van een begrotingsregel en de reden bij een statuswijziging of een gecorrigeerde datum. Ook de reden bij het heropenen van een dossier hoort erbij: `dossier_reopened` houdt haar, de kroniek toont haar als regel onder het moment "Dossier heropend", naast wie heropende, en een herstelfeit kan haar eruit halen. Een ouder `dossier_reopened` zonder reden toont geen regel. De lijst staat op één plek: `TYPED_TEXTS` in `grip.chronicle.restate`, met het label per tekst. Wat alleen in de rij staat (`ROW_ONLY_COLUMNS`) hoort er niet bij: dat is de rij bijwerken.
 
 De database wist alleen alle waarden van een gebeurtenis tegelijk, nooit één veld. Daarom doet `grip.services.restatements` in één transactie dit:
 

@@ -109,8 +109,10 @@ class Action(StrEnum):
     # Name or remove the owner and the managers of an assignment. Its own
     # action: it never implies editing the content of the assignment.
     MANAGE_ROLES = "manage_roles"
-    # Close, reopen or keep open the dossier of an ended assignment (ADR 0057).
+    # Close or keep open the dossier of an ended assignment (ADR 0057).
     CLOSE_DOSSIER = "close_dossier"
+    # Reopen a closed dossier, with a reason: the beheerder only (ADR 0057).
+    REOPEN_DOSSIER = "reopen_dossier"
     # Take a typed text that never belonged out of a moment of an assignment,
     # with a herstelfeit (ADR 0057).
     RESTATE_FACT = "restate_fact"

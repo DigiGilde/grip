@@ -218,6 +218,7 @@ def statement(fact: str, fields: Fields | None, *, actor: str | None) -> str:
 _NOTES: dict[str, tuple[str, ...]] = {
     "assignment_status_changed": ("reason",),
     "acceptance_date_corrected": ("reason",),
+    "dossier_reopened": ("reason",),
 }
 
 
