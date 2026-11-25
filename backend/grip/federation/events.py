@@ -12,7 +12,9 @@ What a builder returns (``built`` below) is a dict with:
 - ``recipient`` (optional): an organisation reference, when the receiver
   does not follow from the message itself;
 - ``recipients`` (optional, vacancies): a list of organisation references;
-  without it a vacancy goes to every active instance peer.
+  without it a vacancy goes to every active instance peer;
+- ``assignment_uri`` (optional): the assignment, when only the path of the
+  operation names it.
 """
 
 from __future__ import annotations
@@ -108,6 +110,16 @@ async def on_quote_rejected(
     return await _to_one(db, payload, "sendRejection", None, quoteId=quote_id)
 
 
+async def on_billing_details_given(
+    db: AsyncSession, payload: dict[str, Any]
+) -> list[FederationOutbox]:
+    """This instance, as client, gives the contractor new billing details."""
+    assignment_id = _uuid_from_uri(payload["assignment_uri"])
+    return await _to_one(
+        db, payload, "sendBillingDetails", None, assignmentId=assignment_id
+    )
+
+
 async def on_final_report_issued(
     db: AsyncSession, payload: dict[str, Any]
 ) -> list[FederationOutbox]:
@@ -152,6 +164,7 @@ EVENT_HANDLERS: dict[str, EventHandler] = {
     "quote.offered": on_quote_offered,
     "quote.accepted": on_quote_accepted,
     "quote.rejected": on_quote_rejected,
+    "client_billing_details.given": on_billing_details_given,
     "final_report.issued": on_final_report_issued,
     "vacancy.published": on_vacancy_published,
 }

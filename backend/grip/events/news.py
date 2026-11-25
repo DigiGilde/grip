@@ -444,6 +444,7 @@ OFF_KINDS: frozenset[str] = frozenset(
         "billing_correction",
         "billing_delivery",
         "billing_terms",
+        "client_billing_details",
         "person_standing",
         "person_role",
         "person_roles",

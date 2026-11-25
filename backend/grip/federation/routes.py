@@ -339,6 +339,18 @@ async def send_rejection(
     return await receive(db, peer, op, payload, {"quoteId": str(offerteId)})
 
 
+@router.put("/opdrachten/{opdrachtId}/factuurinformatie", **_docs("sendBillingDetails"))
+async def send_billing_details(
+    opdrachtId: UUID,  # noqa: N803
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    peer: Peer = Depends(require_caller("sendBillingDetails")),
+) -> JSONResponse:
+    op = operation("sendBillingDetails")
+    payload = await _validated_body(request, op)
+    return await receive(db, peer, op, payload, {"assignmentId": str(opdrachtId)})
+
+
 @router.put("/opdrachten/{opdrachtId}/eindrapport", **_docs("sendFinalReport"))
 async def send_final_report(
     opdrachtId: UUID,  # noqa: N803

@@ -47,6 +47,7 @@ KINDS: dict[str, str] = {
     "billing_correction": "factuurcorrectie",
     "billing_delivery": "aanlevering",
     "billing_terms": "factuurafspraken",
+    "client_billing_details": "opgegeven-factuurinformatie",
     "outgoing_invoice": "factuur",
     "invoice": "factuur",
     "invoice_line": "factuurregel",
@@ -119,6 +120,7 @@ VERBS: dict[str, str] = {
     "published": "gepubliceerd",
     "recorded": "vastgelegd",
     "arose": "ontstaan",
+    "given": "opgegeven",
     "read": "ingezien",
     "erased": "gewist",
 }

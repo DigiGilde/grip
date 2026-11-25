@@ -42,6 +42,8 @@ PERSON_SCALE_CHANGED = "person_scale.changed"
 # The price of a month that was already delivered changed (a promotion or a
 # rate card with effect in the past): the difference is to be delivered.
 BILLING_CORRECTION_AROSE = "billing_correction.arose"
+# This instance, as client, gave new billing details for an assignment.
+CLIENT_BILLING_DETAILS_GIVEN = "client_billing_details.given"
 
 EVENT_TYPES = (
     ASSIGNMENT_REQUEST_CREATED,
@@ -60,6 +62,7 @@ EVENT_TYPES = (
     INVOICE_WITHDRAWN,
     PERSON_SCALE_CHANGED,
     BILLING_CORRECTION_AROSE,
+    CLIENT_BILLING_DETAILS_GIVEN,
 )
 
 Handler = Callable[[AsyncSession, str, dict[str, Any]], Awaitable[None]]

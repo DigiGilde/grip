@@ -150,6 +150,18 @@ class AssignmentRepository:
         result = await self.db.execute(select(Assignment).where(Assignment.uri == uri))
         return result.scalar_one_or_none()
 
+    async def get_by_uri_id(self, uri_id: UUID) -> Assignment | None:
+        """The assignment whose URI ends in this id, as a contract path names it.
+
+        The client minted the URI; on the contractor's side the row has its
+        own primary key.
+        """
+        result = await self.db.execute(
+            select(Assignment).where(Assignment.uri.like(f"%/{uri_id}"))
+        )
+        rows = result.scalars().all()
+        return rows[0] if len(rows) == 1 else None
+
     async def running_with_contractor(self, organisation_id: UUID) -> list[Assignment]:
         """Shared assignments with an agreement that this contractor carries out."""
         result = await self.db.execute(

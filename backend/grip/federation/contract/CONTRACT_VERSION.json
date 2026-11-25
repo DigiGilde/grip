@@ -1,9 +1,9 @@
 {
   "source": "https://github.com/DigiGilde/grip-koppelvlakken",
-  "commit": "5077721664398bc9d307d2a4084d137d9259dbf9",
+  "commit": "2f67b9afb0f54a57ee34d38115f5c022f2b4e348",
   "modified": false,
   "versions": {
-    "grip-opdrachtverkeer": "1.1.0",
-    "corpus-context": "1.1.0"
+    "grip-opdrachtverkeer": "1.2.0",
+    "corpus-context": "1.2.0"
   }
 }

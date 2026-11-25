@@ -9,7 +9,7 @@ made once; the invoice that results is recorded against it.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from typing import Any
@@ -135,7 +135,7 @@ class Terms:
         return tuple(key for key in REQUIRED_DETAILS if not self.details.get(key))
 
 
-def _clean_details(details: dict[str, Any] | None) -> dict[str, str]:
+def clean_details(details: Mapping[str, Any] | None) -> dict[str, str]:
     cleaned: dict[str, str] = {}
     for key, value in (details or {}).items():
         if key not in DETAIL_FIELDS:
@@ -182,11 +182,16 @@ async def set_terms(
     rhythm: str | None = None,
     details: dict[str, Any] | None = None,
     names_on_specification: bool | None = None,
+    details_given_at: datetime | None = None,
 ) -> Terms:
     """Record how the assignment is billed and where the invoice goes.
 
     The rhythm cannot change once a period was delivered: the periods that
     were delivered would no longer be the periods of the agreement.
+
+    ``details_given_at`` is passed when the details are what the client gave
+    (``grip.services.billing_details``); a person here typing them in leaves
+    the moment as it was.
     """
     await get_assignment(session, assignment_id)
     before = await terms_of(session, assignment_id)
@@ -206,7 +211,7 @@ async def set_terms(
                 "Voor deze opdracht is al een periode aangeleverd. Het ritme van "
                 "factureren ligt daarmee vast."
             )
-    new_details = before.details if details is None else _clean_details(details)
+    new_details = before.details if details is None else clean_details(details)
     new_names = (
         before.names_on_specification
         if names_on_specification is None
@@ -228,6 +233,8 @@ async def set_terms(
     row.rhythm = new_rhythm
     row.details = new_details
     row.names_on_specification = new_names
+    if details_given_at is not None:
+        row.details_given_at = details_given_at
     row.updated_by_id = actor.id if actor is not None else None
     await session.flush()
     record_audit(
@@ -245,6 +252,11 @@ async def set_terms(
             "rhythm": new_rhythm,
             "details": new_details,
             "names_on_specification": new_names,
+            **(
+                {"details_given_at": details_given_at.isoformat()}
+                if details_given_at is not None
+                else {}
+            ),
         },
         assignment_id=assignment_id,
     )

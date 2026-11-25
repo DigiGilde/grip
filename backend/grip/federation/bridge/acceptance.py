@@ -21,6 +21,7 @@ from grip.federation import signing, terms
 from grip.federation.bridge.organisations import own_reference
 from grip.models.person import Person
 from grip.models.quote import Quote, QuoteAcceptance, QuoteRejection
+from grip.services import billing_details as client_billing
 from grip.services import quotes
 from grip.services.errors import DomainValidationError
 
@@ -70,11 +71,14 @@ async def accept_received_quote(
     signed_at: datetime | None = None,
     evidence_id: UUID | None = None,
     statement_hash: str | None = None,
+    billing_details: dict[str, str] | None = None,
 ) -> QuoteAcceptance:
     """Accept a received quote on behalf of this instance, and sign that.
 
     Whether ``actor`` may do this is for the caller to ask the access model
-    (action accept_quote); this function assumes the answer was yes.
+    (action accept_quote, and give_billing_details with ``billing_details``);
+    this function assumes the answer was yes. The billing details are kept
+    here and go with the acceptance, outside its signature.
     """
     settings = get_settings()
     quote = await quotes.get_quote(db, quote_id)
@@ -96,6 +100,11 @@ async def accept_received_quote(
         "form": "own_instance",
     }
     jws = signing.sign_acceptance(terms.to_contract(message), settings)
+    if billing_details:
+        # Kept before the acceptance is announced: its message carries them.
+        await client_billing.given_at_acceptance(
+            db, quote.assignment_id, billing_details, signed_at=signed_at, actor=actor
+        )
     return await quotes.accept_quote(
         db,
         quote.id,

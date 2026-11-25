@@ -341,6 +341,12 @@ async def test_unknown_path_is_a_problem_too(fed_client):
             "final-report",
             "sendFinalReport",
         ),
+        (
+            "PUT",
+            "/v1/opdrachten/3f2a8c54-6d1b-4f0e-9a77-1c2b3d4e5f60/factuurinformatie",
+            "billing-details-change",
+            "sendBillingDetails",
+        ),
         ("POST", "/v1/vacatures", "vacancy", "sendVacancy"),
         (
             "POST",
@@ -392,6 +398,19 @@ async def test_signed_acceptance_verifies_with_cached_keys(
     )
     assert response.status_code == 201, response.text
     assert fake_outway.requests == [], "keys entered by hand are not fetched"
+
+
+async def test_billing_details_lie_outside_the_signature(fed_client, make_peer):
+    await make_peer(CLIENT_PEER_ID, base_uri=CLIENT_BASE, jwks=example("jwks"))
+    body = example("acceptance.met-factuurinformatie")
+    response = await fed_client.post(
+        f"/v1/offertes/{QUOTE_ID}/akkoorden", json=body, headers=as_peer(CLIENT_PEER_ID)
+    )
+    assert response.status_code == 201, response.text
+    # Other billing details do not break the signature; they are not signed.
+    other = copy.deepcopy(body)
+    other[t("billing_details")][t("address")] = "Postbus 00099"
+    signing.verify_acceptance(other, example("jwks"))
 
 
 async def test_keys_are_fetched_through_the_outway_when_unknown(
