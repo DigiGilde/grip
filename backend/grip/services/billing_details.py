@@ -24,6 +24,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from grip.core import clock
 from grip.core.audit import CREATE, UPDATE, record_audit
 from grip.core.config import get_settings
 from grip.models.assignment import Assignment
@@ -110,6 +111,9 @@ async def take(
     in before. A change the client gave before the moment of what the terms
     hold from the client is received and not taken over.
     """
+    # A moment in the future (a typed-in signing date, a peer's clock) would
+    # make every later change look older and never be taken over.
+    given_at = min(given_at, clock.now())
     row = await session.get(BillingTerms, assignment_id)
     if (
         row is not None

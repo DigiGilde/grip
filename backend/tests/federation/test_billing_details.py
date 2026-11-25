@@ -13,6 +13,7 @@ from datetime import UTC, datetime
 import pytest
 from sqlalchemy import select
 
+from grip.core import clock
 from grip.core.config import get_settings
 from grip.federation.bridge import register_bridge
 from grip.federation.bridge.organisations import from_reference, own_organisation
@@ -41,6 +42,13 @@ def _bridge(monkeypatch):
         "https://identifier.overheid.nl/tooi/id/oorg/oorg00000",
     )
     register_bridge()
+
+
+@pytest.fixture(autouse=True)
+def _now():
+    """After the moments in the examples, which a change may not lie beyond."""
+    with clock.at(datetime(2027, 3, 1, tzinfo=UTC)):
+        yield
 
 
 @pytest.fixture
@@ -160,6 +168,24 @@ async def test_a_change_after_the_acceptance_needs_a_later_moment(
     response = await fed_client.put(PATH, json=before, headers=as_peer(CLIENT_PEER_ID))
     assert response.status_code == 201, response.text
     assert (await _terms(db_session, assignment)).details["address"] == "Postbus 00009"
+
+
+async def test_a_moment_in_the_future_does_not_block_a_later_change(
+    fed_client, db_session, assignment
+):
+    ahead = _change("2099-01-01T00:00:00Z", adres="Postbus 00006")
+    response = await fed_client.put(PATH, json=ahead, headers=as_peer(CLIENT_PEER_ID))
+    assert response.status_code == 201, response.text
+    terms = await _terms(db_session, assignment)
+    assert terms.details_given_at == datetime(2027, 3, 1, tzinfo=UTC)
+
+    with clock.at(datetime(2027, 4, 1, tzinfo=UTC)):
+        later = _change("2027-03-15T09:00:00Z", adres="Postbus 00007")
+        response = await fed_client.put(
+            PATH, json=later, headers=as_peer(CLIENT_PEER_ID)
+        )
+        assert response.status_code == 201, response.text
+    assert (await _terms(db_session, assignment)).details["address"] == "Postbus 00007"
 
 
 async def test_unknown_assignment_is_404_and_another_caller_403(
