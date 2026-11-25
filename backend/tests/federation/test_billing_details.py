@@ -64,7 +64,7 @@ async def assignment(db_session, make_peer):
         contractor_organisation_id=own.id,
         uri=ASSIGNMENT_URI,
     )
-    assignments.share_with_instance(row, CLIENT_BASE)
+    await assignments.share_with_instance(db_session, row, CLIENT_BASE)
     await make_peer(CLIENT_PEER_ID, base_uri=CLIENT_BASE)
     await make_peer(STRANGER_PEER_ID, base_uri="https://grip.ander.example")
     await db_session.flush()
