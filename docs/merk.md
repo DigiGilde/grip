@@ -27,6 +27,8 @@ De organisatie is de afzender van alles wat de deur uit gaat. Het product is het
 | Offerte als pdf | Het hele document | Niet |
 | Bewijs van een akkoord | Wie besloot en namens wie | Een regel onderaan: waarmee het is vastgelegd |
 | Geinstalleerde app | In de naam van de app | Het pictogram |
+| Ontwikkelportaal, boven de balk | Niet: het portaal hoort bij geen organisatie | Het beeldmerk voor de naam van het portaal, samen een link naar de start |
+| Startpagina van het ontwikkelportaal | Niet | Beeldmerk, naam en de zin, boven de kop |
 
 Een aantekening over de omgeving, zoals "voorbeeld" bij de voorbeeldgegevens, hoort bij geen van beide. Zij staat als label naast de naam.
 
@@ -49,6 +51,7 @@ De bron is `frontend/brand/mark.svg`. Alle afgeleide bestanden maakt `just brand
 | `frontend/public/favicon.ico` | 16, 32, 48 | Browsers zonder svg-pictogram |
 | `frontend/public/apple-touch-icon.png` | 180 | Beginscherm op iOS |
 | `ontwikkelportaal/public/` `favicon.svg`, `favicon.ico` en `apple-touch-icon.png` | als hierboven | Dezelfde drie voor het ontwikkelportaal, waarvan het image zonder `frontend/` wordt gebouwd |
+| `ontwikkelportaal/src/brand/mark.svg` | vector, zonder kleur | Het beeldmerk in de pagina's van het ontwikkelportaal |
 | `frontend/public/icons/icon-192.png` | 192 | App-pictogram |
 | `frontend/public/icons/icon-512.png` | 512 | App-pictogram |
 | `frontend/public/icons/icon-maskable-192.png` | 192 | App-pictogram dat het systeem bijsnijdt |
@@ -58,6 +61,8 @@ De bron is `frontend/brand/mark.svg`. Alle afgeleide bestanden maakt `just brand
 | `docs/merk/richtingen.png` | | Alle getekende richtingen naast elkaar |
 
 In de schermen is het beeldmerk het onderdeel `BrandMark` uit `frontend/src/brand`. Naam en beeldmerk samen buiten de balk is `Brand`, in drie vormen: `login`, `signing` en `compact`.
+
+In het ontwikkelportaal is het beeldmerk `BrandMark.astro` uit `ontwikkelportaal/src/components`, gekleurd door `.brand-mark` in `site.css`. De balk van het designsysteem heeft geen plek voor een beeldmerk naast de titel. Beeldmerk en naam staan daarom als `nldd-toolbar-title` op een eigen regel boven de balk; de balk houdt de terugknop en Zoeken. De startpagina toont de vorm `login`: beeldmerk, naam en de zin.
 
 ### De richtingen die zijn getekend
 
@@ -94,7 +99,7 @@ Overwogen en niet gekozen:
 - "Zie wat een opdracht kost, wie eraan werkt en wat er nog moet gebeuren." Waar, maar het is een opsomming.
 - "Voor wie opdrachten uitvoert voor de overheid." Zegt voor wie, niet wat.
 
-De zin staat op de inlogpagina en hoort in de README en in de omschrijving van de app. Hij staat in `frontend/src/brand/names.ts`.
+De zin staat op de inlogpagina en op de startpagina van het ontwikkelportaal, en hoort in de README en in de omschrijving van de app. Hij staat in `frontend/src/brand/names.ts`, met een kopie in `ontwikkelportaal/src/lib/site.ts`.
 
 ## Titel van een tabblad
 

@@ -8,7 +8,8 @@
 // - every page has the search window and a Zoeken item that works without script;
 // - every nldd-* element used is defined by an import in src/nldd-components.js;
 // - every persona and every decision has a page, and the search index exists;
-// - every page has grip's icons, written by `just brand`;
+// - every page has grip's icons, written by `just brand`, and its mark before
+//   the name that leads to the start;
 // - no en or em dash and no local path in the output.
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -21,7 +22,7 @@ const DIST = join(ROOT, 'dist');
 const DOCS = join(ROOT, '..', 'docs');
 const ELEMENT_SLOTS = new Set([
   'header', 'sidebar', 'footer', 'global', 'utility', 'breadcrumbs', 'legal-bar', 'start', 'end',
-  'actions', 'no-results', 'empty', 'left', 'right',
+  'actions', 'no-results', 'empty', 'left', 'right', 'media',
 ]);
 const START = join(DIST, 'index.html');
 const GRIP_ICONS = ['/favicon.ico', '/favicon.svg', '/apple-touch-icon.png'];
@@ -96,7 +97,7 @@ for (const [file, text] of html) {
   if (!/<nldd-window[^>]*\sid="zoekvenster"/.test(text) || !/id="zoekvenster-veld"/.test(text)) problem(file, 'zoekvenster ontbreekt');
   if (!/<nldd-menu-bar-item[^>]*\sid="zoeken-knop"[^>]*\shref="\/zoeken\/"/.test(text)) problem(file, 'Zoeken in de bovenbalk wijst niet naar /zoeken/');
 
-  // Navigation: the website title leads home, a deeper page goes up with the back button.
+  // Navigation: the name above the bar leads home, a deeper page goes up with the back button.
   if (/<nldd-menu-bar slot="global"/.test(text)) problem(file, 'bovenbalk heeft onderdelen');
   const bar = /<nldd-top-navigation-bar\b([^>]*)>/.exec(text)?.[1] ?? '';
   const back = /\sback-href="([^"]*)"/.exec(bar)?.[1];
@@ -122,6 +123,7 @@ for (const [file, text] of html) {
   // The tab and home screen show grip's mark, never the design system's own icon.
   const icons = [...text.matchAll(/<link rel="(?:icon|apple-touch-icon)"[^>]*\shref="([^"]*)"/g)].map((m) => m[1]);
   if (icons.join(' ') !== GRIP_ICONS.join(' ')) problem(file, `pictogrammen ${icons.join(', ') || 'ontbreken'}`);
+  if (!/<nldd-toolbar-title[^>]*\shref="\/"[^>]*><svg[^>]*class="brand-mark"[^>]*slot="media"/.test(text)) problem(file, 'beeldmerk voor de naam ontbreekt');
 
   if (/[\u2013\u2014]/.test(text)) problem(file, 'en of em dash');
   if (/\/Users\/|\/home\/[a-z]/.test(text)) problem(file, 'lokaal pad');

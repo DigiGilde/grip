@@ -1,11 +1,20 @@
 ---
 import Base from '../layouts/Base.astro';
-import { ROUTES, SITE_NAME } from '../lib/site';
+import BrandMark from '../components/BrandMark.astro';
+import { PRODUCT_NAME, PRODUCT_SENTENCE, ROUTES, SITE_NAME } from '../lib/site';
 ---
 
 <Base>
   <nldd-simple-section padding-bottom="0">
     <nldd-container slot="header">
+      <div class="brand">
+        <BrandMark size={40} />
+        <div class="brand-lines">
+          <span class="brand-word">{PRODUCT_NAME}</span>
+          <span class="brand-quiet">{PRODUCT_SENTENCE}</span>
+        </div>
+      </div>
+      <nldd-spacer size="24"></nldd-spacer>
       <nldd-title size="1" heading-level="1" text={SITE_NAME}></nldd-title>
       <nldd-spacer size="16"></nldd-spacer>
       <nldd-rich-text>

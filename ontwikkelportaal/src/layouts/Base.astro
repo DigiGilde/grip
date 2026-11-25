@@ -2,6 +2,7 @@
 import '@nldd/design-system/styles';
 import '../styles/site.css';
 import { ROUTES, SITE_NAME } from '../lib/site';
+import BrandMark from '../components/BrandMark.astro';
 
 export interface Crumb {
   text: string;
@@ -42,10 +43,13 @@ const onSearch = Astro.url.pathname.replace(/\/?$/, '/') === ROUTES.search;
     <nldd-app-view>
       <nldd-page>
         <nldd-skip-link slot="header" text="Direct naar de inhoud">
+          <nldd-simple-section padding-block="0">
+            <nldd-toolbar-title text={SITE_NAME} href={ROUTES.start}>
+              <BrandMark slot="media" />
+            </nldd-toolbar-title>
+          </nldd-simple-section>
           <nldd-top-navigation-bar
             no-logo
-            website-title={SITE_NAME}
-            website-href={ROUTES.start}
             back-href={up?.href}
             back-text={up?.text}
           >

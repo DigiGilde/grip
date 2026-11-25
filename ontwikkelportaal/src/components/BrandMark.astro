@@ -1,0 +1,21 @@
+---
+/**
+ * The product mark of grip, as BrandMark in the frontend draws it.
+ * Decorative wherever a name stands next to it; with `label` it carries the name itself.
+ */
+import Mark from '../brand/mark.svg';
+
+interface Props {
+  /** Side in pixels. The mark is drawn on a grid of 48 and stays sharp at 16. */
+  size?: number;
+  /** Goes into a named slot of a design-system component, such as `media`. */
+  slot?: string;
+  /** Only where the mark stands alone, without a name beside it. */
+  label?: string;
+}
+
+const { size = 24, slot, label } = Astro.props;
+const name = label ? { role: 'img', 'aria-label': label } : { 'aria-hidden': 'true' };
+---
+
+<Mark class="brand-mark" width={size} height={size} slot={slot} focusable="false" {...name} />
