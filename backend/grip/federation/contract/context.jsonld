@@ -9,6 +9,7 @@
     "aanhef": "kv:aanhef",
     "aantal": "kv:aantal",
     "aanvraag_id": "kv:aanvraag_id",
+    "adres": "kv:adres",
     "afgesloten_op": "kv:afgesloten_op",
     "afgesproken": "kv:afgesproken",
     "afgewezen_op": "kv:afgewezen_op",
@@ -37,6 +38,7 @@
     "budgetindicatie": "kv:budgetindicatie",
     "canonicalisatie": "kv:canonicalisatie",
     "contact_email": "kv:contact_email",
+    "contactpersoon": "kv:contactpersoon",
     "context_uris": {
       "@id": "kv:context_uris",
       "@type": "@id"
@@ -62,6 +64,7 @@
       "@id": "kv:externe_node_uris",
       "@type": "@id"
     },
+    "factuurinformatie": "kv:factuurinformatie",
     "fte": "kv:fte",
     "fte_pct": "kv:fte_pct",
     "functie": "kv:functie",
@@ -136,6 +139,7 @@
     "opdrachtnemer": "kv:opdrachtnemer",
     "open_rollen": "kv:open_rollen",
     "opening": "kv:opening",
+    "opgegeven_op": "kv:opgegeven_op",
     "organisatie": "kv:organisatie",
     "page": "kv:page",
     "page_size": "kv:page_size",
@@ -147,6 +151,7 @@
     "plek": "kv:plek",
     "positie": "kv:positie",
     "postadres": "kv:postadres",
+    "postcode_plaats": "kv:postcode_plaats",
     "profiel": "kv:profiel",
     "prognose": "kv:prognose",
     "publicaties": "kv:publicaties",
@@ -171,6 +176,8 @@
     "subtotalen_per_jaar": "kv:subtotalen_per_jaar",
     "tariefcategorie": "kv:tariefcategorie",
     "tekst": "kv:tekst",
+    "telefoon": "kv:telefoon",
+    "ten_name_van": "kv:ten_name_van",
     "titel": "kv:titel",
     "title": "kv:title",
     "tooi_uri": {

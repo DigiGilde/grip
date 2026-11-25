@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Factuurinformatie",
+  "description": "Waar de opdrachtnemer de factuur heen stuurt: het factuuradres van de opdrachtgever, een kenmerk voor op de factuur en een contactpersoon van de financiële afdeling. Dezelfde gegevens als de bijlage Factuurinformatie van de offerte. Gegevensklasse B; naam, telefoon en e-mail van de contactpersoon zijn persoonsgegevens.",
+  "type": "object",
+  "properties": {
+    "organisatie": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "De organisatie waaraan wordt gefactureerd."
+    },
+    "ten_name_van": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "Afdeling of persoon ter attentie van wie de factuur gaat."
+    },
+    "adres": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Adres of postbus."
+    },
+    "postcode_plaats": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Postcode en plaats."
+    },
+    "kenmerk": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "Kenmerk, verplichtingennummer of vorderingsnummer dat op de factuur moet staan."
+    },
+    "contactpersoon": {
+      "type": "object",
+      "properties": {
+        "naam": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Naam van de contactpersoon."
+        },
+        "telefoon": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Telefoonnummer van de contactpersoon."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 200,
+          "description": "E-mailadres van de contactpersoon."
+        }
+      },
+      "description": "Contactpersoon van de financiële afdeling van de opdrachtgever."
+    }
+  },
+  "required": [
+    "organisatie",
+    "adres",
+    "postcode_plaats"
+  ]
+}

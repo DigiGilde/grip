@@ -1,0 +1,12 @@
+{
+  "organisatie": "Voorbeeldministerie",
+  "ten_name_van": "Directie Voorbeeld",
+  "adres": "Postbus 00000",
+  "postcode_plaats": "0000 AA Den Haag",
+  "kenmerk": "VPL-2026-0042",
+  "contactpersoon": {
+    "naam": "Voorbeeld Crediteurenadministratie",
+    "telefoon": "070 000 0000",
+    "email": "crediteuren@opdrachtgever.example"
+  }
+}
