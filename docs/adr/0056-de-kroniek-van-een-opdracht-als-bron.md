@@ -65,3 +65,7 @@ Grip is een proefopstelling zonder productiegegevens. De kosten van een ombouw w
 - Wissen op verzoek van een persoon, ook in feiten.
 - Een kroniek per soort zaak voor vacatures en facturatie.
 - Een offerte of akkoord bij de bron controleren: RegelRecht noemt dat een open vraag, en de hash en de ondertekende verklaring zijn hier een antwoord op.
+
+## Later gewijzigd (2026-11-25)
+
+Wissen op verzoek van een persoon, hierboven nog als later werk genoemd, vervalt. Een zaak wordt bewaard tot haar termijn verloopt, en wordt dan vernietigd; een getypte tekst die er nooit in hoorde, gaat eruit met een herstelfeit (ADR 0057). Een dossier sluit met een feit, en wat Grip zelf sluit staat in de kroniek met Grip als wie vaststelde.

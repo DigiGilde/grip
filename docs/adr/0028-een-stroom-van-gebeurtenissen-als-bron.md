@@ -46,3 +46,7 @@ Inzage wordt sindsdien per verzoek vastgelegd, niet per persoon: een pagina over
 ## Later gewijzigd (2026-11-04)
 
 Op het pad naar een opdracht is een feit de bron en zijn de tabellen afgeleid; de stroom is er niet meer alleen een verslag naast (ADR 0056). De wijzigingsregels en domeingebeurtenissen blijven ernaast bestaan.
+
+## Later gewijzigd (2026-11-25)
+
+Wissen op leeftijd raakt geen gebeurtenis van een opdracht meer: die gaat met haar zaak, na de bewaartermijn die na het sluiten van het dossier loopt. De worker past de termijnen elke dag toe (ADR 0057).
