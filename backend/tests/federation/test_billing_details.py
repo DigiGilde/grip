@@ -15,8 +15,10 @@ from sqlalchemy import select
 
 from grip.core import clock
 from grip.core.config import get_settings
+from grip.federation import routes
 from grip.federation.bridge import register_bridge
 from grip.federation.bridge.organisations import from_reference, own_organisation
+from grip.federation.inbox import process_pending
 from grip.federation.models import FederationInbox
 from grip.models.billing_delivery import BillingTerms
 from grip.services import assignments, billing_deliveries
@@ -217,3 +219,19 @@ async def test_a_change_without_an_address_is_refused_by_the_contract(
     )
     assert response.status_code == 400, response.text
     assert await db_session.get(BillingTerms, assignment.id) is None
+
+
+async def test_a_change_stored_without_a_handler_finds_its_assignment_later(
+    fed_client, db_session, assignment, monkeypatch
+):
+    monkeypatch.setattr(routes, "get_inbound_handler", lambda operation: None)
+    response = await fed_client.put(
+        PATH, json=example("billing-details-change"), headers=as_peer(CLIENT_PEER_ID)
+    )
+    assert response.status_code == 201, response.text
+    assert await db_session.get(BillingTerms, assignment.id) is None
+
+    assert await process_pending(db_session) == 1
+    assert (await _terms(db_session, assignment)).details["address"] == "Postbus 00001"
+    inbox = (await db_session.execute(select(FederationInbox))).scalar_one()
+    assert inbox.result == {"assignment_id": str(assignment.id), "applied": True}

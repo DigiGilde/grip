@@ -178,7 +178,7 @@ Grip leest omschrijving, bedrag en factuurregels bij de uitvoerder, met één ve
 |---|---|
 | `peer` | Een andere instantie of een corpus: peer-id, organisatie, contract |
 | `federation_outbox` | Uitgaande berichten, verstuurd door een worker |
-| `federation_inbox` | Inkomende berichten, idempotent op bericht-UUID |
+| `federation_inbox` | Inkomende berichten, idempotent op bericht-UUID, met de parameters uit het pad. Een bericht dat in de inhaalronde onverwacht faalt, blijft staan; de berichten erna gaan door |
 | `stream_event` | De stroom van gebeurtenissen: wie, wanneer, oude en nieuwe waarde, de gegevensklasse per veld en de keten van hashes. Het auditlog is een weergave hiervan (ADR 0028) |
 | `task`, `task_case` | Taken en de zaken waar ze bij horen (ADR 0024) |
 | `signing_intent`, `decision_evidence` | Het voornemen tot een besluit en het bewijs erbij (ADR 0029) |
