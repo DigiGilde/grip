@@ -347,7 +347,7 @@ describe('ReceivedQuotePage', () => {
       expect(calls.some((call) => call.method === 'POST')).toBe(false);
     });
 
-    it('sends the details with the intent and keeps them for the way back', async () => {
+    it('sends the details with the intent and keeps none of them in the browser', async () => {
       const go = vi.spyOn(navigation, 'go').mockImplementation(() => {});
       const { sheet, calls } = await openAccept({
         '/api/received-quotes/q-1': ANNEX,
@@ -367,18 +367,15 @@ describe('ReceivedQuotePage', () => {
           reference: 'ORD-2026-12',
         },
       });
-      expect(
-        JSON.parse(sessionStorage.getItem('grip.besluit.q-1') ?? '{}').billingDetails,
-      ).toMatchObject({ address: 'Postbus 1' });
+      expect(sessionStorage.getItem('grip.besluit.q-1') ?? '').not.toContain('Postbus 1');
       go.mockRestore();
     });
 
-    it('opens the sheet with the details again after a failed return', async () => {
+    it('opens the sheet again after a failed return, with only the reference filled in', async () => {
       sessionStorage.setItem(
         'grip.besluit.q-1',
         JSON.stringify({
           signerFunction: 'Directeur',
-          billingDetails: { organisation: 'Voorbeeldministerie', address: 'Postbus 1' },
         }),
       );
       const { sheet } = await openAccept(
@@ -386,7 +383,7 @@ describe('ReceivedQuotePage', () => {
         `${receivedQuotePath('q-1')}?besluit_fout=verlopen`,
       );
       expect(field(sheet, 'Je functie')?.getAttribute('value')).toBe('Directeur');
-      expect(field(sheet, 'Adres of postbus')?.getAttribute('value')).toBe('Postbus 1');
+      expect(field(sheet, 'Adres of postbus')?.getAttribute('value') ?? '').toBe('');
       expect(field(sheet, 'Kenmerk op de factuur')?.getAttribute('value')).toBe('ORD-2026-12');
     });
   });

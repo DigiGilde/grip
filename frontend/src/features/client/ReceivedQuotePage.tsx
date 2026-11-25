@@ -149,14 +149,14 @@ export function ReceivedQuotePage() {
 
   const back = useDecisionReturn();
   const [draft] = useState(() =>
-    readDraft<{ signerFunction?: string; reason?: string; billingDetails?: BillingDetails }>(
-      quoteId,
-    ),
+    readDraft<{ signerFunction?: string; reason?: string }>(quoteId),
   );
   // The decision is made when the browser is back from the identity
   // provider; asking for the intent records nothing.
   const leaveFor = (kind: 'accept_received' | 'reject_received') => {
-    saveDraft(quoteId, { signerFunction, reason, billingDetails: details });
+    // The billing details stay out of the draft: the contact person is
+    // personal data, and the server keeps them with the intent.
+    saveDraft(quoteId, { signerFunction, reason });
     const billing = kind === 'accept_received' ? filledDetails(details) : null;
     return createDecisionIntent({
       kind,
@@ -185,7 +185,6 @@ export function ReceivedQuotePage() {
     setRestored(true);
     setSignerFunction(draft.signerFunction ?? '');
     setReason(draft.reason ?? '');
-    setDetails(draft.billingDetails ?? {});
   }
 
   const detail = query.data;

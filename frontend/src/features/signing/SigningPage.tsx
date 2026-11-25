@@ -83,7 +83,6 @@ interface SigningDraft extends Record<string, unknown> {
   signerFunction?: string;
   organisationName?: string;
   reason?: string;
-  billingDetails?: BillingDetails;
 }
 
 /**
@@ -108,7 +107,9 @@ export function SigningPage() {
   const [organisationName, setOrganisationName] = useState(draft?.organisationName ?? '');
   const [mandate, setMandate] = useState(false);
   const [reason, setReason] = useState(draft?.reason ?? '');
-  const [details, setDetails] = useState<BillingDetails>(draft?.billingDetails ?? {});
+  // Not in the draft: the contact person is personal data, and the server
+  // already keeps what was given with the intent.
+  const [details, setDetails] = useState<BillingDetails>({});
   const [error, setError] = useState<string | null>(null);
 
   // Asking for the intent decides nothing: the decision is made when the
@@ -121,7 +122,6 @@ export function SigningPage() {
         signerFunction,
         organisationName,
         reason,
-        billingDetails: details,
       });
       const billing = filledDetails(details);
       return createSigningIntent(quoteId, {

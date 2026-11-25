@@ -354,7 +354,7 @@ describe('SigningPage', () => {
       expect(sheet.querySelectorAll('nldd-text-field[required]').length).toBe(0);
     });
 
-    it('sends the details with the intent and keeps them for the way back', async () => {
+    it('sends the details with the intent and keeps none of them in the browser', async () => {
       const go = vi.spyOn(navigation, 'go').mockImplementation(() => {});
       const { sheet, calls } = await openAccept({
         '/api/signing/quotes/q-1': ANNEX,
@@ -378,20 +378,17 @@ describe('SigningPage', () => {
           contact_email: 'crediteuren@voorbeeld.example',
         },
       });
-      const draft = JSON.parse(sessionStorage.getItem('grip.besluit.q-1') ?? '{}');
-      expect(draft.billingDetails).toMatchObject({
-        address: 'Postbus 1',
-        reference: 'ORD-2026-12',
-      });
+      const draft = sessionStorage.getItem('grip.besluit.q-1') ?? '';
+      expect(draft).not.toContain('Postbus 1');
+      expect(draft).not.toContain('crediteuren@voorbeeld.example');
       go.mockRestore();
     });
 
-    it('opens the form with the details again when the decision did not go through', async () => {
+    it('opens the form again with only the reference filled in', async () => {
       sessionStorage.setItem(
         'grip.besluit.q-1',
         JSON.stringify({
           decision: 'accept',
-          billingDetails: { organisation: 'Voorbeeldministerie', address: 'Postbus 1' },
         }),
       );
       mockApi({ '/api/signing/quotes/q-1': ANNEX });
@@ -409,8 +406,7 @@ describe('SigningPage', () => {
         ),
       );
       const sheet = openSheet() as Element;
-      expect(field(sheet, 'Adres of postbus')?.getAttribute('value')).toBe('Postbus 1');
-      expect(field(sheet, 'Organisatie')?.getAttribute('value')).toBe('Voorbeeldministerie');
+      expect(field(sheet, 'Adres of postbus')?.getAttribute('value') ?? '').toBe('');
       expect(field(sheet, 'Kenmerk op de factuur')?.getAttribute('value')).toBe('ORD-2026-12');
     });
   });
