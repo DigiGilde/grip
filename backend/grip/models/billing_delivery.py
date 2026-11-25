@@ -53,7 +53,42 @@ class BillingTerms(EditCounted, Base):
     names_on_specification: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default=text("false")
     )
+    # When the client gave the details these terms hold (at the acceptance or
+    # later). A change the client gave earlier than this is not taken over.
+    # None while the details are only what someone here typed in.
+    details_given_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     updated_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("person.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = created_at()
+    updated_at: Mapped[datetime] = updated_at()
+
+
+class ClientBillingDetails(Base):
+    """What this instance, as client, gave a contractor for the invoice.
+
+    The client owns these details (ADR 0053): the contractor takes them into
+    its billing terms. This instance keeps the latest it gave, per
+    assignment, so a new billing address starts from the previous one.
+    """
+
+    __tablename__ = "client_billing_details"
+
+    assignment_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("assignment.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    # The same keys as BillingTerms.details.
+    details: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, default=dict, server_default=text("'{}'::jsonb")
+    )
+    given_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    given_by_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("person.id", ondelete="SET NULL"),
         nullable=True,

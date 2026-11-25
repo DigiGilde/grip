@@ -205,9 +205,10 @@ __all__ += ["PasskeyCredential"]
 from grip.models.billing_delivery import (  # noqa: E402
     BillingDelivery,
     BillingTerms,
+    ClientBillingDetails,
 )
 
-__all__ += ["BillingDelivery", "BillingTerms"]
+__all__ += ["BillingDelivery", "BillingTerms", "ClientBillingDetails"]
 
 # A correction on a delivered billing period (migration 0036_billing_correction).
 from grip.models.billing_correction import BillingCorrection  # noqa: E402

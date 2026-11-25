@@ -73,6 +73,10 @@ EXCEPTIONS = {
     "PUT /api/assignments/{assignment_id}/quote-draft/outline": (
         "the draft of a quote has its own version of the outline"
     ),
+    "PUT /api/client/assignments/{assignment_id}/billing-details": (
+        "giving billing details is a dated fact that replaces them whole; the "
+        "contractor keeps the latest given"
+    ),
     "PUT /api/notifications/preference": (
         "a person's own preference: nobody else edits it"
     ),

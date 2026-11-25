@@ -7,12 +7,13 @@ instance are here (uploaded pdf) and in ``signing`` (signing link).
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, Query, Response, UploadFile, status
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip import calc
@@ -34,6 +35,7 @@ from grip.core.config import get_settings
 from grip.core.database import get_db
 from grip.integrations.mail import outbox as mail_outbox
 from grip.models.quote import Quote, QuoteInvitation
+from grip.schema.billing import BillingDetailsIn
 from grip.schema.quotes import (
     AcceptanceOut,
     ChannelOut,
@@ -56,6 +58,7 @@ from grip.schema.quotes import (
     document_fields,
 )
 from grip.services import (
+    billing_details,
     quote_budget,
     quote_channels,
     quote_files,
@@ -623,11 +626,23 @@ async def record_uploaded_acceptance(
     signer_function: str | None = Form(default=None, max_length=255),
     organisation_name: str | None = Form(default=None, max_length=255),
     signed_at: datetime | None = Form(default=None),
+    # A JSON object with the keys of BillingDetailsIn: the annex as filled in.
+    billing_details_json: str | None = Form(
+        default=None, alias="billing_details", max_length=5000
+    ),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     """Record an acceptance from a signed pdf, with the file attached."""
     quote, resource = await visible_quote(db, decider, subject, quote_id)
     await require(decider, subject, Action.EDIT, resource, DataClass.ASSIGNMENT_BASIC)
+    details = billing_details.for_acceptance(
+        quote, _uploaded_details(billing_details_json), form="uploaded_pdf"
+    )
+    if details is not None:
+        # Typed in here from the annex: the same right as the billing terms.
+        await require(
+            decider, subject, Action.EDIT, resource, DataClass.ASSIGNMENT_FINANCIAL
+        )
     # Read one byte past the limit, so a file that is too large is refused
     # without loading all of it.
     content = await file.read(stored_documents.MAX_DOCUMENT_BYTES + 1)
@@ -643,10 +658,22 @@ async def record_uploaded_acceptance(
         signer_function=signer_function,
         organisation_name=organisation_name,
         signed_at=signed_at,
+        billing_details=details,
     )
     bundle = await quote_views.quote_bundle(db, quote.id)
     value = QuoteSummaryOut(**summary_fields(bundle))
     return await filtered(decider, subject, resource, value)
+
+
+def _uploaded_details(raw: str | None) -> dict[str, Any] | None:
+    if raw is None or not raw.strip():
+        return None
+    try:
+        return BillingDetailsIn.model_validate(json.loads(raw)).model_dump()
+    except (ValueError, ValidationError) as error:
+        raise DomainValidationError(
+            "De factuurgegevens horen bij elkaar als één object met tekst per veld."
+        ) from error
 
 
 @router.get("/quotes/{quote_id}/acceptance/document")

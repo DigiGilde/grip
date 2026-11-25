@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip.core import clock
 from grip.federation import signing, terms
+from grip.federation.bridge import billing_details
 from grip.federation.bridge.organisations import (
     organisation_by_id,
     own_reference,
@@ -34,6 +35,7 @@ from grip.models.quote import Quote
 from grip.models.vacancy_text_flow import VacancyPublication
 from grip.repositories.domain import AssignmentRepository
 from grip.repositories.vacancy import VacancyRepository
+from grip.services import billing_details as client_billing
 from grip.services.assignments import is_shared_with, mint_uri
 
 Built = dict[str, Any] | None
@@ -190,6 +192,10 @@ async def quote_accepted(db: AsyncSession, payload: dict[str, Any]) -> Built:
         "form": payload["form"],
         "jws": payload["jws"],
     }
+    # What this instance gave for the invoice goes along, outside the JWS.
+    given = await client_billing.kept(db, quote.assignment_id)
+    if given is not None and given.details:
+        message["billing_details"] = billing_details.to_message(given.details)
     return {"message": message, "recipient": contractor}
 
 
@@ -209,6 +215,32 @@ async def quote_rejected(db: AsyncSession, payload: dict[str, Any]) -> Built:
         "rejected_at": payload["rejected_at"],
     }
     return {"message": message, "recipient": contractor}
+
+
+async def billing_details_given(db: AsyncSession, payload: dict[str, Any]) -> Built:
+    """This instance, as client, gives the contractor new billing details."""
+    if _is_remote(payload):
+        return None
+    assignment = await _shared_assignment(db, payload)
+    if assignment is None:
+        return None
+    contractor = await _shared_party(
+        db, assignment, assignment.contractor_organisation_id
+    )
+    given = await client_billing.kept(db, assignment.id)
+    if contractor is None or given is None:
+        return None
+    message = {
+        "id": payload["change_id"],
+        "billing_details": billing_details.to_message(given.details),
+        "given_at": payload["given_at"],
+    }
+    # The message names no assignment; the path of the operation does.
+    return {
+        "message": message,
+        "recipient": contractor,
+        "assignment_uri": assignment.uri,
+    }
 
 
 async def final_report(db: AsyncSession, payload: dict[str, Any]) -> Built:
@@ -305,6 +337,7 @@ BUILDERS = {
     "quote.offered": quote_offered,
     "quote.accepted": quote_accepted,
     "quote.rejected": quote_rejected,
+    "client_billing_details.given": billing_details_given,
     "final_report.issued": final_report,
     "vacancy.published": vacancy_published,
 }

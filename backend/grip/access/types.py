@@ -91,6 +91,9 @@ class Action(StrEnum):
     ISSUE_QUOTE = "issue_quote"
     # Accept or reject a quote.
     ACCEPT_QUOTE = "accept_quote"
+    # Give, as client, where the invoice goes: with the acceptance of a quote
+    # or later for the assignment. Never implies editing the billing terms.
+    GIVE_BILLING_DETAILS = "give_billing_details"
     DELIVER_REPORT = "deliver_report"
     # Ask the organisation that makes an expense to make or change the cost
     # item for it (ADR 0052). Only peers do this.

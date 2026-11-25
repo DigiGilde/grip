@@ -182,6 +182,37 @@ class BillingTermsIn(BaseModel):
     names_on_specification: bool | None = None
 
 
+class BillingDetailsIn(BaseModel):
+    """What the client gives for the invoice: the annex "Factuurinformatie".
+
+    The keys of ``BillingTermsOut.details``. Which are required depends on
+    where they are given; the service says which are missing.
+    """
+
+    organisation: str | None = Field(default=None, max_length=200)
+    attention_of: str | None = Field(default=None, max_length=200)
+    address: str | None = Field(default=None, max_length=200)
+    postcode_city: str | None = Field(default=None, max_length=200)
+    reference: str | None = Field(default=None, max_length=200)
+    contact_name: str | None = Field(default=None, max_length=200)
+    contact_phone: str | None = Field(default=None, max_length=200)
+    contact_email: str | None = Field(default=None, max_length=200)
+
+
+class BillingDetailsOut(BaseModel):
+    """The billing details this instance, as client, last gave the contractor."""
+
+    organisation: Annotated[str | None, B] = None
+    attention_of: Annotated[str | None, B] = None
+    address: Annotated[str | None, B] = None
+    postcode_city: Annotated[str | None, B] = None
+    reference: Annotated[str | None, B] = None
+    contact_name: Annotated[str | None, B] = None
+    contact_phone: Annotated[str | None, B] = None
+    contact_email: Annotated[str | None, B] = None
+    given_at: Annotated[datetime, B]
+
+
 class PeriodMonthOut(BaseModel):
     month: Annotated[str, A]
     label: Annotated[str, A]

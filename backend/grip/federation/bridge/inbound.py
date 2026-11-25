@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from grip.access import Action, Resource
 from grip.core.audit import CREATE, record_audit
 from grip.federation import terms
+from grip.federation.bridge import billing_details
 from grip.federation.bridge.access import peer_access
 from grip.federation.bridge.organisations import (
     from_reference,
@@ -36,6 +37,7 @@ from grip.models.quote import Quote
 from grip.repositories.domain import AssignmentRepository, CostRepository
 from grip.repositories.vacancy import VacancyRepository
 from grip.services import assignments, quotes, requested_cost_items
+from grip.services import billing_details as client_billing
 from grip.services.canonical import canonical_of_received
 from grip.services.errors import (
     DomainError,
@@ -194,6 +196,16 @@ async def receive_acceptance(
         )
     quote = await _own_quote(db, peer, body)
     signer = body["signer"]
+    signed_at = datetime.fromisoformat(body["signed_at"])
+    given = body.get("billing_details")
+    if given is not None:
+        decision = await peer_access(db, peer).may(
+            Action.GIVE_BILLING_DETAILS, Resource.quote(quote.id, quote.assignment_id)
+        )
+        if not decision.allowed:
+            raise FederationProblem(
+                403, "Geen toegang", "Deze peer mag hier geen factuurinformatie geven."
+            )
     try:
         acceptance = await quotes.accept_quote(
             db,
@@ -204,14 +216,66 @@ async def receive_acceptance(
             signer_function=signer.get("function"),
             organisation=body["organisation"],
             form=body["form"],
-            signed_at=datetime.fromisoformat(body["signed_at"]),
+            signed_at=signed_at,
             jws=body["jws"],
             acceptance_id=UUID(body["id"]),
             origin="remote",
         )
+        result = {"quote_id": str(quote.id), "acceptance_id": str(acceptance.id)}
+        if given is not None:
+            details = client_billing.given(
+                billing_details.from_message(given), required=True
+            )
+            assert details is not None
+            # What the client gives at the acceptance has the moment it signed.
+            result["billing_details_applied"] = await client_billing.take(
+                db, quote.assignment_id, details, given_at=signed_at, actor=None
+            )
     except DomainError as error:
         raise _refuse(error) from error
-    return {"quote_id": str(quote.id), "acceptance_id": str(acceptance.id)}
+    return result
+
+
+async def receive_billing_details(
+    db: AsyncSession, peer: Peer, message: InboundMessage
+) -> dict[str, Any]:
+    """The client gives new billing details for an assignment.
+
+    Taken over only when given later than what the billing terms hold from
+    the client. An older change is received, and kept with the message.
+    """
+    body = message.payload
+    assignment = await AssignmentRepository(db).get_by_uri_id(
+        UUID(message.path_parameters["assignmentId"])
+    )
+    if assignment is None:
+        raise _not_found()
+    decision = await peer_access(db, peer).may(
+        Action.GIVE_BILLING_DETAILS, Resource.assignment(assignment.id)
+    )
+    if not decision.allowed or not assignments.is_shared_with(
+        assignment, peer.base_uri
+    ):
+        raise FederationProblem(
+            403,
+            "Geen toegang",
+            "Deze peer is niet de opdrachtgever van deze opdracht.",
+        )
+    try:
+        details = client_billing.given(
+            billing_details.from_message(body["billing_details"]), required=True
+        )
+        assert details is not None
+        applied = await client_billing.take(
+            db,
+            assignment.id,
+            details,
+            given_at=datetime.fromisoformat(body["given_at"]),
+            actor=None,
+        )
+    except DomainError as error:
+        raise _refuse(error) from error
+    return {"assignment_id": str(assignment.id), "applied": applied}
 
 
 async def receive_rejection(
@@ -354,6 +418,7 @@ HANDLERS = {
     "sendQuote": receive_quote,
     "sendAcceptance": receive_acceptance,
     "sendRejection": receive_rejection,
+    "sendBillingDetails": receive_billing_details,
     "sendFinalReport": receive_final_report,
     "sendVacancy": receive_vacancy,
     "sendVacancyOffer": receive_vacancy_offer,
