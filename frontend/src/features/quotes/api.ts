@@ -46,6 +46,8 @@ export interface QuoteContent {
   sender?: string | null;
   /** The client's own reference ("uw kenmerk"). */
   client_reference?: string | null;
+  /** Whether the quote asks for the factuurinformatie in an annex. */
+  billing_annex?: boolean;
 }
 
 export interface QuotePreview {

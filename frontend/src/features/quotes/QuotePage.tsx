@@ -375,7 +375,7 @@ export function QuotePage() {
         />
         <TextInput label="Functie" value={signerFunction} onChange={setSignerFunction} optional />
         <TextInput
-          label="Organisatie"
+          label="Organisatie namens wie is getekend"
           hint="Alleen als de opdracht geen opdrachtgever noemt"
           value={organisationName}
           onChange={setOrganisationName}

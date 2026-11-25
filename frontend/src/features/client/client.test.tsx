@@ -289,7 +289,13 @@ describe('ReceivedQuotePage', () => {
   });
 
   describe('factuurinformatie', () => {
-    const ANNEX = { ...DETAIL, billing_annex: true, client_reference: 'ORD-2026-12' };
+    const ANNEX = {
+      ...DETAIL,
+      quote: {
+        ...QUOTE,
+        content: { ...QUOTE.content, billing_annex: true, client_reference: 'ORD-2026-12' },
+      },
+    };
     const INTENT = {
       id: 'in-1',
       authorize_url: '/api/proof/intents/in-1/authorize',
@@ -598,6 +604,12 @@ describe('ClientAssignmentPage', () => {
     it('shows no section to who may not read the details', async () => {
       const { container } = await renderPage(ACCEPTED);
       expect(texts(container, 'nldd-title')).not.toContain('Factuurinformatie');
+    });
+
+    it('offers to give the address when nothing was given yet', async () => {
+      const { container } = await renderPage({ ...ACCEPTED, may_give_billing_details: true });
+      expect(texts(container, 'nldd-title')).toContain('Factuurinformatie');
+      expect(texts(container, 'nldd-button')).toContain('Geef het factuuradres');
     });
 
     it('shows no section before a quote was accepted and nothing was given', async () => {

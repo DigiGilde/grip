@@ -272,8 +272,7 @@ describe('SigningPage', () => {
   describe('factuurinformatie', () => {
     const ANNEX = {
       ...QUOTE,
-      billing_annex: true,
-      content: { ...QUOTE.content, client_reference: 'ORD-2026-12' },
+      content: { ...QUOTE.content, billing_annex: true, client_reference: 'ORD-2026-12' },
     };
     const INTENT = {
       id: 'in-1',

@@ -61,8 +61,9 @@ export interface ClientAssignmentDetail extends ClientAssignment {
   quotes?: QuoteRef[];
   contractor_reachable?: boolean;
   may_request_usage?: boolean;
-  /** Where the contractor sends the invoice; absent for who may not read it. */
-  billing_details?: BillingDetails | null;
+  /** Where the contractor sends the invoice; absent until given, or for who may not read it. */
+  billing_details?: (BillingDetails & { given_at?: string | null }) | null;
+  may_give_billing_details?: boolean;
 }
 
 export interface AssignmentRequestInput {
@@ -106,9 +107,6 @@ export interface ReceivedQuoteDetail {
   may_decide?: boolean;
   quote: QuoteSummary & { content?: QuoteContent | null };
   deliveries?: Delivery[];
-  /** Whether the quote asks for the factuurinformatie in an annex. */
-  billing_annex?: boolean;
-  client_reference?: string | null;
 }
 
 export interface Milestone {

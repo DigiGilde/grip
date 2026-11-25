@@ -194,7 +194,7 @@ export function ReceivedQuotePage() {
   const notFound = query.error instanceof ApiError && query.error.status === 404;
   const contractor = detail?.contractor_name ?? 'de opdrachtnemer';
   const deliveries = detail?.deliveries ?? [];
-  const annex = detail?.billing_annex === true;
+  const annex = content?.billing_annex === true;
 
   return (
     <div ref={ref}>
@@ -281,7 +281,7 @@ export function ReceivedQuotePage() {
                 onClick={() => {
                   setError(null);
                   setDetails((now) =>
-                    startDetails(now, detail.client_reference ?? content?.client_reference),
+                    startDetails(now, content?.client_reference),
                   );
                   setAccepting(true);
                 }}

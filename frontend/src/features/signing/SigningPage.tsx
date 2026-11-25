@@ -148,12 +148,12 @@ export function SigningPage() {
   const notFound = query.error instanceof ApiError && query.error.status === 404;
   const title = quote ? `Offerte ${quote.content.name}` : 'Offerte tekenen';
   const client = quote?.client_name ?? null;
-  const annex = quote?.billing_annex === true;
+  const annex = quote?.content.billing_annex === true;
   const open = (next: 'accept' | 'reject') => {
     setError(null);
     if (next === 'accept') {
       setDetails((now) =>
-        startDetails(now, quote?.client_reference ?? quote?.content.client_reference),
+        startDetails(now, quote?.content.client_reference),
       );
     }
     setSheet(next);

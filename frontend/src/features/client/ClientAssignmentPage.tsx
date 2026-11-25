@@ -357,9 +357,9 @@ export function ClientAssignmentPage() {
   // Before an accepted quote there is nothing to invoice, unless details were given.
   const billing =
     assignment !== undefined &&
-    'billing_details' in assignment &&
     (assignment.billing_details != null ||
-      (assignment.quotes ?? []).some((quote) => quote.status === 'accepted'));
+      (assignment.may_give_billing_details === true &&
+        (assignment.quotes ?? []).some((quote) => quote.status === 'accepted')));
 
   const progress = useQuery({
     queryKey: clientKeys.progress(assignmentId),
