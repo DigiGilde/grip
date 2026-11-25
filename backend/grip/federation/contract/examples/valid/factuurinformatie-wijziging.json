@@ -1,0 +1,11 @@
+{
+  "id": "7a8b9c0d-0000-4000-8000-000000000001",
+  "factuurinformatie": {
+    "organisatie": "Voorbeeldministerie",
+    "ten_name_van": "Financieel Dienstencentrum Voorbeeld",
+    "adres": "Postbus 00001",
+    "postcode_plaats": "0000 AB Den Haag",
+    "kenmerk": "VPL-2027-0007"
+  },
+  "opgegeven_op": "2027-01-04T09:15:00+01:00"
+}

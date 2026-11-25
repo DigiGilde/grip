@@ -74,6 +74,8 @@ class QuoteContentOut(BaseModel):
     sender: Annotated[str | None, B] = None
     # The client's own reference ("uw kenmerk"), when one was given.
     client_reference: Annotated[str | None, B] = None
+    # Whether the quote has the annex Factuurinformatie for the client to fill.
+    billing_annex: Annotated[bool, B] = False
 
 
 class QuotePreviewOut(BaseModel):
@@ -357,4 +359,5 @@ def content_from_snapshot(snapshot: dict[str, Any]) -> QuoteContentOut:
         conditions=snapshot.get("conditions"),
         sender=snapshot.get("sender"),
         client_reference=snapshot.get("client_reference"),
+        billing_annex=bool((snapshot.get("letter") or {}).get("billing_annex")),
     )

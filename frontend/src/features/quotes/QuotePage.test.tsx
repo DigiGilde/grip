@@ -319,6 +319,51 @@ describe('QuotePage', () => {
     );
   });
 
+  it('asks the factuurinformatie with the signed pdf, all optional, and sends it along', async () => {
+    const container = await renderTab({
+      quotes: [QUOTE],
+      offers: [{ id: 'o-2', channel: 'document', offered_at: '2026-02-03T10:00:00Z' }],
+      detail: { content: { ...CONTENT, client_reference: 'ORD-2026-12' } },
+    });
+    await waitFor(() => expect(primaries(container)).toEqual(['Leg getekende pdf vast']));
+    clickButton(container, 'Leg getekende pdf vast');
+    const openSheet = () =>
+      [...document.body.querySelectorAll('nldd-sheet')].find((el) => el.hasAttribute('open'));
+    await waitFor(() =>
+      expect(openSheet()?.querySelector('nldd-title')?.getAttribute('text')).toBe(
+        'Getekende pdf vastleggen',
+      ),
+    );
+    const sheet = openSheet() as Element;
+    const field = (label: string) =>
+      sheet.querySelector(`nldd-form-field[label="${label}"] nldd-text-field`);
+    expect(texts(sheet, 'nldd-title')).toContain('Waar gaat de factuur heen?');
+    expect(field('Kenmerk op de factuur')?.getAttribute('value')).toBe('ORD-2026-12');
+    // An export path: the employee types over the annex, nothing of it is required.
+    for (const label of ['Organisatie', 'Adres of postbus', 'Postcode en plaats']) {
+      expect(field(label)?.hasAttribute('required')).toBe(false);
+    }
+    sheet.querySelector('nldd-file-field')?.dispatchEvent(
+      new CustomEvent('change', {
+        detail: { files: [new File(['%PDF'], 'getekend.pdf', { type: 'application/pdf' })] },
+      }),
+    );
+    field('Adres of postbus')?.dispatchEvent(
+      new CustomEvent('input', { detail: { value: 'Postbus 1' } }),
+    );
+    await waitFor(() => expect(field('Adres of postbus')?.getAttribute('value')).toBe('Postbus 1'));
+    sheet.querySelector('nldd-form')?.dispatchEvent(new Event('submit', { cancelable: true }));
+    await waitFor(() =>
+      expect(lastCalls.some((call) => call.url.endsWith('/acceptance/uploaded-pdf'))).toBe(true),
+    );
+    const body = lastCalls.find((call) => call.url.endsWith('/acceptance/uploaded-pdf'))
+      ?.body as FormData;
+    expect(JSON.parse(String(body.get('billing_details')))).toEqual({
+      address: 'Postbus 1',
+      reference: 'ORD-2026-12',
+    });
+  });
+
   it('lists a channel that is not possible with its reason, in the sheet', async () => {
     await renderTab({ quotes: [QUOTE] });
     const sheet = [...document.body.querySelectorAll('nldd-sheet')].find(

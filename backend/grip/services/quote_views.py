@@ -22,6 +22,7 @@ from grip.models.organisation import Organisation
 from grip.models.person import Person
 from grip.models.quote import Quote, QuoteAcceptance, QuoteInvitation, QuoteRejection
 from grip.services import quotes, stored_documents
+from grip.services.billing_details import take as take_billing_details
 from grip.services.errors import DomainValidationError, NotFoundError
 from grip.services.quote_document import (
     QuoteDocumentContext,
@@ -243,12 +244,15 @@ async def accept_with_uploaded_pdf(
     signer_function: str | None = None,
     organisation_name: str | None = None,
     signed_at: datetime | None = None,
+    billing_details: dict[str, str] | None = None,
 ) -> QuoteAcceptance:
     """Record an acceptance from a signed pdf that came back outside grip.
 
     The file is stored with the acceptance. The hash in the acceptance is
     that of the issued quote: the person recording it vouches that the
-    signed document is this quote.
+    signed document is this quote. ``billing_details`` is the annex
+    Factuurinformatie as filled in (``billing_details.for_acceptance``); it
+    goes into the billing terms with the moment of signing.
     """
     if not signer_name.strip():
         raise DomainValidationError("Geef de naam van wie heeft getekend.")
@@ -284,6 +288,14 @@ async def accept_with_uploaded_pdf(
     stored_documents.assign_owner(
         document, stored_documents.SIGNED_QUOTE, acceptance.id
     )
+    if billing_details:
+        await take_billing_details(
+            session,
+            quote.assignment_id,
+            billing_details,
+            given_at=acceptance.signed_at,
+            actor=actor,
+        )
     await session.flush()
     return acceptance
 

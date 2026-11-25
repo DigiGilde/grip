@@ -163,6 +163,14 @@ PROPERTIES: dict[str, str] = {
     "signatures": "ondertekening",
     "on_behalf_of": "namens",
     "billing_annex": "bijlage_factuurinformatie",
+    # Where the contractor sends the invoice (sendAcceptance, sendBillingDetails).
+    "billing_details": "factuurinformatie",
+    "attention_of": "ten_name_van",
+    "address": "adres",
+    "postcode_city": "postcode_plaats",
+    "contact": "contactpersoon",
+    "phone": "telefoon",
+    "given_at": "opgegeven_op",
     # Where a vacancy can be read by anyone.
     "publications": "publicaties",
     "place": "plek",
@@ -238,6 +246,8 @@ SCHEMAS: dict[str, str] = {
     "assignment-request": "opdrachtaanvraag",
     "assignment": "opdracht",
     "billing-data": "factuurgegevens",
+    "billing-details": "factuurinformatie",
+    "billing-details-change": "factuurinformatie-wijziging",
     "budget-usage": "uitputting",
     "chain": "keten",
     "cost-item": "kostenpost",

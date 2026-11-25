@@ -104,6 +104,8 @@ SPECS: dict[str, Spec] = {
     # A delivery to the financial administration and the terms it follows.
     "billing_delivery": _spec(B, B, _ASSIGNMENT),
     "billing_terms": _spec(A, B, _ASSIGNMENT),
+    # What this instance, as client, gave a contractor for the invoice.
+    "client_billing_details": _spec(A, B, _ASSIGNMENT),
     "outgoing_invoice": _spec(B, B, _ASSIGNMENT),
     "invoice_line": _spec(B, B, _ASSIGNMENT),
     "invoice_attachment": _spec(B, B, _ASSIGNMENT),

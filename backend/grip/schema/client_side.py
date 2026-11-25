@@ -15,6 +15,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field, field_validator
 
 from grip.access import DataClass, in_class, nested
+from grip.schema.billing import BillingDetailsOut
 from grip.schema.quotes import QuoteDetailOut
 
 A = in_class(DataClass.ASSIGNMENT_BASIC)
@@ -117,6 +118,11 @@ class ClientAssignmentDetailOut(ClientAssignmentOut):
     contractor_reachable: Annotated[bool, A] = False
     # Whether the person asking may ask the contractor for the spending.
     may_request_usage: Annotated[bool, A] = False
+    # What this instance last gave the contractor for the invoice; absent
+    # until it gave something.
+    billing_details: Annotated[BillingDetailsOut | None, nested()] = None
+    # Whether the person asking may give new billing details.
+    may_give_billing_details: Annotated[bool, A] = False
 
 
 class ReceivedRequestOut(BaseModel):

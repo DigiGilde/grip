@@ -6,6 +6,9 @@ import { useAuth } from '@/auth/context';
 import { PATHS } from '@/paths';
 import { Button, DateInput, TextInput } from '@/features/assignments/ui';
 import { useAssignmentShell } from '@/features/assignments/shell';
+import type { BillingDetails } from '@/features/month-close/billingApi';
+import { BillingDetailsFields } from '@/features/month-close/BillingDetailFields';
+import { filledDetails, startDetails } from '@/features/month-close/billingDetails';
 import { useInstance } from '@/layout/useInstance';
 import { formatEuro } from '@/lib/format';
 import { PageHeading } from '@/pages/PageHeading';
@@ -130,6 +133,7 @@ export function QuotePage() {
   const [signerFunction, setSignerFunction] = useState('');
   const [organisationName, setOrganisationName] = useState('');
   const [signedAt, setSignedAt] = useState('');
+  const [billingDetails, setBillingDetails] = useState<BillingDetails>({});
   const [reason, setReason] = useState('');
 
   const open = (next: Dialog) => {
@@ -161,8 +165,10 @@ export function QuotePage() {
   const onCard = (action: CardAction) => {
     if (!current) return;
     if (action.kind === 'offer') open('offer');
-    else if (action.kind === 'upload') open('upload');
-    else if (action.kind === 'reject') open('reject');
+    else if (action.kind === 'upload') {
+      setBillingDetails((now) => startDetails(now, detail.data?.content?.client_reference));
+      open('upload');
+    } else if (action.kind === 'reject') open('reject');
     else if (action.kind === 'request-approval') open('approval');
     else if (action.kind === 'new-quote')
       navigate(quoteDraftPath(assignmentId, undefined, { fresh: true }));
@@ -340,6 +346,7 @@ export function QuotePage() {
               signer_function: signerFunction.trim(),
               organisation_name: organisationName.trim(),
               signed_at: signedAt,
+              billing_details: filledDetails(billingDetails),
             }),
           );
         }}
@@ -368,13 +375,18 @@ export function QuotePage() {
         />
         <TextInput label="Functie" value={signerFunction} onChange={setSignerFunction} optional />
         <TextInput
-          label="Organisatie"
+          label="Organisatie namens wie is getekend"
           hint="Alleen als de opdracht geen opdrachtgever noemt"
           value={organisationName}
           onChange={setOrganisationName}
           optional
         />
         <DateInput label="Datum van tekenen" value={signedAt} onChange={setSignedAt} optional />
+        <BillingDetailsFields
+          details={billingDetails}
+          onChange={setBillingDetails}
+          required={false}
+        />
       </FormSheet>
 
       <FormSheet

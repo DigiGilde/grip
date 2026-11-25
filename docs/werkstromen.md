@@ -129,6 +129,8 @@ Elke stap waar iemand moet handelen is een taak voor precies die persoon. De taa
 | Offerte ontvangen | niemand | | | | Je wacht op de offerte van de opdrachtnemer. |
 | Besluit | tekenbevoegde | Beoordeel de ontvangen offerte | Beoordeel de offerte | Ontvangen offerte | er is akkoord gegeven of afgewezen |
 
+Wie akkoord geeft, geeft daarbij de factuurinformatie op; heeft de offerte de bijlage Factuurinformatie, dan zijn organisatie, adres en postcode met plaats verplicht. Een nieuw factuuradres geeft de opdrachtgever later op de pagina van de opdracht. Een opdrachtgever die alleen met een tekenlink tekent kan dat niet; de opdrachtmanager past het dan aan in Factuurafspraken (ADR 0058).
+
 ### Naar een akkoord (de zaak zelf)
 
 | Stap | Wie handelt | Taak | Knop | Waar | Sluit als |

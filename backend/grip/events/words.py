@@ -81,6 +81,7 @@ KIND_LABELS: dict[str, str] = {
     "peer": "Koppeling",
     "billing_delivery": "Aanlevering van factuurgegevens",
     "billing_terms": "Afspraken over facturering",
+    "client_billing_details": "Opgegeven factuurinformatie",
     "login": "Aanmelding",
     "passkey_credential": "Passkey",
     "vacancy_publication": "Openstelling van de vacature",
@@ -119,6 +120,7 @@ TYPE_SENTENCES: dict[str, str] = {
     "invoice.withdrawn": "Factuur ingetrokken",
     "person_scale.changed": "Schaal gewijzigd",
     "billing_correction.arose": "Correctie op factuurgegevens ontstaan",
+    "client_billing_details.given": "Factuurinformatie opgegeven",
     "data.read": "Gegevens ingezien",
     "stream.erased": "Waarden uit de geschiedenis gewist",
 }

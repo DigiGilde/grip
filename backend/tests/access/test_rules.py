@@ -517,7 +517,14 @@ async def test_guest_sees_and_signs_exactly_one_quote(world) -> None:
     assert not await _read(
         world, "guest", Resource.assignment(world.own), DataClass.ASSIGNMENT_BASIC
     )
-    for action in set(Action) - {Action.READ, Action.ACCEPT_QUOTE}:
+    # Accepting may give where the invoice goes; only for that quote.
+    gives = Action.GIVE_BILLING_DETAILS
+    assert await decide(world.decider, world.subject("guest"), gives, invited)
+    assert not await decide(world.decider, world.subject("guest"), gives, other_quote)
+    assert not await decide(
+        world.decider, world.subject("guest"), gives, Resource.assignment(world.own)
+    )
+    for action in set(Action) - {Action.READ, Action.ACCEPT_QUOTE, gives}:
         assert not await decide(
             world.decider,
             world.subject("guest"),
@@ -917,3 +924,53 @@ async def test_manage_roles_reason_names_the_relation_when_there_is_one(world) -
         world.decider, world.subject("owner"), Action.MANAGE_ROLES, own
     )
     assert owner.reason == "relation:owner"
+
+
+async def test_billing_details_are_given_by_the_client(world) -> None:
+    """Where the invoice goes: with the acceptance, or later for the assignment.
+
+    In this instance as client: a tekenbevoegde, and the owner or a manager
+    of the assignment. Of an assignment this instance carries out, nobody
+    here gives them; the billing terms are edited with ``edit``. A peer
+    gives them for the assignments it is the client of.
+    """
+    from dataclasses import replace
+
+    from grip.access import TEKENBEVOEGDE, AssignmentRole, LocalDecider
+
+    gives = Action.GIVE_BILLING_DETAILS
+    requester = Subject.for_person(uuid4())
+    roles = {
+        **world.relations.assignment_roles,
+        (requester.person_id, world.commissioned): AssignmentRole.OWNER,
+    }
+    decider = LocalDecider(replace(world.relations, assignment_roles=roles))
+    commissioned = Resource.assignment(world.commissioned)
+    own = Resource.assignment(world.own)
+
+    signer = world.subject("tekenbevoegde")
+    allowed = await decide(decider, signer, gives, commissioned)
+    assert allowed.allowed and allowed.reason == "function:tekenbevoegde"
+    owner = await decide(decider, requester, gives, commissioned)
+    assert owner.allowed and owner.reason == "relation:owner"
+    for name in ("tekenbevoegde", "owner", "manager", "beheerder"):
+        assert not await decide(decider, world.subject(name), gives, own), name
+    for name in ("beheerder", "lezer", "planner", "aanvrager", "outsider", "owner"):
+        assert not await decide(decider, world.subject(name), gives, commissioned)
+    assert TEKENBEVOEGDE in signer.functions
+
+    # With the acceptance: whoever may accept the quote.
+    quote = Resource.quote(world.commissioned_quote, world.commissioned)
+    assert await decide(decider, signer, gives, quote)
+    assert not await decide(decider, requester, gives, quote)
+
+    peer_client = world.subject("peer_client")
+    assert await decide(decider, peer_client, gives, own)
+    assert await decide(
+        decider, peer_client, gives, Resource.quote(world.quote, own.id)
+    )
+    for name in ("peer_contractor", "peer_stranger", "peer_parent", "peer_corpus"):
+        assert not await decide(decider, world.subject(name), gives, own), name
+    assert not await decide(
+        decider, world.subject("peer_contractor"), gives, commissioned
+    )

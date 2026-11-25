@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Wijziging van de factuurinformatie",
+  "description": "De opdrachtgever geeft na het akkoord een nieuwe factuurinformatie op voor een opdracht. Ze vervangt wat de opdrachtnemer had, vanaf de eerstvolgende aanlevering; een factuurverzoek dat al is aangeleverd blijft zoals het was.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Id van dit bericht. Bepaalt de idempotentie."
+    },
+    "factuurinformatie": {
+      "$ref": "factuurinformatie.schema.json",
+      "description": "De nieuwe factuurinformatie, compleet. Een veld dat ontbreekt is leeg, niet ongewijzigd."
+    },
+    "opgegeven_op": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Moment waarop de opdrachtgever de factuurinformatie opgaf. Met tijdzone (RFC 3339). De opdrachtnemer neemt een wijziging alleen over als dit moment later ligt dan dat van wat hij heeft; bij de factuurinformatie uit het akkoord is dat `getekend_op`."
+    }
+  },
+  "required": [
+    "id",
+    "factuurinformatie",
+    "opgegeven_op"
+  ]
+}
