@@ -24,7 +24,7 @@ if (import.meta.env.MODE !== 'test') void import('./register');
 /** Native validation bubbles would appear before submit; the form validates itself. */
 const NO_NATIVE_VALIDATION: object = { novalidate: '' };
 
-// `validity` is documented on the field but absent in 0.19.0; `ownValidity` has the flags.
+// `validity` is documented on the field but absent in 0.29.0; `ownValidity` has the flags.
 type DateField = HTMLElement & {
   invalid: boolean;
   ownValidity?: () => { flags: { badInput?: boolean } } | null;
@@ -157,7 +157,7 @@ export function FormSheet({
       width={WIDTH[size]}
       accessible-label={title}
     >
-      <nldd-page>
+      <nldd-page sticky-header>
         <nldd-top-title-bar
           ref={barRef}
           slot="header"
@@ -166,7 +166,7 @@ export function FormSheet({
           collapse-anchor={titleId}
         />
         <nldd-simple-section>
-          <nldd-title id={titleId} slot="header" size={2} text={title} heading-level={1} />
+          <nldd-title id={titleId} slot="header" size="display-2" text={title} heading-level={1} />
           <nldd-container gap="24">
             {shownError ? (
               <nldd-banner variant="critical" size="sm" text={shownError} data-state="error" />

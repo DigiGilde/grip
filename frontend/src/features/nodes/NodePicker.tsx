@@ -74,7 +74,9 @@ function ResultRow({
       <nldd-text-cell text={organisation} />
       <nldd-cell>
         {chosen ? (
-          <nldd-text size="sm">Toegevoegd</nldd-text>
+          <nldd-text size="sm">
+            <span>Toegevoegd</span>
+          </nldd-text>
         ) : (
           <Button
             text="Voeg toe"
@@ -156,7 +158,7 @@ export function NodePicker({ value, onChange, max = 50 }: NodePickerProps) {
       {/* Nothing chosen is not news: the heading comes with the first node. */}
       {value.length > 0 ? (
         <>
-          <SectionHeading text="Gekozen context" level={2} size={5} />
+          <SectionHeading text="Gekozen context" level={2} size="display-5" />
           <NodeCardGrid label="Gekozen context">
             {value.map((uri, index) => {
               const lookup = lookups[index];
@@ -194,7 +196,7 @@ export function NodePicker({ value, onChange, max = 50 }: NodePickerProps) {
         />
       ) : null}
 
-      <SectionHeading text="Zoek een stuk" level={2} size={5} />
+      <SectionHeading text="Zoek een stuk" level={2} size="display-5" />
       {corpora.isPending ? <Loading text="Bezig met zoeken naar bronnen" /> : null}
       {corpora.isError ? (
         <LoadError error={corpora.error} retry={() => void corpora.refetch()} />
@@ -215,7 +217,9 @@ export function NodePicker({ value, onChange, max = 50 }: NodePickerProps) {
               options={searchable.map((item) => ({ value: item.base_uri, label: item.name }))}
             />
           ) : (
-            <nldd-text size="sm">Je zoekt in {searchable[0]?.name}</nldd-text>
+            <nldd-text size="sm">
+              <p>Je zoekt in {searchable[0]?.name}</p>
+            </nldd-text>
           )}
           <SearchBox
             value={draft}
@@ -242,8 +246,10 @@ export function NodePicker({ value, onChange, max = 50 }: NodePickerProps) {
           {results.length > 0 ? (
             <>
               <nldd-text size="sm" aria-live="polite">
-                {total} {total === 1 ? 'stuk' : 'stukken'} gevonden
-                {lastPage > 1 ? `, pagina ${page} van ${lastPage}` : ''}
+                <p>
+                  {total} {total === 1 ? 'stuk' : 'stukken'} gevonden
+                  {lastPage > 1 ? `, pagina ${page} van ${lastPage}` : ''}
+                </p>
               </nldd-text>
               <nldd-table
                 accessible-label="Gevonden stukken"
@@ -285,7 +291,7 @@ export function NodePicker({ value, onChange, max = 50 }: NodePickerProps) {
         </nldd-container>
       ) : null}
 
-      <SectionHeading text="Of plak het adres van een stuk" level={2} size={5} />
+      <SectionHeading text="Of plak het adres van een stuk" level={2} size="display-5" />
       {pasteError ? <nldd-banner variant="critical" size="sm" text={pasteError} /> : null}
       <TextInput
         label="Adres van het stuk"

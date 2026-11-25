@@ -67,10 +67,10 @@ function Figure({ label, value, critical }: { label: string; value: string; crit
   return (
     <nldd-container gap="4">
       <nldd-text size="sm" color="secondary">
-        {label}
+        <span>{label}</span>
       </nldd-text>
       <nldd-text weight="bold" {...(critical ? { color: 'critical' } : {})}>
-        {value}
+        <span>{value}</span>
       </nldd-text>
     </nldd-container>
   );
@@ -186,7 +186,11 @@ function Landing({ assignment, parts, course }: LandingProps) {
               </div>
             </RouterLinks>
           )}
-          {parts.own_line && <nldd-text>{`Jij: ${parts.own_line}`}</nldd-text>}
+          {parts.own_line && (
+            <nldd-text>
+              <p>{`Jij: ${parts.own_line}`}</p>
+            </nldd-text>
+          )}
           <LinkRows
             label={`Onderdelen van ${assignment.name}`}
             rows={parts.parts.map((part) => ({

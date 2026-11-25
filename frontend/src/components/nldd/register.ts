@@ -21,7 +21,6 @@ import '@nldd/design-system/bar-split-view';
 import '@nldd/design-system/container';
 import '@nldd/design-system/page';
 import '@nldd/design-system/simple-section';
-import '@nldd/design-system/split-view-pane';
 
 // Actions
 import '@nldd/design-system/button';
@@ -32,6 +31,11 @@ import '@nldd/design-system/toolbar';
 // Content
 import '@nldd/design-system/identity';
 import '@nldd/design-system/title';
+
+// Cells: pages draw them without a register of their own.
+import '@nldd/design-system/icon-cell';
+import '@nldd/design-system/spacer-cell';
+import '@nldd/design-system/text-cell';
 
 // Navigation
 import '@nldd/design-system/menu-bar';

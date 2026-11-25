@@ -86,13 +86,9 @@ function OverflowOption({
 }
 
 function FilterItem({ filter }: { filter: ActionBarFilter }) {
-  const ref = useRef<HTMLElement>(null);
-  // The dropdown stops the native change event and sends its own.
-  useNlddEvent(ref, 'change', (event) => filter.onChange(eventValue(event)));
   return (
     <nldd-toolbar-item slot="start" priority={2}>
       <nldd-dropdown
-        ref={ref}
         size={SIZE}
         accessible-label={filter.label}
         {...(filter.width ? { width: filter.width } : {})}

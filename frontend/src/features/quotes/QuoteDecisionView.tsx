@@ -144,7 +144,7 @@ export function QuoteDecisionView({
           <>
             <Stack gap="close">
               <nldd-title
-                size={3}
+                size="display-3"
                 heading-level={2}
                 overline={`${contractorName} biedt aan`}
                 text={amount}
@@ -156,7 +156,9 @@ export function QuoteDecisionView({
 
             {content.conditions ? (
               <Section title="Voorwaarden" level={2}>
-                <nldd-text>{content.conditions}</nldd-text>
+                <nldd-text>
+                  <p>{content.conditions}</p>
+                </nldd-text>
               </Section>
             ) : null}
 
@@ -176,9 +178,11 @@ export function QuoteDecisionView({
             {canDecide ? (
               <Stack gap="related">
                 <nldd-text>
-                  Met je akkoord gaat {signerLabel} deze opdracht aan voor dit bedrag. Daarna kan{' '}
-                  {contractorName} aan het werk. Vastgelegd wordt wie je bent, namens wie je tekent
-                  en wanneer.
+                  <p>
+                    Met je akkoord gaat {signerLabel} deze opdracht aan voor dit bedrag. Daarna kan{' '}
+                    {contractorName} aan het werk. Vastgelegd wordt wie je bent, namens wie je
+                    tekent en wanneer.
+                  </p>
                 </nldd-text>
                 <nldd-button-group>
                   <Button text="Geef akkoord" appearance="primary" onClick={() => open('accept')} />
@@ -203,10 +207,14 @@ export function QuoteDecisionView({
         onSubmit={() => send('accept')}
       >
         <nldd-text>
-          Je geeft akkoord op {reference ? `offerte ${reference}` : 'deze offerte'} van {amount}.
-          Een akkoord is niet terug te draaien.
+          <p>
+            Je geeft akkoord op {reference ? `offerte ${reference}` : 'deze offerte'} van {amount}.
+            Een akkoord is niet terug te draaien.
+          </p>
         </nldd-text>
-        <nldd-text>{beforeLeaving('accept', passkey)}</nldd-text>
+        <nldd-text>
+          <p>{beforeLeaving('accept', passkey)}</p>
+        </nldd-text>
         <TextInput
           label="Je functie"
           value={signerFunction}
@@ -227,10 +235,14 @@ export function QuoteDecisionView({
         onSubmit={() => send('reject')}
       >
         <nldd-text>
-          {contractorName} ziet dat de offerte is afgewezen, met de reden die je hier geeft.
-          Afwijzen is niet terug te draaien.
+          <p>
+            {contractorName} ziet dat de offerte is afgewezen, met de reden die je hier geeft.
+            Afwijzen is niet terug te draaien.
+          </p>
         </nldd-text>
-        <nldd-text>{beforeLeaving('reject', passkey)}</nldd-text>
+        <nldd-text>
+          <p>{beforeLeaving('reject', passkey)}</p>
+        </nldd-text>
         <TextInput label="Reden" value={reason} onChange={setReason} optional multiline />
       </FormSheet>
     </>

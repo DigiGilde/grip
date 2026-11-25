@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ApiError } from '@/api/client';
 import { useAuth } from '@/auth/context';
-import { orUndef, useNlddEvent } from '@/components/nldd/events';
+import { orUndef, useMenuSelect } from '@/components/nldd/events';
 import { boardKeys, fetchPersonBoard, type BoardPerson } from '@/features/allocations/board/api';
 import { buildGroups, toTimeline } from '@/features/allocations/board/model';
 import { assignmentPartPath } from '@/features/assignments/paths';
@@ -169,7 +169,7 @@ function Heading({ name, handoverRef, end, children }: HeadingProps) {
   return (
     <nldd-container ref={ref} slot="header" gap="8">
       <BackLink href={PATHS.people} text="Terug naar Mensen" />
-      <nldd-title size={2}>
+      <nldd-title size="display-2">
         {/* The span takes the focus after navigation; see PageHeading. */}
         <h1>
           <span id={PAGE_HEADING_ID} tabIndex={-1}>
@@ -185,7 +185,7 @@ function Heading({ name, handoverRef, end, children }: HeadingProps) {
 
 function EventMenuItem({ item, onChoose }: { item: EventItem; onChoose: () => void }) {
   const ref = useRef<HTMLElement>(null);
-  useNlddEvent(ref, 'select', onChoose);
+  useMenuSelect(ref, onChoose);
   return <nldd-menu-item ref={ref} text={item.text} destructive={orUndef(item.destructive)} />;
 }
 
@@ -546,11 +546,13 @@ function DeploymentSection({
   return (
     <Section title="Inzet">
       <Stack gap="tight">
-        <nldd-text weight="medium">{standing.now}</nldd-text>
+        <nldd-text weight="medium">
+          <p>{standing.now}</p>
+        </nldd-text>
         {standing.ahead ? <Quiet>{standing.ahead}</Quiet> : null}
         {standing.attention ? (
           <nldd-text size="sm" color="warning">
-            {standing.attention}
+            <p>{standing.attention}</p>
           </nldd-text>
         ) : null}
       </Stack>
@@ -602,7 +604,9 @@ function DeploymentSection({
                       text={bar.assignment_name ?? 'Opdracht'}
                     />
                   ) : (
-                    <nldd-text>{bar.assignment_name ?? 'Opdracht'}</nldd-text>
+                    <nldd-text>
+                      <span>{bar.assignment_name ?? 'Opdracht'}</span>
+                    </nldd-text>
                   )}
                 </nldd-cell>
                 <nldd-text-cell text={bar.role ?? bar.line_description ?? ''} hide-below="md" />
@@ -669,7 +673,8 @@ function KpiSection({
   return (
     <Section title={title}>
       <nldd-title
-        size={3}
+        size="display-3"
+        heading-level={3}
         overline="Verwacht totaal"
         text={formatEuro(kpi.realisation_cents)}
         supporting-text={
@@ -714,10 +719,14 @@ function KpiSection({
       {/* The legend carries the values, so the bar is never colour alone. */}
       <nldd-container layout="wrap" gap="8" vertical-alignment="center">
         <nldd-tag color="donkerblauw" size="sm" text="Gerealiseerde inzet" />
-        <nldd-text>{formatEuro(kpi.realised_cents)}</nldd-text>
+        <nldd-text>
+          <span>{formatEuro(kpi.realised_cents)}</span>
+        </nldd-text>
         <nldd-spacer size="8" />
         <nldd-tag color="hemelblauw" size="sm" text="Nog gepland" />
-        <nldd-text>{formatEuro(kpi.forecast_cents)}</nldd-text>
+        <nldd-text>
+          <span>{formatEuro(kpi.forecast_cents)}</span>
+        </nldd-text>
       </nldd-container>
     </Section>
   );
@@ -754,7 +763,9 @@ function ScaleSection({
     return (
       <Section title="Inzetschaal">
         <nldd-container layout="row" gap="16" vertical-alignment="center">
-          <nldd-text>Nog geen inzetschaal</nldd-text>
+          <nldd-text>
+            <p>Nog geen inzetschaal</p>
+          </nldd-text>
           {mayManage ? <Button size="sm" text="Leg een schaal vast" onClick={onAdd} /> : null}
         </nldd-container>
       </Section>

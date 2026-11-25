@@ -97,8 +97,10 @@ function Decision({
     return (
       <Stack gap="close">
         <nldd-text>
-          Getekend op {formatDateTime(acceptance.signed_at)}
-          {who ? ` door ${who}` : ''}.
+          <p>
+            Getekend op {formatDateTime(acceptance.signed_at)}
+            {who ? ` door ${who}` : ''}.
+          </p>
         </nldd-text>
         <DecisionProof decision="accept" evidence={evidence} mayManage={mayManage} />
       </Stack>
@@ -108,8 +110,10 @@ function Decision({
     return (
       <Stack gap="close">
         <nldd-text>
-          Afgewezen op {formatDateTime(quote.rejection.rejected_at)}
-          {quote.rejection.reason ? `: ${quote.rejection.reason}` : '.'}
+          <p>
+            Afgewezen op {formatDateTime(quote.rejection.rejected_at)}
+            {quote.rejection.reason ? `: ${quote.rejection.reason}` : '.'}
+          </p>
         </nldd-text>
         <DecisionProof decision="reject" evidence={evidence} mayManage={mayManage} />
       </Stack>
@@ -156,7 +160,7 @@ function OfferRow({
       <Stack gap="close">
         <Stack gap="tight">
           <nldd-text {...(offer.delivery === 'refused' ? { color: 'critical' } : {})}>
-            {offerTitle(offer)}
+            <span>{offerTitle(offer)}</span>
           </nldd-text>
           <Quiet>{state}</Quiet>
         </Stack>
@@ -165,7 +169,7 @@ function OfferRow({
             {works ? (
               <Stack gap="tight">
                 <nldd-text size="sm" data-signing-link>
-                  {link}
+                  <span>{link}</span>
                 </nldd-text>
                 {offer.recipient ? (
                   <Quiet>De link werkt alleen voor {offer.recipient}, na inloggen.</Quiet>
@@ -330,7 +334,7 @@ export function QuoteCard({
       <nldd-container padding="24" gap="24">
         <Stack gap="close">
           <nldd-title
-            size={3}
+            size="display-3"
             heading-level={2}
             overline={quote.reference ? `Offerte ${quote.reference}` : 'Offerte'}
             text={quote.total_cents !== undefined ? formatEuro(quote.total_cents) : 'Offerte'}
@@ -422,7 +426,9 @@ export function QuoteCard({
         ) : null}
         {approvalText && !noApprover ? (
           <Stack gap="close">
-            <nldd-text>{approvalText}</nldd-text>
+            <nldd-text>
+              <p>{approvalText}</p>
+            </nldd-text>
             {approval?.status === 'requested' && approval.current?.request_note ? (
               <Quiet>Toelichting bij de aanvraag: {approval.current.request_note}</Quiet>
             ) : null}

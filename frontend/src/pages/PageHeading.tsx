@@ -33,7 +33,7 @@ export function PageHeading({ text, instanceName, lead, tabName, inline }: PageH
 
   return (
     <nldd-title
-      size={2}
+      size="display-2"
       {...(inline ? {} : { slot: 'header' })}
       {...(lead ? { 'supporting-text': lead } : {})}
     >

@@ -725,7 +725,7 @@ describe('the part Aanvraag', () => {
       return [
         cells[0]!.getAttribute('text'),
         cells[1]!.getAttribute('text'),
-        row.querySelector('nldd-icon-cell')!.getAttribute('icon'),
+        row.querySelector('nldd-icon-cell nldd-icon')!.getAttribute('icon'),
         row.hasAttribute('button') || row.hasAttribute('href'),
       ];
     });

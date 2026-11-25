@@ -103,8 +103,10 @@ export function LoginPage() {
             />
             {signing && (
               <nldd-text>
-                Je logt in met de organisatie waar je werkt. Daarna zie je de offerte en kun je
-                akkoord geven.
+                <p>
+                  Je logt in met de organisatie waar je werkt. Daarna zie je de offerte en kun je
+                  akkoord geven.
+                </p>
               </nldd-text>
             )}
 

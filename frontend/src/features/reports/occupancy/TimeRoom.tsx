@@ -14,7 +14,7 @@ export function TimeRoom({ time }: { time: InvestmentTime }) {
   const unvalued = months.reduce((most, month) => Math.max(most, month.unvalued_count ?? 0), 0);
   return (
     <nldd-container gap="8" data-testid="investment-time">
-      <nldd-title size={5} text="Investeerruimte in tijd" heading-level={2} />
+      <nldd-title size="display-5" text="Investeerruimte in tijd" heading-level={2} />
       <nldd-table
         accessible-label="Vrije capaciteit in de komende maanden"
         columns={`minmax(130px,1fr) 100px${valued ? ' 150px' : ''}`}

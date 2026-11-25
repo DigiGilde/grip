@@ -35,13 +35,13 @@ function CopyUri({ uri }: { uri: string }) {
   return (
     <Stack gap="close">
       <nldd-text size="sm" style={{ overflowWrap: 'anywhere' }}>
-        {uri}
+        <span>{uri}</span>
       </nldd-text>
       <div>
         <Button text="Kopieer URI" size="sm" onClick={copy} />
       </div>
       <nldd-text size="sm" color="secondary" aria-live="polite">
-        {copied ? 'De URI is gekopieerd.' : ''}
+        <p>{copied ? 'De URI is gekopieerd.' : ''}</p>
       </nldd-text>
     </Stack>
   );
@@ -84,7 +84,11 @@ function Detail({ item, onStep }: { item: NodeLookup; onStep: (uri: string) => v
     <Stack gap="group">
       <Stack gap="related">
         <Source item={item} />
-        {node.description ? <nldd-text>{node.description}</nldd-text> : null}
+        {node.description ? (
+          <nldd-text>
+            <p>{node.description}</p>
+          </nldd-text>
+        ) : null}
         <Facts label="Gegevens van de node" facts={facts} labelWidth="140px" />
       </Stack>
 
@@ -154,7 +158,7 @@ export function NodeDetailSheet({ uri, known, fetchNode, scope, onClose }: NodeD
   const title = item?.node?.title ?? (current ? 'Node' : '');
   return createPortal(
     <nldd-sheet ref={sheetRef} open={orUndef(uri !== null)} placement="right" width="720px">
-      <nldd-page>
+      <nldd-page sticky-header>
         <nldd-top-title-bar
           ref={barRef}
           slot="header"
@@ -164,7 +168,7 @@ export function NodeDetailSheet({ uri, known, fetchNode, scope, onClose }: NodeD
           {...(trail.length > 0 ? { 'back-text': 'Terug' } : {})}
         />
         <nldd-simple-section>
-          <nldd-title id={titleId} slot="header" size={2} text={title} heading-level={1} />
+          <nldd-title id={titleId} slot="header" size="display-2" text={title} heading-level={1} />
           {current && !item && query.isPending ? <Loading text="Bezig met ophalen" /> : null}
           {query.isError && !item ? (
             <LoadError error={query.error} retry={() => void query.refetch()} />

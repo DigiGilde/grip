@@ -117,11 +117,17 @@ function ProgressView({ progress }: { progress: Progress }) {
   return (
     <nldd-container gap="16">
       <nldd-text>
-        Status bij de opdrachtnemer: {statusLabel(progress.status ?? '')}
-        {progress.as_of ? `, per ${formatDate(progress.as_of)}` : ''}. Opgevraagd op{' '}
-        {formatDateTime(progress.fetched_at)}.
+        <p>
+          Status bij de opdrachtnemer: {statusLabel(progress.status ?? '')}
+          {progress.as_of ? `, per ${formatDate(progress.as_of)}` : ''}. Opgevraagd op{' '}
+          {formatDateTime(progress.fetched_at)}.
+        </p>
       </nldd-text>
-      {progress.summary ? <nldd-text>{progress.summary}</nldd-text> : null}
+      {progress.summary ? (
+        <nldd-text>
+          <p>{progress.summary}</p>
+        </nldd-text>
+      ) : null}
       {milestones.length > 0 ? (
         <nldd-table accessible-label="Mijlpalen" columns="minmax(220px,2fr) 160px 140px">
           <nldd-table-row slot="header">
@@ -140,9 +146,15 @@ function ProgressView({ progress }: { progress: Progress }) {
           ))}
         </nldd-table>
       ) : null}
-      {delivered.length > 0 ? <nldd-text>Geleverd: {delivered.join('; ')}.</nldd-text> : null}
+      {delivered.length > 0 ? (
+        <nldd-text>
+          <p>Geleverd: {delivered.join('; ')}.</p>
+        </nldd-text>
+      ) : null}
       {notDelivered.length > 0 ? (
-        <nldd-text>Niet geleverd: {notDelivered.join('; ')}.</nldd-text>
+        <nldd-text>
+          <p>Niet geleverd: {notDelivered.join('; ')}.</p>
+        </nldd-text>
       ) : null}
     </nldd-container>
   );
@@ -167,9 +179,11 @@ function UsageView({ usage }: { usage: BudgetUsage }) {
   return (
     <nldd-container gap="16">
       <nldd-text aria-live="polite">
-        Opgevraagd op {formatDateTime(usage.fetched_at)}
-        {usage.as_of ? `, stand per ${formatDate(usage.as_of)}` : ''}
-        {usage.year ? `, over ${usage.year}` : ', over de hele looptijd'}.
+        <p>
+          Opgevraagd op {formatDateTime(usage.fetched_at)}
+          {usage.as_of ? `, stand per ${formatDate(usage.as_of)}` : ''}
+          {usage.year ? `, over ${usage.year}` : ', over de hele looptijd'}.
+        </p>
       </nldd-text>
       <nldd-table
         accessible-label="Uitputting volgens de opdrachtnemer"
@@ -217,7 +231,11 @@ function FinalReportView({ report }: { report: FinalReport }) {
   ];
   return (
     <nldd-container gap="16">
-      {report.summary ? <nldd-text>{report.summary}</nldd-text> : null}
+      {report.summary ? (
+        <nldd-text>
+          <p>{report.summary}</p>
+        </nldd-text>
+      ) : null}
       <nldd-list accessible-label="Eindrapport" appearance="box-base">
         {facts
           .filter(([, value]) => value !== '')
@@ -365,9 +383,11 @@ export function ClientAssignmentPage() {
               <SectionHeading text="Uitputting" />
               <nldd-container gap="16">
                 <nldd-text>
-                  De uitputting haal je alleen op als je erom vraagt. De opdrachtnemer geeft de
-                  cijfers als financiële inzage onderdeel is van het contract. Elke opvraging wordt
-                  vastgelegd.
+                  <p>
+                    De uitputting haal je alleen op als je erom vraagt. De opdrachtnemer geeft de
+                    cijfers als financiële inzage onderdeel is van het contract. Elke opvraging
+                    wordt vastgelegd.
+                  </p>
                 </nldd-text>
                 <div>
                   <Button

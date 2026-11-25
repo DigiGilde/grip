@@ -205,8 +205,11 @@
   font-weight: 600;
 }
 
+/* An nldd-icon takes --context-content-color, not the color around it: a rule
+   here that colours an icon sets both. */
 .grip-board__total[data-state='over'] {
   color: var(--board-over-text);
+  --context-content-color: var(--board-over-text);
   font-weight: 700;
   font-size: 0.75rem;
 }
@@ -237,6 +240,7 @@
   border-radius: 4px;
   background: var(--board-fill);
   color: var(--board-inverse);
+  --context-content-color: var(--board-inverse);
   font-size: 0.75rem;
   line-height: 1;
   white-space: nowrap;
@@ -278,6 +282,7 @@
     repeating-linear-gradient(45deg, transparent 0 4px, var(--board-line) 4px 6px),
     var(--board-surface);
   color: var(--board-ink);
+  --context-content-color: var(--board-ink);
   box-shadow: inset 0 0 0 1.5px var(--board-fill);
 }
 
@@ -285,6 +290,7 @@
 .grip-board__bar[data-open] {
   background: var(--board-surface);
   color: var(--board-ink);
+  --context-content-color: var(--board-ink);
   font-weight: 600;
   box-shadow: none;
   border: 1.5px dashed var(--board-ink);
@@ -332,6 +338,7 @@
   list-style: none;
   font-size: 0.75rem;
   color: var(--board-muted);
+  --context-content-color: var(--board-muted);
 }
 
 .grip-board__legend li {
@@ -379,6 +386,7 @@
 .grip-board__legend-over {
   font-weight: 700;
   color: var(--board-over-text);
+  --context-content-color: var(--board-over-text);
 }
 
 .grip-board__sr-only {
@@ -403,6 +411,7 @@
   position: absolute;
   overflow: visible;
   color: var(--board-ink);
+  --context-content-color: var(--board-ink);
 }
 
 /* The short form only takes the place of the label when it is chosen; until

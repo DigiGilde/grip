@@ -428,9 +428,11 @@ export function StandardTextsPage() {
               )}
               {manage && unread ? (
                 <nldd-text>
-                  {unread === 1
-                    ? 'Eén tekst is afgeleid en nog niet nagelezen.'
-                    : `${unread} teksten zijn afgeleid en nog niet nagelezen.`}
+                  <p>
+                    {unread === 1
+                      ? 'Eén tekst is afgeleid en nog niet nagelezen.'
+                      : `${unread} teksten zijn afgeleid en nog niet nagelezen.`}
+                  </p>
                 </nldd-text>
               ) : null}
             </Stack>
@@ -498,7 +500,7 @@ export function StandardTextsPage() {
                           <nldd-tag color="warning" text="Nog nalezen" />
                         ) : (
                           <nldd-text color="secondary" size="sm">
-                            {changed}
+                            <span>{changed}</span>
                           </nldd-text>
                         )}
                       </nldd-cell>

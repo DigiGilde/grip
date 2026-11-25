@@ -228,7 +228,7 @@ function Team() {
         {staffing && hasRoles && seesTime && (
           <Stack gap="related">
             {/* The state in one sentence: the first thing on the part. */}
-            <nldd-title size={5} heading-level={2} text={staffingSentence(staffing)} />
+            <nldd-title size="display-5" heading-level={2} text={staffingSentence(staffing)} />
             {/* Attention only when there is something: who, when and how much. */}
             {overbookedSignals(staffing).length > 0 && (
               <RouterLinks>

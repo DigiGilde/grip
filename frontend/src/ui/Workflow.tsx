@@ -44,17 +44,19 @@ export function CourseNow({ course, tasksHref }: CourseNowProps) {
       data-mine={next.mine ? 'true' : 'false'}
       data-part={next.part ?? (next.mine ? 'acts' : 'waits')}
     >
-      <nldd-text>{next.blocked ?? next.sentence}</nldd-text>
+      <nldd-text>
+        <p>{next.blocked ?? next.sentence}</p>
+      </nldd-text>
       {missing.length > 0 && (
         <nldd-text size="sm" color="secondary">
-          {`Ontbreekt nog: ${missing.join(', ')}.`}
+          <p>{`Ontbreekt nog: ${missing.join(', ')}.`}</p>
         </nldd-text>
       )}
       {(due || (more > 0 && tasksHref)) && (
         <div className="course-now-meta">
           {due && (
             <nldd-text size="sm" color={next.overdue ? 'critical' : 'secondary'}>
-              {due}
+              <span>{due}</span>
             </nldd-text>
           )}
           {more > 0 && tasksHref && (
@@ -84,8 +86,10 @@ export function CourseLine({ course, accessibleLabel }: CourseLineProps) {
   if (!brief) return null;
   return (
     <nldd-text size="sm" color="secondary" role="group" aria-label={accessibleLabel}>
-      <strong>{brief.now}</strong>
-      {`, ${brief.then}`}
+      <span>
+        <strong>{brief.now}</strong>
+        {`, ${brief.then}`}
+      </span>
     </nldd-text>
   );
 }

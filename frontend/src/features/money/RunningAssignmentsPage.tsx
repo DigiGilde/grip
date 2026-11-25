@@ -89,7 +89,9 @@ export function RunningAssignmentsPage() {
       {query.isError && <LoadError error={query.error} retry={() => void query.refetch()} />}
       {query.isSuccess && !steering.isPending && (
         <nldd-container gap="8">
-          <nldd-text>{periodSentence(year, steering.data?.turnover?.scope === 'own')}</nldd-text>
+          <nldd-text>
+            <p>{periodSentence(year, steering.data?.turnover?.scope === 'own')}</p>
+          </nldd-text>
           {rows.length > 0 && stand !== undefined && <Quiet>{referenceText(stand)}</Quiet>}
         </nldd-container>
       )}

@@ -77,9 +77,11 @@ function Filled({ vacancy }: { vacancy: Vacancy }) {
   const when = `${started ? 'is gestart' : 'start'} op ${formatDate(found.start_date)}`;
   return (
     <nldd-text size="md">
-      {found.person_name
-        ? `Vervuld: ${found.person_name} ${when}.`
-        : `Vervuld: de collega ${when}.`}
+      <p>
+        {found.person_name
+          ? `Vervuld: ${found.person_name} ${when}.`
+          : `Vervuld: de collega ${when}.`}
+      </p>
     </nldd-text>
   );
 }

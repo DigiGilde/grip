@@ -33,15 +33,6 @@ function placesLabel(toDo: number): string {
   return `${PLACES}, ${toDo === 1 ? '1 taak' : `${toDo} taken`} te doen`;
 }
 
-/**
- * A key for the tab bar. The bar settles its tab stop when its tabs change, not
- * when `current` moves: going between a place and a page outside every place
- * would leave it without a tab stop, or with two. A new bar settles it again.
- */
-function tabStopKey(hasCurrent: boolean): string {
-  return hasCurrent ? 'current' : 'none';
-}
-
 /** The pages reached from Ik: the account as a page, and what its rows open. */
 function isUnderMe(pathname: string, personId: string | undefined): boolean {
   const own = personId ? PATHS.person.replace(':personId', personId) : null;
@@ -96,11 +87,7 @@ export function MainNavigation() {
 
   return (
     <nldd-toolbar-item ref={item} slot="start" priority={4}>
-      <nldd-tab-bar
-        key={tabStopKey(here !== undefined && routes.includes(here))}
-        navigation
-        accessible-label={label}
-      >
+      <nldd-tab-bar navigation accessible-label={label}>
         {routes.map((route) => (
           <nldd-tab-bar-item
             key={route.path}
@@ -129,11 +116,7 @@ export function SettingsNavigation() {
 
   return (
     <nldd-toolbar-item slot="end" priority={1}>
-      <nldd-tab-bar
-        key={tabStopKey(here !== undefined && routes.includes(here))}
-        navigation
-        accessible-label={SETTINGS}
-      >
+      <nldd-tab-bar navigation accessible-label={SETTINGS}>
         {routes.map((route) => (
           <nldd-tab-bar-item
             key={route.path}
@@ -156,7 +139,7 @@ function IconWithCount({ icon, count }: { icon: string; count: number }) {
   return (
     <span slot="icon" className="place-icon">
       <nldd-icon icon={icon} />
-      <nldd-badge size="sm" color="inherit" number={count} decorative />
+      <nldd-badge size="sm" color="content" number={count} decorative />
     </span>
   );
 }
@@ -172,11 +155,7 @@ export function BottomNavigation() {
 
   return (
     <nldd-toolbar-item slot="start" priority={1}>
-      <nldd-tab-bar
-        key={tabStopKey(underMe || here !== undefined)}
-        navigation
-        accessible-label={placesLabel(toDo)}
-      >
+      <nldd-tab-bar navigation accessible-label={placesLabel(toDo)}>
         {routes.map((route) => {
           const counted = route.path === PATHS.start && toDo > 0;
           return (
@@ -185,7 +164,9 @@ export function BottomNavigation() {
               href={landingPath(route, viewer)}
               text={navLabel(route)}
               current={orUndef(route === here)}
-              {...(counted ? {} : { icon: route.icon })}
+              // Empty rather than left out: a prop React drops reaches the item
+              // as undefined, which it writes as the attribute icon="undefined".
+              icon={counted ? '' : route.icon}
             >
               {counted && <IconWithCount icon={route.icon} count={toDo} />}
             </nldd-tab-bar-item>

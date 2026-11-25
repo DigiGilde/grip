@@ -148,10 +148,12 @@ function AgreedBlock({ report }: { report: AssignmentReport }) {
   return (
     <ReportBlock testId="agreed" title="Wat is afgesproken">
       <nldd-text>
-        Er is geen offerte waarop akkoord is gegeven.
-        {typeof report.quoted_amount_cents === 'number'
-          ? ` Het afgesproken bedrag is ${formatEuro(report.quoted_amount_cents)}.`
-          : ''}
+        <p>
+          Er is geen offerte waarop akkoord is gegeven.
+          {typeof report.quoted_amount_cents === 'number'
+            ? ` Het afgesproken bedrag is ${formatEuro(report.quoted_amount_cents)}.`
+            : ''}
+        </p>
       </nldd-text>
     </ReportBlock>
   );
@@ -172,8 +174,14 @@ function DeliveredBlock({ report }: { report: AssignmentReport }) {
     >
       {final ? (
         <nldd-container gap="8">
-          <nldd-text>Eindrapport van {formatDate(final.issued_at)}.</nldd-text>
-          {final.summary && <nldd-text>{final.summary}</nldd-text>}
+          <nldd-text>
+            <p>Eindrapport van {formatDate(final.issued_at)}.</p>
+          </nldd-text>
+          {final.summary && (
+            <nldd-text>
+              <p>{final.summary}</p>
+            </nldd-text>
+          )}
           <nldd-list accessible-label="Geleverd" appearance="box-base">
             {(final.delivered ?? []).length === 0 && (
               <nldd-list-item>

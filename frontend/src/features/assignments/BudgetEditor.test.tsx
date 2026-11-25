@@ -1,4 +1,4 @@
-import { waitFor } from '@testing-library/react';
+import { fireEvent, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BANDS, BUDGET, CARDS, renderBudgetPart } from './budget/testing';
 import { allText, assignment, mockApi, plain } from './testing';
@@ -159,9 +159,8 @@ describe('budget line sheet', () => {
     );
     expect(scale.querySelector('select')).toHaveValue('');
 
-    field(sheet, 'Beoogde persoon')
-      .querySelector('nldd-dropdown')
-      ?.dispatchEvent(new CustomEvent('change', { detail: { value: 'p2' } }));
+    const person = field(sheet, 'Beoogde persoon').querySelector('select') as HTMLSelectElement;
+    fireEvent.change(person, { target: { value: 'p2' } });
     await waitFor(() =>
       expect(field(sheet, 'Schaal en tarief').querySelector('select')).toHaveValue('B'),
     );
@@ -192,9 +191,9 @@ describe('budget line sheet', () => {
     expect(calls).toContain('/api/assignments/a1/budget-lines/derive');
 
     // Changing away from it says so at the field.
-    moved
-      .querySelector('nldd-dropdown')
-      ?.dispatchEvent(new CustomEvent('change', { detail: { value: 'C' } }));
+    fireEvent.change(moved.querySelector('select') as HTMLSelectElement, {
+      target: { value: 'C' },
+    });
     await waitFor(() =>
       expect(
         sheet.querySelector('nldd-banner[text^="De beoogde persoon declareert in"]'),
@@ -211,9 +210,9 @@ describe('budget line sheet', () => {
       notes: ['Start op 1 december 2026.'],
     });
     const sheet = await openNewLine(container);
-    field(sheet, 'Beoogde persoon')
-      .querySelector('nldd-dropdown')
-      ?.dispatchEvent(new CustomEvent('change', { detail: { value: 'p2' } }));
+    const person = field(sheet, 'Beoogde persoon').querySelector('select') as HTMLSelectElement;
+    await waitFor(() => expect(person.querySelector('option[value="p2"]')).not.toBeNull());
+    fireEvent.change(person, { target: { value: 'p2' } });
     await waitFor(() =>
       expect(field(sheet, 'Beoogde persoon').querySelector('select')).toHaveValue('p2'),
     );

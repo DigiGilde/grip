@@ -187,7 +187,7 @@ function Connection({ peer }: { peer: Peer }) {
   return (
     <nldd-container gap="8">
       <nldd-title
-        size={4}
+        size="display-4"
         text="Verbinding"
         heading-level={2}
         supporting-text={peer.role === 'corpus' ? 'Vraagt het corpus op via de outway' : known}

@@ -80,8 +80,10 @@ export function LanguageModelPage() {
               )}
               {data && !data.available && (
                 <nldd-text>
-                  Er is geen taalmodel verbonden. Teksten schrijf je zelf, met de standaardteksten
-                  als begin.
+                  <p>
+                    Er is geen taalmodel verbonden. Teksten schrijf je zelf, met de standaardteksten
+                    als begin.
+                  </p>
                 </nldd-text>
               )}
               {data?.note && <Quiet>{data.note}</Quiet>}
@@ -107,14 +109,18 @@ export function LanguageModelPage() {
             {data?.available && (
               <Section title="Wat ernaartoe gaat">
                 <nldd-text>
-                  Naar het model gaan de gegevens van de vacature of de opdracht, de standaardtekst
-                  als voorbeeld, wat de organisatie over zichzelf zegt in de standaardteksten, en de
-                  beleidscontext van de opdracht.
+                  <p>
+                    Naar het model gaan de gegevens van de vacature of de opdracht, de
+                    standaardtekst als voorbeeld, wat de organisatie over zichzelf zegt in de
+                    standaardteksten, en de beleidscontext van de opdracht.
+                  </p>
                 </nldd-text>
                 <nldd-text>
-                  Namen van collega’s en kandidaten, tarieven van personen en kostprijzen gaan er
-                  niet naartoe. Wat het model schrijft is een voorstel; een mens stelt de tekst
-                  vast.
+                  <p>
+                    Namen van collega’s en kandidaten, tarieven van personen en kostprijzen gaan er
+                    niet naartoe. Wat het model schrijft is een voorstel; een mens stelt de tekst
+                    vast.
+                  </p>
                 </nldd-text>
               </Section>
             )}

@@ -32,7 +32,7 @@ export function ReportBlock({
           {!bare && <SectionHeading text={title} />}
           {note && (
             <nldd-text size="sm" color="secondary">
-              {note}
+              <p>{note}</p>
             </nldd-text>
           )}
         </nldd-container>

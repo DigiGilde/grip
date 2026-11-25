@@ -29,7 +29,10 @@ describe('LinkRows', () => {
     );
     const [linked, plain] = [...container.querySelectorAll('nldd-list-item')];
     expect(linked).toHaveAttribute('href', '/a/begroting');
-    expect(linked?.querySelector('nldd-icon-cell')).toHaveAttribute('icon', 'chevron-right');
+    expect(linked?.querySelector('nldd-icon-cell nldd-icon')).toHaveAttribute(
+      'icon',
+      'chevron-right',
+    );
     expect(plain).not.toHaveAttribute('href');
     expect(plain?.querySelector('nldd-icon-cell')).toBeNull();
   });

@@ -406,8 +406,10 @@ function RemarkItem({
   return (
     <Stack gap="close">
       <nldd-text>
-        {remark.section ? `${remark.section}: ` : ''}
-        {remark.body}
+        <p>
+          {remark.section ? `${remark.section}: ` : ''}
+          {remark.body}
+        </p>
       </nldd-text>
       <Quiet>
         {remark.by_viewer ? 'Jij' : who(remark.author_name)} op {formatDate(remark.created_at)}
@@ -637,7 +639,7 @@ function TextBlock({
       )}
       {work.remarks.length > 0 && (
         <Stack gap="group">
-          <nldd-title size={6} text="Opmerkingen" heading-level={3} />
+          <nldd-title size="display-6" text="Opmerkingen" heading-level={3} />
           {work.remarks.map((remark) => (
             <RemarkItem
               key={remark.id}
@@ -709,7 +711,9 @@ function Publications({
       {data.publications.map((publication) => (
         <nldd-container key={publication.id} layout="row" gap="16" vertical-alignment="center">
           <nldd-text>
-            Gepubliceerd op {publication.place_text} op {formatDate(publication.published_on)}
+            <p>
+              Gepubliceerd op {publication.place_text} op {formatDate(publication.published_on)}
+            </p>
           </nldd-text>
           <ExternalLink href={publication.url} text="Bekijk de vacature" />
           {data.may_record_publication && (

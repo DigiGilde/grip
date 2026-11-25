@@ -181,8 +181,10 @@ export function WiesProposalsPage() {
             />
           ) : null}
           <nldd-text size="sm" color="secondary">
-            {`${data.wies_colleagues ?? 0} collega's in Wies`}
-            {data.fetched_at ? `, opgehaald op ${formatDate(data.fetched_at)}` : ''}
+            <p>
+              {`${data.wies_colleagues ?? 0} collega's in Wies`}
+              {data.fetched_at ? `, opgehaald op ${formatDate(data.fetched_at)}` : ''}
+            </p>
           </nldd-text>
           {proposals.length === 0 ? (
             <EmptyNotice

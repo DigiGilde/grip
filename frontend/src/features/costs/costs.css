@@ -160,9 +160,11 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* An nldd-icon takes --context-content-color, not the color around it. */
 .cost-legend__attention,
 .cost-legend__attention strong {
   color: var(--primitives-color-critical-700);
+  --context-content-color: var(--primitives-color-critical-700);
   font-weight: 700;
 }
 

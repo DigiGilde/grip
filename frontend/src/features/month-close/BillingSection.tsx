@@ -335,7 +335,7 @@ export function Invoices({ assignmentId, status, recordFor, onRecordDone }: Invo
         }}
       >
         <nldd-text>
-          Grip verstuurt geen facturen. Hier leg je vast dat de factuur is verstuurd.
+          <p>Grip verstuurt geen facturen. Hier leg je vast dat de factuur is verstuurd.</p>
         </nldd-text>
         {open.length > 1 ? (
           <nldd-container gap="8">
@@ -357,9 +357,11 @@ export function Invoices({ assignmentId, status, recordFor, onRecordDone }: Invo
           </nldd-container>
         ) : (
           <nldd-text>
-            {selection[0]
-              ? `${formatMonth(selection[0].month)}, aangeleverd ${formatEuro(selection[0].delivered_cents)}`
-              : ''}
+            <p>
+              {selection[0]
+                ? `${formatMonth(selection[0].month)}, aangeleverd ${formatEuro(selection[0].delivered_cents)}`
+                : ''}
+            </p>
           </nldd-text>
         )}
         <TextInput label="Factuurnummer" value={number} onChange={setNumber} required />
@@ -395,7 +397,7 @@ export function Invoices({ assignmentId, status, recordFor, onRecordDone }: Invo
       >
         {correction.panel}
         <nldd-text>
-          De oude en de nieuwe waarden komen in de auditlog te staan, met jouw naam.
+          <p>De oude en de nieuwe waarden komen in de auditlog te staan, met jouw naam.</p>
         </nldd-text>
         <TextInput label="Factuurnummer" value={number} onChange={setNumber} required />
         <DateInput label="Factuurdatum" value={invoiceDate} onChange={setInvoiceDate} required />
@@ -427,8 +429,10 @@ export function Invoices({ assignmentId, status, recordFor, onRecordDone }: Invo
         }}
       >
         <nldd-text>
-          Voor een factuur die hier ten onrechte is vastgelegd. De maanden staan daarna weer als
-          aangeleverd. De vastlegging en de reden blijven bewaard.
+          <p>
+            Voor een factuur die hier ten onrechte is vastgelegd. De maanden staan daarna weer als
+            aangeleverd. De vastlegging en de reden blijven bewaard.
+          </p>
         </nldd-text>
         <TextInput label="Reden" value={reason} onChange={setReason} required multiline />
       </FormSheet>

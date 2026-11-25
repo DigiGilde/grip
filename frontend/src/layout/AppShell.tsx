@@ -22,11 +22,12 @@ const MAIN_CONTENT_ID = 'inhoud';
 /** The name of the landmark around the application bar. */
 const BAR_LABEL = 'Navigatie en account';
 
-// `above` and `only` are read off a pane by nldd-bar-split-view, which is why
-// the package types them on the parent and not on nldd-split-view-pane. Spread
-// as plain attributes until the package's types cover them.
+// `above` and `below` are read off a bar by nldd-bar-split-view, which is why
+// the package types them on the parent and not on the element in the slot.
+// Spread as plain attributes until the package's types cover them. Not
+// `only="sm"`: React writes no attribute starting with "on" on a section.
 const FROM_MD: object = { above: 'md' };
-const ONLY_SM: object = { only: 'sm' };
+const ONLY_SM: object = { below: 'sm' };
 
 const NO_ROOM_FOR_NAME = '(max-width: 1199px)';
 
@@ -65,14 +66,14 @@ function BrandTitle({ instanceName }: { instanceName?: string }) {
 }
 
 /** A bar of the shell: a named region, with every link in it handed to the router. */
-function Bar({ children }: { children: ReactNode }) {
+function Bar({ slot, shown, children }: { slot: string; shown: object; children: ReactNode }) {
   const ref = useRef<HTMLElement>(null);
   useRouterLinks(ref);
   return (
     // A named region, so the bar sits inside a landmark. Not a header:
     // nldd-page already renders the banner of the document, and a second one
     // is announced twice.
-    <section ref={ref} aria-label={BAR_LABEL}>
+    <section ref={ref} slot={slot} {...shown} aria-label={BAR_LABEL}>
       <nldd-container padding="8">{children}</nldd-container>
     </section>
   );
@@ -142,62 +143,56 @@ export function AppShell() {
       <nldd-skip-link href={`#${MAIN_CONTENT_ID}`} text="Direct naar de inhoud" />
       <nldd-shell>
         <nldd-bar-split-view>
-          <nldd-split-view-pane slot="toolbar" {...FROM_MD}>
-            <Bar>
-              <nldd-toolbar accessible-label={instanceName}>
-                <BrandTitle instanceName={instance?.name} />
-                <MainNavigation />
-                <nldd-toolbar-item
-                  slot="center"
-                  min-width="240px"
-                  width="33%"
-                  max-width="480px"
-                  priority={3}
-                >
-                  <SearchField />
-                  <nldd-menu-item
-                    slot="overflow"
-                    icon={iconOf('search')}
-                    text="Zoek op naam"
-                    href={PATHS.search}
-                  />
-                </nldd-toolbar-item>
-                <SettingsNavigation />
-                <nldd-toolbar-item slot="end" priority={2}>
-                  <AccountMenu placement="bottom-end" />
-                  <nldd-menu-item
-                    slot="overflow"
-                    icon={iconOf('account')}
-                    text="Ik"
-                    href={PATHS.me}
-                  />
-                </nldd-toolbar-item>
-              </nldd-toolbar>
-            </Bar>
-          </nldd-split-view-pane>
+          <Bar slot="toolbar" shown={FROM_MD}>
+            <nldd-toolbar accessible-label={instanceName}>
+              <BrandTitle instanceName={instance?.name} />
+              <MainNavigation />
+              <nldd-toolbar-item
+                slot="center"
+                min-width="240px"
+                width="33%"
+                max-width="480px"
+                priority={3}
+              >
+                <SearchField />
+                <nldd-menu-item
+                  slot="overflow"
+                  icon={iconOf('search')}
+                  text="Zoek op naam"
+                  href={PATHS.search}
+                />
+              </nldd-toolbar-item>
+              <SettingsNavigation />
+              <nldd-toolbar-item slot="end" priority={2}>
+                <AccountMenu placement="bottom-end" />
+                <nldd-menu-item
+                  slot="overflow"
+                  icon={iconOf('account')}
+                  text="Ik"
+                  href={PATHS.me}
+                />
+              </nldd-toolbar-item>
+            </nldd-toolbar>
+          </Bar>
 
-          <nldd-split-view-pane slot="main" has-content>
-            <nldd-page landmarks="page" accessible-label={instanceName}>
-              {/* The skip link lands here; tabIndex -1 lets it take focus without being a tab stop. */}
-              <div id={MAIN_CONTENT_ID} tabIndex={-1}>
-                {/* The task this page was opened for, when the address names one. */}
-                <ExampleNotice />
-                <TaskBar />
-                <OfflineNotice />
-                <PageBoundary resetKey={pathname}>
-                  <Outlet />
-                </PageBoundary>
-              </div>
-            </nldd-page>
-          </nldd-split-view-pane>
+          <nldd-page slot="main" landmarks="page" accessible-label={instanceName}>
+            {/* The skip link lands here; tabIndex -1 lets it take focus without being a tab stop. */}
+            <div id={MAIN_CONTENT_ID} tabIndex={-1}>
+              {/* The task this page was opened for, when the address names one. */}
+              <ExampleNotice />
+              <TaskBar />
+              <OfflineNotice />
+              <PageBoundary resetKey={pathname}>
+                <Outlet />
+              </PageBoundary>
+            </div>
+          </nldd-page>
 
-          <nldd-split-view-pane slot="toolbar-sm" {...ONLY_SM}>
-            <Bar>
-              <nldd-toolbar size="lg" accessible-label={instanceName}>
-                <BottomNavigation />
-              </nldd-toolbar>
-            </Bar>
-          </nldd-split-view-pane>
+          <Bar slot="toolbar-sm" shown={ONLY_SM}>
+            <nldd-toolbar size="lg" accessible-label={instanceName}>
+              <BottomNavigation />
+            </nldd-toolbar>
+          </Bar>
         </nldd-bar-split-view>
       </nldd-shell>
     </>

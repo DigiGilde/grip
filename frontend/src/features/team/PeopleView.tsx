@@ -152,7 +152,7 @@ export function PeopleView() {
                       // Colour only for what is wrong now: planned above what
                       // a person can do. Work that ends is a fact, said quietly.
                       <nldd-text size="sm" color={signal.attention ? 'warning' : 'secondary'}>
-                        {signal.text}
+                        <span>{signal.text}</span>
                       </nldd-text>
                     ) : null}
                   </nldd-cell>

@@ -154,7 +154,7 @@ De test `ui/controls.guard.test.ts` faalt op de kale tekstknop buiten de basis e
 
 De editor staat alleen waar de tekst opmaak kan bevatten en ergens opgemaakt wordt getoond. Een veld dat als platte tekst wordt getoond krijgt hem niet: de tekens voor opmaak zouden als sterretjes op het scherm of in een pdf komen, en een werkbalk bij een veld "Reden" is ruis. De motivatie voor het aanvraagformulier is daarom plat: ze komt in een formulierveld dat alleen platte tekst kan bevatten.
 
-De editor is die van het designsysteem (`nldd-text-editor`): de tekst blijft platte tekst met een paar tekens, de opmaak is tijdens het schrijven te zien en de tekens staan er gedimd bij. De werkbalk biedt precies wat de tekst kan bevatten (`@/ui/text/marks`): een vacaturetekst kent een kop, een lijst en cursief; een onderdeel van een offerte ook een genummerde lijst en vet. Wat iemand typt of plakt wordt naar die set teruggebracht. Een plek die nog ingevuld moet worden, "[vul aan: ...]", is in de editor gemarkeerd en geteld, met een stap naar de volgende.
+De editor is die van het designsysteem (`nldd-text-editor`): de tekst blijft platte tekst met een paar tekens, de opmaak is tijdens het schrijven te zien en een teken verschijnt alleen waar de cursor het raakt. De werkbalk biedt precies wat de tekst kan bevatten (`@/ui/text/marks`): een vacaturetekst kent een kop, een lijst en cursief; een onderdeel van een offerte ook een genummerde lijst en vet. Wat iemand typt of plakt wordt naar die set teruggebracht. Een plek die nog ingevuld moet worden, "[vul aan: ...]", is in de editor gemarkeerd en geteld, met een stap naar de volgende.
 
 Een bewaarde tekst wordt overal getoond met `RichText` uit `@/ui/RichText`, uit dezelfde vorm: wat je bewerkt is wat je ziet. De test `ui/controls.guard.test.ts` faalt op een kaal `textarea`, `input` of `contenteditable` in een scherm.
 
@@ -271,11 +271,13 @@ Elk ander blok toont hooguit acht rijen, wat aandacht vraagt bovenaan, met "Alle
 
 Een zaak met een verloop (een opdracht, een vacature) zegt overal op dezelfde plek: onder de titel in een zin wat er nu gebeurt en wie aan zet is, rechts van de titel de ene knop die de stap zet. Het verloop is één regel tekst, klein en rustig: de stap waar de zaak staat en de stap daarna. Op een opdracht staat die regel in de `lead`, op een vacature zijn de stappen de rijen van de landing. De server beslist het; een scherm tekent het met `CourseNow` en `CourseLine` uit `@/ui/Workflow` en de gegevens van `useCaseCourse`. Een lijst toont dezelfde stand met `courseLine`. Draagt de kop de volgende stap, dan zet zij `PrimaryTakenContext`; de gedeelde knop en actiebalk tekenen een hoofdknop eronder dan als gewone knop. Op het scherm staat geen woord van het systeem. Het patroon, de regels en de praktijkgevallen staan in [werkstromen.md](werkstromen.md).
 
-## Drie valkuilen in het designsysteem
+## Vier valkuilen in het designsysteem
 
 **`nldd-form` verplaatst zijn kinderen.** Het zet zijn directe kinderen in een eigen formulierelement. Verschijnt er daarna een veld, dan vindt React de plek niet meer en wordt de pagina leeg. Zet de velden daarom in één vast element: `FormSheet` en `FormFields` doen dat.
 
-**Een keuzelijst in `nldd-dropdown` verstuurt zijn eigen gebeurtenis.** De dropdown houdt de `change` van de `select` erin tegen en verstuurt er zelf een. Een `onChange` op de `select` alleen gaat dus nooit af. Luister met `useNlddEvent` op de dropdown: `FilterSelect` en `ActionBar` doen dat.
+**Een keuze in `nldd-dropdown` komt binnen via de `select`.** Sinds 0.21.0 laat de dropdown de `change` van de `select` door, zonder `detail` en met de `select` als `target`. Een `onChange` op de `select` is genoeg; luister niet ook op de dropdown, want dan komt elke keuze twee keer binnen. `FilterSelect` en `ActionBar` doen het zo.
+
+**Een keuze in een menu die een paneel of dialoog opent, wacht tot het menu dicht is.** Sinds 0.24.0 knippert een gekozen menu-item voordat het menu sluit, terwijl `select` meteen komt. Een paneel dat dan al opent, geeft bij het sluiten de focus aan de pagina in plaats van aan de knop van het menu. Dat geldt voor een menu onder een knop of een icoonknop; het menu Meer van een werkbalk geeft de focus sinds 0.26.2 zelf terug. Luister in zo'n menu daarom met `useMenuSelect` uit `@/components/nldd/events`; `RowActions` doet het zo.
 
 **Een cel hoort in een rij.** `nldd-text-cell` en `nldd-cell` krijgen hun hoogte van de rij van een tabel of lijst. Los op een pagina heeft zo'n cel geen hoogte: de tekst wordt wel getekend, maar valt over wat eronder staat. Gebruik buiten een rij `Quiet`, `Facts` of gewone tekst.
 

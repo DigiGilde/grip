@@ -71,7 +71,11 @@ export function StatusPage({
             <Brand variant="compact" />
             <nldd-container gap="8">
               <PageHeading text={title} inline />
-              {message && <nldd-text color="secondary">{message}</nldd-text>}
+              {message && (
+                <nldd-text color="secondary">
+                  <p>{message}</p>
+                </nldd-text>
+              )}
             </nldd-container>
             {children}
             {(action || secondaryAction) && (

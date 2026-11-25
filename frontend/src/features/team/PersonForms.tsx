@@ -147,10 +147,10 @@ export function ScaleForm({
       <DateField label="Vanaf" value={from} onChange={setFrom} required />
       <TextField label="Schaal" value={scale} onChange={setScale} keyboard="numeric" required />
       <nldd-container gap="8">
-        <nldd-title size={5} text="Dit verandert er" heading-level={2} />
+        <nldd-title size="display-5" text="Dit verandert er" heading-level={2} />
         {!valid ? (
           <nldd-text size="sm" color="secondary">
-            Vul een datum en een schaal in om te zien wat er verandert.
+            <p>Vul een datum en een schaal in om te zien wat er verandert.</p>
           </nldd-text>
         ) : impact.isPending ? (
           <Loading text="Bezig met narekenen wat er verandert" />
@@ -160,12 +160,16 @@ export function ScaleForm({
           <>
             {sameStart ? (
               <nldd-text>
-                Op {formatDate(from)} begint al een periode; die wordt verbeterd naar schaal{' '}
-                {number}.
+                <p>
+                  Op {formatDate(from)} begint al een periode; die wordt verbeterd naar schaal{' '}
+                  {number}.
+                </p>
               </nldd-text>
             ) : null}
             {impactSentences(impact.data, from).map((sentence) => (
-              <nldd-text key={sentence}>{sentence}</nldd-text>
+              <nldd-text key={sentence}>
+                <p>{sentence}</p>
+              </nldd-text>
             ))}
           </>
         )}

@@ -33,10 +33,12 @@ export function StateNotice({ state, text, detail, action }: StateNoticeProps) {
   return (
     <div data-state={state} role={state === 'empty' ? undefined : 'status'}>
       <nldd-container gap="8">
-        <nldd-text>{text}</nldd-text>
+        <nldd-text>
+          <p>{text}</p>
+        </nldd-text>
         {detail ? (
           <nldd-text size="sm" color="secondary">
-            {detail}
+            <p>{detail}</p>
           </nldd-text>
         ) : null}
         {action ? (

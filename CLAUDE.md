@@ -67,7 +67,8 @@ De volledige regels staan in `docs/ontwerp.md`.
 - Toevoegen en wijzigen gebeurt in een `FormSheet`. Laat geen formulier standaard openstaan en controleer pas bij opslaan.
 - Toon niet wat er niet is: geen lege of vergrendelde onderdelen, geen melding over wat iets niet is.
 - Zet de velden van een `nldd-form` in één vast element (`FormFields`); het formulier verplaatst zijn directe kinderen.
-- Luister bij een `select` in een `nldd-dropdown` naar de `change` van de dropdown zelf.
+- Luister bij een `select` in een `nldd-dropdown` met `onChange` op de `select`, niet ook op de dropdown.
+- Luister in het menu van een knop of icoonknop met `useMenuSelect` als een keuze een paneel of dialoog opent; dan krijgt de knop de focus terug.
 - Schrijf gewoon Nederlands met de vaste woorden uit `docs/ontwerp.md`.
 - Meet een scherm in een zichtbaar browservenster voordat je het af noemt: één linkerrand, afstanden uit de schaal, gelijke hoogte van bedieningselementen.
 

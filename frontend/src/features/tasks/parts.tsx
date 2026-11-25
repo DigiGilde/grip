@@ -120,7 +120,12 @@ function closedWords(task: Task): string | undefined {
 
 function AboutLinks({ task }: { task: Task }) {
   const links = aboutLinks(task);
-  if (links.length === 0) return <nldd-text>{task.case_label}</nldd-text>;
+  if (links.length === 0)
+    return (
+      <nldd-text>
+        <span>{task.case_label}</span>
+      </nldd-text>
+    );
   return (
     <nldd-container gap="4">
       {links.map((link) => (
@@ -214,7 +219,7 @@ export function TaskSheet({ taskId, onClose }: TaskSheetProps) {
 
   return createPortal(
     <nldd-sheet ref={sheetRef} open={orUndef(taskId !== null)} placement="right" width="480px">
-      <nldd-page>
+      <nldd-page sticky-header>
         <nldd-top-title-bar
           ref={barRef}
           slot="header"
@@ -223,15 +228,23 @@ export function TaskSheet({ taskId, onClose }: TaskSheetProps) {
           collapse-anchor={titleId}
         />
         <nldd-simple-section>
-          <nldd-title id={titleId} slot="header" size={2} text={title} heading-level={1} />
+          <nldd-title id={titleId} slot="header" size="display-2" text={title} heading-level={1} />
           <RouterLinks>
             <Stack gap="group">
               {problem ? <nldd-banner variant="critical" size="sm" text={problem} /> : null}
               {task && (
                 <>
                   <Stack gap="related">
-                    {task.instruction ? <nldd-text>{task.instruction}</nldd-text> : null}
-                    {missing ? <nldd-text>{missing}</nldd-text> : null}
+                    {task.instruction ? (
+                      <nldd-text>
+                        <p>{task.instruction}</p>
+                      </nldd-text>
+                    ) : null}
+                    {missing ? (
+                      <nldd-text>
+                        <p>{missing}</p>
+                      </nldd-text>
+                    ) : null}
                     {task.blocked ? (
                       <nldd-banner variant="warning" size="sm" text={task.blocked} />
                     ) : null}
@@ -269,7 +282,9 @@ export function TaskSheet({ taskId, onClose }: TaskSheetProps) {
                     <Stack gap="related">
                       {notes.map((item) => (
                         <Stack key={item.id} gap="tight">
-                          <nldd-text>{item.body}</nldd-text>
+                          <nldd-text>
+                            <p>{item.body}</p>
+                          </nldd-text>
                           <Quiet>
                             {[item.author_name, formatDate(item.created_at)]
                               .filter(Boolean)

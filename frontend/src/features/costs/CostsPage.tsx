@@ -198,11 +198,13 @@ export function CostsPage() {
                       <nldd-container gap="4">
                         <nldd-link href={path} text={item.description} />
                         <nldd-text size="sm" color="secondary">
-                          {[
-                            invoiceCount(item),
-                            ...(tableNarrow ? [coveredText(item)] : []),
-                            ...points,
-                          ].join(' · ')}
+                          <span>
+                            {[
+                              invoiceCount(item),
+                              ...(tableNarrow ? [coveredText(item)] : []),
+                              ...points,
+                            ].join(' · ')}
+                          </span>
                         </nldd-text>
                       </nldd-container>
                     </nldd-cell>
@@ -210,7 +212,7 @@ export function CostsPage() {
                       <nldd-container gap="4">
                         <CoverageMiniBar item={item} />
                         <nldd-text size="sm" color="secondary">
-                          {coveredText(item)}
+                          <span>{coveredText(item)}</span>
                         </nldd-text>
                       </nldd-container>
                     </nldd-cell>

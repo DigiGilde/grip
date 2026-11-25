@@ -266,9 +266,8 @@ describe('Inzet board', () => {
   it('switches to assignments as rows without throwing', async () => {
     const { container } = renderPage();
     await grid(container);
-    container
-      .querySelector('nldd-dropdown[accessible-label="Groepering"]')
-      ?.dispatchEvent(new CustomEvent('change', { detail: { value: 'assignment' } }));
+    const grouping = container.querySelector('nldd-dropdown[accessible-label="Groepering"] select');
+    fireEvent.change(grouping as HTMLSelectElement, { target: { value: 'assignment' } });
     await waitFor(() =>
       expect(container.querySelector('thead th[scope="col"]')).toHaveTextContent('Opdracht en rol'),
     );

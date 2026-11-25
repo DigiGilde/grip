@@ -211,7 +211,12 @@ export function BillingPage() {
               <Stack gap="related">
                 <nldd-card background="tinted" accessible-label="Nu te doen">
                   <nldd-container padding="24" gap="16">
-                    <nldd-title size={2} heading-level={2} overline="Nu te doen" text={title} />
+                    <nldd-title
+                      size="display-2"
+                      heading-level={2}
+                      overline="Nu te doen"
+                      text={title}
+                    />
                     <nldd-button-group>
                       <Button
                         appearance="primary"
@@ -230,15 +235,17 @@ export function BillingPage() {
             ) : (
               <Stack gap="tight">
                 <nldd-text>
-                  {held === 0
-                    ? forOthers === 0
-                      ? `${title}.`
-                      : forOthers === 1
-                        ? '1 periode is klaar om aan te leveren. Dat doet de eigenaar of een manager van de opdracht.'
-                        : `${forOthers} perioden zijn klaar om aan te leveren. Dat doet de eigenaar of een manager van de opdracht.`
-                    : held === 1
-                      ? '1 periode is afgesloten, maar het factuuradres ontbreekt nog.'
-                      : `${held} perioden zijn afgesloten, maar het factuuradres ontbreekt nog.`}
+                  <p>
+                    {held === 0
+                      ? forOthers === 0
+                        ? `${title}.`
+                        : forOthers === 1
+                          ? '1 periode is klaar om aan te leveren. Dat doet de eigenaar of een manager van de opdracht.'
+                          : `${forOthers} perioden zijn klaar om aan te leveren. Dat doet de eigenaar of een manager van de opdracht.`
+                      : held === 1
+                        ? '1 periode is afgesloten, maar het factuuradres ontbreekt nog.'
+                        : `${held} perioden zijn afgesloten, maar het factuuradres ontbreekt nog.`}
+                  </p>
                 </nldd-text>
                 {notReady ? <Quiet>{notReady}</Quiet> : null}
                 {nearest && held === 0 && forOthers === 0 ? (
@@ -252,7 +259,7 @@ export function BillingPage() {
 
             {rows.length > 0 ? (
               <Stack gap="related">
-                <nldd-title size={4} heading-level={2} text="Perioden die lopen" />
+                <nldd-title size="display-4" heading-level={2} text="Perioden die lopen" />
                 <nldd-table
                   accessible-label="Open perioden van alle opdrachten"
                   columns="minmax(220px,1.2fr) minmax(220px,1.4fr) 120px"
@@ -288,7 +295,7 @@ export function BillingPage() {
                               size="sm"
                               color={ready && !complete(row.overview) ? 'warning' : 'secondary'}
                             >
-                              {remark(row)}
+                              <span>{remark(row)}</span>
                             </nldd-text>
                           </nldd-container>
                         </nldd-cell>

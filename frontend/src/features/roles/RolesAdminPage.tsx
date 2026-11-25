@@ -144,7 +144,7 @@ function MergeForm({ role, onDone }: { role: CatalogueRole; onDone: () => void }
 
   return (
     <nldd-container gap="16">
-      <nldd-title size={4} text="Samenvoegen" heading-level={2} />
+      <nldd-title size="display-4" text="Samenvoegen" heading-level={2} />
       <nldd-rich-text>
         <p>
           Betekent deze rol hetzelfde als een andere, voeg ze dan samen. De begrotingsregels van
@@ -264,9 +264,11 @@ export function RolesAdminPage() {
           {status.data ? <SyncState status={status.data} /> : null}
           {review > 0 ? (
             <nldd-text>
-              {review === 1
-                ? 'Eén rol is ter plekke toegevoegd en nog niet beoordeeld.'
-                : `${review} rollen zijn ter plekke toegevoegd en nog niet beoordeeld.`}
+              <p>
+                {review === 1
+                  ? 'Eén rol is ter plekke toegevoegd en nog niet beoordeeld.'
+                  : `${review} rollen zijn ter plekke toegevoegd en nog niet beoordeeld.`}
+              </p>
             </nldd-text>
           ) : null}
           <QueryState query={list}>

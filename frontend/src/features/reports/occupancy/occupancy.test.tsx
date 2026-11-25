@@ -455,9 +455,8 @@ describe('OccupancyBlock', () => {
   it('leads with the figures and opens on the people with inzet', () => {
     const { container } = renderBlock();
     const figures = screen.getByLabelText('Bezetting in het kort');
-    const title = tile('over').querySelector('nldd-title');
-    expect(title).toHaveAttribute('overline', 'Boven 100%');
-    expect(title).toHaveAttribute('text', '1 persoon');
+    const words = [...tile('over').querySelectorAll('nldd-text')].map((el) => el.textContent);
+    expect(words.slice(0, 2)).toEqual(['Boven 100%', '1 persoon']);
     expect(tile('over')).toHaveTextContent('Te veel ingepland');
     const table = screen.getByRole('grid');
     expect(figures.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();

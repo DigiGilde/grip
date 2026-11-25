@@ -1,5 +1,4 @@
-import { fireEvent, waitFor } from '@testing-library/react';
-import { useNavigate } from 'react-router-dom';
+import { waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AUTHENTICATED, TEST_PERSON, renderApp } from '@/test/utils';
 import { AppShell } from './AppShell';
@@ -17,11 +16,6 @@ function stubCount(count: { to_do?: number }) {
       });
     }),
   );
-}
-
-function GoTo({ to }: { to: string }) {
-  const navigate = useNavigate();
-  return <button onClick={() => navigate(to)}>{to}</button>;
 }
 
 const reader = (functions: string[], relations: string[] = []) => ({
@@ -92,22 +86,6 @@ describe('the places in the top bar', () => {
   it('marks nothing on a page outside every place', () => {
     const { container } = renderApp(<MainNavigation />, { path: '/beveiliging' });
     expect(currentHref(container)).toEqual([]);
-  });
-
-  it('draws a new bar only when going between a place and a page outside every place', () => {
-    const { container, getByText } = renderApp(
-      <>
-        <MainNavigation />
-        <GoTo to="/vacatures" />
-        <GoTo to="/beveiliging" />
-      </>,
-      { path: '/' },
-    );
-    const first = container.querySelector('nldd-tab-bar');
-    fireEvent.click(getByText('/vacatures'));
-    expect(container.querySelector('nldd-tab-bar')).toBe(first);
-    fireEvent.click(getByText('/beveiliging'));
-    expect(container.querySelector('nldd-tab-bar')).not.toBe(first);
   });
 
   it('says the number in the text and in the name of the bar', async () => {
@@ -199,7 +177,7 @@ describe('the bar at the bottom of a small screen', () => {
     expect(badge).toHaveAttribute('decorative');
     expect(badge?.parentElement).toHaveAttribute('slot', 'icon');
     expect(start()).toHaveAttribute('text', 'Start');
-    expect(start()).not.toHaveAttribute('icon');
+    expect(start()?.getAttribute('icon') ?? '').toBe('');
     expect(container.querySelector('nldd-tab-bar')).toHaveAttribute(
       'accessible-label',
       'Plekken in Grip, 10 taken te doen',
@@ -236,14 +214,14 @@ describe('the bar at the bottom of a small screen', () => {
 describe('the shell', () => {
   it('has the top bar above the page and the bottom bar after it', () => {
     const { container } = renderApp(<AppShell />, { auth: reader(['beheerder']) });
-    const panes = [...container.querySelectorAll('nldd-bar-split-view > nldd-split-view-pane')];
+    const panes = [...container.querySelectorAll('nldd-bar-split-view > [slot]')];
     expect(panes.map((pane) => pane.getAttribute('slot'))).toEqual([
       'toolbar',
       'main',
       'toolbar-sm',
     ]);
     expect(panes[0]).toHaveAttribute('above', 'md');
-    expect(panes[2]).toHaveAttribute('only', 'sm');
+    expect(panes[2]).toHaveAttribute('below', 'sm');
     expect(panes[2]?.querySelector('nldd-toolbar')).toHaveAttribute('size', 'lg');
   });
 
@@ -255,9 +233,7 @@ describe('the shell', () => {
 
   it('has Ik only at the bottom, and the account only at the top', () => {
     const { container } = renderApp(<AppShell />);
-    const [top, , bottom] = [
-      ...container.querySelectorAll('nldd-bar-split-view > nldd-split-view-pane'),
-    ];
+    const [top, , bottom] = [...container.querySelectorAll('nldd-bar-split-view > [slot]')];
     expect(top?.querySelector('nldd-tab-bar-item[text="Ik"]')).toBeNull();
     expect(bottom?.querySelector('nldd-tab-bar-item[text="Ik"]')).toBeTruthy();
     expect(top?.querySelector('[data-account-menu]')).toBeTruthy();

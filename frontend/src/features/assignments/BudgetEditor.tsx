@@ -533,10 +533,16 @@ export function LineSheet({
       {/* The outcome, priced by the server: never added up in the browser. */}
       {preview.data?.budgeted_cents != null && (
         <nldd-text>
-          Begroot voor deze regel: <strong>{formatEuro(preview.data.budgeted_cents)}</strong>
+          <p>
+            Begroot voor deze regel: <strong>{formatEuro(preview.data.budgeted_cents)}</strong>
+          </p>
         </nldd-text>
       )}
-      {preview.data?.reason && <nldd-text color="secondary">{preview.data.reason}</nldd-text>}
+      {preview.data?.reason && (
+        <nldd-text color="secondary">
+          <p>{preview.data.reason}</p>
+        </nldd-text>
+      )}
       {note}
     </FormSheet>
   );

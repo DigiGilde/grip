@@ -417,19 +417,21 @@ export function QuoteDraftPage() {
             <Stack gap="related">
               {showsMade ? (
                 <nldd-text data-made-quote>
-                  {madeQuoteText(standingQuote)} Een nieuwe offerte vervangt haar.
+                  <p>{madeQuoteText(standingQuote)} Een nieuwe offerte vervangt haar.</p>
                 </nldd-text>
               ) : (
-                <nldd-text>{standing}</nldd-text>
+                <nldd-text>
+                  <p>{standing}</p>
+                </nldd-text>
               )}
               {!showsMade && standingQuote ? (
                 <nldd-text size="sm" color="secondary">
-                  Deze offerte vervangt {quoteName(standingQuote)} zodra je haar maakt.
+                  <p>Deze offerte vervangt {quoteName(standingQuote)} zodra je haar maakt.</p>
                 </nldd-text>
               ) : null}
               {savedHeading ? (
                 <nldd-text size="sm" color="secondary" role="status" data-saved>
-                  {savedHeading} is bewaard.
+                  <p>{savedHeading} is bewaard.</p>
                 </nldd-text>
               ) : null}
               {loose.length > 0 || senderProblem ? (
@@ -699,8 +701,10 @@ export function QuoteDraftPage() {
         onSubmit={() => make.mutate()}
       >
         <nldd-text>
-          De offerte legt de tekst en de begroting vast zoals ze nu zijn en krijgt een eigen
-          kenmerk. Daarna wijzigt ze niet meer.
+          <p>
+            De offerte legt de tekst en de begroting vast zoals ze nu zijn en krijgt een eigen
+            kenmerk. Daarna wijzigt ze niet meer.
+          </p>
         </nldd-text>
         <DateInput label="Geldig tot en met" value={validUntil} onChange={setValidUntil} optional />
         <TextInput

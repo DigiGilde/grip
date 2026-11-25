@@ -13,7 +13,7 @@ import {
 import { AUTHENTICATED, renderApp } from './test/utils';
 
 const PLANNER = { ...AUTHENTICATED, functions: ['planner'] };
-const TOP_BAR = 'nldd-split-view-pane[slot="toolbar"]';
+const TOP_BAR = 'nldd-bar-split-view > [slot="toolbar"]';
 
 describe('route table', () => {
   it('lists the places in the order of the bar, with the settings last', () => {

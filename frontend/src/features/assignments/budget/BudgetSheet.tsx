@@ -96,7 +96,11 @@ function LineName({
       {...(onOpen ? {} : { text: name })}
       {...(support ? { 'supporting-text': support } : {})}
     >
-      {onOpen && <nldd-link ref={ref} href="#" text={name} accessible-label={`Bewerk ${name}`} />}
+      {onOpen && (
+        <p>
+          <nldd-link ref={ref} href="#" text={name} accessible-label={`Bewerk ${name}`} />
+        </p>
+      )}
     </nldd-text-cell>
   );
 }
@@ -229,7 +233,9 @@ export function BudgetSheet({ assignment, actions, onOpenLine }: BudgetSheetProp
       {finance && !budget.isPending && (
         <Stack gap="section">
           <Stack gap="related">
-            <nldd-text color="secondary">{standText(assignment, year, finance)}</nldd-text>
+            <nldd-text color="secondary">
+              <p>{standText(assignment, year, finance)}</p>
+            </nldd-text>
             <BudgetNotices
               budget={budget.data}
               parent={{ start: assignment.start_date, end: assignment.end_date }}

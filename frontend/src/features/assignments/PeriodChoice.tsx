@@ -41,11 +41,13 @@ export function PeriodChoice({
       <nldd-container gap="8">
         {/* One calm line; the way out is a quiet link-like button under it. */}
         <nldd-text>
-          {known
-            ? `Loopt mee met ${parent}: ${formatPeriod(parentStart, parentEnd)}`
-            : whenMissing
-              ? `Loopt mee met ${parent}. Die heeft nog geen periode: vul haar hier in, zij wordt bij ${parent} bewaard.`
-              : `Loopt mee met ${parent}; die heeft nog geen periode`}
+          <p>
+            {known
+              ? `Loopt mee met ${parent}: ${formatPeriod(parentStart, parentEnd)}`
+              : whenMissing
+                ? `Loopt mee met ${parent}. Die heeft nog geen periode: vul haar hier in, zij wordt bij ${parent} bewaard.`
+                : `Loopt mee met ${parent}; die heeft nog geen periode`}
+          </p>
         </nldd-text>
         {!known && whenMissing}
         <nldd-container layout="row">

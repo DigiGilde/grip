@@ -98,7 +98,9 @@ function Now({ overview, onAct }: NowProps) {
     return (
       <div data-waiting>
         <Stack gap="tight">
-          <nldd-text>{open}</nldd-text>
+          <nldd-text>
+            <p>{open}</p>
+          </nldd-text>
           <Quiet>Dit kan de eigenaar of een manager van de opdracht.</Quiet>
         </Stack>
       </div>
@@ -111,7 +113,7 @@ function Now({ overview, onAct }: NowProps) {
     >
       <nldd-container padding="24" gap="16">
         <nldd-title
-          size={3}
+          size="display-3"
           heading-level={2}
           text={stepTitle(step)}
           supporting-text={stepLine(step, overview)}
@@ -275,7 +277,7 @@ function PeriodRows({
               <nldd-cell>
                 <nldd-container padding-left="24">
                   <nldd-text size="sm" color="secondary">
-                    {month.label}
+                    <span>{month.label}</span>
                   </nldd-text>
                 </nldd-container>
               </nldd-cell>
@@ -421,7 +423,7 @@ export function MonthClosePage() {
             <Stack gap="related">
               {line ? (
                 <nldd-text color="secondary" data-periods-line>
-                  {line}
+                  <p>{line}</p>
                 </nldd-text>
               ) : null}
               {periods.length > 0 ? (

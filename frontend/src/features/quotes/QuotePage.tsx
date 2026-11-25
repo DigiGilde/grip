@@ -300,9 +300,11 @@ function ContractorQuote() {
         }}
       >
         <nldd-text>
-          Een collega met het recht om offertes goed te keuren beoordeelt offerte{' '}
-          {current?.reference ?? ''}. Daarna kun je haar aanbieden. De opdrachtgever ziet hier niets
-          van.
+          <p>
+            Een collega met het recht om offertes goed te keuren beoordeelt offerte{' '}
+            {current?.reference ?? ''}. Daarna kun je haar aanbieden. De opdrachtgever ziet hier
+            niets van.
+          </p>
         </nldd-text>
         <TextInput
           label="Toelichting voor wie goedkeurt"
@@ -339,8 +341,10 @@ function ContractorQuote() {
         }}
       >
         <nldd-text>
-          Hiermee leg je vast dat de opdrachtgever deze offerte heeft getekend. Dat is niet terug te
-          draaien.
+          <p>
+            Hiermee leg je vast dat de opdrachtgever deze offerte heeft getekend. Dat is niet terug
+            te draaien.
+          </p>
         </nldd-text>
         <FileInput
           label="Getekende offerte"
@@ -384,8 +388,10 @@ function ContractorQuote() {
         }}
       >
         <nldd-text>
-          Hiermee leg je vast dat de opdrachtgever deze offerte heeft afgewezen. Daarna kun je een
-          nieuwe offerte maken.
+          <p>
+            Hiermee leg je vast dat de opdrachtgever deze offerte heeft afgewezen. Daarna kun je een
+            nieuwe offerte maken.
+          </p>
         </nldd-text>
         <TextInput label="Reden" value={reason} onChange={setReason} optional multiline />
       </FormSheet>

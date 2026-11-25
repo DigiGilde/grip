@@ -102,17 +102,13 @@ export function SelectInput({
   required,
   disabled,
 }: SelectProps) {
-  const ref = useRef<HTMLElement>(null);
-  // The dropdown stops the native change event and sends its own, so a
-  // handler on the slotted select would never fire.
-  useNlddEvent(ref, 'change', (event) => onChange(eventValue(event)));
   return (
     <nldd-form-field
       label={label}
       optional={orUndef(optional)}
       {...(hint ? { 'supporting-label': hint } : {})}
     >
-      <nldd-dropdown ref={ref} required={orUndef(required)} disabled={orUndef(disabled)}>
+      <nldd-dropdown required={orUndef(required)} disabled={orUndef(disabled)}>
         <select value={value} onChange={(event) => onChange(event.target.value)}>
           {placeholder !== undefined && <option value="">{placeholder}</option>}
           {options
@@ -153,10 +149,8 @@ export function InlineSelect({
   options: readonly Option[];
   width?: string;
 }) {
-  const ref = useRef<HTMLElement>(null);
-  useNlddEvent(ref, 'change', (event) => onChange(eventValue(event)));
   return (
-    <nldd-dropdown ref={ref} accessible-label={label} {...(width ? { width } : {})}>
+    <nldd-dropdown accessible-label={label} {...(width ? { width } : {})}>
       <select value={value} aria-label={label} onChange={(event) => onChange(event.target.value)}>
         {options.map((option) => (
           <option key={option.value} value={option.value}>
@@ -176,7 +170,9 @@ export { EmptyNotice, ErrorNotice, FormSheet, Loading } from '@/ui/layout';
 
 /** A section heading below the page's h1. */
 export function SectionHeading({ text, level = 2 }: { text: string; level?: 2 | 3 }) {
-  return <nldd-title size={level === 2 ? 4 : 5} text={text} heading-level={level} />;
+  return (
+    <nldd-title size={level === 2 ? 'display-4' : 'display-5'} text={text} heading-level={level} />
+  );
 }
 
 interface CheckboxProps {
@@ -265,7 +261,7 @@ export function Paragraphs({ text }: { text: string }) {
 export function Note({ children }: { children: ReactNode }) {
   return (
     <nldd-text size="sm" color="secondary">
-      {children}
+      <p>{children}</p>
     </nldd-text>
   );
 }

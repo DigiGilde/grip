@@ -12,7 +12,7 @@
  */
 import { useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { orUndef, useNlddEvent } from '@/components/nldd/events';
+import { orUndef, useMenuSelect, useNlddEvent } from '@/components/nldd/events';
 import { MoreButton, RemoveButton } from './Icon';
 import './hidden.css';
 
@@ -51,7 +51,7 @@ export interface RowAction {
 
 function MenuItem({ action, onChoose }: { action: RowAction; onChoose: () => void }) {
   const ref = useRef<HTMLElement>(null);
-  useNlddEvent(ref, 'select', action.href ? undefined : onChoose);
+  useMenuSelect(ref, action.href ? undefined : onChoose);
   return (
     <nldd-menu-item
       ref={ref}
@@ -276,22 +276,24 @@ export function OpenCell({
     >
       <nldd-container>
         <nldd-text line-height="tight">
-          {onOpen || href ? (
-            <nldd-link
-              ref={ref}
-              href={href ?? '#'}
-              text={text}
-              {...(accessibleLabel ? { 'accessible-label': accessibleLabel } : {})}
-            />
-          ) : (
-            text
-          )}
+          <span>
+            {onOpen || href ? (
+              <nldd-link
+                ref={ref}
+                href={href ?? '#'}
+                text={text}
+                {...(accessibleLabel ? { 'accessible-label': accessibleLabel } : {})}
+              />
+            ) : (
+              text
+            )}
+          </span>
         </nldd-text>
         {(supportingText || children) && (
           <nldd-container layout="row" gap="8">
             {supportingText && (
               <nldd-text color="secondary" size="xs" line-height="tight">
-                {supportingText}
+                <span>{supportingText}</span>
               </nldd-text>
             )}
             {children}
@@ -300,7 +302,7 @@ export function OpenCell({
         {narrowText && (
           <span className="narrow-only">
             <nldd-text color="secondary" size="xs" line-height="tight">
-              {narrowText}
+              <span>{narrowText}</span>
             </nldd-text>
           </span>
         )}

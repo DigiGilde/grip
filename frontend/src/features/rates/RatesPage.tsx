@@ -718,7 +718,7 @@ function NewCardForm({
           />
           <nldd-container gap="8">
             <nldd-title
-              size={5}
+              size="display-5"
               text="Dit komt in het concept"
               heading-level={2}
               {...(preview.data
@@ -804,9 +804,11 @@ function ActivateSheet({ card, busy, error, onClose, onActivate }: ActivateSheet
         <ErrorNotice message={errorMessage(preview.error)} />
       ) : (
         <nldd-container gap="8">
-          <nldd-title size={5} text="Dit gebeurt als je vaststelt" heading-level={2} />
+          <nldd-title size="display-5" text="Dit gebeurt als je vaststelt" heading-level={2} />
           {activationSentences(preview.data).map((sentence) => (
-            <nldd-text key={sentence}>{sentence}</nldd-text>
+            <nldd-text key={sentence}>
+              <p>{sentence}</p>
+            </nldd-text>
           ))}
         </nldd-container>
       )}

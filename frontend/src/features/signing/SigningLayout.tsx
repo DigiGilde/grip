@@ -36,7 +36,11 @@ export function SigningLayout() {
         <nldd-page landmarks="page" accessible-label={`Tekenen bij ${instanceName}`}>
           <nldd-container padding="16" layout="wrap" gap="16" vertical-alignment="center">
             <Brand variant="signing" instanceName={instance?.name} />
-            {signerName && <nldd-text>Ingelogd als {signerName}</nldd-text>}
+            {signerName && (
+              <nldd-text>
+                <span>Ingelogd als {signerName}</span>
+              </nldd-text>
+            )}
             <Button text="Uitloggen" size="sm" onClick={logout} />
           </nldd-container>
           <div id={MAIN_CONTENT_ID} tabIndex={-1}>

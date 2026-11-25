@@ -570,7 +570,9 @@ export function CoverageSheet({ item, target, onClose }: CoverageSheetProps) {
     >
       {coverage ? (
         <Stack gap="tight">
-          <nldd-text>{coverage.assignment_name}</nldd-text>
+          <nldd-text>
+            <span>{coverage.assignment_name}</span>
+          </nldd-text>
           <Quiet>{coverage.budget_line_description}</Quiet>
         </Stack>
       ) : (

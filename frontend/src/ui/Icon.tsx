@@ -41,10 +41,14 @@ export function IconCell({ concept, color = 'secondary', label, ...rest }: IconC
     <nldd-icon-cell
       size={ICON_SIZE.cell}
       color={color}
-      icon={iconOf(concept)}
       {...(label ? { 'aria-label': label } : {})}
       {...rest}
-    />
+    >
+      {/* In 0.23.0 the icon the cell draws from `icon` ignores the cell's
+          `color`: it reads --context-content-color, which the cell does not
+          set. A slotted icon takes the colour itself. */}
+      <nldd-icon icon={iconOf(concept)} color={color} />
+    </nldd-icon-cell>
   );
 }
 

@@ -267,7 +267,7 @@ function Templates() {
                   <nldd-tag color="success" text="In gebruik" />
                 ) : (
                   <nldd-text color="secondary" size="sm">
-                    Eerder gebruikt
+                    <span>Eerder gebruikt</span>
                   </nldd-text>
                 )}
               </nldd-cell>

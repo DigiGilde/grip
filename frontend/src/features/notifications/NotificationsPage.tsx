@@ -138,7 +138,11 @@ export function NotificationsPage() {
             ) : (
               <Section title="Op dit apparaat" level={2}>
                 <Stack gap="related">
-                  {state === 'on' ? <nldd-text>Meldingen staan aan.</nldd-text> : null}
+                  {state === 'on' ? (
+                    <nldd-text>
+                      <p>Meldingen staan aan.</p>
+                    </nldd-text>
+                  ) : null}
                   {blocked ? <Quiet>{blocked}</Quiet> : null}
                   {error ? <ErrorNotice message={error} /> : null}
                   {state === 'off' ? (

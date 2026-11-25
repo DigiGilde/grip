@@ -100,8 +100,10 @@ function FieldSheet({ detail, field, onClose }: FieldSheetProps) {
       {save.panel}
       {gone ? (
         <nldd-text>
-          Dit veld staat in de koppeling, maar niet meer in het formulier. Er wordt niets mee
-          ingevuld.
+          <p>
+            Dit veld staat in de koppeling, maar niet meer in het formulier. Er wordt niets mee
+            ingevuld.
+          </p>
         </nldd-text>
       ) : (
         <>

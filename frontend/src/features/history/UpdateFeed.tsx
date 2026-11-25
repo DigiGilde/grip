@@ -10,13 +10,15 @@ import { useUpdateFeed } from './useUpdateFeed';
 function Sentence({ item }: { item: UpdateItem }) {
   return (
     <nldd-text size="md" {...(item.new ? { weight: 'bold' } : {})}>
-      {item.parts.map((part, index) =>
-        part.href ? (
-          <nldd-link key={index} href={part.href} text={part.text} />
-        ) : (
-          <span key={index}>{part.text}</span>
-        ),
-      )}
+      <p>
+        {item.parts.map((part, index) =>
+          part.href ? (
+            <nldd-link key={index} href={part.href} text={part.text} />
+          ) : (
+            <span key={index}>{part.text}</span>
+          ),
+        )}
+      </p>
     </nldd-text>
   );
 }

@@ -69,10 +69,13 @@ function TileView({
   const months = (tile.months ?? []).map((month) => `${month.label} ${month.value}`).join(', ');
   const body = (
     <nldd-container gap="4" padding="16">
-      <nldd-title size={4} overline={tile.label} text={tile.value} />
+      <Quiet>{tile.label}</Quiet>
+      <nldd-text size="display-4">
+        <span>{tile.value}</span>
+      </nldd-text>
       {tile.attention && (
         <nldd-text size="sm" weight="bold" color="critical">
-          {tile.attention}
+          <span>{tile.attention}</span>
         </nldd-text>
       )}
       {months && <Quiet>{months}</Quiet>}

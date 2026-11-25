@@ -209,10 +209,12 @@ export function VacancyTextPage() {
         {text && text.may_write && choosing && standard && (
           <Stack gap="group">
             <nldd-text>
-              {standard.match === 'function_group'
-                ? `Voor deze rol is geen standaardtekst. De tekst van ${standard.role} lijkt er het meest op.`
-                : `Er is een standaardtekst voor ${standard.role}.`}
-              {standard.unread ? ' Die tekst is afgeleid en nog niet nagelezen.' : ''}
+              <p>
+                {standard.match === 'function_group'
+                  ? `Voor deze rol is geen standaardtekst. De tekst van ${standard.role} lijkt er het meest op.`
+                  : `Er is een standaardtekst voor ${standard.role}.`}
+                {standard.unread ? ' Die tekst is afgeleid en nog niet nagelezen.' : ''}
+              </p>
             </nldd-text>
             {start.isError && <ErrorNotice message={errorMessage(start.error)} />}
             <nldd-button-group>
@@ -270,7 +272,9 @@ export function VacancyTextPage() {
                   {proposed && (
                     <Stack gap="close">
                       <Quiet>Voorstel voor: {proposed.place.what}</Quiet>
-                      <nldd-text>{proposed.text}</nldd-text>
+                      <nldd-text>
+                        <p>{proposed.text}</p>
+                      </nldd-text>
                       <nldd-container layout="wrap" gap="8">
                         <Button
                           size="sm"

@@ -215,8 +215,10 @@ export function QuoteSettingsPage() {
       >
         {conflictPanel}
         <nldd-text>
-          Geldt voor offertes die je hierna maakt. Het kenmerk van een bestaande offerte verandert
-          niet, en de nummering loopt door.
+          <p>
+            Geldt voor offertes die je hierna maakt. Het kenmerk van een bestaande offerte verandert
+            niet, en de nummering loopt door.
+          </p>
         </nldd-text>
         <TextInput
           label="Voorvoegsel"

@@ -195,8 +195,10 @@ export function PotentialBlock({
       )}
       {superseded.count > 0 && (
         <nldd-text size="sm" color="secondary">
-          {count(superseded.count, 'offerte is', 'offertes zijn')} vervangen door een nieuwe en
-          {superseded.count === 1 ? ' telt' : ' tellen'} hierboven niet mee.
+          <p>
+            {count(superseded.count, 'offerte is', 'offertes zijn')} vervangen door een nieuwe en
+            {superseded.count === 1 ? ' telt' : ' tellen'} hierboven niet mee.
+          </p>
         </nldd-text>
       )}
       {waiting.length > 0 && (

@@ -367,7 +367,7 @@ function Coverages({ item, onOpen }: CoveragesProps) {
                     <nldd-link href={finance} text={coverage.assignment_name} />
                   </span>
                   <nldd-text size="sm" color="secondary">
-                    {coverage.budget_line_description}
+                    <span>{coverage.budget_line_description}</span>
                   </nldd-text>
                 </nldd-container>
               </nldd-cell>
@@ -410,7 +410,9 @@ function Coverages({ item, onOpen }: CoveragesProps) {
             <nldd-cell>
               <span className="cost-line-name cost-chart">
                 <span className="cost-swatch" data-kind="hidden" aria-hidden="true" />
-                <nldd-text>Opdrachten die je niet kunt inzien</nldd-text>
+                <nldd-text>
+                  <span>Opdrachten die je niet kunt inzien</span>
+                </nldd-text>
               </span>
             </nldd-cell>
             <nldd-text-cell
@@ -425,7 +427,9 @@ function Coverages({ item, onOpen }: CoveragesProps) {
             <nldd-cell>
               <span className="cost-line-name cost-chart">
                 <span className="cost-swatch" data-kind="uncovered" aria-hidden="true" />
-                <nldd-text>{COST_LABELS.uncovered}</nldd-text>
+                <nldd-text>
+                  <span>{COST_LABELS.uncovered}</span>
+                </nldd-text>
               </span>
             </nldd-cell>
             <nldd-text-cell

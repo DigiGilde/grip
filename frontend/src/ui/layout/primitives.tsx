@@ -15,9 +15,9 @@
  * Do not add a border or a box to show that things belong together.
  *
  * Type scale (few steps, each with one job):
- *   page title     nldd-title size 2, the one h1 of the page
- *   section title  nldd-title size 4, h2
- *   block title    nldd-title size 5, h3, only inside a section
+ *   page title     nldd-title size display-2, the one h1 of the page
+ *   section title  nldd-title size display-4, h2
+ *   block title    nldd-title size display-5, h3, only inside a section
  *   body           the default text
  *   secondary      nldd-text color="secondary" size="sm": labels, hints, dates
  * A row in a list or table is never a heading. Numbers are right-aligned in
@@ -155,7 +155,11 @@ export function Page({
                 <div className="thing-action">{action}</div>
               </div>
               {/* Inside the title a long lead would push the step off its line. */}
-              {lead && <nldd-text color="secondary">{lead}</nldd-text>}
+              {lead && (
+                <nldd-text color="secondary">
+                  <p>{lead}</p>
+                </nldd-text>
+              )}
             </>
           ) : (
             heading
@@ -186,7 +190,7 @@ export function Section({ title, description, level = 2, children }: SectionProp
   return (
     <nldd-container gap={GAP.related}>
       <nldd-title
-        size={level === 2 ? 4 : 5}
+        size={level === 2 ? 'display-4' : 'display-5'}
         heading-level={level}
         text={title}
         {...(description ? { 'supporting-text': description } : {})}
@@ -208,9 +212,15 @@ export function SectionHeading({
    * How large it is drawn, when that differs from its level: in a sheet the
    * title is the only level above, so a small heading there is still level 2.
    */
-  size?: 4 | 5;
+  size?: 'display-4' | 'display-5';
 }) {
-  return <nldd-title size={size ?? (level === 2 ? 4 : 5)} text={text} heading-level={level} />;
+  return (
+    <nldd-title
+      size={size ?? (level === 2 ? 'display-4' : 'display-5')}
+      text={text}
+      heading-level={level}
+    />
+  );
 }
 
 export interface Fact {
@@ -339,7 +349,7 @@ export function NameLine({ children, badges, detail }: NameLineProps) {
 export function Quiet({ children }: { children: ReactNode }) {
   return (
     <nldd-text size="sm" color="secondary">
-      {children}
+      <p>{children}</p>
     </nldd-text>
   );
 }
@@ -425,7 +435,9 @@ export function SignalList({ label, signals }: { label: string; signals: readonl
           {signal.href ? (
             <nldd-link href={signal.href} text={signal.text} size="md" />
           ) : (
-            <nldd-text>{signal.text}</nldd-text>
+            <nldd-text>
+              <p>{signal.text}</p>
+            </nldd-text>
           )}
           {signal.detail ? <Quiet>{signal.detail}</Quiet> : null}
         </li>

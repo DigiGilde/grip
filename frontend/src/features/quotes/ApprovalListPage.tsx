@@ -57,7 +57,7 @@ export function ApprovalListPage() {
                       } voor ${item.assignment_name}`}
                     />
                     <nldd-text size="sm" color="secondary">
-                      {item.quote_reference ?? ''}
+                      <span>{item.quote_reference ?? ''}</span>
                     </nldd-text>
                   </nldd-container>
                 </nldd-cell>

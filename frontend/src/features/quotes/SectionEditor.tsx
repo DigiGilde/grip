@@ -179,8 +179,10 @@ export function SectionEditor({
       ) : null}
       {unsettled ? (
         <nldd-text data-proposal>
-          Dit is een voorstel van het taalmodel. Lees het na, pas het aan en bewaar het: pas dan
-          telt het mee.
+          <p>
+            Dit is een voorstel van het taalmodel. Lees het na, pas het aan en bewaar het: pas dan
+            telt het mee.
+          </p>
         </nldd-text>
       ) : null}
       {section.standard_changed ? (
@@ -295,7 +297,9 @@ export function SectionEditor({
       >
         <Stack gap="close">
           <Quiet>De passage die je selecteerde</Quiet>
-          <nldd-text>{passage?.text}</nldd-text>
+          <nldd-text>
+            <p>{passage?.text}</p>
+          </nldd-text>
         </Stack>
         {proposal === null ? (
           <>
@@ -313,7 +317,9 @@ export function SectionEditor({
         ) : (
           <Stack gap="close">
             <Quiet>Voorstel van het taalmodel</Quiet>
-            <nldd-text data-rewrite-proposal>{proposal}</nldd-text>
+            <nldd-text data-rewrite-proposal>
+              <p>{proposal}</p>
+            </nldd-text>
             <Quiet>
               Overnemen zet het voorstel in je tekst. Het telt pas mee als je het onderdeel bewaart.
             </Quiet>

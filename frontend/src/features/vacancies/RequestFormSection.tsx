@@ -35,7 +35,7 @@ function FormRow({ vacancyId, form, text }: { vacancyId: string; form: KeptForm;
         <nldd-container gap="4">
           <DocumentLink href={keptFormUrl(vacancyId, form.id)} text={text} kind="view" />
           <nldd-text color="secondary" size="sm">
-            {madeLine(form)}
+            <span>{madeLine(form)}</span>
           </nldd-text>
         </nldd-container>
       </nldd-cell>

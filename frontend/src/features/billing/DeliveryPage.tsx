@@ -75,7 +75,7 @@ export function DeliveryPage() {
           <nldd-card background="tinted" accessible-label="Te factureren">
             <nldd-container padding="24">
               <nldd-title
-                size={2}
+                size="display-2"
                 heading-level={2}
                 overline={`Te factureren over ${data.period_label}`}
                 text={formatEuro(inForce)}
@@ -101,11 +101,13 @@ export function DeliveryPage() {
           ) : null}
           {(data.replaces ?? []).map((item) => (
             <nldd-text key={`${item.month_label}-${item.reference}`}>
-              {replacesText(item)}
+              <p>{replacesText(item)}</p>
             </nldd-text>
           ))}
           {(data.corrections ?? []).map((item) => (
-            <nldd-text key={`correction-${item.month}`}>{correctionText(item)}</nldd-text>
+            <nldd-text key={`correction-${item.month}`}>
+              <p>{correctionText(item)}</p>
+            </nldd-text>
           ))}
           {data.has_document ? (
             <ActionBar

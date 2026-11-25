@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react';
+import { fireEvent, render } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ActionBar } from './ActionBar';
 
@@ -74,9 +74,10 @@ describe('ActionBar', () => {
         actions={[{ text: 'Nieuw', onClick }]}
       />,
     );
-    container
-      .querySelector('nldd-dropdown')
-      ?.dispatchEvent(new CustomEvent('change', { detail: { value: 'all' } }));
+    fireEvent.change(container.querySelector('nldd-dropdown select') as HTMLSelectElement, {
+      target: { value: 'all' },
+    });
+    expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange).toHaveBeenCalledWith('all');
     container.querySelector('nldd-button')?.dispatchEvent(new Event('click'));
     container.querySelector('nldd-menu-item[slot="overflow"]')?.dispatchEvent(new Event('select'));

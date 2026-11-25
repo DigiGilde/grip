@@ -1,4 +1,4 @@
-import { act, waitFor } from '@testing-library/react';
+import { act, fireEvent, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { referenceText, signalText, varianceText, varianceWord } from '../financeText';
 import { FIGURES, PERMISSIONS, allText, assignment, finance, mockApi, plain } from '../testing';
@@ -403,10 +403,8 @@ describe('the choice of a year', () => {
   it('asks the server for that year, and names it in the line and the downloads', async () => {
     const { container, fetchMock } = renderStand(finance(), assignment(twoYears));
     await standOf(container);
-    act(() => {
-      container
-        .querySelector('nldd-dropdown')
-        ?.dispatchEvent(new CustomEvent('change', { detail: { value: '2027' } }));
+    fireEvent.change(container.querySelector('nldd-dropdown select') as HTMLSelectElement, {
+      target: { value: '2027' },
     });
     await waitFor(() =>
       expect(asked(fetchMock)).toContain('/api/assignments/a1/financial?year=2027'),
