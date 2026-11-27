@@ -40,3 +40,7 @@ Voorbeeldinstanties mogen federeren, alleen met elkaar, in een eigen FSC-groep (
 ## Later gewijzigd (2026-11-04)
 
 De verwijzing is niet meer het adres maar een willekeurige sleutel per aanmelding: `bezoeker:<sleutel>`. De keten hasht die kolom, dus een adres zou daar niet te wissen zijn. Welk adres bij de sleutel hoort, staat alleen in de waarden van `login.visited`; `login.switched` noemt de sleutel. Een limiet per bezoeker telt daardoor per aanmelding.
+
+## Later gewijzigd (2026-11-27)
+
+Het label in de balk en de regel op elke pagina zijn samen één statusbalk boven elk scherm (`nldd-status-bar`). Hij gaat over de hele instantie, niet over een pagina. De naam in de balk is alleen de organisatie, uit `INSTANCE_NAME`.

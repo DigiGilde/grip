@@ -13,7 +13,7 @@ import {
   NavigationMenuButton,
   SectionViews,
 } from './MainNavigation';
-import { ExampleNotice } from './ExampleMode';
+import { ExampleStatusBar } from './ExampleMode';
 import { useInstance } from './useInstance';
 import { useRouteFocus } from './useRouteFocus';
 import { internalHref } from './useRouterLinks';
@@ -38,15 +38,15 @@ function capitalised(text: string): string {
 
 /**
  * The start of the bar: the product as its mark, the organisation as the
- * name, one link to the start. A note about the environment, such as the
- * example data, is a tag beside the name and no part of it.
+ * name, one link to the start. A note about the environment is a tag beside
+ * the name and no part of it. An example instance says so in the status bar
+ * above, not here.
  */
 function BrandTitle({ instanceName, markOnly }: { instanceName?: string; markOnly?: boolean }) {
   const instance = useInstance();
   const named = instanceNames(instanceName);
   const organisation = named.organisation;
-  // The mode of the instance decides, not what its name happens to say.
-  const environment = instance?.example ? 'voorbeeld' : named.environment;
+  const environment = instance?.example ? undefined : named.environment;
   const name = organisation || PRODUCT_NAME;
   if (markOnly) {
     // On a phone there is no room for the name: the mark stands alone, is
@@ -162,6 +162,7 @@ export function AppShell() {
       <nldd-skip-link href={`#${MAIN_CONTENT_ID}`} text="Direct naar de inhoud" />
       <nldd-app-view>
         <nldd-bar-split-view>
+          <ExampleStatusBar slot="status-bar" />
           <nldd-split-view-pane slot="toolbar-wide" {...FROM_LG}>
             {/* A named region, so the name and the account sit inside a landmark.
                 Not a header: nldd-page already renders the banner of the
@@ -202,7 +203,6 @@ export function AppShell() {
               <div id={MAIN_CONTENT_ID} tabIndex={-1}>
                 {/* The task this page was opened for, when the address names one. */}
                 {/* The sibling pages of the section you are in; nothing for a section of one page. */}
-                <ExampleNotice />
                 <SectionViews />
                 <TaskBar />
                 <OfflineNotice />
