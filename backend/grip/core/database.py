@@ -19,6 +19,8 @@ if settings.DATABASE_SCHEMA:
 engine = create_async_engine(
     settings.DATABASE_URL,
     echo=settings.DEBUG,
+    # A failed statement ends up in the log, with a name or an address among its values.
+    hide_parameters=True,
     pool_pre_ping=True,
     pool_size=10,
     max_overflow=20,

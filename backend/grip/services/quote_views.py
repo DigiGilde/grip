@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any, Protocol
 from uuid import UUID
 
 from sqlalchemy import func, or_, select
@@ -28,6 +28,9 @@ from grip.services.quote_document import (
     QuoteDocumentContext,
     letterhead_from_settings,
 )
+
+if TYPE_CHECKING:
+    from grip.services.quote_files import QuoteSource
 
 ISSUABLE_STATUSES = ("draft", "requested", "quoted", "rejected")
 
@@ -133,6 +136,24 @@ async def invitations_of_quote(
     return list(result.scalars())
 
 
+class _Invitation(Protocol):
+    used_at: datetime | None
+    withdrawn_at: datetime | None
+    expires_at: datetime | None
+    opened_at: datetime | None
+
+
+def invitation_state(invitation: _Invitation, now: datetime) -> str:
+    """Where a signing link stands at this moment."""
+    if invitation.used_at is not None:
+        return "signed"
+    if invitation.withdrawn_at is not None:
+        return "withdrawn"
+    if invitation.expires_at is not None and invitation.expires_at <= now:
+        return "expired"
+    return "opened" if invitation.opened_at is not None else "invited"
+
+
 async def invited_quotes(
     session: AsyncSession, email: str, *, now: datetime | None = None
 ) -> list[tuple[QuoteInvitation, Quote, Assignment]]:
@@ -194,7 +215,9 @@ async def client_reference(
     return {"name": name}
 
 
-async def document_context(session: AsyncSession, quote: Quote) -> QuoteDocumentContext:
+async def document_context(
+    session: AsyncSession, quote: Quote | QuoteSource
+) -> QuoteDocumentContext:
     assignment = await session.get(Assignment, quote.assignment_id)
     if assignment is None:
         raise NotFoundError("Opdracht", quote.assignment_id)
@@ -259,6 +282,8 @@ async def accept_with_uploaded_pdf(
     if "@" not in signer_email:
         raise DomainValidationError("Geef het e-mailadres van wie heeft getekend.")
     quote = await quotes.get_quote(session, quote_id)
+    if signed_at is not None:
+        quotes.check_signing_day(quote, signed_at)
     assignment = await session.get(Assignment, quote.assignment_id)
     if assignment is None:
         raise NotFoundError("Opdracht", quote.assignment_id)
@@ -310,6 +335,7 @@ async def accept_via_signing_link(
     signer_person_id: UUID | None,
     signer_function: str | None = None,
     organisation_name: str | None = None,
+    declared_mandate: bool = False,
 ) -> QuoteAcceptance:
     """The invited signer accepts the quote they were shown.
 
@@ -333,6 +359,7 @@ async def accept_via_signing_link(
         organisation=organisation,
         form="signing_link",
         actor=actor,
+        declared_mandate=declared_mandate,
     )
 
 
@@ -357,4 +384,23 @@ async def reject_via_signing_link(
         actor=actor,
         reason=(reason or "").strip() or None,
         organisation=_organisation_ref(client) if client is not None else None,
+    )
+
+
+async def record_rejection(
+    session: AsyncSession, quote: Quote, *, actor: Person, reason: str | None = None
+) -> QuoteRejection:
+    """Note that the client rejected a quote outside grip, naming that client."""
+    assignment = await session.get(Assignment, quote.assignment_id)
+    if assignment is None:
+        raise NotFoundError("Opdracht", quote.assignment_id)
+    client = await _organisation(session, assignment.client_organisation_id)
+    return await quotes.reject_quote(
+        session,
+        quote.id,
+        quote_hash=quote.snapshot_hash,
+        actor=actor,
+        reason=(reason or "").strip() or None,
+        organisation=_organisation_ref(client) if client is not None else None,
+        recorded=True,
     )

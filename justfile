@@ -72,6 +72,25 @@ seed *ARGS:
 seed-scale *ARGS:
     cd backend && uv run python -m grip.dev.seed_scale {{ ARGS }}
 
+# Walk an example assignment along the path, one committed step at a time, and
+# look back at each moment in tab Geschiedenis. Uses DATABASE_URL; needs a seeded
+# database and no containers of its own. `--days N` lays the facts N days apart,
+# `--geen-goedkeuring` leaves internal approval as it is set.
+kroniek-nieuw *ARGS:
+    cd backend && uv run python -m grip.dev.chronicle_walk new {{ ARGS }}
+
+# The next step of this assignment, chosen from the course the screens read
+kroniek-stap ID *ARGS:
+    cd backend && uv run python -m grip.dev.chronicle_walk next {{ ID }} {{ ARGS }}
+
+# Compare the tables of every assignment with its chronicle
+kroniek-check:
+    cd backend && uv run python -m grip.chronicle.check
+
+# Write what differs back from the chronicle of this assignment
+kroniek-herstel ID:
+    cd backend && uv run python -m grip.dev.chronicle_walk rebuild {{ ID }}
+
 # `just seed --extend` adds the corpus peers and the context of the example
 # assignments to data that was seeded earlier; a fresh seed includes them.
 # The dev backend reaches the stand-in as its outway: start the backend with
@@ -273,6 +292,10 @@ brand:
 # Remove the request forms of vacancies that closed longer ago than the instance keeps them
 vacancy-forms-retention:
     cd backend && uv run python -m grip.services.vacancies.request_forms
+
+# Run the daily retention round once, as the worker does at RETENTION_HOUR
+retention-run:
+    cd backend && uv run python -m grip.services.retention
 
 # Bring an example database from before the rule on who judges something internal
 # in line with today's seed (a director approves vacancies; client-side people have

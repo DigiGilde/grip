@@ -10,8 +10,10 @@ import type { BillingDetails } from '@/features/month-close/billingApi';
 import { BillingDetailsFields } from '@/features/month-close/BillingDetailFields';
 import { filledDetails, startDetails } from '@/features/month-close/billingDetails';
 import { useInstance } from '@/layout/useInstance';
-import { formatEuro } from '@/lib/format';
+import { dayOf, formatEuro } from '@/lib/format';
+import { todayIso } from '@/lib/today';
 import { PageHeading } from '@/pages/PageHeading';
+import { staleConflictOf } from '@/ui/stale';
 import {
   EmptyNotice,
   ErrorNotice,
@@ -23,6 +25,7 @@ import {
   Stack,
 } from '@/ui/layout';
 import {
+  correctAcceptanceDate,
   fetchQuoteDetail,
   fetchQuotePreview,
   fetchQuotes,
@@ -45,6 +48,7 @@ import {
   withdrawApproval,
 } from './approval';
 import { draftKeys, fetchDraft, quoteDraftPath } from './draftApi';
+import { correctionProblem } from './offers';
 import { OfferSheet } from './OfferSheet';
 import { fetchQuoteEvidence, proofKeys } from './proof';
 import { EarlierQuoteRow, QuoteCard, type CardAction } from './QuoteCard';
@@ -52,7 +56,7 @@ import { QuoteContentTable } from './QuoteContentTable';
 import { partMonthNote, rateChangeNote } from './format';
 import { FileInput } from './ui';
 
-type Dialog = 'offer' | 'upload' | 'reject' | 'approval' | null;
+type Dialog = 'offer' | 'upload' | 'reject' | 'approval' | 'correct' | null;
 
 function differenceText(preview: QuotePreview): string | null {
   const difference = preview.difference_cents;
@@ -85,6 +89,8 @@ export function QuotePage() {
   });
   const quotes = list.data?.quotes ?? [];
   const mayManage = list.data?.may_manage ?? false;
+  // A closed dossier refuses every change to a quote (ADR 0057).
+  const mayChange = mayManage && !shell?.dossier_closed_on;
   // The quote the tab is about: the newest that was not replaced.
   const current: QuoteSummary | null =
     quotes.find((quote) => quote.status !== 'superseded') ?? null;
@@ -135,6 +141,10 @@ export function QuotePage() {
   const [signedAt, setSignedAt] = useState('');
   const [billingDetails, setBillingDetails] = useState<BillingDetails>({});
   const [reason, setReason] = useState('');
+  const [correctedDay, setCorrectedDay] = useState('');
+  const [correctionReason, setCorrectionReason] = useState('');
+  // The date the sheet started from, not the one a refetch has brought in since.
+  const [correctionFrom, setCorrectionFrom] = useState('');
 
   const open = (next: Dialog) => {
     setFormError(null);
@@ -154,7 +164,11 @@ export function QuotePage() {
   });
   const submit = (action: () => Promise<unknown>) =>
     run.mutate(action, {
-      onError: (error) => setFormError(errorMessage(error)),
+      onError: (error) => {
+        setFormError(errorMessage(error));
+        // Opening the sheet again starts from what stands now.
+        if (staleConflictOf(error)) void queryClient.invalidateQueries({ queryKey: ['quotes'] });
+      },
     });
   /** An action without a sheet: a failure shows above the card. */
   const act = (action: () => Promise<unknown>) =>
@@ -166,6 +180,7 @@ export function QuotePage() {
     if (!current) return;
     if (action.kind === 'offer') open('offer');
     else if (action.kind === 'upload') {
+      setSignedAt(todayIso());
       setBillingDetails((now) => startDetails(now, detail.data?.content?.client_reference));
       open('upload');
     } else if (action.kind === 'reject') open('reject');
@@ -174,7 +189,12 @@ export function QuotePage() {
       navigate(quoteDraftPath(assignmentId, undefined, { fresh: true }));
     else if (action.kind === 'review') navigate(approvalPath(current.id));
     else if (action.kind === 'grant-right') navigate(PATHS.team);
-    else if (action.kind === 'withdraw-approval') act(() => withdrawApproval(current.id));
+    else if (action.kind === 'correct-signed-date') {
+      setCorrectedDay(dayOf(current.acceptance?.signed_at ?? ''));
+      setCorrectionReason('');
+      setCorrectionFrom(current.acceptance?.signed_at ?? '');
+      open('correct');
+    } else if (action.kind === 'withdraw-approval') act(() => withdrawApproval(current.id));
     else if (action.kind === 'withdraw-link') {
       act(() => withdrawInvitation(current.id, action.invitationId));
     } else if (action.kind === 'resend-mail') {
@@ -250,6 +270,7 @@ export function QuotePage() {
                 detail={detail.data}
                 approval={approvals.isPending ? undefined : approval}
                 mayManage={mayManage}
+                mayChange={mayChange}
                 isAdmin={isAdmin}
                 outdated={budgetMoved && canIssue}
                 {...(evidence.data ? { evidence: evidence.data.items } : {})}
@@ -338,6 +359,10 @@ export function QuotePage() {
             setFormError('Kies het getekende pdf-bestand.');
             return;
           }
+          if (!signedAt) {
+            setFormError('Kies de datum van tekenen.');
+            return;
+          }
           submit(() =>
             recordUploadedAcceptance(current.id, {
               file,
@@ -381,7 +406,7 @@ export function QuotePage() {
           onChange={setOrganisationName}
           optional
         />
-        <DateInput label="Datum van tekenen" value={signedAt} onChange={setSignedAt} optional />
+        <DateInput label="Datum van tekenen" value={signedAt} onChange={setSignedAt} required />
         <BillingDetailsFields
           details={billingDetails}
           onChange={setBillingDetails}
@@ -406,6 +431,48 @@ export function QuotePage() {
           nieuwe offerte maken.
         </nldd-text>
         <TextInput label="Reden" value={reason} onChange={setReason} optional multiline />
+      </FormSheet>
+
+      <FormSheet
+        open={dialog === 'correct'}
+        title="Datum van tekenen corrigeren"
+        submitText="Corrigeer de datum"
+        busy={run.isPending}
+        error={dialog === 'correct' ? formError : null}
+        onClose={close}
+        onSubmit={() => {
+          if (!current) return;
+          const problem = correctionProblem({
+            day: correctedDay,
+            reason: correctionReason,
+            signedAt: current.acceptance?.signed_at,
+          });
+          if (problem) {
+            setFormError(problem);
+            return;
+          }
+          submit(() =>
+            correctAcceptanceDate(current.id, {
+              signed_at: correctedDay,
+              reason: correctionReason.trim(),
+              expected_signed_at: correctionFrom,
+            }),
+          );
+        }}
+      >
+        <DateInput
+          label="Datum van tekenen"
+          value={correctedDay}
+          onChange={setCorrectedDay}
+          required
+        />
+        <TextInput
+          label="Reden"
+          value={correctionReason}
+          onChange={setCorrectionReason}
+          required
+          multiline
+        />
       </FormSheet>
     </>
   );

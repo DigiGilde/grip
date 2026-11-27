@@ -47,6 +47,7 @@ from grip.services import (
 from grip.services.assignments import get_assignment
 from grip.services.billing_periods import MONTHLY, QUARTERLY, RHYTHMS, Period
 from grip.services.errors import DomainError, DomainValidationError, NotFoundError
+from grip.services.guards import ensure_dossier_open
 from grip.services.phase import allows_billing
 from grip.services.stored_documents import PDF, DocumentUse
 
@@ -194,6 +195,7 @@ async def set_terms(
     the moment as it was.
     """
     await get_assignment(session, assignment_id)
+    await ensure_dossier_open(session, assignment_id)
     before = await terms_of(session, assignment_id)
     new_rhythm = before.rhythm if rhythm is None else rhythm
     if new_rhythm not in RHYTHMS:
@@ -1232,6 +1234,7 @@ async def deliver(
         raise DomainValidationError(
             "Kies hoe je aanlevert: per mail, of je geeft het zelf door."
         )
+    await ensure_dossier_open(session, assignment_id)
     await month_close.ensure_billable(session, assignment_id)
     state = await overview(session, assignment_id, today=today)
     view = next((v for v in state.periods if v.period.key == period_key), None)
@@ -1463,6 +1466,7 @@ async def record_invoice_for_period(
     today: date | None = None,
 ) -> None:
     """Record the invoice the administration sent for a delivered period."""
+    await ensure_dossier_open(session, assignment_id)
     state = await overview(session, assignment_id, today=today)
     view = next((v for v in state.periods if v.period.key == period_key), None)
     if view is None or not view.open_export_ids:

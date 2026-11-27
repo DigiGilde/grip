@@ -108,6 +108,9 @@ Een sjabloon is voor de zaak als geheel, of herhaalt zich per onderwerp.
 | `may_close_months` | De status het afsluiten van maanden toelaat |
 | `may_bill` | De status het aanleveren van factuurgegevens toelaat |
 | `final_report_issued` | Het eindrapport is uitgegeven |
+| `dossier_closed` | Het dossier is gesloten |
+| `dossier_due_for_closing` | De opdracht is afgerond, verantwoord of geannuleerd, het dossier is open, en de opdracht is langer dan `dossier.propose_close_after_days` dagen niet gewijzigd door een persoon of een andere organisatie (ADR 0057) |
+| `at_rest` | Alleen het dossier vraagt nog iets: het dossier is gesloten, of de opdracht is verantwoord of geannuleerd en er staat geen andere taak uit het plan meer open |
 
 ### Feiten over een onderwerp
 
@@ -158,7 +161,7 @@ De takenlaag luistert naar alle bestaande domeingebeurtenissen en doet bij elk h
 
 ## Het meegeleverde plan
 
-Versie 2026.3, in `backend/grip/data/tasks/plan.json`; 29 sjablonen. De titels hieronder zijn die voor wie het werk doet, uit `guidance.json`.
+Versie 2026.4, in `backend/grip/data/tasks/plan.json`; 33 sjablonen. De titels hieronder zijn die voor wie het werk doet, uit `guidance.json`.
 
 ### Opdracht
 
@@ -176,11 +179,16 @@ Versie 2026.3, in `backend/grip/data/tasks/plan.json`; 29 sjablonen. De titels h
 | Uitvoering | Zet de opdracht in uitvoering | Feit: de opdracht is in uitvoering | Eigenaar |  |
 | Uitvoering | Sluit (maand) af | Feit: de maand is afgesloten | Eigenaar of manager | 5 werkdagen na het einde van de maand |
 | Uitvoering | Lever het eindrapport op | Feit: het eindrapport is uitgegeven | Eigenaar |  |
+| Uitvoering | Sluit het dossier | Feit: het dossier is gesloten | Eigenaar |  |
 | Financiën | Lever (periode) aan | Feit: de periode is aangeleverd | Eigenaar of manager | 5 werkdagen na het afsluiten van de laatste maand |
 | Financiën | Leg de factuur over (periode) vast | Feit: de factuur over de periode is vastgelegd | Eigenaar of manager | 10 werkdagen na het aanleveren |
 | Financiën | Lever de naverrekening van (maand) aan | Feit: de naverrekening is aangeleverd | Eigenaar of manager | 5 werkdagen na het ontstaan |
 
 Afsluiten gaat per maand. Aanleveren en de factuur vastleggen gaan per factuurperiode van de opdracht: een maand of een kalenderkwartaal. Een periode is klaar om aan te leveren als elke maand met inzet erin is afgesloten.
+
+"Sluit het dossier" is het voorstel uit ADR 0057: een opdracht die is afgerond, verantwoord of geannuleerd en een jaar niet is gewijzigd. Inzien telt niet als wijziging, wat grip zelf doet ook niet, en een taak oppakken of doorgeven evenmin. Wie in het menu van de opdracht "Houd dossier open" kiest, laat de taak vervallen; de klok begint dan opnieuw. Staat de taak `dossier.close_after_proposal_days` dagen open en is er sinds het voorstel niets veranderd, dan sluit grip het dossier zelf. Die dagen tellen vanaf de laatste wijziging aan de taak; zonder taak sluit grip niets. In het verloop staat de stap "Dossier sluiten" alleen zolang het voorstel geldt.
+
+Daarvoor kijkt de takenmotor ook naar verantwoorde en geannuleerde opdrachten, tot hun dossier gesloten is. Zo'n opdracht krijgt daardoor geen ander nieuw werk: elke andere taak van een opdracht vraagt `not at_rest`. Een gesloten dossier beëindigt zo ook de open taken van de opdracht; ze vervallen, en het verloop zegt "Dossier gesloten". Wie het dossier heropent van een opdracht die nog niet verantwoord is, krijgt die taken terug.
 
 Een verzoek om goedkeuring bestaat alleen als de instantie interne goedkeuring vraagt. Wie offertes mag goedkeuren, ziet de taak ook zonder rol op de opdracht. De taak voor de naverrekening staat in het plan en ontstaat nog niet: grip bewaart nog niet per maand dat er een naverrekening is ontstaan.
 
@@ -207,7 +215,7 @@ De taken voor het aanvraagformulier ontstaan alleen als de instantie een formuli
 
 ### Een nieuwe versie van het plan
 
-Een zaak houdt de versie waarmee ze begon. Een plan kan onder `replaces` oudere versies noemen waarvan het de lopende zaken overneemt; dat is voor een versie waarin het werk verkeerd was ingedeeld, niet voor elke wijziging. Versie 2026.3 neemt de zaken van 2026.2 over. Bij de eerstvolgende evaluatie krijgt zo'n zaak de taken van het nieuwe plan. Een open taak die het nieuwe plan niet meer vraagt, vervalt; een taak die beide plannen vragen, blijft dezelfde taak.
+Een zaak houdt de versie waarmee ze begon. Een plan kan onder `replaces` oudere versies noemen waarvan het de lopende zaken overneemt; dat is voor een versie waarin het werk verkeerd was ingedeeld, niet voor elke wijziging. Versie 2026.3 nam de zaken van 2026.2 over; versie 2026.4 neemt die van 2026.2 en 2026.3 over, zodat ook een lopende zaak het voorstel krijgt om haar dossier te sluiten. Bij de eerstvolgende evaluatie krijgt zo'n zaak de taken van het nieuwe plan. Een open taak die het nieuwe plan niet meer vraagt, vervalt; een taak die beide plannen vragen, blijft dezelfde taak.
 
 Een taak vervalt als haar voorwaarden niet meer gelden voordat haar feit geldt, of als haar onderwerp verdwijnt. Geldt een feit later niet meer (een heropende maand), dan gaat de taak weer open.
 

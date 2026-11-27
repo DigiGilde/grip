@@ -28,7 +28,7 @@ from grip.schema.overview import (
 )
 from grip.services import assignment_finance as finance
 from grip.services import assignment_views as views
-from grip.services import staffing_board
+from grip.services import guards, staffing_board
 from grip.services.overview_attention import attention_points
 from grip.services.phase import Phase
 
@@ -269,7 +269,10 @@ async def get_assignment_staffing(
         resource, {A, DataClass.STAFFING, DataClass.STAFFING_ROSTER}
     )
     sees_time = DataClass.STAFFING in classes
-    can_fill = await access.may(Action.EDIT, resource, DataClass.STAFFING)
+    open_dossier = not await guards.dossier_closed(db, assignment_id)
+    can_fill = open_dossier and await access.may(
+        Action.EDIT, resource, DataClass.STAFFING
+    )
 
     roles: list[dict[str, Any]] = []
     for role in data.roles:
@@ -302,9 +305,8 @@ async def get_assignment_staffing(
                         end_date=bar.end_date,
                         fte_pct=bar.fte_pct,
                         closed_months=list(bar.closed_months),
-                        can_edit=await access.may(
-                            Action.EDIT, about, DataClass.STAFFING
-                        ),
+                        can_edit=open_dossier
+                        and await access.may(Action.EDIT, about, DataClass.STAFFING),
                         category_mismatch=bar.category_mismatch,
                         line_category=bar.line_category,
                         person_category=bar.person_category,

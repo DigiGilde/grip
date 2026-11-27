@@ -47,3 +47,7 @@ De eerste uitwerking maakte het formulier bij elke download opnieuw en bewaarde 
 - De regel over bewaren blijft en is nu afgedwongen: is de vacature vervuld, ingetrokken of afgewezen, dan worden het formulier en het getekende exemplaar verwijderd na het aantal dagen van de instelling `vacancy.request_form_retention_days` (standaard 0: bij de eerstvolgende opruimronde). `just vacancy-forms-retention` voert die ronde uit; plan hem naast de opruimronde van de gebeurtenissen.
 - Toegang als het formulier zelf: wie de bemensing van de vacature mag zien, ziet de bestanden; wie de vacature mag bewerken, maakt en legt vast.
 - grip tekent de tekst van een veld zelf, uit het lettertype dat het formulier meedraagt. Een ingevuld formulier ziet er daardoor in elke viewer hetzelfde uit en houdt de eigen aankruisvakjes van het formulier.
+
+## Later gewijzigd (2026-11-25)
+
+De opruimronde hoeft niet meer apart te worden gepland: de worker verwijdert de formulieren elke dag, in de bewaarronde op `RETENTION_HOUR` (ADR 0057). `just vacancy-forms-retention` blijft bestaan om het met de hand te doen.

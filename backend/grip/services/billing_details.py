@@ -36,6 +36,7 @@ from grip.services import billing_deliveries, events
 from grip.services.assignments import get_assignment
 from grip.services.billing_deliveries import DETAIL_LABELS, REQUIRED_DETAILS
 from grip.services.errors import DomainValidationError
+from grip.services.guards import ensure_dossier_open
 
 
 class MissingBillingDetailsError(DomainValidationError):
@@ -218,6 +219,7 @@ async def change(
     cleaned = given(details, required=True)
     assert cleaned is not None
     assignment = await get_assignment(session, assignment_id)
+    await ensure_dossier_open(session, assignment_id)
     given_at = datetime.now(UTC)
     row = await keep(session, assignment_id, cleaned, given_at=given_at, actor=actor)
     if await _contractor_is_here(session, assignment):

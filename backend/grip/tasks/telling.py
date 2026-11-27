@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import string
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import date
 from functools import lru_cache
@@ -137,6 +138,7 @@ _ROLE_WORDS = {
     "tekenbevoegde": "een tekenbevoegde",
     "aanvrager": "een aanvrager",
     "offertegoedkeurder": "een interne goedkeurder van offertes",
+    "maker": "de maker van de offerte",
 }
 
 
@@ -807,6 +809,48 @@ def _closed_headline(
     return _fill(guide.title, values) or task.title
 
 
+def _waited_on(waiting_on: str, named_client: str | None) -> str:
+    """Who a waiting task waits on. The plan says "de opdrachtgever"; the
+    reader knows which one."""
+    if named_client and waiting_on == "de opdrachtgever":
+        return named_client
+    return waiting_on
+
+
+def tell_watcher(task: Task, variables: Mapping[str, str]) -> Telling:
+    """A task as told to someone with no part in the case, from the task and
+    the variables of its subject alone.
+
+    Who holds it is a role in words and never a name: the task need not exist,
+    and the step may have been taken over by someone this cannot know of.
+    """
+    template = _template(task)
+    values = dict(variables)
+    if task.status == "waiting" and task.waiting_on:
+        values["wie"] = _waited_on(task.waiting_on, values.get("opdrachtgever"))
+    else:
+        values["wie"] = role_words(
+            task.assignee_role or (template.assignee if template else None)
+        )
+    guide = guidance().templates.get(task.template_key or "")
+    if guide is None:
+        return Telling(
+            headline=task.title,
+            title=task.title,
+            instruction=task.title,
+            needs_me=False,
+            waits_on=values["wie"],
+        )
+    told = guide.in_situation(task.situation)
+    return Telling(
+        headline=_fill(told.awaited, values) or told.awaited,
+        title=_fill(told.title, values) or told.title,
+        instruction=_fill(told.wait, values) or told.wait,
+        needs_me=False,
+        waits_on=values["wie"],
+    )
+
+
 def _values(
     task: Task,
     view: TaskView,
@@ -838,13 +882,7 @@ def _values(
     if view.assignee_name:
         values["wie"] = view.assignee_name
     elif task.status == "waiting" and task.waiting_on:
-        # The plan says "de opdrachtgever"; the reader knows which one.
-        named_client = values.get("opdrachtgever")
-        values["wie"] = (
-            named_client
-            if named_client and task.waiting_on == "de opdrachtgever"
-            else task.waiting_on
-        )
+        values["wie"] = _waited_on(task.waiting_on, values.get("opdrachtgever"))
     elif (
         task.assignee_role in ("owner", "manager")
         and task.assignment_id in context.owners

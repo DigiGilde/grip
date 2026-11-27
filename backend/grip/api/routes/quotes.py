@@ -34,11 +34,12 @@ from grip.core.auth import CurrentPerson
 from grip.core.config import get_settings
 from grip.core.database import get_db
 from grip.integrations.mail import outbox as mail_outbox
-from grip.models.quote import Quote, QuoteInvitation
+from grip.models.quote import Quote
 from grip.schema.billing import BillingDetailsIn
 from grip.schema.quotes import (
     AcceptanceOut,
     ChannelOut,
+    CorrectAcceptanceIn,
     InvitationListOut,
     InvitationOut,
     InviteSignerIn,
@@ -131,16 +132,6 @@ def summary_fields(bundle: quote_views.QuoteBundle) -> dict[str, Any]:
     }
 
 
-def _invitation_state(invitation: QuoteInvitation, now: datetime) -> str:
-    if invitation.used_at is not None:
-        return "signed"
-    if invitation.withdrawn_at is not None:
-        return "withdrawn"
-    if invitation.expires_at is not None and invitation.expires_at <= now:
-        return "expired"
-    return "opened" if invitation.opened_at is not None else "invited"
-
-
 async def offer_fields(
     db: AsyncSession, quote: Quote, *, manage: bool = False
 ) -> dict[str, Any]:
@@ -185,7 +176,7 @@ async def offer_fields(
             opened_at=invitation.opened_at,
             used_at=invitation.used_at,
             withdrawn_at=invitation.withdrawn_at,
-            state=_invitation_state(invitation, now),
+            state=quote_views.invitation_state(invitation, now),
         )
 
     def recipient_of(offer: Any) -> str | None:
@@ -293,7 +284,8 @@ async def preview_quote(
         assignment_status=assignment.status,
         can_issue=assignment.status in quote_views.ISSUABLE_STATUSES
         and content is not None,
-        may_issue=bool(await decide(decider, subject, Action.ISSUE_QUOTE, resource)),
+        may_issue=assignment.dossier_closed_on is None
+        and bool(await decide(decider, subject, Action.ISSUE_QUOTE, resource)),
         problem=problem,
         content=content,
         quoted_amount_cents=quoted,
@@ -676,6 +668,31 @@ def _uploaded_details(raw: str | None) -> dict[str, Any] | None:
         ) from error
 
 
+@router.post("/quotes/{quote_id}/acceptance/correction", response_model=None)
+async def correct_acceptance(
+    quote_id: UUID,
+    body: CorrectAcceptanceIn,
+    person: CurrentPerson,
+    subject: CurrentSubject,
+    decider: AccessDecider,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Correct the day a recorded signed pdf was signed, with the reason."""
+    quote, resource = await visible_quote(db, decider, subject, quote_id)
+    await require(decider, subject, Action.EDIT, resource, DataClass.ASSIGNMENT_BASIC)
+    await quotes.correct_acceptance_date(
+        db,
+        quote.id,
+        body.signed_at,
+        body.reason,
+        person,
+        expected_signed_at=body.expected_signed_at,
+    )
+    bundle = await quote_views.quote_bundle(db, quote.id)
+    value = QuoteSummaryOut(**summary_fields(bundle))
+    return await filtered(decider, subject, resource, value)
+
+
 @router.get("/quotes/{quote_id}/acceptance/document")
 async def acceptance_document(
     quote_id: UUID,
@@ -722,13 +739,7 @@ async def record_rejection(
     """Record that the client rejected the quote outside grip."""
     quote, resource = await visible_quote(db, decider, subject, quote_id)
     await require(decider, subject, Action.EDIT, resource, DataClass.ASSIGNMENT_BASIC)
-    await quotes.reject_quote(
-        db,
-        quote.id,
-        quote_hash=quote.snapshot_hash,
-        actor=person,
-        reason=(body.reason or "").strip() or None,
-    )
+    await quote_views.record_rejection(db, quote, actor=person, reason=body.reason)
     bundle = await quote_views.quote_bundle(db, quote.id)
     value = QuoteSummaryOut(**summary_fields(bundle))
     return await filtered(decider, subject, resource, value)

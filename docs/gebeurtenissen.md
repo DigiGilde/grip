@@ -21,7 +21,7 @@ Een gebeurtenis is een rij in `stream_event`. Ze wordt geschreven in de transact
 | `correlation_id` | Verbindt alles wat één verzoek of één inkomend bericht veroorzaakte. 32 hexadecimale tekens, zodat het ook een trace-id is. |
 | `purpose` | Waarvoor gegevens zijn ingezien, voor zover bekend. |
 | `old_value`, `new_value` | De wijziging per veld. |
-| `payload` | Wat een domeingebeurtenis aan haar afhandelaars meldt. |
+| `payload` | Wat een domeingebeurtenis aan haar afhandelaars meldt. Namen, adressen en getypte tekst die de rij al bevat, worden niet opgeslagen (`services/events.py`); een afhandelaar in de transactie krijgt ze wel. |
 | `note` | Toelichting of reden. |
 | `refs` | Verwijzingen naar bewijs dat elders ligt, op hash. |
 | `existence_class` | De gegevensklasse die bepaalt wie mag weten dat dit gebeurde. Leeg betekent beheer van de instantie. |
@@ -77,9 +77,15 @@ Daarnaast zijn er gebeurtenissen met een eigen betekenis:
 
 Een wijziging van domeingegevens zonder gebeurtenis is een fout. De testsuite volgt elk verzoek (`grip.events.completeness`) en faalt als een domeintabel is gewijzigd zonder gebeurtenis die dat dekt. Een tabel is gedekt door een gebeurtenis over die tabel zelf, of over een soort die er in `COVERED_BY` voor is genoemd. Tabellen zonder domeingegevens (sessies, de uitbak, wat de takenmotor onthoudt, de stroom zelf) staan in `NOT_DOMAIN` met de reden.
 
+## De kroniek
+
+Op het pad naar een opdracht schrijft een handeling eerst een feit: een gebeurtenis met onderwerp `chronolexogram` en type `chronolexogram.<feit>`, gevuld door `grip.chronicle.writer.establish`. De tabellen op dat pad worden uit de feiten afgeleid en de stand op elk eerder moment ook. De wijzigingsregels en domeingebeurtenissen hierboven blijven erachteraan komen. Zie [kroniek.md](kroniek.md) en ADR 0056.
+
+Een feit staat niet in de lijst wijzigingen (`kind=changes`) en valt niet onder het nieuws. Het is alleen voor de beheerder te lezen via `/api/events`, omdat het waarden van meer klassen onder één sleutel heeft; de routes van de kroniek bouwen hun antwoord per klasse op. In de feed heet het `nl.grip.vastlegging.vastgelegd`, zonder waarden.
+
 ## De keten
 
-Elke gebeurtenis draagt de hash van de vorige. De hash is SHA-256 over een canonieke vorm (RFC 8785) van de vaste gegevens van de gebeurtenis en van de afdrukken van haar waarden. Een waarde wordt dus niet zelf gehasht, maar via een gezouten afdruk.
+Elke gebeurtenis draagt de hash van de vorige. De hash is SHA-256 over een canonieke vorm (RFC 8785) van de vaste gegevens van de gebeurtenis en van de afdrukken van haar waarden. Een waarde wordt dus niet zelf gehasht, maar via een gezouten afdruk. Een afdruk moet de reis door de database overleven: een getal vanaf 1e16 geeft JSONB als geheel getal terug, dus wordt het dat vóór de afdruk.
 
 ```
 uv run python -m grip.events.check
@@ -183,9 +189,26 @@ Nog niet gebouwd:
 
 ## Bewaren en wissen
 
-Twee instellingen van de instantie, in dagen, met nul voor "nooit": `events.retention_days` voor de waarden in de stroom en `events.read_retention_days` voor wie wat inzag. De taak `python -m grip.events.retention` wist wat ouder is.
+Wat bij een zaak hoort, gaat met de zaak; per soort gegeven kan een kortere termijn gelden (ADR 0057). De beheerder stelt de termijnen in onder Beheer, Bewaartermijnen. Het zijn instellingen van de instantie:
 
-Wissen haalt de waarden en het zout van een gebeurtenis weg. De gebeurtenis zelf blijft, met haar afdrukken, zodat de keten controleerbaar blijft. Voor een verzoek om verwijdering van één persoon is er `retention.erase_person`. Elke wisactie is een gebeurtenis `stream.erased` met de reden en het bereik.
+| Instelling | Wat ze zegt |
+|---|---|
+| `retention.assignment` | Wat er met een opdracht gebeurt nadat het dossier is gesloten: `{"outcome": "destroy", "years": n}` (vernietigen na 1 tot en met 100 jaar) of `{"outcome": "keep"}` (blijvend bewaren). Leeg: er wordt niets vernietigd. Nog niets voert deze instelling uit |
+| `events.retention_days` | Na hoeveel dagen de waarden in de stroom worden gewist, voor gebeurtenissen die niet bij een opdracht horen. Nul is nooit, ten hoogste 36500 |
+| `events.read_retention_days` | Na hoeveel dagen wie wat inzag (de klassen D, E en F) wordt gewist, ook binnen een opdracht. Nul is nooit, ten hoogste 36500 |
+| `vacancy.request_form_retention_days` | Hoeveel dagen de aanvraagformulieren van een vacature blijven nadat ze is vervuld, ingetrokken of afgewezen. Nul is meteen bij de volgende ronde |
+
+Een kandidaat die niet doorging blijft `PROSPECTIVE_RETENTION_DAYS` dagen bewaard; die termijn is een instelling van de omgeving en wordt vastgelegd op de dag dat de aanstelling niet doorgaat.
+
+Wissen op leeftijd raakt geen gebeurtenis van een opdracht: niet die over de opdracht zelf en niet die over een rij die aan de opdracht hangt, zoals een begrotingsregel of een offerte. Een vacature heeft nog geen sluitdag en geen vernietiging; tot ze die heeft, wist de leeftijdsregel haar gebeurtenissen. Uitgezonderd zijn ook de tarievenfeiten van de kroniek en de wijzigingen van de instelling voor interne goedkeuring: ze bevatten geen persoonsgegevens en elke latere stand heeft ze nodig (ADR 0056).
+
+De worker voert de termijnen eens per dag uit, op het uur `RETENTION_HOUR` in de zone van de instantie (standaard 4; leeg zet de ronde uit). De ronde (`grip.services.retention`) is een vaste rij regels: dossiers sluiten waarvan het voorstel onbeantwoord bleef, wissen op leeftijd, kandidaten verwijderen, aanvraagformulieren verwijderen. Elke regel draait in een eigen transactie, zodat een regel die faalt de andere niet tegenhoudt; de worker schrijft per regel een logregel met het aantal. Wat de ronde schrijft, staat in de stroom met `retention` als wie het deed; een dossier dat Grip sluit, met `dossiers.close_overdue`. Twee workers draaien de ronde nooit tegelijk. Met de hand: `just retention-run`.
+
+De worker onthoudt alleen in het geheugen dat de ronde die dag al liep. Start hij binnen het uur opnieuw, dan loopt de ronde nog een keer; dat kan geen kwaad. Kies niet het uur 2: in de nacht dat de klok vooruit gaat bestaat dat uur in de zone Europe/Amsterdam niet, en dan slaat de ronde een dag over. Op een voorbeeldinstantie mag `RETENTION_HOUR` niet gelijk zijn aan `EXAMPLE_RESET_HOUR`.
+
+Wissen haalt de waarden en het zout van een gebeurtenis weg. De gebeurtenis zelf blijft, met haar afdrukken, zodat de keten controleerbaar blijft. Voor een verzoek om verwijdering van één persoon is er `retention.erase_person`, voor gegeven gebeurtenissen `retention.erase_events`. Elke wisactie is een gebeurtenis `stream.erased` met de reden en het bereik.
+
+Haalt een beheerder een getypte tekst uit een moment van een opdracht (ADR 0057, zie [kroniek.md](kroniek.md)), dan wist Grip met reden `restated` de feiten die de tekst hielden, nadat elk een herstelfeit kreeg, en elke andere gebeurtenis van die opdracht die de tekst als getypte tekst bevat, onder de sleutel van een naam, notities, toelichting, omschrijving of reden, of in haar notitie; vooral wijzigingsregels met de oude en de nieuwe waarde. Een gebeurtenis die de tekst alleen ergens anders noemt, houdt haar waarden, zodat een besluit, een status of bewijs nooit verdwijnt door een toevallige overeenkomst. Een wijzigingsregel van wie op een regel staat blijft staan. De wijzigingsregels die de rijen gelijk zetten met het herstelfeit schrijft Grip zelf (`restatement`). De gebeurtenis `stream.erased` noemt de opdracht (`assignment_id`) en de herstelfeiten (`restated_by`), zodat ze bij de zaak hoort.
 
 Wat blijft staan na wissen: dat er iets gebeurde, wanneer, over welk onderwerp en door wie, als id. Het id van een persoon verwijst na verwijdering van die persoon nergens meer naar.
 

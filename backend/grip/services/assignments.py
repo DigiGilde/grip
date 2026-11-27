@@ -8,26 +8,34 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Iterable
-from datetime import UTC, date, datetime
+from datetime import date
 from decimal import Decimal
-from typing import Any
+from types import SimpleNamespace
+from typing import Any, cast
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from grip.chronicle.writer import changes_of, establish, normal, row_of
+from grip.core import clock
 from grip.core.audit import CREATE, DELETE, UPDATE, record_audit
 from grip.core.config import get_settings
+from grip.events import stream
 from grip.models.assignment import (
     ASSIGNMENT_KINDS,
     ASSIGNMENT_STATUSES,
     BUDGET_LINE_KINDS,
+    LINE_NEEDS_A_NAME,
     ROLE_MANAGER,
     ROLE_OWNER,
     Allocation,
     Assignment,
     AssignmentRole,
     BudgetLine,
+    canonical_role_name,
+    line_display_name,
+    role_entry_for,
 )
 from grip.models.month_close import MonthCloseLine
 from grip.models.organisation import Organisation
@@ -43,13 +51,14 @@ from grip.services.guards import (
     audit_fields,
     audit_value,
     ensure_closed_months_unchanged,
+    ensure_dossier_open,
     ensure_years_open,
     years_between,
 )
 from grip.services.phase import VERBALLY_AGREED, counterparty_status
 
-# The lifecycle of an assignment. Every change of status goes through
-# ``transition``; nothing else writes ``Assignment.status``.
+# The lifecycle of an assignment. Every change of status passes
+# ``check_transition`` and is written by a fact.
 TRANSITIONS: dict[str, frozenset[str]] = {
     "draft": frozenset({"requested", "quoted", "cancelled"}),
     "requested": frozenset({"quoted", "rejected", "cancelled"}),
@@ -65,8 +74,10 @@ TRANSITIONS: dict[str, frozenset[str]] = {
     "cancelled": frozenset(),
 }
 # An internal assignment has no client to quote to: it goes straight from
-# draft to accepted.
-_INTERNAL_EXTRA: dict[str, frozenset[str]] = {"draft": frozenset({"accepted"})}
+# draft to accepted, or to in_progress when it starts at once.
+_INTERNAL_EXTRA: dict[str, frozenset[str]] = {
+    "draft": frozenset({"accepted", "in_progress"})
+}
 # What only exists with a client; an internal assignment never takes these.
 _CLIENT_STEPS = frozenset({"requested", "quoted", "verbally_agreed", "rejected"})
 
@@ -130,7 +141,20 @@ def mint_uri(segment: str, entity_id: UUID) -> str:
     return f"{base}/id/{segment}/{entity_id}"
 
 
-def share_with_instance(assignment: Assignment, instance_uri: str) -> None:
+def _sharing(instance_uri: str | None) -> dict[str, Any]:
+    """The columns of being shared with this instance; none without one."""
+    wanted = (instance_uri or "").strip().rstrip("/")
+    if not wanted:
+        return {}
+    return {"shared_with_instance_uri": wanted, "shared_at": clock.now()}
+
+
+async def share_with_instance(
+    session: AsyncSession,
+    assignment: Assignment,
+    instance_uri: str,
+    actor: Person | None = None,
+) -> None:
     """Record that this assignment is shared with another grip instance.
 
     Not a setting: it follows from an exchange with that instance (a request
@@ -138,14 +162,19 @@ def share_with_instance(assignment: Assignment, instance_uri: str) -> None:
     it). Sharing once is enough; a later exchange with the same instance
     leaves the moment as it was.
     """
-    wanted = instance_uri.strip().rstrip("/")
-    if not wanted:
+    sharing = _sharing(instance_uri)
+    if not sharing:
         return
     current = (assignment.shared_with_instance_uri or "").rstrip("/")
-    if current == wanted:
+    if current == sharing["shared_with_instance_uri"]:
         return
-    assignment.shared_with_instance_uri = wanted
-    assignment.shared_at = datetime.now(UTC)
+    await establish(
+        session,
+        "assignment_shared",
+        assignment_id=assignment.id,
+        actor=actor,
+        fields={"assignment_id": assignment.id, **sharing},
+    )
 
 
 def is_shared_with(assignment: Assignment, instance_uri: str | None) -> bool:
@@ -186,6 +215,15 @@ def _check_context_refs(context_refs: Iterable[str]) -> list[str]:
                 "Een verwijzing naar een node is een volledige URI."
             )
     return refs
+
+
+def _what_changes(model: type, row: Any, values: dict[str, Any]) -> dict[str, Any]:
+    """The values that say something else than the row, as a fact holds them."""
+    return {
+        key: value
+        for key, value in changes_of(model, **values).items()
+        if normal(model, key, getattr(row, key)) != value
+    }
 
 
 async def upsert_organisation(
@@ -245,48 +283,110 @@ async def create_assignment(
     it: how a quote reaches the client is chosen when a quote is offered,
     not when the assignment is created.
     """
+    fields = await _new_assignment(
+        session,
+        status="draft",
+        owner_id=owner_id or (actor.id if actor is not None else None),
+        name=name,
+        kind=kind,
+        client_organisation_id=client_organisation_id,
+        contractor_organisation_id=contractor_organisation_id,
+        parent_assignment_uri=parent_assignment_uri,
+        context_refs=context_refs,
+        client_contact=client_contact,
+        start_date=start_date,
+        end_date=end_date,
+        notes=notes,
+        uri=uri,
+    )
+    assignment = await _born(session, "assignment_created", fields, actor=actor)
+    _audit_created(session, assignment, actor)
+    return assignment
+
+
+async def _new_assignment(
+    session: AsyncSession,
+    *,
+    status: str,
+    owner_id: UUID | None,
+    name: str,
+    kind: str,
+    client_organisation_id: UUID | None,
+    contractor_organisation_id: UUID | None,
+    parent_assignment_uri: str | None,
+    context_refs: Iterable[str],
+    start_date: date | None,
+    end_date: date | None,
+    notes: str | None,
+    uri: str | None,
+    client_contact: str | None = None,
+    shared_with: str | None = None,
+) -> dict[str, Any]:
+    """The guards on a new assignment, and the fields of the fact that makes it."""
     if kind not in ASSIGNMENT_KINDS:
         raise DomainValidationError(f"Onbekend soort opdracht: {kind}")
     if start_date and end_date and end_date < start_date:
         raise DomainValidationError("De einddatum ligt voor de begindatum.")
     await _check_organisation(session, client_organisation_id)
     await _check_organisation(session, contractor_organisation_id)
-
     assignment_id = uuid.uuid4()
-    assignment = Assignment(
-        id=assignment_id,
-        uri=uri or mint_uri("opdracht", assignment_id),
-        name=name,
-        kind=kind,
-        status="draft",
-        client_organisation_id=client_organisation_id,
-        contractor_organisation_id=contractor_organisation_id,
-        parent_assignment_uri=parent_assignment_uri,
-        context_refs=_check_context_refs(context_refs),
-        client_contact=client_contact,
-        start_date=start_date,
-        end_date=end_date,
-        notes=notes,
-    )
-    session.add(assignment)
-    await session.flush()
-    owner = owner_id or (actor.id if actor is not None else None)
-    if owner is not None:
-        session.add(
-            AssignmentRole(
-                assignment_id=assignment.id, person_id=owner, role=ROLE_OWNER
-            )
+    return {
+        "assignment": row_of(
+            Assignment,
+            id=assignment_id,
+            uri=uri or mint_uri("opdracht", assignment_id),
+            name=name,
+            kind=kind,
+            status=status,
+            client_organisation_id=client_organisation_id,
+            contractor_organisation_id=contractor_organisation_id,
+            parent_assignment_uri=parent_assignment_uri,
+            context_refs=_check_context_refs(context_refs),
+            client_contact=client_contact,
+            start_date=start_date,
+            end_date=end_date,
+            notes=notes,
+            **_sharing(shared_with),
+        ),
+        "owner_role": row_of(
+            AssignmentRole,
+            id=uuid.uuid4(),
+            assignment_id=assignment_id,
+            person_id=owner_id,
+            role=ROLE_OWNER,
         )
-        await session.flush()
+        if owner_id is not None
+        else None,
+    }
+
+
+async def _born(
+    session: AsyncSession, fact: str, fields: dict[str, Any], *, actor: Person | None
+) -> Assignment:
+    assignment_id = fields["assignment"]["id"]
+    written = await establish(
+        session,
+        fact,
+        assignment_id=UUID(assignment_id),
+        actor=actor,
+        fields=fields,
+    )
+    return cast(Assignment, written.row("assignment", assignment_id))
+
+
+def _audit_created(
+    session: AsyncSession, assignment: Assignment, actor: Person | None
+) -> None:
+    # Every assignment is recorded as starting in draft, also one whose first
+    # fact already puts it further.
     record_audit(
         session,
         actor=actor,
         action=CREATE,
         entity="assignment",
         entity_id=assignment.id,
-        new_value=audit_fields(assignment, _ASSIGNMENT_FIELDS),
+        new_value={**audit_fields(assignment, _ASSIGNMENT_FIELDS), "status": "draft"},
     )
-    return assignment
 
 
 async def update_assignment(
@@ -313,6 +413,7 @@ async def update_assignment(
         )
     assignment = await get_assignment(session, assignment_id)
     await stale.check(session, assignment, "deze opdracht")
+    await ensure_dossier_open(session, assignment.id)
     if "kind" in changes and changes["kind"] not in ASSIGNMENT_KINDS:
         raise DomainValidationError(f"Onbekend soort opdracht: {changes['kind']}")
     if "context_refs" in changes:
@@ -324,16 +425,26 @@ async def update_assignment(
     end = changes.get("end_date", assignment.end_date)
     if start and end and end < start:
         raise DomainValidationError("De einddatum ligt voor de begindatum.")
-    moved: dict[str, Any] = {}
+    moved = periods.MovedLines()
     new_period = (start, end) if start and end else (None, None)
     if new_period != periods.assignment_period(assignment):
         moved = await periods.follow_assignment(
             session, assignment, new_period, allow_closed_year=allow_closed_year
         )
     old = {k: audit_value(getattr(assignment, k)) for k in changes}
-    for key, value in changes.items():
-        setattr(assignment, key, value)
-    await session.flush()
+    written = _what_changes(Assignment, assignment, changes)
+    if written or moved.lines:
+        await establish(
+            session,
+            "assignment_changed",
+            assignment_id=assignment.id,
+            actor=actor,
+            fields={
+                "assignment_id": assignment.id,
+                "changes": written,
+                "moved_lines": moved.lines,
+            },
+        )
     record_audit(
         session,
         actor=actor,
@@ -341,9 +452,9 @@ async def update_assignment(
         entity="assignment",
         entity_id=assignment.id,
         old_value=old,
-        new_value={**{k: audit_value(v) for k, v in changes.items()}, **moved},
+        new_value={**{k: audit_value(v) for k, v in changes.items()}, **moved.audit()},
     )
-    if moved:
+    if moved.lines:
         # Lines that just got a period can now hold the reservation of their
         # intended person. Imported here: that module builds on this one.
         from grip.services import budget_intent
@@ -372,7 +483,8 @@ def _check_ready_for(
     """
     if target == VERBALLY_AGREED and not (reason and reason.strip()):
         raise DomainValidationError(
-            "Noteer bij een mondeling akkoord wie akkoord gaf en wanneer."
+            "Noteer bij een mondeling akkoord in welke functie akkoord is gegeven "
+            "en wanneer."
         )
     if (
         target == "cancelled"
@@ -403,26 +515,15 @@ def _check_ready_for(
         )
 
 
-async def transition(
+async def check_transition(
     session: AsyncSession,
-    assignment_id: UUID,
+    assignment: Assignment,
     target: str,
-    *,
-    actor: Person | None,
-    reason: str | None = None,
-    origin: str = "local",
+    reason: str | None,
     enforce_readiness: bool = True,
-) -> Assignment:
-    """Move an assignment to another status, if the lifecycle allows it.
-
-    A step also checks that the assignment has what the new status needs (a
-    client, a start date). ``enforce_readiness=False`` skips that for records
-    taken over from an older administration, which never had those fields;
-    the note of a verbal agreement is required either way.
-    """
-    if target not in ASSIGNMENT_STATUSES:
-        raise DomainValidationError(f"Onbekende status: {target}")
-    assignment = await get_assignment(session, assignment_id)
+) -> None:
+    """Refuse a step the lifecycle does not allow or the assignment is not
+    ready for. ``enforce_readiness`` as in ``transition``."""
     if target not in allowed_transitions(assignment):
         raise IllegalTransitionError(assignment.status, target)
     _check_ready_for(assignment, target, reason, enforce=enforce_readiness)
@@ -435,13 +536,18 @@ async def transition(
             "Vul eerst de periode van de opdracht in: er zijn begrotingsregels "
             "die de opdracht volgen en nog geen periode hebben."
         )
-    old = assignment.status
-    assignment.status = target
-    if target == VERBALLY_AGREED:
-        assert reason is not None
-        assignment.verbal_agreement_note = reason.strip()
-        assignment.verbal_agreement_at = datetime.now(UTC)
-    await session.flush()
+
+
+async def after_transition(
+    session: AsyncSession,
+    assignment: Assignment,
+    old: str,
+    target: str,
+    reason: str | None,
+    actor: Person | None,
+    origin: str,
+) -> None:
+    """What a step of the lifecycle tells the audit log and the event handlers."""
     record_audit(
         session,
         actor=actor,
@@ -469,7 +575,72 @@ async def transition(
                 "origin": origin,
             },
         )
+
+
+async def transition(
+    session: AsyncSession,
+    assignment_id: UUID,
+    target: str,
+    *,
+    actor: Person | None,
+    reason: str | None = None,
+    origin: str = "local",
+    enforce_readiness: bool = True,
+) -> Assignment:
+    """Move an assignment to another status, if the lifecycle allows it.
+
+    A step also checks that the assignment has what the new status needs (a
+    client, a start date). ``enforce_readiness=False`` skips that for records
+    taken over from an older administration, which never had those fields;
+    the note of a verbal agreement is required either way.
+    """
+    if target not in ASSIGNMENT_STATUSES:
+        raise DomainValidationError(f"Onbekende status: {target}")
+    assignment = await get_assignment(session, assignment_id)
+    await ensure_dossier_open(session, assignment.id)
+    await check_transition(session, assignment, target, reason, enforce_readiness)
+    old = assignment.status
+    fields: dict[str, Any] = {
+        "assignment_id": assignment.id,
+        "from": old,
+        "to": target,
+        "reason": reason,
+    }
+    if target == VERBALLY_AGREED:
+        assert reason is not None
+        fields["verbal_agreement_note"] = reason.strip()
+        fields["verbal_agreement_at"] = clock.now()
+    await establish(
+        session,
+        "assignment_status_changed",
+        assignment_id=assignment.id,
+        actor=actor,
+        fields=fields,
+    )
+    await after_transition(session, assignment, old, target, reason, actor, origin)
     return assignment
+
+
+async def _check_request(
+    session: AsyncSession,
+    client_organisation_id: UUID | None,
+    contractor_organisation_id: UUID | None,
+) -> None:
+    """The guards of the step to requested, for an assignment that starts there."""
+    unborn = SimpleNamespace(
+        id=None,
+        status="draft",
+        kind="external",
+        start_date=None,
+        client_organisation_id=client_organisation_id,
+        contractor_organisation_id=contractor_organisation_id,
+    )
+    await check_transition(session, cast(Assignment, unborn), "requested", None)
+
+
+async def _instance_of(session: AsyncSession, organisation_id: UUID) -> str | None:
+    organisation = await session.get(Organisation, organisation_id)
+    return organisation.instance_uri if organisation is not None else None
 
 
 async def create_assignment_request(
@@ -492,10 +663,11 @@ async def create_assignment_request(
     ``assignment_request.created``. Returns the assignment and the id of the
     request, which is also the id of the message.
     """
-    assignment = await create_assignment(
+    fields = await _new_assignment(
         session,
+        status="requested",
+        owner_id=actor.id if actor is not None else None,
         name=name,
-        actor=actor,
         kind="external",
         client_organisation_id=client_organisation_id,
         contractor_organisation_id=contractor_organisation_id,
@@ -504,14 +676,17 @@ async def create_assignment_request(
         start_date=start_date,
         end_date=end_date,
         notes=description,
+        uri=None,
+        # Asking a contractor for a quote is an exchange: from here on the
+        # assignment is shared with the contractor's instance, if it has one.
+        shared_with=await _instance_of(session, contractor_organisation_id),
     )
-    # Asking a contractor for a quote is an exchange: from here on the
-    # assignment is shared with the contractor's instance, if it has one.
-    contractor = await session.get(Organisation, contractor_organisation_id)
-    if contractor is not None and contractor.instance_uri:
-        share_with_instance(assignment, contractor.instance_uri)
-        await session.flush()
-    await transition(session, assignment.id, "requested", actor=actor)
+    await _check_request(session, client_organisation_id, contractor_organisation_id)
+    assignment = await _born(session, "assignment_requested", fields, actor=actor)
+    _audit_created(session, assignment, actor)
+    await after_transition(
+        session, assignment, "draft", "requested", None, actor, "local"
+    )
     request_id = uuid.uuid4()
     await events.emit(
         session,
@@ -546,20 +721,23 @@ async def receive_assignment_request(
     parent_assignment_uri: str | None = None,
     start_date: date | None = None,
     end_date: date | None = None,
+    received: dict[str, Any] | None = None,
 ) -> Assignment:
     """Contractor side: record a request that came in from a client.
 
     Idempotent on the assignment URI. Emits no request event: the request
-    did not start here.
+    did not start here. ``received`` says from which peer and message it came,
+    when it came from another instance.
     """
     result = await session.execute(select(Assignment).where(Assignment.uri == uri))
     existing = result.scalar_one_or_none()
     if existing is not None:
         return existing
-    assignment = await create_assignment(
+    fields = await _new_assignment(
         session,
+        status="requested",
+        owner_id=None,
         name=name,
-        actor=None,
         kind="external",
         client_organisation_id=client_organisation_id,
         contractor_organisation_id=contractor_organisation_id,
@@ -569,16 +747,19 @@ async def receive_assignment_request(
         end_date=end_date,
         notes=description,
         uri=uri,
+        # A request that came in from a client's instance is shared with that
+        # instance from the start.
+        shared_with=await _instance_of(session, client_organisation_id),
     )
-    # A request that came in from a client's instance is shared with that
-    # instance from the start.
-    client = await session.get(Organisation, client_organisation_id)
-    if client is not None and client.instance_uri:
-        share_with_instance(assignment, client.instance_uri)
-        await session.flush()
-    return await transition(
-        session, assignment.id, "requested", actor=None, origin="remote"
+    await _check_request(session, client_organisation_id, contractor_organisation_id)
+    if received is not None:
+        fields["received"] = received
+    assignment = await _born(session, "assignment_request_received", fields, actor=None)
+    _audit_created(session, assignment, None)
+    await after_transition(
+        session, assignment, "draft", "requested", None, None, "remote"
     )
+    return assignment
 
 
 async def issue_final_report(
@@ -594,6 +775,7 @@ async def issue_final_report(
     kept in the audit log and handed to the event handlers.
     """
     assignment = await get_assignment(session, assignment_id)
+    await ensure_dossier_open(session, assignment.id)
     if assignment.status not in ("completed", "accounted"):
         raise DomainValidationError(
             "Een eindrapport kan pas worden uitgegeven als de opdracht is afgerond."
@@ -661,7 +843,7 @@ async def set_assignment_role(
         raise DomainValidationError(f"Onbekende rol op een opdracht: {role}")
     assignment = await get_assignment(session, assignment_id)
     await stale.check(session, assignment, "deze opdracht")
-    stale.touch(assignment)
+    await ensure_dossier_open(session, assignment.id)
     if await session.get(Person, person_id) is None:
         raise NotFoundError("Persoon", person_id)
     result = await session.execute(
@@ -672,19 +854,35 @@ async def set_assignment_role(
     old = {"role": current.role} if current is not None else None
     if current is not None and current.role == ROLE_OWNER and role == ROLE_MANAGER:
         raise DomainValidationError(_OWNER_REQUIRED)
-    if role == ROLE_OWNER:
-        for other in roles:
-            if other.role == ROLE_OWNER and other.person_id != person_id:
-                other.role = ROLE_MANAGER
-        await session.flush()
-    if current is None:
-        current = AssignmentRole(
-            assignment_id=assignment_id, person_id=person_id, role=role
+    demoted = [
+        other.id
+        for other in roles
+        if role == ROLE_OWNER
+        and other.role == ROLE_OWNER
+        and other.person_id != person_id
+    ]
+    if current is None or current.role != role or demoted:
+        role_id = current.id if current is not None else uuid.uuid4()
+        written = await establish(
+            session,
+            "assignment_role_set",
+            assignment_id=assignment_id,
+            actor=actor,
+            fields={
+                "role": row_of(
+                    AssignmentRole,
+                    id=role_id,
+                    assignment_id=assignment_id,
+                    person_id=person_id,
+                    role=role,
+                ),
+                "new": current is None,
+                "demoted": demoted,
+            },
         )
-        session.add(current)
-    else:
-        current.role = role
-    await session.flush()
+        current = cast(AssignmentRole, written.row("assignment_role", role_id))
+    # In the flush of the audit row, so the version never moves without an event.
+    stale.touch(assignment)
     record_audit(
         session,
         actor=actor,
@@ -699,6 +897,7 @@ async def set_assignment_role(
             **_role_change_basis(actor, person_id, as_beheerder),
         },
     )
+    await session.flush()
     return current
 
 
@@ -720,23 +919,30 @@ async def remove_assignment_role(
     role = result.scalar_one_or_none()
     if role is None:
         raise NotFoundError("Rol op de opdracht", person_id)
+    await ensure_dossier_open(session, assignment_id)
     if role.role == ROLE_OWNER:
         raise DomainValidationError(_OWNER_REQUIRED)
+    role_id, held = role.id, role.role
+    await establish(
+        session,
+        "assignment_role_removed",
+        assignment_id=assignment_id,
+        actor=actor,
+        fields={"role_id": role_id},
+    )
     record_audit(
         session,
         actor=actor,
         action=DELETE,
         entity="assignment_role",
-        entity_id=role.id,
+        entity_id=role_id,
         old_value={
             "assignment_id": str(assignment_id),
             "person_id": str(person_id),
-            "role": role.role,
+            "role": held,
         },
         new_value=_role_change_basis(actor, person_id, as_beheerder) or None,
     )
-    await session.delete(role)
-    await session.flush()
 
 
 # -- budget lines -------------------------------------------------------------
@@ -805,6 +1011,23 @@ def _ensure_year_in_period(assignment: Assignment, values: dict[str, Any]) -> No
     )
 
 
+def _ensure_named(role: str | None, detail: str | None) -> None:
+    if not canonical_role_name(role or "") and not (detail or "").strip():
+        raise DomainValidationError(LINE_NEEDS_A_NAME)
+
+
+async def _role_columns(session: AsyncSession, name: str | None) -> dict[str, Any]:
+    """The reference and the name of the catalogue, for a role as it was typed.
+
+    A name the catalogue does not hold makes a new entry, pending until the
+    line that names it is written. So this comes after the guards.
+    """
+    entry = await session.run_sync(role_entry_for, name)
+    if entry is None:
+        return {"role": None, "role_id": None}
+    return {"role": entry.name, "role_id": entry.id}
+
+
 def _line_years(values: dict[str, Any]) -> set[int]:
     if values.get("kind") == "fixed":
         return {values["year"]} if values.get("year") is not None else set()
@@ -828,15 +1051,18 @@ async def add_budget_line(
     year: int | None = None,
     period_source: str | None = None,
     allow_closed_year: bool = False,
+    intended_person_id: UUID | None = None,
 ) -> BudgetLine:
     """Add a budget line.
 
     A personnel line follows the period of the assignment unless it is given
     dates of its own (``period_source`` "own", or dates that differ from the
     assignment's). While the assignment has no period a following line has
-    no dates and is not priced.
+    no dates and is not priced. ``budget_intent`` checks and audits an
+    ``intended_person_id``; it comes here so it is in the one fact.
     """
     assignment = await get_assignment(session, assignment_id)
+    await ensure_dossier_open(session, assignment.id)
     if kind == "personnel":
         period_source, start_date, end_date = periods.line_period(
             assignment, period_source, start_date, end_date
@@ -858,20 +1084,32 @@ async def add_budget_line(
     closed = await ensure_years_open(
         session, _line_years(values), allow_closed_year=allow_closed_year
     )
+    _ensure_named(role, description)
     if position is None:
         result = await session.execute(
             select(BudgetLine.position).where(BudgetLine.assignment_id == assignment_id)
         )
         position = max([p for p in result.scalars()], default=0) + 1
-    line = BudgetLine(
+    line_id = uuid.uuid4()
+    written = await establish(
+        session,
+        "budget_line_added",
         assignment_id=assignment_id,
-        description=description,
-        position=position,
-        role=role,
-        **values,
+        actor=actor,
+        fields={
+            "line": row_of(
+                BudgetLine,
+                id=line_id,
+                assignment_id=assignment_id,
+                detail=description or "",
+                position=position,
+                intended_person_id=intended_person_id,
+                **await _role_columns(session, role),
+                **values,
+            )
+        },
     )
-    session.add(line)
-    await session.flush()
+    line = cast(BudgetLine, written.row("budget_line", line_id))
     record_audit(
         session,
         actor=actor,
@@ -880,6 +1118,8 @@ async def add_budget_line(
         entity_id=line.id,
         new_value={
             **audit_fields(line, _LINE_FIELDS),
+            # As it was sent, not as the column keeps it.
+            "fte": audit_value(fte),
             **({"closed_year_override": closed} if closed else {}),
         },
     )
@@ -899,8 +1139,15 @@ async def update_budget_line(
     *,
     actor: Person | None,
     allow_closed_year: bool = False,
+    intended_person: dict[str, Any] | None = None,
     **changes: Any,
 ) -> BudgetLine:
+    """Change a budget line.
+
+    ``intended_person`` holds ``intended_person_id`` when ``budget_intent``
+    changes it in the same save, so it is in the one fact; that module checks
+    and audits it.
+    """
     allowed = set(_LINE_FIELDS) - {"assignment_id", "kind"}
     unknown = set(changes) - allowed
     if unknown:
@@ -909,6 +1156,7 @@ async def update_budget_line(
         )
     line = await get_budget_line(session, line_id)
     await stale.check(session, line, "deze begrotingsregel")
+    await ensure_dossier_open(session, line.assignment_id)
     before = {f: getattr(line, f) for f in _LINE_FIELDS}
     if line.kind == "personnel" and {"period_source", "start_date", "end_date"} & set(
         changes
@@ -949,10 +1197,28 @@ async def update_budget_line(
             (after["start_date"], after["end_date"]),
             allow_closed_year=allow_closed_year,
         )
+    _ensure_named(after["role"], changes.get("description", line.detail))
     old = {k: audit_value(before[k]) for k in changes}
-    for key, value in changes.items():
-        setattr(line, key, value)
-    await session.flush()
+    values = {k: v for k, v in changes.items() if k not in ("description", "role")}
+    if "description" in changes:
+        values["detail"] = changes["description"] or ""
+    if "role" in changes:
+        values.update(await _role_columns(session, changes["role"]))
+    written = _what_changes(BudgetLine, line, {**values, **(intended_person or {})})
+    if written:
+        await establish(
+            session,
+            "budget_line_changed",
+            assignment_id=line.assignment_id,
+            actor=actor,
+            fields={
+                "line_id": line.id,
+                "name": line_display_name(
+                    values.get("role", line.role), values.get("detail", line.detail)
+                ),
+                "changes": written,
+            },
+        )
     record_audit(
         session,
         actor=actor,
@@ -977,6 +1243,7 @@ async def delete_budget_line(
 ) -> None:
     line = await get_budget_line(session, line_id)
     await stale.check(session, line, "deze begrotingsregel")
+    await ensure_dossier_open(session, line.assignment_id)
     result = await session.execute(
         select(Allocation.id).where(Allocation.budget_line_id == line_id).limit(1)
     )
@@ -988,17 +1255,22 @@ async def delete_budget_line(
     closed = await ensure_years_open(
         session, _line_years(values), allow_closed_year=allow_closed_year
     )
+    await establish(
+        session,
+        "budget_line_removed",
+        assignment_id=line.assignment_id,
+        actor=actor,
+        fields={"line_id": line_id, "name": line.display_name},
+    )
     record_audit(
         session,
         actor=actor,
         action=DELETE,
         entity="budget_line",
-        entity_id=line.id,
+        entity_id=line_id,
         old_value=audit_value(values),
         new_value={"closed_year_override": closed} if closed else None,
     )
-    await session.delete(line)
-    await session.flush()
 
 
 # -- allocations --------------------------------------------------------------
@@ -1030,7 +1302,14 @@ async def add_allocation(
     The inzet follows the period of the line unless it is given dates of its
     own (``period_source`` "own", or dates that differ from the line's).
     """
-    line = await get_budget_line(session, budget_line_id)
+    # The insert holds a key share on its line, and removing that line under the
+    # lock on the stream waits for it: the lock comes first. Then the line as it
+    # stands now: it may have gone or moved since the session read it.
+    await stream.hold_head(session)
+    line = await session.get(BudgetLine, budget_line_id, populate_existing=True)
+    if line is None:
+        raise NotFoundError("Begrotingsregel", budget_line_id)
+    await ensure_dossier_open(session, line.assignment_id)
     if line.kind != "personnel":
         raise DomainValidationError("Inzet kan alleen op een personeelsregel.")
     if await session.get(Person, person_id) is None:
@@ -1098,9 +1377,13 @@ async def update_allocation(
     they equal the line's); ``period_source`` "line" makes it follow the
     line again.
     """
+    # Removing this inzet under the lock on the stream waits on its row: the lock
+    # comes first.
+    await stream.hold_head(session)
     allocation = await get_allocation(session, allocation_id)
     await stale.check(session, allocation, "deze inzet")
     line = await get_budget_line(session, allocation.budget_line_id)
+    await ensure_dossier_open(session, line.assignment_id)
     new_source = allocation.period_source
     new_start = start_date or allocation.start_date
     new_end = end_date or allocation.end_date
@@ -1156,6 +1439,7 @@ async def delete_allocation(
     allocation = await get_allocation(session, allocation_id)
     await stale.check(session, allocation, "deze inzet")
     line = await get_budget_line(session, allocation.budget_line_id)
+    await ensure_dossier_open(session, line.assignment_id)
     closed = await ensure_years_open(
         session,
         years_between(allocation.start_date, allocation.end_date),

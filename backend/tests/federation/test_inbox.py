@@ -1,5 +1,7 @@
 """Catching up on messages that were stored before a handler existed."""
 
+import uuid
+
 from sqlalchemy import select
 
 from grip.federation.inbox import process_pending
@@ -49,3 +51,27 @@ async def test_refusal_afterwards_is_recorded_with_the_message(
     row = (await db_session.execute(select(FederationInbox))).scalar_one()
     assert row.processed_at is not None
     assert row.result["refused"]["status"] == 409
+
+
+async def test_a_failing_message_does_not_hold_up_the_ones_after_it(
+    fed_client, db_session, make_peer
+):
+    await make_peer()
+    first, second = example("quote"), {**example("quote"), "id": str(uuid.uuid4())}
+    for body in (first, second):
+        await fed_client.post(
+            "/v1/offertes", json=body, headers=as_peer(CONTRACTOR_PEER_ID)
+        )
+    seen = []
+
+    async def handler(db, caller, message):
+        if str(message.message_id) == first["id"]:
+            raise RuntimeError("kapot")
+        seen.append(str(message.message_id))
+
+    register_inbound_handler("sendQuote", handler)
+    assert await process_pending(db_session) == 1
+    assert seen == [second["id"]]
+    rows = (await db_session.execute(select(FederationInbox))).scalars().all()
+    pending = [str(r.message_id) for r in rows if r.processed_at is None]
+    assert pending == [first["id"]], "tried again in a later round"

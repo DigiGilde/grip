@@ -14,9 +14,10 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping, Sequence
-from datetime import date
+from datetime import date, datetime
 from typing import Any, Protocol
 
+from grip.core import clock
 from grip.services.reports.labels import (
     ACCEPTANCE_FORM_LABELS,
     ASSIGNMENT_KIND_LABELS,
@@ -25,6 +26,7 @@ from grip.services.reports.labels import (
 )
 
 KIND_LABELS: dict[str, str] = {
+    "chronolexogram": "Vastlegging",
     "assignment": "Opdracht",
     "assignment_request": "Aanvraag",
     "assignment_role": "Rol op de opdracht",
@@ -108,7 +110,7 @@ TYPE_SENTENCES: dict[str, str] = {
     "assignment.status_changed": "Status van de opdracht gewijzigd",
     "quote.issued": "Offerte gemaakt",
     "quote.offered": "Offerte aangeboden",
-    "quote.accepted": "Offerte aanvaard",
+    "quote.accepted": "Offerte getekend",
     "quote.rejected": "Offerte afgewezen",
     "quote_approval.requested": "Interne goedkeuring gevraagd",
     "quote_approval.approved": "Offerte intern goedgekeurd",
@@ -134,6 +136,7 @@ FIELD_LABELS: dict[str, str] = {
     "end_date": "Einddatum",
     "started_on": "Begonnen op",
     "ended_on": "Afgerond op",
+    "dossier_closed_on": "Dossier gesloten op",
     "valid_from": "Ingangsdatum",
     "valid_to": "Einddatum",
     "billing_scale": "Schaal",
@@ -156,6 +159,7 @@ FIELD_LABELS: dict[str, str] = {
     "period_source": "Periode volgt",
     "invoice_number": "Factuurnummer",
     "invoice_date": "Factuurdatum",
+    "signed_at": "Datum van tekenen",
 }
 
 _STATUS = {
@@ -246,6 +250,8 @@ _CLASS_LABELS = {
 CODE = re.compile(r"\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b")
 _BARE_CODE = re.compile(r"^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$")
 _ISO_DATE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})")
+# Labelled fields that hold an instant, not a day of the domain.
+_INSTANT_FIELDS = frozenset({"signed_at"})
 
 
 class Seen(Protocol):
@@ -265,6 +271,10 @@ def _euro(cents: int) -> str:
     return f"{'-' if cents < 0 else ''}€ {text}"
 
 
+def _day_text(day: date) -> str:
+    return f"{day.day} {MONTH_NAMES[day.month - 1]} {day.year}"
+
+
 def _date(value: str) -> str | None:
     match = _ISO_DATE.match(value)
     if match is None:
@@ -273,7 +283,15 @@ def _date(value: str) -> str | None:
         day = date(int(match[1]), int(match[2]), int(match[3]))
     except ValueError:
         return None
-    return f"{day.day} {MONTH_NAMES[day.month - 1]} {day.year}"
+    return _day_text(day)
+
+
+def _instant_day(value: str) -> str | None:
+    """The day an instant fell on, on the calendar of the instance."""
+    try:
+        return _day_text(clock.local_date(datetime.fromisoformat(value)))
+    except (ValueError, OverflowError):
+        return _date(value)
 
 
 def value_text(field: str, value: Any) -> str | None:
@@ -291,7 +309,7 @@ def value_text(field: str, value: Any) -> str | None:
     labels = VALUE_LABELS.get(field)
     if labels and value in labels:
         return labels[value]
-    as_date = _date(value)
+    as_date = _instant_day(value) if field in _INSTANT_FIELDS else _date(value)
     if as_date:
         return as_date
     if labels is not None and _BARE_CODE.match(value):
@@ -404,6 +422,12 @@ def title(
             return f"{person_name} ingelogd"
         if event_type == "login.switched" and person_name:
             return f"Voorbeeldpersoon {person_name} gekozen"
+        # Whoever records a signed pdf did not sign it, and the line names them.
+        if (
+            event_type == "quote.accepted"
+            and (payload or {}).get("form") == "uploaded_pdf"
+        ):
+            return "Getekende pdf vastgelegd"
         return sentence
     kind = KIND_LABELS.get(subject_kind, "Gegevens")
     verb = _VERBS.get(event_type.partition(".")[2], "gewijzigd")

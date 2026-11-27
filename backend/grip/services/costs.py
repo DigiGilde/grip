@@ -10,6 +10,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip.core.audit import CREATE, DELETE, UPDATE, record_audit
+from grip.events import stream
 from grip.models.assignment import BudgetLine
 from grip.models.cost import (
     INVOICE_LINE_KINDS,
@@ -22,7 +23,7 @@ from grip.models.person import Person
 from grip.repositories.domain import CostRepository
 from grip.services import cost_references, stale
 from grip.services.errors import DomainValidationError, NotFoundError
-from grip.services.guards import audit_fields
+from grip.services.guards import audit_fields, ensure_dossier_open
 
 
 def _plain_pct(value: Decimal) -> str:
@@ -303,8 +304,13 @@ async def set_coverage(
             "Een dekkingspercentage ligt boven 0 en is hoogstens 100."
         )
     await get_cost_item(session, cost_item_id)
-    if await session.get(BudgetLine, budget_line_id) is None:
+    # The insert holds a key share on its line, and removing that line under the
+    # lock on the stream waits for it: the lock comes first.
+    await stream.hold_head(session)
+    line = await session.get(BudgetLine, budget_line_id, populate_existing=True)
+    if line is None:
         raise NotFoundError("Begrotingsregel", budget_line_id)
+    await ensure_dossier_open(session, line.assignment_id)
     coverages = await CostRepository(session).coverages_of_item(cost_item_id)
     current = next((c for c in coverages if c.budget_line_id == budget_line_id), None)
     others = sum(
@@ -354,6 +360,9 @@ async def remove_coverage(
     coverage = result.scalar_one_or_none()
     if coverage is None:
         raise NotFoundError("Kostendekking", f"{cost_item_id}/{budget_line_id}")
+    line = await session.get(BudgetLine, budget_line_id)
+    if line is not None:
+        await ensure_dossier_open(session, line.assignment_id)
     record_audit(
         session,
         actor=actor,

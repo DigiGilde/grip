@@ -8,6 +8,7 @@ from grip.api.routes.billing import router as billing_router
 from grip.api.routes.billing_periods import router as billing_periods_router
 from grip.api.routes.budget_lines import router as budget_lines_router
 from grip.api.routes.catalogue_roles import router as catalogue_roles_router
+from grip.api.routes.chronicle import router as chronicle_router
 from grip.api.routes.client_requests import router as client_requests_router
 from grip.api.routes.costs import router as costs_router
 from grip.api.routes.events import feed_router as event_feed_router
@@ -62,6 +63,7 @@ api_router.include_router(organisations_router)
 api_router.include_router(assignments_router)
 api_router.include_router(assignment_finance_router)
 api_router.include_router(budget_lines_router)
+api_router.include_router(chronicle_router)
 api_router.include_router(overview_router)
 api_router.include_router(allocations_router)
 api_router.include_router(rates_router)

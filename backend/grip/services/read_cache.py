@@ -62,13 +62,14 @@ from sqlalchemy.types import String
 
 from grip.events.completeness import NOT_DOMAIN
 from grip.events.retention import READ_TYPE
-from grip.events.stream import events_written
+from grip.events.stream import ACT_OPEN, events_written
 from grip.models.stream_event import StreamEvent
 
 # Subject kinds whose events, filed under an assignment, change nothing of
 # any other assignment.
 LOCAL_KINDS: frozenset[str] = frozenset(
     {
+        "chronolexogram",
         "assignment",
         "assignment_role",
         "budget_line",
@@ -209,7 +210,7 @@ class Stamp:
 @sa_event.listens_for(Session, "before_flush")
 def _on_flush(session: Session, flush_context: Any, instances: Any) -> None:
     changed = False
-    recorded = False
+    recorded = bool(session.info.get(ACT_OPEN))
     for obj in session.new:
         if isinstance(obj, StreamEvent):
             recorded = True

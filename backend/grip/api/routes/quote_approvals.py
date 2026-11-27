@@ -61,11 +61,13 @@ from grip.schema.quote_approvals import (
 )
 from grip.schema.quotes import content_from_snapshot
 from grip.services import (
+    guards,
     instance_settings,
     quote_approval,
     quote_reference,
     quote_views,
 )
+from grip.services import retention as _retention  # noqa: F401 - declares settings
 from grip.services.errors import NotFoundError
 
 router = APIRouter(tags=["quote-approvals"])
@@ -145,7 +147,10 @@ async def approval_state(
             if person_id is not None
         },
     )
-    is_open = quote.status == "issued"
+    # A closed dossier changes nothing, its approval included.
+    is_open = quote.status == "issued" and not await guards.dossier_closed(
+        db, quote.assignment_id
+    )
     return ApprovalStateOut(
         quote_id=quote.id,
         approval_required=state.requirement.required,
@@ -340,6 +345,7 @@ async def waiting_approvals(
     names = await quote_views.person_names(
         db, {a.requested_by_id for a, _ in rows if a.requested_by_id is not None}
     )
+    closed = await guards.closed_dossier_ids(db, {q.assignment_id for _, q in rows})
     items: list[dict[str, Any]] = []
     for approval, quote in rows:
         resource = await approval_resource(db, quote)
@@ -363,7 +369,7 @@ async def waiting_approvals(
             request_note=approval.request_note,
             total_cents=quote.total_cents,
             snapshot_hash=quote.snapshot_hash,
-            may_decide=True,
+            may_decide=quote.assignment_id not in closed,
         )
         items.append(await _filtered(decider, subject, resource, value))
     return WaitingApprovalsOut().model_dump() | {"items": items}

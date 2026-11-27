@@ -24,6 +24,7 @@ os.environ.setdefault("DEV_NO_AUTH", "1")
 # fails the test (grip.services.read_cache).
 os.environ.setdefault("READ_CACHE", "verify")
 
+from grip.chronicle import guard  # noqa: E402
 from grip.core.config import get_settings  # noqa: E402
 from grip.core.database import get_db  # noqa: E402
 from grip.core.session_store import SessionStore  # noqa: E402
@@ -33,8 +34,10 @@ from grip.middleware.csrf import _starts as _csrf_starts  # noqa: E402
 from grip.middleware.session import ServerSideSessionMiddleware  # noqa: E402
 from grip.models.person import Person  # noqa: E402
 from grip.models.role import PersonRole  # noqa: E402
+from tests.chronicle.proof import Proof  # noqa: E402
 
 settings = get_settings()
+guard.install()
 
 
 class InMemorySessionStore(SessionStore):
@@ -92,7 +95,15 @@ def _find_session_middleware(app):
 
 
 @pytest.fixture
-async def client(db_session: AsyncSession, _test_app):
+async def chronicle_proof(db_session: AsyncSession, request: pytest.FixtureRequest):
+    """What test clients saw written around the chronicle (tests.chronicle.proof)."""
+    proof = Proof(db_session)
+    yield proof
+    proof.conclude(request.node.nodeid)
+
+
+@pytest.fixture
+async def client(db_session: AsyncSession, _test_app, chronicle_proof: Proof):
     """HTTPX client on the app, with the test's database session.
 
     Fetches a CSRF token first and sends it on every state-changing request.
@@ -104,10 +115,12 @@ async def client(db_session: AsyncSession, _test_app):
     unrecorded: list[str] = []
 
     async def _override_get_db(request: Request):
-        with completeness.watch(db_session) as unit:
-            yield db_session
-            # In production the request commits here.
-            await db_session.flush()
+        label = f"{request.method} {request.url.path}"
+        async with chronicle_proof.following(label):
+            with completeness.watch(db_session) as unit:
+                yield db_session
+                # In production the request commits here.
+                await db_session.flush()
         route = getattr(request.scope.get("route"), "path", request.url.path)
         unrecorded.extend(
             f"{request.method} {route}: {missing}" for missing in unit.unrecorded()

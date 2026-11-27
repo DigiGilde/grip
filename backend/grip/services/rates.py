@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip import calc
+from grip.chronicle.rates import record_rate_book
 from grip.core.audit import CREATE, DELETE, UPDATE, record_audit
 from grip.models.person import Person
 from grip.models.person_details import BillabilityTarget, Hire, PersonScale
@@ -201,6 +202,9 @@ async def create_card(
             **(audit_extra or {}),
         },
     )
+    await record_rate_book(
+        session, actor=actor, cause=f"Tarievenkaart {card.name} toegevoegd"
+    )
     return await get_card(session, card.id)
 
 
@@ -344,7 +348,24 @@ async def set_rate_card_status(
             cause=f"tarievenkaart '{card.name}' is ingegaan",
             actor=actor,
         )
+    await record_rate_book(
+        session,
+        actor=actor,
+        cause=_status_cause(card, old, status),
+        effective_on=card.valid_from if status == "active" else None,
+    )
     return card
+
+
+def _status_cause(card: RateCard, old: str, status: str) -> str:
+    if old == "draft":
+        return (
+            f"Tarievenkaart {card.name} vastgesteld, geldt vanaf "
+            f"{date_text(card.valid_from)}"
+        )
+    if status == "closed":
+        return f"Tarievenkaart {card.name} gesloten"
+    return f"Tarievenkaart {card.name} heropend"
 
 
 @dataclass(frozen=True)
@@ -561,6 +582,9 @@ async def update_card(
         old_value=old,
         new_value=card_audit(card),
     )
+    await record_rate_book(
+        session, actor=actor, cause=f"Tarievenkaart {card.name} gewijzigd"
+    )
     return card
 
 
@@ -646,6 +670,12 @@ async def set_rate_band(
         f"tarief van categorie {category} op '{card.name}' gewijzigd",
         actor,
     )
+    await record_rate_book(
+        session,
+        actor=actor,
+        cause=f"Tarief van categorie {category} op {card.name} gewijzigd",
+        effective_on=card.valid_from,
+    )
     return band
 
 
@@ -691,6 +721,12 @@ async def set_scale_band(
         pending,
         f"categorie van schaal {scale} op '{card.name}' gewijzigd",
         actor,
+    )
+    await record_rate_book(
+        session,
+        actor=actor,
+        cause=f"Categorie van schaal {scale} op {card.name} gewijzigd",
+        effective_on=card.valid_from,
     )
     return band
 

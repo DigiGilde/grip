@@ -6,8 +6,9 @@ These are the federation loops (sending outbox messages through the outway,
 and catching up on received messages that were stored before a handler
 existed; both are safe to run in more than one process, rows are claimed
 with SKIP LOCKED) and the task loop, which brings the tasks of every open
-case in line with the facts on an interval, and the mail loop, which sends
-what was queued with a change.
+case in line with the facts on an interval, the mail loop, which sends
+what was queued with a change, and the retention round, once a day at
+``RETENTION_HOUR``.
 """
 
 from __future__ import annotations
@@ -24,6 +25,7 @@ from grip.integrations.mail.config import is_configured as mail_is_configured
 from grip.integrations.mail.outbox import run_mail_loop
 from grip.integrations.push.config import is_configured as push_is_configured
 from grip.integrations.push.outbox import run_push_loop
+from grip.services.retention import run_retention_loop
 from grip.tasks.loop import run_task_loop
 
 logger = logging.getLogger(__name__)
@@ -63,6 +65,10 @@ async def main() -> None:
         from grip.core.example import run_reset_loop
 
         loops.append(run_reset_loop(async_session, settings))
+    if settings.RETENTION_HOUR.strip():
+        loops.append(run_retention_loop(async_session, settings))
+    else:
+        logger.info("RETENTION_HOUR is not set: no retention periods are applied")
     if not loops:
         logger.info("Nothing to run: federation, the task loop and mail are off")
         return

@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/auth/context';
+import { momentOf, useMoments, useStand } from '@/features/chronicle/api';
+import { ChronicleView } from '@/features/chronicle/ChronicleView';
+import { RemoveTextSheet } from '@/features/chronicle/RemoveTextSheet';
 import { useInstance } from '@/layout/useInstance';
 import { Button } from '@/features/team/ui/controls';
-import { ActionBar } from '@/ui/ActionBar';
+import { ActionBar, type ActionBarFilter } from '@/ui/ActionBar';
 import { EmptyNotice, LoadError, Loading, Page, Quiet, Stack, NoAccess } from '@/ui/layout';
 import {
   HISTORY_KEYS,
@@ -157,10 +160,111 @@ export function CaseHistory({ kind, caseId }: { kind: CaseKind; caseId: string }
   );
 }
 
+const SHOW_PARAM = 'toon';
+const SHOW_CHANGES = 'wijzigingen';
+const SHOW_MOMENTS = 'momenten';
+const SHOW_CASE_OPTIONS = [
+  { value: SHOW_MOMENTS, label: 'Momenten' },
+  { value: SHOW_CHANGES, label: 'Wijzigingen' },
+];
+
+/** The bar over one moment: the beheerder may take a typed text out of it. */
+function MomentBar({
+  assignmentId,
+  seq,
+  filters,
+}: {
+  assignmentId: string;
+  seq: number;
+  filters: readonly ActionBarFilter[];
+}) {
+  const stand = useStand(assignmentId, seq);
+  const [removing, setRemoving] = useState(false);
+  const texts = stand.isPlaceholderData ? [] : (stand.data?.removable_texts ?? []);
+  return (
+    <>
+      <ActionBar
+        label="Geschiedenis filteren"
+        filters={filters}
+        {...(texts.length > 0
+          ? {
+              more: {
+                name: 'dit moment',
+                actions: [{ text: 'Verwijder een tekst', onSelect: () => setRemoving(true) }],
+              },
+            }
+          : {})}
+      />
+      <RemoveTextSheet
+        assignmentId={assignmentId}
+        seq={seq}
+        texts={texts}
+        open={removing}
+        onClose={() => setRemoving(false)}
+      />
+    </>
+  );
+}
+
 /** The tab "Geschiedenis" of an assignment. */
 export function AssignmentHistoryTab() {
   const { assignmentId = '' } = useParams();
-  return <CaseHistory kind="assignment" caseId={assignmentId} />;
+  const [params, setParams] = useSearchParams();
+  const chronicle = useMoments(assignmentId);
+  const filters = useMemo(
+    () => ({ case_kind: 'assignment' as const, case_id: assignmentId }),
+    [assignmentId],
+  );
+  const seq = momentOf(params);
+  const show =
+    seq === null && params.get(SHOW_PARAM) === SHOW_CHANGES ? SHOW_CHANGES : SHOW_MOMENTS;
+  const setShow = (value: string) => {
+    const next = new URLSearchParams();
+    if (value === SHOW_CHANGES) next.set(SHOW_PARAM, SHOW_CHANGES);
+    setParams(next);
+  };
+
+  const barFilters = [
+    {
+      label: 'Toon',
+      value: show,
+      onChange: setShow,
+      options: SHOW_CASE_OPTIONS,
+      width: '200px',
+    },
+  ];
+
+  if (chronicle.isPending || chronicle.isError) {
+    return (
+      <nldd-simple-section>
+        {chronicle.isError ? (
+          <LoadError error={chronicle.error} retry={() => void chronicle.refetch()} />
+        ) : (
+          <Loading />
+        )}
+      </nldd-simple-section>
+    );
+  }
+  const moments = chronicle.data.items;
+  if (moments.length === 0 && seq === null) {
+    return <CaseHistory kind="assignment" caseId={assignmentId} />;
+  }
+  return (
+    <nldd-simple-section>
+      <Stack gap="group">
+        {seq === null ? (
+          <ActionBar label="Geschiedenis filteren" filters={barFilters} />
+        ) : (
+          <MomentBar assignmentId={assignmentId} seq={seq} filters={barFilters} />
+        )}
+        {show === SHOW_CHANGES ? (
+          <HistoryList filters={filters} label="Geschiedenis" show="changes" />
+        ) : (
+          <ChronicleView assignmentId={assignmentId} moments={moments} seq={seq} />
+        )}
+      </Stack>
+    </nldd-simple-section>
+  );
 }
 
 /** The tab "Geschiedenis" of a vacancy. */

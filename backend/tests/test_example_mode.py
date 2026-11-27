@@ -12,6 +12,7 @@ from grip.api.routes import auth as auth_routes
 from grip.core import example
 from grip.core.auth import DEV_PERSON_COOKIE, resolve_person
 from grip.core.config import Settings
+from grip.events import chain, stream
 from grip.events import context as event_context
 from grip.models.instance_setting import InstanceSetting
 from grip.models.person import Person
@@ -236,19 +237,24 @@ async def test_a_listed_visitor_comes_in_as_an_example_person(db_session, provid
     assert response.headers["location"] == "https://grip.example"
     default = await example.default_person(db_session)
     assert session["person_id"] == str(default.id)
+    visit = session[example.VISITOR_SESSION_KEY]["visit"]
     assert session[example.VISITOR_SESSION_KEY] == {
         "email": "bezoeker@voorbeeld.example",
         "name": "Be Zoeker",
+        "visit": visit,
     }
     # No person record was made for the visitor.
     people = (await db_session.execute(select(Person))).scalars().all()
     assert all(p.email != "bezoeker@voorbeeld.example" for p in people)
     (event,) = await _login_events(db_session)
     assert event.type == "login.visited"
+    # Only in the values, which can be erased: the chain holds a digest of them.
     assert event.payload == {
         "email": "bezoeker@voorbeeld.example",
         "as": str(default.id),
+        "visit": visit,
     }
+    assert b"voorbeeld.example" not in chain.canonical_form(stream.columns_of(event))
 
     status = await auth_routes.auth_status(_request(session), db_session, settings)
     assert status.authenticated and status.example
@@ -300,6 +306,7 @@ async def _visitor_session(db_session, settings) -> dict[str, Any]:
         example.VISITOR_SESSION_KEY: {
             "email": "bezoeker@voorbeeld.example",
             "name": "Be Zoeker",
+            "visit": "eenbezoek",
         },
     }
 
@@ -319,7 +326,9 @@ async def test_a_visitor_chooses_whom_to_look_as(db_session, provider):
     assert status.person.id == other.id and status.example_visitor == "Be Zoeker"
     (event,) = await _login_events(db_session)
     assert event.type == "login.switched"
-    assert event.payload == {"email": "bezoeker@voorbeeld.example", "as": str(other.id)}
+    # The key of the visit, as on what the visitor does: the address stays in
+    # login.visited only.
+    assert event.payload == {"visit": "eenbezoek", "as": str(other.id)}
     # Recorded as done by the example person, through the real login.
     assert event.actor_person_id is None or event.actor_ref
 
@@ -361,7 +370,9 @@ async def test_what_a_visitor_does_carries_both_identities(db_session, provider)
     rows = (await db_session.execute(select(StreamEvent))).scalars().all()
     event = next(row for row in rows if row.type == "person.updated")
     assert event.actor_person_id == person.id
-    assert event.actor_ref == "bezoeker:bezoeker@voorbeeld.example"
+    # A column the chain hashes cannot be erased: a key of the visit, no address.
+    assert event.actor_ref == "bezoeker:eenbezoek"
+    assert "voorbeeld.example" not in event.actor_ref
 
 
 async def test_only_a_visitor_of_an_example_reaches_the_choice(db_session, provider):

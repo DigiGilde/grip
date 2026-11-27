@@ -38,6 +38,9 @@ UI-termen zijn Nederlands; code en schema gebruiken de Engelse naam.
 | Aanlevering | `billing_delivery` | Wat voor één factuurperiode aan de financiële administratie is gegeven, met het factuurverzoek als bewaard document |
 | Factuurverzoek | `factuurverzoek` | Het document van een aanlevering: bedrag, factuuradres, afspraak en specificatie per maand |
 | Nog aan te leveren | `to_deliver` | De vastgestelde inzet van afgesloten maanden, geprijsd, min wat is aangeleverd |
+| Moment | `Gram`, type `chronolexogram.<feit>` | Eén vastgelegd feit op het pad naar een opdracht: wie stelde wat vast, wanneer. Zie [kroniek.md](kroniek.md) |
+| Stand op ... | `fold`, `Ledger` | Hoe opdracht, begroting, offerte en verloop er op een moment voorstonden, afgeleid uit de feiten tot en met dat moment |
+| Besluit | `decretogram` | Een feit waarin wie het vaststelt hier zelf besluit. Een besluit dat elders is genomen en hier alleen wordt vastgelegd (een pdf, een binnenkomend akkoord, een afwijzing die iemand voor een ander noteert) is er geen. De andere soorten (`executogram`, `lexogram`, `general`) krijgen geen merkteken op het scherm |
 | Gefactureerd | `invoiced` | Er is een factuur verstuurd. Grip weet dat alleen doordat iemand het heeft vastgelegd; tot dan heet geen bedrag gefactureerd |
 | Nog te factureren | `to_invoice` | Aangeleverd min gefactureerd: aangeleverd, en in grip nog geen factuur vastgelegd |
 | Potentiële opdracht | `phase: potential` | Een opdracht zonder akkoord van de opdrachtgever, ook als haar laatste offerte is afgewezen. Haar bedragen tellen nooit mee in het lopende werk en staan apart, onder "Potentieel" of "Potentiële opdrachten"; inzet erop is onder voorbehoud. In de code heet dat `pipeline`; op het scherm staat dat woord niet |
@@ -89,6 +92,11 @@ UI-termen zijn Nederlands; code en schema gebruiken de Engelse naam.
 | Wat is er gebeurd | `updates` | Het nieuws voor de lezer: een selectie uit de gebeurtenissen die hem aangaan. Zie ADR 0043 |
 | Passkey | `passkey_credential` | Een sleutel op het eigen apparaat, om opnieuw in te loggen en om een besluit te bevestigen. Onder "Beveiliging" in het accountmenu |
 | Afzender | `quote.sender` | De gegevens van de organisatie op een offerte: naam, waar ze deel van is, adressen, contactpersoon en ondertekenaar. Onder Beheer |
+| Dossier sluiten, Gesloten op | `dossier_closed`, `dossier_closed_on` | Het dossier van een afgeronde, verantwoorde of geannuleerde opdracht sluiten, op een dag tot en met vandaag en niet voor de laatste wijziging aan de opdracht. Vanaf die dag loopt de bewaartermijn, en de opdracht verandert niet meer. Niet te verwarren met de fase Afgesloten (de status) of een afgesloten maand. Zie ADR 0057 |
+| Heropen dossier | `dossier_reopened` | Een gesloten dossier weer openen, zodat de opdracht kan veranderen. Er loopt dan geen bewaartermijn meer. Alleen de beheerder doet het, met een reden die in de kroniek komt |
+| Houd dossier open | `dossier_kept_open` | Vastleggen dat een dossier open blijft, na het voorstel om het te sluiten. Het telt als activiteit: het volgende voorstel komt pas na een nieuwe periode zonder wijziging |
+| Verwijder een tekst, Tekst verwijderd | `restate_fact`, `fact_restated` | Een getypte tekst die er nooit in hoorde uit een moment halen. Grip wist het feit en legt het opnieuw vast zonder die tekst: het herstelfeit. Alleen de beheerder. Zie ADR 0057 en `docs/kroniek.md` |
+| Voorstel om het dossier te sluiten | `dossier_due`, taakfeit `dossier_due_for_closing` | Een afgesloten opdracht met een open dossier die een jaar (instelling `dossier.propose_close_after_days`) niet is gewijzigd door een persoon of een andere organisatie. De eigenaar krijgt de taak "Sluit het dossier"; na `dossier.close_after_proposal_days` dagen sluit grip het dossier zelf |
 | Stand van zaken | `status_overview` | De startpagina: taken, aandachtspunten, wat er gebeurd is en de cijfers per opdracht. In de hoofdbalk heet ze "Start" |
 
 "Factuur" betekent in Grist een regel aan de inkoopkant, op een kostenpost. Het is geen verkoopfactuur. In grip heet die een factuurregel op een kostenpost. Wat grip richting de opdrachtgever oplevert heet factuurgegevens.
@@ -170,7 +178,7 @@ Grip leest omschrijving, bedrag en factuurregels bij de uitvoerder, met één ve
 |---|---|
 | `peer` | Een andere instantie of een corpus: peer-id, organisatie, contract |
 | `federation_outbox` | Uitgaande berichten, verstuurd door een worker |
-| `federation_inbox` | Inkomende berichten, idempotent op bericht-UUID |
+| `federation_inbox` | Inkomende berichten, idempotent op bericht-UUID, met de parameters uit het pad. Een bericht dat in de inhaalronde onverwacht faalt, blijft staan; de berichten erna gaan door |
 | `stream_event` | De stroom van gebeurtenissen: wie, wanneer, oude en nieuwe waarde, de gegevensklasse per veld en de keten van hashes. Het auditlog is een weergave hiervan (ADR 0028) |
 | `task`, `task_case` | Taken en de zaken waar ze bij horen (ADR 0024) |
 | `signing_intent`, `decision_evidence` | Het voornemen tot een besluit en het bewijs erbij (ADR 0029) |

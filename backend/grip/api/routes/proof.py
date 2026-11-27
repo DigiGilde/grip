@@ -203,9 +203,14 @@ async def create_signing_intent(
     if assignment is None:
         raise NotFoundError("Opdracht", quote.assignment_id)
     # On whose behalf: the client of the assignment, as an acceptance
-    # through the signing link has always recorded it.
-    organisation = await quote_views.client_reference(
-        db, assignment, body.organisation_name or signer.name
+    # through the signing link has always recorded it. Without a client, whoever
+    # accepts names the organisation; a rejection can do without one.
+    organisation = (
+        await quote_views.client_reference(db, assignment, body.organisation_name)
+        if body.decision == "accept"
+        or assignment.client_organisation_id is not None
+        or body.organisation_name
+        else None
     )
     person = await db.get(Person, signer.person_id) if signer.person_id else None
     intent = await flow.create_intent(

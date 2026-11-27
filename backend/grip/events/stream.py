@@ -28,8 +28,10 @@ import logging
 import secrets
 import time
 from collections import defaultdict
-from collections.abc import Awaitable, Callable, Mapping
-from datetime import datetime
+from collections.abc import Awaitable, Callable, Iterator, Mapping
+from contextlib import contextmanager
+from contextvars import ContextVar
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -93,6 +95,23 @@ _LOCKED_AT = "grip_events_locked_at"
 LOCK_HELD_WARNING_SECONDS = 0.5
 # The subject kinds of the events a session wrote, in order.
 KINDS_WRITTEN = "grip_events_kinds"
+# Set while one fact writes its rows over more than one flush: what flushes
+# belongs to an event that is already written.
+ACT_OPEN = "grip_events_act_open"
+
+_recording_at: ContextVar[datetime | None] = ContextVar(
+    "grip_events_recording_at", default=None
+)
+
+
+@contextmanager
+def recording_at(moment: datetime) -> Iterator[None]:
+    """Date what this block records. For a walk through example data only."""
+    token = _recording_at.set(moment)
+    try:
+        yield
+    finally:
+        _recording_at.reset(token)
 
 
 # -- handlers ---------------------------------------------------------------
@@ -208,16 +227,23 @@ def append(
 
 
 async def record(
-    session: AsyncSession, event_type: str | None = None, **fields: Any
+    session: AsyncSession,
+    event_type: str | None = None,
+    *,
+    raw_payload: Mapping[str, Any] | None = None,
+    **fields: Any,
 ) -> StreamEvent:
     """Write an event and call the transactional handlers of its type.
 
     A handler that raises aborts the change the event belongs to: an event
-    that cannot be handled must not be lost silently.
+    that cannot be handled must not be lost silently. ``raw_payload`` is what
+    the handlers get when the stored payload holds less.
     """
     event = append(session, event_type, **fields)
     # Handlers get the payload as the caller gave it, not its stored form.
-    event._raw_payload = fields.get("payload")  # type: ignore[attr-defined]
+    event._raw_payload = (  # type: ignore[attr-defined]
+        fields.get("payload") if raw_payload is None else raw_payload
+    )
     for handler in [*_transactional[event.type], *_transactional[ANY]]:
         await handler(session, event)
     return event
@@ -424,6 +450,9 @@ def _seal(session: Session, flush_context: Any, instances: Any) -> None:
     ).first()
     seq, prev = (head[0], head[1]) if head is not None else (0, chain.GENESIS)
     now: datetime = connection.execute(text("SELECT now()")).scalar_one()
+    dated = _recording_at.get()
+    if dated is not None:
+        now = dated.astimezone(UTC)
     for event in pending:
         seq += 1
         # A row that was removed behind the session's back (a table that
@@ -442,6 +471,19 @@ def _seal(session: Session, flush_context: Any, instances: Any) -> None:
     )
     session.info[_COUNT] = session.info.get(_COUNT, 0) + len(pending)
     session.info.setdefault(KINDS_WRITTEN, []).extend(e.subject_kind for e in pending)
+
+
+async def hold_head(session: AsyncSession) -> None:
+    """Take the lock on the head of the stream before a flush would.
+
+    When this returns, whatever was recorded earlier is committed, so a read
+    from here on sees it. Like any statement it first flushes what is pending:
+    call it before changing a row, not after.
+    """
+    await session.execute(
+        text("SELECT pg_advisory_xact_lock(:key)"), {"key": _LOCK_KEY}
+    )
+    session.sync_session.info.setdefault(_LOCKED_AT, time.monotonic())
 
 
 def events_written(session: AsyncSession | Session) -> int:

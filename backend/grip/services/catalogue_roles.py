@@ -17,8 +17,10 @@ from typing import Any
 from sqlalchemy import and_, delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from grip.chronicle.writer import establish
 from grip.core.audit import CREATE, DELETE, UPDATE, record_audit
 from grip.core.config import Settings
+from grip.events import stream
 from grip.integrations.wies.client import (
     WiesNotConfiguredError,
     WiesSkill,
@@ -251,6 +253,9 @@ async def update_role(
     refused = sorted(set(changes) - allowed)
     if refused:
         raise DomainValidationError(f"Niet te wijzigen: {', '.join(refused)}.")
+    # The foreign key carries a new name to the budget lines, and whoever holds
+    # the lock on the stream may be waiting on one of them: the lock comes first.
+    await stream.hold_head(db)
     old: dict[str, Any] = {}
     new: dict[str, Any] = {}
     for key, value in changes.items():
@@ -309,6 +314,9 @@ async def merge_roles(
         raise DomainValidationError(
             "Kies twee verschillende rollen om samen te voegen."
         )
+    # A merge without lines writes the roles before any fact would take the lock
+    # on the stream, and whoever holds it may be waiting on those rows.
+    await stream.hold_head(db)
     source = await get_role(db, source_id)
     target = await get_role(db, target_id)
     if source.wies_public_id and target.wies_public_id:
@@ -318,16 +326,35 @@ async def merge_roles(
         )
     source_name, source_wies = source.name, source.wies_public_id
 
-    result = await db.execute(
-        update(BudgetLine)
-        .where(BudgetLine.role_id == source.id)
-        .values(role_id=target.id, role=target.name)
-        .execution_options(synchronize_session=False)
-    )
-    moved = result.rowcount or 0
-    for obj in list(db.sync_session.identity_map.values()):
-        if isinstance(obj, BudgetLine) and obj.role_id == source.id:
-            await db.refresh(obj, ["role", "role_id"])
+    lines = (
+        await db.execute(
+            select(BudgetLine.id, BudgetLine.assignment_id)
+            .where(BudgetLine.role_id == source.id)
+            .order_by(BudgetLine.assignment_id, BudgetLine.position, BudgetLine.id)
+        )
+    ).all()
+    moved = len(lines)
+    by_assignment: dict[uuid.UUID, list[uuid.UUID]] = {}
+    for line_id, assignment_id in lines:
+        by_assignment.setdefault(assignment_id, []).append(line_id)
+    for assignment_id, line_ids in by_assignment.items():
+        await establish(
+            db,
+            "budget_lines_role_merged",
+            assignment_id=assignment_id,
+            actor=actor,
+            fields={"line_ids": line_ids, "role_id": target.id, "role": target.name},
+        )
+        for line_id in line_ids:
+            record_audit(
+                db,
+                actor=actor,
+                action=UPDATE,
+                entity="budget_line",
+                entity_id=line_id,
+                old_value={"role": source_name},
+                new_value={"role": target.name},
+            )
     # People who had the source get the target, once.
     has_target = select(PersonCatalogueRole.person_id).where(
         PersonCatalogueRole.role_id == target.id
@@ -346,6 +373,8 @@ async def merge_roles(
         .values(role_id=target.id)
         .execution_options(synchronize_session=False)
     )
+    # The lines must have left the source first: the foreign key restricts.
+    await db.flush()
     await db.execute(delete(CatalogueRole).where(CatalogueRole.id == source.id))
     await db.flush()
     db.sync_session.expunge(source)
@@ -405,6 +434,8 @@ async def apply_wies_skills(
         raise DomainValidationError(
             "Wies gaf geen enkele rol terug. Er is niets gewijzigd."
         )
+    # A skill renamed in Wies renames budget lines too: as in ``update_role``.
+    await stream.hold_head(db)
     roles = list((await db.execute(select(CatalogueRole))).scalars().all())
     by_wies = {r.wies_public_id: r for r in roles if r.wies_public_id}
     by_name = {r.name.lower(): r for r in roles}

@@ -29,6 +29,10 @@ export interface AssignmentSummary {
   /** Latest quote, or the budget without one; only for a potential assignment. */
   pipeline_amount_cents?: number | null;
   pipeline_amount_source?: 'quote' | 'budget' | null;
+  /** The day the dossier closed; null while it is open. */
+  dossier_closed_on?: string | null;
+  /** Ended, open, and quiet for long enough that closing is proposed. */
+  dossier_due?: boolean;
 }
 
 export interface AssignmentList {
@@ -69,6 +73,10 @@ export interface AssignmentPermissions {
   read_roster: boolean;
   /** May assign owner and managers, also without any other edit right. */
   manage_roles?: boolean;
+  /** May close the dossier or keep it open; also the beheerder. */
+  close_dossier?: boolean;
+  /** May reopen a closed dossier, with a reason: the beheerder. */
+  reopen_dossier?: boolean;
 }
 
 export interface AssignmentDetail extends AssignmentSummary {
@@ -252,6 +260,24 @@ export const transitionAssignment = (id: string, target: string, reason?: string
     target,
     ...(reason ? { reason } : {}),
   });
+
+/** `closedOn` is the day the dossier closes, yyyy-mm-dd; today when absent. */
+export const closeDossier = (id: string, closedOn: string, version?: number) =>
+  apiPost<AssignmentDetail>(
+    `/api/assignments/${id}/dossier/close`,
+    { closed_on: closedOn },
+    ifMatch(id, version),
+  );
+
+export const reopenDossier = (id: string, reason: string, version?: number) =>
+  apiPost<AssignmentDetail>(
+    `/api/assignments/${id}/dossier/reopen`,
+    { reason },
+    ifMatch(id, version),
+  );
+
+export const keepDossierOpen = (id: string) =>
+  apiPost<AssignmentDetail>(`/api/assignments/${id}/dossier/keep-open`, {});
 
 export const setAssignmentRole = (id: string, personId: string, role: string, version?: number) =>
   apiPut<AssignmentDetail>(

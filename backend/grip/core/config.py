@@ -270,6 +270,10 @@ class Settings(BaseSettings):
     # line with the facts (a month that ended, a deadline that passed).
     # Zero switches the loop off; reading tasks still evaluates them.
     TASKS_EVALUATE_INTERVAL_SECONDS: int = 300
+    # The hour (0 to 23, on the instance's calendar) at which the worker
+    # applies the retention periods once a day (grip.services.retention).
+    # Empty: never.
+    RETENTION_HOUR: str = "4"
 
     # The event stream as other systems read it (docs/gebeurtenissen.md).
     # EVENTS_FEED_KEY: the key a system presents to read the feed. Empty
@@ -490,6 +494,27 @@ class Settings(BaseSettings):
         self.PUSH_VAPID_PRIVATE_KEY = ""
         self.LETTERHEAD_LOGO_PATH = ""
         self.DOCUMENT_FONT_DIR = ""
+        return self
+
+    @model_validator(mode="after")
+    def _validate_retention_hour(self) -> "Settings":
+        hour = self.RETENTION_HOUR.strip()
+        if hour and not (hour.isascii() and hour.isdigit() and 0 <= int(hour) <= 23):
+            raise ValueError("RETENTION_HOUR is een heel uur van 0 tot en met 23.")
+        reset = self.EXAMPLE_RESET_HOUR.strip()
+        if (
+            self.is_example
+            and hour
+            and reset.isascii()
+            and reset.isdigit()
+            and int(reset) == int(hour)
+        ):
+            # The reset truncates the tables the round works on.
+            raise ValueError(
+                "RETENTION_HOUR valt samen met EXAMPLE_RESET_HOUR; kies een "
+                "ander uur, zodat de bewaarronde niet tegelijk met het "
+                "terugzetten draait."
+            )
         return self
 
     @property

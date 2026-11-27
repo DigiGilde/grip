@@ -31,7 +31,7 @@ from grip.schema.month_close import (
     MonthTimelineOut,
     ReopenMonthIn,
 )
-from grip.services import month_close, month_overview, quote_views
+from grip.services import guards, month_close, month_overview, quote_views
 from grip.services.assignments import get_assignment
 from grip.services.errors import DomainValidationError
 from grip.services.phase import allows_month_close
@@ -61,8 +61,13 @@ async def _detail(
     month: calc.Month,
 ) -> dict[str, Any]:
     detail = await month_overview.month_detail(db, assignment_id, month)
-    may_close = bool(await decide(decider, subject, Action.CLOSE_MONTH, resource))
-    may_reopen = bool(await decide(decider, subject, Action.REOPEN_MONTH, resource))
+    open_dossier = not await guards.dossier_closed(db, assignment_id)
+    may_close = open_dossier and bool(
+        await decide(decider, subject, Action.CLOSE_MONTH, resource)
+    )
+    may_reopen = open_dossier and bool(
+        await decide(decider, subject, Action.REOPEN_MONTH, resource)
+    )
     value = MonthDetailOut(
         assignment_id=assignment_id,
         month=str(month),
@@ -119,7 +124,8 @@ async def month_timeline(
         assignment_id=assignment.id,
         assignment_name=assignment.name,
         closing_started=allows_month_close(assignment.status),
-        may_close=bool(await decide(decider, subject, Action.CLOSE_MONTH, resource)),
+        may_close=assignment.dossier_closed_on is None
+        and bool(await decide(decider, subject, Action.CLOSE_MONTH, resource)),
         months=[
             MonthStateOut(
                 month=str(state.month),

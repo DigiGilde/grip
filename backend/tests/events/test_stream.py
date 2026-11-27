@@ -26,6 +26,39 @@ async def _count(db, kind: str) -> int:
 # -- the record ---------------------------------------------------------------
 
 
+@pytest.mark.parametrize(
+    ("event_type", "left_out"),
+    (
+        (events.ASSIGNMENT_REQUEST_CREATED, ("name", "description")),
+        (events.QUOTE_ISSUED, ("snapshot",)),
+        (events.QUOTE_ACCEPTED, ("signer", "jws")),
+        (events.QUOTE_REJECTED, ("reason",)),
+        (events.ASSIGNMENT_STATUS_CHANGED, ("reason",)),
+    ),
+)
+async def test_what_a_row_holds_stays_out_of_the_stored_event(
+    db_session, event_type, left_out
+):
+    seen = []
+
+    async def handler(_session, _event_type, payload):
+        seen.append(payload)
+
+    payload = {"form": "uploaded_pdf", **dict.fromkeys(left_out, "Voorbeeldnaam")}
+    events.register_handler(event_type, handler)
+    try:
+        await events.emit(db_session, event_type, payload)
+        await db_session.flush()
+    finally:
+        events.unregister_handler(event_type, handler)
+
+    assert seen == [payload]
+    stored = await db_session.scalar(
+        select(StreamEvent).where(StreamEvent.type == event_type)
+    )
+    assert stored.payload == {"form": "uploaded_pdf"}
+
+
 async def test_an_event_carries_the_whole_record(db_session, world):
     with context.scope(correlation_id="ab" * 16):
         context.set_person(world.owner.id)

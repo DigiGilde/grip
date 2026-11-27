@@ -15,13 +15,14 @@ from urllib.parse import parse_qs, urlsplit
 import pytest
 from sqlalchemy import select
 
+from grip.core import clock
 from grip.federation import signing, terms
 from grip.federation.contract_loader import validation_errors
 from grip.federation.events import register_event_handlers
 from grip.federation.models import FederationOutbox
 from grip.models.billing_delivery import BillingTerms, ClientBillingDetails
 from grip.models.quote import Quote
-from grip.services import quotes
+from grip.services import assignments, dossiers, quotes
 
 DETAILS = {
     "organisation": "Voorbeelddirectie",
@@ -214,6 +215,29 @@ async def test_a_new_billing_address_needs_the_address_and_the_right(
     assert await _queued(db_session, "sendBillingDetails") == []
     assert await db_session.get(ClientBillingDetails, received.assignment.id) is None
     assert (await db_session.get(Quote, received.quote.id)).status == "issued"
+
+
+async def test_a_closed_dossier_gives_no_new_billing_address(
+    client, db_session, cast, act_as, received, federated
+):
+    """ADR 0057: the client's own dossier, once closed, changes nothing."""
+    register_event_handlers()
+    await assignments.transition(
+        db_session, received.assignment.id, "cancelled", actor=None
+    )
+    await dossiers.close_dossier(
+        db_session, received.assignment.id, actor=None, closed_on=clock.today()
+    )
+    await db_session.flush()
+    path = f"/api/client/assignments/{received.assignment.id}"
+    owner = act_as(cast.requester)
+    assert (await owner.get(path)).json()["may_give_billing_details"] is False
+
+    refused = await owner.put(f"{path}/billing-details", json=DETAILS)
+    assert refused.status_code == 409, refused.text
+    assert "Het dossier is gesloten" in refused.text
+    assert await _queued(db_session, "sendBillingDetails") == []
+    assert await db_session.get(ClientBillingDetails, received.assignment.id) is None
 
 
 async def test_a_contractor_in_this_same_instance_takes_them_right_away(

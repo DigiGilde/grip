@@ -210,6 +210,7 @@ async def receive(
         operation=op.operation_id,
         payload_hash=digest,
         payload=payload,
+        path_parameters=path_parameters or {},
         received_at=datetime.now(UTC),
     )
     try:

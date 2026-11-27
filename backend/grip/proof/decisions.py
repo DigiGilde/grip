@@ -48,6 +48,7 @@ async def execute(
             form="signing_link",
             actor=person,
             signed_at=values["decided_at"],
+            declared_mandate=bool(intent.params.get("confirm_mandate")),
             **proof,
         )
         if details:

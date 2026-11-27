@@ -713,7 +713,9 @@ async def resolve_person(
             session.clear()
             return None
 
-        event_context.set_visitor(f"bezoeker:{visitor.get('email', '')}")
+        # The chain cannot forget what it hashes, so it holds a key of this visit.
+        # Which address had that key stays in the values of login.visited.
+        event_context.set_visitor(f"bezoeker:{visitor.get('visit', '')}")
     elif isinstance(visitor, dict):
         # Left over from an example instance: never a session for real work.
         return None

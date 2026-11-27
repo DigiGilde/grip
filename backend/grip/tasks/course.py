@@ -9,7 +9,7 @@ and cannot disagree. Nothing here is stored.
 from __future__ import annotations
 
 from collections.abc import Iterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date
 from uuid import UUID
 
@@ -19,7 +19,7 @@ from sqlalchemy.orm import selectinload
 
 from grip.core import clock
 from grip.models.task import Task, TaskCase
-from grip.tasks import service
+from grip.tasks import catalogue, engine, service, telling
 from grip.tasks.access import TaskAccess
 from grip.tasks.cases import (
     CaseSnapshot,
@@ -377,6 +377,55 @@ def views_of(work: _CaseWork) -> list[CourseView]:
             ),
         )
     return result
+
+
+def _watching(
+    snapshot: CaseSnapshot, plan: Plan, wanted: engine._Wanted
+) -> service.TaskView:
+    """A task the plan asks for, as someone with no part in the case hears it.
+
+    The task is never added to a session: it has no id and no moment it began.
+    """
+    task = Task(**engine.task_values(snapshot, plan, wanted))
+    return service.TaskView(
+        task=task,
+        case_label="Vacature" if snapshot.case_kind == "vacancy" else "Opdracht",
+        assignment_name=None,
+        vacancy_title=None,
+        track_label=plan.track_label(snapshot.case_kind, task.track),
+        assignee_name=None,
+        assignee_label=catalogue.ROLE_LABELS.get(task.assignee_role or "", "Niemand"),
+        completed_by_name=None,
+        is_mine=False,
+        can_change=False,
+        has_part=False,
+        can_take_over=False,
+        can_complete=False,
+        closes_by_fact=service.closes_by_fact_only(task),
+        closing_fact_label=catalogue.FACT_LABELS.get(task.closing_fact or ""),
+        overdue=False,
+        telling=telling.tell_watcher(task, wanted.subject.variables),
+    )
+
+
+def at_moment(
+    snapshot: CaseSnapshot, plan: Plan, wanted: list[engine._Wanted]
+) -> list[CourseView]:
+    """The course of a case from the facts of a moment, told to nobody in
+    particular. ``wanted`` is what ``engine.asked_for`` gives for this snapshot.
+    """
+    courses = views_of(
+        _CaseWork(
+            snapshot=snapshot,
+            plan=plan,
+            views=[_watching(snapshot, plan, item) for item in wanted],
+        )
+    )
+    if not holds("started", snapshot):
+        return courses
+    # Whose turn it is after the start rests on month closes and reports, and
+    # who reads a moment does not have those.
+    return [replace(view, next=None, more_to_do=0, more_waiting=0) for view in courses]
 
 
 async def _snapshots(

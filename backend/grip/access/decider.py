@@ -140,10 +140,11 @@ class LocalDecider:
                 if BEHEERDER in functions
                 else deny(_NO_GRANT)
             )
-        if action is Action.MANAGE_ROLES:
-            # Who owns or manages an assignment is decided by whoever already
-            # does, and by the beheerder on any assignment: an owner may have
-            # left. The relation is checked first, so the reason says when the
+        if action is Action.MANAGE_ROLES or action is Action.CLOSE_DOSSIER:
+            # Who owns or manages an assignment, and whether its dossier closes
+            # or stays open, is decided by whoever already owns or manages it,
+            # and by the beheerder on any assignment: an owner may have left.
+            # The relation is checked first, so the reason says when the
             # beheerder acted on the function alone.
             if (
                 req.resource.kind is not ResourceKind.ASSIGNMENT
@@ -156,6 +157,32 @@ class LocalDecider:
             if BEHEERDER in functions:
                 return allow("function:beheerder")
             return deny(_NO_GRANT)
+        if action is Action.REOPEN_DOSSIER:
+            # Like reopening a month, for whoever keeps the instance: the owner
+            # and the managers close a dossier, but do not open it again.
+            if (
+                req.resource.kind is not ResourceKind.ASSIGNMENT
+                or req.resource.assignment_id is None
+            ):
+                return deny("not_applicable")
+            return (
+                allow("function:beheerder")
+                if BEHEERDER in functions
+                else deny(_NO_GRANT)
+            )
+        if action is Action.RESTATE_FACT:
+            # Taking a text out of the record of a case is for whoever keeps the
+            # instance, not for whoever runs the case.
+            if (
+                req.resource.kind is not ResourceKind.ASSIGNMENT
+                or req.resource.assignment_id is None
+            ):
+                return deny("not_applicable")
+            return (
+                allow("function:beheerder")
+                if BEHEERDER in functions
+                else deny(_NO_GRANT)
+            )
         if action is Action.RECORD_INVOICE:
             # Whoever manages the assignment, and the beheerder.
             if BEHEERDER in functions:

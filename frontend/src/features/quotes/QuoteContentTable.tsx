@@ -1,6 +1,6 @@
 import { formatDate, formatEuro, formatFte, formatPeriod } from '@/lib/format';
 import type { QuoteContent, QuoteLine } from './api';
-import { scaleText } from './format';
+import { nameSaysRole, scaleText } from './format';
 import './register';
 
 /** The rate, and under it the later rates when a rate card changes inside the line. */
@@ -61,7 +61,7 @@ export function QuoteContentTable({ content, label }: { content: QuoteContent; l
             <nldd-text-cell
               hide-below="md"
               text={line.description}
-              {...(line.role && line.role !== line.description
+              {...(line.role && !nameSaysRole(line.description, line.role)
                 ? { 'supporting-text': line.role }
                 : {})}
             />

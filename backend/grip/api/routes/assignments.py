@@ -21,6 +21,8 @@ from grip.schema.assignments import (
     AssignmentPermissionsOut,
     AssignmentSummaryOut,
     AssignmentUpdate,
+    DossierCloseIn,
+    DossierReopenIn,
     PersonOptionOut,
     RoleHolderOut,
     RoleIn,
@@ -28,7 +30,7 @@ from grip.schema.assignments import (
 )
 from grip.services import assignment_views as views
 from grip.services import assignments as service
-from grip.services import internal_judges
+from grip.services import dossiers, internal_judges
 from grip.services.phase import Phase, phase_of
 
 router = APIRouter(tags=["assignments"])
@@ -40,7 +42,10 @@ _DETAIL_CLASSES = schema_classes(AssignmentDetailOut)
 
 
 def _summary_fields(
-    row: views.AssignmentRow, budgeted_cents: int | None = None
+    row: views.AssignmentRow,
+    budgeted_cents: int | None = None,
+    *,
+    dossier_due: bool = False,
 ) -> dict[str, Any]:
     """The fields of a summary.
 
@@ -77,13 +82,20 @@ def _summary_fields(
         "quoted_amount_cents": a.quoted_amount_cents,
         "pipeline_amount_cents": pipeline_cents,
         "pipeline_amount_source": pipeline_source,
+        "dossier_closed_on": a.dossier_closed_on,
+        "dossier_due": dossier_due,
     }
 
 
-async def _detail(row: views.AssignmentRow, access: RequestAccess) -> dict[str, Any]:
+async def _detail(
+    row: views.AssignmentRow, access: RequestAccess, db: DbSession
+) -> dict[str, Any]:
     a = row.assignment
     resource = Resource.assignment(a.id)
-    edit_basic = await access.may(Action.EDIT, resource, A)
+    # A closed dossier refuses every change until it is reopened, so no screen
+    # offers one.
+    open_dossier = a.dossier_closed_on is None
+    edit_basic = open_dossier and await access.may(Action.EDIT, resource, A)
     me = access.subject.person_id
     relations = [r.role for r in row.roles if me is not None and r.person_id == me]
     if not relations and a.id in await access.own_assignment_ids():
@@ -92,7 +104,7 @@ async def _detail(row: views.AssignmentRow, access: RequestAccess) -> dict[str, 
         # No relation of their own: they read it from a function in grip.
         relations = [f"function:{name}" for name in sorted(access.subject.functions)]
     model = AssignmentDetailOut(
-        **_summary_fields(row),
+        **_summary_fields(row, dossier_due=await dossiers.dossier_due(db, a)),
         contractor_organisation_id=a.contractor_organisation_id,
         contractor_name=row.contractor_name,
         parent_assignment_uri=a.parent_assignment_uri,
@@ -115,14 +127,18 @@ async def _detail(row: views.AssignmentRow, access: RequestAccess) -> dict[str, 
         viewer_relations=sorted(set(relations)),
         permissions=AssignmentPermissionsOut(
             edit_basic=edit_basic,
-            manage_roles=await access.may(Action.MANAGE_ROLES, resource),
-            edit_financial=await access.may(Action.EDIT, resource, B),
-            edit_staffing=await access.may(Action.EDIT, resource, DataClass.STAFFING),
+            manage_roles=open_dossier
+            and await access.may(Action.MANAGE_ROLES, resource),
+            edit_financial=open_dossier and await access.may(Action.EDIT, resource, B),
+            edit_staffing=open_dossier
+            and await access.may(Action.EDIT, resource, DataClass.STAFFING),
             read_financial=await access.may(Action.READ, resource, B),
             read_staffing=await access.may(Action.READ, resource, DataClass.STAFFING),
             read_roster=await access.may(
                 Action.READ, resource, DataClass.STAFFING_ROSTER
             ),
+            close_dossier=await access.may(Action.CLOSE_DOSSIER, resource),
+            reopen_dossier=await access.may(Action.REOPEN_DOSSIER, resource),
         ),
     )
     return build_response(model, await access.classes(resource, _DETAIL_CLASSES))
@@ -192,10 +208,15 @@ async def list_assignments(
             and row.latest_quote_cents is None
         ],
     )
+    due = await dossiers.due_ids(db, [row.assignment for row, _ in readable])
     items = [
         build_response(
             AssignmentSummaryOut(
-                **_summary_fields(row, budgeted.get(row.assignment.id))
+                **_summary_fields(
+                    row,
+                    budgeted.get(row.assignment.id),
+                    dossier_due=row.assignment.id in due,
+                )
             ),
             permitted,
         )
@@ -232,7 +253,7 @@ async def create_assignment(
         context_refs=body.context_refs,
         owner_id=body.owner_id,
     )
-    return await _detail(await views.assignment_row(db, assignment.id), access)
+    return await _detail(await views.assignment_row(db, assignment.id), access, db)
 
 
 @router.get("/person-options", response_model=None)
@@ -274,7 +295,7 @@ async def get_assignment(
     await access.require(
         Action.READ, Resource.assignment(assignment_id), A, hide_existence=True
     )
-    return await _detail(await views.assignment_row(db, assignment_id), access)
+    return await _detail(await views.assignment_row(db, assignment_id), access, db)
 
 
 @router.patch("/assignments/{assignment_id}", response_model=None)
@@ -296,7 +317,7 @@ async def update_assignment(
         changes["name"] = changes["name"].strip()
     if changes:
         await service.update_assignment(db, assignment_id, actor=person, **changes)
-    return await _detail(await views.assignment_row(db, assignment_id), access)
+    return await _detail(await views.assignment_row(db, assignment_id), access, db)
 
 
 @router.post("/assignments/{assignment_id}/transition", response_model=None)
@@ -313,7 +334,7 @@ async def transition_assignment(
     await service.transition(
         db, assignment_id, body.target, actor=person, reason=body.reason
     )
-    return await _detail(await views.assignment_row(db, assignment_id), access)
+    return await _detail(await views.assignment_row(db, assignment_id), access, db)
 
 
 @router.put("/assignments/{assignment_id}/roles/{person_id}", response_model=None)
@@ -337,7 +358,7 @@ async def set_role(
         as_beheerder=not await access.may(Action.EDIT, resource, A),
     )
     access.forget()
-    return await _detail(await views.assignment_row(db, assignment_id), access)
+    return await _detail(await views.assignment_row(db, assignment_id), access, db)
 
 
 @router.delete("/assignments/{assignment_id}/roles/{person_id}", response_model=None)
@@ -362,4 +383,50 @@ async def remove_role(
     access.forget()
     if not await access.may(Action.READ, resource, A):
         return {"removed": True}
-    return await _detail(await views.assignment_row(db, assignment_id), access)
+    return await _detail(await views.assignment_row(db, assignment_id), access, db)
+
+
+async def _dossier_access(access: RequestAccess, assignment_id: UUID) -> None:
+    resource = Resource.assignment(assignment_id)
+    await access.require(Action.READ, resource, A, hide_existence=True)
+    await access.require(Action.CLOSE_DOSSIER, resource)
+
+
+@router.post("/assignments/{assignment_id}/dossier/close", response_model=None)
+async def close_dossier(
+    assignment_id: UUID,
+    person: CurrentPerson,
+    access: RequestAccess,
+    db: DbSession,
+    body: DossierCloseIn | None = None,
+) -> dict[str, Any]:
+    await _dossier_access(access, assignment_id)
+    closed_on = body.closed_on if body is not None else None
+    await dossiers.close_dossier(
+        db, assignment_id, actor=person, closed_on=closed_on or clock.today()
+    )
+    return await _detail(await views.assignment_row(db, assignment_id), access, db)
+
+
+@router.post("/assignments/{assignment_id}/dossier/reopen", response_model=None)
+async def reopen_dossier(
+    assignment_id: UUID,
+    body: DossierReopenIn,
+    person: CurrentPerson,
+    access: RequestAccess,
+    db: DbSession,
+) -> dict[str, Any]:
+    resource = Resource.assignment(assignment_id)
+    await access.require(Action.READ, resource, A, hide_existence=True)
+    await access.require(Action.REOPEN_DOSSIER, resource)
+    await dossiers.reopen_dossier(db, assignment_id, actor=person, reason=body.reason)
+    return await _detail(await views.assignment_row(db, assignment_id), access, db)
+
+
+@router.post("/assignments/{assignment_id}/dossier/keep-open", response_model=None)
+async def keep_dossier_open(
+    assignment_id: UUID, person: CurrentPerson, access: RequestAccess, db: DbSession
+) -> dict[str, Any]:
+    await _dossier_access(access, assignment_id)
+    await dossiers.keep_dossier_open(db, assignment_id, actor=person)
+    return await _detail(await views.assignment_row(db, assignment_id), access, db)

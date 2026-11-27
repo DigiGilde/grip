@@ -29,14 +29,15 @@ content is frozen at issue and never resolved again.
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from datetime import date
-from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip.calc import Month
+from grip.events import stream
 from grip.models.assignment import Allocation, Assignment, BudgetLine
 from grip.repositories.domain import MonthCloseRepository
 from grip.services.errors import DomainValidationError, MonthClosedError
@@ -194,6 +195,9 @@ async def follow_line(
     if not years:
         return []
     await ensure_years_open(session, years, allow_closed_year=allow_closed_year)
+    # Removing this inzet under the lock on the stream waits on its row: the lock
+    # comes first.
+    await stream.hold_head(session)
     moved = []
     for allocation in followers:
         if (allocation.start_date, allocation.end_date) != new:
@@ -204,19 +208,38 @@ async def follow_line(
     return moved
 
 
+@dataclass(frozen=True)
+class MovedLines:
+    """What the period of an assignment moves along with it."""
+
+    # By the id of the line: the dates it gets. For the fact, which writes them.
+    lines: dict[str, dict[str, date | None]] = field(default_factory=dict)
+    allocations: list[str] = field(default_factory=list)
+
+    def audit(self) -> dict[str, list[str]]:
+        """For the one audit row at the assignment."""
+        if not self.lines:
+            return {}
+        return {
+            "moved_budget_lines": list(self.lines),
+            "moved_allocations": self.allocations,
+        }
+
+
 async def follow_assignment(
     session: AsyncSession,
     assignment: Assignment,
     new: Period,
     *,
     allow_closed_year: bool = False,
-) -> dict[str, Any]:
-    """Give the lines that follow an assignment the period it gets.
+) -> MovedLines:
+    """Say which lines follow an assignment to the period it gets.
 
     Call it before the assignment itself is changed, with the period it will
-    have (both dates, or ``(None, None)``). The inzet that follows those
-    lines moves along. Everything is checked first, so a refusal changes
-    nothing. Returns what moved, for the one audit row at the assignment.
+    have (both dates, or ``(None, None)``). The lines stay as they are: the
+    fact that changes the assignment moves them. The inzet that follows those
+    lines moves here. Everything is checked first, so a refusal changes
+    nothing.
     """
     result = await session.execute(
         select(BudgetLine)
@@ -231,7 +254,7 @@ async def follow_assignment(
         line for line in result.scalars() if (line.start_date, line.end_date) != new
     ]
     if not lines:
-        return {}
+        return MovedLines()
     closed_months = await MonthCloseRepository(session).closed_months(assignment.id)
     years: set[int] = set()
     followers: dict[UUID, list[Allocation]] = {}
@@ -240,19 +263,22 @@ async def follow_assignment(
         followers[line.id] = await _followers(session, line.id)
         years |= _check_move(line, followers[line.id], new, closed_months)
     await ensure_years_open(session, years, allow_closed_year=allow_closed_year)
+    # As in ``follow_line``.
+    await stream.hold_head(session)
     moved_allocations: list[str] = []
     for line in lines:
-        line.start_date, line.end_date = new
         for allocation in followers[line.id]:
             if (allocation.start_date, allocation.end_date) != new:
                 assert new[0] is not None and new[1] is not None
                 allocation.start_date, allocation.end_date = new[0], new[1]
                 moved_allocations.append(str(allocation.id))
     await session.flush()
-    return {
-        "moved_budget_lines": [str(line.id) for line in lines],
-        "moved_allocations": moved_allocations,
-    }
+    return MovedLines(
+        lines={
+            str(line.id): {"start_date": new[0], "end_date": new[1]} for line in lines
+        },
+        allocations=moved_allocations,
+    )
 
 
 async def lines_without_period(

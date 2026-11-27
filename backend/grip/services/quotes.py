@@ -12,7 +12,8 @@ hash, which the database ties to the stored bytes.
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, date, datetime, timedelta
+from collections.abc import Mapping, Sequence
+from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
 from typing import Any
 from uuid import UUID
@@ -21,9 +22,12 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip import calc
+from grip.chronicle.facts import ACCEPTANCE, INVITATION, OFFER, QUOTE, REJECTION
+from grip.chronicle.writer import Established, changes_of, establish, row_of
 from grip.core import clock
 from grip.core.audit import CREATE, UPDATE, record_audit
 from grip.core.config import get_settings
+from grip.events import stream
 from grip.models.assignment import Assignment
 from grip.models.organisation import Organisation
 from grip.models.person import Person
@@ -40,12 +44,13 @@ from grip.models.quote import (
     QuoteRejection,
 )
 from grip.repositories.domain import AssignmentRepository
-from grip.services import events, quote_approval, quote_channels
+from grip.services import events, quote_approval, quote_channels, stale
 from grip.services.assignments import (
+    after_transition,
+    check_transition,
     get_assignment,
+    is_shared_with,
     mint_uri,
-    share_with_instance,
-    transition,
 )
 from grip.services.canonical import (
     canonical_form,
@@ -58,6 +63,11 @@ from grip.services.errors import (
     NotFoundError,
     QuoteAlreadyDecidedError,
     QuoteHashMismatchError,
+)
+from grip.services.guards import (
+    DossierClosedError,
+    dossier_closed,
+    ensure_dossier_open,
 )
 from grip.services.pricing import (
     DEFAULT_OPTIONS,
@@ -130,6 +140,46 @@ def _scales_of(rates: calc.RateBook, day: date, category: str | None) -> list[in
     return sorted(band.scale for band in card.scale_bands if band.category == category)
 
 
+def budget_part(
+    lines: Sequence[QuoteLineSource], rates: calc.RateBook, options: PricingOptions
+) -> dict[str, Any]:
+    """The part of a quote's content that comes from the budget."""
+    subtotals: dict[int, int] = {}
+    for line in lines:
+        for year, cents in calc.budgeted_by_year(
+            to_calc_line(line), rates, partial_months=options.partial_months
+        ).items():
+            subtotals[year] = subtotals.get(year, 0) + cents
+    return {
+        "lines": [_snapshot_line(line, rates, options) for line in lines],
+        "subtotals_per_year": [
+            {"year": year, "amount": _money(cents)}
+            for year, cents in sorted(subtotals.items())
+        ],
+        "total": _money(sum(subtotals.values())),
+    }
+
+
+def _cards_touched(
+    lines: Sequence[QuoteLineSource], rates: calc.RateBook
+) -> list[dict[str, str]]:
+    """The rate cards whose validity meets the period of a priced line."""
+    periods = [
+        (line.start_date, line.end_date)
+        for line in lines
+        if line.kind == "personnel" and line.start_date and line.end_date
+    ]
+    return [
+        {"id": card.id, "name": card.name}
+        for card in rates.cards
+        if (rates.include_draft or card.status is not calc.RateCardStatus.DRAFT)
+        and any(
+            card.valid_from <= end and (card.valid_to is None or card.valid_to >= start)
+            for start, end in periods
+        )
+    ]
+
+
 async def sender_name(session: AsyncSession, assignment: Assignment) -> str:
     """The organisation a quote is sent by: never the name of the software."""
     # What the beheerder set under Beheer goes first; the environment is
@@ -176,21 +226,10 @@ async def build_snapshot(
     # builder never holds a budget line (grip.services.quote_content).
     lines = [line_source(line) for line in budget_lines]
     rates = await load_rate_book(session, include_draft=options.include_draft)
-    subtotals: dict[int, int] = {}
-    for line in lines:
-        for year, cents in calc.budgeted_by_year(
-            to_calc_line(line), rates, partial_months=options.partial_months
-        ).items():
-            subtotals[year] = subtotals.get(year, 0) + cents
     snapshot: dict[str, Any] = {
         "name": assignment.name,
         "context_refs": list(assignment.context_refs or []),
-        "lines": [_snapshot_line(line, rates, options) for line in lines],
-        "subtotals_per_year": [
-            {"year": year, "amount": _money(cents)}
-            for year, cents in sorted(subtotals.items())
-        ],
-        "total": _money(sum(subtotals.values())),
+        **budget_part(lines, rates, options),
     }
     if valid_until is not None:
         snapshot["valid_until"] = valid_until.isoformat()
@@ -221,14 +260,42 @@ async def get_quote(session: AsyncSession, quote_id: UUID) -> Quote:
     return quote
 
 
-async def _supersede_open_quotes(session: AsyncSession, assignment_id: UUID) -> None:
+def _instant(moment: datetime) -> datetime:
+    """A moment given without a zone, read as ``clock.local_date`` reads it."""
+    return moment if moment.tzinfo is not None else moment.replace(tzinfo=UTC)
+
+
+def _start_of(day: date) -> datetime:
+    return datetime.combine(day, time.min, tzinfo=clock.zone())
+
+
+def check_signing_day(quote: Quote, signed_at: datetime) -> None:
+    """Refuse a day of signing that cannot be true: after today, or before the
+    day the quote was made.
+
+    Compared as instants: a moment at the far end of the calendar does not
+    survive ``clock.local_date``.
+    """
+    moment = _instant(signed_at)
+    if moment >= _start_of(clock.today() + timedelta(days=1)):
+        raise DomainValidationError(
+            "Deze datum ligt in de toekomst. Kies de datum van tekenen."
+        )
+    if moment < _start_of(clock.local_date(quote.issued_at)):
+        raise DomainValidationError(
+            "Deze datum ligt voor de dag waarop de offerte is gemaakt. "
+            "Kies de datum van tekenen."
+        )
+
+
+async def _open_quotes(session: AsyncSession, assignment_id: UUID) -> list[UUID]:
+    """The quotes a new quote for this assignment replaces."""
     result = await session.execute(
-        select(Quote).where(
+        select(Quote.id).where(
             Quote.assignment_id == assignment_id, Quote.status == "issued"
         )
     )
-    for quote in result.scalars():
-        quote.status = "superseded"
+    return list(result.scalars())
 
 
 async def issue_quote(
@@ -252,12 +319,16 @@ async def issue_quote(
     offered, through a channel chosen then (``offer_quote``).
     """
     assignment = await get_assignment(session, assignment_id)
+    # Asked again under the lock on the stream once the file is laid out:
+    # laying it out under that lock would keep everyone else from writing.
+    if await dossier_closed(session, assignment.id):
+        raise DossierClosedError()
     if assignment.status not in ("draft", "requested", "quoted", "rejected"):
         raise DomainValidationError(
             f"Voor een opdracht met status '{assignment.status}' kan geen offerte "
             "meer worden gemaakt."
         )
-    issued_at = issued_at or datetime.now(UTC)
+    issued_at = _instant(issued_at or clock.now())
     # The text of the quote, when the assignment has a draft. Checked here
     # in full: a drafted section nobody settled, an empty section or the
     # name of a colleague in the text stops the making.
@@ -289,39 +360,84 @@ async def issue_quote(
         options=options,
         letter=letter,
     )
-    await _supersede_open_quotes(session, assignment_id)
     quote_id = uuid.uuid4()
+    uri = mint_uri("offerte", quote_id)
     # The one moment the canonical form is made. From here on the bytes are
     # the quote; the working data they were built from may change freely.
     canonical = canonical_form(snapshot)
-    quote = Quote(
-        id=quote_id,
-        uri=mint_uri("offerte", quote_id),
-        reference=reference,
-        assignment_id=assignment_id,
-        request_id=request_id,
-        status="issued",
-        canonical=canonical,
-        snapshot_hash=hash_of(canonical),
-        total_cents=snapshot["total"]["amount_cents"],
-        issued_at=issued_at,
-        issued_by_id=actor.id if actor is not None else None,
-        prose_provenance=frozen.provenance if frozen is not None else None,
-    )
-    session.add(quote)
-    assignment.quote_date = clock.local_date(issued_at)
-    await session.flush()
+    quote_hash = hash_of(canonical)
     # The quote is also a file. It is laid out here, once, and kept: what a
     # client later reads and signs are these bytes, whatever the letterhead
     # or the template has become by then. If the file cannot be made, the
     # quote is not made (the error undoes the transaction).
     from grip.services import quote_files
 
-    await quote_files.fix_document(
-        session, quote, origin=quote_files.ORIGIN_ISSUE, now=issued_at
+    document = await quote_files.lay_out(
+        session,
+        quote_files.QuoteSource(
+            id=quote_id,
+            uri=uri,
+            assignment_id=assignment_id,
+            snapshot_hash=quote_hash,
+            issued_at=issued_at,
+            reference=reference,
+            snapshot=read(canonical),
+        ),
+        quote_files.ORIGIN_ISSUE,
+        issued_at,
     )
-    if assignment.status != "quoted":
-        await transition(session, assignment_id, "quoted", actor=actor)
+    await ensure_dossier_open(session, assignment.id)
+    old_status = assignment.status
+    moves = old_status != "quoted"
+    if moves:
+        await check_transition(session, assignment, "quoted", None)
+    budget_lines = await AssignmentRepository(session).budget_lines([assignment_id])
+    rates = await load_rate_book(session, include_draft=options.include_draft)
+    established = await establish(
+        session,
+        "quote_issued",
+        assignment_id=assignment_id,
+        actor=actor,
+        effective_on=clock.local_date(issued_at),
+        basis={
+            "rate_cards": _cards_touched(
+                [line_source(line) for line in budget_lines], rates
+            )
+        },
+        refs={
+            "quote_hash": quote_hash,
+            "document_sha256": document["document_sha256"],
+        },
+        fields={
+            "quote": row_of(
+                Quote,
+                id=quote_id,
+                uri=uri,
+                reference=reference,
+                assignment_id=assignment_id,
+                request_id=request_id,
+                status="issued",
+                canonical=canonical,
+                snapshot_hash=quote_hash,
+                total_cents=snapshot["total"]["amount_cents"],
+                issued_at=issued_at,
+                issued_by_id=actor.id if actor is not None else None,
+                prose_provenance=frozen.provenance if frozen is not None else None,
+                **document,
+            ),
+            "supersedes": await _open_quotes(session, assignment_id),
+            "assignment": changes_of(
+                Assignment,
+                quote_date=clock.local_date(issued_at),
+                **({"status": "quoted"} if moves else {}),
+            ),
+        },
+    )
+    quote: Quote = established.row(QUOTE, quote_id)
+    if moves:
+        await after_transition(
+            session, assignment, old_status, "quoted", None, actor, "local"
+        )
     record_audit(
         session,
         actor=actor,
@@ -367,6 +483,7 @@ async def receive_quote(
     canonical: bytes | None = None,
     snapshot: dict[str, Any] | None = None,
     request_id: UUID | None = None,
+    received: Mapping[str, Any] | None = None,
 ) -> Quote:
     """Client side: record a quote that came in from a contractor.
 
@@ -378,6 +495,9 @@ async def receive_quote(
     A caller on this side that has the content in code names (a quote typed
     over from paper, a test) passes ``snapshot`` instead; the canonical form
     is then made here, as at issue.
+
+    ``received`` names the peer, its message and the organisation that sent it
+    when the quote came in from another instance.
     """
     existing = await session.get(Quote, quote_id)
     if existing is not None:
@@ -395,27 +515,53 @@ async def receive_quote(
             "De ontvangen offerte heeft geen leesbaar totaal."
         ) from exc
     assignment = await get_assignment(session, assignment_id)
-    await _supersede_open_quotes(session, assignment_id)
+    await ensure_dossier_open(session, assignment.id)
+    issued_at = _instant(issued_at)
+    old_status = assignment.status
+    moves = old_status != "quoted"
+    if moves:
+        await check_transition(session, assignment, "quoted", None)
     # The issuing instance's reference, when its quote carries one.
     received_reference = read(canonical).get("reference")
-    quote = Quote(
-        id=quote_id,
-        uri=uri,
-        reference=received_reference if isinstance(received_reference, str) else None,
+    fields: dict[str, Any] = {
+        "quote": row_of(
+            Quote,
+            id=quote_id,
+            uri=uri,
+            reference=received_reference
+            if isinstance(received_reference, str)
+            else None,
+            assignment_id=assignment_id,
+            request_id=request_id,
+            status="issued",
+            canonical=canonical,
+            snapshot_hash=claimed_hash,
+            total_cents=total_cents,
+            issued_at=issued_at,
+            issued_by_id=None,
+        ),
+        "supersedes": await _open_quotes(session, assignment_id),
+        "assignment": changes_of(
+            Assignment,
+            quote_date=clock.local_date(issued_at),
+            **({"status": "quoted"} if moves else {}),
+        ),
+    }
+    if received is not None:
+        fields["received"] = received
+    established = await establish(
+        session,
+        "quote_received",
         assignment_id=assignment_id,
-        request_id=request_id,
-        status="issued",
-        canonical=canonical,
-        snapshot_hash=claimed_hash,
-        total_cents=total_cents,
-        issued_at=issued_at,
-        issued_by_id=None,
+        effective_on=clock.local_date(issued_at),
+        refs={"quote_hash": claimed_hash},
+        fields=fields,
     )
-    session.add(quote)
-    assignment.quote_date = clock.local_date(issued_at)
-    await session.flush()
-    if assignment.status != "quoted":
-        await transition(session, assignment_id, "quoted", actor=None, origin="remote")
+    if moves:
+        await after_transition(
+            session, assignment, old_status, "quoted", None, None, "remote"
+        )
+    quote: Quote = established.row(QUOTE, quote_id)
     return quote
 
 
@@ -424,7 +570,7 @@ INVITATION_DAYS = 30
 
 
 def default_invitation_expiry(now: datetime | None = None) -> datetime:
-    return (now or datetime.now(UTC)) + timedelta(days=INVITATION_DAYS)
+    return (now or clock.now()) + timedelta(days=INVITATION_DAYS)
 
 
 async def get_invitation(
@@ -446,9 +592,19 @@ async def withdraw_invitation(
             "Met deze tekenlink is al getekend; intrekken kan niet meer."
         )
     if invitation.withdrawn_at is None:
-        invitation.withdrawn_at = datetime.now(UTC)
-        invitation.withdrawn_by_id = actor.id if actor is not None else None
-        await session.flush()
+        quote = await get_quote(session, quote_id)
+        await ensure_dossier_open(session, quote.assignment_id)
+        await establish(
+            session,
+            "invitation_withdrawn",
+            assignment_id=quote.assignment_id,
+            actor=actor,
+            fields={
+                "invitation_id": invitation.id,
+                "withdrawn_at": clock.now(),
+                "withdrawn_by_id": actor.id if actor is not None else None,
+            },
+        )
         record_audit(
             session,
             actor=actor,
@@ -467,13 +623,38 @@ async def renew_invitation(
     """Make a signing link work again for the standard period from now."""
     invitation = await get_invitation(session, quote_id, invitation_id)
     quote = await get_quote(session, quote_id)
+    await ensure_dossier_open(session, quote.assignment_id)
     if quote.status != "issued":
         raise QuoteAlreadyDecidedError(quote.status)
+    await _renew(session, quote, invitation, default_invitation_expiry(), actor)
+    return invitation
+
+
+async def _renew(
+    session: AsyncSession,
+    quote: Quote,
+    invitation: QuoteInvitation,
+    expires_at: datetime,
+    actor: Person | None,
+) -> None:
     old = invitation.expires_at
-    invitation.expires_at = default_invitation_expiry()
-    invitation.withdrawn_at = None
-    invitation.withdrawn_by_id = None
-    await session.flush()
+    await establish(
+        session,
+        "invitation_renewed",
+        assignment_id=quote.assignment_id,
+        actor=actor,
+        fields={"invitation_id": invitation.id, "expires_at": expires_at},
+    )
+    _audit_renewal(session, invitation, old, expires_at, actor)
+
+
+def _audit_renewal(
+    session: AsyncSession,
+    invitation: QuoteInvitation,
+    old: datetime | None,
+    expires_at: datetime,
+    actor: Person | None,
+) -> None:
     record_audit(
         session,
         actor=actor,
@@ -481,9 +662,8 @@ async def renew_invitation(
         entity="quote_invitation",
         entity_id=invitation.id,
         old_value={"expires_at": old.isoformat() if old else None},
-        new_value={"expires_at": invitation.expires_at.isoformat()},
+        new_value={"expires_at": expires_at.isoformat()},
     )
-    return invitation
 
 
 async def mark_invitation_opened(
@@ -500,8 +680,22 @@ async def mark_invitation_opened(
     )
     invitation = result.scalar_one_or_none()
     if invitation is not None:
-        invitation.opened_at = datetime.now(UTC)
-        await session.flush()
+        # Two openings at once both get past the question above: ask it again
+        # once whatever was recorded earlier is committed.
+        await stream.hold_head(session)
+        await session.refresh(invitation)
+        if invitation.opened_at is not None or invitation.withdrawn_at is not None:
+            return
+        quote = await get_quote(session, quote_id)
+        if await dossier_closed(session, quote.assignment_id):
+            return
+        opened_at = clock.now()
+        await establish(
+            session,
+            "invitation_opened",
+            assignment_id=quote.assignment_id,
+            fields={"invitation_id": invitation.id, "opened_at": opened_at},
+        )
         # The actor is the guest who opened it (grip.events.context).
         record_audit(
             session,
@@ -510,7 +704,7 @@ async def mark_invitation_opened(
             entity="quote_invitation",
             entity_id=invitation.id,
             old_value={"opened_at": None},
-            new_value={"opened_at": invitation.opened_at.isoformat()},
+            new_value={"opened_at": opened_at.isoformat()},
         )
 
 
@@ -538,71 +732,81 @@ async def invite_signer(
     The invited person logs in with SSO Rijk and sees only this quote.
     """
     quote = await get_quote(session, quote_id)
+    await ensure_dossier_open(session, quote.assignment_id)
     if quote.status != "issued":
         raise QuoteAlreadyDecidedError(quote.status)
     # Inviting a signer is offering the quote; a quote that still needs
     # internal approval cannot be offered through any channel.
     await quote_approval.require_for_offer(session, quote)
     email = email.strip().lower()
+    invitation = await _invitation_for(session, quote_id, email)
+    expires_at = _instant(expires_at or default_invitation_expiry())
+    if invitation is not None:
+        # Inviting the same person again renews the invitation, also after
+        # it was withdrawn.
+        await _renew(session, quote, invitation, expires_at, actor)
+        return invitation
+    # Inviting someone to sign here is offering the quote through the
+    # signing link.
+    _, invitation = await _offer_with_new_invitation(
+        session, quote, email, expires_at, actor
+    )
+    return invitation
+
+
+async def _invitation_for(
+    session: AsyncSession, quote_id: UUID, email: str
+) -> QuoteInvitation | None:
     result = await session.execute(
         select(QuoteInvitation).where(
             QuoteInvitation.quote_id == quote_id,
             func.lower(QuoteInvitation.email) == email,
         )
     )
-    invitation = result.scalar_one_or_none()
-    expires_at = expires_at or default_invitation_expiry()
-    if invitation is not None:
-        # Inviting the same person again renews the invitation, also after
-        # it was withdrawn.
-        old_expiry = invitation.expires_at
-        invitation.expires_at = expires_at
-        invitation.withdrawn_at = None
-        invitation.withdrawn_by_id = None
-        await session.flush()
-        record_audit(
-            session,
-            actor=actor,
-            action=UPDATE,
-            entity="quote_invitation",
-            entity_id=invitation.id,
-            old_value={"expires_at": old_expiry.isoformat() if old_expiry else None},
-            new_value={"expires_at": expires_at.isoformat()},
-        )
-        return invitation
-    invitation = QuoteInvitation(
-        quote_id=quote_id,
-        email=email,
-        invited_by_id=actor.id if actor is not None else None,
-        expires_at=expires_at,
-    )
-    session.add(invitation)
-    await session.flush()
-    # Inviting someone to sign here is offering the quote through the
-    # signing link.
-    await _record_offer(
+    return result.scalar_one_or_none()
+
+
+async def _offer_with_new_invitation(
+    session: AsyncSession,
+    quote: Quote,
+    email: str,
+    expires_at: datetime,
+    actor: Person | None,
+) -> tuple[QuoteOffer, QuoteInvitation]:
+    invitation_id = uuid.uuid4()
+    established, offer = await _establish_offer(
         session,
         quote,
         OFFER_SIGNING_LINK,
         actor=actor,
         recipient=email,
-        invitation_id=invitation.id,
+        invitation_id=invitation_id,
+        invitation=row_of(
+            QuoteInvitation,
+            id=invitation_id,
+            quote_id=quote.id,
+            email=email,
+            invited_by_id=actor.id if actor is not None else None,
+            expires_at=expires_at,
+        ),
     )
+    invitation: QuoteInvitation = established.row(INVITATION, invitation_id)
+    _audit_offer(session, quote, offer, actor)
     record_audit(
         session,
         actor=actor,
         action=CREATE,
         entity="quote_invitation",
         entity_id=invitation.id,
-        new_value={"quote_id": str(quote_id), "email": email},
+        new_value={"quote_id": str(quote.id), "email": email},
     )
-    return invitation
+    return offer, invitation
 
 
 # -- offering -----------------------------------------------------------------
 
 
-async def _record_offer(
+async def _establish_offer(
     session: AsyncSession,
     quote: Quote,
     channel: str,
@@ -610,17 +814,40 @@ async def _record_offer(
     actor: Person | None,
     recipient: str | None = None,
     invitation_id: UUID | None = None,
-) -> QuoteOffer:
-    offer = QuoteOffer(
-        quote_id=quote.id,
-        channel=channel,
-        recipient=recipient,
-        invitation_id=invitation_id,
-        offered_at=datetime.now(UTC),
-        offered_by_id=actor.id if actor is not None else None,
+    invitation: dict[str, Any] | None = None,
+    renewed: dict[str, Any] | None = None,
+    shared: dict[str, Any] | None = None,
+) -> tuple[Established, QuoteOffer]:
+    """One offer as one fact, with what arose together with it."""
+    offer_id = uuid.uuid4()
+    established = await establish(
+        session,
+        "quote_offered",
+        assignment_id=quote.assignment_id,
+        actor=actor,
+        fields={
+            "assignment_id": quote.assignment_id,
+            "offer": row_of(
+                QuoteOffer,
+                id=offer_id,
+                quote_id=quote.id,
+                channel=channel,
+                recipient=recipient,
+                invitation_id=invitation_id,
+                offered_at=clock.now(),
+                offered_by_id=actor.id if actor is not None else None,
+            ),
+            "invitation": invitation,
+            "renewed": renewed,
+            "shared": shared,
+        },
     )
-    session.add(offer)
-    await session.flush()
+    return established, established.row(OFFER, offer_id)
+
+
+def _audit_offer(
+    session: AsyncSession, quote: Quote, offer: QuoteOffer, actor: Person | None
+) -> None:
     record_audit(
         session,
         actor=actor,
@@ -629,11 +856,10 @@ async def _record_offer(
         entity_id=offer.id,
         new_value={
             "quote_id": str(quote.id),
-            "channel": channel,
-            "recipient": recipient,
+            "channel": offer.channel,
+            "recipient": offer.recipient,
         },
     )
-    return offer
 
 
 async def offers_of(session: AsyncSession, quote_id: UUID) -> list[QuoteOffer]:
@@ -718,6 +944,7 @@ async def offer_quote(
     if channel not in OFFER_CHANNELS:
         raise DomainValidationError(f"Onbekend kanaal: {channel}")
     quote = await get_quote(session, quote_id)
+    await ensure_dossier_open(session, quote.assignment_id)
     if quote.status != "issued":
         raise QuoteAlreadyDecidedError(quote.status)
     assignment = await get_assignment(session, quote.assignment_id)
@@ -731,25 +958,28 @@ async def offer_quote(
         # Imported here: the mail service reads names through this module.
         from grip.services import signing_mail
 
-        before = {offer.id for offer in await offers_of(session, quote_id)}
-        invitation = await invite_signer(
-            session, quote_id, email, actor=actor, expires_at=expires_at
-        )
-        offer = next(
-            (o for o in await offers_of(session, quote_id) if o.id not in before),
-            None,
-        )
-        if offer is None:
-            # The same person was invited before: offering again is a new
-            # offer on the existing invitation.
-            offer = await _record_offer(
+        address = email.strip().lower()
+        until = _instant(expires_at or default_invitation_expiry())
+        invitation = await _invitation_for(session, quote_id, address)
+        if invitation is None:
+            offer, invitation = await _offer_with_new_invitation(
+                session, quote, address, until, actor
+            )
+        else:
+            # The same person was invited before: offering again renews the
+            # invitation and is a new offer on it.
+            old_expiry = invitation.expires_at
+            _, offer = await _establish_offer(
                 session,
                 quote,
                 OFFER_SIGNING_LINK,
                 actor=actor,
                 recipient=invitation.email,
                 invitation_id=invitation.id,
+                renewed={"invitation_id": invitation.id, "expires_at": until},
             )
+            _audit_renewal(session, invitation, old_expiry, until, actor)
+            _audit_offer(session, quote, offer, actor)
         # The link goes to the invited address by mail, queued with this
         # offer; where the instance does not mail, whoever offers hands the
         # link over.
@@ -759,7 +989,9 @@ async def offer_quote(
         return offer
 
     if channel == OFFER_DOCUMENT:
-        return await _record_offer(session, quote, OFFER_DOCUMENT, actor=actor)
+        _, offer = await _establish_offer(session, quote, OFFER_DOCUMENT, actor=actor)
+        _audit_offer(session, quote, offer, actor)
+        return offer
 
     has_client, instance_uri = await _client_instance_uri(session, assignment)
     reason = await quote_channels.client_instance_unavailable(
@@ -768,14 +1000,19 @@ async def offer_quote(
     if reason is not None:
         raise DomainValidationError(reason)
     assert instance_uri is not None
-    share_with_instance(assignment, instance_uri)
-    offer = await _record_offer(
+    recipient = instance_uri.strip().rstrip("/")
+    _, offer = await _establish_offer(
         session,
         quote,
         OFFER_CLIENT_INSTANCE,
         actor=actor,
-        recipient=instance_uri.strip().rstrip("/"),
+        recipient=recipient,
+        # Sharing once is enough; a later offer leaves the moment as it was.
+        shared=None
+        if is_shared_with(assignment, instance_uri)
+        else {"shared_with_instance_uri": recipient, "shared_at": clock.now()},
     )
+    _audit_offer(session, quote, offer, actor)
     await events.emit(
         session,
         events.QUOTE_OFFERED,
@@ -817,6 +1054,17 @@ async def _open_invitation(
     return invitation
 
 
+def _evidence(
+    quote_hash: str, statement_hash: str | None, document_sha256: str | None = None
+) -> dict[str, str]:
+    """The hashes a decision on a quote rests on, for the chain to cover."""
+    return {
+        "quote_hash": quote_hash,
+        **({"statement_hash": statement_hash} if statement_hash else {}),
+        **({"document_sha256": document_sha256} if document_sha256 else {}),
+    }
+
+
 async def accept_quote(
     session: AsyncSession,
     quote_id: UUID,
@@ -837,6 +1085,8 @@ async def accept_quote(
     origin: str = "local",
     evidence_id: UUID | None = None,
     statement_hash: str | None = None,
+    received: Mapping[str, Any] | None = None,
+    declared_mandate: bool = False,
 ) -> QuoteAcceptance:
     """Record that the client accepted a quote, in one of the three forms.
 
@@ -855,6 +1105,10 @@ async def accept_quote(
     was made from (see ``grip.proof``): the values passed here were read from
     it. The hash goes into the audit row and the event, so both can point at
     the proof; the statement itself does not.
+
+    ``received`` names the peer and its message when the acceptance came in
+    from another instance. ``declared_mandate``: the signer of a signing link
+    confirmed being allowed to sign.
     """
     if form not in ACCEPTANCE_FORMS:
         raise DomainValidationError(f"Onbekende vorm van akkoord: {form}")
@@ -867,11 +1121,12 @@ async def accept_quote(
                 )
             return existing
     quote = await get_quote(session, quote_id)
+    await ensure_dossier_open(session, quote.assignment_id)
     if quote.status != "issued":
         raise QuoteAlreadyDecidedError(quote.status)
     if quote_hash != quote.snapshot_hash:
         raise QuoteHashMismatchError()
-    signed_at = signed_at or datetime.now(UTC)
+    signed_at = _instant(signed_at or clock.now())
 
     if form == "own_instance" and not jws:
         raise DomainValidationError(
@@ -891,27 +1146,58 @@ async def accept_quote(
     if form == "signing_link":
         invitation = await _open_invitation(session, quote_id, signer_email, signed_at)
 
-    acceptance = QuoteAcceptance(
-        id=acceptance_id or uuid.uuid4(),
-        quote_id=quote_id,
-        quote_hash=quote_hash,
-        signer_name=signer_name,
-        signer_email=signer_email.strip().lower(),
-        signer_function=signer_function,
-        signer_person_id=signer_person_id,
-        organisation=organisation,
-        signed_at=signed_at,
-        form=form,
-        jws=jws,
-        document_sha256=document_sha256,
-        document_ref=document_ref,
-        recorded_by_id=actor.id if actor is not None else None,
-        evidence_id=evidence_id,
+    assignment = await get_assignment(session, quote.assignment_id)
+    await check_transition(session, assignment, "accepted", None)
+    old_status = assignment.status
+    acceptance_id = acceptance_id or uuid.uuid4()
+    assignment_changes: dict[str, Any] = {"status": "accepted"}
+    if assignment.quoted_amount_cents is None:
+        assignment_changes["quoted_amount_cents"] = quote.total_cents
+    fields: dict[str, Any] = {
+        "assignment_id": assignment.id,
+        "quote_id": quote_id,
+        "acceptance": row_of(
+            QuoteAcceptance,
+            id=acceptance_id,
+            quote_id=quote_id,
+            quote_hash=quote_hash,
+            signer_name=signer_name,
+            signer_email=signer_email.strip().lower(),
+            signer_function=signer_function,
+            signer_person_id=signer_person_id,
+            organisation=organisation,
+            signed_at=signed_at,
+            form=form,
+            jws=jws,
+            document_sha256=document_sha256,
+            document_ref=document_ref,
+            recorded_by_id=actor.id if actor is not None else None,
+            evidence_id=evidence_id,
+        ),
+        "assignment": changes_of(Assignment, **assignment_changes),
+        "invitation": None
+        if invitation is None
+        else {
+            "id": invitation.id,
+            "used_at": signed_at,
+            "person_id": signer_person_id,
+        },
+    }
+    if received is not None:
+        fields["received"] = received
+    if declared_mandate:
+        fields["declared_mandate"] = True
+    established = await establish(
+        session,
+        "quote_accepted",
+        assignment_id=assignment.id,
+        actor=actor,
+        effective_on=clock.local_date(signed_at),
+        refs=_evidence(quote_hash, statement_hash, document_sha256),
+        fields=fields,
     )
-    session.add(acceptance)
-    quote.status = "accepted"
+    acceptance: QuoteAcceptance = established.row(ACCEPTANCE, acceptance_id)
     if invitation is not None:
-        invitation.used_at = signed_at
         record_audit(
             session,
             actor=None,
@@ -921,15 +1207,12 @@ async def accept_quote(
             old_value={"used_at": None},
             new_value={"used_at": signed_at.isoformat()},
         )
-        if signer_person_id is not None:
-            invitation.person_id = signer_person_id
-    await session.flush()
-    assignment = await transition(
-        session, quote.assignment_id, "accepted", actor=actor, origin=origin
+    await after_transition(
+        session, assignment, old_status, "accepted", None, actor, origin
     )
-    if assignment.quoted_amount_cents is None:
-        assignment.quoted_amount_cents = quote.total_cents
-        await session.flush()
+    # Within one flush the stream numbers audit rows first; this keeps the event
+    # of the step ahead of the audit row of the acceptance.
+    await session.flush()
     record_audit(
         session,
         actor=actor,
@@ -985,11 +1268,15 @@ async def reject_quote(
     origin: str = "local",
     evidence_id: UUID | None = None,
     statement_hash: str | None = None,
+    received: Mapping[str, Any] | None = None,
+    recorded: bool = False,
 ) -> QuoteRejection:
     """Record that the client rejected a quote. Emits ``quote.rejected``.
 
     ``evidence_id`` and ``statement_hash`` name the statement this rejection
-    was made from, as for an acceptance.
+    was made from, as for an acceptance, and ``received`` the peer and its
+    message when the rejection came in from another instance. ``recorded``:
+    ``actor`` notes a rejection made elsewhere, and does not reject it.
     """
     if rejection_id is not None:
         existing = await session.get(QuoteRejection, rejection_id)
@@ -1000,31 +1287,46 @@ async def reject_quote(
                 )
             return existing
     quote = await get_quote(session, quote_id)
+    await ensure_dossier_open(session, quote.assignment_id)
     if quote.status != "issued":
         raise QuoteAlreadyDecidedError(quote.status)
     if quote_hash != quote.snapshot_hash:
         raise QuoteHashMismatchError()
-    rejected_at = rejected_at or datetime.now(UTC)
-    rejection = QuoteRejection(
-        id=rejection_id or uuid.uuid4(),
-        quote_id=quote_id,
-        quote_hash=quote_hash,
-        organisation=organisation,
-        reason=reason,
-        rejected_at=rejected_at,
-        recorded_by_id=actor.id if actor is not None else None,
-        evidence_id=evidence_id,
-    )
-    session.add(rejection)
-    quote.status = "rejected"
-    await session.flush()
-    assignment = await transition(
+    rejected_at = _instant(rejected_at or clock.now())
+    assignment = await get_assignment(session, quote.assignment_id)
+    await check_transition(session, assignment, "rejected", reason)
+    old_status = assignment.status
+    rejection_id = rejection_id or uuid.uuid4()
+    fields: dict[str, Any] = {
+        "assignment_id": assignment.id,
+        "quote_id": quote_id,
+        "rejection": row_of(
+            QuoteRejection,
+            id=rejection_id,
+            quote_id=quote_id,
+            quote_hash=quote_hash,
+            organisation=organisation,
+            reason=reason,
+            rejected_at=rejected_at,
+            recorded_by_id=actor.id if recorded and actor is not None else None,
+            evidence_id=evidence_id,
+        ),
+        "assignment": changes_of(Assignment, status="rejected"),
+    }
+    if received is not None:
+        fields["received"] = received
+    established = await establish(
         session,
-        quote.assignment_id,
-        "rejected",
+        "quote_rejected",
+        assignment_id=assignment.id,
         actor=actor,
-        reason=reason,
-        origin=origin,
+        effective_on=clock.local_date(rejected_at),
+        refs=_evidence(quote_hash, statement_hash),
+        fields=fields,
+    )
+    rejection: QuoteRejection = established.row(REJECTION, rejection_id)
+    await after_transition(
+        session, assignment, old_status, "rejected", reason, actor, origin
     )
     record_audit(
         session,
@@ -1057,3 +1359,75 @@ async def reject_quote(
         },
     )
     return rejection
+
+
+async def correct_acceptance_date(
+    session: AsyncSession,
+    quote_id: UUID,
+    signed_at: datetime,
+    reason: str,
+    actor: Person | None,
+    *,
+    expected_signed_at: datetime | None = None,
+) -> QuoteAcceptance:
+    """Put right the day a signed pdf was signed, as whoever recorded it wrote it.
+
+    Only for an uploaded pdf: every other form carries its moment in what was
+    signed. The earlier fact stays; this one says it was corrected, and why.
+
+    ``expected_signed_at`` is the date the form started from: when someone
+    corrected it since, this correction is refused. Without it nothing is
+    compared, as for a save without ``If-Match``.
+    """
+    quote = await get_quote(session, quote_id)
+    await ensure_dossier_open(session, quote.assignment_id)
+    acceptance = await session.scalar(
+        select(QuoteAcceptance).where(QuoteAcceptance.quote_id == quote_id)
+    )
+    if acceptance is None:
+        raise NotFoundError("Akkoord", quote_id)
+    if acceptance.form != "uploaded_pdf":
+        raise DomainValidationError(
+            "Alleen de datum van een vastgelegde getekende pdf kan worden gecorrigeerd."
+        )
+    reason = (reason or "").strip()
+    if not reason:
+        raise DomainValidationError("Schrijf op waarom de datum wordt gecorrigeerd.")
+    signed_at = _instant(signed_at)
+    check_signing_day(quote, signed_at)
+    # The fact says what stood before it: read once everything recorded earlier
+    # is committed, not what this request saw when it started.
+    await stream.hold_head(session)
+    await session.refresh(acceptance)
+    was = acceptance.signed_at
+    if expected_signed_at is not None and _instant(expected_signed_at) != was:
+        raise stale.StaleWriteError(
+            "de datum van tekenen", *await stale.last_change(session, acceptance.id)
+        )
+    if clock.local_date(signed_at) == clock.local_date(was):
+        raise DomainValidationError(
+            "Dit is de datum die al is vastgelegd. Kies de juiste datum."
+        )
+    await establish(
+        session,
+        "acceptance_date_corrected",
+        assignment_id=quote.assignment_id,
+        actor=actor,
+        effective_on=clock.local_date(signed_at),
+        fields={
+            "acceptance_id": acceptance.id,
+            "signed_at": signed_at,
+            "was": was,
+            "reason": reason,
+        },
+    )
+    record_audit(
+        session,
+        actor=actor,
+        action=UPDATE,
+        entity="quote_acceptance",
+        entity_id=acceptance.id,
+        old_value={"signed_at": was.isoformat()},
+        new_value={"signed_at": signed_at.isoformat(), "reason": reason},
+    )
+    return acceptance

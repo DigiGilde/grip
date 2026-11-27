@@ -12,11 +12,13 @@ from __future__ import annotations
 
 import json
 import uuid
+from datetime import UTC, datetime
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from sqlalchemy import select
 
+from grip.core import clock
 from grip.models.billing_delivery import BillingTerms
 from grip.models.decision_proof import DecisionEvidence
 from grip.models.quote import QuoteAcceptance
@@ -264,13 +266,16 @@ async def _upload(client, quote, **data):
 
 
 async def test_a_signed_pdf_carries_the_annex_as_typed_over(act_as, world, db_session):
-    quote = await _invited(act_as, world)
-    response = await _upload(
-        act_as(world.manager),
-        quote,
-        signed_at="2026-06-10T14:30:00+02:00",
-        billing_details=json.dumps(DETAILS),
-    )
+    # The day of signing lies between the day of the quote and today.
+    with clock.at(datetime(2026, 6, 1, 10, 0, tzinfo=UTC)):
+        quote = await _invited(act_as, world)
+    with clock.at(datetime(2026, 6, 15, 10, 0, tzinfo=UTC)):
+        response = await _upload(
+            act_as(world.manager),
+            quote,
+            signed_at="2026-06-10T14:30:00+02:00",
+            billing_details=json.dumps(DETAILS),
+        )
     assert response.status_code == 201, response.text
     terms = await _terms(db_session, world)
     assert terms is not None and terms.details == DETAILS
