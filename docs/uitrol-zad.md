@@ -157,7 +157,14 @@ gh variable set ZAD_PROJECT_ID --repo DigiGilde/grip --body "<project-id>"
 gh variable set ZAD_DEPLOYMENT_NAME --repo DigiGilde/grip --body "main"
 ```
 
-De workflow kent één project. Zolang de voorbeeldinstantie het doel is, wijst `ZAD_PROJECT_ID` naar dat project. Daar heet de uitrol van DigiGilde voorbeeld `gilde`, dus staat `ZAD_DEPLOYMENT_NAME` op `gilde` (zie [Hoe het project van de voorbeelden nu staat](#hoe-het-project-van-de-voorbeelden-nu-staat)).
+De workflow kent één project. Zolang de voorbeeldinstantie het doel is, wijst `ZAD_PROJECT_ID` naar dat project. Daar draait elke instantie in een eigen uitrol. `ZAD_DEPLOYMENTS` noemt die uitrollen als JSON-lijst; zonder die variabele rolt de workflow alleen naar `ZAD_DEPLOYMENT_NAME` uit. Een uitrol met FSC staat ook in `ZAD_FSC_DEPLOYMENTS`, met de sleutel van haar peer; de directory heeft de sleutel `dir` (zie [Hoe het project van de voorbeelden nu staat](#hoe-het-project-van-de-voorbeelden-nu-staat)):
+
+```sh
+gh variable set ZAD_DEPLOYMENTS --repo DigiGilde/grip --body '["gilde","programma"]'
+gh variable set ZAD_FSC_DEPLOYMENTS --repo DigiGilde/grip --body '{"directory":"dir","gilde":"a","programma":"d"}'
+```
+
+De workflow rolt in elke uitrol van `ZAD_DEPLOYMENTS` de frontend (`component-1`) en de backend (`component-2`) uit, en in een uitrol met FSC ook de listener (`federation`). De listener is hetzelfde image als de backend en gebruikt het schema dat de backend migreert, dus ze gaan samen. De onderdelen van FSC (manager, controller, transactielog, inway, outway en de bootstrap; in de directory `dirmgr` en `dirui`) gaan alleen mee bij een push naar `main` die hun images of de workflow verandert: een nieuw image herstart het netwerk van de groep. Zet een uitrol pas in een van de twee lijsten als haar onderdelen bestaan en hun instellingen hebben. De eerste uitrol van een onderdeel voegt het toe aan de uitrol, met of zonder instellingen.
 
 ## 5. De eerste uitrol
 
@@ -222,16 +229,19 @@ De variabele `ZAD_PROJECT_ID` en het geheim `ZAD_API_KEY` uit stap 4 zijn genoeg
 
 ### Welke instanties erop staan
 
-`ONTWIKKELPORTAAL_INSTANCES` is een JSON-lijst met per instantie `naam`, `url` en optioneel `rol` en `omschrijving`; de velden staan in [lokaal.md](lokaal.md#ontwikkelportaal). Een latere wijziging gaat met `zadctl env set` en geldt vanaf de volgende start van de container. Met de voorbeeldinstanties uit [Voorbeeldinstanties met federatie](#voorbeeldinstanties-met-federatie):
+`ONTWIKKELPORTAAL_INSTANCES` is een JSON-lijst met per instantie `naam`, `url` en optioneel `rol` en `omschrijving`; de velden staan in [lokaal.md](lokaal.md#ontwikkelportaal). Een latere wijziging gaat met `zadctl env set` en geldt vanaf de volgende start van de container. Met de voorbeeldinstanties en het overzicht van de directory uit [Voorbeeldinstanties met federatie](#voorbeeldinstanties-met-federatie):
 
 ```json
 [
   {"naam": "MOZa voorbeeld", "rol": "Programma",
    "omschrijving": "Geeft opdrachten aan DigiGilde voorbeeld en boekt kosten die een leverancier voor het programma doet.",
-   "url": "https://component-1-programma-<project>.<basisdomein>"},
+   "url": "https://component-1-programma-<project>.<basisdomein>/"},
   {"naam": "DigiGilde voorbeeld", "rol": "Opdrachtnemer",
-   "omschrijving": "Maakt offertes, voert opdrachten uit, sluit maanden af en factureert.",
-   "url": "https://component-1-gilde-<project>.<basisdomein>"}
+   "omschrijving": "Maakt offertes, voert opdrachten uit, sluit maanden af en factureert. Wie op de lijst van bezoekers staat, kijkt mee als voorbeeldpersoon.",
+   "url": "https://component-1-gilde-<project>.<basisdomein>/"},
+  {"naam": "Directory", "rol": "FSC-groep grip-voorbeeld",
+   "omschrijving": "Welke voorbeeldinstanties in de groep zitten en welke diensten ze elkaar aanbieden.",
+   "url": "https://dirui-directory-<project>.<basisdomein>/"}
 ]
 ```
 
@@ -248,21 +258,25 @@ zadctl deployment create portaal --domain-format subdomain \
 
 ## Hoe het project van de voorbeelden nu staat
 
-Het project `gv-ukr` heeft een uitrol per organisatie en één voor de startpagina. Een database hoort bij een uitrol; de voorbeelden mogen worden weggegooid en opnieuw opgebouwd.
+Het project `gv-ukr` heeft een uitrol per organisatie, een voor de directory van de voorbeeldgroep en een voor de startpagina. Een database hoort bij een uitrol; de voorbeelden mogen worden weggegooid en opnieuw opgebouwd.
 
 | Uitrol | Wat | Adres |
 |---|---|---|
 | `portaal` | De startpagina (het ontwikkelportaal) | https://grip-voorbeeld.rijks.app/ |
-| `gilde` | DigiGilde voorbeeld, nog zonder FSC | `component-1-gilde-gv-ukr.<cluster>` |
+| `directory` | De directory van de FSC-groep `grip-voorbeeld` (`dirmgr`) en haar overzicht (`dirui`) | `dirui-directory-gv-ukr.<cluster>` |
+| `gilde` | DigiGilde voorbeeld, peer a, met FSC | `component-1-gilde-gv-ukr.<cluster>` |
+| `programma` | MOZa voorbeeld, peer d, met FSC | `component-1-programma-gv-ukr.<cluster>` |
 
-- **De workflow rolt grip uit naar `gilde`** (`ZAD_DEPLOYMENT_NAME=gilde`) en de startpagina naar `portaal`.
-- **Wat per instantie verschilt, staat op het onderdeel in de uitrol**, niet op het onderdeel zelf: `BACKEND_URL` op `component-1` (`http://gilde-component-2:8080`) en `INSTANCE_BASE_URI` op `component-2`. Zo: `zadctl env add -c component-2 --deployment gilde INSTANCE_BASE_URI=...`. Wat voor alle voorbeelden gelijk is, zoals `INSTANCE_MODE` en `EXAMPLE_VISITORS`, staat op het onderdeel.
-- **Keycloak maakt per uitrol een eigen client** (`gv-ukr-gilde`). Het adres van elke frontend staat in `additional_redirect_uris` van de dienst `keycloak` op projectniveau; `service config set` schrijft het hele document, dus geef de volledige lijst mee.
-- **De onderdelen voor FSC en de directory bestaan al** in het project, nog zonder uitrol (zie hierna).
+- **De workflow rolt grip uit naar `gilde` en `programma`** (`ZAD_DEPLOYMENTS`), met de listener in beide (`ZAD_FSC_DEPLOYMENTS`, dat ook de directory noemt), en de startpagina naar `portaal`. De onderdelen van FSC gaan alleen mee als hun images veranderen.
+- **Wat per instantie verschilt, staat op het onderdeel in de uitrol**, niet op het onderdeel zelf: `BACKEND_URL` op `component-1` (`http://gilde-component-2:8080`) en `INSTANCE_BASE_URI` op `component-2`. Zo: `zadctl env add -c component-2 --deployment gilde INSTANCE_BASE_URI=...`. Wat voor alle voorbeelden gelijk is, zoals `INSTANCE_MODE` en `EXAMPLE_VISITORS`, staat op het onderdeel: MOZa voorbeeld laat dezelfde bezoekers binnen als DigiGilde voorbeeld.
+- **Keycloak maakt per uitrol een eigen client** (`gv-ukr-gilde`, `gv-ukr-programma`) in de realm van het project, `gv-ukr-odcn-production`. Het adres van elke frontend staat in `additional_redirect_uris` van de dienst `keycloak` op projectniveau; `service config set` schrijft het hele document, dus geef de volledige lijst mee.
+- **Elke instantie heeft een eigen sleutel** (`FEDERATION_SIGNING_KEY`), per uitrol op `component-2` en `federation`, niet meer als bijlage. `gilde` kreeg daarbij een nieuwe; na een terugzetting zijn de bewijzen in het voorbeeld met die sleutel ondertekend.
+- **DigiGilde voorbeeld heet ook zo in de instantie** (`INSTANCE_NAME`, met `INSTANCE_KEY` `digigilde-voorbeeld`), zoals op de startpagina en in de sjablonen. Eerst heette de instantie in `gilde` "Grip voorbeeld".
+- **De databasegebruiker van `gilde` en `programma` mag 50 verbindingen**, in plaats van de standaard 20: backend, listener, manager, controller en transactielog delen hem.
 
 ## Voorbeeldinstanties met federatie
 
-Voorbeeldinstanties laten pas zien wat grip doet als ze met elkaar praten: een kostenpost bij de leverancier, een aanvraag die aankomt. Ze federeren in een eigen FSC-groep, `grip-voorbeeld`, met een eigen test-CA en een eigen directory, en alleen met elkaar (ADR 0054). De opzet volgt het FSC-testnet van MijnOverheid Zakelijk (`MinBZK/moza-fsc-testnet`). Alles staat in `deploy/zad/fsc/`; niets daarvan is al op het platform gedraaid.
+Voorbeeldinstanties laten pas zien wat grip doet als ze met elkaar praten: een kostenpost bij de leverancier, een aanvraag die aankomt. Ze federeren in een eigen FSC-groep, `grip-voorbeeld`, met een eigen test-CA en een eigen directory, en alleen met elkaar (ADR 0054). De opzet volgt het FSC-testnet van MijnOverheid Zakelijk (`MinBZK/moza-fsc-testnet`). Alles staat in `deploy/zad/fsc/`. Wat over het platform vaststaat en waar dat vandaan komt, staat onder [Wat het platform doet](#wat-het-platform-doet).
 
 Eerst DigiGilde voorbeeld en MOZa voorbeeld: daarmee is de kostenpost met een uitvoerder te zien. Het Ministerie van BZK voorbeeld komt er later bij als derde uitrol.
 
@@ -273,18 +287,19 @@ Eén project, dat van de voorbeeldinstantie, met per peer een eigen uitrol. Een 
 | Uitrol | Peer | Onderdelen |
 |---|---|---|
 | `directory` | de directory | `dirmgr` (manager in directorymodus), `dirui` (overzicht van de groep) |
-| `gilde` | a, DigiGilde voorbeeld | `component-1` (frontend), `component-2` (backend, `GRIP_PROCESS=all`), `federation` (de listener, alleen voor de inway), `manager`, `controller`, `inway`, `outway`, `txlog` |
-| `programma` | d, MOZa voorbeeld | hetzelfde |
-| `ministerie` | b, Ministerie van BZK voorbeeld (later) | hetzelfde |
+| `gilde` | a, DigiGilde voorbeeld | `component-1` (frontend), `component-2` (backend, `GRIP_PROCESS=all`), `federation` (de listener, alleen voor de inway), `manager`, `controller`, `inway`, `outway`, `txlog`, `fscboot-a` (de bootstrap van de peer) |
+| `programma` | d, MOZa voorbeeld | hetzelfde, met `fscboot-d` |
+| `ministerie` | b, Ministerie van BZK voorbeeld (later) | hetzelfde, met `fscboot-b` |
 
 Een uitrol met FSC kan niet frontend en `/api` op één adres zetten, zoals de vroegere uitrol `main` deed: passthrough kan alleen als een onderdeel een eigen host heeft. Daarom heeft elke instantie de domeinvorm `component-deployment-project`, en is de startpagina het vaste adres.
 
-Een onderdeel bestaat één keer in het project en draait in elke uitrol waaraan het gekoppeld is. Nieuw in het project zijn er acht: `federation`, `manager`, `controller`, `inway`, `outway`, `txlog`, `dirmgr` en `dirui`. `component-1` en `component-2` bestaan al.
+Een onderdeel bestaat één keer in het project en draait in elke uitrol waaraan het gekoppeld is. Nieuw in het project zijn er tien: `federation`, `manager`, `controller`, `inway`, `outway`, `txlog`, `dirmgr`, `dirui`, `fscboot-a` en `fscboot-d`. `component-1` en `component-2` bestaan al.
 
 - **Adressen.** De uitrollen gebruiken de domeinvorm `component-deployment-project`, dus een hostnaam is `<onderdeel>-<uitrol>-<project>.<basisdomein>`. Binnen een uitrol bereikt een onderdeel een ander als `<uitrol>-<onderdeel>`. Tussen uitrollen laat het netwerkbeleid van het platform geen rechtstreeks verkeer toe; peers bereiken elkaar op hun publieke hostnaam, poort 443.
 - **De frontend geeft `/api` door.** `component-1` zet `BACKEND_URL` op de backend in de eigen uitrol (`<k>-frontend.env`), zodat de browser één adres gebruikt.
-- **Eén database per uitrol.** Backend, listener, manager, controller en transactielog delen hem. OpenFSC zet zijn tabellen in eigen schema's (`contracts`, `peers`, `controller`, `transactionlog`); alleen de tabel met uitgevoerde migraties zou botsen, en daarom geven de wrapper-images elk onderdeel een eigen naam daarvoor. Lokaal nagelopen met OpenFSC 2.8.0. De nachtelijke reset van grip leegt alleen de tabellen van grip.
-- **Instellingen en bijlagen per uitrol.** Wat per instantie verschilt, staat op het onderdeel in die uitrol: `zadctl env add -c <onderdeel> --deployment <uitrol> --env-file <bestand>`. Een bijlage koppel je aan een onderdeel en kan per uitrol afwijken.
+- **Eén database per uitrol.** Backend, listener, manager, controller en transactielog delen hem. OpenFSC zet zijn tabellen in eigen schema's (`contracts`, `peers`, `controller`, `transactionlog`); alleen de tabel met uitgevoerde migraties zou botsen, en daarom geven de wrapper-images elk onderdeel een eigen naam daarvoor. Lokaal nagelopen met OpenFSC 2.8.0. De nachtelijke reset van grip leegt alleen de tabellen van grip. De databasegebruiker van een uitrol mag standaard 20 verbindingen; voor deze vijf onderdelen samen is dat te krap, zet 50 (stap 4).
+- **Het adres van de database is een alias.** Manager, controller en transactielog lezen hun database uit `STORAGE_POSTGRES_DSN`. Het platform vult `$DATABASE_*` alleen in een alias in; in een gewone instelling blijft de tekst staan zoals hij is. Een alias hoort bij een onderdeel en geldt in elke uitrol, met de database van die uitrol.
+- **Instellingen per uitrol, bijlagen per onderdeel.** Wat per instantie verschilt, staat op het onderdeel in die uitrol: `zadctl env add -c <onderdeel> --deployment <uitrol> --env-file <bestand>`. Een bijlage kan dat niet. Ze hoort bij een onderdeel, en elke uitrol die het onderdeel draait krijgt al zijn bijlagen; de API en `zadctl` kennen geen koppeling per uitrol. Daarom heeft elke peer eigen paden in de pod, `/etc/fsc/<k>/group/` en `/etc/fsc/<k>/internal/` (k is `a`, `b` of `d`, en `dir` voor de directory), en wijzen de `TLS_*`-instellingen van een uitrol naar die van de eigen peer. Een pod van `gilde` bevat zo ook de sleutels van `programma`. In deze besloten voorbeeldgroep is dat aanvaard (ADR 0054); in een groep voor echt werk niet.
 
 | Onderdeel | Image | Publicatie | Bijlagen |
 |---|---|---|---|
@@ -293,31 +308,50 @@ Een onderdeel bestaat één keer in het project en draait in elke uitrol waaraan
 | `outway` | `federatedserviceconnectivity/outway` | niet gepubliceerd | groep en intern |
 | `controller` | `fsc-controller` (wrapper) | niet gepubliceerd: het scherm heeft geen login | intern |
 | `txlog` | `fsc-txlog` (wrapper) | niet gepubliceerd | intern |
+| `fscboot-<k>` | `fsc-bootstrap` | niet gepubliceerd, geen poort en geen dienst | intern: de CA en het beheercertificaat van de peer |
 | `dirui` | `federatedserviceconnectivity/directory-ui` | gewoon, met het certificaat van het platform | groep |
 | `component-1`, `component-2` | `frontend`, `backend` | gewoon | geen |
 | `federation` | `backend` met `GRIP_PROCESS=federation` | niet gepubliceerd; alleen de inway bereikt poort 8090 | geen |
 
-Het platform kent geen init-containers. Daarom draaien manager, controller en transactielog in een dun wrapper-image dat eerst `migrate up` doet en daarna `serve`. De workflow bouwt ze naast de andere images (`fsc-manager`, `fsc-controller`, `fsc-txlog`). De andere onderdelen gebruiken de images van OpenFSC zoals ze worden geleverd, versie 2.8.0.
+Het platform kent geen init-containers. Daarom draaien manager, controller en transactielog in een dun wrapper-image dat eerst `migrate up` doet en daarna `serve`. De bootstrap is een eigen image met `bootstrap.sh`, `curl` en `jq`. De workflow bouwt ze naast de andere images (`fsc-manager`, `fsc-controller`, `fsc-txlog`, `fsc-bootstrap`). De andere onderdelen gebruiken de images van OpenFSC zoals ze worden geleverd, versie 2.8.0. De versie staat één keer in de workflow (`OPENFSC_VERSION`), naast de digests van de geleverde images; verander ze samen.
 
 ### Stappen
 
-1. **Certificaten.** `deploy/zad/fsc/pki.sh` met `BASE_DOMAIN`, `PROJECT` en de uitrol per peer (`DEPLOYMENT_DIR`, `DEPLOYMENT_A`, `DEPLOYMENT_B`, `DEPLOYMENT_D`). Het maakt de test-CA van de groep, per instantie een interne CA, en per onderdeel in een uitrol een map onder `state/pki/upload/<uitrol>/<onderdeel>/` die als bijlagen kan worden geüpload; `MANIFEST.tsv` zegt welk bestand op welk pad in de pod hoort (`/etc/fsc/group/` en `/etc/fsc/internal/`). Een bijlage is ten hoogste 64 KB; het script controleert dat. De sleutel van de groeps-CA gaat nooit in de repo en niet mee naar het platform.
-2. **Onderdelen.** Voeg de acht nieuwe onderdelen eenmalig toe aan het project, met hun poort, publicatie en de dienst `postgresql-database` waar een database nodig is (backend, listener, manager, controller, transactielog).
-3. **Uitrollen.** Maak `directory`, `gilde` en `programma` met de domeinvorm `component-deployment-project` en de onderdelen uit de tabel. Eerst de directory.
-4. **Instellingen.** Per onderdeel en peer staat een sjabloon in `deploy/zad/fsc/env/`: `directory-manager.env`, `directory-ui.env` en per instantie (`a`, `b`, `d`) `-frontend` (voor `component-1`), `-grip` (voor `component-2`), `-federation`, `-manager`, `-controller`, `-inway`, `-outway` en `-txlog`. Vul `${BASE_DOMAIN}`, `${PROJECT}` en `${DEPLOYMENT_*}` in (bijvoorbeeld met `envsubst`); `$DATABASE_*` laat je staan, die vult het platform. Zet ze op het onderdeel in de uitrol van die peer.
-5. **Grip.** In `-grip.env` en `-federation.env` staan de instellingen van een voorbeeldinstantie met federatie: `INSTANCE_MODE=voorbeeld`, `EXAMPLE_FSC_GROUP=grip-voorbeeld`, `EXAMPLE_VISITORS`, `EXAMPLE_RESET_HOUR` (op alle instanties hetzelfde uur), `SEED_DATASET`, `INSTANCE_NAME`, `INSTANCE_KEY`, `INSTANCE_TOOI_URI`, `INSTANCE_BASE_URI`, `EXAMPLE_INSTANCE_URIS` (waar de andere staan; op alle instanties gelijk), `FEDERATION_INBOUND_ENABLED`, `FEDERATION_OUTBOUND_ENABLED`, `OUTWAY_URL` en `FEDERATION_SIGNING_KEY` (als bijlage, zie [Wat op het platform bleek](#wat-op-het-platform-bleek); dezelfde sleutel op `component-2` en `federation`). De login en de sessie gaan zoals bij elke instantie (stap 3). `BOOTSTRAP_BEHEERDER_EMAILS` blijft weg: dat is in een voorbeeld een startfout. Elke frontend is een eigen adres om na het inloggen naar terug te keren: zet het adres van `component-1` in elke uitrol in `additional_redirect_uris` van de dienst `keycloak`, anders weigert de login met "Invalid parameter: redirect_uri" (zie [Wat op het platform bleek](#wat-op-het-platform-bleek)).
-6. **De groep inrichten.** `deploy/zad/fsc/bootstrap.sh` registreert per instantie de dienst `grip-opdrachtverkeer`, publiceert die in de directory, sluit contracten in beide richtingen en accepteert ze. `PEERS="a d"` beperkt dat tot gilde en programma. `--dry-run` toont eerst wat het zou doen. Het schrijft per instantie `registry-<k>.sql` met de andere peers, gemarkeerd als voorbeeld, en een tabel met dezelfde waarden.
-7. **Het peerregister van grip.** Heb je geen toegang tot de database, voer de peers dan per instantie in onder Beheer > Koppelingen, met de schakelaar Voorbeeldinstantie aan, en test de verbinding. Het register blijft bij de nachtelijke reset staan.
-8. **Controle.** Log in als bezoeker op MOZa voorbeeld. De kostenpost "Zaalhuur bijeenkomst ondernemers november" wacht op DigiGilde voorbeeld; binnen een minuut staat hij daar aangemaakt en leest het programma hem terug.
+1. **Certificaten.** `deploy/zad/fsc/pki.sh` met `BASE_DOMAIN`, `PROJECT` en de uitrol per peer (`DEPLOYMENT_DIR`, `DEPLOYMENT_A`, `DEPLOYMENT_B`, `DEPLOYMENT_D`; ook `DEPLOYMENT_B` als het ministerie nog niet meedoet). Het maakt de test-CA van de groep, per peer een interne CA, en per onderdeel in een uitrol een map onder `state/pki/upload/<uitrol>/<onderdeel>/` met de bijlagen; `MANIFEST.tsv` zegt welk bestand op welk pad in de pod hoort, onder `/etc/fsc/<k>/`. Een bijlage is ten hoogste 64 KB; het script controleert dat. De sleutel van de groeps-CA gaat nooit in de repo en niet mee naar het platform. Bewaren hoeft niet: de groep is een voorbeeld, en `pki.sh --fresh` maakt een nieuwe. Dan gaan alle bijlagen opnieuw en moeten de FSC-databases leeg, want de contracten zijn met de oude sleutels getekend.
+2. **Onderdelen.** Voeg de nieuwe onderdelen eenmalig toe aan het project, met hun poorten, publicatie en de dienst `postgresql-database` waar een database nodig is (backend, listener, manager, controller, transactielog). De manager en `dirmgr` krijgen drie poorten met 8443 vooraan (`--ports 8443 --ports 8444 --ports 8445`): de eerste is die van de publicatie. Een bootstrap heeft geen poort: `zadctl component add fscboot-a`. Geef de onderdelen van OpenFSC een gezondheidscontrole op TCP-poort 8081, waar hun monitoring luistert, en de listener een op HTTP-poort 8090 met `/healthz`. Zonder die dienst controleert het platform de eerste poort, en dat geeft op een TLS-poort bij elke controle een foutregel in het logboek.
+3. **Uitrollen.** Maak `directory` en `programma` met de domeinvorm `component-deployment-project` en de onderdelen uit de tabel, en voeg die van FSC toe aan `gilde`. Eerst de directory. Een onderdeel gaat via de API niet meer uit een uitrol; wie dat terug wil, maakt de uitrol opnieuw, met een lege database.
+4. **Instellingen.** Per onderdeel en peer staat een sjabloon in `deploy/zad/fsc/env/`: `directory-manager.env`, `directory-ui.env` en per instantie (`a`, `b`, `d`) `-frontend` (voor `component-1`), `-grip` (voor `component-2`), `-federation`, `-manager`, `-controller`, `-inway`, `-outway`, `-txlog` en `-bootstrap` (voor `fscboot-<k>`). `just zad-fsc-env <uitrol>` vult ze in, met dezelfde zes variabelen als `pki.sh`, en schrijft per onderdeel `state/env/<uitrol>/<onderdeel>.env`. Het stopt als er een plaatshouder overblijft of als een `TLS_*`-pad niet in `MANIFEST.tsv` staat; `--dry-run` toont de bestanden alleen. Een gewone `envsubst` maakt ook `$DATABASE_*` leeg; wie het met de hand doet, geeft hem de lijst uit de kop van een sjabloon. Zet elk bestand op het onderdeel in de uitrol van die peer: `zadctl env add -c <onderdeel> --deployment <uitrol> --env-file <bestand>`. Het adres van de database komt in `<onderdeel>.alias`, voor `zadctl alias add -c <onderdeel> --env-file <bestand>`, één keer per onderdeel. Zet de verbindingen van de database op 50: `zadctl service config set postgresql-database --target deployment --deployment <uitrol> --set connection-limit=50`.
+5. **Bijlagen.** `just zad-fsc-attachments <uitrol>` zet elk bestand dat `MANIFEST.tsv` voor de uitrol noemt als bijlage `fsc-<uitrol>-<onderdeel>-<bestand>` op zijn onderdeel en zijn pad, en vervangt wat er al stond. Het slaat op zonder uit te rollen; daarna volgt `zadctl project refresh`. `--dry-run` toont de opdrachten eerst.
+6. **Grip.** In `-grip.env` en `-federation.env` staan de instellingen van een voorbeeldinstantie met federatie: `INSTANCE_MODE=voorbeeld`, `EXAMPLE_FSC_GROUP=grip-voorbeeld`, `EXAMPLE_RESET_HOUR` (op alle instanties hetzelfde uur), `SEED_DATASET`, `INSTANCE_NAME`, `INSTANCE_KEY`, `INSTANCE_TOOI_URI`, `INSTANCE_BASE_URI`, `EXAMPLE_INSTANCE_URIS` (waar de andere staan; op alle instanties gelijk), `FEDERATION_INBOUND_ENABLED`, `FEDERATION_OUTBOUND_ENABLED` en `OUTWAY_URL`. `EXAMPLE_VISITORS` staat er niet in: die lijst kan namen bevatten en staat één keer op `component-2`, voor alle voorbeelden. De login en de sessie gaan zoals bij elke instantie (stap 3). De listener heeft geen login, maar start alleen met authenticatie: `-federation.env` zet `OIDC_ISSUER` op de realm van het project (`https://keycloak.rijksapp.nl/realms/<project>-odcn-production`), en hij krijgt een eigen `SESSION_SECRET_KEY`. `BOOTSTRAP_BEHEERDER_EMAILS` blijft weg: dat is in een voorbeeld een startfout. Elke frontend is een eigen adres om na het inloggen naar terug te keren: zet het adres van `component-1` in elke uitrol in `additional_redirect_uris` van de dienst `keycloak`, anders weigert de login met "Invalid parameter: redirect_uri" (zie [Wat op het platform bleek](#wat-op-het-platform-bleek)).
+7. **Geheimen.** Ze gaan via stdin en komen in geen bestand. Elke instantie krijgt een eigen `FEDERATION_SIGNING_KEY`, op `component-2` en `federation` van haar uitrol. Een bijlage kan dat niet: die geldt in elke uitrol van het onderdeel, en gaat bovendien voor een instelling met dezelfde naam. Haal daarom eerst de bijlage met de sleutel van `component-2` af (`zadctl attachment unassign instance-signing-key component-2`). Een waarde mag geen regeleinde bevatten, dus schrijf ze als `\n`; grip zet ze terug. De listener krijgt ook een eigen `SESSION_SECRET_KEY`, net als `component-2` van een nieuwe instantie:
 
-### Wat het platformteam moet bevestigen
+   ```sh
+   key="$(openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 \
+     | jq -Rs '{FEDERATION_SIGNING_KEY: gsub("\n"; "\\n")}')"
+   for c in component-2 federation; do
+     printf '%s' "$key" | zadctl env add -c "$c" --deployment <uitrol> -f - --yes
+   done
+   unset key
+   printf '{"SESSION_SECRET_KEY": "%s"}' "$(openssl rand -hex 32)" \
+     | zadctl env add -c federation --deployment <uitrol> -f - --yes
+   ```
 
-- Of de databasegebruiker in de eigen database schema's mag aanmaken; OpenFSC maakt `contracts`, `peers`, `controller` en `transactionlog`.
-- Of een pod de publieke hostnaam van een andere uitrol in hetzelfde cluster op poort 443 bereikt. Het netwerkbeleid laat uitgaand verkeer naar internet op 80 en 443 toe; of dat ook geldt voor een adres van het eigen cluster, staat niet vast.
-- Of een onderdeel op meer dan één poort bereikbaar is binnen de uitrol: de manager luistert op 8443 (groep), 8444 (intern) en 8445 (intern, zonder clientcertificaat). `zadctl component add` kent `--ports`.
-- Hoe de beheer-API's van manager en controller (poort 8444) bereikbaar zijn voor `bootstrap.sh`; het script neemt de adressen uit `MANAGER_URL_<K>` en `CONTROLLER_URL_<K>`.
-- Een sleutel als bijlage krijgt geen rechten 0600: het platform zet die niet. OpenFSC meldt een waarschuwing die niets tegenhoudt.
-- Waar de sleutel van de test-CA staat. Niet op een werkplek; dat is nog open.
+8. **De groep inrichten.** Dat doet elke peer zelf, vanuit zijn uitrol: alleen daar zijn de beheer-API's van manager en controller (poort 8444) bereikbaar. De bootstrap `fscboot-<k>` draait `deploy/zad/fsc/bootstrap.sh` in een lus. Hij registreert de dienst `grip-opdrachtverkeer` bij de eigen controller, publiceert die in de directory, vraagt een verbinding met de dienst van elke andere peer in `PEERS`, en stuurt opnieuw wat OpenFSC niet meer probeert te bezorgen. De managers van de peers tekenen een verbindingscontract zodra het binnenkomt (`AUTO_SIGN_GRANTS=serviceConnection` in `-manager.env`), dus geen peer hoeft bij een ander iets te accepteren. Is alles geldig, dan zet de bootstrap de andere peers met hun grant hash in zijn logboek, als tabel en als SQL, en kijkt hij elk uur opnieuw. Mislukken tien rondes op rij voordat het een keer lukte, dan stopt hij, zodat het platform het laat zien. `PEERS=a d` in `-bootstrap.env` laat het ministerie nog buiten. Op een werkplek toont `bootstrap.sh --dry-run` de aanroepen van één ronde.
+9. **Het peerregister van grip.** Lees de rijen in het logboek van de bootstrap (`zadctl logs <uitrol> -c fscboot-<k>`). Voer per instantie de andere peers in onder Beheer > Koppelingen, met de schakelaar Voorbeeldinstantie aan, en test de verbinding; of draai de SQL in de databaseconsole. Het register blijft bij de nachtelijke reset staan.
+10. **Controle.** Log in als bezoeker op MOZa voorbeeld. De kostenpost "Zaalhuur bijeenkomst ondernemers november" wacht op DigiGilde voorbeeld; binnen een minuut staat hij daar aangemaakt en leest het programma hem terug.
+
+### Wat het platform doet
+
+Gelezen in de code van het platform (`RijksICTGilde/RIG-Cluster`), de API van `zadctl` en het FSC-testnet van MOZa op hetzelfde cluster, op 27 november 2026. Op de uitrollen van grip na te kijken in de logboeken.
+
+- **Schema's.** De databasegebruiker van een uitrol is eigenaar van haar database en mag er schema's in maken; OpenFSC maakt `contracts`, `peers`, `controller` en `transactionlog`.
+- **De publieke hostnaam van een andere uitrol.** Een pod bereikt de router van het cluster op poort 443, dus ook de manager en de inway van een andere uitrol in hetzelfde project. Rechtstreeks verkeer tussen uitrollen blijft dicht.
+- **Meer poorten.** Met `--ports` luistert een onderdeel op meer poorten binnen de uitrol. De eerste is die van de publicatie en van de standaard gezondheidscontrole.
+- **De beheer-API's.** Poort 8444 van manager en controller is van buiten niet te bereiken: het platform publiceert alleen de eerste poort, op 443, en kent geen exec of port-forward. Daarom richt elke peer zich in met een eigen bootstrap.
+- **Bijlagen** horen bij een onderdeel, niet bij een uitrol (zie de topologie).
+- **`$DATABASE_*`** vult het platform alleen in een alias in, niet in een gewone instelling.
+- **Een sleutel als bijlage** krijgt geen rechten 0600: het platform zet die niet. OpenFSC meldt een waarschuwing die niets tegenhoudt.
+- **Images van Docker Hub** haalt het cluster via een eigen proxy; de workflow noemt de geleverde images van OpenFSC met hun digest.
 
 In de code van het platform is geen grens gevonden op het aantal onderdelen, uitrollen of databases per project.
 
@@ -342,7 +376,7 @@ De eerste uitrol, een voorbeeldinstantie, is gedaan op 9 oktober 2026 met `zadct
 - **Op de clusteradressen** bereikt de browser alleen de frontend. Zet daar `BACKEND_URL=http://main-component-2:8080`; zonder poort loopt elk verzoek naar `/api/` vast. Onderdelen binnen één uitrol mogen elkaar bereiken; `uses-components` is niet nodig.
 - **Op het goedgekeurde adres** staan beide onderdelen achter één adres: `/` naar `component-1`, `/api` naar `component-2`, zonder herschrijven. Geef de paden op bij het aanmaken van de onderdelen.
 - **Keycloak kent alleen het adres van het onderdeel waaraan de dienst hangt** als terugkeeradres. Op de clusteradressen is dat de backend, terwijl grip via de frontend terugkeert: de login geeft dan "Invalid parameter: redirect_uri". Zet het adres van de frontend in `additional_redirect_uris` van de dienst.
-- **De sleutel van de instantie** gaat als bijlage die het onderdeel als omgevingsvariabele krijgt (`FEDERATION_SIGNING_KEY`); regeleinden blijven dan heel.
+- **De sleutel van de instantie** gaat als bijlage die het onderdeel als omgevingsvariabele krijgt (`FEDERATION_SIGNING_KEY`); regeleinden blijven dan heel. Dat past bij een project met één instantie. Draaien er meer in een project, dan krijgt elke uitrol een eigen sleutel als instelling, met `\n` voor de regeleinden: een bijlage geldt in elke uitrol van het onderdeel (zie [Voorbeeldinstanties met federatie](#voorbeeldinstanties-met-federatie)).
 - **De gezondheidscontrole** staat per onderdeel als HTTP op poort 8080: `/` voor de frontend, `/api/health/live` en `/api/health/ready` voor de backend.
 - **Een API-sleutel hoort bij een lid, niet bij een project** (zad-cli 0.14). `zadctl project use` geeft dan "No API key": maak een token op het tabblad Team van het project, onder Leden en tokens, en zet het als `ZAD_API_KEY` in `.env.zadctl`.
 - **Opgeslagen maar niet uitgerolde wijzigingen laten de uitrol in de workflow falen.** Wie met `--no-rollout` werkt, rolt daarna zelf uit met `zadctl project refresh`; anders meldt de deploy-action "saved but not rolled out" en stopt de stap, ook als de nieuwe image wel draait.

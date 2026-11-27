@@ -30,3 +30,13 @@ Het programma MijnOverheid Zakelijk draait al een gedeeld FSC-testnet op ZAD: Op
 - Op ZAD draait elke voorbeeldinstantie als eigen uitrol in het project van de voorbeeldinstantie, met een eigen database; de directory is ook een uitrol. Het project krijgt acht onderdelen extra: per instantie manager, controller, inway, outway, transactielog en de listener van grip, plus de directory en haar overzicht. Zie [uitrol-zad.md](../uitrol-zad.md#voorbeeldinstanties-met-federatie).
 - De sleutel van de test-CA staat niet op een werkplek. Waar hij wel staat, is een open punt.
 - Aansluiten bij het testnet van MOZa of de demogroep van OpenFSC in plaats van een eigen groep blijft mogelijk; dat vraagt hun akkoord.
+
+## Later gewijzigd (2026-11-27)
+
+Bij het inrichten van de groep op ZAD bleek het platform anders te werken dan gedacht: een bijlage hoort bij een onderdeel en niet bij een uitrol, en de beheer-API's van een peer zijn alleen binnen zijn uitrol bereikbaar. Het besluit blijft; dit is hoe het daar draait.
+
+- **Certificaten per peer, niet per uitrol.** De uitrollen van het project delen de bijlagen van manager, controller, inway, outway en transactielog. Elke peer heeft daarom eigen paden in de pod (`/etc/fsc/<k>/`), en de instellingen van een uitrol wijzen naar die van de eigen peer. Een pod bevat zo ook de sleutels van de andere peers in het project. In deze besloten voorbeeldgroep is dat aanvaard, in een groep voor echt werk niet.
+- **Elke peer richt zichzelf in, en de groep tekent verbindingen bij aankomst.** In de uitrol van elke peer draait een bootstrap (`fscboot-<k>`, zoals bij de berichtenbox van MOZa) die de dienst registreert en publiceert en een verbinding vraagt met de dienst van elke andere peer. Het project krijgt zo per peer een onderdeel extra. De managers van de peers tekenen een verbindingscontract zodra het binnenkomt (`AUTO_SIGN_GRANTS=serviceConnection`). Daarmee valt het moment weg waarop een aanbieder beslist wie hij toelaat: in deze groep zit alleen wie van de test-CA een certificaat kreeg. In een groep voor echt werk blijft dat een besluit van de aanbieder.
+- **Elke instantie een eigen sleutel, per uitrol.** `FEDERATION_SIGNING_KEY` staat als instelling op `component-2` en `federation` van de uitrol, niet als bijlage: een bijlage zou in elke uitrol gelden.
+
+Het open punt over de sleutel van de test-CA is gesloten: hij hoeft niet bewaard te worden. De groep is een voorbeeld; is er een nieuw certificaat nodig, dan maakt `pki.sh --fresh` een nieuwe groep, met nieuwe bijlagen en lege FSC-databases. De sleutel gaat nooit in de repo en niet naar het platform. Zie [uitrol-zad.md](../uitrol-zad.md#voorbeeldinstanties-met-federatie).
