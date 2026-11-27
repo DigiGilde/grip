@@ -5,6 +5,14 @@ Dit bestand volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/). De v
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-25
+
+### Toegevoegd in grip-opdrachtverkeer
+
+- Akkoord: `factuurinformatie`, optioneel. De opdrachtgever geeft bij het akkoord op waar de factuur heen gaat: organisatie, adres en postcode met plaats, en eventueel ten name van, een kenmerk voor op de factuur en een contactpersoon van de financiële afdeling. Het veld valt buiten de JWS. `sendAcceptance` draagt daarmee gegevensklasse A en B.
+- `PUT /opdrachten/{opdrachtId}/factuurinformatie` (`sendBillingDetails`): de opdrachtgever geeft na het akkoord een nieuwe factuurinformatie op. Ze geldt vanaf de eerstvolgende aanlevering; de opdrachtnemer neemt alleen een wijziging over die later is opgegeven dan wat hij heeft.
+- Schema's `factuurinformatie` en `factuurinformatie-wijziging`.
+
 ## [1.1.0] - 2026-10-09
 
 ### Toegevoegd in grip-opdrachtverkeer

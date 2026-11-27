@@ -17,6 +17,7 @@ De vertaling is omkeerbaar: elke term heeft precies een codenaam en andersom. Bi
 | `aanhef` | `salutation` |
 | `aantal` | `headcount` |
 | `aanvraag_id` | `request_id` |
+| `adres` | `address` |
 | `afgesloten_op` | `closed_at` |
 | `afgesproken` | `agreed` |
 | `afgewezen_op` | `rejected_at` |
@@ -41,6 +42,7 @@ De vertaling is omkeerbaar: elke term heeft precies een codenaam en andersom. Bi
 | `brief` | `letter` |
 | `budgetindicatie` | `budget_indication` |
 | `canonicalisatie` | `canonicalization` |
+| `contactpersoon` | `contact` |
 | `context_uris` | `context_refs` |
 | `contractversie` | `contract_version` |
 | `edge_typen` | `edge_types` |
@@ -49,6 +51,7 @@ De vertaling is omkeerbaar: elke term heeft precies een codenaam en andersom. Bi
 | `eigen` | `custom` |
 | `einddatum` | `end_date` |
 | `externe_node_uris` | `external_node_uris` |
+| `factuurinformatie` | `billing_details` |
 | `functie` | `function` |
 | `geadresseerde` | `addressee` |
 | `gedekt` | `covered` |
@@ -91,15 +94,16 @@ De vertaling is omkeerbaar: elke term heeft precies een codenaam en andersom. Bi
 | `offertebedrag` | `quoted_amount` |
 | `omschrijving` | `description` |
 | `onderdelen` | `sections` |
-| `onvolledig_door` | `incomplete_by` |
 | `ondertekenaar` | `signer` |
 | `ondertekening` | `signatures` |
 | `ontvangen_op` | `received_at` |
+| `onvolledig_door` | `incomplete_by` |
 | `opdracht` | `assignment` |
 | `opdracht_uri` | `assignment_uri` |
 | `opdrachtgever` | `client` |
 | `opdrachtnemer` | `contractor` |
 | `open_rollen` | `open_roles` |
+| `opgegeven_op` | `given_at` |
 | `organisatie` | `organisation` |
 | `peilmoment` | `as_of` |
 | `periode` | `period` |
@@ -107,6 +111,7 @@ De vertaling is omkeerbaar: elke term heeft precies een codenaam en andersom. Bi
 | `plek` | `place` |
 | `positie` | `position` |
 | `postadres` | `postal_address` |
+| `postcode_plaats` | `postcode_city` |
 | `profiel` | `profile` |
 | `prognose` | `forecast` |
 | `publicaties` | `publications` |
@@ -124,6 +129,8 @@ De vertaling is omkeerbaar: elke term heeft precies een codenaam en andersom. Bi
 | `subtotalen_per_jaar` | `subtotals_per_year` |
 | `tariefcategorie` | `rate_category` |
 | `tekst` | `body` |
+| `telefoon` | `phone` |
+| `ten_name_van` | `attention_of` |
 | `titel` | `title` |
 | `totaal` | `total` |
 | `totale_kosten` | `total_cost` |
@@ -226,6 +233,8 @@ Veld `plek` (code: `place`):
 | `doorgifte-opdrachten` | `handover-assignments` |
 | `eindrapport` | `final-report` |
 | `factuurgegevens` | `billing-data` |
+| `factuurinformatie` | `billing-details` |
+| `factuurinformatie-wijziging` | `billing-details-change` |
 | `factuurregel` | `invoice-line` |
 | `keten` | `chain` |
 | `kostenpost` | `cost-item` |

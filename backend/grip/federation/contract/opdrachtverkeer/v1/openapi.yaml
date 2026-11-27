@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: grip-opdrachtverkeer
-  version: 1.1.0
+  version: 1.2.0
   summary: Het verkeer tussen grip-instanties over aanvragen, offertes, akkoord, inzage, vacatures, kostenposten en doorgifte.
   description: |
     Elke grip-instantie biedt deze dienst aan achter de eigen FSC-inway, onder de dienstnaam
@@ -59,6 +59,8 @@ tags:
     description: Wat een opdrachtgever bij de opdrachtnemer opvraagt.
   - name: Eindrapport
     description: Afsluiting van een opdracht.
+  - name: Facturatie
+    description: Waar de opdrachtnemer de factuur heen stuurt.
   - name: Vacatures
     description: Open rollen uitzetten bij andere instanties.
   - name: Kostenposten
@@ -132,8 +134,11 @@ paths:
 
         Een `offerte_hash` die niet hoort bij de uitgegeven offerte geeft 409, net als een offerte
         waarop al een akkoord of afwijzing met een ander `id` is ontvangen.
+
+        Met `factuurinformatie` geeft de opdrachtgever bij het akkoord op waar de factuur heen gaat.
+        Het veld is optioneel, valt buiten de JWS en is gegevensklasse B.
       x-grip-caller: client
-      x-grip-data-class: [A]
+      x-grip-data-class: [A, B]
       parameters:
         - { $ref: "#/components/parameters/offerteId" }
       requestBody:
@@ -301,6 +306,34 @@ paths:
         content:
           application/json:
             schema: { $ref: "../../schemas/eindrapport.schema.json" }
+      responses:
+        "201": { $ref: "#/components/responses/Received" }
+        "200": { $ref: "#/components/responses/Duplicate" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /opdrachten/{opdrachtId}/factuurinformatie:
+    put:
+      operationId: sendBillingDetails
+      tags: [Facturatie]
+      summary: Factuurinformatie wijzigen
+      description: |
+        De opdrachtgever geeft na het akkoord een nieuwe factuurinformatie op. De aanroep gaat naar de
+        instantie van de opdrachtnemer. De nieuwe factuurinformatie vervangt de vorige en geldt vanaf
+        de eerstvolgende aanlevering; een factuurverzoek dat al is aangeleverd blijft zoals het was.
+
+        De opdrachtnemer neemt een wijziging alleen over als `opgegeven_op` later ligt dan het moment
+        van wat hij heeft. Een oudere wijziging wordt ontvangen en niet meer overgenomen.
+      x-grip-caller: client
+      x-grip-data-class: [B]
+      parameters:
+        - { $ref: "#/components/parameters/opdrachtId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "../../schemas/factuurinformatie-wijziging.schema.json" }
       responses:
         "201": { $ref: "#/components/responses/Received" }
         "200": { $ref: "#/components/responses/Duplicate" }
