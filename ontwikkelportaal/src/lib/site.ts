@@ -4,9 +4,11 @@ export { ROUTES };
 
 export const SITE_NAME = 'Ontwikkelportaal van grip';
 
-/** The product as in frontend/src/brand/names.ts; this image is built without frontend/. */
-export const PRODUCT_NAME = 'grip';
-export const PRODUCT_SENTENCE = 'Grip op opdrachten, van offerte tot verantwoording.';
+/**
+ * The sentence from frontend/src/brand/names.ts, without its full stop: it is the start page's heading.
+ * This image is built without frontend/.
+ */
+export const PRODUCT_SENTENCE = 'Grip op opdrachten, van offerte tot verantwoording';
 
 /** The organisations of the example chain, in the order of the chain. */
 export const ORGANISATIONS = [
