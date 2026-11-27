@@ -1,0 +1,8 @@
+{
+  "omschrijving": "Een soort buiten de codelijst",
+  "soort": "gerealiseerd",
+  "bedrag": {
+    "bedrag_centen": 1000,
+    "valuta": "EUR"
+  }
+}

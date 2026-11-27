@@ -171,6 +171,155 @@
         "voorwaarden": {
           "type": "string",
           "description": "Voorwaarden en aannames."
+        },
+        "kenmerk": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Kenmerk dat de opdrachtnemer aan de offerte geeft, bijvoorbeeld `DG-2026-0007`. Uniek binnen de instantie van de opdrachtnemer. Hoort bij de inhoud waarover de hash wordt berekend."
+        },
+        "uw_kenmerk": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Kenmerk van de opdrachtgever waarop de offerte antwoordt, als dat is opgegeven."
+        },
+        "afzender": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Naam van de organisatie die de offerte uitbrengt, zoals die op het document staat."
+        },
+        "brief": {
+          "type": "object",
+          "description": "De offerte als brief: de tekst die bij de bedragen hoort. Hoort bij de inhoud waarover de hash wordt berekend, zodat het akkoord over de hele tekst gaat en niet alleen over de bedragen. Tekst is platte tekst met een kleine opmaak (lege regel voor een alinea, `- ` en `1. ` voor lijsten, `### ` voor een tussenkop, `**` en `*` voor nadruk); nooit HTML. Een brief noemt geen personen die het werk doen.",
+          "properties": {
+            "betreft": {
+              "type": "string",
+              "description": "Het onderwerp van de brief."
+            },
+            "geadresseerde": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "De regels van de geadresseerde, zoals ze op de brief staan."
+            },
+            "aanhef": {
+              "type": "string",
+              "description": "De aanhef van de brief."
+            },
+            "opening": {
+              "type": "string",
+              "description": "De openingszin of openingsalinea."
+            },
+            "afsluiting": {
+              "type": "string",
+              "description": "De tekst waarmee de brief sluit."
+            },
+            "onderdelen": {
+              "type": "array",
+              "description": "De onderdelen van de brief, in de volgorde van het document.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "sleutel": {
+                    "type": "string",
+                    "description": "Vaste aanduiding van het onderdeel binnen deze offerte."
+                  },
+                  "kop": {
+                    "type": "string",
+                    "description": "De kop van het onderdeel."
+                  },
+                  "tekst": {
+                    "type": "string",
+                    "description": "De tekst van het onderdeel. Mag leeg zijn bij een onderdeel dat alleen de kosten toont."
+                  },
+                  "met_kosten": {
+                    "type": "boolean",
+                    "description": "Of de offerteregels en het totaal in dit onderdeel staan."
+                  },
+                  "genummerd": {
+                    "type": "boolean",
+                    "description": "Of het onderdeel een nummer krijgt in het document."
+                  }
+                },
+                "required": [
+                  "sleutel",
+                  "kop",
+                  "tekst"
+                ]
+              }
+            },
+            "afzendergegevens": {
+              "type": "object",
+              "description": "De organisatie die de offerte uitbrengt, zoals ze in het briefhoofd staat. Geen persoonsgegevens.",
+              "properties": {
+                "organisatie": {
+                  "type": "string",
+                  "description": "Naam van de organisatie."
+                },
+                "valt_onder": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Waar de organisatie deel van is, van dichtbij naar ver."
+                },
+                "eenheid": {
+                  "type": "string",
+                  "description": "Naam van de eenheid binnen de organisatie, als die er is."
+                },
+                "bezoekadres": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "De regels van het bezoekadres."
+                },
+                "postadres": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "De regels van het postadres."
+                },
+                "website": {
+                  "type": "string",
+                  "description": "Adres van de website, of leeg."
+                }
+              }
+            },
+            "ondertekening": {
+              "type": "array",
+              "description": "De ondertekenblokken van het document: eerst de opdrachtnemer, dan de opdrachtgever. Een veld mag leeg zijn als het bij het uitbrengen niet bekend is.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "namens": {
+                    "type": "string",
+                    "description": "Namens wie wordt getekend."
+                  },
+                  "naam": {
+                    "type": "string",
+                    "description": "Naam van de ondertekenaar, of leeg."
+                  },
+                  "functie": {
+                    "type": "string",
+                    "description": "Functie van de ondertekenaar, of leeg."
+                  },
+                  "organisatie": {
+                    "type": "string",
+                    "description": "Organisatie van de ondertekenaar."
+                  }
+                }
+              }
+            },
+            "bijlage_factuurinformatie": {
+              "type": "boolean",
+              "description": "Of het document een bijlage heeft waarin de opdrachtgever de factuurgegevens invult."
+            }
+          },
+          "required": [
+            "onderdelen"
+          ]
         }
       },
       "required": [
@@ -234,7 +383,7 @@
         "maandtarieven_per_jaar": {
           "type": "array",
           "minItems": 2,
-          "description": "Maandtarief per FTE per kalenderjaar, bij een personeelsregel die over tariefjaren met een verschillend tarief loopt. Staat er in plaats van `maandtarief`.",
+          "description": "Maandtarief per FTE per kalenderjaar, bij een personeelsregel waarvan het tarief alleen op 1 januari wijzigt. Staat er in plaats van `maandtarief`.",
           "items": {
             "type": "object",
             "properties": {
@@ -248,6 +397,48 @@
             },
             "required": [
               "jaar",
+              "maandtarief"
+            ]
+          }
+        },
+        "schalen": {
+          "type": "array",
+          "description": "Schalen die onder de tariefcategorie van de regel vallen, oplopend. Bij een personeelsregel.",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "jaar": {
+          "type": "integer",
+          "description": "Kalenderjaar waarop een vast bedrag betrekking heeft. Bij een regel van de soort `vast`."
+        },
+        "maandtarieven_per_periode": {
+          "type": "array",
+          "minItems": 2,
+          "description": "Maandtarief per FTE per aaneengesloten periode, bij een personeelsregel waarvan het tarief binnen een kalenderjaar wijzigt. Een periode kan op elke dag beginnen en eindigen; het bedrag van de regel is per dag over deze periodes berekend. Staat er in plaats van `maandtarief` en `maandtarieven_per_jaar`.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "begindatum": {
+                "type": "string",
+                "format": "date",
+                "description": "Eerste dag waarop dit tarief voor de regel geldt."
+              },
+              "einddatum": {
+                "type": "string",
+                "format": "date",
+                "description": "Laatste dag waarop dit tarief voor de regel geldt."
+              },
+              "maandtarief": {
+                "$ref": "bedrag.schema.json"
+              }
+            },
+            "required": [
+              "begindatum",
+              "einddatum",
               "maandtarief"
             ]
           }

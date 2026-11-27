@@ -5,6 +5,21 @@ Dit bestand volgt [Keep a Changelog](https://keepachangelog.com/nl/1.1.0/). De v
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-09
+
+### Toegevoegd in grip-opdrachtverkeer
+
+- Een gegeven heeft een eigenaar; een andere instantie bewaart een verwijzing en haalt de inhoud bij de eigenaar op.
+- `POST /kostenpostverzoeken` (`requestCostItem`): een organisatie vraagt de organisatie die de uitgave doet om een kostenpost aan te maken, met omschrijving, verwacht bedrag en eventueel periode en opdracht. Idempotent op de `verwijzing_uri`; een volgend verzoek met een hoger `volgnummer` vraagt om een wijziging van omschrijving en bedrag.
+- `GET /kostenposten?verwijzingUri=...` (`getCostItems`): de vrager haalt omschrijving, verwacht bedrag en factuurregels op bij een of meer verwijzingen, in een verzoek. Een verwijzing zonder kostenpost die de vrager mag lezen komt terug met `aangemaakt` op `false`.
+- Schema's `kostenpostverzoek`, `kostenposten`, `kostenpost` en `factuurregel`; de soort van een factuurregel is `ontvangen` of `verwacht`.
+- `onvolledig_door` in de uitputting (`getBudgetUsage`) en de doorgifte van kosten (`getHandoverCosts`): de organisaties waar een kostenpost niet is op te halen. Staat er een naam, dan zijn de bedragen onvolledig.
+- `x-grip-caller: requester`: de organisatie die de kostenpost vroeg. De vrager is altijd de aanroepende peer; `organisatie` in een verzoek is informatief, en de `verwijzing_uri` valt onder de basis-URI van de vrager.
+
+- Offerte: `kenmerk`, `uw_kenmerk`, `afzender` en `brief` in de momentopname. De brief is de tekst bij de bedragen en hoort bij de inhoud waarover de hash wordt berekend.
+- Offerteregel: `schalen` bij een personeelsregel, `jaar` bij een vast bedrag, en `maandtarieven_per_periode` voor een tarief dat binnen een kalenderjaar wijzigt. `maandtarieven_per_jaar` geldt voor een tarief dat alleen op 1 januari wijzigt.
+- Vacature: `publicaties`, de openbare adressen waar de vacature te lezen is.
+
 ### Verduidelijkt in grip-opdrachtverkeer
 
 - `GET /opdrachten` zei "geen bedragen" en gegevensklasse A, terwijl het antwoord voor een corpus-systeem `besteding` bevat. De omschrijving en de gegevensklasse (A en B) volgen nu het schema.
