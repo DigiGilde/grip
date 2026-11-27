@@ -70,9 +70,8 @@ function instanceCard(instance: Instance): HTMLElement {
 // The instances are not in the pages: the container writes config.json at
 // start from ONTWIKKELPORTAAL_INSTANCES, so one image serves every environment.
 async function showInstances() {
-  const section = document.getElementById('demo');
-  const list = document.getElementById('demo-instanties');
-  if (!section || !list) return;
+  const template = document.getElementById('demo-sjabloon');
+  if (!(template instanceof HTMLTemplateElement)) return;
   let configured: unknown;
   try {
     const response = await fetch('/config.json', { cache: 'no-cache' });
@@ -84,8 +83,11 @@ async function showInstances() {
   if (!Array.isArray(configured)) return;
   const instances = configured.map(parseInstance).filter((i): i is Instance => i !== null);
   if (!instances.length) return;
+  const demo = document.importNode(template.content, true);
+  const list = demo.getElementById('demo-instanties');
+  if (!list) return;
   list.replaceChildren(...instances.map(instanceCard));
-  section.hidden = false;
+  template.replaceWith(demo);
 }
 
 function wireSidebarTriggers() {

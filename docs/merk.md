@@ -28,7 +28,7 @@ De organisatie is de afzender van alles wat de deur uit gaat. Het product is het
 | Bewijs van een akkoord | Wie besloot en namens wie | Een regel onderaan: waarmee het is vastgelegd |
 | Geinstalleerde app | In de naam van de app | Het pictogram |
 | Ontwikkelportaal, boven de balk | Niet: het portaal hoort bij geen organisatie | Het beeldmerk voor de naam van het portaal, samen een link naar de start |
-| Startpagina van het ontwikkelportaal | Niet | Beeldmerk, naam en de zin, boven de kop |
+| Startpagina van het ontwikkelportaal | Niet | De zin, als kop |
 
 Een aantekening over de omgeving, zoals "voorbeeld" bij de voorbeeldgegevens, hoort bij geen van beide. Zij staat als label naast de naam.
 
@@ -62,7 +62,7 @@ De bron is `frontend/brand/mark.svg`. Alle afgeleide bestanden maakt `just brand
 
 In de schermen is het beeldmerk het onderdeel `BrandMark` uit `frontend/src/brand`. Naam en beeldmerk samen buiten de balk is `Brand`, in drie vormen: `login`, `signing` en `compact`.
 
-In het ontwikkelportaal is het beeldmerk `BrandMark.astro` uit `ontwikkelportaal/src/components`, gekleurd door `.brand-mark` in `site.css`. De bovenbalk is één `nldd-toolbar`, zoals in grip zelf: beeldmerk en naam als `nldd-toolbar-title`, daarnaast de terugknop naar het onderdeel erboven, en rechts Zoeken. Naar de start is er geen terugknop, want de naam gaat daar al heen. Op een telefoon blijven de naam en het zoekicoon; het kruimelpad onder de pagina leidt omhoog. De startpagina toont de vorm `login`: beeldmerk, naam en de zin.
+In het ontwikkelportaal is het beeldmerk `BrandMark.astro` uit `ontwikkelportaal/src/components`, gekleurd door `.brand-mark` in `site.css`. De bovenbalk is één `nldd-toolbar`, zoals in grip zelf: beeldmerk en naam als `nldd-toolbar-title`, daarnaast de terugknop naar het onderdeel erboven, en rechts Zoeken. Naar de start is er geen terugknop, want de naam gaat daar al heen. Op een telefoon blijven de naam en het zoekicoon; het kruimelpad onder de pagina leidt omhoog. Op de startpagina staan beeldmerk en naam alleen in de balk; de zin van grip is daar de kop.
 
 ### De richtingen die zijn getekend
 
@@ -99,7 +99,7 @@ Overwogen en niet gekozen:
 - "Zie wat een opdracht kost, wie eraan werkt en wat er nog moet gebeuren." Waar, maar het is een opsomming.
 - "Voor wie opdrachten uitvoert voor de overheid." Zegt voor wie, niet wat.
 
-De zin staat op de inlogpagina en op de startpagina van het ontwikkelportaal, en hoort in de README en in de omschrijving van de app. Hij staat in `frontend/src/brand/names.ts`, met een kopie in `ontwikkelportaal/src/lib/site.ts`.
+De zin staat op de inlogpagina en op de startpagina van het ontwikkelportaal, en hoort in de README en in de omschrijving van de app. Hij staat in `frontend/src/brand/names.ts`, met een kopie zonder punt in `ontwikkelportaal/src/lib/site.ts`, omdat hij daar de kop is.
 
 ## Titel van een tabblad
 
