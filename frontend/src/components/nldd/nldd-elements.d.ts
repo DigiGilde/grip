@@ -150,11 +150,6 @@ type NlddElement = DetailedHTMLProps<HTMLAttributes<HTMLElement>, HTMLElement> &
 declare module 'react' {
 	namespace JSX {
 		interface IntrinsicElements {
-			/** NOT REGISTERED. Using this renders its children unstyled with no
-			 *  error. Add `import '@nldd/design-system/activity-indicator';` to
-			 *  components/nldd/register.ts first. Some elements register through a
-			 *  parent's module (nldd-table-row with nldd-table); register.test.ts lists
-			 *  those. */
 			'nldd-activity-indicator': NlddElement & {
 				/** Circle diameter on the icon scale: 16,20,24,28,32,40,44,48,56,64,80,96 (default '32') */
 				'size'?: NLDDActivityIndicator['size'];
@@ -232,11 +227,6 @@ declare module 'react' {
 				'accessible-label'?: NLDDAvatarGroup['accessibleLabel'];
 				'translations'?: NLDDAvatarGroup['translations'];
 			};
-			/** NOT REGISTERED. Using this renders its children unstyled with no
-			 *  error. Add `import '@nldd/design-system/badge';` to
-			 *  components/nldd/register.ts first. Some elements register through a
-			 *  parent's module (nldd-table-row with nldd-table); register.test.ts lists
-			 *  those. */
 			'nldd-badge': NlddElement & {
 				/** Size: 'sm' | 'md' (default: 'md') */
 				'size'?: NLDDBadge['size'];
@@ -1124,11 +1114,6 @@ declare module 'react' {
 				'hide-below'?: NLDDIconCell['hideBelow'];
 				'hide-above'?: NLDDIconCell['hideAbove'];
 			};
-			/** NOT REGISTERED. Using this renders its children unstyled with no
-			 *  error. Add `import '@nldd/design-system/identity';` to
-			 *  components/nldd/register.ts first. Some elements register through a
-			 *  parent's module (nldd-table-row with nldd-table); register.test.ts lists
-			 *  those. */
 			'nldd-identity': NlddElement & {
 				/** Name line (e.g. "Jan Jansen and Piet Pietersen"); the fallback when the text slot is empty */
 				'text'?: NLDDIdentity['text'];
@@ -1392,11 +1377,6 @@ declare module 'react' {
 				/** Render variant. Use 'listbox' when the menu serves as a combobox popup - this switches role to "listbox" and item roles to "option" per ARIA spec. Default: 'menu'. */
 				'variant'?: NLDDMenu['variant'];
 			};
-			/** NOT REGISTERED. Using this renders its children unstyled with no
-			 *  error. Add `import '@nldd/design-system/menu-bar';` to
-			 *  components/nldd/register.ts first. Some elements register through a
-			 *  parent's module (nldd-table-row with nldd-table); register.test.ts lists
-			 *  those. */
 			'nldd-menu-bar': NlddElement & {
 				/** Text for the overflow button (default through i18n) */
 				'overflow-text'?: NLDDMenuBar['overflowText'];
@@ -1406,11 +1386,6 @@ declare module 'react' {
 				'compact'?: NLDDMenuBar['compact'];
 				'translations'?: NLDDMenuBar['translations'];
 			};
-			/** NOT REGISTERED. Using this renders its children unstyled with no
-			 *  error. Add `import '@nldd/design-system/menu-bar-item';` to
-			 *  components/nldd/register.ts first. Some elements register through a
-			 *  parent's module (nldd-table-row with nldd-table); register.test.ts lists
-			 *  those. */
 			'nldd-menu-bar-item': NlddElement & {
 				/** Text of the item */
 				'text'?: NLDDMenuBarItem['text'];
@@ -2288,11 +2263,6 @@ declare module 'react' {
 				/** Number of panes (default: 2) */
 				'panes'?: NLDDStackedSplitView['panes'];
 			};
-			/** NOT REGISTERED. Using this renders its children unstyled with no
-			 *  error. Add `import '@nldd/design-system/status-bar';` to
-			 *  components/nldd/register.ts first. Some elements register through a
-			 *  parent's module (nldd-table-row with nldd-table); register.test.ts lists
-			 *  those. */
 			'nldd-status-bar': NlddElement & {
 				/** Color of the bar (default: 'neutral') */
 				'variant'?: NLDDStatusBar['variant'];
