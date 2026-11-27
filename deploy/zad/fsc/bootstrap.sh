@@ -1,47 +1,119 @@
 #!/bin/sh
-# Make the three example instances reachable for each other through FSC on ZAD
-# (A <-> B, A <-> D, B <-> D), in the group grip-voorbeeld.
+# The bootstrap of one peer of the example FSC group "grip-voorbeeld" on ZAD.
+# It runs in the deployment of that peer, as the component fscboot-<k> (image
+# fsc-bootstrap): only from there are the internal APIs of its manager and
+# controller (port 8444) reachable. Each peer does its own side:
 #
-#   1. each peer registers the service grip-opdrachtverkeer, pointing at the
-#      federation listener of its own instance behind its own inway
-#   2. each peer publishes that service in the directory (a contract with a
-#      service publication grant, which the directory signs automatically)
-#   3. each peer asks for a connection to the service of each other peer (a
-#      contract with a service connection grant for its own outway), and the
-#      other accepts
-#   4. the grant hashes go to $OUT/registry-<k>.sql, one file per instance, and
-#      to a table for entering by hand under Beheer > Koppelingen
+#   1. register the service grip-opdrachtverkeer at its own controller,
+#      pointing at the federation listener of its instance behind its inway
+#   2. publish that service in the directory (a contract with a service
+#      publication grant, which the directory signs automatically)
+#   3. ask for a connection to the service of each other peer in PEERS (a
+#      contract with a service connection grant for its own outway); the
+#      managers of this closed group sign such a contract when it arrives
+#      (AUTO_SIGN_GRANTS=serviceConnection)
+#   4. send again what OpenFSC gave up delivering to another peer
+#   5. once every connection is valid: print the other peers for the peer
+#      registry of grip, with their grant hashes, as a table and as SQL
 #
-# Idempotent: existing services and valid contracts are reused, and the SQL
-# can be run again.
+# Idempotent: existing services and contracts are reused.
 #
-# Needs: BASE_DOMAIN, PROJECT, DEPLOYMENT_A, DEPLOYMENT_B, DEPLOYMENT_D, and PKI_DIR
-# from pki.sh. The internal APIs of the managers (port 8444) and controllers
-# (port 8444) must be reachable from where this runs; override the addresses
-# with MANAGER_URL_<A|B|D> and CONTROLLER_URL_<A|B|D>, the inway address with
-# INWAY_ADDRESS_<K> and the service endpoint with ENDPOINT_URL_<K>.
+# Needs: PEER (a, b or d), PEERS (the peers of the group, default "a b d"),
+# BASE_DOMAIN, PROJECT and DEPLOYMENT_<K> for every peer in PEERS. The internal
+# APIs default to the platform's service names in the own deployment
+# (https://<deployment>-manager:8444 and https://<deployment>-controller:8444);
+# override them with MANAGER_URL and CONTROLLER_URL, the inway address with
+# INWAY_ADDRESS and the service endpoint with ENDPOINT_URL. TLS_ROOT_CERT,
+# TLS_CERT and TLS_KEY are the internal CA and the admin client certificate
+# of the peer (default: from PKI_DIR, the output of pki.sh).
 #
-# PEERS names the instances that take part (default "a b d"); "a d" makes
-# the group with DigiGilde voorbeeld and MOZa voorbeeld only, and
-# DEPLOYMENT_B can then stay unset.
-#
-# --dry-run prints the calls and executes none.
+# A round exits 0 when every connection is valid, 3 while it waits for
+# another peer or the directory, and otherwise on an error.
+#   --loop     the entrypoint of the image: a round every BOOTSTRAP_INTERVAL
+#              seconds (default 30), slowing down to ten times that while
+#              nothing moves, and once done every BOOTSTRAP_RECHECK seconds
+#              (default 3600). Before the first success, BOOTSTRAP_MAX_FAILURES
+#              errors in a row (default 10) stop it, so the platform shows it.
+#   --dry-run  print the calls of one round and execute none
 set -eu
 
 here="$(cd "$(dirname "$0")" && pwd)"
 PKI_DIR="${PKI_DIR:-$here/state/pki}"
-OUT="${OUT:-$here/state/bootstrap}"
-dry_run=0
-[ "${1:-}" = "--dry-run" ] && dry_run=1
 
+mode=once
+case "${1:-}" in
+    "") ;;
+    --loop) mode=loop ;;
+    --dry-run) mode=dry ;;
+    *) echo "unknown option: $1" >&2; exit 2 ;;
+esac
+
+PEER="${PEER:-}"
 PEERS="${PEERS:-a b d}"
-for var in BASE_DOMAIN PROJECT; do
-    eval "[ -n \"\${$var:-}\" ]" || { echo "$var is not set" >&2; exit 1; }
+for var in PEER BASE_DOMAIN PROJECT; do
+    eval "[ -n \"\${$var:-}\" ]" || { echo "$var is not set" >&2; exit 2; }
 done
+case " $PEERS " in
+    *" $PEER "*) ;;
+    *) echo "PEER $PEER is not one of PEERS ($PEERS)" >&2; exit 2 ;;
+esac
 for k in $PEERS; do
+    case "$k" in
+        a | b | d) ;;
+        *) echo "unknown peer in PEERS: $k" >&2; exit 2 ;;
+    esac
     var="DEPLOYMENT_$(printf %s "$k" | tr '[:lower:]' '[:upper:]')"
-    eval "[ -n \"\${$var:-}\" ]" || { echo "$var is not set" >&2; exit 1; }
+    eval "[ -n \"\${$var:-}\" ]" || { echo "$var is not set" >&2; exit 2; }
 done
+
+if [ "$mode" = loop ]; then
+    interval="${BOOTSTRAP_INTERVAL:-30}"
+    recheck="${BOOTSTRAP_RECHECK:-3600}"
+    max_failures="${BOOTSTRAP_MAX_FAILURES:-10}"
+    for n in "$interval" "$recheck" "$max_failures"; do
+        case "$n" in
+            "" | 0 | *[!0-9]*) echo "BOOTSTRAP_INTERVAL, BOOTSTRAP_RECHECK and BOOTSTRAP_MAX_FAILURES are whole numbers above 0" >&2; exit 2 ;;
+        esac
+    done
+    # As process 1 of the container the shell ignores TERM without a trap,
+    # and a stop would wait out the whole grace period.
+    trap 'exit 0' TERM INT
+    done_once=0
+    failures=0
+    streak=0
+    while :; do
+        rc=0
+        sh "$0" || rc=$?
+        if [ "$rc" = 0 ]; then
+            done_once=1
+            failures=0
+            streak=0
+            pause="$recheck"
+        else
+            if [ "$rc" = 3 ]; then
+                failures=0
+            else
+                failures=$((failures + 1))
+                if [ "$done_once" = 0 ] && [ "$failures" -ge "$max_failures" ]; then
+                    echo "bootstrap: $failures rounds in a row failed; stopping" >&2
+                    exit 1
+                fi
+            fi
+            streak=$((streak + 1))
+            pause="$interval"
+            i=1
+            while [ "$i" -lt "$streak" ] && [ "$pause" -lt "$((interval * 10))" ]; do
+                pause=$((pause * 2))
+                i=$((i + 1))
+            done
+            [ "$pause" -le "$((interval * 10))" ] || pause=$((interval * 10))
+        fi
+        echo "bootstrap: next round in $pause seconds"
+        # In the background, so a TERM is handled during the pause.
+        sleep "$pause" &
+        wait $!
+    done
+fi
 
 service="grip-opdrachtverkeer"
 group="grip-voorbeeld"
@@ -59,162 +131,189 @@ deployment_of() { case "$1" in a) echo "$DEPLOYMENT_A" ;; b) echo "$DEPLOYMENT_B
 host_of() { printf '%s-%s-%s.%s' "$1" "$(deployment_of "$2")" "$PROJECT" "$BASE_DOMAIN"; }
 base_uri_of() { echo "https://$(host_of component-1 "$1")"; }
 
-# An address from the environment, or the default derived from the ZAD host name.
-setting() { # variable name prefix, key, default
-    upper="$(printf %s "$2" | tr '[:lower:]' '[:upper:]')"
-    eval "value=\${$1_$upper:-}"
-    echo "${value:-$3}"
-}
-manager_url() { setting MANAGER_URL "$1" "https://$(host_of manager "$1"):8444"; }
-controller_url() { setting CONTROLLER_URL "$1" "https://$(host_of controller "$1"):8444"; }
-inway_address() { setting INWAY_ADDRESS "$1" "https://$(host_of inway "$1"):443"; }
-endpoint_url() { setting ENDPOINT_URL "$1" "http://$(deployment_of "$1")-federation:8090"; }
+self_id="$(peer_id_of "$PEER")"
+deployment="$(deployment_of "$PEER")"
+manager="${MANAGER_URL:-https://$deployment-manager:8444}"
+controller="${CONTROLLER_URL:-https://$deployment-controller:8444}"
+inway="${INWAY_ADDRESS:-https://$(host_of inway "$PEER"):443}"
+endpoint="${ENDPOINT_URL:-http://$deployment-federation:8090}"
+ca="${TLS_ROOT_CERT:-$PKI_DIR/peers/$PEER/internal/ca.pem}"
+cert="${TLS_CERT:-$PKI_DIR/peers/$PEER/internal/admin/cert.pem}"
+key="${TLS_KEY:-$PKI_DIR/peers/$PEER/internal/admin/key.pem}"
 
-# curl with the admin client certificate of a peer. The internal APIs only
+# curl with the admin client certificate of the peer. The internal APIs only
 # accept clients with a certificate of that peer's internal CA.
-api() { # peer key, curl args...
-    k="$1"; shift
-    if [ "$dry_run" = 1 ]; then
+api() {
+    if [ "$mode" = dry ]; then
         echo "  curl $*" >&2
         return 0
     fi
-    curl -sS --cacert "$PKI_DIR/peers/$k/internal/ca.pem" \
-        --cert "$PKI_DIR/peers/$k/internal/admin/cert.pem" \
-        --key "$PKI_DIR/peers/$k/internal/admin/key.pem" "$@"
-}
-json() { uv run --no-project python3 -c "$1"; }
-
-now="$(date +%s)"
-later="$((now + 365 * 24 * 3600))"
-uuid() { uv run --no-project python3 -c "import uuid;print(uuid.uuid4())"; }
-
-register_service() { # peer key
-    k="$1"; url="$(controller_url "$k")"
-    code="$(api "$k" -o /dev/null -w '%{http_code}' "$url/v1/services/$service")"
-    if [ "$code" = "200" ]; then echo "  service already registered at peer $k"; return; fi
-    code="$(api "$k" -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' \
-        -d "{\"name\":\"$service\",\"endpoint_url\":\"$(endpoint_url "$k")\",\"inway_address\":\"$(inway_address "$k")\"}" \
-        "$url/v1/services")"
-    echo "  service registered at peer $k: HTTP $code"
+    curl -sS --max-time 30 --cacert "$ca" --cert "$cert" --key "$key" "$@"
 }
 
-# The hash of the grant of the given type for the given service provider in a
-# contract that is valid (signed by all), or empty.
-find_grant() { # peer key, grant type, provider peer id, consumer peer id or ""
-    [ "$dry_run" = 1 ] && return 0
-    api "$1" "$(manager_url "$1")/v1/contracts?limit=100" | GT="$2" PROV="$3" CONS="$4" SVC="$service" json '
-import json, os, sys
-data = json.load(sys.stdin)
-for c in data.get("contracts", []):
-    if c.get("state") not in (None, "CONTRACT_STATE_VALID"):
-        continue
-    for g in c["content"]["grants"]:
-        if g["type"] != os.environ["GT"]:
-            continue
-        s = g["service"]
-        if s.get("peer_id") != os.environ["PROV"] or s.get("name") != os.environ["SVC"]:
-            continue
-        if os.environ["CONS"] and g.get("outway", {}).get("peer_id") != os.environ["CONS"]:
-            continue
-        print(g["hash"], c["hash"])
-        sys.exit(0)
-'
-}
+# The body of an answer, or an error when it is not a success.
+get() { api --fail "$1"; }
 
-create_contract() { # peer key, grant json -> prints HTTP code
-    api "$1" -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' \
-        -d "{\"contract_content\":{\"iv\":\"$(uuid)\",\"group_id\":\"$group\",\"validity\":{\"not_before\":$now,\"not_after\":$later},\"grants\":[$2],\"hash_algorithm\":\"HASH_ALGORITHM_SHA3_512\",\"created_at\":$now}}" \
-        "$(manager_url "$1")/v1/contracts"
-}
-
-publish() { # peer key
-    id="$(peer_id_of "$1")"
-    if [ -n "$(find_grant "$1" GRANT_TYPE_SERVICE_PUBLICATION "$id" "")" ]; then
-        echo "  publication of peer $1 already valid"; return
-    fi
-    code="$(create_contract "$1" "{\"type\":\"GRANT_TYPE_SERVICE_PUBLICATION\",\"directory\":{\"peer_id\":\"$dir_peer\"},\"service\":{\"peer_id\":\"$id\",\"name\":\"$service\",\"protocol\":\"PROTOCOL_TCP_HTTP_1.1\"}}")"
-    echo "  publication contract of peer $1: HTTP $code"
-}
-
-connect() { # consumer key, provider key
-    cid="$(peer_id_of "$1")"; pid="$(peer_id_of "$2")"
-    if [ -n "$(find_grant "$1" GRANT_TYPE_SERVICE_CONNECTION "$pid" "$cid")" ]; then
-        echo "  connection $1 -> $2 already valid"; return
-    fi
-    if [ "$dry_run" = 1 ]; then
-        thumb="<public key thumbprint of outway $1>"
-        api "$1" "$(controller_url "$1")/v1/outways"
+# A change; anything but a success stops the round.
+call() { # what, method, url, JSON body (optional)
+    if [ "$#" -ge 4 ]; then
+        code="$(api -o /dev/null -w '%{http_code}' -X "$2" -H 'Content-Type: application/json' -d "$4" "$3")"
     else
-        thumb="$(api "$1" "$(controller_url "$1")/v1/outways" | json 'import json,sys;print(json.load(sys.stdin)["outways"][0]["public_key_thumbprint"])')"
+        code="$(api -o /dev/null -w '%{http_code}' -X "$2" "$3")"
     fi
-    code="$(create_contract "$1" "{\"type\":\"GRANT_TYPE_SERVICE_CONNECTION\",\"outway\":{\"peer_id\":\"$cid\",\"identification\":{\"type\":\"OUTWAY_IDENTIFICATION_TYPE_PUBLIC_KEY_THUMBPRINT\",\"public_key_thumbprint\":\"$thumb\"}},\"service\":{\"type\":\"SERVICE_TYPE_SERVICE\",\"peer_id\":\"$pid\",\"name\":\"$service\"}}")"
-    echo "  connection contract $1 -> $2 proposed: HTTP $code"
-    # The provider accepts what is waiting for its signature.
-    [ "$dry_run" = 1 ] || sleep 3
-    if [ "$dry_run" = 1 ]; then
-        api "$2" "$(manager_url "$2")/v1/contracts/pending"
-        api "$2" -X PUT "$(manager_url "$2")/v1/contracts/<hash>/accept"
-        return
+    if [ "$mode" = dry ]; then
+        echo "  $1"
+        return 0
     fi
-    for hash in $(api "$2" "$(manager_url "$2")/v1/contracts/pending" | json '
-import json, sys
-for c in json.load(sys.stdin).get("pending_contracts", []):
-    print(c["hash"])'); do
-        code="$(api "$2" -o /dev/null -w '%{http_code}' -X PUT "$(manager_url "$2")/v1/contracts/$hash/accept")"
-        echo "  peer $2 accepted a contract: HTTP $code"
-    done
+    case "$code" in
+        2??) echo "  $1: HTTP $code" ;;
+        *) echo "  $1 failed: HTTP $code" >&2; exit 1 ;;
+    esac
 }
+
+uuid() {
+    if [ -r /proc/sys/kernel/random/uuid ]; then
+        cat /proc/sys/kernel/random/uuid
+    else
+        uuidgen | tr '[:upper:]' '[:lower:]'
+    fi
+}
+
+# The grant goes in through a variable: bash 3.2, the sh of macOS, splits a
+# JSON object written out inside "$(...)".
+propose() { # what, grant JSON
+    now="$(date +%s)"
+    body="$(printf '{"contract_content":{"iv":"%s","group_id":"%s","validity":{"not_before":%s,"not_after":%s},"grants":[%s],"hash_algorithm":"HASH_ALGORITHM_SHA3_512","created_at":%s}}' \
+        "$(uuid)" "$group" "$now" "$((now + 365 * 24 * 3600))" "$2" "$now")"
+    call "$1" POST "$manager/v1/contracts" "$body"
+}
+
+# "<grant hash> <contract hash>" of the first grant of this type for the
+# service of the provider (and the outway of the consumer) in a contract in
+# this state, or nothing.
+grant() { # grant type, provider peer id, consumer peer id or "", contract state
+    printf '%s' "$contracts" | jq -r --arg type "$1" --arg provider "$2" --arg consumer "$3" \
+        --arg state "$4" --arg service "$service" '
+        first(.contracts[] | select((.state // "CONTRACT_STATE_VALID") == $state) | .hash as $contract
+            | .content.grants[]
+            | select(.type == $type and .service.peer_id == $provider and .service.name == $service)
+            | select($consumer == "" or .outway.peer_id == $consumer)
+            | "\(.hash) \($contract)")'
+}
+
+# OpenFSC retries a delivery to another peer a few times and then gives up; a
+# delivery without a next attempt is sent again.
+resend() { # contract hash
+    case "$1" in
+        "" | . | .. | *[!A-Za-z0-9._~\$+-]*) echo "  skipped a contract hash of an unexpected form" >&2; return 0 ;;
+    esac
+    deliveries="$(get "$manager/v1/contracts/$1/distributions")"
+    [ "$mode" != dry ] || return 0
+    printf '%s' "$deliveries" | jq -r '.distributions[]? | select((.nextAttemptAt // 0) == 0) | "\(.peer_id) \(.action)"' |
+        while read -r to action; do
+            call "sent again to peer $to ($action)" PUT "$manager/v1/contracts/$1/distributions/$to/$action/retry"
+        done
+}
+
+waiting=0
+echo "peer $PEER ($(name_of "$PEER")) in deployment $deployment"
+
+echo "1. service $service"
+code="$(api -o /dev/null -w '%{http_code}' "$controller/v1/services/$service")"
+if [ "$code" = 200 ]; then
+    echo "  registered"
+else
+    call "registered at the controller" POST "$controller/v1/services" \
+        "{\"name\":\"$service\",\"endpoint_url\":\"$endpoint\",\"inway_address\":\"$inway\"}"
+fi
+
+contracts="$(get "$manager/v1/contracts?limit=100")"
+[ "$mode" != dry ] || contracts='{"contracts":[]}'
+printf '%s' "$contracts" | jq -e '.contracts | type == "array"' >/dev/null ||
+    { echo "the manager answered without a list of contracts" >&2; exit 1; }
+
+echo "2. publication in the directory"
+if [ -n "$(grant GRANT_TYPE_SERVICE_PUBLICATION "$self_id" "" CONTRACT_STATE_VALID)" ]; then
+    echo "  valid"
+elif [ -n "$(grant GRANT_TYPE_SERVICE_PUBLICATION "$self_id" "" CONTRACT_STATE_PROPOSED)" ]; then
+    echo "  waiting for the directory"
+    waiting=1
+else
+    publication="{\"type\":\"GRANT_TYPE_SERVICE_PUBLICATION\",\"directory\":{\"peer_id\":\"$dir_peer\"},\"service\":{\"peer_id\":\"$self_id\",\"name\":\"$service\",\"protocol\":\"PROTOCOL_TCP_HTTP_1.1\"}}"
+    propose "proposed" "$publication"
+    waiting=1
+fi
+
+echo "3. connections"
+api -o /dev/null -X POST "$manager/v1/peers/sync" || echo "  the peer sync failed; going on" >&2
+for o in $PEERS; do
+    [ "$o" = "$PEER" ] && continue
+    pid="$(peer_id_of "$o")"
+    if [ -n "$(grant GRANT_TYPE_SERVICE_CONNECTION "$pid" "$self_id" CONTRACT_STATE_VALID)" ]; then
+        echo "  to peer $o: valid"
+        continue
+    fi
+    waiting=1
+    if [ -n "$(grant GRANT_TYPE_SERVICE_CONNECTION "$pid" "$self_id" CONTRACT_STATE_PROPOSED)" ]; then
+        echo "  to peer $o: waiting for its signature"
+        continue
+    fi
+    listing="$(get "$manager/v1/peers/$dir_peer/services?peer_id=$pid")"
+    if [ "$mode" != dry ] &&
+        [ "$(printf '%s' "$listing" | jq --arg service "$service" '[.services[]? | select(.name == $service)] | length')" = 0 ]; then
+        echo "  to peer $o: its service is not in the directory yet"
+        continue
+    fi
+    outways="$(get "$controller/v1/outways")"
+    if [ "$mode" = dry ]; then
+        thumb="<public key thumbprint of the outway of peer $PEER>"
+    else
+        thumb="$(printf '%s' "$outways" | jq -r '.outways[0].public_key_thumbprint // empty')"
+    fi
+    if [ -z "$thumb" ]; then
+        echo "  to peer $o: the outway has not registered at the controller yet"
+        continue
+    fi
+    connection="{\"type\":\"GRANT_TYPE_SERVICE_CONNECTION\",\"outway\":{\"peer_id\":\"$self_id\",\"identification\":{\"type\":\"OUTWAY_IDENTIFICATION_TYPE_PUBLIC_KEY_THUMBPRINT\",\"public_key_thumbprint\":\"$thumb\"}},\"service\":{\"type\":\"SERVICE_TYPE_SERVICE\",\"peer_id\":\"$pid\",\"name\":\"$service\"}}"
+    propose "to peer $o: proposed" "$connection"
+done
+
+echo "4. deliveries"
+for hash in $(printf '%s' "$contracts" | jq -r --arg service "$service" '.contracts[]
+    | select((.state // "CONTRACT_STATE_VALID") == "CONTRACT_STATE_VALID" or .state == "CONTRACT_STATE_PROPOSED")
+    | select(any(.content.grants[]; .service.name == $service)) | .hash'); do
+    resend "$hash"
+done
+
+if [ "$mode" = dry ]; then
+    echo "5. would print the peer registry once every connection is valid"
+    exit 0
+fi
+if [ "$waiting" = 1 ]; then
+    echo "not done yet"
+    exit 3
+fi
 
 sql_quote() { printf %s "$1" | sed "s/'/''/g"; }
 
-# One row for the peer registry of instance $1: the counterpart $2.
-registry_row() { # instance key, counterpart key, grant hash
+echo "5. peer registry of grip in $(name_of "$PEER"): enter under Beheer > Koppelingen"
+printf 'peer id\tname\torganisation TOOI URI\tbase URI\trole\tgrant hash (%s)\texample\n' "$service"
+for o in $PEERS; do
+    [ "$o" = "$PEER" ] && continue
+    hash="$(grant GRANT_TYPE_SERVICE_CONNECTION "$(peer_id_of "$o")" "$self_id" CONTRACT_STATE_VALID | cut -d' ' -f1)"
+    printf '%s\t%s\t%s\t%s\tcounterpart\t%s\ttrue\n' \
+        "$(peer_id_of "$o")" "$(name_of "$o")" "$(tooi_of "$o")" "$(base_uri_of "$o")" "$hash"
+done
+echo "The same for the database console:"
+for o in $PEERS; do
+    [ "$o" = "$PEER" ] && continue
+    hash="$(grant GRANT_TYPE_SERVICE_CONNECTION "$(peer_id_of "$o")" "$self_id" CONTRACT_STATE_VALID | cut -d' ' -f1)"
     printf "insert into peer (id, peer_id, name, organisation_tooi_uri, base_uri, role, grant_hashes, is_active, is_example)\n"
     printf "values (gen_random_uuid(), '%s', '%s', '%s', '%s', 'counterpart', '{\"%s\": \"%s\"}'::jsonb, true, true)\n" \
-        "$(peer_id_of "$2")" "$(sql_quote "$(name_of "$2")")" "$(tooi_of "$2")" "$(base_uri_of "$2")" "$service" "$3"
+        "$(peer_id_of "$o")" "$(sql_quote "$(name_of "$o")")" "$(tooi_of "$o")" "$(base_uri_of "$o")" "$service" "$hash"
     printf "on conflict (peer_id) do update\n"
     printf "    set grant_hashes = peer.grant_hashes || excluded.grant_hashes, base_uri = excluded.base_uri,\n"
     printf "        name = excluded.name, organisation_tooi_uri = excluded.organisation_tooi_uri,\n"
     printf "        is_active = true, is_example = true;\n"
-}
-
-echo "1. services"
-for k in $PEERS; do register_service "$k"; done
-echo "2. publications"
-for k in $PEERS; do publish "$k"; done
-[ "$dry_run" = 1 ] || sleep 3
-echo "3. connections"
-for k in $PEERS; do api "$k" -o /dev/null -X POST "$(manager_url "$k")/v1/peers/sync" || true; done
-# Not k: api() sets it.
-for consumer in $PEERS; do
-    for provider in $PEERS; do
-        [ "$provider" = "$consumer" ] || connect "$consumer" "$provider"
-    done
 done
-[ "$dry_run" = 1 ] || sleep 3
-
-echo "4. peer registry of grip"
-if [ "$dry_run" = 1 ]; then
-    echo "  would write $OUT/registry-<k>.sql with the grant hashes found"
-    exit 0
-fi
-mkdir -p "$OUT"
-table="$OUT/registry.txt"
-printf 'instance\tpeer id\tname\torganisation TOOI URI\tbase URI\trole\tgrant hash (%s)\tis_example\n' "$service" > "$table"
-for k in $PEERS; do
-    sql="$OUT/registry-$k.sql"
-    printf -- '-- Peer registry of instance %s (%s)\n' "$k" "$(name_of "$k")" > "$sql"
-    for o in $PEERS; do
-        [ "$o" = "$k" ] && continue
-        grant="$(find_grant "$k" GRANT_TYPE_SERVICE_CONNECTION "$(peer_id_of "$o")" "$(peer_id_of "$k")" | cut -d' ' -f1)"
-        [ -n "$grant" ] || { echo "no valid connection grant $k -> $o; see the manager logs" >&2; exit 1; }
-        registry_row "$k" "$o" "$grant" >> "$sql"
-        printf '%s\t%s\t%s\t%s\t%s\tcounterpart\t%s\ttrue\n' \
-            "$k" "$(peer_id_of "$o")" "$(name_of "$o")" "$(tooi_of "$o")" "$(base_uri_of "$o")" "$grant" >> "$table"
-    done
-    echo "  wrote $sql"
-done
-echo
-echo "Without database access, enter these under Beheer > Koppelingen of each instance:"
-cat "$table"
 echo "done"
