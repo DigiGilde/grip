@@ -40,3 +40,10 @@ nldd-sidebar-section:not([collapsed]) .sidebar-trigger {
   font-size: 0.875rem;
   line-height: 1.3;
 }
+
+/* A phone has room for the name and the search icon only; the trail below the page still leads up. */
+@media (max-width: 640px) {
+  nldd-toolbar-item:has(#terug) {
+    display: none !important;
+  }
+}

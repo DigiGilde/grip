@@ -25,6 +25,8 @@ const documentTitle = title ? `${title} · ${SITE_NAME}` : SITE_NAME;
 const start: Crumb = { text: 'Start', href: ROUTES.start };
 const trail = title ? [start, ...crumbs] : [];
 const up = title ? (back ?? trail[trail.length - 1]) : undefined;
+// The name in the bar already leads to the start.
+const backButton = up && up.href !== ROUTES.start ? up : undefined;
 const onSearch = Astro.url.pathname.replace(/\/?$/, '/') === ROUTES.search;
 ---
 
@@ -44,25 +46,35 @@ const onSearch = Astro.url.pathname.replace(/\/?$/, '/') === ROUTES.search;
       <nldd-page>
         <nldd-skip-link slot="header" text="Direct naar de inhoud">
           <nldd-simple-section padding-block="0">
-            <nldd-toolbar-title text={SITE_NAME} href={ROUTES.start}>
-              <BrandMark slot="media" />
-            </nldd-toolbar-title>
+            <nldd-toolbar label={SITE_NAME}>
+              <nldd-toolbar-title slot="start" text={SITE_NAME} href={ROUTES.start}>
+                <BrandMark slot="media" />
+              </nldd-toolbar-title>
+              {
+                backButton && (
+                  <nldd-toolbar-item slot="start" priority={1}>
+                    <nldd-menu-bar accessible-label="Terug">
+                      <nldd-menu-bar-item id="terug" icon="chevron-left" text={backButton.text} href={backButton.href} />
+                    </nldd-menu-bar>
+                    <nldd-menu-item slot="overflow" icon="chevron-left" text={backButton.text} href={backButton.href} />
+                  </nldd-toolbar-item>
+                )
+              }
+              <nldd-toolbar-item slot="end" priority={2}>
+                <nldd-menu-bar accessible-label="Zoeken">
+                  <nldd-menu-bar-item
+                    id="zoeken-knop"
+                    text="Zoeken"
+                    icon="search"
+                    content-priority="icon"
+                    href={ROUTES.search}
+                    current={onSearch || undefined}
+                  />
+                </nldd-menu-bar>
+                <nldd-menu-item slot="overflow" icon="search" text="Zoeken" href={ROUTES.search} />
+              </nldd-toolbar-item>
+            </nldd-toolbar>
           </nldd-simple-section>
-          <nldd-top-navigation-bar
-            no-logo
-            back-href={up?.href}
-            back-text={up?.text}
-          >
-            <nldd-menu-bar slot="utility" accessible-label="Zoeken">
-              <nldd-menu-bar-item
-                id="zoeken-knop"
-                text="Zoeken"
-                icon="search"
-                href={ROUTES.search}
-                current={onSearch || undefined}
-              />
-            </nldd-menu-bar>
-          </nldd-top-navigation-bar>
         </nldd-skip-link>
 
         <slot />

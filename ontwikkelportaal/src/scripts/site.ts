@@ -1,5 +1,13 @@
 import '../nldd-components.js';
 
+// On a phone Zoeken keeps only its icon, at the breakpoint where
+// nldd-top-navigation-bar compacts its own menu bars.
+const phone = matchMedia('(max-width: 640px)');
+const searchBar = document.getElementById('zoeken-knop')?.closest('nldd-menu-bar');
+const compactSearch = () => searchBar?.toggleAttribute('compact', phone.matches);
+phone.addEventListener('change', compactSearch);
+compactSearch();
+
 interface Instance {
   naam: string;
   rol: string;
