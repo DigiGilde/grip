@@ -58,7 +58,7 @@ Een besluit dat anderen bindt staat hier als ADR: genummerd, met context, beslui
 | [0052](0052-een-kostenpost-bij-een-andere-partij.md) | Een kostenpost bij een andere partij | voorgesteld |
 | [0053](0053-een-gegeven-heeft-een-eigenaar-elders-een-verwijzing.md) | Een gegeven heeft één eigenaar, elders een verwijzing | voorgesteld |
 | [0054](0054-voorbeeldinstanties-federeren-in-een-besloten-groep.md) | Voorbeeldinstanties federeren in een besloten groep | voorgesteld |
-| [0056](0056-de-kroniek-van-een-opdracht-als-bron.md) | De kroniek van een opdracht als bron | voorstel |
+| [0056](0056-de-kroniek-van-een-opdracht-als-bron.md) | De kroniek van een opdracht als bron | voorgesteld |
 | [0057](0057-bewaren-en-vernietigen-per-zaak.md) | Bewaren en vernietigen per zaak | aanvaard, op één open punt na |
 | [0058](0058-factuurinformatie-bij-het-akkoord.md) | Factuurinformatie wordt bij het akkoord opgegeven | voorgesteld |
 

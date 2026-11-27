@@ -1,6 +1,6 @@
 # 0057 Bewaren en vernietigen per zaak
 
-Status: aanvaard (2026-11-25), op één punt na: wat er na de termijn van een zaak overblijft, is nog open.
+Status: aanvaard (2026-11-25). Op één punt na: wat er na de termijn van een zaak overblijft, is nog open.
 
 Vult aan: [0028 Een stroom van gebeurtenissen als bron](0028-een-stroom-van-gebeurtenissen-als-bron.md), [0056 De kroniek van een opdracht als bron](0056-de-kroniek-van-een-opdracht-als-bron.md)
 

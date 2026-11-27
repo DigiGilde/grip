@@ -37,6 +37,7 @@ export const CHAPTERS = [
       {
         docs: [
           'architectuur',
+          'kroniek',
           'beveiliging',
           'bewijs',
           'snelheid',

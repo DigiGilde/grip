@@ -1,6 +1,6 @@
 # 0056 De kroniek van een opdracht als bron
 
-Status: voorstel, draait als proef op deze branch (2026-11-04)
+Status: voorgesteld (2026-11-04)
 
 Vult aan: [0028 Een stroom van gebeurtenissen als bron](0028-een-stroom-van-gebeurtenissen-als-bron.md)
 
