@@ -99,7 +99,7 @@ Overwogen en niet gekozen:
 - "Zie wat een opdracht kost, wie eraan werkt en wat er nog moet gebeuren." Waar, maar het is een opsomming.
 - "Voor wie opdrachten uitvoert voor de overheid." Zegt voor wie, niet wat.
 
-De zin staat op de inlogpagina en op de startpagina van het ontwikkelportaal, en hoort in de README en in de omschrijving van de app. Hij staat in `frontend/src/brand/names.ts`, met een kopie in `ontwikkelportaal/src/lib/site.ts`.
+De zin staat op de inlogpagina en op de startpagina van het ontwikkelportaal, en hoort in de README en in de omschrijving van de app. Hij staat in `frontend/src/brand/names.ts`, met een kopie zonder punt in `ontwikkelportaal/src/lib/site.ts`, omdat hij daar de kop is.
 
 ## Titel van een tabblad
 
