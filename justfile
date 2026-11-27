@@ -167,6 +167,149 @@ sync-contract CHECKOUT:
     cd backend && uv run python -m grip.federation.sync_contract "{{ absolute_path(CHECKOUT) }}"
 
 # ---------------------------------------------------------------------------
+# The example FSC group on ZAD (deploy/zad/fsc; see docs/uitrol-zad.md)
+# ---------------------------------------------------------------------------
+
+# Needs BASE_DOMAIN, PROJECT and DEPLOYMENT_DIR, _A, _B and _D, as pki.sh does.
+# Writes <component>.env for zadctl env add and, for a component with a
+# database, <component>.alias for zadctl alias add, into
+# ENV_DIR/<deployment> (default ENV_DIR: deploy/zad/fsc/state/env). Stops
+# when a placeholder is left or a TLS_* path is not one pki.sh mounts for that
+# component (PKI_DIR as for pki.sh). `--dry-run` prints the files instead.
+# Fill the FSC settings of one deployment of the example group from deploy/zad/fsc/env
+[positional-arguments]
+zad-fsc-env deployment *flags:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    deployment="$1"
+    shift
+    dry_run=0
+    for flag in "$@"; do
+        case "$flag" in
+            --dry-run) dry_run=1 ;;
+            *) echo "unknown option: $flag" >&2; exit 2 ;;
+        esac
+    done
+    for var in BASE_DOMAIN PROJECT DEPLOYMENT_DIR DEPLOYMENT_A DEPLOYMENT_B DEPLOYMENT_D; do
+        [ -n "${!var:-}" ] || { echo "$var is not set" >&2; exit 1; }
+        export "${var?}"
+    done
+    case "$deployment" in
+        "$DEPLOYMENT_DIR") peer=dir; templates="directory-manager directory-ui" ;;
+        "$DEPLOYMENT_A") peer=a ;;
+        "$DEPLOYMENT_B") peer=b ;;
+        "$DEPLOYMENT_D") peer=d ;;
+        *) echo "$deployment is none of DEPLOYMENT_DIR, DEPLOYMENT_A, DEPLOYMENT_B and DEPLOYMENT_D" >&2; exit 1 ;;
+    esac
+    if [ "$peer" != dir ]; then
+        templates=""
+        for role in frontend grip federation manager controller inway outway txlog bootstrap; do
+            templates="$templates $peer-$role"
+        done
+    fi
+    fsc=deploy/zad/fsc
+    out="${ENV_DIR:-$fsc/state/env}/$deployment"
+    manifest="${PKI_DIR:-$fsc/state/pki}/upload/MANIFEST.tsv"
+    [ -f "$manifest" ] || echo "No $manifest yet: the TLS_* paths are not compared with it." >&2
+    # Only these: a plain envsubst also empties the $DATABASE_* of the alias.
+    # shellcheck disable=SC2016
+    placeholders='${BASE_DOMAIN} ${PROJECT} ${DEPLOYMENT_DIR} ${DEPLOYMENT_A} ${DEPLOYMENT_B} ${DEPLOYMENT_D}'
+    [ "$dry_run" = 1 ] || mkdir -p "$out"
+    for template in $templates; do
+        case "$template" in
+            directory-manager) component=dirmgr ;;
+            directory-ui) component=dirui ;;
+            *-frontend) component="component-1" ;;
+            *-grip) component="component-2" ;;
+            *-bootstrap) component="fscboot-$peer" ;;
+            *) component="${template#*-}" ;;
+        esac
+        filled="$(envsubst "$placeholders" < "$fsc/env/$template.env" | grep -v -e '^[[:space:]]*#' -e '^[[:space:]]*$')"
+        values="$(grep -v '^STORAGE_POSTGRES_DSN=' <<< "$filled" || true)"
+        alias="$(grep '^STORAGE_POSTGRES_DSN=' <<< "$filled" || true)"
+        if grep -n -e '\$' -e '=<.*>$' <<< "$values"; then
+            echo "$template.env: a placeholder is left (above)" >&2
+            exit 1
+        fi
+        if [ -n "$alias" ] && grep -oE '\$\{?[A-Za-z_]+' <<< "$alias" | grep -vE '^\$\{?DATABASE_'; then
+            echo "$template.env: the alias refers to more than \$DATABASE_* (above)" >&2
+            exit 1
+        fi
+        while IFS='=' read -r name path; do
+            case "$path" in
+                "/etc/fsc/$peer/"*) ;;
+                *) echo "$template.env: $name is not under /etc/fsc/$peer/" >&2; exit 1 ;;
+            esac
+            if [ -f "$manifest" ] && ! awk -F'\t' -v d="$deployment" -v c="$component" -v p="$path" \
+                '$1 == d && $2 == c && $4 == p { found = 1 } END { exit !found }' "$manifest"; then
+                echo "$template.env: $name=$path is not in $manifest for $component" >&2
+                exit 1
+            fi
+        done < <(grep '^TLS_[A-Z_]*=' <<< "$values" || true)
+        if [ "$dry_run" = 1 ]; then
+            printf 'would write %s:\n%s\n' "$out/$component.env" "$values"
+            [ -z "$alias" ] || printf 'would write %s:\n%s\n' "$out/$component.alias" "$alias"
+        else
+            printf '%s\n' "$values" > "$out/$component.env"
+            [ -z "$alias" ] || printf '%s\n' "$alias" > "$out/$component.alias"
+        fi
+    done
+    echo
+    echo "For each file, from the checkout that holds .env.zadctl:"
+    echo "  zadctl env add -c <component> --deployment $deployment --env-file $out/<component>.env"
+    echo "  zadctl alias add -c <component> --env-file $out/<component>.alias    (once per component)"
+    if [ "$peer" != dir ]; then
+        echo "Through stdin, never in a file (docs/uitrol-zad.md): FEDERATION_SIGNING_KEY on"
+        echo "component-2 and federation (one new key per instance), and SESSION_SECRET_KEY"
+        echo "on federation (and on component-2 of a new instance)."
+    fi
+
+# Needs the output of deploy/zad/fsc/pki.sh (PKI_DIR, default
+# deploy/zad/fsc/state/pki). Uploads every file MANIFEST.tsv lists for the
+# deployment as attachment fsc-<deployment>-<component>-<file> of its
+# component, on its pod path, replacing what is there. Saves without rolling
+# out: `zadctl project refresh` afterwards. Runs zadctl in the checkout that
+# holds .env.zadctl. `--dry-run` prints the zadctl commands instead.
+# Upload and couple the FSC certificates of one deployment of the example group
+[positional-arguments]
+zad-fsc-attachments deployment *flags:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    deployment="$1"
+    shift
+    dry_run=0
+    for flag in "$@"; do
+        case "$flag" in
+            --dry-run) dry_run=1 ;;
+            *) echo "unknown option: $flag" >&2; exit 2 ;;
+        esac
+    done
+    pki="${PKI_DIR:-deploy/zad/fsc/state/pki}"
+    manifest="$pki/upload/MANIFEST.tsv"
+    [ -f "$manifest" ] || { echo "No $manifest: run deploy/zad/fsc/pki.sh first." >&2; exit 1; }
+    count=0
+    while IFS=$'\t' read -r row_deployment component file pod_path; do
+        [ "$row_deployment" = "$deployment" ] || continue
+        source="$pki/upload/$deployment/$component/$file"
+        [ -f "$source" ] || { echo "$source is missing" >&2; exit 1; }
+        command=(zadctl --no-rollout attachment assign "fsc-$deployment-$component-${file%.pem}" "$component"
+            --from-file "$source" --mount-path "$pod_path" --replace --upsert --yes)
+        if [ "$dry_run" = 1 ]; then
+            printf '%q ' "${command[@]}"
+            echo
+        else
+            "${command[@]}" < /dev/null
+        fi
+        count=$((count + 1))
+    done < <(tail -n +2 "$manifest")
+    [ "$count" -gt 0 ] || { echo "$manifest lists nothing for $deployment" >&2; exit 1; }
+    if [ "$dry_run" = 1 ]; then
+        echo "($count attachments)"
+    else
+        echo "$count attachments saved, not rolled out: zadctl project pending, then zadctl project refresh"
+    fi
+
+# ---------------------------------------------------------------------------
 # Local environment (built images, own compose project; see docs/lokaal.md)
 # ---------------------------------------------------------------------------
 

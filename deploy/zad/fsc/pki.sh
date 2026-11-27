@@ -18,6 +18,12 @@
 #                                          deployment, to upload as attachments
 #   upload/MANIFEST.tsv                    deployment, component, file, pod path
 #
+# An attachment belongs to a component, and the deployments of the project
+# share the components: every deployment that runs the manager gets all its
+# attachments. So each peer has paths of its own in the pod, /etc/fsc/<k>/
+# (k is a, b or d; dir for the directory), and the TLS_* settings of a
+# deployment point at those of its own peer.
+#
 # Existing files are kept; pass --fresh to start over (the FSC databases must
 # then be emptied as well: contracts are signed with the old keys).
 set -eu
@@ -88,16 +94,16 @@ attach() { # deployment, component, file name, source file, pod path
     printf '%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$5" >> "$manifest"
 }
 
-attach_group() { # deployment, component, directory with cert.pem and key.pem
-    attach "$1" "$2" group-ca.pem "$PKI_DIR/group/ca.pem" /etc/fsc/group/ca.pem
-    attach "$1" "$2" group-cert.pem "$3/cert.pem" /etc/fsc/group/cert.pem
-    attach "$1" "$2" group-key.pem "$3/key.pem" /etc/fsc/group/key.pem
+attach_group() { # deployment, component, peer key, directory with cert.pem and key.pem
+    attach "$1" "$2" group-ca.pem "$PKI_DIR/group/ca.pem" "/etc/fsc/$3/group/ca.pem"
+    attach "$1" "$2" group-cert.pem "$4/cert.pem" "/etc/fsc/$3/group/cert.pem"
+    attach "$1" "$2" group-key.pem "$4/key.pem" "/etc/fsc/$3/group/key.pem"
 }
 
-attach_internal() { # deployment, component, internal dir
-    attach "$1" "$2" internal-ca.pem "$3/ca.pem" /etc/fsc/internal/ca.pem
-    attach "$1" "$2" internal-cert.pem "$3/$2/cert.pem" /etc/fsc/internal/cert.pem
-    attach "$1" "$2" internal-key.pem "$3/$2/key.pem" /etc/fsc/internal/key.pem
+attach_internal() { # deployment, component, peer key, internal dir, directory with cert.pem and key.pem
+    attach "$1" "$2" internal-ca.pem "$4/ca.pem" "/etc/fsc/$3/internal/ca.pem"
+    attach "$1" "$2" internal-cert.pem "$5/cert.pem" "/etc/fsc/$3/internal/cert.pem"
+    attach "$1" "$2" internal-key.pem "$5/key.pem" "/etc/fsc/$3/internal/key.pem"
 }
 
 make_ca "$PKI_DIR/group" "grip voorbeeld FSC-groep"
@@ -135,20 +141,23 @@ peer() {
         issue "$idir" "$idir/$name" "/CN=$name-$key" \
             "DNS:$(host "$name" "$deployment"),DNS:$deployment-$name,DNS:$name"
     done
-    # A client certificate for the bootstrap script, which calls the internal
-    # APIs of manager and controller.
+    # A client certificate for the bootstrap, which calls the internal APIs of
+    # manager and controller.
     issue "$idir" "$idir/admin" "/CN=admin-$key" "DNS:admin-$key"
 
     for component in $internal_components; do
         name="$component"
         [ "$component" = manager ] && name="$manager"
-        attach_internal "$deployment" "$name" "$idir"
+        attach_internal "$deployment" "$name" "$key" "$idir" "$idir/$name"
     done
     for component in $group_components; do
         name="$component"
         [ "$component" = manager ] && name="$manager"
-        attach_group "$deployment" "$name" "$pdir/group/$name"
+        attach_group "$deployment" "$name" "$key" "$pdir/group/$name"
     done
+    # The bootstrap component of a peer (bootstrap.sh in the image
+    # fsc-bootstrap) presents the admin certificate.
+    [ "$key" = "dir" ] || attach_internal "$deployment" "fscboot-$key" "$key" "$idir" "$idir/admin"
 }
 
 # The directory: a manager in directory mode, and a UI that presents the
@@ -157,7 +166,7 @@ peer() {
 group_components=manager
 internal_components=manager
 peer dir "$DEPLOYMENT_DIR" 01800000000000000099 "Voorbeeldgroep directory"
-attach_group "$DEPLOYMENT_DIR" dirui "$PKI_DIR/peers/dir/group/dirmgr"
+attach_group "$DEPLOYMENT_DIR" dirui dir "$PKI_DIR/peers/dir/group/dirmgr"
 
 group_components="manager inway outway"
 internal_components="manager controller inway outway txlog"
@@ -171,5 +180,5 @@ echo "FSC certificates in $PKI_DIR"
 echo "Attachments per component in $PKI_DIR/upload (list: $manifest)"
 echo
 echo "The group CA key, $PKI_DIR/group/ca-key.pem, signs every peer in the"
-echo "group. Never commit it. Move it off this workstation once the"
-echo "certificates are issued; where it should live is still open."
+echo "group. Never commit it and never upload it. It needs no safekeeping: the"
+echo "group is an example, and --fresh makes a new one."
