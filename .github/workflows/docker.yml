@@ -7,6 +7,12 @@ on:
 
 env:
   REGISTRY: ghcr.io
+  # One OpenFSC version: the base of the wrapper images, and the stock images
+  # below, pinned by digest. Change them together.
+  OPENFSC_VERSION: v2.8.0
+  OPENFSC_INWAY: docker.io/federatedserviceconnectivity/inway:v2.8.0@sha256:af86cb93ba98b1382a7e11d8894cdcbdee9624c7d1d161e85d4733000c39bc92
+  OPENFSC_OUTWAY: docker.io/federatedserviceconnectivity/outway:v2.8.0@sha256:604053951d2fe37478653fe8eaa66113e0927b2484c80529f466b36b289e0dbf
+  OPENFSC_DIRECTORY_UI: docker.io/federatedserviceconnectivity/directory-ui:v2.8.0@sha256:d5ad0c9046d6ba6d23f29c9667d98df8fb14f62fb877eff09da1ecaf9c5ce505
 
 jobs:
   build:
@@ -34,6 +40,9 @@ jobs:
           - image: fsc-txlog
             context: ./deploy/zad/fsc/images/txlog
             dockerfile: ./deploy/zad/fsc/images/txlog/Dockerfile
+          - image: fsc-bootstrap
+            context: ./deploy/zad/fsc
+            dockerfile: ./deploy/zad/fsc/images/bootstrap/Dockerfile
 
     steps:
       - uses: actions/checkout@v7
@@ -81,18 +90,28 @@ jobs:
           build-args: |
             GIT_SHA=${{ steps.build_meta.outputs.git_sha }}
             BUILD_TIME=${{ steps.build_meta.outputs.build_time }}
+            OPENFSC_VERSION=${{ env.OPENFSC_VERSION }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
   # Deploy to ZAD. Skipped until the repository is configured:
   #
-  #   variable  ZAD_PROJECT_ID       the ZAD project of this instance
-  #   variable  ZAD_DEPLOYMENT_NAME  optional, defaults to "main"
+  #   variable  ZAD_PROJECT_ID       the ZAD project of the instances
+  #   variable  ZAD_DEPLOYMENTS      optional, the deployments that run grip,
+  #                                  as JSON: ["gilde","programma"]
+  #   variable  ZAD_DEPLOYMENT_NAME  optional, the one deployment when
+  #                                  ZAD_DEPLOYMENTS is not set; defaults to "main"
+  #   variable  ZAD_FSC_DEPLOYMENTS  optional, the deployments with FSC and the
+  #                                  key of their peer, as JSON:
+  #                                  {"directory":"dir","gilde":"a","programma":"d"}
   #   secret    ZAD_API_KEY          set with: gh secret set ZAD_API_KEY
   #
   # Convention, as in the settings derivation in backend/grip/core/config.py:
-  # component-1 is the frontend, component-2 the backend. Each further
-  # instance is its own ZAD project and needs its own deploy job or workflow.
+  # component-1 is the frontend, component-2 the backend. A deployment with
+  # FSC also runs the federation listener from the backend image; it uses the
+  # schema that component-2 migrates, so the two move together. The listener
+  # is only deployed where ZAD_FSC_DEPLOYMENTS names it: the first deploy of a
+  # component adds it to the deployment, settings or not.
   deploy:
     needs: build
     if: vars.ZAD_PROJECT_ID != ''
@@ -100,31 +119,124 @@ jobs:
     permissions:
       contents: read
       packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        deployment: ${{ fromJSON(vars.ZAD_DEPLOYMENTS || format('["{0}"]', vars.ZAD_DEPLOYMENT_NAME || 'main')) }}
 
     steps:
-      - name: Compute image references
-        id: image
+      - name: Compute the components
+        id: components
+        env:
+          DEPLOYMENT: ${{ matrix.deployment }}
+          FSC_DEPLOYMENTS: ${{ vars.ZAD_FSC_DEPLOYMENTS || '{}' }}
         run: |
-          echo "prefix=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
-          echo "tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          prefix="ghcr.io/${GITHUB_REPOSITORY,,}"
+          tag="sha-${GITHUB_SHA::7}"
+          components="$(jq -nc --arg prefix "$prefix" --arg tag "$tag" --arg deployment "$DEPLOYMENT" \
+            --argjson fsc "$FSC_DEPLOYMENTS" '
+            [{name: "component-2", image: "\($prefix)/backend:\($tag)"},
+             {name: "component-1", image: "\($prefix)/frontend:\($tag)"}]
+            + if ($fsc[$deployment] // "dir") == "dir" then []
+              else [{name: "federation", image: "\($prefix)/backend:\($tag)"}] end')"
+          echo "value=$components" >> "$GITHUB_OUTPUT"
 
-      - name: Deploy backend to ZAD
+      - name: Deploy to ZAD
         uses: RijksICTGilde/zad-actions/deploy@v4
         with:
           api-key: ${{ secrets.ZAD_API_KEY }}
           project-id: ${{ vars.ZAD_PROJECT_ID }}
-          deployment-name: ${{ vars.ZAD_DEPLOYMENT_NAME || 'main' }}
-          component: component-2
-          image: ${{ steps.image.outputs.prefix }}/backend:${{ steps.image.outputs.tag }}
+          deployment-name: ${{ matrix.deployment }}
+          components: ${{ steps.components.outputs.value }}
 
-      - name: Deploy frontend to ZAD
+  # The FSC components of the example group. They follow a change to their
+  # images or to this workflow, not every push: a new image restarts the
+  # mesh. bootstrap.sh and the .dockerignore next to it make up the bootstrap
+  # image. Other pushes leave them as they run; a deploy that failed here is
+  # run again by hand.
+  fsc-plan:
+    if: vars.ZAD_PROJECT_ID != '' && vars.ZAD_FSC_DEPLOYMENTS != '' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      changed: ${{ steps.diff.outputs.changed }}
+      targets: ${{ steps.targets.outputs.value }}
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          filter: blob:none
+
+      - name: Look for a change to the FSC images
+        id: diff
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          # A first push, or history that was rewritten: nothing to compare with.
+          if ! git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          elif git diff --quiet --no-renames "$BEFORE" "$GITHUB_SHA" -- \
+              deploy/zad/fsc/images deploy/zad/fsc/bootstrap.sh deploy/zad/fsc/.dockerignore \
+              .github/workflows/docker.yml; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: List the deployments
+        id: targets
+        env:
+          FSC_DEPLOYMENTS: ${{ vars.ZAD_FSC_DEPLOYMENTS }}
+        run: |
+          echo "value=$(jq -c 'to_entries | map({deployment: .key, peer: .value})' <<< "$FSC_DEPLOYMENTS")" >> "$GITHUB_OUTPUT"
+
+  # After the deploy of grip, whatever its outcome: two deploys to one
+  # deployment at the same time hand over to each other.
+  deploy-fsc:
+    needs: [build, fsc-plan, deploy]
+    if: >-
+      ${{ !cancelled() && needs.build.result == 'success'
+      && needs.fsc-plan.outputs.changed == 'true' && needs.fsc-plan.outputs.targets != '[]' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.fsc-plan.outputs.targets) }}
+
+    steps:
+      - name: Compute the components
+        id: components
+        env:
+          PEER: ${{ matrix.peer }}
+        run: |
+          prefix="ghcr.io/${GITHUB_REPOSITORY,,}"
+          tag="sha-${GITHUB_SHA::7}"
+          if [ "$PEER" = dir ]; then
+            components="$(jq -nc --arg manager "$prefix/fsc-manager:$tag" --arg ui "$OPENFSC_DIRECTORY_UI" \
+              '[{name: "dirmgr", image: $manager}, {name: "dirui", image: $ui}]')"
+          else
+            components="$(jq -nc --arg prefix "$prefix" --arg tag "$tag" --arg peer "$PEER" \
+              --arg inway "$OPENFSC_INWAY" --arg outway "$OPENFSC_OUTWAY" '
+              [{name: "manager", image: "\($prefix)/fsc-manager:\($tag)"},
+               {name: "controller", image: "\($prefix)/fsc-controller:\($tag)"},
+               {name: "txlog", image: "\($prefix)/fsc-txlog:\($tag)"},
+               {name: "inway", image: $inway},
+               {name: "outway", image: $outway},
+               {name: "fscboot-\($peer)", image: "\($prefix)/fsc-bootstrap:\($tag)"}]')"
+          fi
+          echo "value=$components" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy to ZAD
         uses: RijksICTGilde/zad-actions/deploy@v4
         with:
           api-key: ${{ secrets.ZAD_API_KEY }}
           project-id: ${{ vars.ZAD_PROJECT_ID }}
-          deployment-name: ${{ vars.ZAD_DEPLOYMENT_NAME || 'main' }}
-          component: component-1
-          image: ${{ steps.image.outputs.prefix }}/frontend:${{ steps.image.outputs.tag }}
+          deployment-name: ${{ matrix.deployment }}
+          components: ${{ steps.components.outputs.value }}
 
   # The ontwikkelportaal builds on its own, so a failure here never cancels or
   # holds up the images and the deploy of the instance.
