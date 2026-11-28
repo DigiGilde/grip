@@ -70,6 +70,10 @@ peer dir 01700000000000000099 "Lokale directory" manager
 peer a 01700000000000000001 "DigiGilde voorbeeld" manager inway outway
 peer b 01700000000000000002 "Ministerie van BZK voorbeeld" manager inway outway
 peer d 01700000000000000004 "MOZa voorbeeld" manager inway outway
+peer e 01700000000000000005 "NLDD voorbeeld" manager inway outway
+peer g 01700000000000000006 "GDI voorbeeld" manager inway outway
+peer o 01700000000000000007 "ODI voorbeeld" manager inway outway
+peer z 01700000000000000008 "Ministerie van EZK voorbeeld" manager inway outway
 # Peer C is a corpus system: the local Bouwmeester (compose.fsc-corpus.yml).
 peer c 01700000000000000003 "Corpus Ministerie van BZK voorbeeld" manager inway outway
 

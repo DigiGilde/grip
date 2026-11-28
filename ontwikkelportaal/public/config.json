@@ -1,16 +1,46 @@
 {
   "instances": [
     {
+      "naam": "GDI voorbeeld",
+      "rol": "Opdrachtgever",
+      "omschrijving": "Keurt het programma MOZa voorbeeld goed en legt het opdrachtgeverschap bij het Ministerie van BZK voorbeeld.",
+      "url": "http://localhost:9005"
+    },
+    {
+      "naam": "Ministerie van BZK voorbeeld",
+      "rol": "Ministerie",
+      "omschrijving": "Gedelegeerd opdrachtgever namens GDI: geeft MOZa voorbeeld het jaarbudget en ODI voorbeeld de opdracht voor de uitvoering.",
+      "url": "http://localhost:9002"
+    },
+    {
+      "naam": "MOZa voorbeeld",
+      "rol": "Programma",
+      "omschrijving": "Geeft opdrachten aan DigiGilde voorbeeld en boekt kosten die een leverancier voor het programma doet.",
+      "url": "http://localhost:9003"
+    },
+    {
+      "naam": "ODI voorbeeld",
+      "rol": "Opdrachtnemer",
+      "omschrijving": "Agentschap en contractpartij van het programma; moeder van DigiGilde voorbeeld.",
+      "url": "http://localhost:9006"
+    },
+    {
       "naam": "DigiGilde voorbeeld",
       "rol": "Opdrachtnemer",
       "omschrijving": "Maakt offertes, voert opdrachten uit, sluit maanden af en factureert.",
       "url": "http://localhost:9001"
     },
     {
-      "naam": "Ministerie van BZK voorbeeld",
+      "naam": "Ministerie van EZK voorbeeld",
+      "rol": "Ministerie",
+      "omschrijving": "Moeder van NLDD voorbeeld.",
+      "url": "http://localhost:9007"
+    },
+    {
+      "naam": "NLDD voorbeeld",
       "rol": "Opdrachtgever",
-      "omschrijving": "Vraagt werk aan bij DigiGilde voorbeeld, tekent offertes en volgt de uitputting.",
-      "url": "http://localhost:9002"
+      "omschrijving": "Geeft DigiGilde voorbeeld opdrachten en volgt ze: de stand en de uitputting.",
+      "url": "http://localhost:9004"
     }
   ]
 }

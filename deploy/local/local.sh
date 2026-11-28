@@ -9,11 +9,11 @@
 #                                    fsc       three instances with FSC between them, no login
 #                                    fsc-keycloak   the same, with the local Keycloak
 #                                    fsc-corpus     fsc plus a fourth peer for the local Bouwmeester
-#                                    fsc-voorbeeld  three example instances that federate, with the local Keycloak
+#                                    fsc-voorbeeld  seven example instances that federate (related peers only), with the local Keycloak
 #   ./local.sh fsc-init [--voorbeeld]  publish services, make contracts, fill the peer registry
 #   ./local.sh fsc-corpus-init     add the local Bouwmeester to the group as a corpus system
 #   ./local.sh check-login [user]  log in through the local Keycloak with curl
-#   ./local.sh check-fsc           send one message from instance B to instance A
+#   ./local.sh check-fsc           send one message from instance D to instance A
 #   ./local.sh urls                where everything listens
 #   ./local.sh logs [service...]   follow the logs
 #   ./local.sh down                stop (keeps data)
@@ -25,8 +25,10 @@ cd "$here"
 
 all_files="-f compose.yml -f compose.fsc.yml -f compose.fsc-corpus.yml"
 all_profiles="--profile keycloak --profile two"
+keten_profile="--profile keten"
 # Only for stopping and following: the example override must not apply to
-# the other modes.
+# the other modes. The keten profile (instances E, G, O, Z) is only started by
+# fsc-voorbeeld, but is always part of stopping and following.
 every_file="$all_files -f compose.fsc-voorbeeld.yml"
 
 need_images() {
@@ -63,7 +65,7 @@ case "$cmd" in
             fsc-voorbeeld)
                 ./fsc-pki.sh >/dev/null
                 # shellcheck disable=SC2086
-                docker compose $all_files -f compose.fsc-voorbeeld.yml --env-file state/keycloak.env $all_profiles up -d
+                docker compose $all_files -f compose.fsc-voorbeeld.yml --env-file state/keycloak.env $all_profiles $keten_profile up -d
                 echo "When everything is up: ./local.sh fsc-init --voorbeeld" ;;
             fsc-corpus)
                 ./fsc-pki.sh >/dev/null
@@ -81,13 +83,13 @@ case "$cmd" in
     check-fsc) ./fsc-send-check.sh ;;
     logs)
         # shellcheck disable=SC2086
-        docker compose $every_file $all_profiles logs -f "$@" ;;
+        docker compose $every_file $all_profiles $keten_profile logs -f "$@" ;;
     down)
         # shellcheck disable=SC2086
-        docker compose $every_file $all_profiles down ;;
+        docker compose $every_file $all_profiles $keten_profile down ;;
     nuke)
         # shellcheck disable=SC2086
-        docker compose $every_file $all_profiles down -v
+        docker compose $every_file $all_profiles $keten_profile down -v
         rm -rf state ;;
     urls)
         cat <<URLS
@@ -97,17 +99,22 @@ case "$cmd" in
   Instance A, DigiGilde voorbeeld           http://localhost:9001
   Instance B, Ministerie van BZK voorbeeld  http://localhost:9002   (modes fsc)
   Instance D, MOZa voorbeeld                http://localhost:9003   (modes fsc)
+  Instance E, NLDD voorbeeld                http://localhost:9004   (mode fsc-voorbeeld)
+  Instance G, GDI voorbeeld                 http://localhost:9005   (mode fsc-voorbeeld)
+  Instance O, ODI voorbeeld                 http://localhost:9006   (mode fsc-voorbeeld)
+  Instance Z, Ministerie van EZK voorbeeld  http://localhost:9007   (mode fsc-voorbeeld)
   Local Keycloak                            https://localhost:9443  (modes keycloak; admin / state/secrets.env)
   FSC controller, directory                 http://localhost:9100   (modes fsc)
   FSC controller, peer A                    http://localhost:9101
   FSC controller, peer B                    http://localhost:9102
   FSC controller, peer D                    http://localhost:9104
+  FSC controller, peer E, G, O, Z           http://localhost:9105, 9106, 9107, 9108   (mode fsc-voorbeeld)
   FSC controller, peer C (corpus)           http://localhost:9103   (mode fsc-corpus)
   FSC outway of peer C                      http://localhost:9240   (for Bouwmeester on the host)
 
   Running now:
 URLS
-        docker compose $every_file $all_profiles ps --format '    {{.Service}}\t{{.Status}}' 2>/dev/null | sort
+        docker compose $every_file $all_profiles $keten_profile ps --format '    {{.Service}}\t{{.Status}}' 2>/dev/null | sort
         ;;
     *)
         sed -n '2,20p' "$0"

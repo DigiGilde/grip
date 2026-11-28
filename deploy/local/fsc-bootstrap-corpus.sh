@@ -22,6 +22,21 @@ corpus_base="https://corpus.voorbeeldministerie.localhost"
 bouwmeester="http://localhost:9210"
 corpus_endpoint="http://host.docker.internal:9211"
 
+# The registry route of grip knows no corpus role, so peer C is written
+# directly (an instance for real work, not an example instance).
+psql_grip() { # instance key, sql
+    docker compose -p grip-local -f "$here/compose.yml" --profile two exec -T "db-$1" psql -U grip -At -c "$2"
+}
+registry_corpus() { # instance key, peer id, name, base uri, grant hash
+    psql_grip "$1" "
+        insert into peer (id, peer_id, name, organisation_tooi_uri, base_uri, role, grant_hashes, is_active, is_example)
+        values (gen_random_uuid(), '$2', '$3', '', '$4', 'corpus', '{\"$service\": \"$5\"}'::jsonb, true, false)
+        on conflict (peer_id) do update
+            set grant_hashes = peer.grant_hashes || excluded.grant_hashes, base_uri = excluded.base_uri,
+                name = excluded.name, is_active = true, is_example = excluded.is_example;" >/dev/null
+    echo "  registry of instance $1: peer $2, grant $(printf %s "$5" | cut -c1-24)..."
+}
+
 echo "1. corpus-context at peer C"
 service="corpus-context"
 register_service c "$corpus_endpoint"
@@ -43,7 +58,7 @@ for pair in "a $peer_a" "b $peer_b"; do
     set -- $pair
     grant="$(find_grant "$1" GRANT_TYPE_SERVICE_CONNECTION "$peer_c" "$2" | cut -d' ' -f1)"
     [ -n "$grant" ] || { echo "no valid grant for $1 -> corpus-context"; exit 1; }
-    registry "$1" "$peer_c" "Corpus Ministerie van BZK voorbeeld (lokaal)" "$corpus_base" "$grant" corpus
+    registry_corpus "$1" "$peer_c" "Corpus Ministerie van BZK voorbeeld (lokaal)" "$corpus_base" "$grant"
 done
 
 echo "4. peer table of Bouwmeester"

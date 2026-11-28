@@ -50,7 +50,8 @@ if [ ! -f "$tls/keycloak.crt" ]; then
         'subjectAltName=DNS:keycloak,DNS:localhost,IP:127.0.0.1' \
         'basicConstraints=CA:FALSE' \
         'keyUsage=critical,digitalSignature,keyEncipherment' \
-        'extendedKeyUsage=serverAuth' > "$tls/san.cnf"
+        'extendedKeyUsage=serverAuth' \
+        'authorityKeyIdentifier=keyid,issuer' > "$tls/san.cnf"
     openssl x509 -req -in "$tls/keycloak.csr" -CA "$tls/ca.crt" -CAkey "$tls/ca.key" \
         -CAcreateserial -days 825 -extfile "$tls/san.cnf" -out "$tls/keycloak.crt" 2>/dev/null
     chmod 644 "$tls/keycloak.key"
@@ -100,12 +101,17 @@ cat > "$state/keycloak/grip-realm.json" <<REALM
       "redirectUris": [
         "http://localhost:9001/api/auth/callback",
         "http://localhost:9002/api/auth/callback",
-        "http://localhost:9003/api/auth/callback"
+        "http://localhost:9003/api/auth/callback",
+        "http://localhost:9004/api/auth/callback",
+        "http://localhost:9005/api/auth/callback",
+        "http://localhost:9006/api/auth/callback",
+        "http://localhost:9007/api/auth/callback"
       ],
-      "webOrigins": ["http://localhost:9001", "http://localhost:9002", "http://localhost:9003"],
+      "webOrigins": ["http://localhost:9001", "http://localhost:9002", "http://localhost:9003",
+        "http://localhost:9004", "http://localhost:9005", "http://localhost:9006", "http://localhost:9007"],
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "http://localhost:9001/*##http://localhost:9002/*##http://localhost:9003/*"
+        "post.logout.redirect.uris": "http://localhost:9001/*##http://localhost:9002/*##http://localhost:9003/*##http://localhost:9004/*##http://localhost:9005/*##http://localhost:9006/*##http://localhost:9007/*"
       },
       "protocolMappers": [
         {
