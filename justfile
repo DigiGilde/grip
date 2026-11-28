@@ -131,12 +131,46 @@ import-grist *ARGS:
 # Checks
 # ---------------------------------------------------------------------------
 
-# Run the backend and frontend tests (backend needs the database: `just db`)
+# Run the backend and frontend tests
 test: test-backend test-frontend
 
-# Run the backend tests
-test-backend:
-    cd backend && uv run pytest
+# Every pytest-xdist worker copies a database of its own from a migrated
+# template (backend/tests/databases.py). Against another server:
+# TEST_DATABASE_URL=postgresql+asyncpg://grip:grip@localhost:5434/grip.
+# Arguments go to pytest, for example `just test-backend tests/calc -n 0`.
+# Run the backend tests in parallel, on the throwaway database of `just test-db`
+[positional-arguments]
+test-backend *ARGS:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -z "${TEST_DATABASE_URL:-}" ]; then
+        just test-db
+    fi
+    export DATABASE_URL="${TEST_DATABASE_URL:-postgresql+asyncpg://grip:grip@localhost:5435/grip}"
+    cd backend
+    exec uv run pytest -n auto "$@"
+
+# Data that may be lost: no fsync, gone when the container stops. Uses Podman,
+# or Docker when Podman is absent (CONTAINER_ENGINE chooses).
+# Start a PostgreSQL for the backend tests on port 5435, unless it runs
+test-db:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    engine="${CONTAINER_ENGINE:-$(command -v podman >/dev/null && echo podman || echo docker)}"
+    if [ -z "$("$engine" ps -q --filter name=^grip-test-db$)" ]; then
+        "$engine" run -d --rm --name grip-test-db -p 127.0.0.1:5435:5432 \
+            -e POSTGRES_USER=grip -e POSTGRES_PASSWORD=grip -e POSTGRES_DB=grip \
+            docker.io/library/postgres:16 \
+            -c fsync=off -c synchronous_commit=off -c full_page_writes=off >/dev/null
+    fi
+    until "$engine" exec grip-test-db pg_isready -h 127.0.0.1 -U grip -q; do sleep 0.5; done
+
+# Stop the PostgreSQL of the backend tests; its data goes with it
+test-db-down:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    engine="${CONTAINER_ENGINE:-$(command -v podman >/dev/null && echo podman || echo docker)}"
+    "$engine" stop grip-test-db >/dev/null 2>&1 || true
 
 # Run the frontend tests
 test-frontend:

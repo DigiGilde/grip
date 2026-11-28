@@ -7,8 +7,8 @@ asks for a quote, the contractor sees the request come in, the tekenbevoegde
 reads and accepts the quote, and the client follows progress and asks for
 the spending.
 
-Needs the databases ``grip_test_client_a`` and ``grip_test_client_b`` on the
-same server as the test database. The test is skipped when they do not exist.
+Each instance has a database of its own, a copy of the test template next to
+the test database (tests.databases).
 """
 
 from __future__ import annotations
@@ -34,17 +34,15 @@ from grip.middleware.csrf import CSRF_COOKIE_NAME
 from grip.repositories.domain import AssignmentRepository
 from grip.services import assignments, quotes, rates
 from grip.services import events as domain_events
+from tests import databases as test_databases
 from tests.conftest import InMemorySessionStore, _find_session_middleware
 from tests.federation.test_two_instances import (
     RATE_D,
     Instance,
-    _database_exists,
-    _database_url,
     _deliver,
     _empty,
     _know,
     _listener,
-    _migrate,
     _person,
     _restore,
     _stand_in_outway,
@@ -62,7 +60,7 @@ async def instances():
         base_uri="https://grip.opdrachtgever.example",
         peer_id="00000000000000000010",
         tooi_uri="https://identifier.overheid.nl/tooi/id/ministerie/mnre0000",
-        database="grip_test_client_a",
+        database="client_a",
         grant="$1$4$naar-opdrachtgever",
     )
     contractor = Instance(
@@ -71,14 +69,11 @@ async def instances():
         base_uri="https://grip.opdrachtnemer.example",
         peer_id="00000000000000000020",
         tooi_uri="https://identifier.overheid.nl/tooi/id/oorg/oorg00000",
-        database="grip_test_client_b",
+        database="client_b",
         grant="$1$4$naar-opdrachtnemer",
     )
     for instance in (client, contractor):
-        if not await _database_exists(instance.database):
-            pytest.skip(f"database {instance.database} does not exist")
-        url = _database_url(instance.database)
-        _migrate(url)
+        url = test_databases.ensure(instance.database)
         instance.engine = create_async_engine(url, poolclass=NullPool)
         instance.sessions = async_sessionmaker(instance.engine, expire_on_commit=False)
         await _empty(instance.engine)

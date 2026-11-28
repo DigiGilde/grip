@@ -7,21 +7,18 @@ FSC outway and inway would. Everything else is the real code: the domain
 services, the event handlers, the outbox, the contract routes, the bridge,
 the signature check and the access model.
 
-Needs the databases ``grip_test_fed_a`` and ``grip_test_fed_b`` on the same
-server as the test database. The test is skipped when they do not exist.
+Each instance has a database of its own, a copy of the test template next to
+the test database (tests.databases).
 """
 
 from __future__ import annotations
 
 import hashlib
 import os
-import subprocess
-import sys
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
-from pathlib import Path
 from typing import Any
 
 import httpx
@@ -29,7 +26,6 @@ import pytest
 import rfc8785
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select, text
-from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -72,8 +68,8 @@ from grip.models.role import PersonRole
 from grip.repositories.domain import AssignmentRepository
 from grip.services import assignments, quotes, rates
 from grip.services import events as domain_events
+from tests import databases as test_databases
 
-BACKEND = Path(__file__).resolve().parents[2]
 PEER_HEADER = "Fsc-Request-Peer-Id"
 NODE_URI = "https://corpus.voorbeeldministerie.example/id/node/0b6f1c1e-5a0e-4a53-9a43-0d3e1d6b2a03"
 CORPUS_BASE = "https://corpus.voorbeeldministerie.example"
@@ -181,35 +177,6 @@ def _restore() -> None:
     get_bridge_settings.cache_clear()
 
 
-def _database_url(name: str) -> str:
-    return (
-        make_url(get_settings().DATABASE_URL)
-        .set(database=name)
-        .render_as_string(hide_password=False)
-    )
-
-
-async def _database_exists(name: str) -> bool:
-    engine = create_async_engine(_database_url(name), poolclass=NullPool)
-    try:
-        async with engine.connect():
-            return True
-    except Exception:
-        return False
-    finally:
-        await engine.dispose()
-
-
-def _migrate(url: str) -> None:
-    subprocess.run(  # noqa: S603 - fixed command, own interpreter
-        [sys.executable, "-m", "alembic", "upgrade", "head"],
-        cwd=BACKEND,
-        env={**os.environ, "DATABASE_URL": url, "DEV_NO_AUTH": "1"},
-        check=True,
-        capture_output=True,
-    )
-
-
 async def _empty(engine: AsyncEngine) -> None:
     """Remove every row except the seeded functions and the schema version."""
     async with engine.begin() as conn:
@@ -285,7 +252,7 @@ async def instances():
         base_uri="https://grip.opdrachtgever.example",
         peer_id="00000000000000000010",
         tooi_uri="https://identifier.overheid.nl/tooi/id/ministerie/mnre0000",
-        database="grip_test_fed_a",
+        database="fed_a",
         grant="$1$4$naar-opdrachtgever",
     )
     contractor = Instance(
@@ -294,14 +261,11 @@ async def instances():
         base_uri="https://grip.opdrachtnemer.example",
         peer_id="00000000000000000020",
         tooi_uri="https://identifier.overheid.nl/tooi/id/oorg/oorg00000",
-        database="grip_test_fed_b",
+        database="fed_b",
         grant="$1$4$naar-opdrachtnemer",
     )
     for instance in (client, contractor):
-        if not await _database_exists(instance.database):
-            pytest.skip(f"database {instance.database} does not exist")
-        url = _database_url(instance.database)
-        _migrate(url)
+        url = test_databases.ensure(instance.database)
         instance.engine = create_async_engine(url, poolclass=NullPool)
         instance.sessions = async_sessionmaker(instance.engine, expire_on_commit=False)
         await _empty(instance.engine)
