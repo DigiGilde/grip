@@ -45,6 +45,8 @@ jobs:
           POSTGRES_USER: grip
           POSTGRES_PASSWORD: grip
           POSTGRES_DB: grip
+        # Thrown away after the job, so it need not survive a crash.
+        command: -c fsync=off -c synchronous_commit=off -c full_page_writes=off
         ports:
           - 5432:5432
         options: >-
@@ -57,6 +59,7 @@ jobs:
       # CI has no identity provider. Settings fails closed without one, so
       # opt in to the no-auth mode for the migration and the tests.
       DEV_NO_AUTH: "1"
+      COVERAGE_CORE: sysmon
     steps:
       - uses: actions/checkout@v7
 
@@ -76,7 +79,7 @@ jobs:
         run: uv run alembic check
 
       - name: Run tests
-        run: uv run pytest --cov --cov-report=term-missing
+        run: uv run pytest -n auto --cov --cov-report=term-missing
 
   frontend:
     runs-on: ubuntu-latest

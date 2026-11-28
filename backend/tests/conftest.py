@@ -1,12 +1,14 @@
 """Shared fixtures for API tests.
 
-Tests that touch the database use a running PostgreSQL (the compose db on
-port 5434 by default) with a per-test transaction that is rolled back, so
-nothing is ever committed. Tests that need no database must not request the
-``db_session`` or ``client`` fixtures.
+Tests that touch the database use a running PostgreSQL (``DATABASE_URL``,
+the compose db on port 5434 by default) with a per-test transaction that is
+rolled back, so nothing is ever committed. Each test process has a database
+of its own on that server (tests.databases). Tests that need no database
+must not request the ``db_session`` or ``client`` fixtures.
 """
 
 import os
+import warnings
 from typing import Any
 
 import pytest
@@ -24,8 +26,15 @@ os.environ.setdefault("DEV_NO_AUTH", "1")
 # fails the test (grip.services.read_cache).
 os.environ.setdefault("READ_CACHE", "verify")
 
-from grip.chronicle import guard  # noqa: E402
 from grip.core.config import get_settings  # noqa: E402
+from tests import databases  # noqa: E402
+
+# Every test process works in a database of its own (tests.databases). The
+# engine of the application is made at import, so this comes before the rest.
+databases.configure(get_settings().DATABASE_URL)
+get_settings.cache_clear()
+
+from grip.chronicle import guard  # noqa: E402
 from grip.core.database import get_db  # noqa: E402
 from grip.core.session_store import SessionStore  # noqa: E402
 from grip.events import completeness  # noqa: E402
@@ -57,6 +66,18 @@ class InMemorySessionStore(SessionStore):
 
     async def cleanup(self) -> int:
         return 0
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _test_database():
+    """This process's database, copied from the template once per process.
+
+    Without a reachable server the tests that need no database still run.
+    """
+    try:
+        databases.prepare()
+    except OSError as exc:
+        warnings.warn(f"no test database: {exc}", stacklevel=1)
 
 
 @pytest.fixture(scope="session")

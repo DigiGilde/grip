@@ -59,7 +59,7 @@ Veelgebruikte recepten (`just` zonder iets toont ze allemaal):
 | `just up`, `just down` | Start en stopt de services in de achtergrond |
 | `just db` | Alleen de database, genoeg voor tests en migraties vanaf de eigen machine |
 | `just migrate` | Voert de databasemigraties uit |
-| `just test` | Draait de tests van backend en frontend (de backend heeft de database nodig) |
+| `just test` | Draait de tests van backend en frontend; de backend draait parallel op een eigen wegwerpdatabase (`just test-db`, poort 5435) |
 | `just lint`, `just typecheck` | Controleert stijl en types |
 | `just preview` | De backend met de voorbeeldgegevens als Rijksorganisatie: documenten krijgen het Rijkslint, en het lokale ontwikkelmodel staat aan als het gevonden wordt |
 | `just local-up` | De omgeving zoals die op het platform draait, op eigen poorten; zie [docs/lokaal.md](docs/lokaal.md) |
