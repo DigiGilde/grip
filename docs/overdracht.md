@@ -4,10 +4,10 @@ Wat je nodig hebt om het werk aan grip op een andere machine voort te zetten. St
 
 ## Wat al op GitHub staat
 
-De repo `DigiGilde/grip`. De branches `golf-5` en `main` staan gelijk; een push naar `main` bouwt de images.
+De repo `DigiGilde/grip-poc`. De branches `golf-5` en `main` staan gelijk; een push naar `main` bouwt de images.
 
 ```
-git clone git@github.com:DigiGilde/grip.git
+git clone git@github.com:DigiGilde/grip-poc.git
 cd grip
 git checkout golf-5
 ```
@@ -103,8 +103,8 @@ De hele servertest is groen en de lokale opstelling met Keycloak is nagelopen: t
 2. Het project en de sleutel van het platform in GitHub zetten. Draai dit zelf, zodat de sleutel nergens in een gesprek komt:
 
 ```
-gh variable set ZAD_PROJECT_ID --repo DigiGilde/grip --body "<project-id>"
-gh secret set ZAD_API_KEY --repo DigiGilde/grip
+gh variable set ZAD_PROJECT_ID --repo DigiGilde/grip-poc --body "<project-id>"
+gh secret set ZAD_API_KEY --repo DigiGilde/grip-poc
 ```
 
 3. Een push naar `main` bouwt de images en rolt uit zodra die twee er staan.

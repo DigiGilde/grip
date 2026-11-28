@@ -13,8 +13,8 @@ cat > /tmp/ontwikkelportaal-security.txt <<EOF
 # Proefomgeving van grip, geen productie. Deze site en de voorbeeldinstanties
 # waar hij naar verwijst bevatten alleen verzonnen organisaties, personen en
 # bedragen. Er draait hier geen dienst voor echt werk.
-Contact: https://github.com/DigiGilde/grip/security/advisories/new
-Policy: https://github.com/DigiGilde/grip/blob/main/SECURITY.md
+Contact: https://github.com/DigiGilde/grip-poc/security/advisories/new
+Policy: https://github.com/DigiGilde/grip-poc/blob/main/SECURITY.md
 Preferred-Languages: nl, en
 Expires: $expires
 EOF
