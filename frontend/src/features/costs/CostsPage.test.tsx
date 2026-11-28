@@ -216,6 +216,20 @@ describe('CostsPage', () => {
     expect(container.innerHTML).not.toContain('van ');
   });
 
+  it('names the link to a reference whose description cannot be fetched', async () => {
+    const nameless: CostItem = {
+      ...ITEM,
+      id: 'c-7',
+      description: '',
+      executor_organisation_id: 'o-1',
+      executor_name: 'Voorbeeldgilde',
+      reference_state: 'unreachable',
+    };
+    const { container } = await renderCosts({ items: [nameless], year: null, may_create: false });
+    const link = container.querySelector('nldd-table-row:not([slot]) nldd-link');
+    expect(link).toHaveAttribute('text', 'Kostenpost bij Voorbeeldgilde');
+  });
+
   it('counts a received invoice without its document as attention', async () => {
     const line = {
       id: 'l-1',

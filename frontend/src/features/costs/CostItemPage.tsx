@@ -57,6 +57,7 @@ import {
   addCoverageText,
   attachmentCount,
   changeStateText,
+  costItemName,
   costsPath,
   coverageStep,
   inTimeOrder,
@@ -122,7 +123,7 @@ export function CostItemPage() {
     <div ref={rootRef}>
       <Page
         kind="document"
-        title={item?.description || 'Kostenpost'}
+        title={item ? costItemName(item) : 'Kostenpost'}
         instanceName={instance?.name}
         back={{ href: costsPath(year), text: 'Terug naar Kosten' }}
         spacing="sections"

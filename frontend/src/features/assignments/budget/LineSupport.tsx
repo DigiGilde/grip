@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { orUndef, useNlddEvent } from '@/components/nldd/events';
-import { referenceStateText } from '@/features/costs/costText';
+import { costItemName, referenceStateText } from '@/features/costs/costText';
 import { formatEuro, formatPercent, formatPeriod } from '@/lib/format';
 import { IconCell } from '@/ui/Icon';
 import { Section } from '@/ui/layout';
@@ -71,7 +71,7 @@ function LineDetail({ line }: { line: FinanceLine }) {
         <nldd-list-item slot="children" key={cost.cost_item_id}>
           <nldd-spacer-cell size="44" />
           <nldd-text-cell
-            text={cost.description}
+            text={costItemName(cost)}
             supporting-text={`Kostenpost, ${formatPercent(cost.pct)} gedekt door deze regel`}
           />
           {cost.reference_state && cost.reference_state !== 'found' ? (

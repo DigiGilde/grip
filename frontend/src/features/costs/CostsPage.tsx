@@ -23,6 +23,7 @@ import {
   SEARCH_PARAM,
   YEAR_PARAM,
   attentionPoints,
+  costItemName,
   costItemPath,
   coverageText,
   incompleteText,
@@ -211,7 +212,7 @@ export function CostsPage() {
                   <OpenRow key={item.id} onOpen={() => navigate(path)}>
                     <nldd-cell row-header>
                       <nldd-container gap="4">
-                        <nldd-link href={path} text={item.description} />
+                        <nldd-link href={path} text={costItemName(item)} />
                         <nldd-text size="sm">
                           <span>{detail.join(' · ')}</span>
                         </nldd-text>
