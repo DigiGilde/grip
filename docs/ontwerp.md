@@ -367,7 +367,7 @@ Alle iconen komen uit het designsysteem. Heeft een begrip daar geen passend beel
 - Een maat per plek: 16 in of naast tekst, 20 in een cel, 24 los. Nooit schalen met CSS.
 - Een icoon naast tekst is versiering en onzichtbaar voor hulpsoftware. Een knop zonder tekst heet naar het vaste werkwoord van zijn begrip plus waar het over gaat: "Meer acties voor Developer", "Download offerte.pdf, 120 kB".
 - Betekenis hangt nooit alleen aan beeld of kleur: een stand heeft ook een woord.
-- Verwijderen heeft overal dezelfde vorm: het woord "Verwijder", de kleur van een onomkeerbare actie en een vraag om bevestiging. Het icoon (prullenbak) alleen waar geen plaats is voor het woord.
+- Verwijderen heeft overal dezelfde vorm: het woord "Verwijder", de kleur van een onomkeerbare actie en een vraag om bevestiging. In die vraag is "Annuleer" de hoofdknop, zodat wie zonder lezen klikt bij de veilige keuze uitkomt; zo vraagt het designsysteem het sinds 0.29.0. Het icoon (prullenbak) alleen waar geen plaats is voor het woord.
 
 ### Begrippen
 

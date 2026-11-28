@@ -149,7 +149,14 @@ export function ConfirmDialog({
       text={text}
       supporting-text={supportingText}
     >
-      <Button slot="actions" text="Annuleer" onClick={onClose} />
+      <Button
+        slot="actions"
+        text="Annuleer"
+        // Beside an irreversible action the way back is the primary one: who
+        // clicks without reading ends at the safe choice.
+        {...(destructive ? { appearance: 'primary' as const } : {})}
+        onClick={onClose}
+      />
       <Button
         slot="actions"
         appearance={destructive ? 'destructive' : 'primary'}
