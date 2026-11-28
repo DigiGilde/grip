@@ -54,6 +54,7 @@ async def list_received_quotes(
             issued_at=row.quote.issued_at,
             total_cents=row.quote.total_cents,
             may_decide=row.quote.status == "issued"
+            and row.assignment.dossier_closed_on is None
             and await access.may(Action.ACCEPT_QUOTE, resource),
         )
         permitted = await access.classes(resource, schema_classes(type(value)))
@@ -85,6 +86,7 @@ async def get_received_quote(
         assignment_name=row.assignment.name,
         contractor_name=row.contractor_name,
         may_decide=row.quote.status == "issued"
+        and row.assignment.dossier_closed_on is None
         and await access.may(Action.ACCEPT_QUOTE, resource),
         quote=QuoteDetailOut(
             **summary_fields(bundle), content=content_from_snapshot(row.quote.snapshot)

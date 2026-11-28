@@ -21,6 +21,9 @@ import {
   type DecisionDraft,
   type DecisionValues,
 } from '@/features/quotes/QuoteDecisionView';
+import type { BillingDetails } from '@/features/month-close/billingApi';
+import { BillingDetailsFields } from '@/features/month-close/BillingDetailFields';
+import { filledDetails, missingText, startDetails } from '@/features/month-close/billingDetails';
 import { useInstance } from '@/layout/useInstance';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { formatDate } from '@/lib/format';
@@ -164,6 +167,9 @@ export function ReceivedQuotePage() {
   // What was filled in before leaving for the login; only needed when the
   // browser comes back without a decision.
   const [draft] = useState(() => readDraft<DecisionDraft & Record<string, unknown>>(quoteId));
+  // Not in the draft: the contact person is personal data, and the server
+  // keeps what was given with the intent.
+  const [details, setDetails] = useState<BillingDetails>({});
   if (back.evidenceId) clearDraft(quoteId);
 
   const detail = query.data;
@@ -176,12 +182,14 @@ export function ReceivedQuotePage() {
   // browser is back from the identity provider.
   const createIntent = (decision: Decision, values: DecisionValues) => {
     saveDraft(quoteId, { decision, ...values });
+    const billing = decision === 'accept' ? filledDetails(details) : null;
     return createDecisionIntent({
       kind: decision === 'accept' ? 'accept_received' : 'reject_received',
       quote_id: quoteId,
       quote_hash: quote?.snapshot_hash ?? '',
       signer_function: values.signerFunction.trim() || null,
       note: decision === 'reject' ? values.reason.trim() || null : null,
+      ...(billing ? { billing_details: billing } : {}),
       return_path: receivedQuotePath(quoteId),
     });
   };
@@ -204,6 +212,7 @@ export function ReceivedQuotePage() {
   }
 
   const content = quote.content ?? null;
+  const annex = content?.billing_annex === true;
   return (
     <QuoteDecisionView
       title={`Offerte ${detail.assignment_name}`}
@@ -238,6 +247,11 @@ export function ReceivedQuotePage() {
       canDecide={detail.may_decide === true}
       draft={draft}
       createIntent={createIntent}
+      onAcceptOpen={() => setDetails((now) => startDetails(now, content?.client_reference))}
+      checkAccept={() => (annex ? missingText(details) : null)}
+      acceptFields={
+        <BillingDetailsFields details={details} onChange={setDetails} required={annex} />
+      }
     >
       <RouterLinks>
         <nldd-link href={clientAssignmentPath(detail.assignment_id)} text="Bekijk de aanvraag" />

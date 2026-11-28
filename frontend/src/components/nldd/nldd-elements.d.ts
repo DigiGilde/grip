@@ -2774,11 +2774,6 @@ declare module 'react' {
 				/** Number of panes (default: 2) */
 				'panes'?: NLDDStackedSplitView['panes'];
 			};
-			/** NOT REGISTERED. Using this renders its children unstyled with no
-			 *  error. Add `import '@nldd/design-system/status-bar';` to
-			 *  components/nldd/register.ts first. Some elements register through a
-			 *  parent's module (nldd-table-row with nldd-table); register.test.ts lists
-			 *  those. */
 			'nldd-status-bar': NlddElement & {
 				/** Color of the bar (default: 'neutral') */
 				'variant'?: NLDDStatusBar['variant'];

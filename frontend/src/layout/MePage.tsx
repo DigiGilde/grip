@@ -3,10 +3,10 @@ import { PATHS } from '@/paths';
 import { useCanInstall } from '@/pwa/install';
 import { Button } from '@/ui/Button';
 import { LinkRows } from '@/ui/LinkRows';
-import { Page } from '@/ui/layout';
+import { Page, Quiet } from '@/ui/layout';
 import { InstallMenuItem } from './AccountMenu';
 import { DevPersonSwitch, useCanSwitchDevPerson } from './DevPersonSwitch';
-import { ExamplePersonSwitch, useCanSwitchExamplePerson } from './ExampleMode';
+import { ExamplePersonSwitch, useCanSwitchExamplePerson, useExampleVisit } from './ExampleMode';
 import { useInstance } from './useInstance';
 import { useViewer } from './useViewer';
 
@@ -32,8 +32,13 @@ export function MePage() {
   const { logout } = useAuth();
   const instance = useInstance();
   const person = useViewer().person;
+  // On a phone this page is the account; the status bar above is cut short there.
+  const visit = useExampleVisit();
   return (
     <Page kind="list" title="Ik" instanceName={instance?.name}>
+      {visit && (
+        <Quiet>{`Je kijkt als ${visit.personName}, ingelogd als ${visit.visitor}`}</Quiet>
+      )}
       {person && (
         <LinkRows
           label="Mijn account"

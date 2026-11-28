@@ -250,6 +250,50 @@ describe('the state of the budget', () => {
     expect(split).toHaveLength(2);
   });
 
+  it('marks a line and the total as incomplete when a cost item cannot be read', async () => {
+    const base = finance();
+    const line = base.lines[0]!;
+    const cost = line.costs[0]!;
+    const { container } = renderStand(
+      finance({
+        incomplete_by: ['Voorbeeldgilde', 'Voorbeeldwerkplaats'],
+        lines: [
+          {
+            ...line,
+            incomplete_by: ['Voorbeeldgilde'],
+            costs: [
+              {
+                ...cost,
+                realised_cents: 0,
+                forecast_cents: 0,
+                total_cents: 0,
+                executor_name: 'Voorbeeldgilde',
+                reference_state: 'unreachable',
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    const table = await standOf(container);
+    await waitFor(() =>
+      expect(
+        table.querySelector('nldd-text-cell[row-header]')?.getAttribute('supporting-text'),
+      ).toBe(
+        '0,8 FTE, schaal 14 en 15 (categorie D). Beoogd: Voorbeeld Een, onder voorbehoud. Onvolledig: niet alles is op te halen bij Voorbeeldgilde',
+      ),
+    );
+    expect(
+      table.querySelector('nldd-text-cell[text="**Totaal**"]')?.getAttribute('supporting-text'),
+    ).toBe('Onvolledig: niet alles is op te halen bij Voorbeeldgilde en Voorbeeldwerkplaats');
+    const detail = container.querySelector('nldd-list[type="tree"]') as HTMLElement;
+    const costRow = [...detail.querySelectorAll('nldd-list-item[slot="children"]')].find((row) =>
+      allText(row as HTMLElement).includes('Hostingcontract'),
+    ) as HTMLElement;
+    expect(allText(costRow)).toContain('Niet op te halen bij Voorbeeldgilde');
+    expect(allText(costRow)).not.toContain('€');
+  });
+
   it('says when amounts per person are withheld', async () => {
     const base = finance();
     const line = { ...base.lines[0]!, persons: [], persons_hidden: 2 };

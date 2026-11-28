@@ -11,7 +11,7 @@ import { iconOf } from '@/ui/icons';
 import { useNarrow } from '@/ui/layout';
 import { AccountMenu } from './AccountMenu';
 import { BottomNavigation, MainNavigation, SettingsNavigation } from './MainNavigation';
-import { ExampleNotice } from './ExampleMode';
+import { ExampleStatusBar } from './ExampleMode';
 import { useInstance } from './useInstance';
 import { useRouteFocus } from './useRouteFocus';
 import { internalHref, useRouterLinks } from './useRouterLinks';
@@ -37,18 +37,18 @@ function capitalised(text: string): string {
 
 /**
  * The start of the bar: the product as its mark, the organisation as the
- * name, one link to the start. A note about the environment, such as the
- * example data, is a tag beside the name and no part of it. A toolbar title
- * has no priority and moves items to the menu before it narrows, so where the
- * name would cost the search field or the account only the mark stays.
+ * name, one link to the start. A note about the environment is a tag beside
+ * the name and no part of it; an example instance says so in the status bar
+ * above, not here. A toolbar title has no priority and moves items to the
+ * menu before it narrows, so where the name would cost the search field or the
+ * account only the mark stays.
  */
 function BrandTitle({ instanceName }: { instanceName?: string }) {
   const instance = useInstance();
   const markOnly = useNarrow(NO_ROOM_FOR_NAME);
   const named = instanceNames(instanceName);
   const organisation = named.organisation;
-  // The mode of the instance decides, not what its name happens to say.
-  const environment = instance?.example ? 'voorbeeld' : named.environment;
+  const environment = instance?.example ? undefined : named.environment;
   const name = organisation || PRODUCT_NAME;
   if (markOnly) {
     return (
@@ -143,6 +143,7 @@ export function AppShell() {
       <nldd-skip-link href={`#${MAIN_CONTENT_ID}`} text="Direct naar de inhoud" />
       <nldd-shell>
         <nldd-bar-split-view>
+          <ExampleStatusBar slot="status-bar" />
           <Bar slot="toolbar" shown={FROM_MD}>
             <nldd-toolbar accessible-label={instanceName}>
               <BrandTitle instanceName={instance?.name} />
@@ -179,7 +180,6 @@ export function AppShell() {
             {/* The skip link lands here; tabIndex -1 lets it take focus without being a tab stop. */}
             <div id={MAIN_CONTENT_ID} tabIndex={-1}>
               {/* The task this page was opened for, when the address names one. */}
-              <ExampleNotice />
               <TaskBar />
               <OfflineNotice />
               <PageBoundary resetKey={pathname}>

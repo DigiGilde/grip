@@ -46,7 +46,9 @@ import enum
 import hashlib
 import os
 from collections import OrderedDict
-from collections.abc import Awaitable, Callable, Hashable, Iterable
+from collections.abc import Awaitable, Callable, Hashable, Iterable, Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import Any
 from uuid import UUID
 
@@ -60,13 +62,14 @@ from sqlalchemy.types import String
 
 from grip.events.completeness import NOT_DOMAIN
 from grip.events.retention import READ_TYPE
-from grip.events.stream import events_written
+from grip.events.stream import ACT_OPEN, events_written
 from grip.models.stream_event import StreamEvent
 
 # Subject kinds whose events, filed under an assignment, change nothing of
 # any other assignment.
 LOCAL_KINDS: frozenset[str] = frozenset(
     {
+        "chronolexogram",
         "assignment",
         "assignment_role",
         "budget_line",
@@ -148,6 +151,35 @@ content_hits = 0
 content_misses = 0
 
 
+# Set while a value is computed for remembering by stamp. A computation
+# that read data another instance keeps (ADR 0053) says so through
+# ``read_elsewhere``: no event here tells when that data changes, so such a
+# value is not remembered by stamp. ``by_content`` is unaffected: what was
+# read is part of the content.
+_elsewhere: ContextVar[list[bool] | None] = ContextVar(
+    "grip_read_cache_elsewhere", default=None
+)
+
+
+def read_elsewhere() -> None:
+    flag = _elsewhere.get()
+    if flag is not None:
+        flag[0] = True
+
+
+@contextmanager
+def _watch_elsewhere() -> Iterator[list[bool]]:
+    outer = _elsewhere.get()
+    flag = [False]
+    token = _elsewhere.set(flag)
+    try:
+        yield flag
+    finally:
+        _elsewhere.reset(token)
+        if flag[0] and outer is not None:
+            outer[0] = True
+
+
 def mode() -> str:
     value = os.environ.get("READ_CACHE", MODE_ON).lower()
     return value if value in (MODE_ON, MODE_OFF, MODE_VERIFY) else MODE_ON
@@ -178,7 +210,7 @@ class Stamp:
 @sa_event.listens_for(Session, "before_flush")
 def _on_flush(session: Session, flush_context: Any, instances: Any) -> None:
     changed = False
-    recorded = False
+    recorded = bool(session.info.get(ACT_OPEN))
     for obj in session.new:
         if isinstance(obj, StreamEvent):
             recorded = True
@@ -419,7 +451,8 @@ async def remember_many[T](
                     "dat de gebeurtenissen dat zeggen"
                 )
     if missing:
-        computed = await compute(missing)
+        with _watch_elsewhere() as elsewhere:
+            computed = await compute(missing)
         # Kept only when the stamp still holds: the computation may itself
         # have written (it should not), and then the value is of another
         # state.
@@ -428,7 +461,7 @@ async def remember_many[T](
             value = computed[assignment_id]
             result[assignment_id] = value
             stamp = before.get(assignment_id)
-            if stamp is None or after.get(assignment_id) != stamp:
+            if stamp is None or after.get(assignment_id) != stamp or elsewhere[0]:
                 continue
             if current == MODE_VERIFY:
                 _plain(value)
@@ -485,8 +518,9 @@ async def remember_all[T](
             )
         return kept
     misses += 1
-    value = await compute()
-    if await head_stamp(session) == stamp:
+    with _watch_elsewhere() as elsewhere:
+        value = await compute()
+    if await head_stamp(session) == stamp and not elsewhere[0]:
         if current == MODE_VERIFY:
             _plain(value)
         _store[full] = value

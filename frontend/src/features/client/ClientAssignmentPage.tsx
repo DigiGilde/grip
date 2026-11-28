@@ -1,6 +1,6 @@
 import { BackLink } from '@/ui/Icon';
 import { useRef, useState } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { ApiError, errorMessage } from '@/api/client';
 import { STATUS_COLORS, statusLabel } from '@/features/assignments/labels';
@@ -8,11 +8,23 @@ import { Button } from '@/features/assignments/ui';
 import {
   EmptyNotice,
   ErrorNotice,
+  Facts as FactList,
+  FormSheet,
   LoadError,
   Loading,
   SectionHeading,
   NotFound,
 } from '@/ui/layout';
+import type { BillingDetails, DetailKey } from '@/features/month-close/billingApi';
+import { BillingDetailsFields } from '@/features/month-close/BillingDetailFields';
+import {
+  ADDRESS_KEYS,
+  CONTACT_KEYS,
+  filledDetails,
+  missingText,
+} from '@/features/month-close/billingDetails';
+import { DETAIL_LABELS } from '@/features/month-close/periodText';
+import { incompleteText } from '@/features/costs/costText';
 import { AssignmentContextView } from '@/features/nodes';
 import { QUOTE_STATUS_COLORS, QUOTE_STATUS_LABELS } from '@/features/quotes/api';
 import { formatDateTime } from '@/features/quotes/format';
@@ -29,6 +41,7 @@ import {
   fetchFinalReport,
   fetchProgress,
   requestBudgetUsage,
+  saveBillingDetails,
   type BudgetUsage,
   type ClientAssignmentDetail,
   type FinalReport,
@@ -176,6 +189,13 @@ function UsageView({ usage }: { usage: BudgetUsage }) {
     );
   }
   const lines = usage.lines ?? [];
+  const incompleteBy = usage.incomplete_by ?? [];
+  const totalNote = [
+    (usage.available_cents ?? 0) < 0 ? 'Overschreden' : '',
+    incompleteBy.length > 0 ? incompleteText(incompleteBy) : '',
+  ]
+    .filter(Boolean)
+    .join('. ');
   return (
     <nldd-container gap="16">
       <nldd-text aria-live="polite">
@@ -207,10 +227,7 @@ function UsageView({ usage }: { usage: BudgetUsage }) {
           </nldd-table-row>
         ))}
         <nldd-table-row>
-          <nldd-text-cell
-            text="Totaal"
-            {...((usage.available_cents ?? 0) < 0 ? { 'supporting-text': 'Overschreden' } : {})}
-          />
+          <nldd-text-cell text="Totaal" {...(totalNote ? { 'supporting-text': totalNote } : {})} />
           <nldd-text-cell text={formatEuro(usage.budgeted_cents)} horizontal-alignment="right" />
           <nldd-text-cell text={formatEuro(usage.used_cents)} horizontal-alignment="right" />
           <nldd-text-cell text={formatEuro(usage.available_cents)} horizontal-alignment="right" />
@@ -263,6 +280,83 @@ function FinalReportView({ report }: { report: FinalReport }) {
   );
 }
 
+function detailFacts(details: BillingDetails, keys: DetailKey[]) {
+  return keys
+    .filter((key) => details[key])
+    .map((key) => ({
+      label: DETAIL_LABELS[key],
+      value: details[key],
+    }));
+}
+
+/** Where the contractor sends the invoice, and the way to give a new address. */
+function BillingDetailsView({ assignment }: { assignment: ClientAssignmentDetail }) {
+  const queryClient = useQueryClient();
+  const known = assignment.billing_details ?? null;
+  const contractor = assignment.contractor_name ?? 'de opdrachtnemer';
+  const [open, setOpen] = useState(false);
+  const [details, setDetails] = useState<BillingDetails>({});
+  const [error, setError] = useState<string | null>(null);
+  const save = useMutation({
+    mutationFn: () => saveBillingDetails(assignment.id, filledDetails(details) ?? {}),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: clientKeys.assignment(assignment.id) });
+      setOpen(false);
+    },
+    onError: (failure) => setError(errorMessage(failure)),
+  });
+  const contact = known ? detailFacts(known, CONTACT_KEYS) : [];
+  return (
+    <>
+      <nldd-container gap="16">
+        {known ? <FactList label="Factuur aan" facts={detailFacts(known, ADDRESS_KEYS)} /> : null}
+        {contact.length > 0 ? (
+          <>
+            <nldd-title
+              size="display-5"
+              heading-level={3}
+              text="Contact bij de financiële afdeling"
+            />
+            <FactList label="Contact bij de financiële afdeling" facts={contact} />
+          </>
+        ) : null}
+        <div>
+          <Button
+            text={known ? 'Geef een nieuw factuuradres' : 'Geef het factuuradres'}
+            onClick={() => {
+              setDetails(known ?? {});
+              setError(null);
+              setOpen(true);
+            }}
+          />
+        </div>
+      </nldd-container>
+      <FormSheet
+        open={open}
+        title={known ? 'Nieuw factuuradres' : 'Factuuradres'}
+        submitText="Bewaar"
+        busy={save.isPending}
+        error={error}
+        onClose={() => setOpen(false)}
+        onSubmit={() => {
+          const gap = missingText(details);
+          if (gap) {
+            setError(gap);
+            return;
+          }
+          setError(null);
+          save.mutate();
+        }}
+      >
+        <nldd-text>
+          <p>Vanaf de volgende aanlevering gaat de factuur van {contractor} naar dit adres.</p>
+        </nldd-text>
+        <BillingDetailsFields details={details} onChange={setDetails} />
+      </FormSheet>
+    </>
+  );
+}
+
 /** One assignment this organisation asked for: the request, its quotes, and how it goes. */
 export function ClientAssignmentPage() {
   const { assignmentId = '' } = useParams();
@@ -277,6 +371,12 @@ export function ClientAssignmentPage() {
   });
   const assignment = query.data;
   const reachable = assignment?.contractor_reachable === true;
+  // Before an accepted quote there is nothing to invoice, unless details were given.
+  const billing =
+    assignment !== undefined &&
+    (assignment.billing_details != null ||
+      (assignment.may_give_billing_details === true &&
+        (assignment.quotes ?? []).some((quote) => quote.status === 'accepted')));
 
   const progress = useQuery({
     queryKey: clientKeys.progress(assignmentId),
@@ -360,6 +460,13 @@ export function ClientAssignmentPage() {
             <SectionHeading text="Offertes" />
             <Quotes assignment={assignment} />
           </nldd-simple-section>
+
+          {billing ? (
+            <nldd-simple-section>
+              <SectionHeading text="Factuurinformatie" />
+              <BillingDetailsView assignment={assignment} />
+            </nldd-simple-section>
+          ) : null}
 
           <nldd-simple-section>
             <SectionHeading text="Voortgang" />

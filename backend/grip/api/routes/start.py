@@ -255,6 +255,7 @@ async def _figures(access: Access, db: DbSession, today: date) -> dict[str, Any]
             shortfall=None if withheld else data.money.shortfall,
             potential_cents=data.potential_cents,
             quotes_waiting=data.quotes_waiting,
+            incomplete_by=list(data.incomplete_by),
         ),
         {B},
     )

@@ -5,7 +5,7 @@ import { PATHS } from '@/paths';
 import { install, useCanInstall } from '@/pwa/install';
 import { ICONS } from '@/ui/icons';
 import { DevPersonSwitch, useViewingAs } from './DevPersonSwitch';
-import { ExamplePersonSwitch } from './ExampleMode';
+import { ExamplePersonSwitch, useExampleVisit } from './ExampleMode';
 import { useInstance } from './useInstance';
 import { useRouterLinks } from './useRouterLinks';
 import { useViewer, viewerWords } from './useViewer';
@@ -43,6 +43,7 @@ export function AccountMenu({ placement }: AccountMenuProps) {
   const viewer = useViewer();
   const instance = useInstance();
   const viewingAs = useViewingAs();
+  const visit = useExampleVisit();
   const ref = useRef<HTMLElement>(null);
   useRouterLinks(ref);
   const person = viewer.person;
@@ -66,7 +67,13 @@ export function AccountMenu({ placement }: AccountMenuProps) {
           <nldd-container slot="header" padding="16">
             <nldd-identity
               text={person.name}
-              supporting-text={[words, instance?.name].filter(Boolean).join(' · ')}
+              supporting-text={[
+                words,
+                instance?.name,
+                visit ? `ingelogd als ${visit.visitor}` : '',
+              ]
+                .filter(Boolean)
+                .join(' · ')}
             />
           </nldd-container>
         )}

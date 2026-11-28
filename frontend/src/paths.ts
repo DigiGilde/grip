@@ -52,6 +52,7 @@ export const PATHS = {
   notifications: '/meldingen',
   admin: '/beheer',
   activity: '/beheer/activiteit',
+  retention: '/beheer/bewaartermijnen',
   peers: '/beheer/koppelingen',
   languageModel: '/beheer/taalmodel',
   organisations: '/beheer/organisaties',

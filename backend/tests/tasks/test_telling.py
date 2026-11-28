@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import timedelta
 from pathlib import Path
 from uuid import uuid4
 
 import pytest
 
+from grip.core import clock
 from grip.models.person import Person
 from grip.models.task import Task
 from grip.models.vacancy import Vacancy
@@ -189,7 +190,7 @@ async def world(build, create_person) -> World:
     )
     adviser = await create_person("advies@example.org", name="Ad Advies")
     client = await build.organisation("Voorbeeldministerie")
-    start = date.today().replace(day=1)
+    start = clock.today().replace(day=1)
     assignment = await build.assignment(
         status="accepted",
         owner=owner,
@@ -387,12 +388,12 @@ async def test_what_a_person_must_do_now_can_be_read_for_a_notification(
 
     settings = get_settings()
     await engine.evaluate_all(
-        db_session, today=date.today(), instance_base_uri=settings.INSTANCE_BASE_URI
+        db_session, today=clock.today(), instance_base_uri=settings.INSTANCE_BASE_URI
     )
     decider = get_decider(get_relation_source(db_session, settings))
     owner = Subject.for_person(world.owner.id, frozenset())
     items = await service.to_do_of(
-        db_session, TaskAccess(db_session, decider, owner), today=date.today()
+        db_session, TaskAccess(db_session, decider, owner), today=clock.today()
     )
     assert sorted((item.kind, item.headline) for item in items) == [
         ("bemensing.rol_invullen", "Vul de rol Ontwerper in"),

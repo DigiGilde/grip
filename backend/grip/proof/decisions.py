@@ -18,7 +18,7 @@ from grip.federation.bridge.acceptance import (
 from grip.models.decision_proof import DecisionEvidence, SigningIntent
 from grip.models.person import Person
 from grip.models.quote import Quote
-from grip.services import quote_approval, quotes
+from grip.services import billing_details, quote_approval, quotes
 from grip.services.errors import DomainValidationError
 
 
@@ -32,6 +32,8 @@ async def execute(
 ) -> None:
     proof = {"evidence_id": evidence.id, "statement_hash": evidence.statement_hash}
     kind = (values["channel"], values["action"])
+    # Given with the decision but not part of its statement.
+    details = intent.params.get("billing_details")
 
     if kind == ("signing_link", "accept"):
         await quotes.accept_quote(
@@ -46,8 +48,17 @@ async def execute(
             form="signing_link",
             actor=person,
             signed_at=values["decided_at"],
+            declared_mandate=bool(intent.params.get("confirm_mandate")),
             **proof,
         )
+        if details:
+            await billing_details.take(
+                db,
+                quote.assignment_id,
+                details,
+                given_at=values["decided_at"],
+                actor=person,
+            )
     elif kind == ("signing_link", "reject"):
         await quotes.reject_quote(
             db,
@@ -70,6 +81,7 @@ async def execute(
             actor=person,
             signer_function=values["signer_function"],
             signed_at=values["decided_at"],
+            billing_details=details or None,
             **proof,
         )
     elif kind == ("own_instance", "reject"):

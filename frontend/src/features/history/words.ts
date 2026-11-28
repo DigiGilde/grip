@@ -80,7 +80,7 @@ const TYPE_SENTENCES: Record<string, string> = {
   'assignment.status_changed': 'Status van de opdracht gewijzigd',
   'quote.issued': 'Offerte gemaakt',
   'quote.offered': 'Offerte aangeboden',
-  'quote.accepted': 'Offerte aanvaard',
+  'quote.accepted': 'Offerte getekend',
   'quote.rejected': 'Offerte afgewezen',
   'quote_approval.requested': 'Interne goedkeuring gevraagd',
   'quote_approval.approved': 'Offerte intern goedgekeurd',
@@ -107,6 +107,7 @@ const FIELD_LABELS: Record<string, string> = {
   end_date: 'Einddatum',
   started_on: 'Begonnen op',
   ended_on: 'Afgerond op',
+  dossier_closed_on: 'Dossier gesloten op',
   valid_from: 'Ingangsdatum',
   valid_to: 'Einddatum',
   billing_scale: 'Schaal',
@@ -203,7 +204,7 @@ export function detail(event: HistoryEvent): string {
   return parts.join(' · ');
 }
 
-export function actor(event: HistoryEvent): string {
+export function actor(event: Pick<HistoryEvent, 'actor_name' | 'actor_kind'>): string {
   if (event.actor_name) return event.actor_name;
   switch (event.actor_kind) {
     case 'guest':

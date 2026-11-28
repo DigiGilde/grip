@@ -74,6 +74,8 @@ class QuoteContentOut(BaseModel):
     sender: Annotated[str | None, B] = None
     # The client's own reference ("uw kenmerk"), when one was given.
     client_reference: Annotated[str | None, B] = None
+    # Whether the quote has the annex Factuurinformatie for the client to fill.
+    billing_annex: Annotated[bool, B] = False
 
 
 class QuotePreviewOut(BaseModel):
@@ -292,6 +294,13 @@ class RecordRejectionIn(BaseModel):
     reason: str | None = Field(default=None, max_length=2000)
 
 
+class CorrectAcceptanceIn(BaseModel):
+    signed_at: datetime
+    reason: str = Field(max_length=2000)
+    # The date the form started from, to refuse a correction on top of another.
+    expected_signed_at: datetime | None = None
+
+
 def content_from_snapshot(snapshot: dict[str, Any]) -> QuoteContentOut:
     """A snapshot (or a preview in the same shape) as response content."""
 
@@ -357,4 +366,5 @@ def content_from_snapshot(snapshot: dict[str, Any]) -> QuoteContentOut:
         conditions=snapshot.get("conditions"),
         sender=snapshot.get("sender"),
         client_reference=snapshot.get("client_reference"),
+        billing_annex=bool((snapshot.get("letter") or {}).get("billing_annex")),
     )

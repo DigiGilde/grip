@@ -231,7 +231,9 @@ async def read_quote_draft(
     """The text of the next quote: the saved draft, or the organisation's
     starting texts when nothing was saved yet."""
     assignment, resource = await _readable(db, decider, subject, assignment_id)
-    may_edit = await may_issue_quote(db, decider, subject, resource)
+    may_edit = assignment.dossier_closed_on is None and await may_issue_quote(
+        db, decider, subject, resource
+    )
     return await _answer(db, decider, subject, assignment, may_edit=may_edit)
 
 

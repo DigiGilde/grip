@@ -27,9 +27,6 @@ from grip.schema.tasks import (
     CaseKind,
     CaseTasksOut,
     ChecklistItemOut,
-    CourseNextOut,
-    CourseOut,
-    CourseStepOut,
     TaskCountsOut,
     TaskCreateIn,
     TaskListOut,
@@ -38,6 +35,7 @@ from grip.schema.tasks import (
     TaskOut,
     TaskUpdateIn,
     TrackOut,
+    course_out,
 )
 from grip.services import stale
 from grip.services.errors import NotFoundError
@@ -239,46 +237,6 @@ async def list_case_tasks(
     )
 
 
-def _course_out(view: course.CourseView) -> CourseOut:
-    told = view.next
-    return CourseOut(
-        key=view.key,
-        label=view.label,
-        subject=view.subject,
-        subject_key=view.subject_key,
-        subject_label=view.subject_label,
-        steps=[
-            CourseStepOut(key=s.key, label=s.label, state=s.state, note=s.note)
-            for s in view.steps
-        ],
-        current_key=view.current_key,
-        current_label=view.current_label,
-        position=view.position,
-        next=CourseNextOut(
-            mine=told.mine,
-            part=told.part,
-            may_take_over=told.may_take_over,
-            headline=told.headline,
-            sentence=told.sentence,
-            who=told.who,
-            since=told.since,
-            due_on=told.due_on,
-            overdue=told.overdue,
-            action_text=told.action_text,
-            action_href=told.action_href,
-            missing=list(told.missing),
-            blocked=told.blocked,
-            task_id=told.task_id,
-            task_key=told.task_key,
-        )
-        if told
-        else None,
-        ended=view.ended,
-        more_to_do=view.more_to_do,
-        more_waiting=view.more_waiting,
-    )
-
-
 def _case_course_out(
     case_kind: str, case_id: UUID, views: list[course.CourseView]
 ) -> CaseCourseOut:
@@ -286,8 +244,8 @@ def _case_course_out(
     return CaseCourseOut(
         case_kind=case_kind,
         case_id=case_id,
-        course=_course_out(own) if own else None,
-        parts=[_course_out(view) for view in views if view.subject != "case"],
+        course=course_out(own) if own else None,
+        parts=[course_out(view) for view in views if view.subject != "case"],
     )
 
 

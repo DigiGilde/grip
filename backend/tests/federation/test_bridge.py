@@ -84,7 +84,7 @@ async def world(db_session, make_peer):
         uri=ASSIGNMENT_URI,
     )
     # As after a request from the client's instance: shared with it.
-    assignments.share_with_instance(assignment, CLIENT_BASE)
+    await assignments.share_with_instance(db_session, assignment, CLIENT_BASE)
     line = await assignments.add_budget_line(
         db_session,
         assignment.id,
@@ -335,7 +335,7 @@ async def test_acceptance_for_a_quote_of_someone_else_is_404(
         client_organisation_id=client.id,
         contractor_organisation_id=(await own_organisation(db_session)).id,
     )
-    assignments.share_with_instance(other, CLIENT_BASE)
+    await assignments.share_with_instance(db_session, other, CLIENT_BASE)
     await assignments.add_budget_line(
         db_session,
         other.id,

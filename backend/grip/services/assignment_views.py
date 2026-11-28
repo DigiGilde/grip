@@ -12,6 +12,7 @@ that depend on it are ``None`` and the view carries a sentence that says why.
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -29,7 +30,6 @@ from grip.models.assignment import (
     BudgetLine,
 )
 from grip.models.audit_log import AuditLog
-from grip.models.cost import CostItem
 from grip.models.organisation import Organisation
 from grip.models.person import Person
 from grip.models.quote import Quote
@@ -46,6 +46,8 @@ from grip.services.pricing import (
     CalcInputs,
     LineOverview,
     PricingOptions,
+    cost_descriptions,
+    incomplete_names,
     load_inputs_for_lines,
     load_rate_book,
     overview_from_inputs,
@@ -144,6 +146,10 @@ class CoverageView:
     description: str
     pct: object
     amount_cents: int | None
+    # For a cost item another organisation keeps: that organisation, and
+    # what the item stands for now (grip.services.cost_references).
+    executor_name: str | None = None
+    reference_state: str | None = None
 
 
 @dataclass(frozen=True)
@@ -163,6 +169,8 @@ class Totals:
     realised_cents: int
     forecast_cents: int
     coverage_cents: int
+    # Executors of cost items that could not be counted: incomplete.
+    incomplete_by: tuple[str, ...] = ()
 
     @property
     def used_cents(self) -> int:
@@ -184,6 +192,7 @@ class Totals:
             realised_cents=sum(i.realised_cents for i in items),
             forecast_cents=sum(i.forecast_cents for i in items),
             coverage_cents=sum(i.coverage_cents for i in items),
+            incomplete_by=incomplete_names(items),
         )
 
 
@@ -675,6 +684,7 @@ def _coverage_views(
                 for i in inputs.invoice_lines
                 if i.period is not None and i.period.year == year
             )
+        reference = inputs.references.get(coverage.cost_item_id)
         try:
             amount: int | None = calc.coverage_amount(
                 coverage,
@@ -684,6 +694,8 @@ def _coverage_views(
             )
         except calc.CalcError:
             amount = None
+        if reference is not None and not reference.counts:
+            amount = None
         views.append(
             CoverageView(
                 coverage_id=UUID(coverage.id),
@@ -691,6 +703,8 @@ def _coverage_views(
                 description=descriptions.get(coverage.cost_item_id, ""),
                 pct=coverage.pct,
                 amount_cents=amount,
+                executor_name=reference.executor_name if reference else None,
+                reference_state=reference.state.value if reference else None,
             )
         )
     return tuple(views)
@@ -725,13 +739,7 @@ async def assignment_view(
         if is_tentative(row.assignment.status)
         else frozenset(),
     )
-    item_ids = [UUID(item.id) for item in inputs.cost_items]
-    descriptions: dict[str, str] = {}
-    if item_ids:
-        rows = await session.execute(
-            select(CostItem.id, CostItem.description).where(CostItem.id.in_(item_ids))
-        )
-        descriptions = {str(r[0]): r[1] for r in rows}
+    descriptions = await cost_descriptions(session, inputs)
 
     priced_lines = price_lines(assignment_id, line_list, inputs, year, options)
     line_views = [
@@ -795,16 +803,7 @@ def price_lines(
         try:
             overview = overview_from_inputs(
                 assignment_id,
-                CalcInputs(
-                    rates=inputs.rates,
-                    scales=inputs.scales,
-                    lines=(calc_lines[line.id],),
-                    allocations=inputs.allocations,
-                    cost_items=inputs.cost_items,
-                    invoice_lines=inputs.invoice_lines,
-                    coverages=inputs.coverages,
-                    actuals=inputs.actuals,
-                ),
+                dataclasses.replace(inputs, lines=(calc_lines[line.id],)),
                 year=year,
                 options=options,
             ).lines[0]

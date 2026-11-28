@@ -21,7 +21,7 @@ def test_the_shipped_plan_is_valid_and_small():
     plan = current_plan()
     keys = [t.key for templates in plan.templates.values() for t in templates]
     assert len(keys) == len(set(keys))
-    assert 12 <= len(keys) <= 32
+    assert 12 <= len(keys) <= 33
     assert plan.version
 
 

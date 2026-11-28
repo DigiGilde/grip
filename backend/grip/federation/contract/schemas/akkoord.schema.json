@@ -63,12 +63,16 @@
     "jws": {
       "type": "string",
       "pattern": "^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$",
-      "description": "Compacte JWS (RFC 7515) van de instantie van de opdrachtgever. De payload is de canonieke JSON (RFC 8785) van de velden id, quote_id, quote_hash, signer, organisation, signed_at en form. Algoritme ES256 of PS256; de header bevat een kid dat verwijst naar een sleutel in de JWKS van de afzender. Verplicht bij form own_instance."
+      "description": "Compacte JWS (RFC 7515) van de instantie van de opdrachtgever. De payload is de canonieke JSON (RFC 8785) van de velden id, quote_id, quote_hash, signer, organisation, signed_at en form. Het veld factuurinformatie valt buiten de payload. Algoritme ES256 of PS256; de header bevat een kid dat verwijst naar een sleutel in de JWKS van de afzender. Verplicht bij form own_instance."
     },
     "document_sha256": {
       "type": "string",
       "pattern": "^[0-9a-f]{64}$",
       "description": "SHA-256 over het getekende document, bij form uploaded_pdf."
+    },
+    "factuurinformatie": {
+      "$ref": "factuurinformatie.schema.json",
+      "description": "Waar de opdrachtnemer de factuur heen stuurt, opgegeven bij het akkoord. Valt buiten de JWS: de peerverbinding staat in voor de afzender, de handtekening niet. De ontvanger neemt het over in de factuurafspraken van de opdracht."
     }
   },
   "required": [

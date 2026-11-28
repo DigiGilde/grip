@@ -20,6 +20,7 @@ from grip.calc import Month
 from grip.core import clock
 from grip.core.audit import CREATE, UPDATE, record_audit
 from grip.core.config import get_settings
+from grip.events import stream
 from grip.models.assignment import Assignment, BudgetLine
 from grip.models.person import Person
 from grip.models.vacancy import (
@@ -147,7 +148,10 @@ async def create_vacancy(
     if start_date and end_date and end_date < start_date:
         raise DomainValidationError("De einddatum ligt voor de begindatum.")
     if budget_line_id is not None:
-        line = await db.get(BudgetLine, budget_line_id)
+        # The insert holds a key share on its line, and removing that line under
+        # the lock on the stream waits for it: the lock comes first.
+        await stream.hold_head(db)
+        line = await db.get(BudgetLine, budget_line_id, populate_existing=True)
         if line is None:
             raise NotFoundError("Begrotingsregel", budget_line_id)
         if line.kind != "personnel":

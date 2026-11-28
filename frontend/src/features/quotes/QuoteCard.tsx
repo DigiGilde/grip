@@ -22,6 +22,7 @@ import {
   offerState,
   offerTitle,
   primaryAction,
+  quoteLabel,
 } from './offers';
 import { bundleUrl, statementPageUrl, type QuoteEvidenceRow } from './proof';
 import { QuoteDetails } from './QuoteDetails';
@@ -37,6 +38,7 @@ export type CardAction =
   | { kind: 'review' }
   | { kind: 'new-quote' }
   | { kind: 'grant-right' }
+  | { kind: 'correct-signed-date' }
   | { kind: 'withdraw-link'; invitationId: string }
   | { kind: 'renew-link'; invitationId: string }
   | { kind: 'resend-mail'; invitationId: string };
@@ -97,8 +99,9 @@ function Decision({
     return (
       <Stack gap="close">
         <nldd-text>
+          {/* The day only: a day typed in a sheet is stored at noon, a time nobody gave. */}
           <p>
-            Getekend op {formatDateTime(acceptance.signed_at)}
+            Getekend op {formatDate(acceptance.signed_at)}
             {who ? ` door ${who}` : ''}.
           </p>
         </nldd-text>
@@ -132,12 +135,14 @@ function OfferRow({
   quote,
   name,
   mayManage,
+  mayChange,
   onAction,
 }: {
   offer: QuoteOffer;
   quote: QuoteSummary;
   name: string;
   mayManage: boolean;
+  mayChange: boolean;
   onAction: (action: CardAction) => void;
 }) {
   const invitation = offer.invitation ?? null;
@@ -164,7 +169,7 @@ function OfferRow({
           </nldd-text>
           <Quiet>{state}</Quiet>
         </Stack>
-        {manages ? (
+        {manages && mayChange ? (
           <>
             {works ? (
               <Stack gap="tight">
@@ -240,6 +245,11 @@ interface QuoteCardProps {
   /** Internal approval, where the organisation asks for it; undefined while loading. */
   approval?: ApprovalState | null;
   mayManage: boolean;
+  /**
+   * May act on the quote now: offer it, record a decision, change a link.
+   * Not on a closed dossier, where who manages it still downloads the proof.
+   */
+  mayChange?: boolean;
   /** The decisions on this quote that have a proof; undefined when not known. */
   evidence?: readonly QuoteEvidenceRow[];
   /** Who owns the assignment, to say who can see a signing link. */
@@ -264,6 +274,7 @@ export function QuoteCard({
   detail,
   approval,
   mayManage,
+  mayChange = mayManage,
   isAdmin = false,
   outdated = false,
   evidence,
@@ -276,8 +287,8 @@ export function QuoteCard({
   // Complete once the offers and the approval are in: until then no action,
   // so a button never changes under the pointer.
   const ready = detail !== undefined && approval !== undefined;
-  const step = mayManage && ready ? primaryAction(quote, offers, approval) : null;
-  const next = outdated && mayManage && ready && quote.status === 'issued' ? 'new-quote' : step;
+  const step = mayChange && ready ? primaryAction(quote, offers, approval) : null;
+  const next = outdated && mayChange && ready && quote.status === 'issued' ? 'new-quote' : step;
   const open = quote.status === 'issued';
   const blocked = awaitsApproval(approval);
   // Approval is a matter between making and offering; once the quote is out
@@ -300,7 +311,7 @@ export function QuoteCard({
 
   // What else this quote can do. It sits next to the one button when there is
   // one, and otherwise with the quiet links at the top: never on a line alone.
-  const acts = open && ready && (mayManage || mayWithdrawApproval);
+  const acts = open && ready && (mayChange || mayWithdrawApproval);
   const withButton = open && ready && (next !== null || mayReview);
   const menu = acts ? (
     <MoreButton name="deze offerte" size={withButton ? 'md' : 'sm'}>
@@ -313,15 +324,24 @@ export function QuoteCard({
             onSelect={() => onAction({ kind: 'withdraw-approval' })}
           />
         ) : null}
-        {mayManage && next !== 'offer' && !blocked ? (
+        {mayChange && next !== 'offer' && !blocked ? (
           <MenuAction text="Bied opnieuw aan" onSelect={() => onAction({ kind: 'offer' })} />
         ) : null}
-        {mayManage && next !== 'record-signed' && !blocked ? (
+        {mayChange && next !== 'record-signed' && !blocked ? (
           <MenuAction text="Leg getekende pdf vast" onSelect={() => onAction({ kind: 'upload' })} />
         ) : null}
-        {mayManage ? (
+        {mayChange ? (
           <MenuAction text="Leg afwijzing vast" onSelect={() => onAction({ kind: 'reject' })} />
         ) : null}
+      </nldd-menu>
+    </MoreButton>
+  ) : mayChange && quote.acceptance?.form === 'uploaded_pdf' ? (
+    <MoreButton name="deze offerte" size="sm">
+      <nldd-menu slot="popup" placement="bottom-start">
+        <MenuAction
+          text="Corrigeer de datum van tekenen"
+          onSelect={() => onAction({ kind: 'correct-signed-date' })}
+        />
       </nldd-menu>
     </MoreButton>
   ) : null;
@@ -342,15 +362,11 @@ export function QuoteCard({
             <nldd-badge
               slot="end"
               color={QUOTE_STATUS_COLORS[quote.status] ?? 'neutral'}
-              text={
-                open && offers.length > 0
-                  ? 'Aangeboden'
-                  : open && approval?.approval_required && approval.status === 'requested'
-                    ? 'Wacht op goedkeuring'
-                    : open && approval?.approval_required && approval.status === 'sent_back'
-                      ? 'Teruggestuurd'
-                      : (QUOTE_STATUS_LABELS[quote.status] ?? quote.status)
-              }
+              text={quoteLabel(
+                quote.status,
+                offers,
+                approval?.approval_required ? approval.status : null,
+              )}
             />
           </nldd-title>
           <Quiet>{byline(quote)}</Quiet>
@@ -397,6 +413,7 @@ export function QuoteCard({
                   quote={quote}
                   name={name}
                   mayManage={mayManage}
+                  mayChange={mayChange}
                   onAction={onAction}
                 />
               ))}

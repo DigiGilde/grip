@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { SectionHeading } from '@/ui/layout';
+import { Quiet, SectionHeading, Stack } from '@/ui/layout';
 import { formatEuro } from '@/lib/format';
 import { Icon } from '@/ui/Icon';
 import type { Totals } from './api';
@@ -58,8 +58,17 @@ export interface Figure {
  * take in without reading a table. A figure that needs attention says so
  * with a mark and a word, not with colour alone.
  */
-export function Figures({ figures, label }: { figures: Figure[]; label: string }) {
-  return (
+export function Figures({
+  figures,
+  label,
+  note,
+}: {
+  figures: Figure[];
+  label: string;
+  /** One quiet line under all figures, e.g. that they are incomplete. */
+  note?: string;
+}) {
+  const list = (
     <dl className="grip-figures" aria-label={label}>
       {figures.map((figure) => (
         <div
@@ -84,6 +93,13 @@ export function Figures({ figures, label }: { figures: Figure[]; label: string }
         </div>
       ))}
     </dl>
+  );
+  if (!note) return list;
+  return (
+    <Stack gap="close">
+      {list}
+      <Quiet>{note}</Quiet>
+    </Stack>
   );
 }
 

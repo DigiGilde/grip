@@ -18,6 +18,17 @@ import { RequestQuotePage } from './RequestQuotePage';
 
 afterEach(() => vi.unstubAllGlobals());
 
+const openSheet = () =>
+  [...document.body.querySelectorAll('nldd-sheet')].find((el) => el.hasAttribute('open'));
+const field = (sheet: Element, label: string) =>
+  sheet.querySelector(`nldd-form-field[label="${label}"] nldd-text-field`);
+async function type(sheet: Element, label: string, value: string) {
+  field(sheet, label)?.dispatchEvent(new CustomEvent('input', { detail: { value } }));
+  await waitFor(() => expect(field(sheet, label)?.getAttribute('value')).toBe(value));
+}
+const submit = (sheet: Element) =>
+  sheet.querySelector('nldd-form')?.dispatchEvent(new Event('submit', { cancelable: true }));
+
 const ASSIGNMENT = {
   id: 'a-1',
   uri: 'https://grip.example/id/opdracht/a-1',
@@ -426,6 +437,106 @@ describe('ReceivedQuotePage', () => {
     expect(seen(signing.container)).toEqual(fromAccount);
   });
 
+  describe('factuurinformatie', () => {
+    const ANNEX = {
+      ...DETAIL,
+      quote: {
+        ...QUOTE,
+        content: { ...QUOTE.content, billing_annex: true, client_reference: 'ORD-2026-12' },
+      },
+    };
+    const INTENT = {
+      id: 'in-1',
+      authorize_url: '/api/proof/intents/in-1/authorize',
+      expires_at: '2026-02-03T10:05:00Z',
+      reauthentication: true,
+    };
+    async function openAccept(replies: Record<string, unknown>, path = receivedQuotePath('q-1')) {
+      const api = quoteTesting.mockApi(replies);
+      const { container } = renderAt(path, PATHS.receivedQuote, <ReceivedQuotePage />);
+      await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
+      [...container.querySelectorAll('nldd-button')]
+        .find((el) => el.getAttribute('text') === 'Geef akkoord')
+        ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await waitFor(() => expect(openSheet()).toBeDefined());
+      return { ...api, container, sheet: openSheet() as Element };
+    }
+
+    afterEach(() => sessionStorage.clear());
+
+    it('asks the function and where the invoice goes in one sheet, no form on the page', async () => {
+      const { container, sheet } = await openAccept({ '/api/received-quotes/q-1': ANNEX });
+      expect(container.querySelector('nldd-text-field')).toBeNull();
+      expect(field(sheet, 'Je functie')).not.toBeNull();
+      expect(texts(sheet, 'nldd-title')).toContain('Adres voor de factuur');
+      expect(field(sheet, 'Kenmerk op de factuur')?.getAttribute('value')).toBe('ORD-2026-12');
+      expect(field(sheet, 'Postcode en plaats')?.hasAttribute('required')).toBe(true);
+    });
+
+    it('takes the reference from the quote itself when the detail does not name it', async () => {
+      const { sheet } = await openAccept({
+        '/api/received-quotes/q-1': {
+          ...DETAIL,
+          quote: { ...QUOTE, content: { ...CONTENT, client_reference: 'ORD-7' } },
+        },
+      });
+      expect(field(sheet, 'Kenmerk op de factuur')?.getAttribute('value')).toBe('ORD-7');
+      expect(sheet.querySelectorAll('nldd-text-field[required]').length).toBe(0);
+    });
+
+    it('checks the address on save when the quote has the annex', async () => {
+      const { sheet, calls } = await openAccept({ '/api/received-quotes/q-1': ANNEX });
+      expect(sheet.querySelector('nldd-banner[variant="critical"]')).toBeNull();
+      submit(sheet);
+      await waitFor(() =>
+        expect(sheet.querySelector('nldd-banner[variant="critical"]')?.getAttribute('text')).toBe(
+          'Vul in: organisatie.',
+        ),
+      );
+      expect(calls.some((call) => call.method === 'POST')).toBe(false);
+    });
+
+    it('sends the details with the intent and keeps none of them in the browser', async () => {
+      const go = vi.spyOn(navigation, 'go').mockImplementation(() => {});
+      const { sheet, calls } = await openAccept({
+        '/api/received-quotes/q-1': ANNEX,
+        'POST /api/proof/intents': INTENT,
+      });
+      await type(sheet, 'Organisatie', 'Voorbeeldministerie');
+      await type(sheet, 'Adres of postbus', 'Postbus 1');
+      await type(sheet, 'Postcode en plaats', '2500 AA Den Haag');
+      submit(sheet);
+      await waitFor(() => expect(go).toHaveBeenCalledWith('/api/proof/intents/in-1/authorize'));
+      expect(calls.find((call) => call.method === 'POST')?.body).toMatchObject({
+        kind: 'accept_received',
+        billing_details: {
+          organisation: 'Voorbeeldministerie',
+          address: 'Postbus 1',
+          postcode_city: '2500 AA Den Haag',
+          reference: 'ORD-2026-12',
+        },
+      });
+      expect(sessionStorage.getItem('grip.besluit.q-1') ?? '').not.toContain('Postbus 1');
+      go.mockRestore();
+    });
+
+    it('opens the sheet again after a failed return, with only the reference filled in', async () => {
+      sessionStorage.setItem(
+        'grip.besluit.q-1',
+        JSON.stringify({
+          signerFunction: 'Directeur',
+        }),
+      );
+      const { sheet } = await openAccept(
+        { '/api/received-quotes/q-1': ANNEX },
+        `${receivedQuotePath('q-1')}?besluit_fout=verlopen`,
+      );
+      expect(field(sheet, 'Je functie')?.getAttribute('value')).toBe('Directeur');
+      expect(field(sheet, 'Adres of postbus')?.getAttribute('value') ?? '').toBe('');
+      expect(field(sheet, 'Kenmerk op de factuur')?.getAttribute('value')).toBe('ORD-2026-12');
+    });
+  });
+
   it('says that nothing was recorded when the browser returns with an error', async () => {
     mockApi({ '/api/received-quotes/q-1': DETAIL });
     const { container } = renderAt(
@@ -586,6 +697,104 @@ describe('ClientAssignmentPage', () => {
     expect(texts(container, 'nldd-title')).not.toContain('Eindrapport');
   });
 
+  describe('factuurinformatie', () => {
+    const KNOWN = {
+      organisation: 'Voorbeeldministerie',
+      address: 'Postbus 1',
+      postcode_city: '2500 AA Den Haag',
+      reference: 'ORD-2026-12',
+      contact_name: 'Financiën Voorbeeld',
+    };
+    const ACCEPTED = { ...DETAIL, quotes: [{ ...ASSIGNMENT.latest_quote, status: 'accepted' }] };
+    async function renderPage(detail: object, extra: Record<string, unknown> = {}) {
+      const api = quoteTesting.mockApi({
+        '/api/client/assignments/a-1': detail,
+        '/api/client/assignments/a-1/final-report': { received: false },
+        ...extra,
+      });
+      const { container } = renderAt(
+        clientAssignmentPath('a-1'),
+        PATHS.clientAssignment,
+        <ClientAssignmentPage />,
+      );
+      await waitFor(() => expect(texts(container, 'nldd-title')).toContain('Offertes'));
+      return { ...api, container };
+    }
+    const giveNew = (container: Element) =>
+      [...container.querySelectorAll('nldd-button')]
+        .find((el) => el.getAttribute('text') === 'Geef een nieuw factuuradres')
+        ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    it('shows what was given, with a secondary way to give a new address', async () => {
+      const { container } = await renderPage({ ...ACCEPTED, billing_details: KNOWN });
+      expect(texts(container, 'nldd-title')).toContain('Factuurinformatie');
+      const cells = texts(container, 'nldd-list[accessible-label="Factuur aan"] nldd-text-cell');
+      expect(cells).toEqual(
+        expect.arrayContaining(['Organisatie', 'Voorbeeldministerie', 'Kenmerk op de factuur']),
+      );
+      // Only what was given: no empty line for "Ten name van".
+      expect(cells).not.toContain('Ten name van');
+      expect(
+        texts(
+          container,
+          'nldd-list[accessible-label="Contact bij de financiële afdeling"] nldd-text-cell',
+        ),
+      ).toContain('Financiën Voorbeeld');
+      const button = [...container.querySelectorAll('nldd-button')].find(
+        (el) => el.getAttribute('text') === 'Geef een nieuw factuuradres',
+      );
+      expect(button?.getAttribute('appearance')).not.toBe('primary');
+      expect(openSheet()).toBeUndefined();
+    });
+
+    it('shows no section to who may not read the details', async () => {
+      const { container } = await renderPage(ACCEPTED);
+      expect(texts(container, 'nldd-title')).not.toContain('Factuurinformatie');
+    });
+
+    it('offers to give the address when nothing was given yet', async () => {
+      const { container } = await renderPage({ ...ACCEPTED, may_give_billing_details: true });
+      expect(texts(container, 'nldd-title')).toContain('Factuurinformatie');
+      expect(texts(container, 'nldd-button')).toContain('Geef het factuuradres');
+    });
+
+    it('shows no section before a quote was accepted and nothing was given', async () => {
+      const { container } = await renderPage({ ...DETAIL, billing_details: null });
+      expect(texts(container, 'nldd-title')).not.toContain('Factuurinformatie');
+    });
+
+    it('opens the sheet with what is known, checks on save and sends the new address', async () => {
+      const { container, calls } = await renderPage(
+        { ...ACCEPTED, billing_details: KNOWN },
+        { 'PUT /api/client/assignments/a-1/billing-details': KNOWN },
+      );
+      giveNew(container);
+      await waitFor(() => expect(openSheet()).toBeDefined());
+      const sheet = openSheet() as Element;
+      expect(sheet.textContent).toContain(
+        'Vanaf de volgende aanlevering gaat de factuur van Voorbeeldgilde naar dit adres.',
+      );
+      expect(field(sheet, 'Adres of postbus')?.getAttribute('value')).toBe('Postbus 1');
+      expect(field(sheet, 'Organisatie')?.hasAttribute('required')).toBe(true);
+      await type(sheet, 'Adres of postbus', ' ');
+      submit(sheet);
+      await waitFor(() =>
+        expect(sheet.querySelector('nldd-banner[variant="critical"]')?.getAttribute('text')).toBe(
+          'Vul in: adres of postbus.',
+        ),
+      );
+      expect(calls.some((call) => call.method === 'PUT')).toBe(false);
+      await type(sheet, 'Adres of postbus', 'Postbus 20');
+      submit(sheet);
+      await waitFor(() => expect(calls.some((call) => call.method === 'PUT')).toBe(true));
+      expect(calls.find((call) => call.method === 'PUT')).toMatchObject({
+        url: '/api/client/assignments/a-1/billing-details',
+        body: { ...KNOWN, address: 'Postbus 20' },
+      });
+      await waitFor(() => expect(openSheet()).toBeUndefined());
+    });
+  });
+
   it('does not offer the spending to who may not read amounts', async () => {
     mockApi({
       '/api/client/assignments/a-1': {
@@ -637,6 +846,7 @@ describe('AdminPage', () => {
       PATHS.languageModel,
       PATHS.client,
       PATHS.activity,
+      PATHS.retention,
     ]);
     expect(
       [...container.querySelectorAll('nldd-title[heading-level="2"]')].map((el) =>

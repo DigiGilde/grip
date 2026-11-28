@@ -311,7 +311,10 @@ def _query(filters: Filters) -> Any:
     if filters.kind == KIND_CHANGES:
         # As a literal, so the index on the changes can serve it.
         query = query.where(
-            StreamEvent.type != literal(READ_TYPE, literal_execute=True)
+            StreamEvent.type != literal(READ_TYPE, literal_execute=True),
+            # A fact says again what the change records beside it say; the
+            # chronicle has a route of its own.
+            StreamEvent.subject_kind != "chronolexogram",
         )
     elif filters.kind == KIND_READS:
         query = query.where(StreamEvent.type == READ_TYPE)
@@ -448,6 +451,7 @@ async def read(
                     names.get(event.person_id)
                     if sees_person and event.person_id
                     else None,
+                    event.payload,
                     changes=changes,
                     case_name=assignment_names.get(event.case_id)
                     if event.case_id

@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { orUndef, useNlddEvent } from '@/components/nldd/events';
+import { referenceStateText } from '@/features/costs/costText';
 import { formatEuro, formatPercent, formatPeriod } from '@/lib/format';
 import { IconCell } from '@/ui/Icon';
 import { Section } from '@/ui/layout';
@@ -74,12 +75,21 @@ function LineDetail({ line }: { line: FinanceLine }) {
             text={cost.description}
             supporting-text={`Kostenpost, ${formatPercent(cost.pct)} gedekt door deze regel`}
           />
-          <nldd-text-cell
-            width="fit-content"
-            text={formatEuro(cost.total_cents)}
-            supporting-text={`${formatEuro(cost.realised_cents)} gerealiseerd, ${formatEuro(cost.forecast_cents)} ingeschat`}
-            horizontal-alignment="right"
-          />
+          {cost.reference_state && cost.reference_state !== 'found' ? (
+            <nldd-text-cell
+              width="fit-content"
+              text={referenceStateText(cost.reference_state, cost.executor_name)}
+              color="secondary"
+              horizontal-alignment="right"
+            />
+          ) : (
+            <nldd-text-cell
+              width="fit-content"
+              text={formatEuro(cost.total_cents)}
+              supporting-text={`${formatEuro(cost.realised_cents)} gerealiseerd, ${formatEuro(cost.forecast_cents)} ingeschat`}
+              horizontal-alignment="right"
+            />
+          )}
         </nldd-list-item>
       ))}
       {figures &&

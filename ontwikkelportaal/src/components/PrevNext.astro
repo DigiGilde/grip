@@ -1,0 +1,41 @@
+---
+// The page before and after this one, at the end of the content. Placed inside
+// nldd-rich-text so it keeps the width of the text. Left out of the search
+// index, so a result never matches on a neighbour's title.
+interface Link {
+  href: string;
+  text: string;
+}
+
+interface Props {
+  label: string;
+  prev?: Link;
+  next?: Link;
+}
+
+const { label, prev, next } = Astro.props;
+---
+
+{
+  (prev || next) && (
+    <div data-pagefind-ignore>
+      <nldd-spacer size="24" />
+      <nldd-list type="navigation" appearance="box-tinted" aria-label={label}>
+        {prev && (
+          <nldd-list-item href={prev.href}>
+            <nldd-text-cell overline="Vorige" text={prev.text} />
+            <nldd-spacer-cell size="8" />
+            <nldd-icon-cell size="20" icon="chevron-right" />
+          </nldd-list-item>
+        )}
+        {next && (
+          <nldd-list-item href={next.href}>
+            <nldd-text-cell overline="Volgende" text={next.text} />
+            <nldd-spacer-cell size="8" />
+            <nldd-icon-cell size="20" icon="chevron-right" />
+          </nldd-list-item>
+        )}
+      </nldd-list>
+    </div>
+  )
+}

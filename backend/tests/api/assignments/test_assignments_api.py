@@ -136,7 +136,9 @@ async def test_permissions_tell_the_screen_which_parts_to_offer(world, as_person
         return (await as_person(person).get(url)).json()["permissions"]
 
     owner = await permissions(world.owner)
-    assert all(owner.values())
+    # Reopening a closed dossier is for the beheerder, not for its owner.
+    assert all(value for name, value in owner.items() if name != "reopen_dossier")
+    assert owner["reopen_dossier"] is False
 
     planner = await permissions(world.planner)
     assert (

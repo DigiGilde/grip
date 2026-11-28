@@ -107,6 +107,9 @@ class StartFiguresOut(BaseModel):
     # the whole period of its assignment.
     potential_cents: Annotated[int, in_class(B)]
     quotes_waiting: Annotated[int, in_class(B)]
+    # Executors whose cost items could not be counted in the agreed figures:
+    # the figures are then incomplete (ADR 0052).
+    incomplete_by: Annotated[list[str], in_class(B)] = []
 
 
 class MyRequestRowOut(BaseModel):

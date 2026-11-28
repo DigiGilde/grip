@@ -179,6 +179,27 @@ describe('a topic of a report', () => {
     expect(cellTexts(container).some((text) => text.startsWith('**€'))).toBe(true);
   });
 
+  it('says under the turnover that it misses what another organisation keeps', async () => {
+    respond({
+      '/api/reports/steering': {
+        year: 2026,
+        turnover: { ...TURNOVER, incomplete_by: ['Voorbeeldgilde', 'Voorbeeldwerkplaats'] },
+      },
+    });
+    renderTopic('omzet');
+    await screen.findByTestId('turnover');
+    expect(screen.getByLabelText('Omzet in het kort').nextElementSibling).toHaveTextContent(
+      'Onvolledig: niet alles is op te halen bij Voorbeeldgilde en Voorbeeldwerkplaats',
+    );
+  });
+
+  it('says nothing about completeness when nothing is missing', async () => {
+    respond({ '/api/reports/steering': { year: 2026, turnover: TURNOVER } });
+    const { container } = renderTopic('omzet');
+    await screen.findByTestId('turnover');
+    expect(container.innerHTML).not.toContain('Onvolledig');
+  });
+
   it('names what was left out of the turnover', async () => {
     respond({
       '/api/reports/steering': {
@@ -504,6 +525,26 @@ describe('AssignmentReportPage', () => {
     const figures = screen.getByLabelText('De opdracht in het kort');
     expect(figures).toHaveTextContent('Afgesproken€ 313.650');
     expect(figures).toHaveTextContent('Overschrijding van de begroting');
+  });
+
+  it('says on a total that it misses what another organisation keeps', async () => {
+    const incomplete = { ...TOTALS, incomplete_by: ['Voorbeeldgilde'] };
+    respond({
+      '/api/reports/assignments/a1': {
+        ...REPORT,
+        ...FINANCIAL,
+        totals: incomplete,
+        periods: [{ year: 2026, totals: incomplete, pricing_error: null }],
+      },
+    });
+    const { container } = renderReport();
+    await screen.findByTestId('cost');
+    const notes = [...container.querySelectorAll('nldd-text-cell')].map((cell) =>
+      cell.getAttribute('supporting-text'),
+    );
+    expect(
+      notes.filter((note) => note === 'Onvolledig: niet alles is op te halen bij Voorbeeldgilde'),
+    ).toHaveLength(2);
   });
 
   it('leaves out every money section for a reader who got no amounts', async () => {

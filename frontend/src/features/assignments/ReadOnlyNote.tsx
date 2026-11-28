@@ -11,9 +11,15 @@ interface ReadOnlyNoteProps {
 
 /**
  * Said once, quietly, where the action would have been: the reader may look
- * and not change, and who can. Without it a missing button reads as "locked".
+ * and not change, and who can, or that the dossier is closed. Without it a
+ * missing button reads as "locked".
  */
 export function ReadOnlyNote({ assignment, what, others = ' of een manager' }: ReadOnlyNoteProps) {
+  if (assignment.dossier_closed_on) {
+    return (
+      <Quiet>{`Je kunt ${what} bekijken. Het dossier is gesloten; wijzigen kan weer als de beheerder het heropent.`}</Quiet>
+    );
+  }
   const owner = assignment.roles.find((holder) => holder.role === 'owner');
   return (
     <Quiet>

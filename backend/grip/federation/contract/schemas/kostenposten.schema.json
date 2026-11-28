@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Kostenposten bij verwijzingen",
+  "description": "Het antwoord van de eigenaar op de vraag naar de kostenposten bij een of meer verwijzingen. Elke gevraagde verwijzing staat er precies een keer in, in de volgorde van de vraag.",
+  "type": "object",
+  "properties": {
+    "kostenposten": {
+      "type": "array",
+      "items": {
+        "$ref": "kostenpost.schema.json"
+      }
+    }
+  },
+  "required": [
+    "kostenposten"
+  ]
+}

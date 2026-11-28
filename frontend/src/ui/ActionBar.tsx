@@ -267,7 +267,7 @@ export function ActionBar({ label, search, filters = [], actions = [], more }: A
       ))}
       {extra && (
         <nldd-toolbar-item slot="end" priority={1}>
-          <RowMenu name={extra.name} actions={[...extra.actions]} size={SIZE} />
+          <RowMenu name={extra.name} actions={[...extra.actions]} size={SIZE} overflow />
         </nldd-toolbar-item>
       )}
     </nldd-toolbar>

@@ -35,9 +35,13 @@ UI-termen zijn Nederlands; code en schema gebruiken de Engelse naam.
 | Aangeleverd | `delivered` | De factuurgegevens van een factuurperiode zijn als factuurverzoek aan de financiële administratie gegeven: per mail met een link, of door de opdrachtmanager zelf. Het is geen factuur |
 | Factuurperiode | `billing period` | De periode waarover wordt gefactureerd: een maand of een kalenderkwartaal, volgens de factuurafspraken van de opdracht. Zie ADR 0039 |
 | Factuurafspraken | `billing_terms` | Het ritme van factureren, het factuuradres en het kenmerk van de opdrachtgever |
+| Factuurinformatie | `billing_details` | Waar de factuur heen gaat: het factuuradres, een kenmerk en een contactpersoon. De opdrachtgever geeft het bij het akkoord en kan het met een eigen grip later wijzigen (ADR 0058) |
 | Aanlevering | `billing_delivery` | Wat voor één factuurperiode aan de financiële administratie is gegeven, met het factuurverzoek als bewaard document |
 | Factuurverzoek | `factuurverzoek` | Het document van een aanlevering: bedrag, factuuradres, afspraak en specificatie per maand |
 | Nog aan te leveren | `to_deliver` | De vastgestelde inzet van afgesloten maanden, geprijsd, min wat is aangeleverd |
+| Moment | `Gram`, type `chronolexogram.<feit>` | Eén vastgelegd feit op het pad naar een opdracht: wie stelde wat vast, wanneer. Zie [kroniek.md](kroniek.md) |
+| Stand op ... | `fold`, `Ledger` | Hoe opdracht, begroting, offerte en verloop er op een moment voorstonden, afgeleid uit de feiten tot en met dat moment |
+| Besluit | `decretogram` | Een feit waarin wie het vaststelt hier zelf besluit. Een besluit dat elders is genomen en hier alleen wordt vastgelegd (een pdf, een binnenkomend akkoord, een afwijzing die iemand voor een ander noteert) is er geen. De andere soorten (`executogram`, `lexogram`, `general`) krijgen geen merkteken op het scherm |
 | Gefactureerd | `invoiced` | Er is een factuur verstuurd. Grip weet dat alleen doordat iemand het heeft vastgelegd; tot dan heet geen bedrag gefactureerd |
 | Nog te factureren | `to_invoice` | Aangeleverd min gefactureerd: aangeleverd, en in grip nog geen factuur vastgelegd |
 | Potentiële opdracht | `phase: potential` | Een opdracht zonder akkoord van de opdrachtgever, ook als haar laatste offerte is afgewezen. Haar bedragen tellen nooit mee in het lopende werk en staan apart, onder "Potentieel" of "Potentiële opdrachten"; inzet erop is onder voorbehoud. In de code heet dat `pipeline`; op het scherm staat dat woord niet |
@@ -54,6 +58,11 @@ UI-termen zijn Nederlands; code en schema gebruiken de Engelse naam.
 | Ontvangen, verwacht | `actual`, `estimate` | Soort factuurregel: de factuur is binnen, of wordt nog verwacht. Op een kostenpost heet de som van de ontvangen facturen "Ontvangen" (bij een opdracht: Gerealiseerd) en de som van de verwachte "Nog verwacht" (bij een opdracht: Nog gepland). Begroot, Verwacht totaal en Afwijking heten hetzelfde als bij een opdracht; een afwijking van nul heet "Precies begroot" |
 | Ongedekt | `uncovered` | Het deel van het verwacht totaal van een kostenpost dat geen begrotingsregel dekt |
 | Kostendekking | `cost_coverage` | Welke begrotingsregel welk deel van een kostenpost dekt |
+| Uitgevoerd door | `executor_organisation_id` | De organisatie die de uitgave van een kostenpost doet en de kostenpost heeft, bijvoorbeeld een leverancier die een zaal boekt. Alleen een organisatie waarmee grip gekoppeld is (ADR 0052) |
+| Verwijzing | `cost_item` met `executor_organisation_id` | Een kostenpost die een andere organisatie heeft (ADR 0053). Bewaart de eigen URI, de uitvoerder en de eigen dekking; omschrijving, bedrag en factuurregels worden bij de uitvoerder opgehaald |
+| Gevraagd door | `requester_organisation_id`, `reference_uri` | Bij de uitvoerder: de organisatie die om de kostenpost vroeg, en de URI van haar verwijzing |
+| Wacht op, Geweigerd door, Niet aangekomen bij, Niet op te halen bij | `request_status`, `ReferenceState` | Wat een verwijzing nu is: het verzoek wacht, de uitvoerder weigerde het, het kwam niet aan, of de uitvoerder is nu niet te lezen |
+| Onvolledig | `incomplete_by` | Een totaal waarin een verwijzing hoort die niet meetelt omdat ze niet is op te halen of nog wacht |
 | Target KPI % declarabel | `billability_target` | Deel van iemands jaar dat declarabel moet zijn |
 | Offerte | `quote` | Document dat uit de begroting van een opdracht wordt gemaakt. Na het maken wijzigt het niet meer |
 | Offerte maken | `issue_quote` | De begroting vastleggen als offerte. In de code heet dat uitgeven (`issued`); voor de gebruiker is het maken |
@@ -88,6 +97,11 @@ UI-termen zijn Nederlands; code en schema gebruiken de Engelse naam.
 | Passkey | `passkey_credential` | Een sleutel op het eigen apparaat, om opnieuw in te loggen en om een besluit te bevestigen. Onder "Beveiliging" in het accountmenu |
 | Afzender | `quote.sender` | De gegevens van de organisatie op een offerte: naam, waar ze deel van is, adressen, contactpersoon en ondertekenaar. Onder Beheer |
 | Start | `start` | De startpagina: wat er voor de lezer te doen is, wat voor hem speelt en wat nieuw is. Zie ADR 0055 en `docs/ontwerp.md` |
+| Dossier sluiten, Gesloten op | `dossier_closed`, `dossier_closed_on` | Het dossier van een afgeronde, verantwoorde of geannuleerde opdracht sluiten, op een dag tot en met vandaag en niet voor de laatste wijziging aan de opdracht. Vanaf die dag loopt de bewaartermijn, en de opdracht verandert niet meer. Niet te verwarren met de fase Afgesloten (de status) of een afgesloten maand. Zie ADR 0057 |
+| Heropen dossier | `dossier_reopened` | Een gesloten dossier weer openen, zodat de opdracht kan veranderen. Er loopt dan geen bewaartermijn meer. Alleen de beheerder doet het, met een reden die in de kroniek komt |
+| Houd dossier open | `dossier_kept_open` | Vastleggen dat een dossier open blijft, na het voorstel om het te sluiten. Het telt als activiteit: het volgende voorstel komt pas na een nieuwe periode zonder wijziging |
+| Verwijder een tekst, Tekst verwijderd | `restate_fact`, `fact_restated` | Een getypte tekst die er nooit in hoorde uit een moment halen. Grip wist het feit en legt het opnieuw vast zonder die tekst: het herstelfeit. Alleen de beheerder. Zie ADR 0057 en `docs/kroniek.md` |
+| Voorstel om het dossier te sluiten | `dossier_due`, taakfeit `dossier_due_for_closing` | Een afgesloten opdracht met een open dossier die een jaar (instelling `dossier.propose_close_after_days`) niet is gewijzigd door een persoon of een andere organisatie. De eigenaar krijgt de taak "Sluit het dossier"; na `dossier.close_after_proposal_days` dagen sluit grip het dossier zelf |
 
 "Factuur" betekent in Grist een regel aan de inkoopkant, op een kostenpost. Het is geen verkoopfactuur. In grip heet die een factuurregel op een kostenpost. Wat grip richting de opdrachtgever oplevert heet factuurgegevens.
 
@@ -152,11 +166,15 @@ Statussen van een opdracht: concept, aangevraagd, offerte gemaakt, akkoord, in u
 
 | Entiteit | Velden | Bron in Grist |
 |---|---|---|
-| `cost_item` | `description`, `budgeted`; `forecast` en `covered` afgeleid | Kosten |
+| `cost_item` | `description`, `budgeted`; bij een verwijzing `executor_organisation_id`, `request_sequence`, `request_status`, `request_period`, `executor_has_item`; bij de uitvoerder `requester_organisation_id`, `reference_uri`, `reference_sequence`; `forecast` en `covered` afgeleid | Kosten; uitvoerder en vrager zijn nieuw |
 | `invoice_line` | `reference` (bijvoorbeeld "HOST-26-01"), `description`, `kind` (`actual`, `estimate`), `amount`, `cost_item_id`, `period` | Factuur; `period` is nieuw |
 | `cost_coverage` | `cost_item_id`, `budget_line_id`, `pct`; `amount` afgeleid | Kostendekking |
 
 Een kostenpost hoort niet bij een opdracht. De dekking kan over begrotingsregels van meerdere opdrachten verdeeld zijn.
+
+Een kostenpost kan worden uitgevoerd door een andere organisatie (ADR 0052, 0053). Die organisatie is eigenaar: zij heeft omschrijving, bedrag, factuurregels en bijlagen. Hier staat een verwijzing met de eigen dekking. Bij het opslaan vraagt grip de uitvoerder om de kostenpost aan te maken; een wijziging van omschrijving of bedrag is een nieuw verzoek, dat de uitvoerder uitvoert. Tot de uitvoerder het verzoek heeft uitgevoerd, bewaart de verwijzing wat is gevraagd; daarna niets van de uitvoerder.
+
+Grip leest omschrijving, bedrag en factuurregels bij de uitvoerder, met één verzoek per uitvoerder. Wat is opgehaald telt als gewone factuurregels in R6 tot en met R10; er komt geen rekenregel bij. Een verwijzing die niet is op te halen of nog wacht, telt niet mee, en elk totaal waar ze in hoort, heet onvolledig. Elke administratie telt de uitgave een keer: de uitvoerder in de begroting die haar dekt, het programma in de eigen.
 
 ### Federatie en controle
 
@@ -164,7 +182,7 @@ Een kostenpost hoort niet bij een opdracht. De dekking kan over begrotingsregels
 |---|---|
 | `peer` | Een andere instantie of een corpus: peer-id, organisatie, contract |
 | `federation_outbox` | Uitgaande berichten, verstuurd door een worker |
-| `federation_inbox` | Inkomende berichten, idempotent op bericht-UUID |
+| `federation_inbox` | Inkomende berichten, idempotent op bericht-UUID, met de parameters uit het pad. Een bericht dat in de inhaalronde onverwacht faalt, blijft staan; de berichten erna gaan door |
 | `stream_event` | De stroom van gebeurtenissen: wie, wanneer, oude en nieuwe waarde, de gegevensklasse per veld en de keten van hashes. Het auditlog is een weergave hiervan (ADR 0028) |
 | `task`, `task_case` | Taken en de zaken waar ze bij horen (ADR 0024) |
 | `signing_intent`, `decision_evidence` | Het voornemen tot een besluit en het bewijs erbij (ADR 0029) |

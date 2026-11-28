@@ -62,6 +62,32 @@ function MenuItem({ action, onChoose }: { action: RowAction; onChoose: () => voi
   );
 }
 
+/**
+ * The same action in the overflow menu of the toolbar the menu stands in. That
+ * menu gives the focus back by itself, so `select` needs no waiting.
+ */
+function OverflowItem({
+  action,
+  text,
+  onChoose,
+}: {
+  action: RowAction;
+  text: string;
+  onChoose: () => void;
+}) {
+  const ref = useRef<HTMLElement>(null);
+  useNlddEvent(ref, 'select', action.href ? undefined : onChoose);
+  return (
+    <nldd-menu-item
+      ref={ref}
+      slot="overflow"
+      text={text}
+      destructive={orUndef(action.destructive)}
+      {...(action.href ? { href: action.href } : {})}
+    />
+  );
+}
+
 function DialogButton({
   text,
   appearance,
@@ -101,8 +127,14 @@ export function RowMenu({
   name,
   actions,
   size,
+  overflow = false,
 }: RowActionsProps & {
   /** The size of the bar it stands in; a row uses the small one. */ size?: 'sm' | 'md';
+  /**
+   * In an `nldd-toolbar-item`: every action also as an item of the toolbar's
+   * overflow menu. Without one the toolbar drops the item when it has no room.
+   */
+  overflow?: boolean;
 }) {
   const [asking, setAsking] = useState<RowAction | null>(null);
   const dialogRef = useRef<HTMLElement>(null);
@@ -142,6 +174,16 @@ export function RowMenu({
           </nldd-menu>
         </MoreButton>
       )}
+      {overflow
+        ? [...ordinary, ...destructive].map((action) => (
+            <OverflowItem
+              key={action.text}
+              action={action}
+              text={only ? `${action.text} ${name}` : action.text}
+              onChoose={() => choose(action)}
+            />
+          ))
+        : null}
       {shown?.confirm
         ? createPortal(
             <nldd-modal-dialog

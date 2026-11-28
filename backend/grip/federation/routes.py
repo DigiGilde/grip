@@ -210,6 +210,7 @@ async def receive(
         operation=op.operation_id,
         payload_hash=digest,
         payload=payload,
+        path_parameters=path_parameters or {},
         received_at=datetime.now(UTC),
     )
     try:
@@ -339,6 +340,18 @@ async def send_rejection(
     return await receive(db, peer, op, payload, {"quoteId": str(offerteId)})
 
 
+@router.put("/opdrachten/{opdrachtId}/factuurinformatie", **_docs("sendBillingDetails"))
+async def send_billing_details(
+    opdrachtId: UUID,  # noqa: N803
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    peer: Peer = Depends(require_caller("sendBillingDetails")),
+) -> JSONResponse:
+    op = operation("sendBillingDetails")
+    payload = await _validated_body(request, op)
+    return await receive(db, peer, op, payload, {"assignmentId": str(opdrachtId)})
+
+
 @router.put("/opdrachten/{opdrachtId}/eindrapport", **_docs("sendFinalReport"))
 async def send_final_report(
     opdrachtId: UUID,  # noqa: N803
@@ -382,6 +395,21 @@ async def send_vacancy_offer(
     message = terms.from_contract(payload)
     _require_same(vacatureId, message["vacancy_id"], "vacancy_id")
     return await receive(db, peer, op, payload, {"vacancyId": str(vacatureId)})
+
+
+@router.post("/kostenpostverzoeken", **_docs("requestCostItem"))
+async def request_cost_item(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    peer: Peer = Depends(require_caller("requestCostItem")),
+) -> JSONResponse:
+    op = operation("requestCostItem")
+    payload = await _validated_body(request, op)
+    message = terms.from_contract(payload)
+    # The asker is the calling peer; the organisation in the message only
+    # names it and may not name another instance.
+    _require_sender(peer, message["organisation"], "organisation")
+    return await receive(db, peer, op, payload)
 
 
 # --- pull operations -------------------------------------------------------
@@ -475,6 +503,17 @@ async def get_billing_data(
     return await provide(
         db, peer, "getBillingData", {"assignmentId": opdrachtId, "month": month}
     )
+
+
+@router.get("/kostenposten", **_docs("getCostItems"))
+async def get_cost_items(
+    reference_uris: Annotated[
+        list[str], Query(alias="verwijzingUri", min_length=1, max_length=50)
+    ],
+    db: AsyncSession = Depends(get_db),
+    peer: Peer = Depends(require_caller("getCostItems")),
+) -> JSONResponse:
+    return await provide(db, peer, "getCostItems", {"referenceUri": reference_uris})
 
 
 @router.get("/doorgifte/opdrachten", **_docs("getHandoverAssignments"))

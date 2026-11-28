@@ -2,7 +2,7 @@ import { PageBoundary } from '@/PageBoundary';
 import { Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/auth/context';
 import { Brand } from '@/brand/Brand';
-import { ExampleNotice } from '@/layout/ExampleMode';
+import { ExampleStatusBar } from '@/layout/ExampleMode';
 import { PRODUCT_NAME, instanceNames } from '@/brand/names';
 import { Button } from '@/features/assignments/ui';
 import { useInstance } from '@/layout/useInstance';
@@ -34,6 +34,7 @@ export function SigningLayout() {
       <nldd-skip-link href={`#${MAIN_CONTENT_ID}`} text="Direct naar de inhoud" />
       <nldd-shell>
         <nldd-page landmarks="page" accessible-label={`Tekenen bij ${instanceName}`}>
+          <ExampleStatusBar slot="header" />
           <nldd-container padding="16" layout="wrap" gap="16" vertical-alignment="center">
             <Brand variant="signing" instanceName={instance?.name} />
             {signerName && (
@@ -44,7 +45,6 @@ export function SigningLayout() {
             <Button text="Uitloggen" size="sm" onClick={logout} />
           </nldd-container>
           <div id={MAIN_CONTENT_ID} tabIndex={-1}>
-            <ExampleNotice />
             <PageBoundary resetKey={pathname}>
               <Outlet />
             </PageBoundary>

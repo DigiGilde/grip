@@ -16,21 +16,12 @@ import {
   type BillingDetails,
   type BillingOverview,
   type BillingPeriod,
-  type DetailKey,
   type Rhythm,
 } from './billingApi';
+import { DetailFields } from './BillingDetailFields';
+import { ADDRESS_KEYS, CONTACT_KEYS, missing } from './billingDetails';
 import { DETAIL_LABELS, periodName } from './periodText';
 import { todayIso } from '@/lib/today';
-
-const ADDRESS_KEYS: DetailKey[] = [
-  'organisation',
-  'attention_of',
-  'address',
-  'postcode_city',
-  'reference',
-];
-const CONTACT_KEYS: DetailKey[] = ['contact_name', 'contact_phone', 'contact_email'];
-const REQUIRED: DetailKey[] = ['organisation', 'address', 'postcode_city'];
 
 function useRefresh(assignmentId: string) {
   const queryClient = useQueryClient();
@@ -41,37 +32,6 @@ function useRefresh(assignmentId: string) {
     await queryClient.invalidateQueries({ queryKey: ['tasks'] });
     await queryClient.invalidateQueries({ queryKey: ['overview'] });
   };
-}
-
-function DetailFields({
-  keys,
-  details,
-  onChange,
-}: {
-  keys: DetailKey[];
-  details: BillingDetails;
-  onChange: (key: DetailKey, value: string) => void;
-}) {
-  return (
-    <>
-      {keys.map((key) => (
-        <TextInput
-          key={key}
-          label={DETAIL_LABELS[key]}
-          value={details[key] ?? ''}
-          onChange={(value) => onChange(key, value)}
-          {...(REQUIRED.includes(key) ? { required: true } : { optional: true })}
-          {...(key === 'reference'
-            ? { hint: 'Een verplichtingennummer of ordernummer van de opdrachtgever' }
-            : {})}
-        />
-      ))}
-    </>
-  );
-}
-
-function missing(details: BillingDetails): DetailKey | null {
-  return REQUIRED.find((key) => !(details[key] ?? '').trim()) ?? null;
 }
 
 interface TermsSheetProps {

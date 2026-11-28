@@ -156,6 +156,11 @@ const QuoteSettingsPage = page(
   'QuoteSettingsPage',
   PATHS.quoteSettings,
 );
+const RetentionPage = page(
+  () => import('@/features/retention/RetentionPage'),
+  'RetentionPage',
+  PATHS.retention,
+);
 const SenderPage = page(
   () => import('@/features/quote-letter/SenderPage'),
   'SenderPage',
@@ -429,6 +434,14 @@ export function AppRoutes() {
           <Route path={PATHS.quoteApproval} element={<ApprovalPage />} />
           <Route path={PATHS.quoteSettings} element={<QuoteSettingsPage />} />
           <Route path={PATHS.quoteSender} element={<SenderPage />} />
+          <Route
+            path={PATHS.retention}
+            element={
+              <AdminOnly title="Bewaartermijnen">
+                <RetentionPage />
+              </AdminOnly>
+            }
+          />
           <Route path={PATHS.peers} element={<PeersPage />} />
           <Route
             path={PATHS.organisations}

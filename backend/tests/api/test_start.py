@@ -908,6 +908,7 @@ async def test_who_reads_everything_gets_the_same_figures_as_geld(as_person, wor
         "shortfall": investment["money"]["shortfall"],
         "potential_cents": issued["total_cents"],
         "quotes_waiting": issued["count"],
+        "incomplete_by": steering["turnover"]["incomplete_by"],
     }
 
 
@@ -921,6 +922,7 @@ async def test_with_few_targets_a_lezer_gets_no_room(as_person, world):
         "budgeted_cents",
         "potential_cents",
         "quotes_waiting",
+        "incomplete_by",
     }
     assert "room_cents" not in json.dumps(body)
     assert "shortfall" not in json.dumps(body)

@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from grip.core import clock
 from grip.models.assignment import Allocation, AssignmentRole
 from grip.models.person import Person
-from grip.models.role import PersonRole
+from grip.models.role import PersonRole, Role
 
 
 def normalize_email(email: str) -> str:
@@ -70,6 +70,54 @@ class PersonRepository:
             )
         ).one()
         return [name for name in checks if getattr(row, name)]
+
+    async def role_labels(self, person_id: UUID, on: date | None = None) -> list[str]:
+        """What the person is in this instance, in plain Dutch.
+
+        The relations to an opdracht first, then the functions held on the
+        day, then whether others report to them. Derived from the rows the
+        access decision reads; nothing is stored.
+        """
+        day = on or clock.today()
+        held = set(
+            (
+                await self.db.execute(
+                    select(AssignmentRole.role)
+                    .where(AssignmentRole.person_id == person_id)
+                    .distinct()
+                )
+            ).scalars()
+        )
+        labels = [
+            label
+            for role, label in (
+                ("owner", "Opdrachteigenaar"),
+                ("manager", "Opdrachtmanager"),
+            )
+            if role in held
+        ]
+        functions = await self.db.execute(
+            select(Role.label)
+            .join(PersonRole, PersonRole.role_id == Role.id)
+            .where(
+                PersonRole.person_id == person_id,
+                PersonRole.start_date <= day,
+                or_(PersonRole.end_date.is_(None), PersonRole.end_date >= day),
+            )
+            .distinct()
+            .order_by(Role.label)
+        )
+        labels.extend(functions.scalars())
+        has_reports = await self.db.scalar(
+            select(
+                exists().where(
+                    Person.manager_id == person_id, Person.is_active.is_(True)
+                )
+            )
+        )
+        if has_reports:
+            labels.append("Leidinggevende")
+        return labels
 
     async def active_with_email(self) -> list[Person]:
         """Active people who could log in: those with an address, by name."""

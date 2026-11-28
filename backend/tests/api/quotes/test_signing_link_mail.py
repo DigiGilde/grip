@@ -114,7 +114,9 @@ async def test_the_mail_names_the_quote_and_how_to_check_it_and_no_amount(
         assert "nooit om een wachtwoord" in body
         # Mail is not a confidential channel: no money, in any notation.
         assert "€" not in body and "EUR" not in body
-        assert "172" not in body and "18.000" not in body
+        # The quote id is a random UUID and can hold the same digits.
+        bare = body.replace(quote["id"], "")
+        assert "172" not in bare and "18.000" not in bare
     # Nothing is fetched from elsewhere and nothing tracks: the only address
     # in the HTML is the link itself, written out as its own text.
     html = row.html_body

@@ -305,6 +305,145 @@ describe('SigningPage', () => {
     sessionStorage.clear();
   });
 
+  describe('factuurinformatie', () => {
+    const ANNEX = {
+      ...QUOTE,
+      content: { ...QUOTE.content, billing_annex: true, client_reference: 'ORD-2026-12' },
+    };
+    const INTENT = {
+      id: 'in-1',
+      authorize_url: '/api/signing/intents/in-1/authorize',
+      expires_at: '2026-02-03T10:05:00Z',
+      reauthentication: true,
+    };
+    const field = (sheet: Element, label: string) =>
+      sheet.querySelector(`nldd-form-field[label="${label}"] nldd-text-field`);
+    const type = async (sheet: Element, label: string, value: string) => {
+      field(sheet, label)?.dispatchEvent(new CustomEvent('input', { detail: { value } }));
+      await waitFor(() => expect(field(sheet, label)?.getAttribute('value')).toBe(value));
+    };
+    const confirmMandate = async (sheet: Element) => {
+      sheet
+        .querySelector('nldd-checkbox-field')
+        ?.dispatchEvent(new CustomEvent('change', { detail: { checked: true } }));
+      await waitFor(() =>
+        expect(sheet.querySelector('nldd-checkbox-field')?.hasAttribute('checked')).toBe(true),
+      );
+    };
+    const openAccept = async (replies: Record<string, unknown>) => {
+      const rendered = renderSigning(replies);
+      await waitFor(() => expect(rendered.container.querySelector('nldd-table')).not.toBeNull());
+      clickButton(rendered.container, 'Geef akkoord');
+      await waitFor(() => expect(openSheet()).toBeDefined());
+      return { ...rendered, sheet: openSheet() as Element };
+    };
+
+    afterEach(() => sessionStorage.clear());
+
+    it('asks where the invoice goes, with the reference of the client filled in', async () => {
+      const { sheet } = await openAccept({ '/api/signing/quotes/q-1': ANNEX });
+      expect(texts(sheet, 'nldd-title')).toEqual(
+        expect.arrayContaining(['Adres voor de factuur', 'Contact bij de financiële afdeling']),
+      );
+      const labels = [...sheet.querySelectorAll('nldd-form-field')].map((el) =>
+        el.getAttribute('label'),
+      );
+      expect(labels).toEqual(
+        expect.arrayContaining([
+          'Organisatie',
+          'Ten name van',
+          'Adres of postbus',
+          'Postcode en plaats',
+          'Kenmerk op de factuur',
+          'Naam',
+          'Telefoon',
+          'E-mail',
+        ]),
+      );
+      expect(field(sheet, 'Kenmerk op de factuur')?.getAttribute('value')).toBe('ORD-2026-12');
+      // With the annex the address is required; the rest stays optional.
+      expect(field(sheet, 'Organisatie')?.hasAttribute('required')).toBe(true);
+      expect(field(sheet, 'Ten name van')?.hasAttribute('required')).toBe(false);
+    });
+
+    it('checks the invoice address on save when the quote has the annex', async () => {
+      const { sheet, calls } = await openAccept({ '/api/signing/quotes/q-1': ANNEX });
+      await confirmMandate(sheet);
+      // Nothing is said before saving.
+      expect(sheet.querySelector('nldd-banner[variant="critical"]')).toBeNull();
+      await type(sheet, 'Organisatie', 'Voorbeeldministerie');
+      sheet.querySelector('nldd-form')?.dispatchEvent(new Event('submit', { cancelable: true }));
+      await waitFor(() =>
+        expect(sheet.querySelector('nldd-banner[variant="critical"]')?.getAttribute('text')).toBe(
+          'Vul in: adres of postbus.',
+        ),
+      );
+      expect(calls.filter((call) => call.method === 'POST')).toEqual([]);
+    });
+
+    it('asks nothing as required without the annex', async () => {
+      const { sheet } = await openAccept({ '/api/signing/quotes/q-1': QUOTE });
+      expect(field(sheet, 'Organisatie')).not.toBeNull();
+      expect(sheet.querySelectorAll('nldd-text-field[required]').length).toBe(0);
+    });
+
+    it('sends the details with the intent and keeps none of them in the browser', async () => {
+      const go = vi.spyOn(navigation, 'go').mockImplementation(() => {});
+      const { sheet, calls } = await openAccept({
+        '/api/signing/quotes/q-1': ANNEX,
+        'POST /api/signing/quotes/q-1/intents': INTENT,
+      });
+      await type(sheet, 'Organisatie', ' Voorbeeldministerie ');
+      await type(sheet, 'Adres of postbus', 'Postbus 1');
+      await type(sheet, 'Postcode en plaats', '2500 AA Den Haag');
+      await type(sheet, 'E-mail', 'crediteuren@voorbeeld.example');
+      await confirmMandate(sheet);
+      sheet.querySelector('nldd-form')?.dispatchEvent(new Event('submit', { cancelable: true }));
+      await waitFor(() => expect(go).toHaveBeenCalled());
+      const post = calls.find((call) => call.method === 'POST');
+      expect(post?.body).toMatchObject({
+        decision: 'accept',
+        billing_details: {
+          organisation: 'Voorbeeldministerie',
+          address: 'Postbus 1',
+          postcode_city: '2500 AA Den Haag',
+          reference: 'ORD-2026-12',
+          contact_email: 'crediteuren@voorbeeld.example',
+        },
+      });
+      const draft = sessionStorage.getItem('grip.besluit.q-1') ?? '';
+      expect(draft).not.toContain('Postbus 1');
+      expect(draft).not.toContain('crediteuren@voorbeeld.example');
+      go.mockRestore();
+    });
+
+    it('opens the form again with only the reference filled in', async () => {
+      sessionStorage.setItem(
+        'grip.besluit.q-1',
+        JSON.stringify({
+          decision: 'accept',
+        }),
+      );
+      mockApi({ '/api/signing/quotes/q-1': ANNEX });
+      const { container } = renderApp(
+        <Routes>
+          <Route path="/tekenen/:quoteId" element={<SigningPage />} />
+        </Routes>,
+        { path: '/tekenen/q-1?besluit_fout=geweigerd' },
+      );
+      await waitFor(() => expect(container.querySelector('[data-decision-error]')).not.toBeNull());
+      clickButton(container, 'Probeer opnieuw');
+      await waitFor(() =>
+        expect(openSheet()?.querySelector('nldd-title')?.getAttribute('text')).toBe(
+          'Akkoord geven',
+        ),
+      );
+      const sheet = openSheet() as Element;
+      expect(field(sheet, 'Adres of postbus')?.getAttribute('value') ?? '').toBe('');
+      expect(field(sheet, 'Kenmerk op de factuur')?.getAttribute('value')).toBe('ORD-2026-12');
+    });
+  });
+
   it('asks for the organisation when the quote names no client', async () => {
     const { container } = renderSigning({
       '/api/signing/quotes/q-1': { ...QUOTE, client_name: null },

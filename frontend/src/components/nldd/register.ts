@@ -49,3 +49,4 @@ import '@nldd/design-system/badge';
 import '@nldd/design-system/banner';
 import '@nldd/design-system/activity-indicator';
 import '@nldd/design-system/inline-dialog';
+import '@nldd/design-system/status-bar';

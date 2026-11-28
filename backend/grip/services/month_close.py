@@ -30,7 +30,7 @@ from grip.models.person import Person
 from grip.repositories.domain import AssignmentRepository, MonthCloseRepository
 from grip.services import billing_periods
 from grip.services.errors import DomainValidationError, NotFoundError
-from grip.services.guards import ensure_years_open
+from grip.services.guards import ensure_dossier_open, ensure_years_open
 from grip.services.phase import (
     VERBALLY_AGREED,
     allows_billing,
@@ -169,6 +169,7 @@ async def close_month(
     is established at its planned percentage. The percentage counts over the
     whole month.
     """
+    await ensure_dossier_open(session, assignment_id)
     await ensure_month_can_close(session, assignment_id)
     repo = MonthCloseRepository(session)
     if await repo.in_force(assignment_id, month.first_day) is not None:
@@ -247,6 +248,7 @@ async def reopen_month(
     allow_closed_year: bool = False,
 ) -> MonthClose:
     """Reopen a closed month. The close stays in the trail, marked reopened."""
+    await ensure_dossier_open(session, assignment_id)
     if not reason or not reason.strip():
         raise DomainValidationError("Geef een reden voor het heropenen van de maand.")
     close = await MonthCloseRepository(session).in_force(assignment_id, month.first_day)
@@ -325,6 +327,7 @@ async def create_billing_export(
     options: PricingOptions = DEFAULT_OPTIONS,
 ) -> BillingExport:
     """Freeze the billing data of a closed month as an export run."""
+    await ensure_dossier_open(session, assignment_id)
     data = await billing_data(session, assignment_id, month, options=options)
     close = await MonthCloseRepository(session).in_force(assignment_id, month.first_day)
     if close is None:
@@ -389,6 +392,7 @@ async def create_correction_export(
     to the month and hold the difference per inzet; a difference can be
     negative.
     """
+    await ensure_dossier_open(session, assignment_id)
     data = await billing_data(session, assignment_id, month, options=options)
     close = await MonthCloseRepository(session).in_force(assignment_id, month.first_day)
     if close is None:

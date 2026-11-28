@@ -140,10 +140,11 @@ class LocalDecider:
                 if BEHEERDER in functions
                 else deny(_NO_GRANT)
             )
-        if action is Action.MANAGE_ROLES:
-            # Who owns or manages an assignment is decided by whoever already
-            # does, and by the beheerder on any assignment: an owner may have
-            # left. The relation is checked first, so the reason says when the
+        if action is Action.MANAGE_ROLES or action is Action.CLOSE_DOSSIER:
+            # Who owns or manages an assignment, and whether its dossier closes
+            # or stays open, is decided by whoever already owns or manages it,
+            # and by the beheerder on any assignment: an owner may have left.
+            # The relation is checked first, so the reason says when the
             # beheerder acted on the function alone.
             if (
                 req.resource.kind is not ResourceKind.ASSIGNMENT
@@ -156,6 +157,32 @@ class LocalDecider:
             if BEHEERDER in functions:
                 return allow("function:beheerder")
             return deny(_NO_GRANT)
+        if action is Action.REOPEN_DOSSIER:
+            # Like reopening a month, for whoever keeps the instance: the owner
+            # and the managers close a dossier, but do not open it again.
+            if (
+                req.resource.kind is not ResourceKind.ASSIGNMENT
+                or req.resource.assignment_id is None
+            ):
+                return deny("not_applicable")
+            return (
+                allow("function:beheerder")
+                if BEHEERDER in functions
+                else deny(_NO_GRANT)
+            )
+        if action is Action.RESTATE_FACT:
+            # Taking a text out of the record of a case is for whoever keeps the
+            # instance, not for whoever runs the case.
+            if (
+                req.resource.kind is not ResourceKind.ASSIGNMENT
+                or req.resource.assignment_id is None
+            ):
+                return deny("not_applicable")
+            return (
+                allow("function:beheerder")
+                if BEHEERDER in functions
+                else deny(_NO_GRANT)
+            )
         if action is Action.RECORD_INVOICE:
             # Whoever manages the assignment, and the beheerder.
             if BEHEERDER in functions:
@@ -179,6 +206,8 @@ class LocalDecider:
             return await self._as_manager(req)
         if action is Action.ACCEPT_QUOTE:
             return await self._person_accepts_quote(req)
+        if action is Action.GIVE_BILLING_DETAILS:
+            return await self._person_gives_billing_details(req)
         if action is Action.READ:
             return await self._person_reads(req)
         if action is Action.EDIT:
@@ -214,6 +243,27 @@ class LocalDecider:
         ):
             return allow("relation:guest_signer")
         return deny(_NO_GRANT)
+
+    async def _person_gives_billing_details(self, req: AccessRequest) -> Decision:
+        """Where the invoice goes is the client's to say.
+
+        With the acceptance: whoever may accept the quote. Later, for an
+        assignment this instance is the client of: a tekenbevoegde, and the
+        owner or a manager of the assignment here (the requester became its
+        owner).
+        """
+        res = req.resource
+        if res.kind is ResourceKind.QUOTE:
+            return await self._person_accepts_quote(req)
+        if (
+            res.kind is not ResourceKind.ASSIGNMENT
+            or res.assignment_id is None
+            or not await self._relations.instance_is_client(res.assignment_id)
+        ):
+            return deny("not_applicable")
+        if TEKENBEVOEGDE in req.subject.functions:
+            return allow("function:tekenbevoegde")
+        return await self._as_manager(req)
 
     async def _reads_rate_table(self, req: AccessRequest) -> Decision:
         """The amounts on a rate card: for who works with money anyway.
@@ -517,7 +567,9 @@ class LocalDecider:
         if req.action is Action.READ:
             if req.data_class not in _ASSIGNMENT_CLASSES:
                 return deny(_NO_GRANT)
-        elif req.action is not Action.ACCEPT_QUOTE:
+        elif req.action not in (Action.ACCEPT_QUOTE, Action.GIVE_BILLING_DETAILS):
+            # Accepting the quote may give where its invoice goes; the guest
+            # edits nothing of the assignment.
             return deny(_NO_GRANT)
         invited = await self._relations.is_invited_signer(
             res.id, invitation_id=subject.invitation_id, email=subject.email
@@ -560,9 +612,24 @@ class LocalDecider:
                 return allow("relation:contractor")
             return deny(_NO_GRANT)
 
+        if action is Action.REQUEST_COST_ITEM:
+            return await self._peer_cost_item(req, roles)
+
         if action is Action.ACCEPT_QUOTE:
             if (
                 res.kind is ResourceKind.QUOTE
+                and assignment_id is not None
+                and PeerRole.COUNTERPART in roles
+                and await self._relations.peer_is_client_of(peer_id, assignment_id)
+            ):
+                return allow("relation:counterparty")
+            return deny(_NO_GRANT)
+
+        if action is Action.GIVE_BILLING_DETAILS:
+            # The client gives them with its acceptance, or later for the
+            # assignment.
+            if (
+                res.kind in (ResourceKind.QUOTE, ResourceKind.ASSIGNMENT)
                 and assignment_id is not None
                 and PeerRole.COUNTERPART in roles
                 and await self._relations.peer_is_client_of(peer_id, assignment_id)
@@ -580,6 +647,10 @@ class LocalDecider:
             decision = self._parent_reads(req, data_class)
             if decision.allowed:
                 return decision
+
+        if res.kind is ResourceKind.COST_ITEM:
+            requester = await self._peer_cost_item(req, roles)
+            return requester if requester.allowed else decision
 
         if (
             res.kind not in (ResourceKind.ASSIGNMENT, ResourceKind.QUOTE)
@@ -611,6 +682,31 @@ class LocalDecider:
         ):
             return allow("relation:corpus")
         return decision
+
+    async def _peer_cost_item(
+        self, req: AccessRequest, roles: frozenset[PeerRole]
+    ) -> Decision:
+        """A counterparty asks for a cost item here, or reads one (ADR 0052).
+
+        A new request may come from any counterparty. Changing an item and
+        reading it, only class B, is for the organisation that asked for it.
+        """
+        peer_id, res = req.subject.peer_id, req.resource
+        assert peer_id is not None
+        if PeerRole.COUNTERPART not in roles:
+            return deny(_NO_GRANT)
+        if res.kind is not ResourceKind.COST_ITEM:
+            return deny(_NO_GRANT)
+        if req.action is Action.REQUEST_COST_ITEM:
+            if res.id is None:
+                return allow("relation:counterparty")
+        elif req.data_class is not DataClass.ASSIGNMENT_FINANCIAL:
+            return deny("class_never_shared")
+        if res.id is not None and await self._relations.peer_requested_cost_item(
+            peer_id, res.id
+        ):
+            return allow("relation:requester")
+        return deny(_NO_GRANT)
 
     @staticmethod
     def _parent_reads(req: AccessRequest, data_class: DataClass) -> Decision:

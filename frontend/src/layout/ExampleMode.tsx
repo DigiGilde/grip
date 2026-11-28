@@ -17,7 +17,7 @@ import { useInstance } from './useInstance';
  * and who a visitor is. A visitor logged in for real and looks as one of the
  * example persons; the choice is kept in the session on the server.
  */
-const EXAMPLE_NOTICE = 'Voorbeeld: alle gegevens zijn verzonnen.';
+const EXAMPLE_NOTICE = 'Voorbeeld: alle gegevens zijn verzonnen';
 
 interface ExampleVisit {
   /** The name of who really logged in. */
@@ -27,7 +27,7 @@ interface ExampleVisit {
   personName: string;
 }
 
-function useExampleVisit(): ExampleVisit | null {
+export function useExampleVisit(): ExampleVisit | null {
   const instance = useInstance();
   const { data } = useQuery({
     // The answer the application already has about the reader.
@@ -42,20 +42,21 @@ function useExampleVisit(): ExampleVisit | null {
 }
 
 /**
- * The line every page of an example instance carries: that this is an
+ * The bar above every screen of an example instance: that this is an
  * example, and for a visitor as whom they look. Nothing on an instance for
  * real work.
+ *
+ * One line that truncates at the end, so the word "Voorbeeld" goes first.
  */
-export function ExampleNotice() {
+export function ExampleStatusBar({ slot }: { slot: string }) {
   const instance = useInstance();
   const visit = useExampleVisit();
   if (!instance?.example) return null;
   return (
-    <nldd-banner
+    <nldd-status-bar
+      slot={slot}
       variant="warning"
-      size="sm"
-      text={visit ? `Je bekijkt het voorbeeld als ${visit.personName}` : EXAMPLE_NOTICE}
-      {...(visit ? { 'supporting-text': `${EXAMPLE_NOTICE} Ingelogd als ${visit.visitor}.` } : {})}
+      text={visit ? `${EXAMPLE_NOTICE} · je kijkt als ${visit.personName}` : EXAMPLE_NOTICE}
       data-state="example"
     />
   );
@@ -67,10 +68,13 @@ function PersonItem({ person, current }: { person: ExamplePerson; current: boole
     // The server keeps the choice; every screen is loaded again as that person.
     void chooseExamplePerson(person.id).then(() => window.location.reload());
   });
+  const name = current ? `**${person.name}**` : person.name;
+  // The role goes in the text, which wraps; `details` does not wrap and would
+  // squeeze the name to one letter per line on a phone.
   return (
     <nldd-menu-item
       ref={ref}
-      text={current ? `**${person.name}**` : person.name}
+      text={person.role ? `${name} · ${person.role}` : name}
       {...(current ? { details: 'Zo kijk je nu' } : {})}
     />
   );

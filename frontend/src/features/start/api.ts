@@ -58,6 +58,8 @@ export interface StartData {
     /** Over the whole run of each quote, not only of `year`. */
     potential_cents: number;
     quotes_waiting: number;
+    /** Executors whose cost items could not be counted in the agreed figures. */
+    incomplete_by?: string[];
   };
   my_requests?: {
     rows: { assignment_id: string; name: string; line: string }[];

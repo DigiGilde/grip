@@ -1,4 +1,4 @@
-import { fireEvent, render } from '@testing-library/react';
+import { act, fireEvent, render } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ActionBar } from './ActionBar';
 
@@ -62,6 +62,48 @@ describe('ActionBar', () => {
     }
     const radios = [...container.querySelectorAll('nldd-menu-item[type="radio"]')];
     expect(radios.map((r) => r.hasAttribute('selected'))).toEqual([false, true]);
+  });
+
+  it('gives the rare actions an alternative too, behind the same confirmation', () => {
+    const onSelect = vi.fn();
+    const { container } = render(
+      <ActionBar
+        label="x"
+        filters={[{ label: 'Jaar', value: 'all', onChange: () => {}, options: OPTIONS }]}
+        more={{
+          name: 'kostenpost Zaal',
+          actions: [
+            {
+              text: 'Verwijder',
+              destructive: true,
+              confirm: { text: 'Deze kostenpost verwijderen?', confirmText: 'Verwijder kostenpost' },
+              onSelect,
+            },
+          ],
+        }}
+      />,
+    );
+    for (const item of container.querySelectorAll('nldd-toolbar-item')) {
+      expect(item.querySelector('[slot="overflow"]')).not.toBeNull();
+    }
+    const item = container.querySelector(
+      'nldd-menu-item[slot="overflow"][text="Verwijder kostenpost Zaal"]',
+    );
+    expect(item?.hasAttribute('destructive')).toBe(true);
+    act(() => {
+      item?.dispatchEvent(new Event('select'));
+    });
+    expect(onSelect).not.toHaveBeenCalled();
+    const dialog = document.body.querySelector(
+      'nldd-modal-dialog[text="Deze kostenpost verwijderen?"]',
+    );
+    expect(dialog?.hasAttribute('open')).toBe(true);
+    act(() => {
+      dialog
+        ?.querySelector('nldd-button[text="Verwijder kostenpost"]')
+        ?.dispatchEvent(new Event('click'));
+    });
+    expect(onSelect).toHaveBeenCalledTimes(1);
   });
 
   it('reports a chosen filter value and a clicked action', () => {

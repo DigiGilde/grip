@@ -23,6 +23,7 @@ from grip.core.config import Settings, get_settings
 from grip.federation.bridge.organisations import from_reference, own_organisation
 from grip.federation.models import Peer
 from grip.federation.peers import normalize_uri
+from grip.schema.billing import BillingDetailsIn, BillingDetailsOut
 from grip.schema.client_side import (
     AssignmentRequestIn,
     ClientAssignmentDetailOut,
@@ -34,7 +35,7 @@ from grip.schema.client_side import (
     QuoteRefOut,
     ReceivedRequestOut,
 )
-from grip.services import assignments, client_side
+from grip.services import assignments, billing_details, client_side
 from grip.services.errors import DomainValidationError, NotFoundError
 
 router = APIRouter(tags=["client"])
@@ -182,9 +183,21 @@ async def _detail(
         ],
         contractor_reachable=reachable,
         may_request_usage=reachable and await access.may(Action.READ, resource, _B),
+        billing_details=await _given_billing_details(db, assignment.id),
+        may_give_billing_details=assignment.dossier_closed_on is None
+        and await access.may(Action.GIVE_BILLING_DETAILS, resource),
     )
     permitted = await access.classes(resource, schema_classes(type(value)))
     return build_response(value, permitted)
+
+
+async def _given_billing_details(
+    db: DbSession, assignment_id: UUID
+) -> BillingDetailsOut | None:
+    given = await billing_details.kept(db, assignment_id)
+    if given is None:
+        return None
+    return BillingDetailsOut(**(given.details or {}), given_at=given.given_at)
 
 
 @router.post(
@@ -280,6 +293,28 @@ async def get_client_assignment(
     if row is None:
         # Not an assignment this instance is the client of.
         raise NotFoundError("Opdracht", assignment_id)
+    return await _detail(db, access, row, settings)
+
+
+@router.put("/client/assignments/{assignment_id}/billing-details", response_model=None)
+async def give_billing_details(
+    assignment_id: UUID,
+    body: BillingDetailsIn,
+    access: RequestAccess,
+    db: DbSession,
+    person: CurrentPerson,
+    settings: Settings = Depends(get_settings),
+) -> dict[str, Any]:
+    """Give the contractor new billing details: from its next delivery on."""
+    resource = Resource.assignment(assignment_id)
+    visible = await access.may(Action.READ, resource, _A)
+    await access.require(
+        Action.GIVE_BILLING_DETAILS, resource, hide_existence=not visible
+    )
+    row = await client_side.client_assignment(db, assignment_id, settings)
+    if row is None:
+        raise NotFoundError("Opdracht", assignment_id)
+    await billing_details.change(db, assignment_id, body.model_dump(), actor=person)
     return await _detail(db, access, row, settings)
 
 

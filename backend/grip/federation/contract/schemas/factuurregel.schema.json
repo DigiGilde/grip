@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Factuurregel",
+  "description": "Een bedrag op een kostenpost, aan de inkoopkant: een ontvangen factuur of een bedrag dat nog wordt verwacht.",
+  "type": "object",
+  "properties": {
+    "kenmerk": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Kenmerk van de factuur, bijvoorbeeld het factuurnummer van de leverancier."
+    },
+    "omschrijving": {
+      "type": "string",
+      "description": "Omschrijving van de regel."
+    },
+    "soort": {
+      "type": "string",
+      "enum": [
+        "ontvangen",
+        "verwacht"
+      ],
+      "description": "`ontvangen`: de factuur is binnen. `verwacht`: het bedrag wordt nog verwacht."
+    },
+    "bedrag": {
+      "$ref": "bedrag.schema.json"
+    },
+    "periode": {
+      "type": "string",
+      "format": "date",
+      "description": "Een dag in de periode waartoe het bedrag hoort, bijvoorbeeld de eerste dag van de maand. Bepaalt in welk jaar de regel telt."
+    }
+  },
+  "required": [
+    "soort",
+    "bedrag"
+  ]
+}

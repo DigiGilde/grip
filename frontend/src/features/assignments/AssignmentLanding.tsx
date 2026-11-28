@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { errorMessage } from '@/api/client';
+import { chronicleKeys } from '@/features/chronicle/api';
+import { incompleteText } from '@/features/costs/costText';
 import { TakeOverButton } from '@/features/tasks/TakeOver';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { useInstance } from '@/layout/useInstance';
@@ -9,7 +11,7 @@ import { formatEuro, formatPeriod } from '@/lib/format';
 import { PATHS } from '@/paths';
 import { Button } from '@/ui/Button';
 import { courseAction, courseBrief, lowerFirst, type Course } from '@/ui/course';
-import { ErrorNotice, Page, Stack } from '@/ui/layout';
+import { ErrorNotice, Page, Quiet, Stack } from '@/ui/layout';
 import { LinkRows } from '@/ui/LinkRows';
 import { CourseNow } from '@/ui/Workflow';
 import { assignmentKeys, transitionAssignment, type AssignmentDetail } from './api';
@@ -33,11 +35,10 @@ const WHOLE_PERIOD = 'all';
  * Steps that are one decision and nothing more: the landing does them in
  * place, by the kind of work the server names, to the status they lead to.
  */
-const IN_PLACE: Record<string, readonly string[]> = {
-  'uitvoering.starten': ['in_progress'],
-  // An internal assignment has no quote and no agreement to wait for:
-  // starting it takes both status steps at once.
-  'intern.starten': ['accepted', 'in_progress'],
+const IN_PLACE: Record<string, string> = {
+  'uitvoering.starten': 'in_progress',
+  // An internal assignment has no quote and no agreement to wait for.
+  'intern.starten': 'in_progress',
 };
 
 /** For whom and when, and where it stands, as one quiet line. */
@@ -76,13 +77,13 @@ function Figure({ label, value, critical }: { label: string; value: string; crit
   );
 }
 
-function Figures({ totals }: { totals: Totals }) {
+function Figures({ totals, incompleteBy }: { totals: Totals; incompleteBy: readonly string[] }) {
   // A new assignment has figures of zero, not absent ones: zero on all three
   // is "nothing yet". The course says the budget is the next step.
   if (!totals.budgeted_cents && !totals.realised_total_cents && !totals.expected_total_cents) {
     return null;
   }
-  return (
+  const figures = (
     <nldd-container
       layout="grid"
       column-count={3}
@@ -106,6 +107,13 @@ function Figures({ totals }: { totals: Totals }) {
       )}
     </nldd-container>
   );
+  if (incompleteBy.length === 0) return figures;
+  return (
+    <Stack gap="close">
+      {figures}
+      <Quiet>{incompleteText(incompleteBy)}</Quiet>
+    </Stack>
+  );
 }
 
 interface LandingProps {
@@ -125,22 +133,19 @@ function Landing({ assignment, parts, course }: LandingProps) {
     enabled: assignment.permissions.read_financial && !parts.is_client,
   });
   const step = useMutation({
-    mutationFn: async (statuses: readonly string[]) => {
-      for (const status of statuses) await transitionAssignment(assignment.id, status);
-    },
+    mutationFn: (status: string) => transitionAssignment(assignment.id, status),
     onSuccess: () => {
       setProblem(null);
       void queryClient.invalidateQueries({ queryKey: assignmentKeys.all });
       void queryClient.invalidateQueries({ queryKey: ['overview'] });
+      void queryClient.invalidateQueries({ queryKey: chronicleKeys.moments(assignment.id) });
     },
     onError: (error) => setProblem(errorMessage(error)),
   });
 
   const action = courseAction(course);
-  const path = course?.next?.mine ? IN_PLACE[course.next.task_key ?? ''] : undefined;
-  // The status steps still to take: from the first one the assignment may take now.
-  const from = path?.findIndex((status) => assignment.allowed_transitions.includes(status));
-  const inPlace = path && from !== undefined && from >= 0 ? path.slice(from) : null;
+  const leadsTo = course?.next?.mine ? IN_PLACE[course.next.task_key ?? ''] : undefined;
+  const inPlace = leadsTo && assignment.allowed_transitions.includes(leadsTo) ? leadsTo : null;
   const here = assignmentPath(assignment.id);
   const leads = action !== null && (inPlace !== null || action.href.split('?')[0] !== here);
   const tasksHref = parts.tasks_link ? assignmentPartPath(assignment.id, 'tasks') : null;
@@ -178,7 +183,9 @@ function Landing({ assignment, parts, course }: LandingProps) {
       {/* The figures take room when they come: the rows wait, so they do not jump. */}
       {!finance.isLoading && (
         <Stack gap="related">
-          {finance.data?.totals && <Figures totals={finance.data.totals} />}
+          {finance.data?.totals && (
+            <Figures totals={finance.data.totals} incompleteBy={finance.data.incomplete_by} />
+          )}
           {tasksHref && !moreLinked && (
             <RouterLinks>
               <div>

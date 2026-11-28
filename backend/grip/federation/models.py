@@ -97,6 +97,11 @@ class Peer(Base):
     financial_inspection: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default=text("false")
     )
+    # The peer is an example instance (ADR 0054). An example instance only
+    # talks to peers marked so, an instance for real work never does.
+    is_example: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -163,6 +168,11 @@ class FederationInbox(Base):
     # SHA-256 over the canonical JSON of the payload; decides duplicate or conflict.
     payload_hash: Mapped[str] = mapped_column(String(64))
     payload: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    # From the request path, such as the assignment of a billing change: the
+    # payload does not carry them, and a stored message is processed later.
+    path_parameters: Mapped[dict[str, str]] = mapped_column(
+        JSONB, default=dict, server_default=text("'{}'::jsonb")
+    )
     received_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

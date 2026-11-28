@@ -171,4 +171,8 @@ async def test_an_internal_assignment_is_offered_no_step_towards_a_client(
     make_assignment,
 ) -> None:
     assignment = await make_assignment(kind="internal", client_organisation_id=None)
-    assert assignments.allowed_transitions(assignment) == {"accepted", "cancelled"}
+    assert assignments.allowed_transitions(assignment) == {
+        "accepted",
+        "cancelled",
+        "in_progress",
+    }

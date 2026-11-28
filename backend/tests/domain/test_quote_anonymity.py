@@ -238,7 +238,7 @@ async def test_no_intended_person_from_preview_to_federated_quote(
     _assert_anonymous("the quote document", html, people)
 
     # the message to the client's instance,
-    assignments.share_with_instance(assignment, CLIENT_BASE)
+    await assignments.share_with_instance(db_session, assignment, CLIENT_BASE)
     await db_session.flush()
     built = await builders.quote_offered(
         db_session,

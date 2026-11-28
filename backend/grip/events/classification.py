@@ -79,6 +79,9 @@ _PERSONAL_FIELDS: dict[str, DataClass] = {
 
 SPECS: dict[str, Spec] = {
     # -- the assignment and what belongs to it --------------------------
+    # A fact holds values of several classes under one key, so the stream does
+    # not hand it out: the chronicle route builds its answers per class.
+    "chronolexogram": _spec(ADMIN, ADMIN, _ASSIGNMENT),
     "assignment": _spec(A, A, _ASSIGNMENT),
     "assignment_request": _spec(A, A, _ASSIGNMENT),
     "assignment_role": _spec(A, A, _ASSIGNMENT),
@@ -104,6 +107,8 @@ SPECS: dict[str, Spec] = {
     # A delivery to the financial administration and the terms it follows.
     "billing_delivery": _spec(B, B, _ASSIGNMENT),
     "billing_terms": _spec(A, B, _ASSIGNMENT),
+    # What this instance, as client, gave a contractor for the invoice.
+    "client_billing_details": _spec(A, B, _ASSIGNMENT),
     "outgoing_invoice": _spec(B, B, _ASSIGNMENT),
     "invoice_line": _spec(B, B, _ASSIGNMENT),
     "invoice_attachment": _spec(B, B, _ASSIGNMENT),

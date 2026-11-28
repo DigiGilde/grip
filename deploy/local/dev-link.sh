@@ -141,7 +141,7 @@ async def main() -> None:
         if peer is None:
             peer = Peer(peer_id=os.environ["PEER_ID"], organisation_tooi_uri="")
             db.add(peer)
-        peer.name = "Bouwmeester Voorbeeldministerie (lokaal)"
+        peer.name = "Bouwmeester Ministerie van BZK voorbeeld (lokaal)"
         peer.organisation_tooi_uri = "https://identifier.overheid.nl/tooi/id/ministerie/mnre1034"
         peer.base_uri = os.environ["BASE"]
         peer.role = "corpus"

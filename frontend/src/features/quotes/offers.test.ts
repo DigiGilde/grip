@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { QuoteOffer, QuoteSummary } from './api';
 import {
+  correctionProblem,
+  endedLinkText,
   invitationMessage,
   linkWorks,
   listedOffers,
   offerState,
   offerTitle,
   primaryAction,
+  quoteLabel,
 } from './offers';
 
 const QUOTE: QuoteSummary = {
@@ -18,6 +21,29 @@ const QUOTE: QuoteSummary = {
   issued_at: '2026-02-01T09:00:00Z',
   issued_by_name: null,
 };
+
+describe('correcting the day of signing', () => {
+  const signedAt = '2026-02-10T12:00:00Z';
+
+  it('asks for a day and a reason', () => {
+    expect(correctionProblem({ day: '', reason: 'Fout', signedAt })).toBe(
+      'Kies de datum van tekenen.',
+    );
+    expect(correctionProblem({ day: '2026-02-11', reason: '   ', signedAt })).toBe(
+      'Schrijf op waarom de datum niet klopte.',
+    );
+  });
+
+  it('refuses the day that is already recorded', () => {
+    expect(correctionProblem({ day: '2026-02-10', reason: 'Fout', signedAt })).toBe(
+      'Dit is de datum die al is vastgelegd. Kies de juiste datum.',
+    );
+  });
+
+  it('lets a real correction through', () => {
+    expect(correctionProblem({ day: '2026-02-11', reason: 'Fout', signedAt })).toBeNull();
+  });
+});
 
 function link(state: string, overrides: Partial<QuoteOffer> = {}): QuoteOffer {
   return {
@@ -127,6 +153,35 @@ describe('offers in words', () => {
       expect(linkWorks(link(state))).toBe(false);
     }
     expect(linkWorks(DOCUMENT)).toBe(false);
+  });
+});
+
+describe('the word for where a quote stands', () => {
+  it('says what an open quote waits on, an offer before an approval', () => {
+    expect(quoteLabel('issued', [], null)).toBe('Offerte gemaakt');
+    expect(quoteLabel('issued', [], undefined)).toBe('Offerte gemaakt');
+    expect(quoteLabel('issued', [], 'none')).toBe('Offerte gemaakt');
+    expect(quoteLabel('issued', [], 'approved')).toBe('Offerte gemaakt');
+    expect(quoteLabel('issued', [], 'withdrawn')).toBe('Offerte gemaakt');
+    expect(quoteLabel('issued', [], 'requested')).toBe('Wacht op goedkeuring');
+    expect(quoteLabel('issued', [], 'sent_back')).toBe('Teruggestuurd');
+    expect(quoteLabel('issued', [DOCUMENT], 'requested')).toBe('Aangeboden');
+  });
+
+  it('says the status of a quote that is no longer open', () => {
+    expect(quoteLabel('accepted', [DOCUMENT], 'requested')).toBe('Akkoord');
+    expect(quoteLabel('rejected', [DOCUMENT], null)).toBe('Afgewezen');
+    expect(quoteLabel('superseded', [], 'sent_back')).toBe('Vervangen');
+    expect(quoteLabel('iets anders', [], null)).toBe('iets anders');
+  });
+});
+
+describe('a signing link that no longer works', () => {
+  it('has words only when it ended', () => {
+    const words = (state: string) => endedLinkText(link(state).invitation!);
+    expect(words('withdrawn')).toMatch(/^Tekenlink ingetrokken op 5 feb 2026/);
+    expect(words('expired')).toBe('Tekenlink verlopen op 4 mrt 2026');
+    for (const state of ['invited', 'opened', 'signed']) expect(words(state)).toBeNull();
   });
 });
 

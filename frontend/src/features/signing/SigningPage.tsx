@@ -4,6 +4,9 @@ import { useParams } from 'react-router-dom';
 import { ApiError } from '@/api/client';
 import { TextInput } from '@/features/assignments/ui';
 import { formatDateTime } from '@/features/quotes/format';
+import type { BillingDetails } from '@/features/month-close/billingApi';
+import { BillingDetailsFields } from '@/features/month-close/BillingDetailFields';
+import { filledDetails, missingText, startDetails } from '@/features/month-close/billingDetails';
 import {
   QuoteDecisionView,
   type Decision,
@@ -90,17 +93,22 @@ export function SigningPage() {
   const [draft] = useState(() => readDraft<SigningDraft>(quoteId));
   const [organisationName, setOrganisationName] = useState(draft?.organisationName ?? '');
   const [mandate, setMandate] = useState(false);
+  // Not in the draft: the contact person is personal data, and the server
+  // already keeps what was given with the intent.
+  const [details, setDetails] = useState<BillingDetails>({});
   if (back.evidenceId !== null) clearDraft(quoteId);
 
   const quote = query.data;
   const notFound = query.error instanceof ApiError && query.error.status === 404;
   const client = quote?.client_name ?? null;
+  const annex = quote?.content.billing_annex === true;
 
   // Asking for the intent decides nothing: the decision is made when the
   // browser is back from the identity provider.
   const createIntent = (decision: Decision, values: DecisionValues) => {
     if (!quote) return Promise.reject(new Error('De offerte is nog niet geladen.'));
     saveDraft(quoteId, { decision, ...values, organisationName });
+    const billing = filledDetails(details);
     return createSigningIntent(quoteId, {
       decision,
       quote_hash: quote.snapshot_hash,
@@ -110,6 +118,7 @@ export function SigningPage() {
             signer_function: values.signerFunction.trim() || null,
             organisation_name: client ? null : organisationName.trim(),
             confirm_mandate: true,
+            ...(billing ? { billing_details: billing } : {}),
           }
         : { reason: values.reason.trim() || null }),
     });
@@ -118,7 +127,7 @@ export function SigningPage() {
   const checkAccept = () => {
     if (!mandate) return 'Bevestig dat je namens de opdrachtgever mag tekenen.';
     if (!client && !organisationName.trim()) return 'Vul de organisatie in namens wie je tekent.';
-    return null;
+    return annex ? missingText(details) : null;
   };
 
   if (!quote) {
@@ -163,6 +172,7 @@ export function SigningPage() {
       draft={draft}
       createIntent={createIntent}
       checkAccept={checkAccept}
+      onAcceptOpen={() => setDetails((now) => startDetails(now, quote.content.client_reference))}
       acceptFields={
         <>
           {!client ? (
@@ -173,6 +183,7 @@ export function SigningPage() {
               required
             />
           ) : null}
+          <BillingDetailsFields details={details} onChange={setDetails} required={annex} />
           <CheckboxInput
             label={`Ik ben bevoegd om namens ${client ?? 'de opdrachtgever'} akkoord te geven op deze offerte`}
             checked={mandate}

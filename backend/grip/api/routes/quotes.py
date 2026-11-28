@@ -7,12 +7,13 @@ instance are here (uploaded pdf) and in ``signing`` (signing link).
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, Query, Response, UploadFile, status
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip import calc
@@ -34,10 +35,12 @@ from grip.core.auth import CurrentPerson
 from grip.core.config import get_settings
 from grip.core.database import get_db
 from grip.integrations.mail import outbox as mail_outbox
-from grip.models.quote import Quote, QuoteInvitation
+from grip.models.quote import Quote
+from grip.schema.billing import BillingDetailsIn
 from grip.schema.quotes import (
     AcceptanceOut,
     ChannelOut,
+    CorrectAcceptanceIn,
     InvitationListOut,
     InvitationOut,
     InviteSignerIn,
@@ -57,6 +60,7 @@ from grip.schema.quotes import (
     document_fields,
 )
 from grip.services import (
+    billing_details,
     quote_budget,
     quote_channels,
     quote_files,
@@ -129,16 +133,6 @@ def summary_fields(bundle: quote_views.QuoteBundle) -> dict[str, Any]:
     }
 
 
-def _invitation_state(invitation: QuoteInvitation, now: datetime) -> str:
-    if invitation.used_at is not None:
-        return "signed"
-    if invitation.withdrawn_at is not None:
-        return "withdrawn"
-    if invitation.expires_at is not None and invitation.expires_at <= now:
-        return "expired"
-    return "opened" if invitation.opened_at is not None else "invited"
-
-
 async def offer_fields(
     db: AsyncSession, quote: Quote, *, manage: bool = False
 ) -> dict[str, Any]:
@@ -183,7 +177,7 @@ async def offer_fields(
             opened_at=invitation.opened_at,
             used_at=invitation.used_at,
             withdrawn_at=invitation.withdrawn_at,
-            state=_invitation_state(invitation, now),
+            state=quote_views.invitation_state(invitation, now),
         )
 
     def recipient_of(offer: Any) -> str | None:
@@ -293,7 +287,8 @@ async def preview_quote(
         assignment_status=assignment.status,
         can_issue=assignment.status in quote_views.ISSUABLE_STATUSES
         and content is not None,
-        may_issue=await may_issue_quote(db, decider, subject, resource),
+        may_issue=assignment.dossier_closed_on is None
+        and await may_issue_quote(db, decider, subject, resource),
         problem=problem,
         content=content,
         quoted_amount_cents=quoted,
@@ -628,11 +623,23 @@ async def record_uploaded_acceptance(
     signer_function: str | None = Form(default=None, max_length=255),
     organisation_name: str | None = Form(default=None, max_length=255),
     signed_at: datetime | None = Form(default=None),
+    # A JSON object with the keys of BillingDetailsIn: the annex as filled in.
+    billing_details_json: str | None = Form(
+        default=None, alias="billing_details", max_length=5000
+    ),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     """Record an acceptance from a signed pdf, with the file attached."""
     quote, resource = await visible_quote(db, decider, subject, quote_id)
     await require(decider, subject, Action.EDIT, resource, DataClass.ASSIGNMENT_BASIC)
+    details = billing_details.for_acceptance(
+        quote, _uploaded_details(billing_details_json), form="uploaded_pdf"
+    )
+    if details is not None:
+        # Typed in here from the annex: the same right as the billing terms.
+        await require(
+            decider, subject, Action.EDIT, resource, DataClass.ASSIGNMENT_FINANCIAL
+        )
     # Read one byte past the limit, so a file that is too large is refused
     # without loading all of it.
     content = await file.read(stored_documents.MAX_DOCUMENT_BYTES + 1)
@@ -648,6 +655,43 @@ async def record_uploaded_acceptance(
         signer_function=signer_function,
         organisation_name=organisation_name,
         signed_at=signed_at,
+        billing_details=details,
+    )
+    bundle = await quote_views.quote_bundle(db, quote.id)
+    value = QuoteSummaryOut(**summary_fields(bundle))
+    return await filtered(decider, subject, resource, value)
+
+
+def _uploaded_details(raw: str | None) -> dict[str, Any] | None:
+    if raw is None or not raw.strip():
+        return None
+    try:
+        return BillingDetailsIn.model_validate(json.loads(raw)).model_dump()
+    except (ValueError, ValidationError) as error:
+        raise DomainValidationError(
+            "De factuurgegevens horen bij elkaar als één object met tekst per veld."
+        ) from error
+
+
+@router.post("/quotes/{quote_id}/acceptance/correction", response_model=None)
+async def correct_acceptance(
+    quote_id: UUID,
+    body: CorrectAcceptanceIn,
+    person: CurrentPerson,
+    subject: CurrentSubject,
+    decider: AccessDecider,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Correct the day a recorded signed pdf was signed, with the reason."""
+    quote, resource = await visible_quote(db, decider, subject, quote_id)
+    await require(decider, subject, Action.EDIT, resource, DataClass.ASSIGNMENT_BASIC)
+    await quotes.correct_acceptance_date(
+        db,
+        quote.id,
+        body.signed_at,
+        body.reason,
+        person,
+        expected_signed_at=body.expected_signed_at,
     )
     bundle = await quote_views.quote_bundle(db, quote.id)
     value = QuoteSummaryOut(**summary_fields(bundle))
@@ -700,13 +744,7 @@ async def record_rejection(
     """Record that the client rejected the quote outside grip."""
     quote, resource = await visible_quote(db, decider, subject, quote_id)
     await require(decider, subject, Action.EDIT, resource, DataClass.ASSIGNMENT_BASIC)
-    await quotes.reject_quote(
-        db,
-        quote.id,
-        quote_hash=quote.snapshot_hash,
-        actor=person,
-        reason=(body.reason or "").strip() or None,
-    )
+    await quote_views.record_rejection(db, quote, actor=person, reason=body.reason)
     bundle = await quote_views.quote_bundle(db, quote.id)
     value = QuoteSummaryOut(**summary_fields(bundle))
     return await filtered(decider, subject, resource, value)

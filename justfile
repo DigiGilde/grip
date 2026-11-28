@@ -61,6 +61,7 @@ reset-db:
 # To act as an example person, set the cookie `grip_dev_person` to an id the
 # seed prints: document.cookie = "grip_dev_person=<id>; path=/" in the browser.
 # Without the cookie you are the first active beheerder.
+# `--dataset NAME` picks the dataset (default SEED_DATASET: voorbeeld; also programma).
 # Load fictional example data into an empty local database (`just seed --reset` empties it first)
 seed *ARGS:
     cd backend && uv run python -m grip.dev.seed {{ ARGS }}
@@ -70,6 +71,25 @@ seed *ARGS:
 # Takes several minutes; use a database of its own (DATABASE_URL).
 seed-scale *ARGS:
     cd backend && uv run python -m grip.dev.seed_scale {{ ARGS }}
+
+# Walk an example assignment along the path, one committed step at a time, and
+# look back at each moment on Geschiedenis of the assignment. Uses DATABASE_URL; needs a seeded
+# database and no containers of its own. `--days N` lays the facts N days apart,
+# `--geen-goedkeuring` leaves internal approval as it is set.
+kroniek-nieuw *ARGS:
+    cd backend && uv run python -m grip.dev.chronicle_walk new {{ ARGS }}
+
+# The next step of this assignment, chosen from the course the screens read
+kroniek-stap ID *ARGS:
+    cd backend && uv run python -m grip.dev.chronicle_walk next {{ ID }} {{ ARGS }}
+
+# Compare the tables of every assignment with its chronicle
+kroniek-check:
+    cd backend && uv run python -m grip.chronicle.check
+
+# Write what differs back from the chronicle of this assignment
+kroniek-herstel ID:
+    cd backend && uv run python -m grip.dev.chronicle_walk rebuild {{ ID }}
 
 # `just seed --extend` adds the corpus peers and the context of the example
 # assignments to data that was seeded earlier; a fresh seed includes them.
@@ -154,13 +174,13 @@ sync-contract CHECKOUT:
 local-build SOURCE="tree":
     deploy/local/local.sh build {{ SOURCE }}
 
-# Start the local environment (MODE: one, keycloak, sso, fsc, fsc-keycloak)
+# Start the local environment (MODE: one, keycloak, sso, fsc, fsc-keycloak, fsc-corpus, fsc-voorbeeld)
 local-up MODE="one":
     deploy/local/local.sh up {{ MODE }}
 
-# Publish the services, make the FSC contracts and fill grip's peer registry
-local-fsc-init:
-    deploy/local/local.sh fsc-init
+# Publish the services, make the FSC contracts and fill grip's peer registry (--voorbeeld: mark the peers as example)
+local-fsc-init *ARGS:
+    deploy/local/local.sh fsc-init {{ ARGS }}
 
 # Show where the local environment listens and what is running
 local-urls:
@@ -273,6 +293,10 @@ brand:
 vacancy-forms-retention:
     cd backend && uv run python -m grip.services.vacancies.request_forms
 
+# Run the daily retention round once, as the worker does at RETENTION_HOUR
+retention-run:
+    cd backend && uv run python -m grip.services.retention
+
 # Bring an example database from before the rule on who judges something internal
 # in line with today's seed (a director approves vacancies; client-side people have
 # no inzetschaal). Idempotent; only touches persons in the example domain.
@@ -351,3 +375,15 @@ push-key:
 # Put an example instance (INSTANCE_MODE=voorbeeld) back to its starting state
 example-reset:
     cd backend && uv run python -m grip.core.example
+
+# ---------------------------------------------------------------------------
+# Ontwikkelportaal (static site over docs/; see docs/lokaal.md)
+# ---------------------------------------------------------------------------
+
+# Build the ontwikkelportaal into ontwikkelportaal/dist with its search index, and check links and scripts
+ontwikkelportaal:
+    cd ontwikkelportaal && npm ci --ignore-scripts && npm run build && npm run check
+
+# Run the ontwikkelportaal with live reload while editing docs/ or ontwikkelportaal/ (search needs a build first)
+ontwikkelportaal-dev:
+    cd ontwikkelportaal && npm run dev

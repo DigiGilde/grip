@@ -9,6 +9,7 @@ group="grip-local"
 dir_peer="01700000000000000099"
 peer_a="01700000000000000001"
 peer_b="01700000000000000002"
+peer_d="01700000000000000004"
 
 # curl inside the compose network, with the admin client certificate of a
 # peer. The internal APIs of manager and controller only accept clients
@@ -92,13 +93,14 @@ for c in json.load(sys.stdin).get("pending_contracts", []):
     done
 }
 
+# Set peer_is_example=true first for example instances (ADR 0054).
 registry() { # instance key, other peer id, other name, other base uri, grant hash, role (default counterpart)
     psql_grip "$1" "
-        insert into peer (id, peer_id, name, organisation_tooi_uri, base_uri, role, grant_hashes, is_active)
-        values (gen_random_uuid(), '$2', '$3', '', '$4', '${6:-counterpart}', '{\"$service\": \"$5\"}'::jsonb, true)
+        insert into peer (id, peer_id, name, organisation_tooi_uri, base_uri, role, grant_hashes, is_active, is_example)
+        values (gen_random_uuid(), '$2', '$3', '', '$4', '${6:-counterpart}', '{\"$service\": \"$5\"}'::jsonb, true, ${peer_is_example:-false})
         on conflict (peer_id) do update
             set grant_hashes = peer.grant_hashes || excluded.grant_hashes, base_uri = excluded.base_uri,
-                name = excluded.name, is_active = true;" >/dev/null
+                name = excluded.name, is_active = true, is_example = excluded.is_example;" >/dev/null
     echo "  registry of instance $1: peer $2, grant $(printf %s "$5" | cut -c1-24)..."
 }
 

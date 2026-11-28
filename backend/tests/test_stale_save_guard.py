@@ -1,20 +1,28 @@
 """Every route that changes a stored record says how a stale save is handled.
 
-A PATCH or PUT on a record is either protected (the service checks the
-version the form started from, ``grip.services.stale``) or on the list of
-exceptions with the reason. A new route that is on neither list fails here,
-so a form cannot be added that silently overwrites someone else's change.
+A PATCH or PUT on a record, or a POST on ``OVERWRITING_POSTS``, is either
+protected (the service checks the version the form started from,
+``grip.services.stale``) or on the list of exceptions with the reason. A new
+route that is on neither list fails here, so a form cannot be added that
+silently overwrites someone else's change.
 """
 
 from __future__ import annotations
 
 from tests.test_route_authorization_inventory import _api_routes
 
+# A POST usually adds something. These overwrite a stored value.
+OVERWRITING_POSTS = frozenset({"POST /api/quotes/{quote_id}/acceptance/correction"})
+
 # Route -> where the check is made. Each kind has a test of two saves from
 # the same version: tests/test_stale_save.py, tests/test_stale_save_kinds.py
 # and the API tests next to the features.
 PROTECTED = {
     "PATCH /api/assignments/{assignment_id}": "assignments.update_assignment",
+    # With the date the form started from: a quote acceptance has no version.
+    "POST /api/quotes/{quote_id}/acceptance/correction": (
+        "quotes.correct_acceptance_date"
+    ),
     "PUT /api/assignments/{assignment_id}/roles/{person_id}": (
         "assignments.set_assignment_role"
     ),
@@ -73,6 +81,10 @@ EXCEPTIONS = {
     "PUT /api/assignments/{assignment_id}/quote-draft/outline": (
         "the draft of a quote has its own version of the outline"
     ),
+    "PUT /api/client/assignments/{assignment_id}/billing-details": (
+        "giving billing details is a dated fact that replaces them whole; the "
+        "contractor keeps the latest given"
+    ),
     "PUT /api/notifications/preference": (
         "a person's own preference: nobody else edits it"
     ),
@@ -87,6 +99,8 @@ def _changing_routes(app) -> set[str]:
     for route in _api_routes(app):
         for method in sorted(route.methods & {"PATCH", "PUT"}):
             found.add(f"{method} {route.path}")
+        if "POST" in route.methods and f"POST {route.path}" in OVERWRITING_POSTS:
+            found.add(f"POST {route.path}")
     return found
 
 

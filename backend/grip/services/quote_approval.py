@@ -25,15 +25,21 @@ events leads to a message to another instance.
 
 from __future__ import annotations
 
+import uuid
+from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import date, datetime
+from typing import Protocol
 from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from grip.chronicle.facts import APPROVAL
+from grip.chronicle.writer import establish, row_of
 from grip.core import clock
 from grip.core.audit import CREATE, UPDATE, record_audit
+from grip.events import stream
 from grip.models.person import Person
 from grip.models.quote import (
     APPROVAL_APPROVED,
@@ -47,6 +53,11 @@ from grip.models.quote import (
 from grip.models.role import PersonRole
 from grip.services import events, instance_settings
 from grip.services.errors import DomainValidationError, NotFoundError
+from grip.services.guards import (
+    DossierClosedError,
+    dossier_closed,
+    ensure_dossier_open,
+)
 
 # The right to approve quotes internally. The user-facing word is "recht";
 # in code a right is a function.
@@ -166,16 +177,24 @@ class ApprovalState:
         return text
 
 
+def requirement_from(mode: str, threshold: int, total_cents: int) -> Requirement:
+    """Whether a quote of this total needs approval under this setting."""
+    if mode == MODE_ALWAYS:
+        return Requirement(True, "elke offerte wordt intern goedgekeurd")
+    if mode == MODE_FROM_AMOUNT and total_cents >= threshold:
+        return Requirement(True, f"vanaf {_euro(threshold)}")
+    return Requirement(False)
+
+
 async def requirement_for(db: AsyncSession, quote: Quote) -> Requirement:
     """Whether this quote needs internal approval before it is offered."""
     mode = await instance_settings.get(db, MODE.key)
-    if mode == MODE_ALWAYS:
-        return Requirement(True, "elke offerte wordt intern goedgekeurd")
-    if mode == MODE_FROM_AMOUNT:
-        threshold = int(await instance_settings.get(db, THRESHOLD.key))
-        if quote.total_cents >= threshold:
-            return Requirement(True, f"vanaf {_euro(threshold)}")
-    return Requirement(False)
+    threshold = (
+        int(await instance_settings.get(db, THRESHOLD.key))
+        if mode == MODE_FROM_AMOUNT
+        else 0
+    )
+    return requirement_from(mode, threshold, quote.total_cents)
 
 
 async def second_person_excluded(
@@ -190,16 +209,20 @@ async def second_person_excluded(
 
 
 async def approver_available(
-    db: AsyncSession, *, excluding: frozenset[UUID] = frozenset()
+    db: AsyncSession,
+    *,
+    excluding: frozenset[UUID] = frozenset(),
+    on: date | None = None,
 ) -> bool:
-    """Whether at least one active person holds the right to approve today.
+    """Whether at least one active person holds the right to approve that day.
 
     ``excluding``: the people who may not decide on the request at hand, so
-    the answer is whether someone else can."""
+    the answer is whether someone else can. ``on``: the day, today unless
+    given."""
     # The same day a grant starts on (``team.grant_function``): the local
     # date. A UTC date lags behind it after midnight, and a right granted
     # then would not count until the UTC day turned.
-    today = clock.today()
+    today = on if on is not None else clock.today()
     count = await db.scalar(
         select(func.count())
         .select_from(PersonRole)
@@ -233,19 +256,33 @@ async def _offered(db: AsyncSession, quote_id: UUID) -> bool:
     return bool(count)
 
 
-async def state_of(db: AsyncSession, quote: Quote) -> ApprovalState:
-    history = await _history(db, quote.id)
-    # A request counts only for the bytes it cites. One that cites another
-    # hash approves nothing, whatever its status says.
-    current = next(
+class _Request(Protocol):
+    status: str
+    quote_hash: str
+
+
+def current_request[RequestT: _Request](
+    history: Iterable[RequestT], snapshot_hash: str
+) -> RequestT | None:
+    """The request that is open or approved, from a history oldest first.
+
+    A request counts only for the bytes it cites. One that cites another
+    hash approves nothing, whatever its status says.
+    """
+    return next(
         (
             row
-            for row in reversed(history)
+            for row in reversed(list(history))
             if row.status in (APPROVAL_REQUESTED, APPROVAL_APPROVED)
-            and row.quote_hash == quote.snapshot_hash
+            and row.quote_hash == snapshot_hash
         ),
         None,
     )
+
+
+async def state_of(db: AsyncSession, quote: Quote) -> ApprovalState:
+    history = await _history(db, quote.id)
+    current = current_request(history, quote.snapshot_hash)
     return ApprovalState(
         requirement=await requirement_for(db, quote),
         current=current,
@@ -310,6 +347,7 @@ async def request_approval(
     a maker may want a second pair of eyes anyway.
     """
     quote = await _quote(db, quote_id)
+    await ensure_dossier_open(db, quote.assignment_id)
     if quote.status != "issued":
         raise DomainValidationError(
             "Voor deze offerte kan geen goedkeuring meer worden gevraagd: er is "
@@ -322,16 +360,30 @@ async def request_approval(
             if state.current.status == APPROVAL_REQUESTED
             else "Deze offerte is al intern goedgekeurd."
         )
-    approval = QuoteApproval(
-        quote_id=quote.id,
-        quote_hash=quote.snapshot_hash,
-        status=APPROVAL_REQUESTED,
-        requested_by_id=actor.id if actor is not None else None,
-        requested_at=datetime.now(UTC),
-        request_note=(note or "").strip() or None,
+    approval_id = uuid.uuid4()
+    established = await establish(
+        db,
+        "approval_requested",
+        assignment_id=quote.assignment_id,
+        actor=actor,
+        basis={
+            "mode": await instance_settings.get(db, MODE.key),
+            "threshold_cents": int(await instance_settings.get(db, THRESHOLD.key)),
+        },
+        fields={
+            "approval": row_of(
+                QuoteApproval,
+                id=approval_id,
+                quote_id=quote.id,
+                quote_hash=quote.snapshot_hash,
+                status=APPROVAL_REQUESTED,
+                requested_by_id=actor.id if actor is not None else None,
+                requested_at=clock.now(),
+                request_note=(note or "").strip() or None,
+            )
+        },
     )
-    db.add(approval)
-    await db.flush()
+    approval: QuoteApproval = established.row(APPROVAL, approval_id)
     record_audit(
         db,
         actor=actor,
@@ -364,6 +416,9 @@ async def check_decision(
     lets the actor approve her own.
     """
     quote = await _quote(db, quote_id)
+    # Only a question: deciding asks again, under the lock on the stream.
+    if await dossier_closed(db, quote.assignment_id):
+        raise DossierClosedError()
     state = await state_of(db, quote)
     approval = state.current
     if approval is None or approval.status != APPROVAL_REQUESTED:
@@ -421,18 +476,32 @@ async def decide(
     quote, approval, self_approved = await check_decision(
         db, quote_id, approve=approve, actor=actor, quote_hash=quote_hash
     )
+    await ensure_dossier_open(db, quote.assignment_id)
     note = (note or "").strip() or None
     if not approve and note is None:
         raise DomainValidationError(
             "Geef bij terugsturen aan wat er anders moet, zodat de maker verder kan."
         )
-    approval.status = APPROVAL_APPROVED if approve else APPROVAL_SENT_BACK
-    approval.decided_by_id = actor.id
-    approval.decided_at = decided_at or datetime.now(UTC)
-    approval.evidence_id = evidence_id
-    approval.decision_note = note
-    approval.self_approved = self_approved
-    await db.flush()
+    await establish(
+        db,
+        "approval_approved" if approve else "approval_sent_back",
+        assignment_id=quote.assignment_id,
+        actor=actor,
+        effective_on=clock.local_date(decided_at) if decided_at is not None else None,
+        refs={
+            "quote_hash": quote_hash,
+            **({"statement_hash": statement_hash} if statement_hash else {}),
+        },
+        fields={
+            "approval_id": approval.id,
+            "decided_by_id": actor.id,
+            "decided_at": decided_at or clock.now(),
+            "evidence_id": evidence_id,
+            "decision_note": note,
+            "self_approved": self_approved,
+            **({"asked_it": approval.requested_by_id == actor.id} if approve else {}),
+        },
+    )
     new_value: dict[str, object] = {
         "status": approval.status,
         "quote_hash": approval.quote_hash,
@@ -465,6 +534,7 @@ async def withdraw(
 ) -> QuoteApproval:
     """Take back an open request, or an approval of a quote not yet offered."""
     quote = await _quote(db, quote_id)
+    await ensure_dossier_open(db, quote.assignment_id)
     state = await state_of(db, quote)
     approval = state.current
     if approval is None:
@@ -477,11 +547,23 @@ async def withdraw(
             "De goedkeuring kan niet meer worden ingetrokken: de offerte is al "
             "aangeboden aan de opdrachtgever."
         )
+    # The fact says what it took back: read once everything recorded earlier is
+    # committed, not what this request saw when it started.
+    await stream.hold_head(db)
+    await db.refresh(approval)
     old = approval.status
-    approval.status = APPROVAL_WITHDRAWN
-    approval.withdrawn_by_id = actor.id if actor is not None else None
-    approval.withdrawn_at = datetime.now(UTC)
-    await db.flush()
+    await establish(
+        db,
+        "approval_withdrawn",
+        assignment_id=quote.assignment_id,
+        actor=actor,
+        fields={
+            "approval_id": approval.id,
+            "withdrawn_by_id": actor.id if actor is not None else None,
+            "withdrawn_at": clock.now(),
+            "was": old,
+        },
+    )
     record_audit(
         db,
         actor=actor,

@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNlddEvent } from '@/components/nldd/events';
+import { incompleteText } from '@/features/costs/costText';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { WHOLE_PERIOD, YEAR_FILTER_LABEL, periodLabel } from '@/features/overview/years';
 import { formatEuro, formatPeriod } from '@/lib/format';
@@ -149,6 +150,7 @@ function StandTable({ assignment, finance, period, saved, canEdit, onOpenLine }:
                   detail ? intendedText(detail) : '',
                   // The cause of a rate difference next to the line it explains.
                   rateCauseText(line),
+                  line.incomplete_by.length > 0 ? incompleteText(line.incomplete_by) : '',
                 ]
                   .filter(Boolean)
                   .join('. ')}
@@ -168,7 +170,13 @@ function StandTable({ assignment, finance, period, saved, canEdit, onOpenLine }:
           );
         })}
         <nldd-table-row>
-          <nldd-text-cell row-header text="**Totaal**" />
+          <nldd-text-cell
+            row-header
+            text="**Totaal**"
+            {...(finance.incomplete_by.length > 0
+              ? { 'supporting-text': incompleteText(finance.incomplete_by) }
+              : {})}
+          />
           <FigureCells figures={finance.totals} error={finance.pricing_error} bold withoutPlan showRealisedTotal />
           {canEdit && <nldd-cell />}
         </nldd-table-row>

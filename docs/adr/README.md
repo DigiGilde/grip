@@ -55,7 +55,13 @@ Een besluit dat anderen bindt staat hier als ADR: genummerd, met context, beslui
 | [0049](0049-een-verouderde-opslag-wordt-geweigerd.md) | Een opslag op een verouderde versie wordt geweigerd, op een manier voor elk formulier | aanvaard |
 | [0050](0050-een-voorbeeldinstantie-is-een-eigen-soort-instantie.md) | Een voorbeeldinstantie is een eigen soort instantie | aanvaard |
 | [0051](0051-wat-berekend-is-wordt-onthouden-tot-er-iets-verandert.md) | Wat berekend is wordt onthouden tot er iets verandert | aanvaard |
+| [0052](0052-een-kostenpost-bij-een-andere-partij.md) | Een kostenpost bij een andere partij | voorgesteld |
+| [0053](0053-een-gegeven-heeft-een-eigenaar-elders-een-verwijzing.md) | Een gegeven heeft één eigenaar, elders een verwijzing | voorgesteld |
+| [0054](0054-voorbeeldinstanties-federeren-in-een-besloten-groep.md) | Voorbeeldinstanties federeren in een besloten groep | voorgesteld |
 | [0055](0055-vijf-plekken-en-een-rustig-geopend-ding.md) | Vijf plekken en een rustig geopend ding | aanvaard |
+| [0056](0056-de-kroniek-van-een-opdracht-als-bron.md) | De kroniek van een opdracht als bron | voorgesteld |
+| [0057](0057-bewaren-en-vernietigen-per-zaak.md) | Bewaren en vernietigen per zaak | aanvaard, op één open punt na |
+| [0058](0058-factuurinformatie-bij-het-akkoord.md) | Factuurinformatie wordt bij het akkoord opgegeven | voorgesteld |
 
 ## Welke besluiten later zijn bijgesteld
 
@@ -69,18 +75,20 @@ Een besluit wordt niet herschreven. Is het later bijgesteld, dan staat onderaan 
 | 0012 Factuurgegevens | 0039 | Een factuurverzoek per periode als bewaard document |
 | 0013 Wies zonder FSC | 0022 | Een nieuwe collega is eerst in grip bekend |
 | 0015 De outbox als naad | 0028 | Gebeurtenissen worden eerst in een stroom vastgelegd |
-| 0018 Vacatureformulier en tekst | aanvulling in 0018, 0034, 0035 | Het formulier wordt bewaard; teksten uit een bibliotheek; lokaal een ontwikkelmodel |
+| 0018 Vacatureformulier en tekst | aanvulling in 0018, 0034, 0035, 0057 | Het formulier wordt bewaard; teksten uit een bibliotheek; lokaal een ontwikkelmodel; de worker ruimt elke dag op |
 | 0020 Een hash per offerte | 0030 | Ook het bestand ligt vast, met een eigen kenmerk |
 | 0023 Aangeleverd is niet gefactureerd | 0039 | Aangeleverd heeft een ontvanger en een moment |
 | 0024 Taken, feiten en het plan | 0038, 0044 | Een plan kan een eerdere versie opvolgen; een verloop per zaak uit dezelfde feiten |
 | 0025 Interne goedkeuring | 0048 | Ook de maker keurt niet goed |
 | 0026 Kenmerk en pdf | 0030, 0032 | Het bestand ligt vast; de offerte is een brief; geen losse webweergave |
 | 0027 Tarievenkaart per periode | geen | Vervangt het uitgangspunt van een kaart per kalenderjaar |
-| 0028 Stroom van gebeurtenissen | 0043 | Inzage per verzoek; een selectie als nieuws |
+| 0028 Stroom van gebeurtenissen | 0043, 0056, 0057 | Inzage per verzoek; een selectie als nieuws; op het pad naar een opdracht een echte bron; wissen op leeftijd raakt geen opdracht |
 | 0029 Bewijs van een akkoord | 0030, 0037 | Het bestand in de bundel; een passkey als extra bevestiging |
 | 0033 Hoofdnavigatie | 0042, 0055 | Zeven plekken en een tweede balk; daarna vervangen door vijf plekken |
 | 0036 Productmerk | open | De keuze voor het merk is voorlopig |
 | 0038 Een taak vertelt | 0039, 0044, 0047 | Taken per factuurperiode; verloop uit dezelfde bron; een taak voor de naverrekening |
-| 0039 Afsluiten en aanleveren | 0047, 0055 | De naverrekening als opgeslagen verschil; het tabblad is een onderdeel van de opdracht |
+| 0039 Afsluiten en aanleveren | 0047, 0055, 0058 | De naverrekening als opgeslagen verschil; het tabblad is een onderdeel van de opdracht; de factuurinformatie bij het akkoord |
 | 0042 Zeven plekken | 0055 | Vervangen: vijf plekken, geen tweede balk, onderdelen in plaats van tabs |
 | 0044 Een verloop per zaak | 0045, 0048, 0055 | Een afwijzing is een stap terug; overnemen geeft geen recht; het verloop is één regel |
+| 0050 Een voorbeeldinstantie | 0054 | Voorbeelden federeren met elkaar, in een eigen groep |
+| 0056 De kroniek van een opdracht | 0057 | Bewaren en vernietigen per zaak in plaats van wissen op verzoek |

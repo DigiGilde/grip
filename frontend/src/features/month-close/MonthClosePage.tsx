@@ -78,6 +78,7 @@ interface NowProps {
  */
 function Now({ overview, onAct }: NowProps) {
   const headHasIt = usePrimaryTaken();
+  const shell = useAssignmentShell();
   const step = overview.next_step;
   const may =
     (step.kind === 'close_month' && overview.may_close) ||
@@ -101,7 +102,11 @@ function Now({ overview, onAct }: NowProps) {
           <nldd-text>
             <p>{open}</p>
           </nldd-text>
-          <Quiet>Dit kan de eigenaar of een manager van de opdracht.</Quiet>
+          <Quiet>
+            {shell?.dossier_closed_on
+              ? 'Het dossier is gesloten; wijzigen kan weer als de beheerder het heropent.'
+              : 'Dit kan de eigenaar of een manager van de opdracht.'}
+          </Quiet>
         </Stack>
       </div>
     );

@@ -138,7 +138,7 @@ Een persoon zonder adres wordt nooit voorgesteld om te deactiveren.
 
 ### Als de aanname niet doorgaat
 
-`POST /api/vacancies/{id}/hire/withdraw`, of op het teamscherm via `POST /api/people/{id}/withdraw-hire`. De planning van de persoon vervalt, het voorstel aan Wies wordt ingetrokken (Wies verwijdert de collega als die nog geen account en geen adres had) en de persoon verdwijnt uit grip na `PROSPECTIVE_RETENTION_DAYS`. Het opruimen zelf is een functie (`standing.purge_withdrawn`) die nog op een vast ritme moet worden gestart.
+`POST /api/vacancies/{id}/hire/withdraw`, of op het teamscherm via `POST /api/people/{id}/withdraw-hire`. De planning van de persoon vervalt, het voorstel aan Wies wordt ingetrokken (Wies verwijdert de collega als die nog geen account en geen adres had) en de persoon verdwijnt uit grip na `PROSPECTIVE_RETENTION_DAYS`. Het opruimen zelf (`standing.purge_withdrawn`) doet de worker elke dag, in de bewaarronde op `RETENTION_HOUR` (ADR 0057).
 
 De vacature blijft vervuld. Voor dezelfde rol is een nieuwe vacature nodig.
 

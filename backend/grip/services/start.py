@@ -634,13 +634,15 @@ class Figures:
     money: investment.MoneyReading
     potential_cents: int
     quotes_waiting: int
+    # The executors whose cost items could not be counted in the agreed figures.
+    incomplete_by: tuple[str, ...] = ()
 
 
 async def figures(db: AsyncSession, year: int, today: date) -> Figures:
     """Of the whole organisation, from the read models of Geld."""
 
     async def compute() -> Figures:
-        agreed = await steering.agreed_figures(db, year)
+        agreed, incomplete = await steering.agreed_figures(db, year)
         waiting = [
             quote
             for quote in await steering.quotes_of_year(db, year)
@@ -653,6 +655,7 @@ async def figures(db: AsyncSession, year: int, today: date) -> Figures:
             money=await investment.money_reading(db, year),
             potential_cents=sum(quote.total_cents for quote in waiting),
             quotes_waiting=len(waiting),
+            incomplete_by=incomplete,
         )
 
     return await read_cache.remember_all(db, "start_figures", (year, today), compute)

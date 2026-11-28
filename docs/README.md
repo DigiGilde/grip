@@ -15,6 +15,8 @@ Grip legt vast hoe een organisatie binnen de Rijksoverheid een opdracht uitvoert
 
 De code is Engels, de schermen en deze documentatie zijn Nederlands. Welke codenaam bij welk woord op het scherm hoort staat in de begrippenlijst van [domein.md](domein.md).
 
+Dezelfde pagina's, de besluiten en het personaboek staan ook opgemaakt en doorzoekbaar in het ontwikkelportaal, met een link naar de instanties van de demo. Hoe je het lokaal draait staat in [lokaal.md](lokaal.md#ontwikkelportaal), de startpagina op ZAD in [uitrol-zad.md](uitrol-zad.md#startpagina-het-ontwikkelportaal).
+
 ## Waar begin je
 
 **Je wilt het lokaal draaien**
@@ -36,7 +38,7 @@ De code is Engels, de schermen en deze documentatie zijn Nederlands. Welke coden
 2. [architectuur.md](architectuur.md) en [domein.md](domein.md).
 3. [toegang.md](toegang.md): de beslisfunctie en de gegevensklassen.
 4. [taken.md](taken.md) en [werkstromen.md](werkstromen.md): feiten, taken en het verloop van een zaak.
-5. [gebeurtenissen.md](gebeurtenissen.md): de stroom waar alles in landt.
+5. [gebeurtenissen.md](gebeurtenissen.md): de stroom waar alles in landt, en [kroniek.md](kroniek.md): de feiten op het pad naar een opdracht, waar de tabellen en elke eerdere stand uit volgen.
 6. [ontwerp.md](ontwerp.md): hoe een scherm wordt opgebouwd en wanneer het af is.
 7. [adr/](adr/README.md): waarom het zo is.
 
@@ -97,3 +99,4 @@ De code is Engels, de schermen en deze documentatie zijn Nederlands. Welke coden
 | [lokaal.md](lokaal.md) | De lokale omgeving en wat ermee is aangetoond |
 | [uitrol-zad.md](uitrol-zad.md) | Uitrollen op ZAD: eerst een voorbeeldinstantie, dan een echte |
 | [import-grist.md](import-grist.md) | De import uit het Grist-document |
+| [personas/](personas/README.md) | Het personaboek: wie met grip werkt, met een vaste code per persona |

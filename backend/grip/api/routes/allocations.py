@@ -34,7 +34,7 @@ from grip.schema.board import (
     BoardOpenRoleOut,
     BoardPersonOut,
 )
-from grip.services import allocation_load, staffing_board
+from grip.services import allocation_load, guards, staffing_board
 from grip.services import assignment_views as views
 from grip.services import assignments as service
 
@@ -49,9 +49,13 @@ _BAR_CLASSES = schema_classes(BoardBarOut)
 
 
 async def _row(
-    view: views.AllocationView, access: RequestAccess
+    view: views.AllocationView, access: RequestAccess, closed: set[UUID]
 ) -> dict[str, Any] | None:
-    """The allocation as this reader may see it, or None when not at all."""
+    """The allocation as this reader may see it, or None when not at all.
+
+    ``closed`` holds the assignments whose dossier is closed: no inzet on
+    them can change.
+    """
     allocation = view.allocation
     about = Resource.allocation(view.assignment_id, allocation.person_id)
     permitted = set(await access.classes(about, _CLASSES - {A, B}))
@@ -79,7 +83,8 @@ async def _row(
         start_date=allocation.start_date,
         end_date=allocation.end_date,
         fte_pct=allocation.fte_pct,
-        can_edit=await access.may(Action.EDIT, about, C),
+        can_edit=view.assignment_id not in closed
+        and await access.may(Action.EDIT, about, C),
         amount_cents=view.amount_cents,
         pricing_error=view.pricing_error,
         line_category=mismatch.line_category if mismatch else None,
@@ -154,9 +159,10 @@ async def list_allocations(
                 found.append(view)
         found.sort(key=lambda v: (v.allocation.start_date, str(v.allocation.id)))
 
+    closed = await guards.closed_dossier_ids(db, {view.assignment_id for view in found})
     items = []
     for view in found:
-        row = await _row(view, access)
+        row = await _row(view, access, closed)
         if row is not None:
             items.append(row)
     return {"items": items, "can_add": await _may_add(access, db)}
@@ -179,6 +185,11 @@ async def get_board(
     the same decisions, without the other rows and the open roles.
     """
     data = await staffing_board.board(db, _board_start(start), months=months)
+    closed = await guards.closed_dossier_ids(
+        db,
+        {bar.assignment_id for person in data.persons for bar in person.bars}
+        | {role.assignment_id for role in data.open_roles},
+    )
 
     persons: list[dict[str, Any]] = []
     for person in data.persons:
@@ -215,7 +226,8 @@ async def get_board(
                         end_date=bar.end_date,
                         fte_pct=bar.fte_pct,
                         closed_months=list(bar.closed_months),
-                        can_edit=await access.may(Action.EDIT, about, C),
+                        can_edit=bar.assignment_id not in closed
+                        and await access.may(Action.EDIT, about, C),
                         category_mismatch=bar.category_mismatch,
                         line_category=bar.line_category,
                         person_category=bar.person_category,
@@ -284,7 +296,8 @@ async def get_board(
                     unfilled_fte=role.unfilled_fte,
                     start_date=role.start_date,
                     end_date=role.end_date,
-                    can_fill=await access.may(Action.EDIT, resource, C),
+                    can_fill=role.assignment_id not in closed
+                    and await access.may(Action.EDIT, resource, C),
                     vacancy_id=role.vacancy_id if opens_vacancy else None,
                     vacancy_status=role.vacancy_status if opens_vacancy else None,
                 ),
@@ -385,7 +398,10 @@ async def add_allocation(
         allow_closed_year=override,
     )
     access.forget()
-    row = await _row(await views.allocation_view(db, allocation.id), access)
+    view = await views.allocation_view(db, allocation.id)
+    row = await _row(
+        view, access, await guards.closed_dossier_ids(db, {view.assignment_id})
+    )
     return row or {}
 
 
@@ -472,7 +488,10 @@ async def update_allocation(
         await service.update_allocation(
             db, allocation_id, actor=person, allow_closed_year=override, **changes
         )
-    row = await _row(await views.allocation_view(db, allocation_id), access)
+    view = await views.allocation_view(db, allocation_id)
+    row = await _row(
+        view, access, await guards.closed_dossier_ids(db, {view.assignment_id})
+    )
     return row or {}
 
 

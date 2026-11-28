@@ -16,6 +16,7 @@ from typing import Any
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from sqlalchemy.orm.exc import StaleDataError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 logger = logging.getLogger(__name__)
@@ -177,10 +178,25 @@ async def _domain_exception_handler(_request: Request, exc: Exception) -> JSONRe
     return JSONResponse(body, status_code=status_code, media_type=PROBLEM_MEDIA_TYPE)
 
 
+async def _row_moved_handler(_request: Request, _exc: Exception) -> JSONResponse:
+    # Another request changed this row while this one was deciding. Nothing
+    # was written; the next try reads what stands now.
+    body = problem_body(
+        HTTPStatus.CONFLICT,
+        "Dit is intussen gewijzigd. Er is niets overschreven. Probeer het opnieuw.",
+        code="StaleDataError",
+    )
+    body["title"] = _DOMAIN_TITLES["StaleWriteError"]
+    return JSONResponse(
+        body, status_code=HTTPStatus.CONFLICT, media_type=PROBLEM_MEDIA_TYPE
+    )
+
+
 def install_exception_handlers(app: FastAPI) -> None:
     from grip.services.errors import DomainError
 
     app.add_exception_handler(DomainError, _domain_exception_handler)
+    app.add_exception_handler(StaleDataError, _row_moved_handler)
     app.add_exception_handler(StarletteHTTPException, _http_exception_handler)  # type: ignore[arg-type]
     app.add_exception_handler(RequestValidationError, _validation_exception_handler)  # type: ignore[arg-type]
     app.add_exception_handler(Exception, _unhandled_exception_handler)

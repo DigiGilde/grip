@@ -45,6 +45,7 @@ from grip.models.person import Person
 from grip.services import events, read_cache, stale
 from grip.services.assignments import get_assignment
 from grip.services.errors import DomainValidationError, NotFoundError
+from grip.services.guards import ensure_dossier_open
 from grip.services.phase import allows_billing
 from grip.services.pricing import (
     DEFAULT_OPTIONS,
@@ -767,6 +768,7 @@ async def record_invoice(
     ``invoice.recorded``.
     """
     await get_assignment(session, assignment_id)
+    await ensure_dossier_open(session, assignment_id)
     if source not in INVOICE_SOURCES:
         raise DomainValidationError(f"Onbekende bron van een factuur: {source}")
     number = _clean_number(invoice_number)
@@ -829,6 +831,7 @@ async def correct_invoice(
     The old and the new values go to the audit log.
     """
     invoice = await get_invoice(session, invoice_id)
+    await ensure_dossier_open(session, invoice.assignment_id)
     if invoice.withdrawn_at is not None:
         raise DomainValidationError(
             "Deze factuur is ingetrokken en kan niet meer worden gewijzigd."
@@ -902,6 +905,7 @@ async def withdraw_invoice(
     if not reason or not reason.strip():
         raise DomainValidationError("Geef een reden voor het intrekken van de factuur.")
     invoice = await get_invoice(session, invoice_id)
+    await ensure_dossier_open(session, invoice.assignment_id)
     if invoice.withdrawn_at is not None:
         raise DomainValidationError("Deze factuur is al ingetrokken.")
     export_ids = [d.billing_export_id for d in invoice.deliveries]

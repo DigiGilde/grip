@@ -1,4 +1,5 @@
-"""Guards shared by the services: closed years, closed months, audit values."""
+"""Guards shared by the services: closed years, closed months, closed dossiers,
+audit values."""
 
 from __future__ import annotations
 
@@ -8,11 +9,14 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip.calc import Month
+from grip.events import stream
+from grip.models.assignment import Assignment
 from grip.repositories.domain import MonthCloseRepository, RateRepository
-from grip.services.errors import ClosedYearError, MonthClosedError
+from grip.services.errors import ClosedYearError, DomainError, MonthClosedError
 
 Span = tuple[date, date]
 
@@ -76,6 +80,52 @@ async def ensure_closed_months_unchanged(
     for month in await MonthCloseRepository(session).closed_months(assignment_id):
         if _covers(old_period, month) != _covers(new_period, month):
             raise MonthClosedError(str(Month.of(month)))
+
+
+class DossierClosedError(DomainError):
+    """A change to an assignment whose dossier is closed (ADR 0057)."""
+
+    http_status = 409
+
+    def __init__(self) -> None:
+        super().__init__(
+            "Het dossier is gesloten. Wijzigen kan weer als de beheerder het heropent."
+        )
+
+
+async def dossier_closed(session: AsyncSession, assignment_id: UUID) -> bool:
+    closed_on = (
+        await session.execute(
+            select(Assignment.dossier_closed_on).where(Assignment.id == assignment_id)
+        )
+    ).scalar_one_or_none()
+    return closed_on is not None
+
+
+async def closed_dossier_ids(
+    session: AsyncSession, assignment_ids: Iterable[UUID]
+) -> set[UUID]:
+    """Of these assignments, those whose dossier is closed."""
+    ids = set(assignment_ids)
+    if not ids:
+        return set()
+    rows = await session.execute(
+        select(Assignment.id).where(
+            Assignment.id.in_(ids), Assignment.dossier_closed_on.is_not(None)
+        )
+    )
+    return {row[0] for row in rows}
+
+
+async def ensure_dossier_open(session: AsyncSession, assignment_id: UUID) -> None:
+    """A closed dossier changes nothing: not the assignment, not its parts.
+
+    Takes the lock on the stream first, so a close that commits meanwhile is
+    seen. Call it before changing a row.
+    """
+    await stream.hold_head(session)
+    if await dossier_closed(session, assignment_id):
+        raise DossierClosedError()
 
 
 def audit_value(value: Any) -> Any:

@@ -1,7 +1,8 @@
 {
-  "version": "2026.3",
+  "version": "2026.4",
   "replaces": [
-    "2026.2"
+    "2026.2",
+    "2026.3"
   ],
   "description": "Het meegeleverde plan. Een taak ontstaat als alles onder 'when' waar is en sluit zodra het feit onder 'done_when' waar is. Namen van onderwerpen ('for'), feiten en rollen komen uit de catalogus in grip/tasks/catalogue.py; het plan kan er geen bedenken. Onder 'courses' staat per soort zaak het verloop: de stappen, het feit dat een stap afrondt en de taken die bij de stap horen.",
   "case_kinds": {
@@ -33,7 +34,8 @@
           "when": [
             "contractor",
             "external",
-            "potential"
+            "potential",
+            "not at_rest"
           ],
           "done_when": "budget_has_line",
           "assignee": "owner",
@@ -50,7 +52,8 @@
             "potential",
             "budget_has_line",
             "not quote_rejected_before",
-            "not quote_sent_back"
+            "not quote_sent_back",
+            "not at_rest"
           ],
           "done_when": "quote_fresh",
           "assignee": "owner",
@@ -66,7 +69,8 @@
             "external",
             "potential",
             "quote_fresh",
-            "approval_needed"
+            "approval_needed",
+            "not at_rest"
           ],
           "done_when": "approval_asked",
           "assignee": "owner",
@@ -78,7 +82,8 @@
           "title": "Beoordeel offerte {kenmerk}",
           "for": "quote_approval",
           "when": [
-            "contractor"
+            "contractor",
+            "not at_rest"
           ],
           "done_when": "approval_decided",
           "assignee": "offertegoedkeurder",
@@ -97,7 +102,8 @@
           "for": "sent_back_quote",
           "when": [
             "contractor",
-            "potential"
+            "potential",
+            "not at_rest"
           ],
           "done_when": "quote_superseded",
           "assignee": "maker",
@@ -114,7 +120,8 @@
             "external",
             "potential",
             "quote_fresh",
-            "quote_may_offer"
+            "quote_may_offer",
+            "not at_rest"
           ],
           "done_when": "quote_offered",
           "assignee": "owner",
@@ -130,7 +137,8 @@
             "external",
             "potential",
             "quote_fresh",
-            "quote_offered"
+            "quote_offered",
+            "not at_rest"
           ],
           "done_when": "quote_accepted",
           "assignee": "owner",
@@ -144,7 +152,8 @@
           "for": "rejected_quote",
           "when": [
             "contractor",
-            "potential"
+            "potential",
+            "not at_rest"
           ],
           "done_when": "quote_superseded",
           "assignee": "owner",
@@ -156,7 +165,8 @@
           "title": "Beoordeel en teken de ontvangen offerte",
           "for": "received_quote",
           "when": [
-            "client"
+            "client",
+            "not at_rest"
           ],
           "done_when": "quote_decided",
           "assignee": "tekenbevoegde",
@@ -171,7 +181,8 @@
           "when": [
             "contractor",
             "not closed",
-            "staffing_in_view"
+            "staffing_in_view",
+            "not at_rest"
           ],
           "done_when": "role_staffed",
           "assignee": "planner",
@@ -185,7 +196,8 @@
           "when": [
             "contractor",
             "not external",
-            "potential"
+            "potential",
+            "not at_rest"
           ],
           "done_when": "budget_has_line",
           "assignee": "owner",
@@ -201,7 +213,8 @@
             "not external",
             "budget_has_line",
             "not started",
-            "not closed"
+            "not closed",
+            "not at_rest"
           ],
           "done_when": "started",
           "assignee": "owner",
@@ -215,7 +228,8 @@
           "when": [
             "contractor",
             "external",
-            "agreed"
+            "agreed",
+            "not at_rest"
           ],
           "done_when": "started",
           "assignee": "owner",
@@ -229,7 +243,8 @@
           "only_first": true,
           "when": [
             "contractor",
-            "may_close_months"
+            "may_close_months",
+            "not at_rest"
           ],
           "done_when": "month_closed",
           "assignee": "manager",
@@ -247,11 +262,24 @@
           "when": [
             "contractor",
             "external",
-            "completed"
+            "completed",
+            "not at_rest"
           ],
           "done_when": "final_report_issued",
           "assignee": "owner",
           "link": "/opdrachten/{assignment_id}/rapport"
+        },
+        {
+          "key": "uitvoering.dossier_sluiten",
+          "track": "uitvoering",
+          "title": "Sluit het dossier",
+          "for": "case",
+          "when": [
+            "dossier_due_for_closing"
+          ],
+          "done_when": "dossier_closed",
+          "assignee": "owner",
+          "link": "/opdrachten/{assignment_id}"
         },
         {
           "key": "financien.factuurgegevens_aanleveren",
@@ -263,7 +291,8 @@
             "contractor",
             "external",
             "may_bill",
-            "period_ready"
+            "period_ready",
+            "not at_rest"
           ],
           "done_when": "period_delivered",
           "assignee": "manager",
@@ -283,7 +312,8 @@
             "contractor",
             "external",
             "may_bill",
-            "period_delivered"
+            "period_delivered",
+            "not at_rest"
           ],
           "done_when": "period_invoiced",
           "assignee": "manager",
@@ -301,7 +331,8 @@
           "when": [
             "contractor",
             "external",
-            "may_bill"
+            "may_bill",
+            "not at_rest"
           ],
           "done_when": "correction_delivered",
           "assignee": "manager",
@@ -344,6 +375,19 @@
               ],
               "tasks": [
                 "offerte.beoordelen_en_tekenen"
+              ]
+            },
+            {
+              "key": "dossier",
+              "label": "Dossier sluiten",
+              "when": [
+                "dossier_due_for_closing"
+              ],
+              "done_when": [
+                "dossier_closed"
+              ],
+              "tasks": [
+                "uitvoering.dossier_sluiten"
               ]
             }
           ]
@@ -483,6 +527,19 @@
                 "financien.naverrekening_aanleveren"
               ],
               "idle": "De opdracht loopt. Er is nu niets te doen."
+            },
+            {
+              "key": "dossier",
+              "label": "Dossier sluiten",
+              "when": [
+                "dossier_due_for_closing"
+              ],
+              "done_when": [
+                "dossier_closed"
+              ],
+              "tasks": [
+                "uitvoering.dossier_sluiten"
+              ]
             }
           ]
         },
@@ -538,6 +595,19 @@
               ],
               "tasks": [
                 "uitvoering.eindrapport"
+              ]
+            },
+            {
+              "key": "dossier",
+              "label": "Dossier sluiten",
+              "when": [
+                "dossier_due_for_closing"
+              ],
+              "done_when": [
+                "dossier_closed"
+              ],
+              "tasks": [
+                "uitvoering.dossier_sluiten"
               ]
             }
           ]
@@ -613,6 +683,10 @@
         {
           "when": "accounted",
           "label": "Verantwoord"
+        },
+        {
+          "when": "dossier_closed",
+          "label": "Dossier gesloten"
         }
       ]
     },

@@ -46,6 +46,11 @@ from grip.models.quote_draft import QuoteDraft
 from grip.repositories.domain import AssignmentRepository
 from grip.services import instance_settings, quote_prose, quote_sender
 from grip.services.errors import DomainError, DomainValidationError
+from grip.services.guards import (
+    DossierClosedError,
+    dossier_closed,
+    ensure_dossier_open,
+)
 from grip.services.llm import ChatClient, get_chat_client
 from grip.services.quote_drafting import (
     MAX_OTHER_SECTIONS,
@@ -414,6 +419,7 @@ async def _save(
     actor: Person | None,
     change: dict[str, Any],
 ) -> dict[str, Any]:
+    await ensure_dossier_open(session, assignment.id)
     row = await find_draft(session, assignment.id)
     if row is None:
         session.add(
@@ -756,6 +762,10 @@ async def draft_section(
 ) -> dict[str, Any]:
     """Ask the language model for a draft of one section and put it in the
     draft, unsettled. A section with text a person wrote is not overwritten."""
+    # Not under the lock on the stream: the model call would hold it. Saving
+    # asks again, under the lock.
+    if await dossier_closed(session, assignment.id):
+        raise DossierClosedError()
     content, _ = await read_draft(session, assignment)
     section = _find(content, key)
     if not section["draftable"] or section["with_costs"]:

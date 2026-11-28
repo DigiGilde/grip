@@ -324,6 +324,24 @@ describe('Start: what concerns the reader', () => {
     ]);
   });
 
+  it('says the expected total is incomplete when another organisation cannot be read', async () => {
+    const { container } = renderStart({
+      ...NOTHING,
+      figures: {
+        year: 2026,
+        expected_cents: 5000000,
+        budgeted_cents: 6000000,
+        potential_cents: 0,
+        quotes_waiting: 0,
+        incomplete_by: ['Voorbeeldgilde'],
+      },
+    });
+    await waitFor(() => expect(titles(container)).toContain('Hoe staan we ervoor'));
+    expect(plain(allText(container))).toContain(
+      'Van € 60.000 begroot. Onvolledig: niet alles is op te halen bij Voorbeeldgilde',
+    );
+  });
+
   it('shows no room, not even 0, when the server leaves it out', async () => {
     const { container } = renderStart({
       ...NOTHING,

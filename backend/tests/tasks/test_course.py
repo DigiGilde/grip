@@ -13,6 +13,7 @@ from datetime import date, timedelta
 
 import pytest
 
+from grip.core import clock
 from grip.models.person import Person
 from grip.models.quote import QuoteRejection
 from grip.models.vacancy import VacancyText
@@ -492,7 +493,7 @@ async def test_a_quote_that_expired_puts_the_course_back_at_the_quote(
     await build.line(assignment)
     quote = await build.quote(assignment, offered=True)
     quote.canonical = canonical_form(
-        {"valid_until": (date.today() - timedelta(days=1)).isoformat()}
+        {"valid_until": (clock.today() - timedelta(days=1)).isoformat()}
     )
     quote.snapshot_hash = hash_of(quote.canonical)
     await db_session.flush()
@@ -782,7 +783,7 @@ async def test_the_person_whose_move_it_is_can_be_notified_of_the_same_thing(
     access = TaskAccess(
         db_session, decider, Reader.for_person(people.owner.id, frozenset())
     )
-    to_do = await service.to_do_of(db_session, access, today=date.today())
+    to_do = await service.to_do_of(db_session, access, today=clock.today())
     assert found["next"]["headline"] in {item.headline for item in to_do}
     assert NOW is not None
 

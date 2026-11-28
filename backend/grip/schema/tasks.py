@@ -8,12 +8,15 @@ anything else its subject would keep from the reader.
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Annotated, Literal
+from typing import TYPE_CHECKING, Annotated, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from grip.access import DataClass, in_class, nested
+
+if TYPE_CHECKING:
+    from grip.tasks.course import CourseView
 
 A = in_class(DataClass.ASSIGNMENT_BASIC)
 
@@ -163,6 +166,46 @@ class CourseOut(BaseModel):
     ended: Annotated[str | None, A] = None
     more_to_do: Annotated[int, A] = 0
     more_waiting: Annotated[int, A] = 0
+
+
+def course_out(view: CourseView) -> CourseOut:
+    told = view.next
+    return CourseOut(
+        key=view.key,
+        label=view.label,
+        subject=view.subject,
+        subject_key=view.subject_key,
+        subject_label=view.subject_label,
+        steps=[
+            CourseStepOut(key=s.key, label=s.label, state=s.state, note=s.note)
+            for s in view.steps
+        ],
+        current_key=view.current_key,
+        current_label=view.current_label,
+        position=view.position,
+        next=CourseNextOut(
+            mine=told.mine,
+            part=told.part,
+            may_take_over=told.may_take_over,
+            headline=told.headline,
+            sentence=told.sentence,
+            who=told.who,
+            since=told.since,
+            due_on=told.due_on,
+            overdue=told.overdue,
+            action_text=told.action_text,
+            action_href=told.action_href,
+            missing=list(told.missing),
+            blocked=told.blocked,
+            task_id=told.task_id,
+            task_key=told.task_key,
+        )
+        if told
+        else None,
+        ended=view.ended,
+        more_to_do=view.more_to_do,
+        more_waiting=view.more_waiting,
+    )
 
 
 class CaseCourseOut(BaseModel):

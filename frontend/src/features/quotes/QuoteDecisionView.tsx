@@ -56,6 +56,8 @@ interface QuoteDecisionViewProps {
   /** Extra fields in the sheet for accepting, and the check that goes with them. */
   acceptFields?: ReactNode;
   checkAccept?: () => string | null;
+  /** The sheet for accepting opens: the moment to start its extra fields. */
+  onAcceptOpen?: () => void;
   /** Below the buttons. */
   children?: ReactNode;
 }
@@ -88,6 +90,7 @@ export function QuoteDecisionView({
   createIntent,
   acceptFields,
   checkAccept,
+  onAcceptOpen,
   children,
 }: QuoteDecisionViewProps) {
   const [sheet, setSheet] = useState<Decision | null>(null);
@@ -104,6 +107,7 @@ export function QuoteDecisionView({
 
   const open = (next: Decision) => {
     setError(null);
+    if (next === 'accept') onAcceptOpen?.();
     setSheet(next);
   };
   const send = (decision: Decision) => {

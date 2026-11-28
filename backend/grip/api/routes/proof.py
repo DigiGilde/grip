@@ -62,7 +62,8 @@ from grip.proof.bundle import BUNDLE_MEDIA_TYPE, render_page
 from grip.proof.decisions import execute
 from grip.proof.statement import parse_statement
 from grip.proof.verify import verify_bundle
-from grip.services import passkeys, quote_approval, quote_views
+from grip.schema.billing import BillingDetailsIn
+from grip.services import billing_details, passkeys, quote_approval, quote_views
 from grip.services.errors import DomainError, DomainValidationError, NotFoundError
 
 logger = logging.getLogger(__name__)
@@ -92,6 +93,8 @@ class SigningIntentIn(BaseModel):
     confirm_mandate: bool = False
     organisation_name: str | None = Field(default=None, max_length=255)
     reason: str | None = Field(default=None, max_length=5000)
+    # Where the invoice goes, given with an acceptance. Outside the statement.
+    billing_details: BillingDetailsIn | None = None
     # Where in the application to come back to.
     return_path: str | None = Field(default=None, max_length=500)
 
@@ -104,7 +107,13 @@ class DecisionIntentIn(BaseModel):
     quote_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
     signer_function: str | None = Field(default=None, max_length=255)
     note: str | None = Field(default=None, max_length=5000)
+    # Where the invoice goes, given with accept_received. Outside the statement.
+    billing_details: BillingDetailsIn | None = None
     return_path: str | None = Field(default=None, max_length=500)
+
+
+def _details(body: BillingDetailsIn | None) -> dict[str, Any] | None:
+    return body.model_dump() if body is not None else None
 
 
 def _safe_path(raw: str | None, default: str) -> str:
@@ -181,13 +190,27 @@ async def create_signing_intent(
         raise DomainValidationError(
             "Bevestig dat je namens de opdrachtgever mag tekenen."
         )
+    details = None
+    if body.decision == "accept":
+        if body.billing_details is not None:
+            await require(
+                decider, signer.subject, Action.GIVE_BILLING_DETAILS, resource
+            )
+        details = billing_details.for_acceptance(
+            quote, _details(body.billing_details), form="signing_link"
+        )
     assignment = await db.get(Assignment, quote.assignment_id)
     if assignment is None:
         raise NotFoundError("Opdracht", quote.assignment_id)
     # On whose behalf: the client of the assignment, as an acceptance
-    # through the signing link has always recorded it.
-    organisation = await quote_views.client_reference(
-        db, assignment, body.organisation_name or signer.name
+    # through the signing link has always recorded it. Without a client, whoever
+    # accepts names the organisation; a rejection can do without one.
+    organisation = (
+        await quote_views.client_reference(db, assignment, body.organisation_name)
+        if body.decision == "accept"
+        or assignment.client_organisation_id is not None
+        or body.organisation_name
+        else None
     )
     person = await db.get(Person, signer.person_id) if signer.person_id else None
     intent = await flow.create_intent(
@@ -204,6 +227,8 @@ async def create_signing_intent(
             "confirm_mandate": body.confirm_mandate,
             "organisation": organisation,
             "note": body.reason,
+            # Not part of the statement: carried to the billing terms only.
+            "billing_details": details,
         },
         return_path=_safe_path(body.return_path, f"/tekenen/{quote.id}"),
     )
@@ -271,6 +296,18 @@ async def create_decision_intent(
         raise DomainValidationError(
             "Geef bij terugsturen aan wat er anders moet, zodat de maker verder kan."
         )
+    details = None
+    if body.kind == "accept_received":
+        if body.billing_details is not None:
+            await require(
+                decider,
+                subject,
+                Action.GIVE_BILLING_DETAILS,
+                Resource.quote(quote.id, quote.assignment_id),
+            )
+        details = billing_details.for_acceptance(
+            quote, _details(body.billing_details), form="own_instance"
+        )
     default = (
         f"/aanvragen/offerte/{quote.id}"
         if channel == "own_instance"
@@ -288,6 +325,8 @@ async def create_decision_intent(
             "signer_function": body.signer_function,
             "organisation": own_reference(settings),
             "note": body.note,
+            # Not part of the statement: goes with the acceptance message.
+            "billing_details": details,
         },
         return_path=_safe_path(body.return_path, default),
     )

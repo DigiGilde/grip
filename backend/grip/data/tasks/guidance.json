@@ -180,6 +180,16 @@
       "why": "De opdracht is afgerond en het eindrapport is nog niet opgeleverd.",
       "destination": "assignment.report"
     },
+    "uitvoering.dossier_sluiten": {
+      "title": "Sluit het dossier",
+      "awaited": "Het sluiten van het dossier",
+      "do": "Aan {opdracht} is lang niets veranderd. Sluit het dossier, dan begint de bewaartermijn. Moet het dossier open blijven, leg dat dan vast.",
+      "wait": "Je wacht op {wie}, die het dossier van {opdracht} sluit of vastlegt dat het open blijft. Jij hoeft nu niets te doen.",
+      "action": "Sluit dossier",
+      "why": "{opdracht} is afgesloten en er is lang niets aan veranderd.",
+      "then": "Doet niemand iets, dan sluit grip het dossier later zelf.",
+      "destination": "assignment.overview"
+    },
     "financien.factuurgegevens_aanleveren": {
       "title": "Lever {periode} aan",
       "awaited": "De aanlevering van {periode}",

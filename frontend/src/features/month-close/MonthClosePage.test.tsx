@@ -1016,4 +1016,27 @@ describe('MonthClosePage', () => {
     );
     expect(container.textContent).not.toContain('Wijzig factuurafspraken');
   });
+
+  it('says the dossier is closed instead of who can act', async () => {
+    const { container } = renderTab(
+      {
+        ...OVERVIEW,
+        may_close: false,
+        may_reopen: false,
+        may_deliver: false,
+        may_record_invoice: false,
+        may_edit_terms: false,
+      },
+      { '/api/assignments/a-1/billing-status': { ...NO_INVOICES, may_record_invoice: false } },
+      '/opdrachten/a-1/afsluiten',
+      assignment({ id: 'a-1', permissions: PERMISSIONS.lezer, dossier_closed_on: '2026-11-25' }),
+    );
+    await waitFor(() => expect(container.querySelector('[data-waiting]')).not.toBeNull());
+    const waiting = container.querySelector('[data-waiting]')?.textContent ?? '';
+    expect(waiting).toContain(
+      'Het dossier is gesloten; wijzigen kan weer als de beheerder het heropent.',
+    );
+    expect(waiting).not.toContain('Dit kan de eigenaar');
+    expect(primaryButtons(container)).toEqual([]);
+  });
 });

@@ -40,6 +40,7 @@ from grip.schema.billing import (
     WithdrawInvoiceIn,
 )
 from grip.services import (
+    guards,
     month_close,
     month_overview,
     outgoing_invoices,
@@ -288,9 +289,8 @@ async def _status(
         assignment_id=assignment_id,
         year=year,
         billable=position.billable,
-        may_record_invoice=bool(
-            await decide(decider, subject, Action.RECORD_INVOICE, resource)
-        ),
+        may_record_invoice=not await guards.dossier_closed(db, assignment_id)
+        and bool(await decide(decider, subject, Action.RECORD_INVOICE, resource)),
         deliverable_cents=position.deliverable_cents,
         delivered_cents=position.delivered_cents,
         to_deliver_cents=position.to_deliver_cents,

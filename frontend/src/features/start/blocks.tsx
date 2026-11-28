@@ -3,6 +3,7 @@
  * said and shows it; nothing is counted or summed here.
  */
 import { assignmentPath } from '@/features/assignments/paths';
+import { incompleteText } from '@/features/costs/costText';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { formatEuro, formatFte, formatMonth, formatPercent } from '@/lib/format';
 import { PATHS } from '@/paths';
@@ -156,11 +157,15 @@ export function MyPeopleBlock({ block }: { block: Block<'my_people'> }) {
 }
 
 export function FiguresBlock({ block }: { block: Block<'figures'> }) {
+  const incomplete = block.incomplete_by ?? [];
   const rows: LinkRow[] = [
     {
       key: 'expected',
       text: `Verwacht totaal ${block.year}`,
-      notice: `Van ${formatEuro(block.budgeted_cents)} begroot`,
+      notice: [
+        `Van ${formatEuro(block.budgeted_cents)} begroot`,
+        ...(incomplete.length > 0 ? [incompleteText(incomplete)] : []),
+      ].join('. '),
       end: formatEuro(block.expected_cents),
       href: PATHS.moneyTurnover,
     },

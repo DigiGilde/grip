@@ -1,0 +1,75 @@
+# The three instances as example instances that federate with each other
+# (ADR 0050, ADR 0054), over the FSC group of compose.fsc.yml.
+#
+# Used on top of the other files, with the local Keycloak:
+#   docker compose -f compose.yml -f compose.fsc.yml -f compose.fsc-corpus.yml \
+#     -f compose.fsc-voorbeeld.yml --env-file state/keycloak.env \
+#     --profile keycloak --profile two ...
+#   (./local.sh up fsc-voorbeeld)
+#
+# An example instance fills itself on an empty database and refuses one that
+# holds anything else, and an instance for real work refuses a database that
+# was an example. So the instances get databases of their own here.
+#
+# The federation and worker processes extend the services of compose.yml,
+# not the merged ones, so every setting is repeated for all three processes.
+
+x-example: &example
+  INSTANCE_MODE: voorbeeld
+  # The group id the local contracts are made in (fsc-lib.sh).
+  EXAMPLE_FSC_GROUP: grip-local
+  # The fictional users of the local Keycloak; "onbevestigd" stays out
+  # because the provider does not vouch for that address.
+  EXAMPLE_VISITORS: grip.invalid
+  EXAMPLE_RESET_HOUR: ${EXAMPLE_RESET_HOUR:-3}
+  # Forbidden in an example instance; state/keycloak.env sets it.
+  BOOTSTRAP_BEHEERDER_EMAILS: ""
+
+x-example-a: &example-a
+  <<: *example
+  SEED_DATASET: voorbeeld
+
+x-example-b: &example-b
+  <<: *example
+  SEED_DATASET: voorbeeld
+
+x-example-d: &example-d
+  <<: *example
+  SEED_DATASET: programma
+
+services:
+  db-a:
+    volumes:
+      - db-a-voorbeeld:/var/lib/postgresql/data
+  db-b:
+    volumes:
+      - db-b-voorbeeld:/var/lib/postgresql/data
+  db-d:
+    volumes:
+      - db-d-voorbeeld:/var/lib/postgresql/data
+
+  backend-a:
+    environment: *example-a
+  federation-a:
+    environment: *example-a
+  worker-a:
+    environment: *example-a
+
+  backend-b:
+    environment: *example-b
+  federation-b:
+    environment: *example-b
+  worker-b:
+    environment: *example-b
+
+  backend-d:
+    environment: *example-d
+  federation-d:
+    environment: *example-d
+  worker-d:
+    environment: *example-d
+
+volumes:
+  db-a-voorbeeld:
+  db-b-voorbeeld:
+  db-d-voorbeeld:

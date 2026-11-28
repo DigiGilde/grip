@@ -54,18 +54,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from grip import calc
 from grip.calc import Month
 from grip.calc.periods import months_between, overlap
+from grip.chronicle.writer import changes_of, establish
 from grip.core import clock
 from grip.core.audit import UPDATE, record_audit
+from grip.events import stream
 from grip.models.assignment import Allocation, Assignment, BudgetLine
 from grip.models.catalogue_role import CatalogueRole, PersonCatalogueRole
 from grip.models.person import Person
 from grip.repositories.domain import PersonDetailRepository
-from grip.services import assignments, periods, standing
+from grip.services import assignments, periods, stale, standing
 from grip.services.errors import (
     DomainValidationError,
     MonthClosedError,
     NotFoundError,
 )
+from grip.services.guards import ensure_dossier_open
 from grip.services.phase import is_tentative
 from grip.services.pricing import (
     DEFAULT_OPTIONS,
@@ -435,7 +438,9 @@ async def _release(
         )
     except (MonthClosedError, DomainValidationError):
         # Work was already established on it. It stays as ordinary inzet with
-        # a period of its own, no longer tied to the line.
+        # a period of its own, no longer tied to the line. The lock on the stream
+        # comes first, as in ``assignments.update_allocation``.
+        await stream.hold_head(session)
         reservation.from_budget = False
         reservation.period_source = periods.OWN
         await session.flush()
@@ -513,32 +518,61 @@ def _audit_intent(
     )
 
 
+async def _check_person(
+    session: AsyncSession, line: BudgetLine, person_id: UUID | None
+) -> None:
+    """Refuse an intended person who cannot be named on this line."""
+    reservation = await reservation_of(session, line.id)
+    unchanged = person_id == line.intended_person_id
+    if person_id is None or (unchanged and reservation is not None):
+        return
+    if line.kind != "personnel":
+        raise DomainValidationError(
+            "Een beoogde persoon kan alleen op een personeelsregel."
+        )
+    await _selectable_person(session, person_id)
+
+
 async def _set_person(
     session: AsyncSession,
     line: BudgetLine,
     person_id: UUID | None,
     *,
     actor: Person | None,
+) -> None:
+    """Name, replace or remove the intended person, when nothing else changes."""
+    await establish(
+        session,
+        "budget_line_changed",
+        assignment_id=line.assignment_id,
+        actor=actor,
+        fields={
+            "line_id": line.id,
+            "name": line.display_name,
+            "changes": changes_of(BudgetLine, intended_person_id=person_id),
+        },
+    )
+
+
+async def _settle_reservation(
+    session: AsyncSession,
+    line: BudgetLine,
+    old: UUID | None,
+    *,
+    actor: Person | None,
     allow_closed_year: bool,
 ) -> None:
-    """Name, replace or remove the intended person, and the reservation."""
-    old = line.intended_person_id
+    """Make the reservation fit the person the line now names; ``old`` is who it
+    named before."""
+    person_id = line.intended_person_id
     reservation = await reservation_of(session, line.id)
     if person_id == old and (reservation is not None or person_id is None):
         return
-    if person_id is not None:
-        if line.kind != "personnel":
-            raise DomainValidationError(
-                "Een beoogde persoon kan alleen op een personeelsregel."
-            )
-        await _selectable_person(session, person_id)
     if reservation is not None and reservation.person_id != person_id:
         await _release(
             session, reservation, actor=actor, allow_closed_year=allow_closed_year
         )
         reservation = None
-    line.intended_person_id = person_id
-    await session.flush()
     if person_id != old:
         _audit_intent(session, line, old, actor)
     if person_id is not None and reservation is None:
@@ -590,15 +624,12 @@ async def add_line(
         assignment_id,
         actor=actor,
         allow_closed_year=allow_closed_year,
+        intended_person_id=intended_person_id,
         **values,
     )
     if intended_person_id is not None:
-        await _set_person(
-            session,
-            line,
-            intended_person_id,
-            actor=actor,
-            allow_closed_year=allow_closed_year,
+        await _settle_reservation(
+            session, line, None, actor=actor, allow_closed_year=allow_closed_year
         )
     return line
 
@@ -620,8 +651,10 @@ async def update_line(
     it is sent, or when ``derive_category`` asks to take it from the person.
     """
     line = await assignments.get_budget_line(session, line_id)
+    await ensure_dossier_open(session, line.assignment_id)
     set_person = "intended_person_id" in changes
-    person_id = changes.pop("intended_person_id", line.intended_person_id)
+    old_person = line.intended_person_id
+    person_id = changes.pop("intended_person_id", old_person)
     before = {
         "start_date": line.start_date,
         "end_date": line.end_date,
@@ -647,13 +680,21 @@ async def update_line(
             )
         changes["rate_category"] = derived.rate_category
     if changes:
+        await stale.check(session, line, "deze begrotingsregel")
+    if set_person:
+        await _check_person(session, line, person_id)
+    renamed = set_person and person_id != old_person
+    if changes:
         line = await assignments.update_budget_line(
             session,
             line_id,
             actor=actor,
             allow_closed_year=allow_closed_year,
+            intended_person={"intended_person_id": person_id} if renamed else None,
             **changes,
         )
+    elif renamed:
+        await _set_person(session, line, person_id, actor=actor)
     reservation = await reservation_of(session, line.id)
     if reservation is not None and reservation.person_id == person_id:
         await _follow(
@@ -665,8 +706,8 @@ async def update_line(
             allow_closed_year=allow_closed_year,
         )
     if set_person:
-        await _set_person(
-            session, line, person_id, actor=actor, allow_closed_year=allow_closed_year
+        await _settle_reservation(
+            session, line, old_person, actor=actor, allow_closed_year=allow_closed_year
         )
     return line
 
@@ -682,6 +723,8 @@ async def delete_line(
 
     Other inzet on the line still blocks the delete, as before.
     """
+    line = await assignments.get_budget_line(session, line_id)
+    await ensure_dossier_open(session, line.assignment_id)
     reservation = await reservation_of(session, line_id)
     if reservation is not None:
         await _release(

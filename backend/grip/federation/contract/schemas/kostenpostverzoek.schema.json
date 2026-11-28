@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Verzoek om een kostenpost",
+  "description": "Een organisatie vraagt de organisatie die een uitgave doet (de eigenaar) om daarvoor een kostenpost aan te maken, of om omschrijving en bedrag van die kostenpost te wijzigen. De vrager bewaart zelf alleen een verwijzing; de kostenpost en haar factuurregels zijn van de eigenaar.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Id van dit bericht. Bepaalt de idempotentie."
+    },
+    "verwijzing_uri": {
+      "type": "string",
+      "format": "uri",
+      "description": "URI van de verwijzing bij de vrager, `{basis}/id/kostenpost/{uuid}`, met de basis-URI van de instantie van de vrager. Identificeert de kostenpost over berichten heen: de eigenaar maakt per verwijzing hooguit een kostenpost aan, en een volgend verzoek met dezelfde URI vraagt om een wijziging."
+    },
+    "volgnummer": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Volgnummer van dit verzoek, oplopend per verwijzing. De eigenaar voert een verzoek met een volgnummer dat niet hoger is dan het laatst uitgevoerde niet meer uit."
+    },
+    "organisatie": {
+      "$ref": "organisatie-ref.schema.json",
+      "description": "Informatief: de organisatie die het verzoek doet, zoals de afzender zichzelf noemt. De eigenaar bepaalt de vrager uit de aanroepende peer, nooit uit dit veld. Noemt `instantie_uri` een andere instantie dan de afzender, dan weigert de eigenaar het verzoek met 403."
+    },
+    "omschrijving": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Omschrijving van de kostenpost."
+    },
+    "begroot": {
+      "$ref": "bedrag.schema.json",
+      "description": "Het verwachte bedrag van de uitgave."
+    },
+    "periode": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date",
+      "description": "Een dag in de periode waartoe de uitgave hoort, bijvoorbeeld de eerste dag van de maand. Bij het aanmaken boekt de eigenaar het verwachte bedrag als verwachte factuurregel in die periode."
+    },
+    "opdracht_uri": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uri",
+      "description": "URI van de opdracht waaronder de eigenaar het werk doet, als die er is."
+    },
+    "verzonden_op": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Moment van verzenden. Met tijdzone (RFC 3339)."
+    }
+  },
+  "required": [
+    "id",
+    "verwijzing_uri",
+    "volgnummer",
+    "organisatie",
+    "omschrijving",
+    "begroot",
+    "verzonden_op"
+  ]
+}

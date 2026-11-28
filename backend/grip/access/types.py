@@ -91,7 +91,13 @@ class Action(StrEnum):
     ISSUE_QUOTE = "issue_quote"
     # Accept or reject a quote.
     ACCEPT_QUOTE = "accept_quote"
+    # Give, as client, where the invoice goes: with the acceptance of a quote
+    # or later for the assignment. Never implies editing the billing terms.
+    GIVE_BILLING_DETAILS = "give_billing_details"
     DELIVER_REPORT = "deliver_report"
+    # Ask the organisation that makes an expense to make or change the cost
+    # item for it (ADR 0052). Only peers do this.
+    REQUEST_COST_ITEM = "request_cost_item"
     CLOSE_MONTH = "close_month"
     REOPEN_MONTH = "reopen_month"
     # Record, correct or withdraw the fact that an invoice was sent.
@@ -103,6 +109,13 @@ class Action(StrEnum):
     # Name or remove the owner and the managers of an assignment. Its own
     # action: it never implies editing the content of the assignment.
     MANAGE_ROLES = "manage_roles"
+    # Close or keep open the dossier of an ended assignment (ADR 0057).
+    CLOSE_DOSSIER = "close_dossier"
+    # Reopen a closed dossier, with a reason: the beheerder only (ADR 0057).
+    REOPEN_DOSSIER = "reopen_dossier"
+    # Take a typed text that never belonged out of a moment of an assignment,
+    # with a herstelfeit (ADR 0057).
+    RESTATE_FACT = "restate_fact"
     # Record an advice or the approval on a vacancy request.
     RECORD_DECISION = "record_decision"
     # Judge a text of a vacancy that was offered for review, and remark on it.

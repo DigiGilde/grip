@@ -12,7 +12,9 @@ What a builder returns (``built`` below) is a dict with:
 - ``recipient`` (optional): an organisation reference, when the receiver
   does not follow from the message itself;
 - ``recipients`` (optional, vacancies): a list of organisation references;
-  without it a vacancy goes to every active instance peer.
+  without it a vacancy goes to every active instance peer;
+- ``assignment_uri`` (optional): the assignment, when only the path of the
+  operation names it.
 """
 
 from __future__ import annotations
@@ -21,7 +23,6 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip.federation.models import (
@@ -32,7 +33,7 @@ from grip.federation.models import (
     Peer,
 )
 from grip.federation.outbox import enqueue
-from grip.federation.peers import find_peer_for_organisation
+from grip.federation.peers import find_peer_for_organisation, usable_peers
 from grip.federation.registry import get_message_builder
 from grip.services.errors import DomainValidationError
 from grip.services.quote_channels import NOT_CONNECTED
@@ -109,6 +110,16 @@ async def on_quote_rejected(
     return await _to_one(db, payload, "sendRejection", None, quoteId=quote_id)
 
 
+async def on_billing_details_given(
+    db: AsyncSession, payload: dict[str, Any]
+) -> list[FederationOutbox]:
+    """This instance, as client, gives the contractor new billing details."""
+    assignment_id = _uuid_from_uri(payload["assignment_uri"])
+    return await _to_one(
+        db, payload, "sendBillingDetails", None, assignmentId=assignment_id
+    )
+
+
 async def on_final_report_issued(
     db: AsyncSession, payload: dict[str, Any]
 ) -> list[FederationOutbox]:
@@ -134,8 +145,7 @@ async def on_vacancy_published(
         peers = list(
             (
                 await db.execute(
-                    select(Peer).where(
-                        Peer.is_active.is_(True),
+                    usable_peers().where(
                         Peer.role.in_(
                             [PEER_ROLE_COUNTERPART, PEER_ROLE_PARENT, PEER_ROLE_CHILD]
                         ),
@@ -154,6 +164,7 @@ EVENT_HANDLERS: dict[str, EventHandler] = {
     "quote.offered": on_quote_offered,
     "quote.accepted": on_quote_accepted,
     "quote.rejected": on_quote_rejected,
+    "client_billing_details.given": on_billing_details_given,
     "final_report.issued": on_final_report_issued,
     "vacancy.published": on_vacancy_published,
 }

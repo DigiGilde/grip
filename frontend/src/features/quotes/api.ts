@@ -3,6 +3,7 @@
  * absent from a response, not null, so most fields are optional here.
  */
 import { ApiError, apiGet, apiPost, getCsrfToken, type ProblemDetails } from '@/api/client';
+import type { BillingDetails } from '@/features/month-close/billingApi';
 
 export interface YearRate {
   year: number;
@@ -45,6 +46,8 @@ export interface QuoteContent {
   sender?: string | null;
   /** The client's own reference ("uw kenmerk"). */
   client_reference?: string | null;
+  /** Whether the quote asks for the factuurinformatie in an annex. */
+  billing_annex?: boolean;
 }
 
 export interface QuotePreview {
@@ -239,6 +242,22 @@ export function recordRejection(quoteId: string, reason: string | null): Promise
   return apiPost(`/api/quotes/${quoteId}/rejection`, { reason });
 }
 
+// The date field gives a day; the moment of signing is recorded at noon UTC
+// so the day does not shift with the time zone.
+const signedMoment = (day: string) => `${day}T12:00:00Z`;
+
+/** Corrects the day an uploaded pdf was signed; the earlier date stays on record. */
+export function correctAcceptanceDate(
+  quoteId: string,
+  input: { signed_at: string; reason: string; expected_signed_at: string },
+): Promise<QuoteSummary> {
+  return apiPost(`/api/quotes/${quoteId}/acceptance/correction`, {
+    signed_at: signedMoment(input.signed_at),
+    reason: input.reason,
+    expected_signed_at: input.expected_signed_at,
+  });
+}
+
 export interface UploadedAcceptanceInput {
   file: File;
   signer_name: string;
@@ -246,6 +265,7 @@ export interface UploadedAcceptanceInput {
   signer_function: string;
   organisation_name: string;
   signed_at: string;
+  billing_details?: BillingDetails | null;
 }
 
 /** Sends the signed pdf with the details of who signed, as a multipart form. */
@@ -259,9 +279,8 @@ export async function recordUploadedAcceptance(
   form.append('signer_email', input.signer_email);
   if (input.signer_function) form.append('signer_function', input.signer_function);
   if (input.organisation_name) form.append('organisation_name', input.organisation_name);
-  // The date field gives a day; the moment of signing is recorded at noon UTC
-  // so the day does not shift with the time zone.
-  if (input.signed_at) form.append('signed_at', `${input.signed_at}T12:00:00Z`);
+  form.append('signed_at', signedMoment(input.signed_at));
+  if (input.billing_details) form.append('billing_details', JSON.stringify(input.billing_details));
 
   const response = await fetch(`/api/quotes/${quoteId}/acceptance/uploaded-pdf`, {
     method: 'POST',
