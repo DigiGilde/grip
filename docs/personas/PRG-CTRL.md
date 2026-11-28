@@ -59,10 +59,10 @@ Naar het voorbeeld van art. 7.8 van het Mandaatbesluit BZK 2025 kan een directeu
 
 ## In Grip
 
-**MOZa voorbeeld** (account, planner en lezer, manager van de opdracht van het programma). Ze landt op Team, Inzet, omdat ze planner is, en ziet Start, Taken, Opdrachten, Team, Vacatures, Financieel en Rapportage.
+**MOZa voorbeeld** (account, planner en lezer, manager van de opdracht van het programma). Ze landt op Start en ziet Start, Taken, Opdrachten, Vacatures, Mensen en Geld; Mensen opent voor haar op het bord, omdat ze planner is.
 
 - In "Een opdracht uitvoeren en factureren" sluit zij de maanden af ("Sluit {maand} af, binnen 5 werkdagen"), levert aan en legt de factuur vast.
-- Onder Financieel, Kosten maakt zij kostenposten en laat een begrotingsregel ze dekken.
+- Onder Geld, Kosten maakt zij kostenposten en laat een begrotingsregel ze dekken.
 - Als planner vult zij rollen in en opent zij vacatures ("Iemand werven").
 
 **DigiGilde voorbeeld** (via federatie). Voor een kostenpost die het gilde uitvoert, vraagt haar grip het gilde om de kostenpost aan te maken. Zij houdt een verwijzing met de eigen dekking en leest omschrijving, bedrag en factuurregels bij het gilde. Is het gilde niet bereikbaar, dan heet de uitputting "onvolledig" (ADR 0052, 0053).

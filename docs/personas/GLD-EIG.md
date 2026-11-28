@@ -57,12 +57,12 @@ Geen mandaat om te verplichten [aanname]. Zij maakt de offerte; de handtekening 
 
 ## In Grip
 
-**DigiGilde voorbeeld** (account, geen recht in grip, eigenaar van opdrachten). Zij landt op Start en ziet Start, Taken, Opdrachten, Team, Vacatures, Financieel en Rapportage.
+**DigiGilde voorbeeld** (account, geen recht in grip, eigenaar van opdrachten). Zij landt op Start en ziet Start, Taken, Opdrachten, Vacatures, Mensen en Geld.
 
 - "Een opdracht winnen": begroting, offerte, interne goedkeuring vragen, aanbieden (via de grip van de opdrachtgever, met een tekenlink of als document), het akkoord vastleggen, in uitvoering zetten.
 - "Een opdracht uitvoeren en factureren": maanden afsluiten, aanleveren, factuur vastleggen, naverrekening, eindrapport.
 - "Iemand werven": een vacature voor een rol op haar opdracht.
-- Onder Financieel, Kosten dekt zij een kostenpost die het programma bij het gilde vraagt, met "Gevraagd door" erbij, met een begrotingsregel van haar opdracht (ADR 0052).
+- Onder Geld, Kosten dekt zij een kostenpost die het programma bij het gilde vraagt, met "Gevraagd door" erbij, met een begrotingsregel van haar opdracht (ADR 0052).
 
 **MOZa voorbeeld** (via federatie). De offerte gaat via de grip van het programma; het akkoord, en het verzoek om een kostenpost, komen terug. Het programma leest die kostenpost bij het gilde.
 

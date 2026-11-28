@@ -51,7 +51,7 @@ Geen mandaat [aanname]. Zij legt besluiten vast, neemt ze niet.
 
 ## In Grip
 
-**MOZa voorbeeld** (account, lezer). Ze landt op Start en ziet Start, Taken, Opdrachten, Vacatures, Financieel en Rapportage. Als lezer leest ze de basis en de bedragen van alle opdrachten, en de rapportage. Een eigen taak toevoegen kan alleen wie de zaak mag bewerken; als lezer kan zij dat niet. De functiegroep is een inschatting: Managementondersteuner (schaal 5-10) past ook.
+**MOZa voorbeeld** (account, lezer). Ze landt op Start en ziet Start, Taken, Opdrachten, Vacatures en Geld. Als lezer leest ze de basis en de bedragen van alle opdrachten, en onder Geld de cijfers over alle opdrachten. Een eigen taak toevoegen kan alleen wie de zaak mag bewerken; als lezer kan zij dat niet. De functiegroep is een inschatting: Managementondersteuner (schaal 5-10) past ook.
 
 ## Wat Grip nog niet kan
 

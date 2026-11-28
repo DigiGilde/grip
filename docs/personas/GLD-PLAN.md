@@ -51,7 +51,7 @@ Naar het voorbeeld van het Mandaatbesluit BZK 2025 gaat een teamleider bij ODI v
 
 ## In Grip
 
-**DigiGilde voorbeeld** (account, planner, manager van opdrachten, leidinggevende). Team opent voor hem op Inzet. Hij ziet Start, Taken, Opdrachten, Team, Vacatures, Financieel en Rapportage.
+**DigiGilde voorbeeld** (account, planner, manager van opdrachten, leidinggevende). Hij landt op Start en ziet Start, Taken, Opdrachten, Vacatures, Mensen en Geld; Mensen opent voor hem op het bord.
 
 - Als planner bewerkt hij inzet en open rollen over alle opdrachten, zonder bedragen; een afwijkende tariefcategorie ziet hij als signaal "categorie wijkt af".
 - Als manager ziet hij op zijn eigen opdrachten wel bedragen en doet hij de stappen van "Een opdracht uitvoeren en factureren".

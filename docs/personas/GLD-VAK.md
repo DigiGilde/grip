@@ -51,7 +51,7 @@ Naar het voorbeeld van het Mandaatbesluit BZK 2025 gaat een afdelingshoofd bij O
 
 ## In Grip
 
-**DigiGilde voorbeeld** (account, geen recht in grip, eigenaar en leidinggevende). Zij landt op Start en ziet Start, Taken, Opdrachten, Team, Vacatures, Financieel en Rapportage.
+**DigiGilde voorbeeld** (account, geen recht in grip, eigenaar en leidinggevende). Zij landt op Start en ziet Start, Taken, Opdrachten, Vacatures, Mensen en Geld.
 
 - Als leidinggevende leest zij bemensing, inzetschaal, tarief en declarabiliteit van haar eigen mensen, niet hun kostprijs tenzij ze op haar opdracht staan.
 - Als eigenaar loopt zij "Een opdracht winnen" en "Een opdracht uitvoeren en factureren"; de interne opdracht heeft het korte verloop Begroting, Starten, Uitvoeren.
