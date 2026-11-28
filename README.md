@@ -1,5 +1,7 @@
 # Grip
 
+[![status: experimenteel](https://img.shields.io/badge/status-experimenteel-orange.svg)](#grip)
+
 Grip legt vast hoe een organisatie binnen de Rijksoverheid een opdracht uitvoert: de begroting, de offerte, wie erop werkt tegen welk tarief, externe kosten en hun dekking, de maandafsluiting en wat er gefactureerd moet worden. Het is bedoeld om een Grist-document te vervangen dat bij DigiGilde dezelfde naam draagt.
 
 Elke organisatie of elk onderdeel draait een eigen instantie. Instanties wisselen aanvragen, offertes en akkoorden uit via FSC, en een opdracht verwijst met URI's naar de nodes in een beleidscorpus waar ze uit voortkomt.
