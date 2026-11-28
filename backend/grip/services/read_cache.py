@@ -113,6 +113,8 @@ UNRELATED_KINDS: frozenset[str] = frozenset(
         "person_role",
         "person_roles",
         "billability_target",
+        # Messages to another instance that do not arrive.
+        "delivery_trouble",
     }
 )
 

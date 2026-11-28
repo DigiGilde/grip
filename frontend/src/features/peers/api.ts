@@ -21,6 +21,26 @@ export interface Peer {
   is_active: boolean;
   key_count: number;
   jwks_fetched_at: string | null;
+  /** How many messages to this peer do not arrive. */
+  undelivered: number;
+}
+
+/** A message to a peer that does not arrive. */
+export interface UndeliveredMessage {
+  id: string;
+  /** What the message is, in words. */
+  kind: string;
+  /** Why it does not arrive, in words. */
+  reason: string;
+  since: string;
+  /** Until when grip tries; absent when it does not, or has not started again. */
+  retry_until: string | null;
+  /** Refused for good, or tried for the whole window: only a person sends it again. */
+  final: boolean;
+}
+
+export interface UndeliveredList {
+  items: UndeliveredMessage[];
 }
 
 export interface PeerList {
@@ -49,6 +69,7 @@ export interface ConnectionTest {
 }
 
 export const PEERS_KEY = ['peers'] as const;
+export const undeliveredKey = (peerId: string) => [...PEERS_KEY, peerId, 'undelivered'] as const;
 
 export const ROLE_LABELS: Record<PeerRole, string> = {
   counterpart: 'Opdrachtgever of opdrachtnemer',
@@ -75,4 +96,17 @@ export function updatePeer(
 
 export function testConnection(id: string): Promise<ConnectionTest> {
   return apiPost<ConnectionTest>(`/api/peers/${id}/test-connection`, {});
+}
+
+export function fetchUndelivered(peerId: string): Promise<UndeliveredList> {
+  return apiGet<UndeliveredList>(`/api/peers/${peerId}/undelivered`);
+}
+
+export function resendMessage(peerId: string, messageId: string): Promise<UndeliveredMessage> {
+  return apiPost<UndeliveredMessage>(`/api/peers/${peerId}/undelivered/${messageId}/resend`, {});
+}
+
+/** Stop sending a final message: it no longer counts as not arriving. */
+export function setMessageAside(peerId: string, messageId: string): Promise<UndeliveredMessage> {
+  return apiPost<UndeliveredMessage>(`/api/peers/${peerId}/undelivered/${messageId}/set-aside`, {});
 }

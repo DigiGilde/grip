@@ -37,11 +37,13 @@ from grip.services import read_cache
 from grip.services.vacancies.procedure import is_working_day
 from grip.tasks import catalogue
 from grip.tasks.cases import (
+    INSTANCE_CASE_ID,
     CaseSnapshot,
     Subject,
     live_assignment_ids,
     live_vacancy_ids,
     load_assignment_cases,
+    load_instance_cases,
     load_vacancy_cases,
 )
 from grip.tasks.plan import Plan, Template, current_plan, plan_for
@@ -432,6 +434,12 @@ async def _reconcile(
         for task in rows:
             if task.vacancy_id is not None:
                 tasks.setdefault(("vacancy", task.vacancy_id), []).append(task)
+    instance = [c for c in cases if c.case_kind == "instance"]
+    if instance:
+        rows = await db.scalars(
+            select(Task).where(Task.case_kind == "instance", Task.origin == "plan")
+        )
+        tasks[("instance", instance[0].case_id)] = list(rows)
     for case in cases:
         outcome.add(
             await _reconcile_case(
@@ -490,6 +498,7 @@ _CASE_KINDS = read_cache.UNRELATED_KINDS - {
     "passkey_credential",
     "notification_preference",
     "push_subscription",
+    "delivery_trouble",
 }
 
 
@@ -563,6 +572,22 @@ async def evaluate_vacancies(
     return outcome
 
 
+async def evaluate_instance(
+    db: AsyncSession, *, now: datetime | None = None
+) -> Outcome:
+    """The instance case: the work of keeping the instance (ADR 0061)."""
+    await db.flush()
+
+    async def load(_ids: set[UUID]) -> list[CaseSnapshot]:
+        return await load_instance_cases(db)
+
+    cases, failed = await _load_each_if_needed(db, "instance", {INSTANCE_CASE_ID}, load)
+    outcome = await _reconcile(db, cases, now=now or datetime.now(UTC))
+    outcome.snapshots = cases
+    outcome.failed = failed
+    return outcome
+
+
 async def evaluate_all(
     db: AsyncSession,
     *,
@@ -584,6 +609,7 @@ async def evaluate_all(
             db, await live_vacancy_ids(db, today=today), now=moment
         )
     )
+    outcome.add(await evaluate_instance(db, now=moment))
     await db.execute(
         pg_insert(TaskEngineRun)
         .values(id=1, last_run_at=moment)

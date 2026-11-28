@@ -201,6 +201,8 @@ def case_path(case: CaseTasks) -> str:
     task = case.head.task
     if task.case_kind == "vacancy":
         return f"/vacatures/{task.vacancy_id}"
+    if task.case_kind == "instance":
+        return "/beheer/koppelingen"
     return f"/opdrachten/{task.assignment_id}"
 
 

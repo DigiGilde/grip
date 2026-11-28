@@ -198,7 +198,12 @@ const RolesAdminPage = page(
   'RolesAdminPage',
   PATHS.roles,
 );
-const PeersPage = page(() => import('@/features/peers/PeersPage'), 'PeersPage', PATHS.peers);
+const PeersPage = page(
+  () => import('@/features/peers/PeersPage'),
+  'PeersPage',
+  PATHS.peers,
+  PATHS.peer,
+);
 const RatesPage = page(() => import('@/features/rates/RatesPage'), 'RatesPage', PATHS.rates);
 const MePage = page(() => import('@/layout/MePage'), 'MePage', PATHS.me);
 const SearchPage = page(() => import('@/features/search/SearchPage'), 'SearchPage', PATHS.search);
@@ -442,7 +447,8 @@ export function AppRoutes() {
               </AdminOnly>
             }
           />
-          <Route path={PATHS.peers} element={<PeersPage />} />
+          {/* One route for the list and an open peer, so opening one keeps the list. */}
+          <Route path={`${PATHS.peers}/:peerId?`} element={<PeersPage />} />
           <Route
             path={PATHS.organisations}
             element={

@@ -64,6 +64,7 @@ Een besluit dat anderen bindt staat hier als ADR: genummerd, met context, beslui
 | [0058](0058-factuurinformatie-bij-het-akkoord.md) | Factuurinformatie wordt bij het akkoord opgegeven | voorgesteld |
 | [0059](0059-taken-en-stappen-terug-nieuw-als-tijdlijn-een-tekstkleur.md) | Taken en de stappen terug, Nieuw als tijdlijn, één tekstkleur | aanvaard |
 | [0060](0060-het-contract-staat-in-grip.md) | Het contract staat in grip, tot een tweede systeem het implementeert | aanvaard |
+| [0061](0061-een-bericht-dat-niet-aankomt-blijft-proberen-en-valt-op.md) | Een bericht dat niet aankomt, blijft het proberen en valt op | voorgesteld |
 
 ## Welke besluiten later zijn bijgesteld
 
@@ -77,11 +78,11 @@ Een besluit wordt niet herschreven. Is het later bijgesteld, dan staat onderaan 
 | 0011 Maandafsluiting | 0039, 0047 | Aanleveren per factuurperiode; een naverrekening is een opgeslagen verschil |
 | 0012 Factuurgegevens | 0039 | Een factuurverzoek per periode als bewaard document |
 | 0013 Wies zonder FSC | 0022 | Een nieuwe collega is eerst in grip bekend |
-| 0015 De outbox als naad | 0028 | Gebeurtenissen worden eerst in een stroom vastgelegd |
+| 0015 De outbox als naad | 0028, 0061 | Gebeurtenissen worden eerst in een stroom vastgelegd; spoor B meldt wat niet aankomt via de servicelaag van spoor A |
 | 0018 Vacatureformulier en tekst | aanvulling in 0018, 0034, 0035, 0057 | Het formulier wordt bewaard; teksten uit een bibliotheek; lokaal een ontwikkelmodel; de worker ruimt elke dag op |
 | 0020 Een hash per offerte | 0030 | Ook het bestand ligt vast, met een eigen kenmerk |
 | 0023 Aangeleverd is niet gefactureerd | 0039 | Aangeleverd heeft een ontvanger en een moment |
-| 0024 Taken, feiten en het plan | 0038, 0044 | Een plan kan een eerdere versie opvolgen; een verloop per zaak uit dezelfde feiten |
+| 0024 Taken, feiten en het plan | 0038, 0044, 0061 | Een plan kan een eerdere versie opvolgen; een verloop per zaak uit dezelfde feiten; een taak kan bij de instantie zelf horen |
 | 0025 Interne goedkeuring | 0048 | Ook de maker keurt niet goed |
 | 0026 Kenmerk en pdf | 0030, 0032 | Het bestand ligt vast; de offerte is een brief; geen losse webweergave |
 | 0027 Tarievenkaart per periode | geen | Vervangt het uitgangspunt van een kaart per kalenderjaar |

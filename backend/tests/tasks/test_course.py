@@ -38,9 +38,23 @@ _NO_ACTOR = {
 }
 
 
+# Kinds of case without a course: the instance has no page that shows one,
+# and keeping it is no case that runs from a start to an end (ADR 0061).
+_WITHOUT_COURSE = {"instance"}
+
+
+def _kinds_with_a_course():
+    return [kind for kind in catalogue.CASE_KINDS if kind not in _WITHOUT_COURSE]
+
+
 def _courses():
     plan = current_plan()
-    return [c for kind in catalogue.CASE_KINDS for c in plan.courses.get(kind, ())]
+    return [c for kind in _kinds_with_a_course() for c in plan.courses.get(kind, ())]
+
+
+def test_a_kind_without_a_course_has_none():
+    for kind in _WITHOUT_COURSE:
+        assert current_plan().courses.get(kind, ()) == ()
 
 
 def test_every_course_is_short_and_named_in_words_of_the_work():
@@ -56,7 +70,7 @@ def test_every_course_is_short_and_named_in_words_of_the_work():
 def test_every_task_belongs_to_a_step_of_a_course():
     plan = current_plan()
     shown = {key for found in _courses() for step in found.steps for key in step.tasks}
-    for kind in catalogue.CASE_KINDS:
+    for kind in _kinds_with_a_course():
         for template in plan.templates.get(kind, ()):
             assert template.key in shown, f"{template.key} staat in geen verloop"
 

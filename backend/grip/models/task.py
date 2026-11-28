@@ -1,6 +1,7 @@
 """Tasks: the work people do on a case.
 
-A case is an assignment, or a vacancy as a sub-case. A task from the plan is
+A case is an assignment, or a vacancy as a sub-case, or the instance itself
+for the work of keeping it (ADR 0061). A task from the plan is
 created and closed by the task engine (``grip.tasks``) from facts in the
 domain; a manual task is added and ticked by a person. A task never changes a
 domain fact. See ADR 0024 and docs/taken.md.
@@ -30,7 +31,7 @@ from grip.models._columns import EditCounted, created_at, updated_at, uuid_pk
 TASK_STATUSES = ("todo", "doing", "waiting", "done", "obsolete")
 OPEN_STATUSES = ("todo", "doing", "waiting")
 TASK_ORIGINS = ("plan", "manual")
-CASE_KINDS = ("assignment", "vacancy")
+CASE_KINDS = ("assignment", "vacancy", "instance")
 
 
 def _in(column: str, values: tuple[str, ...]) -> str:
@@ -46,11 +47,14 @@ class Task(EditCounted, Base):
         CheckConstraint(_in("case_kind", CASE_KINDS), name="case_kind_valid"),
         CheckConstraint(_in("status", TASK_STATUSES), name="status_valid"),
         CheckConstraint(_in("origin", TASK_ORIGINS), name="origin_valid"),
-        # A vacancy task names its vacancy; an assignment task its assignment.
+        # A vacancy task names its vacancy; an assignment task its assignment;
+        # a task of the instance neither.
         CheckConstraint(
             "(case_kind = 'assignment' AND assignment_id IS NOT NULL"
             " AND vacancy_id IS NULL)"
-            " OR (case_kind = 'vacancy' AND vacancy_id IS NOT NULL)",
+            " OR (case_kind = 'vacancy' AND vacancy_id IS NOT NULL)"
+            " OR (case_kind = 'instance' AND assignment_id IS NULL"
+            " AND vacancy_id IS NULL)",
             name="case_matches_kind",
         ),
         CheckConstraint(

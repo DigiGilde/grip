@@ -3,6 +3,7 @@
  * which tasks are the reader's to do. Pure, so it is tested.
  */
 import { formatDate } from '@/lib/format';
+import { PATHS } from '@/paths';
 import type { Task } from './api';
 
 /** The search parameter that says: this page was opened to do that task. */
@@ -45,6 +46,9 @@ export function aboutLinks(task: Task): AboutLink[] {
   }
   if (task.assignment_id && task.assignment_name) {
     links.push({ text: task.assignment_name, href: `/opdrachten/${task.assignment_id}` });
+  }
+  if (task.case_kind === 'instance') {
+    links.push({ text: task.case_label, href: PATHS.peers });
   }
   return links;
 }

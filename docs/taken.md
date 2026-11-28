@@ -4,7 +4,7 @@ Dit document beschrijft de takenlaag van grip: welke feiten er zijn, welk plan w
 
 ## In het kort
 
-- Een **zaak** is een opdracht of een vacature.
+- Een **zaak** is een opdracht of een vacature, of de instantie zelf voor het werk van haar beheerder.
 - Een **feit** is iets wat grip over een zaak weet uit de eigen gegevens.
 - Een **taak** ontstaat als haar voorwaarden gelden en sluit als haar feit geldt.
 - Het **plan** is de lijst sjablonen waaruit taken ontstaan.
@@ -29,7 +29,7 @@ De naam van een taak die jij moet doen, brengt je naar die pagina. Bovenaan staa
 |---|---|
 | Start, Te doen | Je taken per zaak: één rij per opdracht of vacature, met de eerstvolgende taak, de zaak en wat erna komt ("daarna nog 7 maanden en 1 taak"), en "Te laat" als de termijn voorbij is. De zaken staan op volgorde van hun eerste taak: wat het eerst af moet bovenaan, zonder termijn achteraan. Hooguit vijf zaken; de laatste plek gaat naar de eerste zaak zonder termijn als die anders wegvalt, zodat late maanden "Bied de offerte aan" niet verdringen. Daaronder altijd "Alle taken" met het aantal. Het getal bij Taken in de balk is hetzelfde getal. |
 | Taken (`/taken`, een plek in de balk), weergave Mijn taken | Twee groepen. "Te doen": wat jij nu moet doen, wat het eerst af moet bovenaan. "Wacht op anderen": wat van jou is en op een ander wacht, en de taken van anderen op de opdrachten waarvan je eigenaar bent en de vacatures die je hebt aangevraagd. Het getal bij Taken in de balk telt alleen "Te doen". Wie offertes mag goedkeuren, vindt hier "Offertes ter goedkeuring". |
-| Taken, weergave Bord | Alle taken van de zaken die je mag inzien, in de kolommen te doen, bezig, wacht op een ander en klaar. Te filteren op opdracht of vacature, op persoon en op spoor. |
+| Taken, weergave Bord | Alle taken van de zaken die je mag inzien, in de kolommen te doen, bezig, wacht op een ander en klaar. Te filteren op waarover (de opdracht, de vacature of Koppelingen), op persoon en op spoor. |
 | Alle taken van een opdracht of vacature | De taken per soort werk. Wie de taken van de zaak mag wijzigen, kan een eigen taak toevoegen met "Nieuwe taak", en vindt de link op de landing: bij een opdracht "En nog 2 taken voor jou" als die er zijn, anders "Alle taken van deze opdracht"; bij een vacature "Alle taken van deze vacature". |
 
 Taken staat niet in de balk: je komt er vanaf Start. Van de maanden die op afsluiten wachten is er steeds één taak, voor de eerste; "daarna nog 7 maanden" telt de maanden zelf, en alleen voor wie het geld of de inzet van de opdracht mag lezen.
@@ -92,6 +92,7 @@ Een sjabloon is voor de zaak als geheel, of herhaalt zich per onderwerp.
 | `month_to_close` | Verstreken maand met inzet die nog niet is afgesloten |
 | `closed_month` | Afgesloten maand |
 | `billing_period` | Factuurperiode van de opdracht waarin een maand is afgesloten: een maand of een kalenderkwartaal |
+| `peer` | Andere instantie waaraan berichten niet aankomen; alleen bij de zaak van de instantie zelf |
 
 ### Feiten over een opdracht
 
@@ -134,6 +135,9 @@ Een sjabloon is voor de zaak als geheel, of herhaalt zich per onderwerp.
 | `period_ready` | Factuurperiode | Elke maand met inzet in de periode is afgesloten |
 | `period_delivered` | Factuurperiode | De periode is aangeleverd |
 | `period_invoiced` | Factuurperiode | De factuur over de periode is vastgelegd |
+| `messages_arrive` | Koppeling | Elk bericht aan de koppeling is aangekomen, of staat opzij omdat de beheerder het niet meer verstuurt |
+| `message_refused` | Koppeling | Een bericht aan de koppeling is voorgoed geweigerd: het klopt niet, botst of gaat over iets wat er niet meer is |
+| `message_given_up` | Koppeling | Een bericht aan de koppeling is zeven dagen geprobeerd en niet aangekomen |
 
 ### Feiten over een vacature
 
@@ -164,7 +168,7 @@ De takenlaag luistert naar alle bestaande domeingebeurtenissen en doet bij elk h
 
 ## Het meegeleverde plan
 
-Versie 2026.4, in `backend/grip/data/tasks/plan.json`; 33 sjablonen. De titels hieronder zijn die voor wie het werk doet, uit `guidance.json`.
+Versie 2026.4, in `backend/grip/data/tasks/plan.json`; 34 sjablonen. De titels hieronder zijn die voor wie het werk doet, uit `guidance.json`.
 
 ### Opdracht
 
@@ -216,6 +220,14 @@ Een verzoek om goedkeuring bestaat alleen als de instantie interne goedkeuring v
 
 De taken voor het aanvraagformulier ontstaan alleen als de instantie een formulier in gebruik heeft. "Stel de nieuwe collega voor aan Wies" en "Vraag een account en e-mailadres aan" sluiten door hun feit en zijn ook af te vinken, omdat het werk buiten grip gebeurt. Een taak die iemand zelf toevoegt, sluit alleen met de hand.
 
+### De instantie zelf
+
+| Spoor | Taak | Sluit door | Voor | Termijn |
+|---|---|---|---|---|
+| Beheer | Kijk waarom berichten aan (koppeling) niet aankomen | Feit: de berichten aan de koppeling komen aan of staan opzij | Beheerder |  |
+
+De instantie is een zaak zonder pagina en zonder verloop (ADR 0061). Haar enige taak ontstaat per koppeling zodra een bericht aan die koppeling drie keer op rij mislukt of definitief is, en is klaar als alles is aangekomen of opzij staat. De feiten komen uit wat grip per koppeling bewaart over berichten die niet aankomen (`delivery_trouble`), nooit uit de outbox. Zolang grip het probeert, is de knop "Test de verbinding". Is een bericht zeven dagen geprobeerd, dan heet de taak "Verstuur berichten aan (koppeling) opnieuw" en is de knop "Opnieuw versturen". Heeft de ontvanger een bericht voorgoed geweigerd, dan heet ze "Kijk welk bericht (koppeling) weigert" en is de knop "Niet meer versturen": opnieuw versturen helpt dan pas als de ontvanger iets verandert. Een bericht dat de beheerder niet meer verstuurt, telt niet meer mee. De taak leidt naar de koppeling bij Beheer, Koppelingen, die een eigen adres heeft (`/beheer/koppelingen/{id}`); omdat een koppeling geen pagina naast haar paneel heeft, zijn `work_href` en `step_href` hetzelfde. Alleen wie de instantie beheert, ziet haar. Een nieuwe soort zaak heeft nog geen lopende zaken, dus het plan kreeg er geen nieuwe versie voor.
+
 ### Een nieuwe versie van het plan
 
 Een zaak houdt de versie waarmee ze begon. Een plan kan onder `replaces` oudere versies noemen waarvan het de lopende zaken overneemt; dat is voor een versie waarin het werk verkeerd was ingedeeld, niet voor elke wijziging. Versie 2026.3 nam de zaken van 2026.2 over; versie 2026.4 neemt die van 2026.2 en 2026.3 over, zodat ook een lopende zaak het voorstel krijgt om haar dossier te sluiten. Bij de eerstvolgende evaluatie krijgt zo'n zaak de taken van het nieuwe plan. Een open taak die het nieuwe plan niet meer vraagt, vervalt; een taak die beide plannen vragen, blijft dezelfde taak.
@@ -238,7 +250,7 @@ Een sjabloon in het plan krijgt een vermelding met dezelfde sleutel in `backend/
 | `destination` | Een naam uit `destinations` in hetzelfde bestand: de pagina waar het werk gebeurt |
 | `situations` | Andere `title`, `awaited`, `do`, `wait` of `action` voor een stand die grip herkent (optioneel) |
 
-In een zin kunnen staan: `{opdracht}`, `{opdrachtgever}`, `{functie}`, `{aanvrager}`, `{ingediend_op}`, `{wie}`, `{kenmerk}`, `{maand}`, `{periode}`, `{rol}`, `{tekst}`, `{gevraagd_door}` en `{gevraagd_op}`. Een nieuwe naam of een nieuwe stand komt erbij in `backend/grip/tasks/telling.py`.
+In een zin kunnen staan: `{opdracht}`, `{opdrachtgever}`, `{functie}`, `{aanvrager}`, `{ingediend_op}`, `{wie}`, `{kenmerk}`, `{maand}`, `{periode}`, `{rol}`, `{tekst}`, `{gevraagd_door}`, `{gevraagd_op}`, en voor een koppeling `{koppeling}`, `{sinds}`, `{berichten}`, `{reden}` en `{pogingen}`. Een nieuwe naam of een nieuwe stand komt erbij in `backend/grip/tasks/telling.py`.
 
 ## Zaakgericht werken
 
@@ -246,7 +258,7 @@ Grip gebruikt de woorden van zaakgericht werken en niet de componenten. Er is ge
 
 | Zaakgericht werken | In grip |
 |---|---|
-| Zaak | Een opdracht of een vacature |
+| Zaak | Een opdracht of een vacature, en de instantie zelf voor het werk van haar beheerder |
 | Zaaktype | De soort zaak met haar deel van het plan, in een versie |
 | Statustype en status | De feiten van de zaak; de stand per spoor is de leesbare vorm |
 | Deelzaak | Een vacature die bij een begrotingsregel van een opdracht hoort |

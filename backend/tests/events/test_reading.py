@@ -370,10 +370,14 @@ async def test_an_id_that_names_the_person_is_hidden_with_the_person(
 _SENTINEL = "geheim-7f3a"
 
 
-def _resource(kind: str, world, with_case: bool, with_person: bool) -> Resource:
-    """What the model is asked, written out again here on purpose."""
+def _resource(kind: str, world, with_case: bool, with_person: bool) -> Resource | None:
+    """What the model is asked, written out again here on purpose. None is
+    administration of the instance."""
     if kind.startswith("vacancy"):
         raise AssertionError("vacancies are walked in their own test")
+    if kind == "task" and not with_case:
+        # A task of the instance itself (ADR 0061).
+        return None
     person = world.member.id if with_person else None
     if with_case:
         return Resource(
@@ -393,7 +397,7 @@ def _resource(kind: str, world, with_case: bool, with_person: bool) -> Resource:
 
 
 async def _allowed(decider, subject, resource, data_class) -> bool:
-    if data_class is None:
+    if data_class is None or resource is None:
         answer = await decide(
             decider, subject, Action.MANAGE_USERS, Resource.instance()
         )

@@ -11,6 +11,8 @@ this module only remembers the answers for the length of one request.
 - The person a task is for may always change its status.
 - A task that asks for internal approval of a quote is readable by whoever
   may approve quotes, as the quote itself is.
+- A task of the instance itself is for whoever keeps the instance: who may
+  manage it reads and changes it (ADR 0061).
 """
 
 from __future__ import annotations
@@ -102,6 +104,7 @@ class TaskAccess:
         self._vacancies: dict[UUID, CaseRights] = {}
         self._roles: dict[UUID, str] | None = None
         self._runs_vacancy: dict[UUID, bool] = {}
+        self._instance: CaseRights | None = None
 
     async def _may(
         self, action: Action, resource: Resource, data_class: DataClass | None = None
@@ -217,9 +220,18 @@ class TaskAccess:
             await self.prime_vacancies({vacancy_id})
         return self._vacancies[vacancy_id]
 
+    async def instance(self) -> CaseRights:
+        if self._instance is None:
+            # Who keeps the instance: the same right as Beheer > Koppelingen.
+            keeps = await self._may(Action.MANAGE_USERS, Resource.instance())
+            self._instance = CaseRights(read=keeps, edit=keeps)
+        return self._instance
+
     async def case(
         self, case_kind: str, assignment_id: UUID | None, vacancy_id: UUID | None
     ) -> CaseRights:
+        if case_kind == "instance":
+            return await self.instance()
         if case_kind == "vacancy" and vacancy_id is not None:
             return await self.vacancy(vacancy_id)
         if assignment_id is not None:

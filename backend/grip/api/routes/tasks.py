@@ -386,7 +386,9 @@ async def get_task(
     access = _access(db, decider, subject)
     task, _, _ = await _load(db, access, task_id)
     # Look at the case first: whoever just did the work sees the task closed.
-    if task.case_kind == "vacancy" and task.vacancy_id is not None:
+    if task.case_kind == "instance":
+        await engine.evaluate_instance(db)
+    elif task.case_kind == "vacancy" and task.vacancy_id is not None:
         await engine.evaluate_vacancies(db, {task.vacancy_id})
     elif task.assignment_id is not None:
         await engine.evaluate_assignments(

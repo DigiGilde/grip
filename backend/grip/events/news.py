@@ -488,6 +488,8 @@ OFF_KINDS: frozenset[str] = frozenset(
         "function_family",
         "function_group",
         "form_template",
+        # The beheerder's task tells it; the feed would say it again.
+        "delivery_trouble",
     }
 )
 

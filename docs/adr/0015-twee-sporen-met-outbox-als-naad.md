@@ -26,3 +26,7 @@ De sporen lopen tegelijk. Spoor A vervangt Grist, spoor B bouwt de federatie.
 ## Later gewijzigd (2026-10-09)
 
 De naad is gebleven. De gebeurtenissen die spoor A meldt worden sindsdien eerst duurzaam vastgelegd in een stroom, in dezelfde transactie als de wijziging; de outbox, de taken en de geschiedenis worden daaruit gevoed (ADR 0028).
+
+## Later gewijzigd (2026-11-28)
+
+Spoor B meldt per peer wat niet aankomt aan een service van spoor A, die het in een eigen tabel bewaart; de taak van de beheerder leest alleen die tabel (ADR 0061). Een bericht aan een onbereikbare tegenpartij blijft zeven dagen in de outbox en is daarna niet afgeleverd, tot de beheerder het opnieuw verstuurt.

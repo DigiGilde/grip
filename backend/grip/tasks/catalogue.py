@@ -9,7 +9,9 @@ each name in Dutch.
 
 from __future__ import annotations
 
-CASE_KINDS = ("assignment", "vacancy")
+# "instance": the instance itself, one case without a page of its own, for
+# the work of keeping it (ADR 0061).
+CASE_KINDS = ("assignment", "vacancy", "instance")
 
 # The subjects a template can be "for", per kind of case. "case" is the case
 # as a whole; the others repeat a task per month, role or quote.
@@ -34,6 +36,8 @@ SUBJECTS: dict[str, frozenset[str]] = {
     # text: a text the vacancy needs (the motivation, the vacancy text).
     # text_review: one person asked to judge the latest version of a text.
     "vacancy": frozenset({"case", "text", "text_review"}),
+    # peer: another instance to which messages do not arrive.
+    "instance": frozenset({"peer"}),
 }
 
 # Facts about the case as a whole.
@@ -104,6 +108,7 @@ CASE_FACTS: dict[str, frozenset[str]] = {
             "withdrawn",
         }
     ),
+    "instance": frozenset(),
 }
 
 # Facts about one subject, per subject kind.
@@ -160,6 +165,18 @@ SUBJECT_FACTS: dict[str, frozenset[str]] = {
         }
     ),
     "text_review": frozenset({"verdict_given"}),
+    "peer": frozenset(
+        {
+            # Every message to the peer arrived, or was set aside.
+            "messages_arrive",
+            # A message to it was refused for good: sending it again does
+            # not help until the receiver changes something.
+            "message_refused",
+            # A message to it was tried for the whole window. Only a person
+            # sends it again.
+            "message_given_up",
+        }
+    ),
 }
 
 # Dates a deadline can count from, per subject kind.
@@ -178,6 +195,7 @@ ANCHORS: dict[str, frozenset[str]] = {
     "billing_period": frozenset({"ready_on", "delivered_on"}),
     "text": frozenset(),
     "text_review": frozenset({"offered_on"}),
+    "peer": frozenset(),
 }
 
 # Who a task can be for. A role is resolved when the task is read, except
@@ -205,6 +223,7 @@ ASSIGNEES: dict[str, frozenset[str]] = {
     | FUNCTION_ROLES
     | VACANCY_PERSON_ROLES
     | frozenset({"writer", "reviewer"}),
+    "instance": frozenset({"beheerder"}),
 }
 
 ROLE_LABELS: dict[str, str] = {
@@ -265,6 +284,7 @@ FACT_LABELS: dict[str, str] = {
     "publication_recorded": "de link naar de gepubliceerde vacature is vastgelegd",
     "request_form_current": "het aanvraagformulier is gemaakt en klopt met de vacature",
     "request_form_signed": "het getekende formulier is vastgelegd",
+    "messages_arrive": "de berichten aan de koppeling komen aan",
 }
 
 

@@ -1,22 +1,30 @@
 import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
 import { useStaleForm } from '@/ui/useStaleForm';
 import { formatDate } from '@/lib/format';
 import { Button, SelectField, SwitchField, TextField } from '@/features/team/ui/controls';
 import { Form, Sheet } from '@/features/team/ui/overlays';
 import { useInstance } from '@/layout/useInstance';
+import { ErrorNotice } from '@/ui/layout';
+import { TASK_KEYS } from '@/features/tasks';
+import { RowActions } from '@/ui/RowActions';
 import {
   PEERS_KEY,
   ROLE_LABELS,
   createPeer,
+  fetchUndelivered,
+  resendMessage,
+  setMessageAside,
   testConnection,
+  undeliveredKey,
   updatePeer,
   type ConnectionTest,
   type Peer,
   type PeerInput,
   type PeerRole,
 } from './api';
+import { standing } from './undelivered';
 
 interface PeerSheetProps {
   open: boolean;
@@ -45,6 +53,7 @@ export function PeerSheet({ open, peer, services, onClose }: PeerSheetProps) {
         <nldd-container gap="32">
           <PeerForm key={peer?.id ?? 'new'} peer={peer} services={services} onSaved={onClose} />
           {peer ? <Connection peer={peer} /> : null}
+          {peer && peer.undelivered > 0 ? <Undelivered peer={peer} /> : null}
         </nldd-container>
       ) : null}
     </Sheet>
@@ -219,6 +228,72 @@ function Connection({ peer }: { peer: Peer }) {
           onClick={() => test.mutate()}
         />
       </nldd-container>
+    </nldd-container>
+  );
+}
+
+/** The messages to this peer that do not arrive; one that is final can go again, or not. */
+function Undelivered({ peer }: { peer: Peer }) {
+  const queryClient = useQueryClient();
+  const query = useQuery({
+    queryKey: undeliveredKey(peer.id),
+    queryFn: () => fetchUndelivered(peer.id),
+  });
+  const [error, setError] = useState<string | null>(null);
+  const settled = async () => {
+    setError(null);
+    await queryClient.invalidateQueries({ queryKey: PEERS_KEY });
+    await queryClient.invalidateQueries({ queryKey: TASK_KEYS.all });
+  };
+  const resend = useMutation({
+    mutationFn: (messageId: string) => resendMessage(peer.id, messageId),
+    onSuccess: settled,
+    onError: (err) => setError(errorMessage(err)),
+  });
+  const setAside = useMutation({
+    mutationFn: (messageId: string) => setMessageAside(peer.id, messageId),
+    onSuccess: settled,
+    onError: (err) => setError(errorMessage(err)),
+  });
+  if (query.isError) {
+    return <ErrorNotice message="De berichten konden niet worden geladen." />;
+  }
+  const messages = query.data?.items ?? [];
+  if (messages.length === 0) return null;
+  const busy = resend.isPending || setAside.isPending;
+  return (
+    <nldd-container gap="8">
+      <nldd-title size="display-4" text="Berichten die niet aankomen" heading-level={2} />
+      {error ? (
+        <nldd-banner variant="critical" text="Dat is niet gelukt" supporting-text={error} />
+      ) : null}
+      <nldd-list accessible-label={`Berichten aan ${peer.name} die niet aankomen`}>
+        {messages.map((message) => (
+          <nldd-list-item key={message.id}>
+            <nldd-text-cell width="full" text={message.kind} supporting-text={standing(message)} />
+            <RowActions
+              name={message.kind}
+              actions={
+                message.final && !busy
+                  ? [
+                      { text: 'Opnieuw versturen', onSelect: () => resend.mutate(message.id) },
+                      {
+                        text: 'Niet meer versturen',
+                        destructive: true,
+                        onSelect: () => setAside.mutate(message.id),
+                        confirm: {
+                          text: `${message.kind} niet meer versturen?`,
+                          supportingText: `Het bericht komt dan niet meer aan bij ${peer.name}, en telt niet meer als bericht dat niet aankomt.`,
+                          confirmText: 'Niet meer versturen',
+                        },
+                      },
+                    ]
+                  : []
+              }
+            />
+          </nldd-list-item>
+        ))}
+      </nldd-list>
     </nldd-container>
   );
 }

@@ -11,7 +11,7 @@ what it asked for.
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -20,8 +20,9 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 
+from grip.core import clock
 from grip.core.config import get_settings
-from grip.federation import terms
+from grip.federation import terms, undelivered
 from grip.federation.bridge import cost_items, providers
 from grip.federation.bridge.organisations import from_reference
 from grip.federation.contract_loader import SERVICE_OPDRACHTVERKEER, validation_errors
@@ -29,7 +30,9 @@ from grip.federation.models import FederationOutbox, Peer
 from grip.federation.outbox import send_due
 from grip.federation.outway import OutwayClient
 from grip.models.cost import CostItem, InvoiceLine
+from grip.models.delivery_trouble import DeliveryTrouble
 from grip.models.organisation import Organisation
+from grip.models.task import Task
 from grip.repositories.domain import CostRepository
 from grip.services import (
     assignments,
@@ -41,6 +44,7 @@ from grip.services import (
 )
 from grip.services.cost_references import ReferenceState
 from grip.services.errors import DomainValidationError
+from grip.tasks import engine
 from tests.federation import test_two_instances
 from tests.federation.test_two_instances import (
     PEER_HEADER,
@@ -80,6 +84,29 @@ def _unreachable(instance: Instance) -> OutwayClient:
             get_settings(),
             http_client=httpx.AsyncClient(transport=httpx.MockTransport(refuse)),
         )
+
+
+def _refusing(instance: Instance) -> OutwayClient:
+    """An outway of ``instance`` whose receiver refuses every message as wrong."""
+
+    def refuse(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            400,
+            json={"title": "Bericht geweigerd", "status": 400, "detail": "Klopt niet."},
+        )
+
+    with acting_as(instance):
+        return OutwayClient(
+            get_settings(),
+            http_client=httpx.AsyncClient(transport=httpx.MockTransport(refuse)),
+        )
+
+
+async def _due_again(instance: Instance) -> None:
+    """As if the pause before the next attempt had passed."""
+    async with instance.session() as db:
+        for row in (await db.execute(select(FederationOutbox))).scalars():
+            row.next_attempt_at = datetime.now(UTC)
 
 
 async def _call(
@@ -395,7 +422,10 @@ async def test_what_is_passed_on_says_what_could_not_be_read(instances, monkeypa
     assert validation_errors("doorgifte-kosten", handover) == []
 
 
-async def test_a_refused_request(instances):
+async def test_a_request_the_contractor_does_not_know_yet_waits_and_arrives(instances):
+    """What happened on the platform (docs/uitrol-zad.md, step 9): the client
+    asks before the contractor knows it. The contractor answers 403, which is
+    no refusal of the request: it arrives once the contractor knows the client."""
     client, contractor = instances
     async with client.session() as db:
         await _know(db, contractor)
@@ -404,8 +434,165 @@ async def test_a_refused_request(instances):
     async with contractor.session() as db:
         await _know(db, client, is_active=False)
     assignment_id, item_id = await _programme(client, executor_id)
+    for _ in range(3):
+        async with client.session() as db:
+            stats = await send_due(db, client.outway, get_settings())
+        assert (stats.retried, stats.rejected) == (1, 0)
+        await _due_again(client)
+    (row,) = await _outbox(client)
+    assert (row.status, row.failure, row.last_status_code) == (
+        "pending",
+        "unknown_sender",
+        403,
+    )
+    overview = await _overview(client, item_id)
+    assert overview.reference.state is ReferenceState.WAITING
+    line = await _line_figures(client, assignment_id)
+    assert line.incomplete_by == (GILDE,)
+    # The beheerder of the client is told, in words and without the answer.
     async with client.session() as db:
-        stats = await send_due(db, client.outway, get_settings())
+        (trouble,) = (await db.execute(select(DeliveryTrouble))).scalars().all()
+        assert (trouble.peer_name, trouble.message_count, trouble.final) == (
+            GILDE,
+            1,
+            False,
+        )
+        assert trouble.reason == "unknown_sender"
+        await engine.evaluate_instance(db)
+        (task,) = (
+            await db.scalars(select(Task).where(Task.case_kind == "instance"))
+        ).all()
+        assert (task.assignee_role, task.status) == ("beheerder", "todo")
+        assert task.repeat_key == str(trouble.peer_id)
+
+    # The contractor connects the client; the next attempt arrives.
+    async with contractor.session() as db:
+        known = await db.scalar(select(Peer).where(Peer.peer_id == client.peer_id))
+        assert known is not None
+        known.is_active = True
+    await _deliver(client)
+    overview = await _overview(client, item_id)
+    assert overview.reference.state is ReferenceState.FOUND
+    line = await _line_figures(client, assignment_id)
+    assert (line.coverage_cents, line.incomplete_by) == (450000, ())
+    async with client.session() as db:
+        assert (await db.execute(select(DeliveryTrouble))).scalars().all() == []
+        await engine.evaluate_instance(db)
+        (task,) = (
+            await db.scalars(select(Task).where(Task.case_kind == "instance"))
+        ).all()
+        assert (task.status, task.completed_by_fact) == ("done", "messages_arrive")
+
+
+async def test_a_refused_request_sent_again_arrives(instances):
+    client, contractor = instances
+    executor_id = await _connected(client, contractor)
+    _assignment_id, item_id = await _programme(client, executor_id)
+    reachable, client.outway = client.outway, _refusing(client)
+    try:
+        async with client.session() as db:
+            stats = await send_due(db, client.outway, get_settings())
+        assert stats.rejected == 1
+    finally:
+        client.outway = reachable
+    overview = await _overview(client, item_id)
+    assert overview.reference.state is ReferenceState.REFUSED
+    (row,) = await _outbox(client)
+    async with client.session() as db:
+        (trouble,) = (await db.execute(select(DeliveryTrouble))).scalars().all()
+        assert (trouble.final, trouble.reason) == (True, "invalid")
+
+    # Once the cause is gone the beheerder sends it again: it waits again.
+    async with client.session() as db:
+        await undelivered.resend(db, row.peer_id, row.id, actor=None)
+    overview = await _overview(client, item_id)
+    assert overview.reference.state is ReferenceState.WAITING
+    async with client.session() as db:
+        (trouble,) = (await db.execute(select(DeliveryTrouble))).scalars().all()
+        assert trouble.final is False
+
+    await _deliver(client)
+    overview = await _overview(client, item_id)
+    assert overview.reference.state is ReferenceState.FOUND
+    async with contractor.session() as db:
+        (made,) = (await db.execute(select(CostItem))).scalars().all()
+        assert made.description == "Zaal en catering"
+    assert len(await _outbox(client)) == 1, "the same message, not a second one"
+
+
+async def test_a_request_tried_for_the_whole_window_is_undelivered_until_sent_again(
+    instances,
+):
+    client, contractor = instances
+    executor_id = await _connected(client, contractor)
+    _assignment_id, item_id = await _programme(client, executor_id)
+    first = datetime.now(UTC)
+    reachable, client.outway = client.outway, _unreachable(client)
+    try:
+        with clock.at(first):
+            async with client.session() as db:
+                stats = await send_due(db, client.outway, get_settings())
+        assert stats.retried == 1
+        (row,) = await _outbox(client)
+        assert row.retry_until == first + timedelta(days=7)
+        with clock.at(first + timedelta(days=7, minutes=1)):
+            async with client.session() as db:
+                stats = await send_due(db, client.outway, get_settings())
+        assert stats.dead == 1
+    finally:
+        client.outway = reachable
+    overview = await _overview(client, item_id)
+    assert overview.reference.state is ReferenceState.UNDELIVERED
+    (row,) = await _outbox(client)
+    assert (row.status, row.failure) == ("dead", "no_connection")
+
+    async with client.session() as db:
+        await undelivered.resend(db, row.peer_id, row.id, actor=None)
+    overview = await _overview(client, item_id)
+    assert overview.reference.state is ReferenceState.WAITING
+    await _deliver(client)
+    overview = await _overview(client, item_id)
+    assert overview.reference.state is ReferenceState.FOUND
+
+
+async def test_a_request_for_a_removed_reference_is_not_sent_again(instances):
+    client, contractor = instances
+    executor_id = await _connected(client, contractor)
+    _assignment_id, item_id = await _programme(client, executor_id)
+    reachable, client.outway = client.outway, _refusing(client)
+    try:
+        async with client.session() as db:
+            await send_due(db, client.outway, get_settings())
+    finally:
+        client.outway = reachable
+    async with client.session() as db:
+        await costs.delete_reference(db, item_id, actor=None)
+    (row,) = await _outbox(client)
+    async with client.session() as db:
+        with pytest.raises(DomainValidationError, match="niet meer op"):
+            await undelivered.resend(db, row.peer_id, row.id, actor=None)
+    (row,) = await _outbox(client)
+    assert row.status == "rejected"
+    async with contractor.session() as db:
+        assert (await db.execute(select(CostItem))).scalars().all() == []
+
+    # Set aside, it no longer troubles anyone.
+    async with client.session() as db:
+        await undelivered.set_aside(db, row.peer_id, row.id, actor=None)
+    async with client.session() as db:
+        assert (await db.execute(select(DeliveryTrouble))).scalars().all() == []
+
+
+async def test_a_refused_request(instances):
+    client, contractor = instances
+    executor_id = await _connected(client, contractor)
+    assignment_id, item_id = await _programme(client, executor_id)
+    reachable, client.outway = client.outway, _refusing(client)
+    try:
+        async with client.session() as db:
+            stats = await send_due(db, client.outway, get_settings())
+    finally:
+        client.outway = reachable
     assert stats.rejected == 1
     overview = await _overview(client, item_id)
     assert overview.reference.state is ReferenceState.REFUSED

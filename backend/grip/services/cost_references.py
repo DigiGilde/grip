@@ -149,7 +149,8 @@ class ReferenceState(StrEnum):
     # The executor has not made the item yet: the request is on its way.
     WAITING = "waiting"
     REFUSED = "refused"
-    # The request could not be delivered; it is not tried again.
+    # The request could not be delivered; it is not tried again unless a
+    # beheerder sends it again.
     UNDELIVERED = "undelivered"
     # Read at the executor just now.
     FOUND = "found"
@@ -350,6 +351,34 @@ async def answered(
     )
 
 
+async def sent_again(
+    session: AsyncSession, cost_item_id: UUID, sequence: int, *, actor: Person | None
+) -> bool:
+    """Request number ``sequence``, refused or not delivered, goes out once more.
+
+    The reference waits for the executor again. False when the request no
+    longer stands: the reference is gone, or a later request overtook it.
+    """
+    item = await session.get(CostItem, cost_item_id)
+    if item is None or not is_reference(item) or sequence != item.request_sequence:
+        return False
+    if item.request_status not in (REQUEST_REFUSED, REQUEST_UNDELIVERED):
+        return True
+    old = audit_fields(item, _REQUEST_FIELDS)
+    item.request_status = REQUEST_WAITING
+    await session.flush()
+    record_audit(
+        session,
+        actor=actor,
+        action=UPDATE,
+        entity="cost_item",
+        entity_id=item.id,
+        old_value=old,
+        new_value=audit_fields(item, _REQUEST_FIELDS),
+    )
+    return True
+
+
 __all__ = [
     "EXECUTOR_FIXED",
     "LINES_AT_EXECUTOR",
@@ -370,5 +399,6 @@ __all__ = [
     "register_executor_lookup",
     "register_reader",
     "require_possible_executor",
+    "sent_again",
     "waiting",
 ]

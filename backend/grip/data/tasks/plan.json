@@ -1016,6 +1016,26 @@
           "label": "Vervuld"
         }
       ]
+    },
+    "instance": {
+      "tracks": [
+        {
+          "key": "beheer",
+          "label": "Beheer"
+        }
+      ],
+      "templates": [
+        {
+          "key": "beheer.berichten_laten_aankomen",
+          "track": "beheer",
+          "title": "Kijk waarom berichten aan {koppeling} niet aankomen",
+          "for": "peer",
+          "when": [],
+          "done_when": "messages_arrive",
+          "assignee": "beheerder",
+          "link": "/beheer/koppelingen/{subject_id}"
+        }
+      ]
     }
   }
 }

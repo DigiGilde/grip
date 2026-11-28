@@ -210,6 +210,10 @@ class EventAccess:
                 assignment_id=event.case_id,
                 person_id=event.person_id,
             )
+        if event.subject_kind == "task" and event.case_id is None:
+            # A task without an assignment or vacancy is the instance's own
+            # (ADR 0061): administration, like the task itself.
+            return None
         if event.person_id is not None:
             return Resource.person(event.person_id)
         kind = spec_for(event.subject_kind).resource

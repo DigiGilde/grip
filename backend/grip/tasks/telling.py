@@ -34,13 +34,14 @@ from sqlalchemy.orm import selectinload
 from grip.core import clock
 from grip.models.assignment import Assignment, AssignmentRole, BudgetLine
 from grip.models.billing_correction import BillingCorrection
+from grip.models.delivery_trouble import DeliveryTrouble
 from grip.models.organisation import Organisation
 from grip.models.person import Person
 from grip.models.quote import Quote, QuoteApproval, QuoteRejection
 from grip.models.role import PersonRole
 from grip.models.task import Task
 from grip.models.vacancy import Vacancy, VacancyText
-from grip.services import billing_corrections, quote_approval
+from grip.services import billing_corrections, delivery_trouble, quote_approval
 from grip.services.reports.labels import day
 from grip.services.vacancies import service as vacancy_service
 from grip.tasks import catalogue
@@ -79,6 +80,14 @@ VARIABLES = frozenset(
         "oorzaak",
         # Who a vacancy for a known candidate is for.
         "kandidaat",
+        # Messages to another instance that do not arrive (ADR 0061): its
+        # name, since when, "komt 1 bericht" or "komen 3 berichten", why,
+        # and what grip does about it.
+        "koppeling",
+        "sinds",
+        "berichten",
+        "reden",
+        "pogingen",
     }
 )
 # What stands in for a name the reader may not see or grip does not have.
@@ -98,6 +107,7 @@ _STAND_INS = {
     "gevraagd_door": "de maker van de offerte",
     "bedrag": "nog niet berekend",
     "oorzaak": "de prijs van een aangeleverde maand is veranderd",
+    "koppeling": "de andere instantie",
 }
 # What a destination may name between braces: ids the task itself carries.
 DESTINATION_VARIABLES = frozenset(
@@ -365,6 +375,8 @@ class _Context:
     unheld: set[str] = field(default_factory=set)
     # Approval requests on which nobody but the maker or asker could decide.
     no_second: set[str] = field(default_factory=set)
+    # Messages that do not arrive, by peer.
+    troubles: dict[str, DeliveryTrouble] = field(default_factory=dict)
 
 
 def _as_uuid(value: str | None) -> UUID | None:
@@ -532,6 +544,14 @@ async def _load_context(
             await db.scalars(select(BudgetLine).where(BudgetLine.id.in_(line_ids)))
         ).all()
         context.lines = {str(line.id): line for line in lines}
+
+    peer_ids = {_as_uuid(t.subject_id) for t in tasks if t.subject_kind == "peer"}
+    peer_ids -= {None}
+    if peer_ids:
+        troubles = await db.scalars(
+            select(DeliveryTrouble).where(DeliveryTrouble.peer_id.in_(peer_ids))
+        )
+        context.troubles = {str(row.peer_id): row for row in troubles}
 
     if person_ids:
         rows = await db.execute(
@@ -816,6 +836,9 @@ def _closed_headline(
 ) -> str:
     if guide is None:
         return task.title
+    if task.subject_kind == "peer" and (task.subject_id or "") not in context.troubles:
+        # Everything arrived: grip no longer keeps the name, the task does.
+        return task.title
     values = _values(task, view, context, may_name)
     return _fill(guide.title, values) or task.title
 
@@ -860,6 +883,33 @@ def tell_watcher(task: Task, variables: Mapping[str, str]) -> Telling:
         needs_me=False,
         waits_on=values["wie"],
     )
+
+
+def _trouble_values(trouble: DeliveryTrouble) -> dict[str, str]:
+    """What a sentence says about messages to a peer that do not arrive."""
+    count = trouble.message_count
+    it = "het" if count == 1 else "ze"
+    retry_until = (
+        day(clock.local_date(trouble.retry_until)) if trouble.retry_until else None
+    )
+    if trouble.final and retry_until:
+        attempts = (
+            "Een of meer ervan probeert grip niet meer vanzelf, de rest tot"
+            f" {retry_until}."
+        )
+    elif trouble.final:
+        attempts = f"Grip probeert {it} niet meer vanzelf."
+    elif retry_until:
+        attempts = f"Grip probeert {it} tot {retry_until}."
+    else:
+        attempts = f"Grip verstuurt {it} opnieuw."
+    return {
+        "koppeling": trouble.peer_name,
+        "sinds": day(clock.local_date(trouble.since)),
+        "berichten": "komt 1 bericht" if count == 1 else f"komen {count} berichten",
+        "reden": delivery_trouble.reason_words(trouble.reason),
+        "pogingen": attempts,
+    }
 
 
 def _values(
@@ -937,6 +987,10 @@ def _values(
         word = _TEXT_WORDS.get((task.repeat_key or "").split(":", 1)[0])
         if word:
             values["tekst"] = word
+    elif kind == "peer":
+        trouble = context.troubles.get(task.subject_id or "")
+        if trouble is not None:
+            values.update(_trouble_values(trouble))
     quote = context.quotes.get(task.subject_id or "")
     if quote is not None and quote.reference:
         values["kenmerk"] = quote.reference

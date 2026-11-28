@@ -70,7 +70,7 @@ def fed_settings() -> Settings:
             "FEDERATION_OUTBOUND_ENABLED": True,
             "OUTWAY_URL": OUTWAY_URL,
             "FSC_PEER_ID_HEADER": PEER_HEADER,
-            "FEDERATION_MAX_ATTEMPTS": 3,
+            "FEDERATION_RETRY_DAYS": 7,
         }
     )
 

@@ -26,7 +26,8 @@ export interface Task {
   id: string;
   /** Counts what people changed about the task; sent back with a change. */
   version?: number;
-  case_kind: CaseKind;
+  /** 'instance': about the instance itself, for the beheerder; it has no case page. */
+  case_kind: CaseKind | 'instance';
   assignment_id?: string | null;
   /** Present when the reader may see the assignment. */
   assignment_name?: string | null;

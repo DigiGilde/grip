@@ -109,7 +109,9 @@ class Settings(BaseSettings):
     # that earlier acceptances were signed with.
     FEDERATION_RETIRED_JWKS: str = ""
     FEDERATION_OUTBOX_INTERVAL_SECONDS: int = 15
-    FEDERATION_MAX_ATTEMPTS: int = 12
+    # Days a message that does not arrive is tried again, from its first
+    # failure; after that it is final (ADR 0061).
+    FEDERATION_RETRY_DAYS: int = 7
     FEDERATION_HTTP_TIMEOUT_SECONDS: float = 20.0
     FEDERATION_JWKS_TTL_SECONDS: int = 3600
     CORPUS_CACHE_TTL_SECONDS: int = 300

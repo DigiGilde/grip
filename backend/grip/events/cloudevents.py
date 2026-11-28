@@ -94,6 +94,7 @@ KINDS: dict[str, str] = {
     "push_subscription": "meldingapparaat",
     "notification_preference": "meldingvoorkeur",
     "peer": "koppeling",
+    "delivery_trouble": "afleverprobleem",
     "stream": "stroom",
     "data": "gegevens",
 }

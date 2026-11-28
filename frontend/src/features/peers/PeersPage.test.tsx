@@ -17,15 +17,20 @@ const PEER = {
   is_active: true,
   key_count: 1,
   jwks_fetched_at: '2026-10-08T10:00:00Z',
+  undelivered: 0,
 };
 const SERVICES = ['grip-opdrachtverkeer', 'corpus-context'];
 
 afterEach(() => vi.unstubAllGlobals());
 
-async function renderPeers(body: object) {
-  mockApi({ '/api/peers': body });
+async function renderPeers(
+  body: object,
+  path = '/beheer/koppelingen',
+  more: Record<string, unknown> = {},
+) {
+  mockApi({ '/api/peers': body, ...more });
   const view = renderApp(<PeersPage />, {
-    path: '/beheer/koppelingen',
+    path,
     auth: { status: 'authenticated', person: TEST_PERSON, functions: ['beheerder'] },
   });
   await waitFor(() => expect(view.container.querySelector('nldd-table')).not.toBeNull());
@@ -70,6 +75,44 @@ describe('PeersPage', () => {
     });
     const status = container.querySelector('nldd-table nldd-badge');
     expect(status?.getAttribute('text')).toBe('Voorbeeld, geen verkeer');
+  });
+
+  it('marks a peer to which messages do not arrive', async () => {
+    const container = await renderPeers({
+      items: [{ ...PEER, undelivered: 2 }],
+      services: SERVICES,
+      outway_configured: true,
+    });
+    const status = container.querySelector('nldd-table nldd-badge');
+    expect(status?.getAttribute('text')).toBe('Berichten komen niet aan');
+  });
+
+  it('opens the peer the address names, as a task leads to it', async () => {
+    const container = await renderPeers(
+      { items: [{ ...PEER, undelivered: 1 }], services: SERVICES, outway_configured: true },
+      '/beheer/koppelingen/p-1?bij-taak=t-1',
+      {
+        '/api/peers/p-1/undelivered': {
+          items: [
+            {
+              id: 'm-1',
+              kind: 'Verzoek om een kostenpost',
+              reason: 'De ontvanger kent deze instantie niet',
+              since: '2026-11-28T09:00:00Z',
+              retry_until: null,
+              final: true,
+            },
+          ],
+        },
+      },
+    );
+    // The sheet sits in a portal on the body.
+    expect(container.querySelector('nldd-table')).not.toBeNull();
+    await waitFor(() =>
+      expect(texts(document.body, 'nldd-title')).toContain('Berichten die niet aankomen'),
+    );
+    expect(texts(document.body, 'nldd-sheet nldd-top-title-bar')).toEqual(['Voorbeeldgilde']);
+    expect(document.querySelector('nldd-menu-item[text="Opnieuw versturen"]')).not.toBeNull();
   });
 
   it('warns when no outway is configured', async () => {

@@ -145,10 +145,10 @@ function Board({ onOpen }: { onOpen: (id: string) => void }) {
         label="Filters van de taken"
         filters={[
           {
-            label: 'Opdracht of vacature',
+            label: 'Waarover',
             value: filter.caseLabel,
             onChange: set('zaak'),
-            options: optionsOf(all, (task) => task.case_label, 'Alle opdrachten en vacatures'),
+            options: optionsOf(all, (task) => task.case_label, 'Alles'),
             width: '280px',
           },
           {

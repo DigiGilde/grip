@@ -113,6 +113,7 @@ ALLOWED_ADDRESSES: dict[str, frozenset[str]] = {
     f"{_VACANCY}/vervulling": frozenset(),
     "/goedkeuren/x": frozenset(),
     "/aanvragen/offerte/x": frozenset(),
+    "/beheer/koppelingen/x": frozenset(),
 }
 
 

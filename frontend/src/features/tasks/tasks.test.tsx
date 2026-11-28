@@ -8,7 +8,7 @@ import { filterTasks, optionsOf } from './groups';
 import { movesOf } from './moves';
 import { TaskBar } from './TaskBar';
 import { TasksPage } from './TasksPage';
-import { aboutLine, dueWords, goesToWork, myWork, workHref } from './telling';
+import { aboutLine, aboutLinks, dueWords, goesToWork, myWork, workHref } from './telling';
 
 function task(overrides: Partial<Task>): Task {
   return {
@@ -132,6 +132,17 @@ describe('telling', () => {
     expect(
       aboutLine(task({ case_kind: 'vacancy', vacancy_id: 'v-1', vacancy_title: 'Developer' })),
     ).toBe('Vacature Developer · Opdracht Alfa 2026');
+    const ofInstance = task({
+      id: 't-peer',
+      case_kind: 'instance',
+      assignment_id: null,
+      assignment_name: null,
+      case_label: 'Koppelingen',
+      work_href: '/beheer/koppelingen/p-1',
+    });
+    expect(aboutLine(ofInstance)).toBe('Koppelingen');
+    expect(aboutLinks(ofInstance)).toEqual([{ text: 'Koppelingen', href: '/beheer/koppelingen' }]);
+    expect(workHref(ofInstance)).toBe('/beheer/koppelingen/p-1?bij-taak=t-peer');
     expect(dueWords(LATE)).toBe('Te laat: vóór 7 okt 2026');
     expect(dueWords(task({ due_on: null }))).toBe('');
   });
@@ -248,7 +259,7 @@ describe('TasksPage', () => {
     const filters = [...container.querySelectorAll('nldd-dropdown')].map((el) =>
       el.getAttribute('accessible-label'),
     );
-    expect(filters).toEqual(['Opdracht of vacature', 'Voor wie', 'Soort werk']);
+    expect(filters).toEqual(['Waarover', 'Voor wie', 'Soort werk']);
   });
 
   it('leads a task of mine to its work and opens any other to be read', async () => {

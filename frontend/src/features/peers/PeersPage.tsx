@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useLocation, useMatch, useNavigate } from 'react-router-dom';
+import { PATHS } from '@/paths';
 import { useAuth } from '@/auth/context';
 import { useInstance } from '@/layout/useInstance';
 import { ActionBar } from '@/ui/ActionBar';
@@ -16,6 +18,18 @@ function grantSummary(peer: Peer, services: string[]): string {
   return recorded.join(', ');
 }
 
+/** The peer whose sheet is open is in the address, so a task can lead to it. */
+function useOpenPeer(): [string | null, (id: string | null) => void] {
+  const navigate = useNavigate();
+  const { search } = useLocation();
+  const match = useMatch(PATHS.peer);
+  const open = (id: string | null) => {
+    const path = id ? PATHS.peer.replace(':peerId', encodeURIComponent(id)) : PATHS.peers;
+    navigate(`${path}${search}`, { replace: id === null });
+  };
+  return [match?.params.peerId ?? null, open];
+}
+
 /**
  * The other instances and corpus systems this instance talks to. For the
  * beheerder: without a row here nothing is accepted from a party and nothing
@@ -29,7 +43,7 @@ export function PeersPage() {
   const query = useQuery({ queryKey: PEERS_KEY, queryFn: fetchPeers, enabled: isAdmin });
   const peers = query.data?.items ?? [];
   const services = query.data?.services ?? [];
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useOpenPeer();
   const [adding, setAdding] = useState(false);
   const opened = peers.find((peer) => peer.id === openId) ?? null;
 
@@ -76,6 +90,9 @@ export function PeersPage() {
                     onOpen={() => setOpenId(peer.id)}
                   >
                     {peer.is_active ? null : <nldd-badge color="neutral" text="Uitgeschakeld" />}
+                    {peer.undelivered > 0 ? (
+                      <nldd-badge color="critical" text="Berichten komen niet aan" />
+                    ) : null}
                     {peer.is_example === Boolean(instance?.example) ? null : (
                       <nldd-badge
                         color="neutral"
