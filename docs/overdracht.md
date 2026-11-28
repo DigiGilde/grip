@@ -18,7 +18,6 @@ Deze dingen staan niet op GitHub. Neem de map `~/grip-overdracht` mee (ongeveer 
 
 | Bestand | Wat het is | Terugzetten |
 |---|---|---|
-| `grip-koppelvlakken-main.bundle` | Twee commits op `main` van de contract-repo, bewust niet gepusht | `git clone git@github.com:DigiGilde/grip-koppelvlakken.git` naast grip, daarna `git pull ~/grip-overdracht/grip-koppelvlakken-main.bundle main` |
 | `wies-feat-grip-koppeling.bundle` | De branch `feat/grip-koppeling` van Wies, zeven commits, alleen lokaal | In een checkout van Wies: `git fetch ~/grip-overdracht/wies-feat-grip-koppeling.bundle feat/grip-koppeling:feat/grip-koppeling` |
 | `bouwmeester-corpus-context.bundle` | De branches `feat/corpus-context` en `feat/opdrachten-bij-node` van Bouwmeester, alleen lokaal | In een checkout van Bouwmeester: `git fetch ~/grip-overdracht/bouwmeester-corpus-context.bundle 'refs/heads/*:refs/heads/*'` |
 | `voorbeelden.tar.gz` | De echte voorbeelddocumenten (formulier, offertes, vacatureteksten). Bevat namen en bedragen; staat bewust buiten de repo | Uitpakken in de map van grip: `tar xzf ~/grip-overdracht/voorbeelden.tar.gz` |
@@ -26,7 +25,7 @@ Deze dingen staan niet op GitHub. Neem de map `~/grip-overdracht` mee (ongeveer 
 | `plan.md` | Het oorspronkelijke, goedgekeurde plan | Naslag |
 | `claude-memory/` | Wat de assistent over dit project heeft onthouden | Zie "De assistent" hieronder |
 
-Voor de eerste uitrol en voor gewoon doorwerken aan grip zijn alleen de repo en, voor de koppelvlakken, de eerste bundel nodig. De rest is voor wie aan Wies, Bouwmeester of de voorbeelddocumenten verder wil.
+Voor de eerste uitrol en voor gewoon doorwerken aan grip is alleen de repo nodig. De rest is voor wie aan Wies, Bouwmeester of de voorbeelddocumenten verder wil.
 
 ## Wat er op de machine moet staan
 

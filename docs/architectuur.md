@@ -81,7 +81,7 @@ Verwijzingen tussen corpora onderling, zoals een doel van het ene departement da
 Het koppelvlak is een contract waar elk corpus-systeem aan kan voldoen. Bouwmeester is de eerste implementatie.
 
 - **Contract eerst.** Een OpenAPI 3.1-document voor de dienst en JSON Schema-bestanden (2020-12) voor node, edge en keten. OpenAPI 3.1 gebruikt JSON Schema rechtstreeks, dus er is een definitie.
-- **Eigen repo.** De contracten `corpus-context` en `grip-opdrachtverkeer` staan in een neutrale repo, omdat meerdere systemen ze implementeren.
+- **Een eigen map.** De contracten `corpus-context` en `grip-opdrachtverkeer` staan in `backend/grip/federation/contract`, los van de code. Ze krijgen een eigen repo zodra een tweede systeem ze implementeert ([ADR 0060](adr/0060-het-contract-staat-in-grip.md)).
 - **De FastAPI-pagina is een weergave.** Ze volgt de code van een implementatie en is daarom geen contract. Elke implementatie serveert het contract wel op `/v1/openapi.json`, met een leesbare pagina erbij.
 - **Versies.** Semver, met `/v1` in het pad. De Spectral-regels van de API Design Rules controleren het document.
 - **Contracttests in CI.** De door FastAPI gegenereerde beschrijving wordt vergeleken met het contract, en antwoorden worden tegen de schema's gevalideerd.
@@ -159,7 +159,7 @@ Grip wordt in twee sporen gebouwd: spoor A vervangt Grist, spoor B bouwt de fede
 - Spoor A levert een servicelaag: offerte uitgeven, akkoord verwerken, statusovergangen en leesfuncties per gegevensklasse.
 - Elke relevante gebeurtenis schrijft spoor A naar `federation_outbox`. Spoor B verstuurt die berichten en schrijft inkomende berichten via dezelfde servicelaag.
 - Spoor B raakt geen domeintabellen rechtstreeks. Spoor A weet niets van FSC.
-- De contractrepo is de gedeelde waarheid en wordt in beide sporen getest.
+- Het contract is de gedeelde waarheid en wordt in beide sporen getest.
 
 ## Toegang tussen organisaties
 

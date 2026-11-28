@@ -22,8 +22,8 @@ Something that is already in contract terms, such as the stored canonical
 form of a quote, is wrapped in :class:`Verbatim` so that it passes through
 ``to_contract`` untouched: it must never be translated back and forth.
 
-The tables mirror docs/termen.md of the contract repo. A test checks them
-against the vendored schemas, so a term that is added to the contract and
+The tables mirror contract/docs/termen.md. A test checks them
+against the schemas, so a term that is added to the contract and
 forgotten here fails the build.
 """
 

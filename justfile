@@ -162,9 +162,9 @@ install-frontend:
 # Federation
 # ---------------------------------------------------------------------------
 
-# Refresh the vendored contract from a checkout of the contract repo
-sync-contract CHECKOUT:
-    cd backend && uv run python -m grip.federation.sync_contract "{{ absolute_path(CHECKOUT) }}"
+# Lint the contract against the API Design Rules, validate its examples and build its reading pages
+contract-check:
+    cd backend/grip/federation/contract && npm ci && npm run lint && npm run validate && npm run docs
 
 # ---------------------------------------------------------------------------
 # The example FSC group on ZAD (deploy/zad/fsc; see docs/uitrol-zad.md)

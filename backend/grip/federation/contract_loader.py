@@ -1,4 +1,4 @@
-"""Read access to the vendored contract.
+"""Read access to the contract.
 
 Everything grip knows about the shapes that cross an organisation boundary
 comes from the files under ``contract/``: the schemas for validation, the
@@ -40,17 +40,13 @@ _METHODS = ("get", "put", "post", "delete", "patch")
 
 
 class ContractError(Exception):
-    """The vendored contract is missing something the code relies on."""
+    """The contract is missing something the code relies on."""
 
 
 @cache
-def contract_version() -> dict[str, Any]:
-    """The commit and versions the vendored copy was taken from."""
-    return json.loads((CONTRACT_DIR / "CONTRACT_VERSION.json").read_text())
-
-
 def api_version(service: str = SERVICE_OPDRACHTVERKEER) -> str:
-    return contract_version()["versions"][service]
+    source = yaml.safe_load((CONTRACT_DIR / _OPENAPI_FILES[service]).read_text())
+    return source["info"]["version"]
 
 
 @cache

@@ -1,0 +1,35 @@
+# Contract repo for corpus-context and grip-opdrachtverkeer.
+
+default: check
+
+# Install the pinned tools
+install:
+    npm ci
+
+# Regenerate vocabulaire/kern.json, vocabulaire/README.md and context.jsonld
+build:
+    node scripts/build-vocab.mjs
+
+# Lint both OpenAPI documents against the NL GOV API Design Rules
+lint:
+    npx spectral lint --fail-severity=warn corpus-context/v1/openapi.yaml opdrachtverkeer/v1/openapi.yaml
+
+# Validate the examples against the schemas, and check that generated files are current
+validate:
+    node scripts/build-vocab.mjs --check
+    node scripts/validate.mjs
+
+# Build the static reading pages and the bundled openapi.json files into dist/
+docs:
+    node scripts/build-docs.mjs
+
+# Everything CI runs
+check: lint validate docs
+
+# Compare an implementation's generated OpenAPI with a contract (run `just docs` first)
+compare service implementation prefix="":
+    node scripts/compare-openapi.mjs dist/{{service}}.openapi.json {{implementation}} {{prefix}}
+
+# Refresh the vendored ADR ruleset
+update-ruleset:
+    curl -sSfL -o spectral/adr-linter.yaml https://raw.githubusercontent.com/logius-standaarden/API-Design-Rules/main/media/linter.yaml

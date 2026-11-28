@@ -1,6 +1,6 @@
-"""The federation routes against the vendored contract.
+"""The federation routes against the contract.
 
-Follows docs/conformance.md of the contract repo: every operation, query
+Follows contract/docs/conformance.md: every operation, query
 parameter and success response of the contract must be present. On top of
 that the schemas the routes declare must be the contract's own, and every
 route must depend on the peer check.

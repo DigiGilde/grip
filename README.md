@@ -89,7 +89,7 @@ Lokaal draait grip zonder identiteitsprovider. Dat is een bewuste keuze die `DEV
 | `deploy/local` | De lokale omgeving: images, Keycloak, FSC, mail |
 | `docs` | De documentatie; begin bij [docs/README.md](docs/README.md) |
 
-Het koppelvlak tussen instanties en met een corpus staat in een eigen repo; grip draagt een kopie mee die `just sync-contract` ververst.
+Het koppelvlak tussen instanties en met een corpus staat in `backend/grip/federation/contract`; `just contract-check` controleert het.
 
 ## Documentatie
 
