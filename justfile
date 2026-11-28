@@ -175,7 +175,11 @@ sync-contract CHECKOUT:
 # database, <component>.alias for zadctl alias add, into
 # ENV_DIR/<deployment> (default ENV_DIR: deploy/zad/fsc/state/env). Stops
 # when a placeholder is left or a TLS_* path is not one pki.sh mounts for that
-# component (PKI_DIR as for pki.sh). `--dry-run` prints the files instead.
+# component (PKI_DIR as for pki.sh). For a deployment that already runs,
+# `--existing <component>=<NAME>,<NAME>` names what the layer of that
+# component already has: zadctl env add refuses a whole file with one of
+# those, so their lines go to <component>.set.env, for zadctl env set
+# (repeat it per component). `--dry-run` prints the files instead.
 # Fill the FSC settings of one deployment of the example group from deploy/zad/fsc/env
 [positional-arguments]
 zad-fsc-env deployment *flags:
@@ -184,11 +188,26 @@ zad-fsc-env deployment *flags:
     deployment="$1"
     shift
     dry_run=0
-    for flag in "$@"; do
-        case "$flag" in
+    # One "<component> <NAME>" per line.
+    existing=""
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
             --dry-run) dry_run=1 ;;
-            *) echo "unknown option: $flag" >&2; exit 2 ;;
+            --existing)
+                spec="${2:-}"
+                if [[ ! "$spec" =~ ^[a-z0-9-]+=[^=]+$ ]]; then
+                    echo "--existing takes <component>=<NAME>[,<NAME>...]" >&2
+                    exit 2
+                fi
+                IFS=, read -r -a names <<< "${spec#*=}"
+                for name in "${names[@]}"; do
+                    [[ "$name" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || { echo "--existing: '$name' is not a variable name" >&2; exit 2; }
+                    existing+="${spec%%=*} $name"$'\n'
+                done
+                shift ;;
+            *) echo "unknown option: $1" >&2; exit 2 ;;
         esac
+        shift
     done
     for var in BASE_DOMAIN PROJECT DEPLOYMENT_DIR DEPLOYMENT_A DEPLOYMENT_B DEPLOYMENT_D; do
         [ -n "${!var:-}" ] || { echo "$var is not set" >&2; exit 1; }
@@ -207,6 +226,27 @@ zad-fsc-env deployment *flags:
             templates="$templates $peer-$role"
         done
     fi
+    component_of() {
+        case "$1" in
+            directory-manager) echo dirmgr ;;
+            directory-ui) echo dirui ;;
+            *-frontend) echo component-1 ;;
+            *-grip) echo component-2 ;;
+            *-bootstrap) echo "fscboot-$peer" ;;
+            *) echo "${1#*-}" ;;
+        esac
+    }
+    components=""
+    for template in $templates; do
+        components="$components $(component_of "$template")"
+    done
+    while read -r component _; do
+        [ -n "$component" ] || continue
+        case "$components " in
+            *" $component "*) ;;
+            *) echo "--existing: $component is not a component of $deployment:$components" >&2; exit 2 ;;
+        esac
+    done <<< "$existing"
     fsc=deploy/zad/fsc
     out="${ENV_DIR:-$fsc/state/env}/$deployment"
     manifest="${PKI_DIR:-$fsc/state/pki}/upload/MANIFEST.tsv"
@@ -215,15 +255,10 @@ zad-fsc-env deployment *flags:
     # shellcheck disable=SC2016
     placeholders='${BASE_DOMAIN} ${PROJECT} ${DEPLOYMENT_DIR} ${DEPLOYMENT_A} ${DEPLOYMENT_B} ${DEPLOYMENT_D}'
     [ "$dry_run" = 1 ] || mkdir -p "$out"
+    commands=""
+    aliases=""
     for template in $templates; do
-        case "$template" in
-            directory-manager) component=dirmgr ;;
-            directory-ui) component=dirui ;;
-            *-frontend) component="component-1" ;;
-            *-grip) component="component-2" ;;
-            *-bootstrap) component="fscboot-$peer" ;;
-            *) component="${template#*-}" ;;
-        esac
+        component="$(component_of "$template")"
         filled="$(envsubst "$placeholders" < "$fsc/env/$template.env" | grep -v -e '^[[:space:]]*#' -e '^[[:space:]]*$')"
         values="$(grep -v '^STORAGE_POSTGRES_DSN=' <<< "$filled" || true)"
         alias="$(grep '^STORAGE_POSTGRES_DSN=' <<< "$filled" || true)"
@@ -246,22 +281,57 @@ zad-fsc-env deployment *flags:
                 exit 1
             fi
         done < <(grep '^TLS_[A-Z_]*=' <<< "$values" || true)
-        if [ "$dry_run" = 1 ]; then
-            printf 'would write %s:\n%s\n' "$out/$component.env" "$values"
-            [ -z "$alias" ] || printf 'would write %s:\n%s\n' "$out/$component.alias" "$alias"
-        else
-            printf '%s\n' "$values" > "$out/$component.env"
-            [ -z "$alias" ] || printf '%s\n' "$alias" > "$out/$component.alias"
+        new=""
+        changed=""
+        while IFS= read -r line; do
+            [ -n "$line" ] || continue
+            if grep -qxF "$component ${line%%=*}" <<< "$existing"; then
+                changed+="$line"$'\n'
+            else
+                new+="$line"$'\n'
+            fi
+        done <<< "$values"
+        # The bootstrap runs in one deployment only: its values are component-wide.
+        layer=" --deployment $deployment"
+        [ "$component" != "fscboot-$peer" ] || layer=""
+        for kind in env set.env; do
+            file="$out/$component.$kind"
+            if [ "$kind" = env ]; then lines="$new"; verb="add"; else lines="$changed"; verb="set"; fi
+            if [ -z "$lines" ]; then
+                [ "$dry_run" = 1 ] || [ ! -f "$file" ] || echo "$file is left from an earlier run; the commands below do not use it" >&2
+                continue
+            fi
+            if [ "$dry_run" = 1 ]; then
+                printf 'would write %s:\n%s' "$file" "$lines"
+            else
+                printf '%s' "$lines" > "$file"
+            fi
+            commands+="  zadctl env $verb -c $component$layer --env-file $file"$'\n'
+        done
+        if [ -n "$alias" ]; then
+            if [ "$dry_run" = 1 ]; then
+                printf 'would write %s:\n%s\n' "$out/$component.alias" "$alias"
+            else
+                printf '%s\n' "$alias" > "$out/$component.alias"
+            fi
+            aliases+="  zadctl alias add -c $component --env-file $out/$component.alias"$'\n'
         fi
     done
     echo
-    echo "For each file, from the checkout that holds .env.zadctl:"
-    echo "  zadctl env add -c <component> --deployment $deployment --env-file $out/<component>.env"
-    echo "  zadctl alias add -c <component> --env-file $out/<component>.alias    (once per component)"
+    echo "From the checkout that holds .env.zadctl, inside a rollout window of"
+    echo "docs/uitrol-zad.md: after zadctl config set rollout false and the deployment"
+    echo "create or assign of these components, before zadctl project refresh and"
+    echo "zadctl config set rollout true:"
+    printf '%s' "$commands"
+    if [ -n "$aliases" ]; then
+        echo "Once per component, by the first deployment that runs it (one alias serves them all):"
+        printf '%s' "$aliases"
+    fi
     if [ "$peer" != dir ]; then
         echo "Through stdin, never in a file (docs/uitrol-zad.md): FEDERATION_SIGNING_KEY on"
-        echo "component-2 and federation (one new key per instance), and SESSION_SECRET_KEY"
-        echo "on federation (and on component-2 of a new instance)."
+        echo "component-2 and federation, a new key per instance once instance-signing-key is"
+        echo "off component-2; SESSION_SECRET_KEY on federation, and on component-2 of a new"
+        echo "instance."
     fi
 
 # Needs the output of deploy/zad/fsc/pki.sh (PKI_DIR, default
@@ -306,7 +376,7 @@ zad-fsc-attachments deployment *flags:
     if [ "$dry_run" = 1 ]; then
         echo "($count attachments)"
     else
-        echo "$count attachments saved, not rolled out: zadctl project pending, then zadctl project refresh"
+        echo "$count attachments saved, not rolled out (zadctl project pending lists them); the zadctl project refresh at the end of the rollout window rolls them out"
     fi
 
 # ---------------------------------------------------------------------------
