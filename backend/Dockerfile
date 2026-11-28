@@ -66,6 +66,9 @@ USER 1001
 ENV PATH="/app/.venv/bin:$PATH"
 # Unbuffered, so log lines and tracebacks reach the container log at once.
 ENV PYTHONUNBUFFERED=1
+# Fontconfig reports an error at every start unless it can write a cache,
+# even next to a prebuilt system cache, and HOME is not writable on ZAD.
+ENV XDG_CACHE_HOME=/tmp
 
 ARG GIT_SHA=""
 ARG BUILD_TIME=""
