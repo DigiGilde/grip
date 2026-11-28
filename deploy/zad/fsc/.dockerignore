@@ -1,0 +1,4 @@
+# Only the bootstrap image builds from here, and it needs bootstrap.sh alone.
+# Everything else stays out, the keys in state/ first of all.
+*
+!bootstrap.sh
