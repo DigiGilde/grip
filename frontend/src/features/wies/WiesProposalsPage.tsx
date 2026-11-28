@@ -180,7 +180,7 @@ export function WiesProposalsPage() {
               ]}
             />
           ) : null}
-          <nldd-text size="sm" color="secondary">
+          <nldd-text size="sm">
             <p>
               {`${data.wies_colleagues ?? 0} collega's in Wies`}
               {data.fetched_at ? `, opgehaald op ${formatDate(data.fetched_at)}` : ''}

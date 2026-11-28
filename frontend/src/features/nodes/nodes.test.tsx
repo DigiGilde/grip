@@ -328,7 +328,7 @@ describe('NodePathView', () => {
     expect(rows(lists[2] as Element)[0]?.text).toBe('draagt bij aan');
     const branches = container.querySelector('.grip-path-branches');
     expect(branches?.children).toHaveLength(2);
-    expect([...(branches?.querySelectorAll('nldd-text[color="secondary"]') ?? [])]
+    expect([...(branches?.querySelectorAll('nldd-text[size="sm"]') ?? [])]
       .map((el) => el.textContent)
       .filter((text) => text === 'Komt voort uit')).toHaveLength(2);
   });

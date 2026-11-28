@@ -86,7 +86,7 @@ nldd-simple-section > div:not([slot]) > :not(nldd-spacer) + :not(nldd-spacer) {
 .key-figure dt,
 .key-figure-detail {
   font-size: 0.875rem;
-  color: var(--primitives-color-neutral-650);
+  color: var(--semantics-content-color);
 }
 
 .key-figure dd {

@@ -168,7 +168,6 @@ function GapCell({ row }: { row: Kpi }) {
       <nldd-text-cell
         text={row.unavailable_reason ? 'Niet berekend' : 'Geen target'}
         horizontal-alignment="right"
-        color="secondary"
       />
     );
   }

@@ -241,7 +241,7 @@ export function BudgetSheet({ assignment, actions, onOpenLine }: BudgetSheetProp
       {finance && !budget.isPending && (
         <Stack gap="section">
           <Stack gap="related">
-            <nldd-text color="secondary">
+            <nldd-text>
               <p>{standText(assignment, year, finance)}</p>
             </nldd-text>
             <BudgetNotices

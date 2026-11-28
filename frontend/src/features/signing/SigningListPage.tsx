@@ -60,7 +60,7 @@ export function SigningListPage() {
                         .filter(Boolean)
                         .join(' ')}
                     />
-                    <nldd-text size="sm" color="secondary">
+                    <nldd-text size="sm">
                       <span>
                         {[invitation.reference, `gemaakt op ${formatDate(invitation.issued_at)}`]
                           .filter(Boolean)

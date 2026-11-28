@@ -52,14 +52,14 @@ export function CourseNow({ course, tasksHref }: CourseNowProps) {
         <p>{next.blocked ?? next.sentence}</p>
       </nldd-text>
       {missing.length > 0 && (
-        <nldd-text size="sm" color="secondary">
+        <nldd-text size="sm">
           <p>{`Ontbreekt nog: ${missing.join(', ')}.`}</p>
         </nldd-text>
       )}
       {(due || (more > 0 && tasksHref)) && (
         <div className="course-now-meta">
           {due && (
-            <nldd-text size="sm" color={next.overdue ? 'critical' : 'secondary'}>
+            <nldd-text size="sm" {...(next.overdue ? { color: 'critical' } : {})}>
               <span>{due}</span>
             </nldd-text>
           )}

@@ -201,7 +201,7 @@ export function YearAccountView({ year, bare }: { year: string; bare?: boolean }
           )}
         </nldd-table>
       </RouterLinks>
-      <nldd-text size="sm" color="secondary">
+      <nldd-text size="sm">
         <p>
           Een opdracht met bedragen opent het rapport van die opdracht, een andere de opdracht zelf.
           Aangeleverd is wat als factuurgegevens van afgesloten maanden naar de financiële

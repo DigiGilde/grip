@@ -227,7 +227,7 @@ function FamilyRow({ family, open, onToggle }: FamilyRowProps) {
       ) : (
         <>
           <nldd-text-cell text={family.name} />
-          <nldd-text-cell width="fit-content" color="secondary" text={groups} />
+          <nldd-text-cell width="fit-content" text={groups} />
         </>
       )}
     </nldd-list-item>

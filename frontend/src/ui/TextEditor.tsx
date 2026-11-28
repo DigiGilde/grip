@@ -319,7 +319,7 @@ export function TextEditor({
           {open.length > 0 ? (
             <>
               <nldd-spacer />
-              <nldd-text size="sm" color="secondary">
+              <nldd-text size="sm">
                 <span>
                   {open.length === 1
                     ? 'Nog 1 plek in te vullen'

@@ -295,7 +295,6 @@ export function RolesAdminPage() {
                   <nldd-text-cell
                     text={usageText(role.usage_count)}
                     hide-below="md"
-                    {...(role.usage_count === 0 ? { color: 'secondary' } : {})}
                   />
                   {/* A label only for what differs from the rule: a role is
                       there to be chosen. */}

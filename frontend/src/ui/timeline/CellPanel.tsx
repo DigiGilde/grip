@@ -40,7 +40,7 @@ export function CellPanel({ cellKey, title, summary, items, action }: CellPanelP
       <nldd-container gap="8">
         <nldd-title size="display-4" heading-level={2} text={title} />
         {summary && (
-          <nldd-text color="secondary">
+          <nldd-text>
             <p>{summary}</p>
           </nldd-text>
         )}

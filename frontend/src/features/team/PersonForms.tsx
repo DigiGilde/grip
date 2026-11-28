@@ -149,7 +149,7 @@ export function ScaleForm({
       <nldd-container gap="8">
         <nldd-title size="display-5" text="Dit verandert er" heading-level={2} />
         {!valid ? (
-          <nldd-text size="sm" color="secondary">
+          <nldd-text size="sm">
             <p>Vul een datum en een schaal in om te zien wat er verandert.</p>
           </nldd-text>
         ) : impact.isPending ? (

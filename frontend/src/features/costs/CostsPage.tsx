@@ -212,7 +212,7 @@ export function CostsPage() {
                     <nldd-cell row-header>
                       <nldd-container gap="4">
                         <nldd-link href={path} text={item.description} />
-                        <nldd-text size="sm" color="secondary">
+                        <nldd-text size="sm">
                           <span>{detail.join(' · ')}</span>
                         </nldd-text>
                       </nldd-container>
@@ -220,7 +220,7 @@ export function CostsPage() {
                     <nldd-cell hide-below="md">
                       <nldd-container gap="4">
                         {counted && <CoverageMiniBar item={item} />}
-                        <nldd-text size="sm" color="secondary">
+                        <nldd-text size="sm">
                           <span>{coveredText(item)}</span>
                         </nldd-text>
                       </nldd-container>
@@ -237,7 +237,6 @@ export function CostsPage() {
                         text={formatEuro(item.budgeted_cents)}
                         {...(item.budgeted_cents === null ? {} : { 'supporting-text': 'begroot' })}
                         horizontal-alignment="right"
-                        color="secondary"
                       />
                     )}
                   </OpenRow>

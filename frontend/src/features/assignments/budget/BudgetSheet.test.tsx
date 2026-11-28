@@ -143,7 +143,7 @@ describe('the state of the budget', () => {
   it('says how far the amounts are real, in one quiet line above the table', async () => {
     const { container } = renderStand();
     const table = await standOf(container);
-    const line = [...container.querySelectorAll('nldd-text[color="secondary"]')].find((el) =>
+    const line = [...container.querySelectorAll('nldd-text')].find((el) =>
       el.textContent?.startsWith('Hele looptijd'),
     ) as Element;
     expect(plain(line.textContent)).toBe(

@@ -45,18 +45,18 @@ function StepRow({ step, first, last, end, current, previousOrganisation, onStep
 
   const content: ReactNode = (
     <>
-      <nldd-text class="grip-path__kind" size="sm" color="secondary">
+      <nldd-text class="grip-path__kind" size="sm">
         <span>{kind}</span>
       </nldd-text>
       <nldd-text class="grip-path__title" weight={current ? 'bold' : undefined}>
         <span>{title}</span>
       </nldd-text>
-      <nldd-text class="grip-path__by" size="sm" color="secondary">
+      <nldd-text class="grip-path__by" size="sm">
         <span>{organisation}</span>
       </nldd-text>
       <span className="grip-path__mark">
         {current ? (
-          <nldd-text size="sm" color="secondary">
+          <nldd-text size="sm">
             <span>Deze node</span>
           </nldd-text>
         ) : null}
@@ -113,7 +113,7 @@ function RelationRow({ type }: { type: string }) {
   return (
     <li className="grip-path__relation">
       <span className="grip-path__rail" aria-hidden="true" />
-      <nldd-text class="grip-path__label" size="sm" color="secondary">
+      <nldd-text class="grip-path__label" size="sm">
         <span>{edgeTypeLabel(type)}</span>
       </nldd-text>
     </li>

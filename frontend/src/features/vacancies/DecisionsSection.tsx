@@ -284,7 +284,7 @@ export function DecisionsSection({ vacancy }: { vacancy: Vacancy }) {
                   records ? `${verb}: ${label.toLowerCase()}` : `${verb} ${who.toLowerCase()}`
                 }
               />
-              <nldd-text-cell text={outcome(decision)} color={decided ? 'content' : 'secondary'} />
+              <nldd-text-cell text={outcome(decision)} />
               <nldd-text-cell hide-below="md" text={supporting(decision) ?? ''} />
               <RowActions
                 name={label}

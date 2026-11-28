@@ -599,7 +599,7 @@ describe('OccupancyBlock', () => {
   it('states the full-time assumption quietly, not in the introduction', () => {
     renderBlock();
     const block = screen.getByTestId('occupancy');
-    const quiet = [...block.querySelectorAll('nldd-text[color="secondary"]')].map(
+    const quiet = [...block.querySelectorAll('nldd-text[size="sm"]')].map(
       (text) => text.textContent,
     );
     expect(quiet.some((text) => text?.includes('Beschikbaar is 1 FTE per persoon per maand'))).toBe(

@@ -266,7 +266,7 @@ function Templates() {
                 {template.is_active ? (
                   <nldd-tag color="success" text="In gebruik" />
                 ) : (
-                  <nldd-text color="secondary" size="sm">
+                  <nldd-text size="sm">
                     <span>Eerder gebruikt</span>
                   </nldd-text>
                 )}

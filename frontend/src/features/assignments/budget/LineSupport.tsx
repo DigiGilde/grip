@@ -59,7 +59,6 @@ function LineDetail({ line }: { line: FinanceLine }) {
         <nldd-list-item slot="children">
           <nldd-spacer-cell size="44" />
           <nldd-text-cell
-            color="secondary"
             text={
               line.persons_hidden === 1
                 ? 'De inzet van 1 persoon zit in het totaal; het bedrag per persoon is voor jou niet zichtbaar'
@@ -79,7 +78,6 @@ function LineDetail({ line }: { line: FinanceLine }) {
             <nldd-text-cell
               width="fit-content"
               text={referenceStateText(cost.reference_state, cost.executor_name)}
-              color="secondary"
               horizontal-alignment="right"
             />
           ) : (
@@ -99,7 +97,6 @@ function LineDetail({ line }: { line: FinanceLine }) {
           <nldd-list-item slot="children">
             <nldd-spacer-cell size="44" />
             <nldd-text-cell
-              color="secondary"
               text="Op deze regel staat geen inzet en geen kostendekking"
             />
           </nldd-list-item>

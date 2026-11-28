@@ -383,14 +383,12 @@ function Invoices({ item, onOpen }: InvoicesProps) {
                 <nldd-text-cell
                   hide-below="md"
                   size="sm"
-                  color="secondary"
                   text={lacksDocument(line) ? 'Bijlage ontbreekt' : ''}
                 />
               )}
               <nldd-text-cell
                 text={formatEuro(line.amount_cents)}
                 horizontal-alignment="right"
-                {...(expected ? { color: 'secondary' } : {})}
               />
               {item.may_edit && (
                 <RowActions
@@ -442,7 +440,6 @@ function ExecutorInvoices({ item }: { item: CostItem }) {
               <nldd-text-cell
                 text={formatEuro(line.amount_cents)}
                 horizontal-alignment="right"
-                {...(expected ? { color: 'secondary' } : {})}
               />
             </OpenRow>
           );
@@ -503,7 +500,7 @@ function Coverages({ item, onOpen }: CoveragesProps) {
                     />
                     <nldd-link href={finance} text={coverage.assignment_name} />
                   </span>
-                  <nldd-text size="sm" color="secondary">
+                  <nldd-text size="sm">
                     <span>{coverage.budget_line_description}</span>
                   </nldd-text>
                 </nldd-container>

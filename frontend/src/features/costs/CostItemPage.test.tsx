@@ -267,7 +267,7 @@ describe('CostItemPage', () => {
     expect(download?.getAttribute('accessible-label')).toBe('Download factuur-januari.pdf, 84 kB');
     const missing = texts(
       table,
-      'nldd-table-row:not([slot]) nldd-text-cell[color="secondary"][size="sm"]',
+      'nldd-table-row:not([slot]) nldd-text-cell[size="sm"]',
     );
     expect(missing).toEqual(['Bijlage ontbreekt', '']);
     expect(page.innerHTML).not.toContain('Geen bijlage');
@@ -406,7 +406,7 @@ describe('CostItemPage', () => {
     expect(primary.map((el) => el.getAttribute('text'))).toEqual(['Wijzig gegevens']);
     const invoices = page.querySelectorAll('nldd-table')[0] as HTMLElement;
     expect(invoices.getAttribute('accessible-label')).toBe('Facturen van Zaalhuur');
-    const names = [...invoices.querySelectorAll('nldd-table-row:not([slot]) nldd-text:not([color])')];
+    const names = [...invoices.querySelectorAll('nldd-table-row:not([slot]) nldd-text:not([size])')];
     expect(names.map((el) => el.textContent)).toEqual(['ZAAL-26-04', 'Catering']);
     expect(invoices.querySelector('nldd-link')).toBeNull();
     expect(invoices.querySelector('nldd-icon-button')).toBeNull();

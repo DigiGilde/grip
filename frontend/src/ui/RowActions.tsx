@@ -334,7 +334,7 @@ export function OpenCell({
         {(supportingText || children) && (
           <nldd-container layout="row" gap="8">
             {supportingText && (
-              <nldd-text color="secondary" size="xs" line-height="tight">
+              <nldd-text size="xs" line-height="tight">
                 <span>{supportingText}</span>
               </nldd-text>
             )}
@@ -343,7 +343,7 @@ export function OpenCell({
         )}
         {narrowText && (
           <span className="narrow-only">
-            <nldd-text color="secondary" size="xs" line-height="tight">
+            <nldd-text size="xs" line-height="tight">
               <span>{narrowText}</span>
             </nldd-text>
           </span>

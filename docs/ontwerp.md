@@ -22,7 +22,7 @@ Een scherm is af als het aan deze eisen voldoet. Meet ze in een browser; een tes
 - Eén accent in de inhoud: de hoofdknop is het enige gevulde vlak. De rest is neutraal. De hoofdbalk is navigatie en volgt het designsysteem.
 - Ruimte laat zien wat bij elkaar hoort: veel ruimte om een groep, weinig erbinnen. Een rand of een vlak is daar niet voor nodig.
 - De typografie heeft weinig stappen, en elke stap heeft één taak.
-- Ondersteunende tekst is gedempt.
+- Alle tekst die grip zelf schrijft staat in de gewone kleur; wat minder belangrijk is, is kleiner. Grijs is alleen wat het designsysteem zelf tekent, zoals de tweede regel van een rij. Een kleur met een betekenis, zoals rood bij een overschrijding, blijft (ADR 0059).
 - Een status staat in een label uit een kleine, vaste set.
 
 **Rustig**
@@ -57,7 +57,7 @@ Ze staan in `frontend/src/ui/layout/` en `frontend/src/ui/`.
 | Bouwsteen | Waarvoor |
 |---|---|
 | `Page` | Een pagina in de schil: de titel in de kop van de sectie, daaronder de inhoud op één ritme. Eén per route. `kind` is verplicht; zie "Soorten scherm". |
-| `lead` op `Page` | Eén zin onder de titel over waar de pagina voor is; laat haar weg als de titel het zegt. Heeft de pagina een `action`, dan staat de zin onder de regel van de titel, zodat een lange zin de knop niet van zijn regel duwt. |
+| `lead` op `Page` | Eén zin onder de regel van de titel over waar de pagina voor is, in de gewone kleur; laat haar weg als de titel het zegt. Ze staat altijd onder die regel, zodat een lange zin een knop niet van zijn regel duwt. |
 | `action` op `Page` | De ene hoofdknop van de pagina, rechts op de regel van de titel (smal: eronder). |
 | `tabs` op `Page` | De onderdelen van een ding of de weergaven van een lijst, onder de titel, via `TabNav`. |
 | `tabName` op `Page` | Wat het tabblad van de browser zegt als de titel niet zegt welk ding dit is: "Team, Opdracht Alfa 2026". De h1 blijft de titel. |
@@ -72,15 +72,15 @@ Ze staan in `frontend/src/ui/layout/` en `frontend/src/ui/`.
 | `ActionBar` (`@/ui/ActionBar`) | Filters links, acties rechts, alles op één maat. De hoofdknop staat hier of op de regel van de titel, niet op beide. |
 | `search` op `ActionBar` | Zoeken in de lijst onder de balk: één zoekveld, vóór de filters. Op een smal scherm staat het op een eigen regel over de volle breedte, want een zoekveld past niet in het menu van de balk. De woorden staan in het adres (`?zoek=`). |
 | `PageRange`, `Pager` (`@/ui/Pager`), `usePaging` (`@/ui/paging`) | Een lange lijst in pagina's van vijftig. Boven de rijen staat welke het zijn ("51 tot en met 100 van 300 opdrachten"), eronder de weg naar de andere pagina's. De pagina staat in het adres (`?pagina=2`). Een lijst van één pagina toont geen van beide. |
-| `NameLine` | Een naam met zijn status: het label staat op de regel van de naam, in het midden ervan, met hooguit één gedempte regel eronder. |
+| `NameLine` | Een naam met zijn status: het label staat op de regel van de naam, in het midden ervan, met hooguit één kleine regel eronder. |
 | `back` op `Page` | De ene terugverwijzing boven de titel: `back={{ href, text }}`. |
-| `KeyFigures` | Een paar cijfers die een pagina samenvatten: een gedempt label boven de waarde, zonder kader. Een tabel is voor rijen van één soort. |
+| `KeyFigures` | Een paar cijfers die een pagina samenvatten: een klein label boven de waarde, zonder kader. Een tabel is voor rijen van één soort. |
 | `SignalList` | Wat aandacht vraagt, als één lijst: een zin per punt, met eronder waar het over gaat. Geen stapel balken. |
 | `LinkRows` (`@/ui/LinkRows`) | Rijen die elk ergens heen leiden: de onderdelen van een ding, de blokken van Start, de pagina's van Geld en Ik. Per rij een regel tekst, gedempt eronder wat er speelt (`notice`), een stand als badge (`tag`) en een korte waarde aan het eind (`end`). Een rij met een adres eindigt met het icoon `open`. |
 | `UpdateTimeline` (`features/history`) | Het nieuws als tijdlijn, op Start en op Wat is er gebeurd: per dag een kop, en de berichten van die dag op één spoor (`nldd-step-cell` met `level="minor"`), nieuwste boven, elk een zin met zijn links en de tijd rechts. Op Wat is er gebeurd staan de filters Opdracht en Persoon in de `ActionBar` en in het adres (`?opdracht=&persoon=`). Een filter staat er alleen als het de lijst kan veranderen, een gefilterde lijst zet het nieuws niet op gezien, en leeg na een filter is "Niets gevonden". |
 | `TabNav` | De onderdelen van één geopend ding of de weergaven van een lijst, elk een pagina met een eigen adres: gewone tekst op één regel, een haarlijn onder de rij en een lijn onder waar je bent. `narrow="hide"` voor onderdelen (op een smal scherm wissel je via de landing), `narrow="bar"` voor weergaven, met korte tekst in `short`. Past de balk niet, dan staat de rest achter zijn knop Meer. Nooit een keuzelijst. |
 | `omitEmpty` op `Facts` | Laat een feit zonder waarde weg, waar een lege waarde geen nieuws is. Op een smal scherm staat het label boven de waarde, zodat een waarde nooit midden in een woord breekt. |
-| `hideBelow`, `hideAbove`, `narrowText` op `OpenCell` | Een kolom die op smal wegvalt, vouw je in de naam: `narrowText` is de gedempte regel die alleen smal verschijnt. |
+| `hideBelow`, `hideAbove`, `narrowText` op `OpenCell` | Een kolom die op smal wegvalt, vouw je in de naam: `narrowText` is de kleine regel die alleen smal verschijnt. |
 | `TOP_ALIGNED` (`@/ui/layout`), `verticalAlignment` op `OpenCell` | Voor een rij waarvan de cellen in hoogte verschillen: elke cel begint bovenaan. |
 | `href` op `OpenCell` | Het echte adres van de rij, zodat openen in een nieuw tabblad werkt. |
 | `useNarrow` | Waar de smalle opbouw een andere structuur is en niet alleen een andere maat. |
@@ -109,7 +109,7 @@ Schrijf geen marge of padding in pixels. Kies een bouwsteen, of een `nldd-contai
 | Kop van een sectie, h2 | `nldd-title` maat 4, via `Section` |
 | Kop binnen een sectie, h3 | `nldd-title` maat 5 |
 | Tekst | De standaard |
-| Ondersteunend | `nldd-text` met `color="secondary"` en `size="sm"` |
+| Klein | `nldd-text` met `size="sm"` (`Quiet`), in de gewone kleur |
 
 Een rij in een lijst of tabel is nooit een kop.
 
@@ -322,7 +322,7 @@ Een getekend raster dat zijn eigen cellen plaatst, zoals de tijdbalk, krijgt `da
 
 Twee meetfouten om te kennen. In een verborgen tabblad van een gewone browser vuurt geen `ResizeObserver`: de schil denkt dan dat het scherm smal is. En een afbeelding van de hele pagina in plaats van het venster doet hetzelfde. Het commando meet en fotografeert daarom in een eigen venster van vaste maat.
 
-Naast de meting bewaakt een test de bron (`ui/layout/spacing.guard.test.ts`): een `gap` buiten de schaal of een marge in pixels in een nieuw bestand laat de build falen. De bestaande uitzonderingen staan er met hun aantal in en mogen alleen minder worden.
+Naast de meting bewaakt een test de bron (`ui/layout/spacing.guard.test.ts`): een `gap` buiten de schaal of een marge in pixels in een nieuw bestand laat de build falen. De bestaande uitzonderingen staan er met hun aantal in en mogen alleen minder worden. `ui/layout/text.guard.test.ts` faalt op grijze tekst: `color="secondary"` in een scherm of een grijze tekstkleur in onze stylesheets.
 
 ## Controlelijst voor een nieuw scherm
 

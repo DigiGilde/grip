@@ -366,7 +366,9 @@ describe('the landing of an assignment', () => {
     vi.unstubAllGlobals();
     const done = renderShell({ detail: { status: 'completed' }, extra: allDone(null) });
     await waitFor(() =>
-      expect(done.container.querySelector('[supporting-text$="Afgerond."]')).not.toBeNull(),
+      expect(done.container.querySelector('[slot="header"] nldd-text')?.textContent).toMatch(
+        /Afgerond\.$/,
+      ),
     );
     expect(done.container.innerHTML).not.toContain('afsluiten loopt nog');
   });
@@ -459,7 +461,7 @@ describe('the landing of an assignment', () => {
   it('says for whom and when, and that it is potential, in words', async () => {
     const { container } = renderShell({ detail: { phase: 'potential', status: 'draft' } });
     await waitFor(() => expect(rowTexts(container)).toHaveLength(6));
-    expect(container.querySelector('nldd-title')?.getAttribute('supporting-text')).toContain(
+    expect(container.querySelector('[slot="header"] nldd-text')?.textContent).toContain(
       'Potentiële opdracht. Voorbeeldministerie, 1 jan',
     );
     expect(container.querySelector('nldd-badge')).toBeNull();
@@ -648,7 +650,7 @@ describe('the landing of an assignment', () => {
       extra: courseWith(null, 'Afgewezen'),
     });
     await waitFor(() => expect(rowTexts(container)).toHaveLength(6));
-    expect(container.querySelector('nldd-title')?.getAttribute('supporting-text')).toContain(
+    expect(container.querySelector('[slot="header"] nldd-text')?.textContent).toContain(
       'Afgewezen.',
     );
     expect(primaries(container)).toEqual([]);

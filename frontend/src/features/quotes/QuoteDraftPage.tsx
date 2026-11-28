@@ -425,12 +425,12 @@ export function QuoteDraftPage() {
                 </nldd-text>
               )}
               {!showsMade && standingQuote ? (
-                <nldd-text size="sm" color="secondary">
+                <nldd-text size="sm">
                   <p>Deze offerte vervangt {quoteName(standingQuote)} zodra je haar maakt.</p>
                 </nldd-text>
               ) : null}
               {savedHeading ? (
-                <nldd-text size="sm" color="secondary" role="status" data-saved>
+                <nldd-text size="sm" role="status" data-saved>
                   <p>{savedHeading} is bewaard.</p>
                 </nldd-text>
               ) : null}

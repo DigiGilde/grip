@@ -40,7 +40,7 @@ function CopyUri({ uri }: { uri: string }) {
       <div>
         <Button text="Kopieer URI" size="sm" onClick={copy} />
       </div>
-      <nldd-text size="sm" color="secondary" aria-live="polite">
+      <nldd-text size="sm" aria-live="polite">
         <p>{copied ? 'De URI is gekopieerd.' : ''}</p>
       </nldd-text>
     </Stack>

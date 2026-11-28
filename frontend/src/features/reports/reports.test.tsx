@@ -168,14 +168,10 @@ describe('a topic of a report', () => {
     expect(texts).toContain('Nog niet afgesproken');
   });
 
-  it('mutes a zero and keeps the total bold', async () => {
+  it('keeps the total bold', async () => {
     respond({ '/api/reports/steering': { year: 2026, turnover: TURNOVER } });
     const { container } = renderTopic('omzet');
     await screen.findByTestId('turnover');
-    const zero = [...container.querySelectorAll('nldd-text-cell')].find((cell) =>
-      /^€\s0$/.test(cell.getAttribute('text') ?? ''),
-    );
-    expect(zero).toHaveAttribute('color', 'secondary');
     expect(cellTexts(container).some((text) => text.startsWith('**€'))).toBe(true);
   });
 
@@ -660,7 +656,7 @@ describe('Investeerruimte', () => {
   it('says in one quiet line what each reading counts', async () => {
     renderInvestment({ year: 2026, money: MONEY, time: TIME });
     const block = await screen.findByTestId('investment');
-    const quiet = [...block.querySelectorAll('nldd-text[color="secondary"]')].map(
+    const quiet = [...block.querySelectorAll('nldd-text[size="sm"]')].map(
       (text) => text.textContent ?? '',
     );
     expect(quiet.some((text) => text.includes('Voorlopige definitie'))).toBe(true);

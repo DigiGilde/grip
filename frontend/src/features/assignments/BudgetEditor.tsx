@@ -539,7 +539,7 @@ export function LineSheet({
         </nldd-text>
       )}
       {preview.data?.reason && (
-        <nldd-text color="secondary">
+        <nldd-text>
           <p>{preview.data.reason}</p>
         </nldd-text>
       )}

@@ -28,7 +28,7 @@ export function TimeRoom({ time }: { time: InvestmentTime }) {
         {months.map((month) => (
           <nldd-table-row key={month.month}>
             <nldd-text-cell text={monthName(month.month)} />
-            <NumberCell text={formatFte(month.free_fte)} muted={Number(month.free_fte) === 0} />
+            <NumberCell text={formatFte(month.free_fte)} />
             {valued && <MoneyCell cents={month.value_cents} />}
           </nldd-table-row>
         ))}

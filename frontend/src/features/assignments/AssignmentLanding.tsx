@@ -67,7 +67,7 @@ function factsLine(assignment: AssignmentDetail, course: Course | null | undefin
 function Figure({ label, value, critical }: { label: string; value: string; critical?: boolean }) {
   return (
     <nldd-container gap="4">
-      <nldd-text size="sm" color="secondary">
+      <nldd-text size="sm">
         <span>{label}</span>
       </nldd-text>
       <nldd-text weight="bold" {...(critical ? { color: 'critical' } : {})}>

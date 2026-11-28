@@ -18,7 +18,7 @@ function varianceNote(figures: Figures): string {
 }
 
 function VarianceCell({ figures, bold }: { figures: Figures; bold?: boolean }) {
-  if (nothingPlanned(figures)) return <NumberCell text={NOTHING_PLANNED_TEXT} muted />;
+  if (nothingPlanned(figures)) return <NumberCell text={NOTHING_PLANNED_TEXT} />;
   return (
     <MoneyCell
       cents={Math.abs(figures.variance_cents)}
@@ -102,7 +102,7 @@ export function AssignmentsSheet({
             <AmountCells figures={row.figures} />
           ) : (
             <>
-              <NumberCell text="Niet berekend" muted hideBelow="md" />
+              <NumberCell text="Niet berekend" hideBelow="md" />
               <nldd-text-cell />
               <nldd-text-cell />
               <nldd-text-cell hide-below="md" />

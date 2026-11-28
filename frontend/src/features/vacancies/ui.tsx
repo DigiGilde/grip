@@ -260,7 +260,7 @@ export function Paragraphs({ text }: { text: string }) {
 /** A secondary line of text: a note, an origin, an explanation. */
 export function Note({ children }: { children: ReactNode }) {
   return (
-    <nldd-text size="sm" color="secondary">
+    <nldd-text size="sm">
       <p>{children}</p>
     </nldd-text>
   );

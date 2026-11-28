@@ -28,7 +28,7 @@
 
 .grip-figure dt {
   font-size: 0.875rem;
-  color: var(--primitives-color-neutral-650);
+  color: var(--semantics-content-color);
 }
 
 .grip-figure dd {
@@ -44,12 +44,12 @@
 
 .grip-figure__detail {
   font-size: 0.875rem;
-  color: var(--primitives-color-neutral-650);
+  color: var(--semantics-content-color);
 }
 
 /* Nothing to report: the figure steps back. */
 .grip-figure--quiet .grip-figure__value {
-  color: var(--primitives-color-neutral-600);
+  color: var(--semantics-content-color);
   font-weight: 400;
 }
 
@@ -105,7 +105,6 @@
   --occ-over: var(--primitives-color-rood-600);
   --occ-ink: var(--primitives-color-neutral-950);
   --occ-inverse: var(--primitives-color-neutral-0);
-  --occ-muted: var(--primitives-color-neutral-650);
   --occ-line: var(--primitives-color-neutral-150);
   --occ-hatch: var(--primitives-color-neutral-400);
   --occ-surface: var(--semantics-surfaces-base-background-color);
@@ -139,7 +138,7 @@
 .grip-occ__table thead th {
   padding: 8px 3px 6px;
   font-size: 0.8125rem;
-  color: var(--occ-muted);
+  color: var(--semantics-content-color);
   border-bottom: 1px solid var(--occ-line);
   vertical-align: bottom;
 }
@@ -355,7 +354,7 @@
 }
 
 .grip-occ__table tfoot td.grip-occ__zero {
-  color: var(--occ-muted);
+  color: var(--semantics-content-color);
   font-weight: 400;
 }
 
@@ -368,7 +367,7 @@
   margin: 0;
   padding: 0;
   font-size: 0.8125rem;
-  color: var(--occ-muted);
+  color: var(--semantics-content-color);
 }
 
 .grip-occ__legend li {
@@ -461,7 +460,7 @@
   display: block;
   font-size: 0.75rem;
   font-weight: 400;
-  color: var(--occ-muted);
+  color: var(--semantics-content-color);
   white-space: normal;
 }
 
@@ -513,7 +512,7 @@
 .grip-derivation__sub {
   display: block;
   font-size: 0.8125rem;
-  color: var(--primitives-color-neutral-650);
+  color: var(--semantics-content-color);
 }
 
 .grip-derivation__total th,
@@ -527,11 +526,6 @@
 .grip-derivation__apart th,
 .grip-derivation__apart td {
   border-bottom: 0;
-  color: var(--primitives-color-neutral-650);
+  color: var(--semantics-content-color);
   font-size: 0.875rem;
-}
-
-.grip-derivation__zero td,
-.grip-derivation__zero th {
-  color: var(--primitives-color-neutral-650);
 }

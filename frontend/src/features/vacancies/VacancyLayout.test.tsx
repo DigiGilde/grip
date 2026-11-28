@@ -346,7 +346,7 @@ describe('the landing of a vacancy', () => {
     );
     await waitFor(() => expect(container.textContent).toContain('Je wacht op het advies van HR.'));
     expect(document.title).toContain('Backend-ontwikkelaar');
-    expect(container.querySelector('nldd-title')?.getAttribute('supporting-text')).toBe(
+    expect(container.querySelector('[slot="header"] nldd-text')?.textContent).toBe(
       'Vacature bij Opdracht Alfa, schaal 11, 0,8 fte',
     );
     expect(container.querySelector('nldd-badge[text="Aangevraagd"]')).toBeNull();
@@ -362,13 +362,13 @@ describe('the landing of a vacancy', () => {
     const dated: Vacancy = { ...REQUESTED, start_date: '2026-07-01', end_date: '2027-06-30' };
     const without = renderVacancy(dated, '', partsAre([REQUEST, HISTORY]));
     await waitFor(() => expect(rowsOf(without.container, ABOUT_LABEL)).toHaveLength(1));
-    expect(without.container.querySelector('nldd-title')?.getAttribute('supporting-text')).toBe(
+    expect(without.container.querySelector('[slot="header"] nldd-text')?.textContent).toBe(
       'Vacature bij Opdracht Alfa, schaal 11, 0,8 fte, regulier, 1 jul 2026 t/m 30 jun 2027',
     );
     without.unmount();
     const { container } = renderVacancy(dated, '');
     await waitFor(() => expect(rowsOf(container, ABOUT_LABEL)).toHaveLength(2));
-    expect(container.querySelector('nldd-title')?.getAttribute('supporting-text')).toBe(
+    expect(container.querySelector('[slot="header"] nldd-text')?.textContent).toBe(
       'Vacature bij Opdracht Alfa, schaal 11, 0,8 fte',
     );
     expect(rowsOf(container, ABOUT_LABEL)[0]?.[1]).toBe('Regulier, 1 jul 2026 t/m 30 jun 2027');

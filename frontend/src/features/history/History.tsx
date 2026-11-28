@@ -30,7 +30,7 @@ function MomentLines({ row }: { row: Moment }) {
         <p>{row.headline}</p>
       </nldd-text>
       {lines.map((line) => (
-        <nldd-text key={line} size="sm" color="secondary">
+        <nldd-text key={line} size="sm">
           <p>{line}</p>
         </nldd-text>
       ))}
@@ -120,7 +120,7 @@ function HistoryList({
             {/* Narrow: when and who read above the one column. */}
             <nldd-cell hide-above="sm">
               <nldd-container gap="4">
-                <nldd-text size="sm" color="secondary">
+                <nldd-text size="sm">
                   <span>{`${formatMoment(row.occurred_at)} · ${row.actor}`}</span>
                 </nldd-text>
                 <MomentLines row={row} />

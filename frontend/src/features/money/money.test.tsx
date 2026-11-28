@@ -573,7 +573,7 @@ describe('Factureren', () => {
 
   it('says it is about now, of all assignments or of the own', async () => {
     const lead = (container: HTMLElement) =>
-      container.querySelector('nldd-title')?.getAttribute('supporting-text');
+      container.querySelector('[slot="header"] nldd-text')?.textContent;
     const all = page(billingOf([PERIOD]));
     await waitFor(() =>
       expect(lead(all.container)).toBe('Wat er nu openstaat op alle opdrachten, over alle jaren.'),

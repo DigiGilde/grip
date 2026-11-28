@@ -339,7 +339,7 @@ describe('TasksPage', () => {
       'Opdracht Alfa 2026',
     );
     const labels = [
-      ...(sheet?.querySelectorAll('nldd-list-item nldd-text-cell[color="secondary"]') ?? []),
+      ...(sheet?.querySelectorAll('nldd-list-item nldd-text-cell[width]') ?? []),
     ];
     expect(labels.map((el) => el.getAttribute('text'))).toEqual([
       'Waarover',

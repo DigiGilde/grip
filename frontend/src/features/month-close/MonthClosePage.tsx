@@ -242,7 +242,6 @@ function PeriodRows({
     }
   }
   const amount = periodAmount(period);
-  const done = period.state === 'invoiced';
   const amountIsClosed =
     period.state !== 'invoiced' && period.state !== 'delivered' && period.state !== 'ready';
   const open = single ? () => onMonth(period.months[0]?.month ?? '') : onToggle;
@@ -252,7 +251,6 @@ function PeriodRows({
         <nldd-text-cell
           text={`**${period.label.charAt(0).toUpperCase()}${period.label.slice(1)}**`}
           {...(period.months.length > 1 ? { 'supporting-text': period.span } : {})}
-          {...(done ? { color: 'secondary' } : {})}
         />
         <nldd-cell>
           <nldd-badge
@@ -263,7 +261,6 @@ function PeriodRows({
         <nldd-text-cell
           hide-below="md"
           size="sm"
-          color="secondary"
           text={whose || periodLine(period)}
         />
         {showAmount && (
@@ -271,7 +268,6 @@ function PeriodRows({
             horizontal-alignment="right"
             text={amount ? `**${euro(amount)}**` : ''}
             {...(amount && amountIsClosed ? { 'supporting-text': 'afgesloten' } : {})}
-            {...(done ? { color: 'secondary' } : {})}
           />
         )}
         <RowActions name={period.label} actions={actions} />
@@ -281,17 +277,16 @@ function PeriodRows({
             <OpenRow key={month.month} onOpen={() => onMonth(month.month)}>
               <nldd-cell>
                 <nldd-container padding-left="24">
-                  <nldd-text size="sm" color="secondary">
+                  <nldd-text size="sm">
                     <span>{month.label}</span>
                   </nldd-text>
                 </nldd-container>
               </nldd-cell>
               <nldd-cell />
-              <nldd-text-cell hide-below="md" size="sm" color="secondary" text={monthLine(month)} />
+              <nldd-text-cell hide-below="md" size="sm" text={monthLine(month)} />
               {showAmount && (
                 <nldd-text-cell
                   size="sm"
-                  color="secondary"
                   horizontal-alignment="right"
                   text={euro(month.amount_cents)}
                 />
@@ -427,7 +422,7 @@ export function MonthClosePage() {
             <Now overview={data} onAct={act} />
             <Stack gap="related">
               {line ? (
-                <nldd-text color="secondary" data-periods-line>
+                <nldd-text data-periods-line>
                   <p>{line}</p>
                 </nldd-text>
               ) : null}

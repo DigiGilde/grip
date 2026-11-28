@@ -19,7 +19,9 @@
  *   section title  nldd-title size display-4, h2
  *   block title    nldd-title size display-5, h3, only inside a section
  *   body           the default text
- *   secondary      nldd-text color="secondary" size="sm": labels, hints, dates
+ *   small          nldd-text size="sm" (`Quiet`): hints, dates, the context of a figure
+ * All text we write is the normal text color; what matters less is smaller,
+ * not grey. Grey is only what the design system draws itself.
  * A row in a list or table is never a heading. Numbers are right-aligned in
  * tabular figures; the table and cell components do that.
  */
@@ -133,7 +135,6 @@ export function Page({
   const heading = (
     <PageHeading
       text={title}
-      lead={action ? undefined : lead}
       tabName={tabName}
       instanceName={instanceName}
       inline
@@ -149,20 +150,18 @@ export function Page({
             </RouterLinks>
           )}
           {action ? (
-            <>
-              <div className="thing-title-line">
-                {heading}
-                <div className="thing-action">{action}</div>
-              </div>
-              {/* Inside the title a long lead would push the step off its line. */}
-              {lead && (
-                <nldd-text color="secondary">
-                  <p>{lead}</p>
-                </nldd-text>
-              )}
-            </>
+            <div className="thing-title-line">
+              {heading}
+              <div className="thing-action">{action}</div>
+            </div>
           ) : (
             heading
+          )}
+          {/* Beside the action a long lead would push the step off the title line. */}
+          {lead && (
+            <nldd-text>
+              <p>{lead}</p>
+            </nldd-text>
           )}
         </nldd-container>
         {tabs && (
@@ -267,7 +266,6 @@ export function Facts({ label, facts, labelWidth = '220px', omitEmpty }: FactsPr
                 <nldd-text-cell
                   overline={fact.label}
                   text={empty ? 'Nog niet ingevuld' : String(fact.value)}
-                  {...(empty ? { color: 'secondary' } : {})}
                 />
               ) : (
                 <nldd-cell width="full">
@@ -282,9 +280,9 @@ export function Facts({ label, facts, labelWidth = '220px', omitEmpty }: FactsPr
         }
         return (
           <nldd-list-item key={fact.label}>
-            <nldd-text-cell width={labelWidth} color="secondary" text={fact.label} />
+            <nldd-text-cell width={labelWidth} text={fact.label} />
             {empty ? (
-              <nldd-text-cell color="secondary" text="Nog niet ingevuld" />
+              <nldd-text-cell text="Nog niet ingevuld" />
             ) : plain ? (
               <nldd-text-cell text={String(fact.value)} />
             ) : (
@@ -345,10 +343,10 @@ export function NameLine({ children, badges, detail }: NameLineProps) {
   );
 }
 
-/** Secondary text: a hint, a date, the context of a figure. */
+/** Small text: a hint, a date, the context of a figure. The color of all text. */
 export function Quiet({ children }: { children: ReactNode }) {
   return (
-    <nldd-text size="sm" color="secondary">
+    <nldd-text size="sm">
       <p>{children}</p>
     </nldd-text>
   );

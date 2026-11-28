@@ -37,7 +37,7 @@ export function StateNotice({ state, text, detail, action }: StateNoticeProps) {
           <p>{text}</p>
         </nldd-text>
         {detail ? (
-          <nldd-text size="sm" color="secondary">
+          <nldd-text size="sm">
             <p>{detail}</p>
           </nldd-text>
         ) : null}

@@ -43,7 +43,7 @@ export function PageRange({ paging, noun }: { paging: Paging; noun: string }) {
   if (paging.pages <= 1) return null;
   return (
     <div ref={ref} tabIndex={-1} data-page-range>
-      <nldd-text size="sm" color="secondary">
+      <nldd-text size="sm">
         <p>
           {`${formatNumber(paging.from)} tot en met ${formatNumber(paging.to)} van ${formatNumber(paging.total)} ${noun}`}
         </p>

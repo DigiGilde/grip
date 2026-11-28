@@ -293,7 +293,7 @@ export function BillingPage() {
                             )}
                             <nldd-text
                               size="sm"
-                              color={ready && !complete(row.overview) ? 'warning' : 'secondary'}
+                              {...(ready && !complete(row.overview) ? { color: 'warning' } : {})}
                             >
                               <span>{remark(row)}</span>
                             </nldd-text>

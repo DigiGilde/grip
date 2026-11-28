@@ -31,7 +31,7 @@ export function ReportBlock({
         <nldd-container gap="4">
           {!bare && <SectionHeading text={title} />}
           {note && (
-            <nldd-text size="sm" color="secondary">
+            <nldd-text size="sm">
               <p>{note}</p>
             </nldd-text>
           )}
@@ -104,8 +104,7 @@ export function Figures({
 }
 
 /**
- * An amount in a table, right aligned. Empty when the API sent none; a zero
- * is muted, so the amounts that matter stand out.
+ * An amount in a table, right aligned. Empty when the API sent none.
  */
 export function MoneyCell({
   cents,
@@ -129,7 +128,7 @@ export function MoneyCell({
       horizontal-alignment="right"
       {...(hideBelow ? { 'hide-below': hideBelow } : {})}
       {...(note ? { 'supporting-text': note } : {})}
-      {...(critical ? { color: 'critical' } : zero ? { color: 'secondary' } : {})}
+      {...(critical ? { color: 'critical' } : {})}
     />
   );
 }
@@ -137,12 +136,10 @@ export function MoneyCell({
 export function NumberCell({
   text,
   note,
-  muted,
   hideBelow,
 }: {
   text: string;
   note?: string;
-  muted?: boolean;
   /** Leave the cell out below this width, with the column's header. */
   hideBelow?: 'md';
 }) {
@@ -152,7 +149,6 @@ export function NumberCell({
       horizontal-alignment="right"
       {...(hideBelow ? { 'hide-below': hideBelow } : {})}
       {...(note ? { 'supporting-text': note } : {})}
-      {...(muted ? { color: 'secondary' } : {})}
     />
   );
 }
@@ -192,7 +188,6 @@ export function TotalsCells({
         <nldd-text-cell
           text={error ? 'Niet berekend' : ''}
           {...(error ? { 'supporting-text': error } : {})}
-          color="secondary"
         />
         <nldd-text-cell />
         <nldd-text-cell />

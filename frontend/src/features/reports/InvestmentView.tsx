@@ -26,7 +26,6 @@ function MoneyDerivation({ money, year }: { money: InvestmentMoney; year: number
   const hasVerbal = money.verbal_cents > 0;
   // The targets per person are a page of Mensen, for who may read them.
   const seesTargets = (money.months ?? []).some((month) => month.target_cents !== null);
-  const zero = (cents: number) => (cents === 0 ? 'grip-derivation__zero' : undefined);
   return (
     <table className="grip-derivation" data-testid="investment-money">
       <caption>Investeerruimte in geld, {year}</caption>
@@ -44,7 +43,7 @@ function MoneyDerivation({ money, year }: { money: InvestmentMoney; year: number
           </th>
           <td>{formatEuro(money.expected_cents)}</td>
         </tr>
-        <tr className={zero(money.target_cents)}>
+        <tr>
           <th scope="row">
             {seesTargets ? (
               <Link to={pathWithYear(PATHS.peopleBillability, y)}>Declarabiliteitstargets</Link>
@@ -61,14 +60,14 @@ function MoneyDerivation({ money, year }: { money: InvestmentMoney; year: number
           </th>
           <td>{minus(money.target_cents)}</td>
         </tr>
-        <tr className={zero(money.uncovered_cents)}>
+        <tr>
           <th scope="row">
             <Link to={costsPath(year)}>Ongedekte kosten</Link>
             <span className="grip-derivation__sub">kosten die geen begrotingsregel dekt</span>
           </th>
           <td>{minus(money.uncovered_cents)}</td>
         </tr>
-        <tr className={zero(money.internal_budget_cents)}>
+        <tr>
           <th scope="row">
             <Link to={pathWithYear(PATHS.yearAccount, y)}>Begroot voor interne opdrachten</Link>
             <span className="grip-derivation__sub">

@@ -208,7 +208,6 @@ export function ProcedureSection({ vacancy }: { vacancy: Vacancy }) {
                 {...(detail ? { 'supporting-text': detail } : {})}
               />
               <nldd-text-cell
-                color={step.recorded ? 'content' : 'secondary'}
                 text={stepState(step)}
               />
             </nldd-table-row>

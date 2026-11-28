@@ -52,7 +52,6 @@ export function FigureCells({
         <nldd-text-cell
           text={error ? 'Niet berekend' : ''}
           {...(error ? { 'supporting-text': error } : {})}
-          color="secondary"
         />
         <nldd-text-cell />
         <nldd-text-cell />

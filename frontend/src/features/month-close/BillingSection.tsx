@@ -257,14 +257,13 @@ export function Invoices({ assignmentId, status, recordFor, onRecordDone }: Invo
                 <nldd-text-cell
                   hide-below="md"
                   size="sm"
-                  color="secondary"
                   text={monthsText(invoice.months)}
                 />
                 <nldd-text-cell
                   hide-below="md"
                   size="sm"
                   text={differenceText(invoice)}
-                  color={invoice.difference_cents !== 0 ? 'warning' : 'secondary'}
+                  {...(invoice.difference_cents !== 0 ? { color: 'warning' } : {})}
                 />
                 <nldd-text-cell
                   text={`**${formatEuro(invoice.amount_cents)}**`}

@@ -58,7 +58,7 @@
 .grip-board__table thead th {
   padding: 8px 6px 6px;
   font-size: 0.8125rem;
-  color: var(--board-muted);
+  color: var(--semantics-content-color);
   border-bottom: 1px solid var(--board-line);
   vertical-align: bottom;
   white-space: nowrap;
@@ -98,14 +98,14 @@
   font-size: 0.75rem;
   font-weight: 400;
   font-variant-numeric: tabular-nums;
-  color: var(--board-muted);
+  color: var(--semantics-content-color);
 }
 
 .grip-board__closed-tag {
   display: block;
   font-size: 0.625rem;
   font-weight: 400;
-  color: var(--board-muted);
+  color: var(--semantics-content-color);
 }
 
 .grip-board__summary,
@@ -113,7 +113,7 @@
   display: block;
   font-size: 0.75rem;
   line-height: 1.35;
-  color: var(--board-muted);
+  color: var(--semantics-content-color);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -139,7 +139,7 @@
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--board-muted);
+  color: var(--semantics-content-color);
   background: var(--board-surface);
   border-bottom: 1px solid var(--board-line);
 }
@@ -197,7 +197,7 @@
   text-align: right;
   white-space: nowrap;
   overflow: hidden;
-  color: var(--board-muted);
+  color: var(--semantics-content-color);
 }
 
 .grip-board__total[data-state='room'] {
@@ -337,8 +337,8 @@
   padding: 0;
   list-style: none;
   font-size: 0.75rem;
-  color: var(--board-muted);
-  --context-content-color: var(--board-muted);
+  color: var(--semantics-content-color);
+  --context-content-color: var(--semantics-content-color);
 }
 
 .grip-board__legend li {
@@ -456,7 +456,7 @@
   block-size: 14px;
   font-size: 0.6875rem;
   font-variant-numeric: tabular-nums;
-  color: var(--board-muted);
+  color: var(--semantics-content-color);
 }
 
 .grip-board__weeks > span {

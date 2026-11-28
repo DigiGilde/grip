@@ -499,7 +499,7 @@ export function StandardTextsPage() {
                         ) : template.status === 'derived_unread' ? (
                           <nldd-tag color="warning" text="Nog nalezen" />
                         ) : (
-                          <nldd-text color="secondary" size="sm">
+                          <nldd-text size="sm">
                             <span>{changed}</span>
                           </nldd-text>
                         )}

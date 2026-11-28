@@ -41,7 +41,7 @@
 }
 
 .brand-quiet {
-  color: var(--semantics-content-secondary-color);
+  color: var(--semantics-content-color);
   font-size: 0.875rem;
   line-height: 1.3;
 }

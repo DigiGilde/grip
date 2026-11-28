@@ -200,7 +200,7 @@ export function PotentialBlock({
         <EmptyNotice text="Er wacht geen offerte op akkoord" />
       )}
       {superseded.count > 0 && (
-        <nldd-text size="sm" color="secondary">
+        <nldd-text size="sm">
           <p>
             {count(superseded.count, 'offerte is', 'offertes zijn')} vervangen door een nieuwe en
             {superseded.count === 1 ? ' telt' : ' tellen'} hierboven niet mee.
@@ -230,7 +230,6 @@ export function PotentialBlock({
                 <nldd-text-cell hide-below="md" text={formatDate(quote.issued_at)} />
                 <nldd-text-cell
                   text={quote.valid_until ? formatDate(quote.valid_until) : 'Geen einddatum'}
-                  {...(quote.valid_until ? {} : { color: 'secondary' })}
                 />
                 <MoneyCell cents={quote.total_cents} />
               </nldd-table-row>

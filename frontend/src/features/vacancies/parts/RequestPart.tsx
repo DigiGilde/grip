@@ -15,17 +15,16 @@ const NOT_FILLED = 'Nog niet ingevuld';
 /** The mark, the label and the value of one thing the form asks for. */
 function RowCells({ item, state, filled }: { item: RequestItem; state: string; filled: boolean }) {
   const narrow = useNarrow();
-  const color = filled ? 'content' : 'secondary';
   return (
     <>
       <IconCell concept={filled ? 'done' : 'todo'} color={filled ? 'success' : 'secondary'} />
       <nldd-spacer-cell size="8" />
       {narrow ? (
-        <nldd-text-cell overline={item.label} text={state} color={color} />
+        <nldd-text-cell overline={item.label} text={state} />
       ) : (
         <>
-          <nldd-text-cell width="220px" color="secondary" text={item.label} />
-          <nldd-text-cell text={state} color={color} />
+          <nldd-text-cell width="220px" text={item.label} />
+          <nldd-text-cell text={state} />
         </>
       )}
     </>

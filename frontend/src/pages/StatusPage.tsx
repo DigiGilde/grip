@@ -72,7 +72,7 @@ export function StatusPage({
             <nldd-container gap="8">
               <PageHeading text={title} inline />
               {message && (
-                <nldd-text color="secondary">
+                <nldd-text>
                   <p>{message}</p>
                 </nldd-text>
               )}

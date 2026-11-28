@@ -8,8 +8,6 @@ interface PageHeadingProps {
   text: string;
   /** Name of the instance, appended to the document title when known. */
   instanceName?: string;
-  /** One sentence under the title that says what the page is for. */
-  lead?: string;
   /** What the tab says when the heading alone does not say which thing this is. */
   tabName?: string;
   /**
@@ -25,7 +23,7 @@ interface PageHeadingProps {
  * The single h1 of a page. It also sets the document title, so the tab, the
  * history and a screen reader's page announcement all say the same thing.
  */
-export function PageHeading({ text, instanceName, lead, tabName, inline }: PageHeadingProps) {
+export function PageHeading({ text, instanceName, tabName, inline }: PageHeadingProps) {
   const name = tabName ?? text;
   useEffect(() => {
     document.title = documentTitle(name, instanceName);
@@ -35,7 +33,6 @@ export function PageHeading({ text, instanceName, lead, tabName, inline }: PageH
     <nldd-title
       size="display-2"
       {...(inline ? {} : { slot: 'header' })}
-      {...(lead ? { 'supporting-text': lead } : {})}
     >
       {/*
         The span takes the focus, not the h1: focusable from script after
