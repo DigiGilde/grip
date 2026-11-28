@@ -61,7 +61,8 @@ reset-db:
 # To act as an example person, set the cookie `grip_dev_person` to an id the
 # seed prints: document.cookie = "grip_dev_person=<id>; path=/" in the browser.
 # Without the cookie you are the first active beheerder.
-# `--dataset NAME` picks the dataset (default SEED_DATASET: voorbeeld; also programma).
+# `--dataset NAME` picks the dataset (default SEED_DATASET: voorbeeld; also programma,
+# bzk, gdi, odi, ezk and nldd, the instances of the example chain).
 # Load fictional example data into an empty local database (`just seed --reset` empties it first)
 seed *ARGS:
     cd backend && uv run python -m grip.dev.seed {{ ARGS }}
@@ -170,7 +171,7 @@ contract-check:
 # The example FSC group on ZAD (deploy/zad/fsc; see docs/uitrol-zad.md)
 # ---------------------------------------------------------------------------
 
-# Needs BASE_DOMAIN, PROJECT and DEPLOYMENT_DIR, _A, _B and _D, as pki.sh does.
+# Needs BASE_DOMAIN, PROJECT and DEPLOYMENT_DIR, _A, _B, _D, _E, _G, _O and _Z, as pki.sh does.
 # Writes <component>.env for zadctl env add and, for a component with a
 # database, <component>.alias for zadctl alias add, into
 # ENV_DIR/<deployment> (default ENV_DIR: deploy/zad/fsc/state/env). Stops
@@ -209,7 +210,7 @@ zad-fsc-env deployment *flags:
         esac
         shift
     done
-    for var in BASE_DOMAIN PROJECT DEPLOYMENT_DIR DEPLOYMENT_A DEPLOYMENT_B DEPLOYMENT_D; do
+    for var in BASE_DOMAIN PROJECT DEPLOYMENT_DIR DEPLOYMENT_A DEPLOYMENT_B DEPLOYMENT_D DEPLOYMENT_E DEPLOYMENT_G DEPLOYMENT_O DEPLOYMENT_Z; do
         [ -n "${!var:-}" ] || { echo "$var is not set" >&2; exit 1; }
         export "${var?}"
     done
@@ -218,7 +219,11 @@ zad-fsc-env deployment *flags:
         "$DEPLOYMENT_A") peer=a ;;
         "$DEPLOYMENT_B") peer=b ;;
         "$DEPLOYMENT_D") peer=d ;;
-        *) echo "$deployment is none of DEPLOYMENT_DIR, DEPLOYMENT_A, DEPLOYMENT_B and DEPLOYMENT_D" >&2; exit 1 ;;
+        "$DEPLOYMENT_E") peer=e ;;
+        "$DEPLOYMENT_G") peer=g ;;
+        "$DEPLOYMENT_O") peer=o ;;
+        "$DEPLOYMENT_Z") peer=z ;;
+        *) echo "$deployment is none of DEPLOYMENT_DIR, DEPLOYMENT_A, DEPLOYMENT_B, DEPLOYMENT_D, DEPLOYMENT_E, DEPLOYMENT_G, DEPLOYMENT_O and DEPLOYMENT_Z" >&2; exit 1 ;;
     esac
     if [ "$peer" != dir ]; then
         templates=""
@@ -259,7 +264,7 @@ zad-fsc-env deployment *flags:
     [ -f "$manifest" ] || echo "No $manifest yet: the TLS_* paths are not compared with it." >&2
     # Only these: a plain envsubst also empties the $DATABASE_* of the alias.
     # shellcheck disable=SC2016
-    placeholders='${BASE_DOMAIN} ${PROJECT} ${DEPLOYMENT_DIR} ${DEPLOYMENT_A} ${DEPLOYMENT_B} ${DEPLOYMENT_D}'
+    placeholders='${BASE_DOMAIN} ${PROJECT} ${DEPLOYMENT_DIR} ${DEPLOYMENT_A} ${DEPLOYMENT_B} ${DEPLOYMENT_D} ${DEPLOYMENT_E} ${DEPLOYMENT_G} ${DEPLOYMENT_O} ${DEPLOYMENT_Z}'
     [ "$dry_run" = 1 ] || mkdir -p "$out"
     commands=""
     aliases=""
@@ -337,7 +342,7 @@ zad-fsc-env deployment *flags:
         echo "Through stdin, never in a file (docs/uitrol-zad.md): FEDERATION_SIGNING_KEY on"
         echo "component-2 and federation, a new key per instance once instance-signing-key is"
         echo "off component-2; SESSION_SECRET_KEY on federation, and on component-2 of a new"
-        echo "instance."
+        echo "instance; PEER_REGISTRY_KEY, one value, on component-2 and fscboot-$peer."
     fi
 
 # Needs the output of deploy/zad/fsc/pki.sh (PKI_DIR, default

@@ -8,8 +8,8 @@
 #   internal  one CA per peer, for the traffic between its own components.
 #
 # Needs: BASE_DOMAIN, PROJECT, DEPLOYMENT_DIR, DEPLOYMENT_A, DEPLOYMENT_B,
-# DEPLOYMENT_D (the ZAD base domain, the ZAD project and the deployment of
-# each peer in it).
+# DEPLOYMENT_D, DEPLOYMENT_E, DEPLOYMENT_G, DEPLOYMENT_O, DEPLOYMENT_Z (the ZAD
+# base domain, the ZAD project and the deployment of each peer in it).
 # Output goes to PKI_DIR (default: state/pki next to this script, gitignored):
 #
 #   group/ca.pem, group/ca-key.pem         the group CA
@@ -21,8 +21,12 @@
 # An attachment belongs to a component, and the deployments of the project
 # share the components: every deployment that runs the manager gets all its
 # attachments. So each peer has paths of its own in the pod, /etc/fsc/<k>/
-# (k is a, b or d; dir for the directory), and the TLS_* settings of a
+# (k is a, b, d, e, g, o or z; dir for the directory), and the TLS_* settings of a
 # deployment point at those of its own peer.
+#
+# A peer that is added keeps the others as they are. A peer whose deployment
+# name changed keeps its old certificates, and the script warns: move its
+# peers/<k> and upload/<old deployment> directories to the Trash and run again.
 #
 # Existing files are kept; pass --fresh to start over (the FSC databases must
 # then be emptied as well: contracts are signed with the old keys).
@@ -31,7 +35,7 @@ set -eu
 here="$(cd "$(dirname "$0")" && pwd)"
 PKI_DIR="${PKI_DIR:-$here/state/pki}"
 
-for var in BASE_DOMAIN PROJECT DEPLOYMENT_DIR DEPLOYMENT_A DEPLOYMENT_B DEPLOYMENT_D; do
+for var in BASE_DOMAIN PROJECT DEPLOYMENT_DIR DEPLOYMENT_A DEPLOYMENT_B DEPLOYMENT_D DEPLOYMENT_E DEPLOYMENT_G DEPLOYMENT_O DEPLOYMENT_Z; do
     eval "[ -n \"\${$var:-}\" ]" || { echo "$var is not set" >&2; exit 1; }
 done
 
@@ -65,7 +69,12 @@ make_ca() { # dir, common name
 }
 
 issue() { # ca dir, out dir, subject, subject alternative names (DNS:a,DNS:b)
-    [ -f "$2/cert.pem" ] && return 0
+    if [ -f "$2/cert.pem" ]; then
+        first="${4%%,*}"
+        openssl x509 -in "$2/cert.pem" -noout -ext subjectAltName 2>/dev/null | grep -qF "${first#DNS:}" ||
+            echo "warning: $2/cert.pem does not carry ${first#DNS:}; keeping it" >&2
+        return 0
+    fi
     mkdir -p "$2"
     openssl req -newkey rsa:3072 -nodes -keyout "$2/key.pem" -out "$work/req.csr" \
         -subj "$3" 2>/dev/null
@@ -173,6 +182,10 @@ internal_components="manager controller inway outway txlog"
 peer a "$DEPLOYMENT_A" 01800000000000000001 "DigiGilde voorbeeld"
 peer b "$DEPLOYMENT_B" 01800000000000000002 "Ministerie van BZK voorbeeld"
 peer d "$DEPLOYMENT_D" 01800000000000000004 "MOZa voorbeeld"
+peer e "$DEPLOYMENT_E" 01800000000000000005 "NLDD voorbeeld"
+peer g "$DEPLOYMENT_G" 01800000000000000006 "GDI voorbeeld"
+peer o "$DEPLOYMENT_O" 01800000000000000007 "ODI voorbeeld"
+peer z "$DEPLOYMENT_Z" 01800000000000000008 "Ministerie van EZK voorbeeld"
 
 trash "$work"
 
