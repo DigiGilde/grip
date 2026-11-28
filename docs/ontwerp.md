@@ -192,7 +192,7 @@ Een bewaarde tekst wordt overal getoond met `RichText` uit `@/ui/RichText`, uit 
 | Later vastgelegd | Wat na een moment is vastgelegd maar al telde vanaf een dag die dat moment had gezien, onder de stand van dat moment |
 | Later verwijderd, Tekst verwijderd | Een getypte tekst die een beheerder later uit een moment haalde, onder de stand van dat moment; "Tekst verwijderd" staat waar een naam of omschrijving niet leeg mag zijn |
 | Te doen, Wacht op anderen | De twee groepen taken |
-| Start, Opdrachten, Aanvragen, Vacatures, Mensen, Geld, Beheer | De plekken in de hoofdbalk; op een smal scherm ook Ik, het account |
+| Start, Taken, Opdrachten, Aanvragen, Vacatures, Mensen, Geld, Beheer | De plekken in de hoofdbalk; op een smal scherm ook Ik, het account |
 | Team, Mensen | Team is wie op een opdracht werkt: een onderdeel van de opdracht. Mensen is de plek met iedereen die kan worden ingezet. Nooit "Bemensing" |
 | Meldingen instellen, Mijn aanvragen | De regel in het account naar de meldingen, en de eigen aanvragen van een opdrachtgever |
 | Geschiedenis, Activiteit, Wat is er gebeurd | Wat er met een zaak gebeurde, wat er in de instantie gebeurde, en het nieuws voor de lezer |
@@ -200,15 +200,15 @@ Een bewaarde tekst wordt overal getoond met `RichText` uit `@/ui/RichText`, uit 
 
 ## Navigatie
 
-De schil staat in `frontend/src/layout`; welke plekken er zijn, voor wie en waar ze openen staat in `frontend/src/routes.ts`. Het waarom staat in ADR 0055.
+De schil staat in `frontend/src/layout`; welke plekken er zijn, voor wie en waar ze openen staat in `frontend/src/routes.ts`. Het waarom staat in ADR 0055 en ADR 0059.
 
-**De plekken.** Start, Opdrachten, Aanvragen, Vacatures, Mensen en Geld, en apart aan het eind Beheer. De balk biedt alleen aan wat iets voor de lezer kan bevatten (`for` in de routetabel). Dat is een hulp voor de balk en geen toegangsregel: de server beslist per pagina en per veld, en een adres dat je intikt opent gewoon. Een plek staat voor iedereen op dezelfde plaats; op welke pagina ze opent mag de lezer volgen (`landing`): Mensen opent voor een planner op het bord. Een pagina die bij een plek hoort zonder onder haar adres te staan, staat bij `also`: Taken, de offertes ter goedkeuring en Wat is er gebeurd horen bij Start.
+**De plekken.** Start, Taken, Opdrachten, Aanvragen, Vacatures, Mensen en Geld, en apart aan het eind Beheer. De balk biedt alleen aan wat iets voor de lezer kan bevatten (`for` in de routetabel). Dat is een hulp voor de balk en geen toegangsregel: de server beslist per pagina en per veld, en een adres dat je intikt opent gewoon. Een plek staat voor iedereen op dezelfde plaats; op welke pagina ze opent mag de lezer volgen (`landing`): Mensen opent voor een planner op het bord. Een pagina die bij een plek hoort zonder onder haar adres te staan, staat bij `also`: de offertes ter goedkeuring horen bij Taken, Wat is er gebeurd bij Start.
 
 **Een plek verdien je.** Een pagina krijgt een plek als iemand haar minstens wekelijks nodig heeft én het een plek is waar je heen gaat, niet iets dat je vanuit een opdracht of vacature bereikt. Wat over hetzelfde gaat, is een weergave van één plek.
 
 **Een nieuw onderdeel van Beheer** voeg je toe met één regel in de lijst van `pages/AdminPage.tsx`. Het adres begint met `/beheer/`, dan blijft Beheer actief. Kan dat niet, zet het adres dan bij `also` van Beheer in de routetabel.
 
-**De balk komt uit het designsysteem en staat alleen in de schil.** Vanaf `md` staat bovenaan één werkbalk: het merk, de plekken in `nldd-tab-bar` met `navigation`, het zoekveld in het midden, en aan het eind Beheer en het account. Op een smal scherm staan de plekken onderaan, als icoon met hun woord, met als laatste Ik: het account als pagina (`/ik`), met Mijn gegevens, Meldingen instellen, Beveiliging en Uitloggen. De plek waar je bent is een gevuld vlak, zoals het designsysteem het tekent. Wat niet past staat achter "Meer tabs"; de plek waar je bent blijft in de balk. De balk heeft één tabstop, de andere plekken bereik je met de pijlen. Het aantal taken staat bij Start: breed in de tekst ("Start (10)"), smal als badge op de hoek van het icoon, en in woorden in de naam van de balk ("Plekken in Grip, 10 taken te doen"). Het merk staat met de naam van de organisatie vanaf 1200 pixels, daaronder alleen het merk, en op een smal scherm niet. Schrijf `nldd-tab-bar` niet in een scherm; daar is `TabNav`.
+**De balk komt uit het designsysteem en staat alleen in de schil.** Vanaf `md` staat bovenaan één werkbalk: het merk, de plekken in `nldd-tab-bar` met `navigation`, het zoekveld in het midden, en aan het eind Beheer en het account. Op een smal scherm staan de plekken onderaan, als icoon met hun woord, met als laatste Ik: het account als pagina (`/ik`), met Mijn gegevens, Meldingen instellen, Beveiliging en Uitloggen. De plek waar je bent is een gevuld vlak, zoals het designsysteem het tekent. Wat niet past staat achter "Meer tabs"; de plek waar je bent blijft in de balk. De balk heeft één tabstop, de andere plekken bereik je met de pijlen. Het aantal taken staat bij Taken: breed in de tekst ("Taken (10)"), smal als badge op de hoek van het icoon, en in woorden in de naam van de balk ("Plekken in Grip, 10 taken te doen"). Het merk staat met de naam van de organisatie vanaf 1200 pixels, daaronder alleen het merk, en op een smal scherm niet. Schrijf `nldd-tab-bar` niet in een scherm; daar is `TabNav`.
 
 **Zoeken.** Het zoekveld in de balk (`SearchField`) zoekt op naam in opdrachten, vacatures en mensen. Enter opent `/zoeken?q=` met de treffers per soort; er wordt niet bij elke toets gezocht, en korter dan twee tekens vraagt niets. Past het veld niet in de balk, dan staat "Zoek op naam" in het menu van de balk en heeft `/zoeken` een eigen veld; op een smal scherm staat het veld boven de titel van Start. Zoeken vervangt geen plek. Een lijst filteren is iets anders: dat doet `search` op een `ActionBar`.
 
@@ -237,7 +237,7 @@ Deze pagina's volgen dat nog niet:
 | Pagina | Wat er nog moet gebeuren |
 |---|---|
 | `features/rates/RatesPage.tsx` | Geen link terug, zoals de andere pagina's onder Beheer die hebben (`useAdminBack`) |
-| `features/tasks/TasksPage.tsx`, en Wat is er gebeurd in `features/history/UpdateFeed.tsx` | Horen bij Start, zonder link terug naar Start |
+| Wat is er gebeurd in `features/history/UpdateFeed.tsx` | Hoort bij Start, zonder link terug naar Start |
 | `features/signing/SigningLayout.tsx` | Een eigen kop met losse tekst; de naam van de instantie als link naar het begin en het account als knop met een menu, zoals in de hoofdbalk |
 
 ## Een geopend ding
@@ -260,7 +260,7 @@ Start zegt wat er voor de lezer ligt, in één kolom en voor iedereen in dezelfd
 
 | Blok | Voor wie | Wat er staat |
 |---|---|---|
-| Te doen | Iedereen | Per zaak één rij: de eerstvolgende taak, de zaak en wat erna komt ("daarna nog 7 maanden en 1 taak"), met "Te laat" als badge. Hooguit vijf zaken, op volgorde van termijn; de laatste plek gaat naar de eerste zaak zonder termijn als die anders wegvalt. Altijd "Alle taken (10)" eronder, met hetzelfde getal als bij Start in de balk. Niets te doen is één regel |
+| Te doen | Iedereen | Per zaak één rij: de eerstvolgende taak, de zaak en wat erna komt ("daarna nog 7 maanden en 1 taak"), met "Te laat" als badge. Hooguit vijf zaken, op volgorde van termijn; de laatste plek gaat naar de eerste zaak zonder termijn als die anders wegvalt. Altijd "Alle taken (10)" eronder, met hetzelfde getal als bij Taken in de balk. Niets te doen is één regel |
 | Je werkt aan | Wie zelf inzet heeft | Per opdracht de eigen inzet ("Developer, 100%, tot 31 dec 2026"), "Geen inzet vanaf januari 2027" als die binnenkort stopt, en een rij naar Mijn gegevens |
 | Planning | Planner | De open rollen met hun FTE, en hoeveel mensen zonder inzet zijn vanaf welke maand; beide naar het bord |
 | Mijn opdrachten | Eigenaar of manager | Per opdracht de stand en de eerste rij die iets vraagt ("Uitvoeren, 8 maanden af te sluiten"), met Ruimte of Overschrijding als badge; een overschrijding bovenaan |

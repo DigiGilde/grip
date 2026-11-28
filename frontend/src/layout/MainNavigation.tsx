@@ -60,7 +60,7 @@ function PlacesMenu({
           href={landingPath(route, viewer)}
           icon={route.icon}
           text={route === here ? `**${navLabel(route)}**` : navLabel(route)}
-          {...(route.path === PATHS.start && toDo > 0 ? { details: String(toDo) } : {})}
+          {...(route.path === PATHS.tasks && toDo > 0 ? { details: String(toDo) } : {})}
         />
       ))}
     </nldd-menu-group>
@@ -93,7 +93,7 @@ export function MainNavigation() {
             key={route.path}
             href={landingPath(route, viewer)}
             text={
-              route.path === PATHS.start && toDo > 0
+              route.path === PATHS.tasks && toDo > 0
                 ? `${navLabel(route)} (${toDo})`
                 : navLabel(route)
             }
@@ -157,7 +157,7 @@ export function BottomNavigation() {
     <nldd-toolbar-item slot="start" priority={1}>
       <nldd-tab-bar navigation accessible-label={placesLabel(toDo)}>
         {routes.map((route) => {
-          const counted = route.path === PATHS.start && toDo > 0;
+          const counted = route.path === PATHS.tasks && toDo > 0;
           return (
             <nldd-tab-bar-item
               key={route.path}

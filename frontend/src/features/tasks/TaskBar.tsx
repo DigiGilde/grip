@@ -65,7 +65,7 @@ export function TaskBar() {
           {...(detail ? { 'supporting-text': detail } : {})}
           dismissible
         >
-          <nldd-button slot="actions" size="sm" href={PATHS.start} text="Terug naar Start" />
+          <nldd-button slot="actions" size="sm" href={PATHS.tasks} text="Terug naar Taken" />
         </nldd-banner>
       </nldd-container>
     </div>

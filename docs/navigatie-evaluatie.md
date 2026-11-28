@@ -1,6 +1,6 @@
 # Evaluatie van het hoofdmenu
 
-Herzien: de interface is sinds november 2026 ingericht met vijf plekken, zonder tweede balk, en een geopend ding dat landt op wat nu moet ([ADR 0055](adr/0055-vijf-plekken-en-een-rustig-geopend-ding.md)). Dit stuk blijft staan als de evaluatie achter ADR 0042.
+Herzien: de interface is sinds november 2026 ingericht met vijf plekken, zonder tweede balk, en een geopend ding dat landt op wat nu moet ([ADR 0055](adr/0055-vijf-plekken-en-een-rustig-geopend-ding.md)); sinds ADR 0059 staat Taken er weer bij. Dit stuk blijft staan als de evaluatie achter ADR 0042.
 
 Stand: 8 oktober 2026. Dit is de evaluatie met het advies. De gebruiker heeft variant E gekozen; die is gebouwd en vastgelegd in ADR 0042. Eén verschil met het advies: Team opent voor een planner op Inzet.
 

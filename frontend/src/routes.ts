@@ -34,7 +34,7 @@ export interface AppRoute {
 /**
  * The sections of the application, in the order of the bar.
  *
- * What comes to you (the start, with your tasks in it), the work itself
+ * What comes to you (the start and your tasks), the work itself
  * (assignments, requests, vacancies and the people who do it) and the money
  * across assignments. The role of client shows only to who holds it. Settings
  * come last and sit apart.
@@ -48,8 +48,16 @@ export const APP_ROUTES: readonly AppRoute[] = [
     title: 'Start',
     icon: 'house',
     area: 'work',
-    // Your tasks and what reaches you as one; the feed is reached from the start.
-    also: [PATHS.tasks, PATHS.quoteApprovals, PATHS.updates],
+    // The feed is reached from the start.
+    also: [PATHS.updates],
+  },
+  {
+    path: PATHS.tasks,
+    title: 'Taken',
+    icon: 'task-list',
+    area: 'work',
+    // Approving a quote is work that reaches you as a task.
+    also: [PATHS.quoteApprovals],
   },
   {
     path: PATHS.assignments,

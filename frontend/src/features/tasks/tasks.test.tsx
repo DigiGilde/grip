@@ -478,8 +478,8 @@ describe('TaskBar', () => {
     expect(bar).toHaveAttribute('text', 'Taak: Sluit september 2026 af');
     expect(bar?.getAttribute('supporting-text')).toContain('Stel vast wie in september 2026');
     expect(bar?.getAttribute('supporting-text')).toContain('Te laat: vóór 7 okt 2026.');
-    expect(bar?.querySelector('nldd-button')).toHaveAttribute('text', 'Terug naar Start');
-    expect(bar?.querySelector('nldd-button')).toHaveAttribute('href', '/');
+    expect(bar?.querySelector('nldd-button')).toHaveAttribute('text', 'Terug naar Taken');
+    expect(bar?.querySelector('nldd-button')).toHaveAttribute('href', '/taken');
   });
 
   it('says so when the work is done', async () => {

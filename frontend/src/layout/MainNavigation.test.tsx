@@ -35,12 +35,12 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe('the places in the top bar', () => {
   it.each([
-    [['beheerder'], [], ['Start', 'Opdrachten', 'Vacatures', 'Mensen', 'Geld']],
-    [[], ['assignment_manager'], ['Start', 'Opdrachten', 'Vacatures', 'Mensen', 'Geld']],
-    [['planner'], [], ['Start', 'Opdrachten', 'Vacatures', 'Mensen']],
-    [['lezer'], [], ['Start', 'Opdrachten', 'Vacatures', 'Geld']],
-    [[], ['team_member'], ['Start', 'Opdrachten', 'Vacatures']],
-    [['aanvrager'], [], ['Start', 'Aanvragen', 'Vacatures']],
+    [['beheerder'], [], ['Start', 'Taken', 'Opdrachten', 'Vacatures', 'Mensen', 'Geld']],
+    [[], ['assignment_manager'], ['Start', 'Taken', 'Opdrachten', 'Vacatures', 'Mensen', 'Geld']],
+    [['planner'], [], ['Start', 'Taken', 'Opdrachten', 'Vacatures', 'Mensen']],
+    [['lezer'], [], ['Start', 'Taken', 'Opdrachten', 'Vacatures', 'Geld']],
+    [[], ['team_member'], ['Start', 'Taken', 'Opdrachten', 'Vacatures']],
+    [['aanvrager'], [], ['Start', 'Taken', 'Aanvragen', 'Vacatures']],
   ])('offers %j %j their own places', (functions, relations, places) => {
     const { container } = renderApp(<MainNavigation />, { auth: reader(functions, relations) });
     expect(texts(container, 'nldd-tab-bar-item')).toEqual(places);
@@ -62,12 +62,13 @@ describe('the places in the top bar', () => {
       [...(group?.querySelectorAll('nldd-menu-item') ?? [])].map((item) =>
         item.getAttribute('href'),
       ),
-    ).toEqual(['/', '/opdrachten', '/vacatures', '/mensen/bord']);
+    ).toEqual(['/', '/taken', '/opdrachten', '/vacatures', '/mensen/bord']);
   });
 
   it.each([
     ['/', '/'],
-    ['/taken', '/'],
+    ['/taken', '/taken'],
+    ['/goedkeuren/q1', '/taken'],
     ['/wat-is-er-gebeurd', '/'],
     ['/opdrachten/a1/begroting', '/opdrachten'],
     ['/vacatures/v1/tekst', '/vacatures'],
@@ -95,11 +96,20 @@ describe('the places in the top bar', () => {
     await waitFor(() =>
       expect(bar()).toHaveAttribute('accessible-label', 'Plekken in Grip, 10 taken te doen'),
     );
-    expect(container.querySelector('nldd-tab-bar-item[href="/"]')).toHaveAttribute(
+    expect(container.querySelector('nldd-tab-bar-item[href="/taken"]')).toHaveAttribute(
       'text',
-      'Start (10)',
+      'Taken (10)',
     );
+    expect(container.querySelector('nldd-tab-bar-item[href="/"]')).toHaveAttribute('text', 'Start');
     expect(container.querySelector('nldd-tab-bar-item nldd-badge')).toBeNull();
+  });
+
+  it('puts the count on the menu item of Taken, not of Start', async () => {
+    stubCount({ to_do: 4 });
+    const { container } = renderApp(<MainNavigation />);
+    const item = (href: string) => container.querySelector(`nldd-menu-item[href="${href}"]`);
+    await waitFor(() => expect(item('/taken')).toHaveAttribute('details', '4'));
+    expect(item('/')).not.toHaveAttribute('details');
   });
 
   it('says one task in the singular', async () => {
@@ -129,7 +139,10 @@ describe('the places in the top bar', () => {
       'accessible-label',
       'Plekken in Grip',
     );
-    expect(container.querySelector('nldd-tab-bar-item[href="/"]')).toHaveAttribute('text', 'Start');
+    expect(container.querySelector('nldd-tab-bar-item[href="/taken"]')).toHaveAttribute(
+      'text',
+      'Taken',
+    );
   });
 });
 
@@ -154,6 +167,7 @@ describe('the bar at the bottom of a small screen', () => {
     const { container } = renderApp(<BottomNavigation />, { auth: reader(['beheerder']) });
     expect(texts(container, 'nldd-tab-bar-item')).toEqual([
       'Start',
+      'Taken',
       'Opdrachten',
       'Vacatures',
       'Mensen',
@@ -170,25 +184,26 @@ describe('the bar at the bottom of a small screen', () => {
   it('puts the number on the corner of the icon, as decoration, and in the name of the bar', async () => {
     stubCount({ to_do: 10 });
     const { container } = renderApp(<BottomNavigation />);
-    const start = () => container.querySelector('nldd-tab-bar-item[href="/"]');
-    await waitFor(() => expect(start()?.querySelector('nldd-badge')).toBeTruthy());
-    const badge = start()?.querySelector('nldd-badge');
+    const tasks = () => container.querySelector('nldd-tab-bar-item[href="/taken"]');
+    await waitFor(() => expect(tasks()?.querySelector('nldd-badge')).toBeTruthy());
+    expect(container.querySelector('nldd-tab-bar-item[href="/"] nldd-badge')).toBeNull();
+    const badge = tasks()?.querySelector('nldd-badge');
     expect(badge).toHaveAttribute('number', '10');
     expect(badge).toHaveAttribute('decorative');
     expect(badge?.parentElement).toHaveAttribute('slot', 'icon');
-    expect(start()).toHaveAttribute('text', 'Start');
-    expect(start()?.getAttribute('icon') ?? '').toBe('');
+    expect(tasks()).toHaveAttribute('text', 'Taken');
+    expect(tasks()?.getAttribute('icon') ?? '').toBe('');
     expect(container.querySelector('nldd-tab-bar')).toHaveAttribute(
       'accessible-label',
       'Plekken in Grip, 10 taken te doen',
     );
   });
 
-  it('keeps the plain icon on Start without a number', () => {
+  it('keeps the plain icon on Taken without a number', () => {
     const { container } = renderApp(<BottomNavigation />);
-    const start = container.querySelector('nldd-tab-bar-item[href="/"]');
-    expect(start?.querySelector('nldd-badge')).toBeNull();
-    expect(start).toHaveAttribute('icon', 'house');
+    const tasks = container.querySelector('nldd-tab-bar-item[href="/taken"]');
+    expect(tasks?.querySelector('nldd-badge')).toBeNull();
+    expect(tasks).toHaveAttribute('icon', 'task-list');
   });
 
   it.each(['/ik', '/beveiliging', '/meldingen', `/mensen/${TEST_PERSON.id}`])(

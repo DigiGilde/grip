@@ -267,7 +267,7 @@ Een begrotingsregel houdt de categorie waarop ze is begroot. Na een promotie loo
 
 ## Schermen
 
-Vijf plekken: Start, Opdrachten, Vacatures, Mensen en Geld, met Aanvragen voor wie aanvraagt of tekent en Beheer apart (ADR 0055). Hoe een scherm is opgebouwd staat in [ontwerp.md](ontwerp.md).
+Zes plekken: Start, Taken, Opdrachten, Vacatures, Mensen en Geld, met Aanvragen voor wie aanvraagt of tekent en Beheer apart (ADR 0055 en 0059). Hoe een scherm is opgebouwd staat in [ontwerp.md](ontwerp.md).
 
 - **Start**: wat er voor de lezer te doen is, per zaak; wat voor hem speelt, per recht en relatie; en wat nieuw is. Wie het geld van alle opdrachten leest, ziet er drie cijfers: verwacht totaal, investeerruimte en potentieel.
 - **Opdrachten**, met de weergaven Potentieel, Lopend en Afgesloten. Een opdracht opent op wat nu moet, met haar onderdelen als rijen. Begroting is tot het akkoord de invoer, en daarna per begrotingsregel Begroot, Gerealiseerde inzet, Nog gepland, Kosten, Verwacht totaal, Afwijking en Uitputting, met een totaalrij over de hele looptijd, de peildatum van de stand, de aandachtspunten en het verloop per maand. Team toont wie op de opdracht werkt, zonder bedragen.

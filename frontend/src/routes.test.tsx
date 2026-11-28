@@ -19,6 +19,7 @@ describe('route table', () => {
   it('lists the places in the order of the bar, with the settings last', () => {
     expect(APP_ROUTES.map(navLabel)).toEqual([
       'Start',
+      'Taken',
       'Opdrachten',
       'Aanvragen',
       'Vacatures',
@@ -37,6 +38,7 @@ describe('route table', () => {
     // The role of client is for who holds it; a beheerder reaches it from Beheer.
     expect(labels(['beheerder'])).toEqual([
       'Start',
+      'Taken',
       'Opdrachten',
       'Vacatures',
       'Mensen',
@@ -46,18 +48,33 @@ describe('route table', () => {
     // Owner or manager of assignments: the work and its money, no settings, no client role.
     expect(labels([], ['assignment_manager'])).toEqual([
       'Start',
+      'Taken',
       'Opdrachten',
       'Vacatures',
       'Mensen',
       'Geld',
     ]);
-    expect(labels(['planner'])).toEqual(['Start', 'Opdrachten', 'Vacatures', 'Mensen']);
-    expect(labels([], ['line_manager'])).toEqual(['Start', 'Vacatures', 'Mensen']);
-    expect(labels(['lezer'])).toEqual(['Start', 'Opdrachten', 'Vacatures', 'Geld']);
-    expect(labels([], ['team_member'])).toEqual(['Start', 'Opdrachten', 'Vacatures']);
-    expect(labels(['aanvrager'])).toEqual(['Start', 'Aanvragen', 'Vacatures']);
-    expect(labels(['tekenbevoegde'])).toEqual(['Start', 'Aanvragen', 'Vacatures']);
-    expect(labels([])).toEqual(['Start', 'Vacatures']);
+    expect(labels(['planner'])).toEqual(['Start', 'Taken', 'Opdrachten', 'Vacatures', 'Mensen']);
+    expect(labels([], ['line_manager'])).toEqual(['Start', 'Taken', 'Vacatures', 'Mensen']);
+    expect(labels(['lezer'])).toEqual(['Start', 'Taken', 'Opdrachten', 'Vacatures', 'Geld']);
+    expect(labels([], ['team_member'])).toEqual(['Start', 'Taken', 'Opdrachten', 'Vacatures']);
+    expect(labels(['aanvrager'])).toEqual(['Start', 'Taken', 'Aanvragen', 'Vacatures']);
+    expect(labels(['tekenbevoegde'])).toEqual(['Start', 'Taken', 'Aanvragen', 'Vacatures']);
+    expect(labels([])).toEqual(['Start', 'Taken', 'Vacatures']);
+  });
+
+  it('gives every viewer Taken right after Start', () => {
+    for (const functions of [[], ['beheerder'], ['planner'], ['lezer'], ['aanvrager']]) {
+      expect(routesFor({ functions, relations: [] }).map(navLabel).slice(0, 2)).toEqual([
+        'Start',
+        'Taken',
+      ]);
+    }
+    expect(
+      routesFor({ functions: [], relations: ['team_member'] })
+        .map(navLabel)
+        .slice(0, 2),
+    ).toEqual(['Start', 'Taken']);
   });
 
   it('opens Mensen on the board for a planner and on the list for everyone else', () => {
@@ -80,10 +97,10 @@ describe('route table', () => {
     expect(section('/mensen/bord')).toBe('Mensen');
     expect(section('/vacatures/opengesteld')).toBe('Vacatures');
     expect(section('/aanvragen/offerte/q1')).toBe('Aanvragen');
-    // Work that reaches you on the start page.
-    expect(section('/taken')).toBe('Start');
-    expect(section('/goedkeuren')).toBe('Start');
-    expect(section('/goedkeuren/q1')).toBe('Start');
+    expect(section('/taken')).toBe('Taken');
+    // Approving a quote reaches you as a task.
+    expect(section('/goedkeuren')).toBe('Taken');
+    expect(section('/goedkeuren/q1')).toBe('Taken');
     expect(section('/wat-is-er-gebeurd')).toBe('Start');
     // Reached from Beheer, whatever the address says.
     expect(section('/beheer/offertes')).toBe('Beheer');
@@ -113,6 +130,7 @@ describe('routes', () => {
   /** The heading of each place, by address. */
   const HEADINGS: Record<string, string> = {
     '/': 'Start',
+    '/taken': 'Taken',
     '/opdrachten': 'Opdrachten',
     '/aanvragen': 'Aanvragen',
     '/vacatures': 'Vacatures',
