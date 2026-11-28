@@ -5,8 +5,9 @@
 import { apiGet } from '@/api/client';
 
 export interface ToDoGroup {
-  case_kind: 'assignment' | 'vacancy';
-  case_id: string;
+  case_kind: 'assignment' | 'vacancy' | 'instance';
+  /** Null for the instance itself. */
+  case_id: string | null;
   case_label: string;
   task_id: string;
   headline: string;

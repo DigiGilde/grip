@@ -54,6 +54,8 @@ export const PATHS = {
   activity: '/beheer/activiteit',
   retention: '/beheer/bewaartermijnen',
   peers: '/beheer/koppelingen',
+  // One peer, open in its sheet on the list.
+  peer: '/beheer/koppelingen/:peerId',
   languageModel: '/beheer/taalmodel',
   organisations: '/beheer/organisaties',
   roles: '/beheer/rollen',

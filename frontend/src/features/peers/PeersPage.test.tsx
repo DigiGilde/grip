@@ -90,7 +90,7 @@ describe('PeersPage', () => {
   it('opens the peer the address names, as a task leads to it', async () => {
     const container = await renderPeers(
       { items: [{ ...PEER, undelivered: 1 }], services: SERVICES, outway_configured: true },
-      '/beheer/koppelingen?koppeling=p-1&bij-taak=t-1',
+      '/beheer/koppelingen/p-1?bij-taak=t-1',
       {
         '/api/peers/p-1/undelivered': {
           items: [

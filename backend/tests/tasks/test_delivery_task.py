@@ -105,7 +105,7 @@ def test_the_plan_gives_the_beheerder_one_task_per_peer():
     assert template is not None
     assert (template.case_kind, template.subject) == ("instance", "peer")
     assert (template.assignee, template.done_when) == ("beheerder", "messages_arrive")
-    assert template.link == "/beheer/koppelingen?koppeling={subject_id}"
+    assert template.link == "/beheer/koppelingen/{subject_id}"
 
 
 # --- the engine -----------------------------------------------------------------
@@ -130,7 +130,7 @@ async def test_a_task_per_peer_while_messages_do_not_arrive(db_session, evaluate
     )
     assert (task.assignee_role, task.assignee_person_id) == ("beheerder", None)
     assert task.title == "Kijk waarom berichten aan Voorbeeldgilde niet aankomen"
-    assert task.link == f"/beheer/koppelingen?koppeling={GILDE}"
+    assert task.link == f"/beheer/koppelingen/{GILDE}"
     assert task.situation is None
 
     # Running again changes nothing.
@@ -265,7 +265,9 @@ async def test_the_beheerder_is_told_why_and_until_when(
         "ontvanger kent deze instantie niet. Grip probeert ze tot 13 okt 2026."
     )
     assert item["action_text"] == "Test de verbinding"
-    assert item["work_href"] == f"/beheer/koppelingen?koppeling={GILDE}"
+    # The peer has no page of its own besides its address on Koppelingen.
+    assert item["work_href"] == f"/beheer/koppelingen/{GILDE}"
+    assert item["step_href"] == f"/beheer/koppelingen/{GILDE}"
     # Never what the receiver answered: only words grip has for the reason.
     assert "403" not in str(item)
 
@@ -317,3 +319,17 @@ async def test_opening_the_task_shows_it_closed_once_everything_arrived(
     item = (await as_person(beheerder).get(f"/api/tasks/{task.id}")).json()
     assert item["status"] == "done"
     assert item["headline"] == "Kijk waarom berichten aan Voorbeeldgilde niet aankomen"
+
+
+async def test_start_leads_the_beheerder_to_the_peer(
+    db_session, evaluate, as_person, beheerder
+):
+    await _report(db_session, _trouble())
+    await evaluate()
+    (task,) = await tasks(db_session, key=KEY)
+    response = await as_person(beheerder).get("/api/start")
+    assert response.status_code == 200, response.text
+    groups = response.json()["to_do"]["groups"]
+    (group,) = [group for group in groups if group["task_id"] == str(task.id)]
+    assert (group["case_kind"], group["case_label"]) == ("instance", "Koppelingen")
+    assert group["href"] == f"/beheer/koppelingen/{GILDE}"

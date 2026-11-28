@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useSearchParams } from 'react-router-dom';
+import { useLocation, useMatch, useNavigate } from 'react-router-dom';
+import { PATHS } from '@/paths';
 import { useAuth } from '@/auth/context';
 import { useInstance } from '@/layout/useInstance';
 import { ActionBar } from '@/ui/ActionBar';
@@ -17,18 +18,16 @@ function grantSummary(peer: Peer, services: string[]): string {
   return recorded.join(', ');
 }
 
-/** The search parameter that holds the peer whose sheet is open, so a task can lead to it. */
-const PEER_PARAM = 'koppeling';
-
+/** The peer whose sheet is open is in the address, so a task can lead to it. */
 function useOpenPeer(): [string | null, (id: string | null) => void] {
-  const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { search } = useLocation();
+  const match = useMatch(PATHS.peer);
   const open = (id: string | null) => {
-    const next = new URLSearchParams(params);
-    if (id) next.set(PEER_PARAM, id);
-    else next.delete(PEER_PARAM);
-    setParams(next, { replace: id === null });
+    const path = id ? PATHS.peer.replace(':peerId', encodeURIComponent(id)) : PATHS.peers;
+    navigate(`${path}${search}`, { replace: id === null });
   };
-  return [params.get(PEER_PARAM), open];
+  return [match?.params.peerId ?? null, open];
 }
 
 /**

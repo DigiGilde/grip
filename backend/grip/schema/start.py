@@ -27,7 +27,8 @@ class ToDoGroupOut(BaseModel):
     C of the assignment."""
 
     case_kind: Annotated[str, in_class(A)]
-    case_id: Annotated[UUID, in_class(A)]
+    # Null for the instance itself, which is not a record of its own.
+    case_id: Annotated[UUID | None, in_class(A)]
     case_label: Annotated[str, in_class(A)]
     task_id: Annotated[UUID, in_class(A)]
     headline: Annotated[str, in_class(A)]

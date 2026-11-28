@@ -1033,7 +1033,7 @@
           "when": [],
           "done_when": "messages_arrive",
           "assignee": "beheerder",
-          "link": "/beheer/koppelingen?koppeling={subject_id}"
+          "link": "/beheer/koppelingen/{subject_id}"
         }
       ]
     }

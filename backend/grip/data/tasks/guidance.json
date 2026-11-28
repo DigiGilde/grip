@@ -20,7 +20,7 @@
     "vacancy.decision.hr": "/vacatures/{vacancy_id}/advies?besluit=hr_advice",
     "vacancy.decision.control": "/vacatures/{vacancy_id}/advies?besluit=control_advice",
     "vacancy.decision.approval": "/vacatures/{vacancy_id}/advies?besluit=approval",
-    "peer": "/beheer/koppelingen?koppeling={subject_id}"
+    "peer": "/beheer/koppelingen/{subject_id}"
   },
   "templates": {
     "offerte.aanvraag_uitwerken": {
