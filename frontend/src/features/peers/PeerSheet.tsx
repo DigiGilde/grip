@@ -7,6 +7,7 @@ import { Button, SelectField, SwitchField, TextField } from '@/features/team/ui/
 import { Form, Sheet } from '@/features/team/ui/overlays';
 import { useInstance } from '@/layout/useInstance';
 import { ErrorNotice } from '@/ui/layout';
+import { TASK_KEYS } from '@/features/tasks';
 import {
   PEERS_KEY,
   ROLE_LABELS,
@@ -242,6 +243,7 @@ function Undelivered({ peer }: { peer: Peer }) {
     onSuccess: async () => {
       setError(null);
       await queryClient.invalidateQueries({ queryKey: PEERS_KEY });
+      await queryClient.invalidateQueries({ queryKey: TASK_KEYS.all });
     },
     onError: (err) => setError(errorMessage(err)),
   });

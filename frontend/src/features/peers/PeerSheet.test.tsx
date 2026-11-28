@@ -65,7 +65,7 @@ describe('PeerSheet', () => {
       'Vacature',
     ]);
     const lines = [...container.querySelectorAll('nldd-list nldd-text-cell')].map((cell) =>
-      (cell.getAttribute('supporting-text') ?? '').replace(/ | /g, ' '),
+      (cell.getAttribute('supporting-text') ?? '').replace(/\u00a0|\u202f/g, ' '),
     );
     expect(lines[0]).toMatch(/^Het bericht botst met wat de ontvanger al heeft\. Sinds 27 nov/);
     expect(lines[0]).toMatch(/Komt niet meer vanzelf aan\.$/);

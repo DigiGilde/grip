@@ -23,6 +23,7 @@ from grip.core import clock
 from grip.models.assignment import Allocation, Assignment, BudgetLine
 from grip.models.audit_log import AuditLog
 from grip.models.billing_delivery import BillingDelivery, BillingTerms
+from grip.models.delivery_trouble import DeliveryTrouble
 from grip.models.month_close import BillingExport, MonthClose
 from grip.models.organisation import Organisation
 from grip.models.outgoing_invoice import OutgoingInvoice, OutgoingInvoiceDelivery
@@ -1099,3 +1100,81 @@ async def load_vacancy_cases(
             )
         )
     return snapshots
+
+
+# --- the instance itself ------------------------------------------------------
+
+# The one case of the instance (ADR 0061); it has no row of its own.
+INSTANCE_CASE_ID = UUID("e93c335f-5083-5127-8cf0-d513959859d9")
+
+
+@dataclass(frozen=True)
+class PeerTrouble:
+    """Messages to one other instance that do not arrive, as grip keeps it."""
+
+    peer_id: UUID
+    peer_name: str
+    final: bool
+
+
+def instance_snapshot(
+    troubles: Sequence[PeerTrouble], open_peers: Collection[str]
+) -> CaseSnapshot:
+    """The facts of the instance case, from plain inputs.
+
+    A peer is a subject while messages to it do not arrive, and also while
+    its task is still open after they did: that task must close as done,
+    not lapse because its subject is gone.
+    """
+    subjects: list[Subject] = []
+    troubled: set[str] = set()
+    for trouble in sorted(troubles, key=lambda item: str(item.peer_id)):
+        key = str(trouble.peer_id)
+        troubled.add(key)
+        subjects.append(
+            Subject(
+                kind="peer",
+                repeat_key=key,
+                subject_id=key,
+                facts={"messages_arrive": False, "message_final": trouble.final},
+                variables={"koppeling": trouble.peer_name},
+            )
+        )
+    for key in sorted(set(open_peers) - troubled):
+        subjects.append(
+            Subject(
+                kind="peer",
+                repeat_key=key,
+                subject_id=key,
+                facts={"messages_arrive": True, "message_final": False},
+            )
+        )
+    return CaseSnapshot(
+        case_kind="instance",
+        case_id=INSTANCE_CASE_ID,
+        assignment_id=None,
+        vacancy_id=None,
+        facts={},
+        subjects={"peer": subjects},
+    )
+
+
+async def load_instance_cases(db: AsyncSession) -> list[CaseSnapshot]:
+    """The instance case, or nothing when no work can arise on it now."""
+    troubles = [
+        PeerTrouble(peer_id=row.peer_id, peer_name=row.peer_name, final=row.final)
+        for row in await db.scalars(select(DeliveryTrouble))
+    ]
+    open_peers = set(
+        await db.scalars(
+            select(Task.repeat_key).where(
+                Task.case_kind == "instance",
+                Task.origin == "plan",
+                Task.subject_kind == "peer",
+                Task.status.in_(OPEN_STATUSES),
+            )
+        )
+    )
+    if not troubles and not open_peers:
+        return []
+    return [instance_snapshot(troubles, open_peers)]

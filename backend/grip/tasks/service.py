@@ -169,6 +169,8 @@ async def _views(
             assignment_name = names["assignment"].get(task.assignment_id)
         if task.case_kind == "vacancy":
             case_label = f"Vacature {vacancy_title}" if vacancy_title else "Vacature"
+        elif task.case_kind == "instance":
+            case_label = "Koppelingen"
         else:
             case_label = assignment_name or "Opdracht"
         assignee_name = (
@@ -538,7 +540,7 @@ async def create_manual_task(
         raise DomainValidationError("Geef de taak een titel.")
     plan = current_plan()
     tracks = [item.key for item in plan.tracks.get(case_kind, ())]
-    if case_kind not in catalogue.CASE_KINDS or not tracks:
+    if case_kind not in ("assignment", "vacancy") or not tracks:
         raise DomainValidationError("Een taak hoort bij een opdracht of een vacature.")
     if track is None:
         track = tracks[0]

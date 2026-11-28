@@ -31,6 +31,7 @@ from grip.federation.outway import OutwayClient
 from grip.models.cost import CostItem, InvoiceLine
 from grip.models.delivery_trouble import DeliveryTrouble
 from grip.models.organisation import Organisation
+from grip.models.task import Task
 from grip.repositories.domain import CostRepository
 from grip.services import (
     assignments,
@@ -42,6 +43,7 @@ from grip.services import (
 )
 from grip.services.cost_references import ReferenceState
 from grip.services.errors import DomainValidationError
+from grip.tasks import engine
 from tests.federation import test_two_instances
 from tests.federation.test_two_instances import (
     PEER_HEADER,
@@ -455,6 +457,12 @@ async def test_a_request_the_contractor_does_not_know_yet_waits_and_arrives(inst
             False,
         )
         assert trouble.reason == "unknown_sender"
+        await engine.evaluate_instance(db)
+        (task,) = (
+            await db.scalars(select(Task).where(Task.case_kind == "instance"))
+        ).all()
+        assert (task.assignee_role, task.status) == ("beheerder", "todo")
+        assert task.repeat_key == str(trouble.peer_id)
 
     # The contractor connects the client; the next attempt arrives.
     async with contractor.session() as db:
@@ -468,6 +476,11 @@ async def test_a_request_the_contractor_does_not_know_yet_waits_and_arrives(inst
     assert (line.coverage_cents, line.incomplete_by) == (450000, ())
     async with client.session() as db:
         assert (await db.execute(select(DeliveryTrouble))).scalars().all() == []
+        await engine.evaluate_instance(db)
+        (task,) = (
+            await db.scalars(select(Task).where(Task.case_kind == "instance"))
+        ).all()
+        assert (task.status, task.completed_by_fact) == ("done", "messages_arrive")
 
 
 async def test_a_refused_request_sent_again_arrives(instances):

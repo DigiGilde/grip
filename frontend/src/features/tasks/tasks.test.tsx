@@ -131,6 +131,16 @@ describe('telling', () => {
     expect(
       aboutLine(task({ case_kind: 'vacancy', vacancy_id: 'v-1', vacancy_title: 'Developer' })),
     ).toBe('Vacature Developer · Opdracht Alfa 2026');
+    const ofInstance = task({
+      id: 't-peer',
+      case_kind: 'instance',
+      assignment_id: null,
+      assignment_name: null,
+      case_label: 'Koppelingen',
+      work_href: '/beheer/koppelingen?koppeling=p-1',
+    });
+    expect(aboutLine(ofInstance)).toBe('Koppelingen');
+    expect(workHref(ofInstance)).toBe('/beheer/koppelingen?koppeling=p-1&bij-taak=t-peer');
     expect(dueWords(LATE)).toBe('Te laat: vóór 7 okt 2026');
     expect(dueWords(task({ due_on: null }))).toBe('');
   });

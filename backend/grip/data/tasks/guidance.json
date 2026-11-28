@@ -19,7 +19,8 @@
     "vacancy.text.write": "/vacatures/{vacancy_id}/tekst?schrijf={repeat_key}",
     "vacancy.decision.hr": "/vacatures/{vacancy_id}/advies?besluit=hr_advice",
     "vacancy.decision.control": "/vacatures/{vacancy_id}/advies?besluit=control_advice",
-    "vacancy.decision.approval": "/vacatures/{vacancy_id}/advies?besluit=approval"
+    "vacancy.decision.approval": "/vacatures/{vacancy_id}/advies?besluit=approval",
+    "peer": "/beheer/koppelingen?koppeling={subject_id}"
   },
   "templates": {
     "offerte.aanvraag_uitwerken": {
@@ -460,6 +461,24 @@
       "why": "{opdracht} is een interne opdracht met een begroting.",
       "then": "Daarna sluit je elke maand de inzet af.",
       "destination": "assignment.overview"
+    },
+    "beheer.berichten_laten_aankomen": {
+      "title": "Kijk waarom berichten aan {koppeling} niet aankomen",
+      "awaited": "Berichten aan {koppeling} die niet aankomen",
+      "do": "Berichten aan {koppeling} komen niet aan. Test de verbinding en los op wat er misgaat. Grip blijft het intussen proberen.",
+      "wait": "Je wacht op {wie}, die kijkt waarom berichten aan {koppeling} niet aankomen. Jij hoeft nu niets te doen.",
+      "action": "Test de verbinding",
+      "why": "Sinds {sinds} {berichten} aan {koppeling} niet aan: {reden}. {pogingen}",
+      "destination": "peer",
+      "situations": {
+        "message_final": {
+          "title": "Verstuur berichten aan {koppeling} opnieuw",
+          "awaited": "Berichten aan {koppeling} die opnieuw moeten",
+          "do": "Een bericht aan {koppeling} komt niet meer vanzelf aan. Los op wat er misgaat en verstuur het daarna opnieuw.",
+          "wait": "Je wacht op {wie}, die berichten aan {koppeling} opnieuw verstuurt. Jij hoeft nu niets te doen.",
+          "action": "Opnieuw versturen"
+        }
+      }
     }
   }
 }

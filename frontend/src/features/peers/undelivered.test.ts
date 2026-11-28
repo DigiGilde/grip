@@ -11,7 +11,7 @@ const MESSAGE: UndeliveredMessage = {
   final: false,
 };
 
-const plain = (text: string) => text.replace(/ | /g, ' ');
+const plain = (text: string) => text.replace(/\u00a0|\u202f/g, ' ');
 
 describe('standing', () => {
   it('says why, since when and until when grip tries', () => {
