@@ -60,7 +60,7 @@ export const CHAPTERS = [
     slug: 'project',
     title: 'Project',
     description: 'De stand van het werk: wat er gebouwd is, wat niet, en wat op een beslissing of antwoord wacht.',
-    groups: [{ docs: ['plan', 'openstaand'] }],
+    groups: [{ docs: ['plan', 'openstaand', 'basisbeschrijving'] }],
   },
 ];
 

@@ -1,6 +1,6 @@
 # Domein
 
-Deze specificatie is overgenomen uit de basisbeschrijving van het Grist-document dat grip vervangt, aangevuld met wat het plan voor federatie, tekenen en verrekening toevoegt. Alle opdrachtnamen, bedragen en tarieven in de voorbeelden zijn fictief.
+Deze specificatie is overgenomen uit de [basisbeschrijving](basisbeschrijving.md) van het Grist-document dat grip vervangt, aangevuld met wat het plan voor federatie, tekenen en verrekening toevoegt. Alle opdrachtnamen, bedragen en tarieven in de voorbeelden zijn fictief.
 
 ## Wat Grist deed en waar het knelde
 
