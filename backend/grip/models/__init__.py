@@ -231,3 +231,8 @@ __all__ += [
     "PushOutbox",
     "PushSubscription",
 ]
+
+# Messages to another instance that do not arrive (migration 0049_delivery_trouble).
+from grip.models.delivery_trouble import DeliveryTrouble  # noqa: E402
+
+__all__ += ["DeliveryTrouble"]

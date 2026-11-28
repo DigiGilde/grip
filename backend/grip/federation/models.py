@@ -39,11 +39,43 @@ PEER_ROLES = (
 
 OUTBOX_PENDING = "pending"
 OUTBOX_SENT = "sent"
-# The receiver refused the message for good (4xx); retrying will not help.
+# The receiver refused the message for good: the message itself is wrong or
+# conflicts with what the receiver has (400, 409, 410, 422).
 OUTBOX_REJECTED = "rejected"
-# Retries are used up without ever reaching the receiver.
+# Tried for the whole window (FEDERATION_RETRY_DAYS) without arriving.
 OUTBOX_DEAD = "dead"
 OUTBOX_STATUSES = (OUTBOX_PENDING, OUTBOX_SENT, OUTBOX_REJECTED, OUTBOX_DEAD)
+
+# Why a message did not arrive at its last attempt. The domain keeps the same
+# codes, with words for them (grip.models.delivery_trouble.REASONS); a test
+# holds the two lists equal.
+FAILURE_NO_CONNECTION = "no_connection"
+FAILURE_TIMEOUT = "timeout"
+# 401 or 403: the receiver does not know this instance (yet).
+FAILURE_UNKNOWN_SENDER = "unknown_sender"
+# 404: the receiver does not have what the message is about (yet).
+FAILURE_NOT_FOUND = "not_found"
+# 5xx.
+FAILURE_RECEIVER_ERROR = "receiver_error"
+# No outway, no grant hash, or a peer on the other side of the example group.
+FAILURE_CONFIGURATION = "configuration"
+# 400 or 422: the receiver refuses the message as it is.
+FAILURE_INVALID = "invalid"
+FAILURE_CONFLICT = "conflict"
+FAILURE_GONE = "gone"
+FAILURE_OTHER = "other"
+FAILURES = (
+    FAILURE_NO_CONNECTION,
+    FAILURE_TIMEOUT,
+    FAILURE_UNKNOWN_SENDER,
+    FAILURE_NOT_FOUND,
+    FAILURE_RECEIVER_ERROR,
+    FAILURE_CONFIGURATION,
+    FAILURE_INVALID,
+    FAILURE_CONFLICT,
+    FAILURE_GONE,
+    FAILURE_OTHER,
+)
 
 
 def _uuid_pk() -> Mapped[uuid.UUID]:
@@ -117,6 +149,10 @@ class FederationOutbox(Base):
     __table_args__ = (
         UniqueConstraint("peer_id", "message_id"),
         CheckConstraint(_in_list("status", OUTBOX_STATUSES), name="status_valid"),
+        CheckConstraint(
+            f"failure IS NULL OR {_in_list('failure', FAILURES)}",
+            name="failure_valid",
+        ),
         Index("ix_federation_outbox_due", "status", "next_attempt_at"),
     )
 
@@ -138,8 +174,22 @@ class FederationOutbox(Base):
     next_attempt_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+    # What the receiver answered, for the log. It holds the other side's own
+    # text: never shown to anyone, ``failure`` says it in words.
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     last_status_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Why the last attempt failed, one of FAILURES.
+    failure: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # Since when the message counts as not arriving: its third failure in a
+    # row, or a final answer. Kept when it is sent again, until it arrives.
+    failing_since: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    # Until when a failure is tried again: the first failure plus the window.
+    # Cleared when the message is sent again, so the window starts anew.
+    retry_until: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

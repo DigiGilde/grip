@@ -63,6 +63,7 @@ export const KIND_LABELS: Record<string, string> = {
   form_template: 'Aanvraagformulier',
   instance_setting: 'Instelling',
   peer: 'Koppeling',
+  delivery_trouble: 'Afleverprobleem',
   mail_outbox: 'Uitgaande mail',
   stream: 'Geschiedenis',
   data: 'Gegevens',

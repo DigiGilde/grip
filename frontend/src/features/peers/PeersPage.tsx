@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/auth/context';
 import { useInstance } from '@/layout/useInstance';
 import { ActionBar } from '@/ui/ActionBar';
@@ -16,6 +17,20 @@ function grantSummary(peer: Peer, services: string[]): string {
   return recorded.join(', ');
 }
 
+/** The search parameter that holds the peer whose sheet is open, so a task can lead to it. */
+const PEER_PARAM = 'koppeling';
+
+function useOpenPeer(): [string | null, (id: string | null) => void] {
+  const [params, setParams] = useSearchParams();
+  const open = (id: string | null) => {
+    const next = new URLSearchParams(params);
+    if (id) next.set(PEER_PARAM, id);
+    else next.delete(PEER_PARAM);
+    setParams(next, { replace: id === null });
+  };
+  return [params.get(PEER_PARAM), open];
+}
+
 /**
  * The other instances and corpus systems this instance talks to. For the
  * beheerder: without a row here nothing is accepted from a party and nothing
@@ -29,7 +44,7 @@ export function PeersPage() {
   const query = useQuery({ queryKey: PEERS_KEY, queryFn: fetchPeers, enabled: isAdmin });
   const peers = query.data?.items ?? [];
   const services = query.data?.services ?? [];
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useOpenPeer();
   const [adding, setAdding] = useState(false);
   const opened = peers.find((peer) => peer.id === openId) ?? null;
 
@@ -76,6 +91,9 @@ export function PeersPage() {
                     onOpen={() => setOpenId(peer.id)}
                   >
                     {peer.is_active ? null : <nldd-badge color="neutral" text="Uitgeschakeld" />}
+                    {peer.undelivered > 0 ? (
+                      <nldd-badge color="critical" text="Berichten komen niet aan" />
+                    ) : null}
                     {peer.is_example === Boolean(instance?.example) ? null : (
                       <nldd-badge
                         color="neutral"

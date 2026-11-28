@@ -245,6 +245,29 @@ async def test_a_refused_reference_can_go(client, world, as_person, db_session, 
     assert (await client.get(f"/api/costs/{item.id}")).status_code == 404
 
 
+async def test_a_refused_request_sent_again_waits_again(
+    client, world, as_person, db_session, gilde
+):
+    item = await costs.create_cost_item(
+        db_session,
+        description="Zaal",
+        budgeted_cents=1000,
+        executor_organisation_id=gilde.organisation.id,
+        actor=world.beheerder,
+    )
+    await cost_references.answered(db_session, item.id, 1, "refused")
+    # A request that a later one overtook changes nothing.
+    await cost_references.sent_again(db_session, item.id, 0)
+    as_person(world.beheerder)
+    body = (await client.get(f"/api/costs/{item.id}")).json()
+    assert body["reference_state"] == "refused"
+
+    await cost_references.sent_again(db_session, item.id, 1)
+    body = (await client.get(f"/api/costs/{item.id}")).json()
+    assert (body["reference_state"], body["description"]) == ("waiting", "Zaal")
+    assert [row.id for row in await cost_references.waiting(db_session)] == [item.id]
+
+
 async def test_the_supplier_sees_who_asked(client, world, as_person, db_session):
     programma = await _organisation(db_session, "Voorbeeldprogramma", PROGRAMMA)
     item, outcome = await requested_cost_items.receive_request(

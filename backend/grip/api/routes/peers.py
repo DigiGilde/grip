@@ -3,6 +3,8 @@
 A peer is another grip instance or a corpus system, known by its FSC peer
 id. Without a row here nothing is accepted from it and nothing is sent to
 it. The grant hash per service comes from the FSC contract with the peer.
+The messages to a peer that do not arrive are listed here, and one that
+will not arrive by itself can be sent again (ADR 0061).
 """
 
 from __future__ import annotations
@@ -20,13 +22,14 @@ from grip.api.assignment_support import DbSession, RequestAccess
 from grip.core.audit import CREATE, UPDATE, record_audit
 from grip.core.auth import CurrentPerson
 from grip.core.config import Settings, get_settings
+from grip.federation import undelivered
 from grip.federation.contract_loader import (
     SERVICE_CORPUS_CONTEXT,
     SERVICE_OPDRACHTVERKEER,
     operation,
     validation_errors,
 )
-from grip.federation.models import Peer
+from grip.federation.models import FederationOutbox, Peer
 from grip.federation.outway import (
     MissingGrantError,
     OutwayClient,
@@ -40,8 +43,10 @@ from grip.schema.peers import (
     PeerListOut,
     PeerOut,
     PeerUpdate,
+    UndeliveredListOut,
+    UndeliveredMessageOut,
 )
-from grip.services import stale
+from grip.services import delivery_trouble, stale
 from grip.services.errors import DomainValidationError, NotFoundError
 
 router = APIRouter(prefix="/peers", tags=["peers"])
@@ -65,7 +70,7 @@ async def _require_beheerder(access: RequestAccess) -> None:
     await access.require(Action.MANAGE_USERS, Resource.instance())
 
 
-def _out(peer: Peer) -> dict[str, Any]:
+def _out(peer: Peer, not_arriving: int = 0) -> dict[str, Any]:
     return {
         "id": peer.id,
         "version": peer.version,
@@ -82,7 +87,25 @@ def _out(peer: Peer) -> dict[str, Any]:
         "jwks_fetched_at": peer.jwks_fetched_at,
         "created_at": peer.created_at,
         "updated_at": peer.updated_at,
+        "undelivered": not_arriving,
     }
+
+
+def _message_out(row: FederationOutbox) -> dict[str, Any]:
+    final = undelivered.is_final(row)
+    reason = delivery_trouble.reason_words(row.failure)
+    return {
+        "id": row.id,
+        "kind": undelivered.kind_words(row.operation),
+        "reason": reason[:1].upper() + reason[1:],
+        "since": row.failing_since,
+        "retry_until": None if final else row.retry_until,
+        "final": final,
+    }
+
+
+async def _not_arriving(db: DbSession, peer: Peer) -> int:
+    return (await undelivered.counts(db)).get(peer.id, 0)
 
 
 def _audit_values(peer: Peer) -> dict[str, Any]:
@@ -104,8 +127,9 @@ async def list_peers(
 ) -> dict[str, Any]:
     await _require_beheerder(access)
     peers = (await db.execute(select(Peer).order_by(Peer.name))).scalars().all()
+    counts = await undelivered.counts(db)
     return {
-        "items": [_out(peer) for peer in peers],
+        "items": [_out(peer, counts.get(peer.id, 0)) for peer in peers],
         "services": SERVICES,
         "outway_configured": bool(settings.OUTWAY_URL),
     }
@@ -139,7 +163,8 @@ async def get_peer(
     peer_row_id: UUID, access: RequestAccess, db: DbSession
 ) -> dict[str, Any]:
     await _require_beheerder(access)
-    return _out(await _get(db, peer_row_id))
+    peer = await _get(db, peer_row_id)
+    return _out(peer, await _not_arriving(db, peer))
 
 
 @router.patch("/{peer_row_id}", response_model=PeerOut)
@@ -174,7 +199,45 @@ async def update_peer(
             old_value={name: old[name] for name in changed},
             new_value={name: new[name] for name in changed},
         )
-    return _out(peer)
+    return _out(peer, await _not_arriving(db, peer))
+
+
+@router.get("/{peer_row_id}/undelivered", response_model=UndeliveredListOut)
+async def list_undelivered(
+    peer_row_id: UUID, access: RequestAccess, db: DbSession
+) -> dict[str, Any]:
+    """The messages to this peer that do not arrive, the longest first."""
+    await _require_beheerder(access)
+    peer = await _get(db, peer_row_id)
+    rows = await undelivered.of_peer(db, peer.id)
+    return {"items": [_message_out(row) for row in rows]}
+
+
+@router.post(
+    "/{peer_row_id}/undelivered/{outbox_row_id}/resend",
+    response_model=UndeliveredMessageOut,
+)
+async def resend_undelivered(
+    peer_row_id: UUID,
+    outbox_row_id: UUID,
+    access: RequestAccess,
+    db: DbSession,
+    person: CurrentPerson,
+) -> dict[str, Any]:
+    """Send a message that will not arrive by itself once more (ADR 0061)."""
+    await _require_beheerder(access)
+    peer = await _get(db, peer_row_id)
+    row = await undelivered.resend(db, peer.id, outbox_row_id)
+    record_audit(
+        db,
+        actor=person,
+        action=UPDATE,
+        entity="peer",
+        entity_id=peer.id,
+        new_value={"message_id": str(row.message_id)},
+        note=f"Opnieuw verstuurd: {undelivered.kind_words(row.operation)}",
+    )
+    return _message_out(row)
 
 
 @router.post("/{peer_row_id}/test-connection", response_model=ConnectionTestOut)

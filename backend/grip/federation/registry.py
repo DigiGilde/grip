@@ -13,7 +13,10 @@ The federation module never touches domain tables. The domain registers:
   instance outside of an event, for example a request made while that
   instance was not connected yet;
 - a delivery hook per pushed operation, which tells the domain what became
-  of a message it caused.
+  of a message it caused;
+- a resend hook per pushed operation, which puts what a message is about
+  back in its waiting state when a beheerder sends it again;
+- a delivery reporter, which hears per peer what does not arrive.
 
 Without a handler a message is stored and stays unprocessed. Without a
 provider a pull operation answers 501. Without a builder an event leads to
@@ -85,11 +88,42 @@ OutboxSource = Callable[[AsyncSession], Awaitable[None]]
 # transaction of the outbox; the row carries the status.
 DeliveryHook = Callable[[AsyncSession, FederationOutbox], Awaitable[None]]
 
+# Runs when a beheerder sends a message again that was final, in the same
+# transaction; the row is pending again.
+ResendHook = Callable[[AsyncSession, FederationOutbox], Awaitable[None]]
+
+
+@dataclass(frozen=True)
+class PeerDeliveries:
+    """What does not arrive at one peer, as the outbox sees it now."""
+
+    peer_id: UUID
+    peer_name: str
+    # When the first of these messages counted as not arriving.
+    since: datetime
+    count: int
+    # Refused for good, or tried for the whole window.
+    final: bool
+    # One of models.FAILURES: a final message's reason first, else the oldest.
+    failure: str
+    # The first moment grip stops trying one of them; None when none is tried.
+    retry_until: datetime | None
+
+
+# Hears what does not arrive, per peer, after every round of the outbox and
+# after a message was sent again. The last argument names the peers looked
+# at; None means every peer, so one that is not in the list has no trouble.
+DeliveryReporter = Callable[
+    [AsyncSession, list[PeerDeliveries], set[UUID] | None], Awaitable[None]
+]
+
 _inbound_handlers: dict[str, InboundHandler] = {}
 _providers: dict[str, Provider] = {}
 _message_builders: dict[str, MessageBuilder] = {}
 _outbox_sources: list[OutboxSource] = []
 _delivery_hooks: dict[str, DeliveryHook] = {}
+_resend_hooks: dict[str, ResendHook] = {}
+_delivery_reporter: DeliveryReporter | None = None
 
 
 def _check_operation(operation: str, *, pushed: bool) -> None:
@@ -150,6 +184,26 @@ def get_delivery_hook(operation: str) -> DeliveryHook | None:
     return _delivery_hooks.get(operation)
 
 
+def register_resend_hook(operation: str, hook: ResendHook) -> None:
+    """Register what to tell the domain about a message sent again."""
+    _check_operation(operation, pushed=True)
+    _resend_hooks[operation] = hook
+
+
+def get_resend_hook(operation: str) -> ResendHook | None:
+    return _resend_hooks.get(operation)
+
+
+def register_delivery_reporter(reporter: DeliveryReporter | None) -> None:
+    """Register who hears what does not arrive."""
+    global _delivery_reporter
+    _delivery_reporter = reporter
+
+
+def delivery_reporter() -> DeliveryReporter | None:
+    return _delivery_reporter
+
+
 def clear_registries() -> None:
     """Forget every handler, provider, builder, source and hook. For tests."""
     _inbound_handlers.clear()
@@ -157,6 +211,8 @@ def clear_registries() -> None:
     _message_builders.clear()
     _outbox_sources.clear()
     _delivery_hooks.clear()
+    _resend_hooks.clear()
+    register_delivery_reporter(None)
     # The bridge also answers the domain's questions about the channel to a
     # client's instance; forgetting the bridge includes those.
     quote_channels.clear()

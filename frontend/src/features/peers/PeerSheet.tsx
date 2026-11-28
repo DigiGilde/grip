@@ -1,22 +1,27 @@
 import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
 import { useStaleForm } from '@/ui/useStaleForm';
 import { formatDate } from '@/lib/format';
 import { Button, SelectField, SwitchField, TextField } from '@/features/team/ui/controls';
 import { Form, Sheet } from '@/features/team/ui/overlays';
 import { useInstance } from '@/layout/useInstance';
+import { ErrorNotice } from '@/ui/layout';
 import {
   PEERS_KEY,
   ROLE_LABELS,
   createPeer,
+  fetchUndelivered,
+  resendMessage,
   testConnection,
+  undeliveredKey,
   updatePeer,
   type ConnectionTest,
   type Peer,
   type PeerInput,
   type PeerRole,
 } from './api';
+import { standing } from './undelivered';
 
 interface PeerSheetProps {
   open: boolean;
@@ -45,6 +50,7 @@ export function PeerSheet({ open, peer, services, onClose }: PeerSheetProps) {
         <nldd-container gap="32">
           <PeerForm key={peer?.id ?? 'new'} peer={peer} services={services} onSaved={onClose} />
           {peer ? <Connection peer={peer} /> : null}
+          {peer && peer.undelivered > 0 ? <Undelivered peer={peer} /> : null}
         </nldd-container>
       ) : null}
     </Sheet>
@@ -219,6 +225,60 @@ function Connection({ peer }: { peer: Peer }) {
           onClick={() => test.mutate()}
         />
       </nldd-container>
+    </nldd-container>
+  );
+}
+
+/** The messages to this peer that do not arrive; one that is final can go again. */
+function Undelivered({ peer }: { peer: Peer }) {
+  const queryClient = useQueryClient();
+  const query = useQuery({
+    queryKey: undeliveredKey(peer.id),
+    queryFn: () => fetchUndelivered(peer.id),
+  });
+  const [error, setError] = useState<string | null>(null);
+  const resend = useMutation({
+    mutationFn: (messageId: string) => resendMessage(peer.id, messageId),
+    onSuccess: async () => {
+      setError(null);
+      await queryClient.invalidateQueries({ queryKey: PEERS_KEY });
+    },
+    onError: (err) => setError(errorMessage(err)),
+  });
+  if (query.isError) {
+    return <ErrorNotice message="De berichten konden niet worden geladen." />;
+  }
+  const messages = query.data?.items ?? [];
+  if (messages.length === 0) return null;
+  return (
+    <nldd-container gap="8">
+      <nldd-title size={4} text="Berichten die niet aankomen" heading-level={2} />
+      {error ? (
+        <nldd-banner
+          variant="critical"
+          text="Het bericht is niet opnieuw verstuurd"
+          supporting-text={error}
+        />
+      ) : null}
+      <nldd-list accessible-label={`Berichten aan ${peer.name} die niet aankomen`}>
+        {messages.map((message) => (
+          <nldd-list-item key={message.id}>
+            <nldd-text-cell width="full" text={message.kind} supporting-text={standing(message)} />
+            {message.final ? (
+              <nldd-cell>
+                <Button
+                  size="sm"
+                  text="Opnieuw versturen"
+                  accessibleLabel={`${message.kind} opnieuw versturen`}
+                  loading={resend.isPending && resend.variables === message.id}
+                  disabled={resend.isPending}
+                  onClick={() => resend.mutate(message.id)}
+                />
+              </nldd-cell>
+            ) : null}
+          </nldd-list-item>
+        ))}
+      </nldd-list>
     </nldd-container>
   );
 }

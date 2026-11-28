@@ -3,6 +3,10 @@
 The domain never sends anything itself. It queues a message in the same
 transaction as its own change; the worker sends it through the outway. That
 keeps the application working when the other side cannot be reached.
+
+A message that does not arrive is tried again for ``FEDERATION_RETRY_DAYS``
+from its first failure, with a pause that doubles up to four hours, unless
+the receiver refuses it for good (ADR 0061).
 """
 
 from __future__ import annotations
@@ -10,7 +14,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from typing import Any
 from uuid import UUID
 
@@ -18,10 +22,21 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from grip.core import clock
 from grip.core.config import Settings
-from grip.federation import signing, terms
+from grip.federation import signing, terms, undelivered
 from grip.federation.contract_loader import operation, validation_errors
 from grip.federation.models import (
+    FAILURE_CONFIGURATION,
+    FAILURE_CONFLICT,
+    FAILURE_GONE,
+    FAILURE_INVALID,
+    FAILURE_NO_CONNECTION,
+    FAILURE_NOT_FOUND,
+    FAILURE_OTHER,
+    FAILURE_RECEIVER_ERROR,
+    FAILURE_TIMEOUT,
+    FAILURE_UNKNOWN_SENDER,
     OUTBOX_DEAD,
     OUTBOX_PENDING,
     OUTBOX_REJECTED,
@@ -39,12 +54,40 @@ from grip.federation.registry import get_delivery_hook, outbox_sources
 logger = logging.getLogger(__name__)
 
 _BACKOFF_BASE_SECONDS = 30
-_BACKOFF_MAX_SECONDS = 3600
+_BACKOFF_MAX_SECONDS = 4 * 3600
 _MAX_ERROR_LENGTH = 2000
+# A message counts as not arriving from this many failures in a row: one or
+# two are a blip that the next attempt usually solves.
+NOTICE_AFTER_FAILURES = 3
 
-# Answers that will not change by trying again: the receiver understood the
-# message and refused it.
-_PERMANENT_STATUS_CODES = frozenset({400, 403, 404, 409, 410, 422})
+# Answers that will not change by trying again: the message itself is wrong
+# or conflicts with what the receiver has. Any other answer can change: a
+# receiver that does not know this instance yet (401, 403) or does not have
+# what the message is about yet (404) may accept it at the next attempt.
+_FINAL_STATUS_CODES = {
+    400: FAILURE_INVALID,
+    409: FAILURE_CONFLICT,
+    410: FAILURE_GONE,
+    422: FAILURE_INVALID,
+}
+
+
+def _failure_of_answer(status_code: int) -> str:
+    if status_code in (401, 403):
+        return FAILURE_UNKNOWN_SENDER
+    if status_code == 404:
+        return FAILURE_NOT_FOUND
+    if 500 <= status_code <= 599:
+        return FAILURE_RECEIVER_ERROR
+    return FAILURE_OTHER
+
+
+def _failure_of_error(error: httpx.HTTPError) -> str:
+    if isinstance(error, httpx.TimeoutException):
+        return FAILURE_TIMEOUT
+    if isinstance(error, httpx.TransportError):
+        return FAILURE_NO_CONNECTION
+    return FAILURE_OTHER
 
 
 class OutboundMessageInvalidError(Exception):
@@ -115,7 +158,7 @@ async def enqueue(
         payload=payload,
         status=OUTBOX_PENDING,
         attempts=0,
-        next_attempt_at=datetime.now(UTC),
+        next_attempt_at=clock.now(),
     )
     db.add(row)
     await db.flush()
@@ -140,11 +183,22 @@ class SendStats:
 
 
 def _fail(
-    row: FederationOutbox, error: str, settings: Settings, stats: SendStats
+    row: FederationOutbox,
+    failure: str,
+    error: str,
+    settings: Settings,
+    stats: SendStats,
 ) -> None:
+    now = clock.now()
+    row.failure = failure
     row.last_error = error[:_MAX_ERROR_LENGTH]
-    if row.attempts >= settings.FEDERATION_MAX_ATTEMPTS:
+    if row.retry_until is None:
+        row.retry_until = now + timedelta(days=settings.FEDERATION_RETRY_DAYS)
+    if row.failing_since is None and row.attempts >= NOTICE_AFTER_FAILURES:
+        row.failing_since = now
+    if now >= row.retry_until:
         row.status = OUTBOX_DEAD
+        row.failing_since = row.failing_since or now
         stats.dead += 1
         logger.error(
             "Outbox message %s (%s) gave up after %d attempts: %s",
@@ -154,8 +208,9 @@ def _fail(
             row.last_error,
         )
         return
-    row.next_attempt_at = datetime.now(UTC) + timedelta(
-        seconds=backoff_seconds(row.attempts)
+    # The last attempt falls on the end of the window, not after it.
+    row.next_attempt_at = min(
+        now + timedelta(seconds=backoff_seconds(row.attempts)), row.retry_until
     )
     stats.retried += 1
 
@@ -169,23 +224,31 @@ async def _send_one(
             row.peer, row.service, row.method, row.path, json=row.payload
         )
     except (OutwayNotConfiguredError, MissingGrantError) as exc:
-        _fail(row, f"configuration: {exc}", settings, stats)
+        _fail(row, FAILURE_CONFIGURATION, f"configuration: {exc}", settings, stats)
         return
     except httpx.HTTPError as exc:
-        _fail(row, f"{type(exc).__name__}: {exc}", settings, stats)
+        _fail(
+            row, _failure_of_error(exc), f"{type(exc).__name__}: {exc}", settings, stats
+        )
         return
 
     row.last_status_code = response.status_code
     if response.status_code in (200, 201):
         row.status = OUTBOX_SENT
-        row.sent_at = datetime.now(UTC)
+        row.sent_at = clock.now()
         row.last_error = None
+        row.failure = None
+        row.failing_since = None
+        row.retry_until = None
         stats.sent += 1
         return
     detail = response.text[:500]
-    if response.status_code in _PERMANENT_STATUS_CODES:
+    final = _FINAL_STATUS_CODES.get(response.status_code)
+    if final is not None:
         row.status = OUTBOX_REJECTED
+        row.failure = final
         row.last_error = f"HTTP {response.status_code}: {detail}"[:_MAX_ERROR_LENGTH]
+        row.failing_since = row.failing_since or clock.now()
         stats.rejected += 1
         logger.warning(
             "Outbox message %s (%s) was refused by peer %s: %s",
@@ -195,7 +258,13 @@ async def _send_one(
             row.last_error,
         )
         return
-    _fail(row, f"HTTP {response.status_code}: {detail}", settings, stats)
+    _fail(
+        row,
+        _failure_of_answer(response.status_code),
+        f"HTTP {response.status_code}: {detail}",
+        settings,
+        stats,
+    )
 
 
 async def send_due(
@@ -209,7 +278,7 @@ async def send_due(
 
     First the registered sources queue what waits outside of an event;
     after each message that was sent, refused or given up, its delivery
-    hook hears of it.
+    hook hears of it. Last, the domain hears per peer what does not arrive.
 
     An example instance sends nothing in the first minutes of its reset
     hour (:func:`grip.core.example.in_reset_window`).
@@ -227,7 +296,7 @@ async def send_due(
                 select(FederationOutbox)
                 .where(
                     FederationOutbox.status == OUTBOX_PENDING,
-                    FederationOutbox.next_attempt_at <= datetime.now(UTC),
+                    FederationOutbox.next_attempt_at <= clock.now(),
                 )
                 .order_by(FederationOutbox.created_at)
                 .limit(limit)
@@ -244,7 +313,17 @@ async def send_due(
         if hook is not None and row.status != OUTBOX_PENDING:
             await hook(db, row)
     await db.flush()
+    await _report(db)
     return stats
+
+
+async def _report(db: AsyncSession) -> None:
+    # In a savepoint: sending goes on when telling the domain fails.
+    try:
+        async with db.begin_nested():
+            await undelivered.report(db)
+    except Exception:
+        logger.exception("Reporting the messages that do not arrive failed")
 
 
 async def run_outbox_loop(

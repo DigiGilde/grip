@@ -8,7 +8,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
-from grip.access import DataClass, in_class
+from grip.access import DataClass, in_class, nested
 
 M = DataClass.MASTER_DATA
 
@@ -90,6 +90,8 @@ class PeerOut(BaseModel):
     jwks_fetched_at: Annotated[datetime | None, in_class(M)]
     created_at: Annotated[datetime, in_class(M)]
     updated_at: Annotated[datetime, in_class(M)]
+    # How many messages to this peer do not arrive (ADR 0061).
+    undelivered: Annotated[int, in_class(M)] = 0
 
 
 class PeerListOut(BaseModel):
@@ -105,3 +107,25 @@ class ConnectionTestOut(BaseModel):
     detail: Annotated[str, in_class(M)]
     status_code: Annotated[int | None, in_class(M)]
     key_count: Annotated[int, in_class(M)]
+
+
+class UndeliveredMessageOut(BaseModel):
+    """A message to a peer that does not arrive. Never what the receiver
+    answered, nor what the message holds."""
+
+    id: Annotated[UUID, in_class(M)]
+    # What the message is, in words.
+    kind: Annotated[str, in_class(M)]
+    # Why it does not arrive, in words a beheerder can act on.
+    reason: Annotated[str, in_class(M)]
+    since: Annotated[datetime, in_class(M)]
+    # Until when grip tries; empty when it does not, or has not started again.
+    retry_until: Annotated[datetime | None, in_class(M)] = None
+    # Refused for good, or tried for the whole window: only a person sends it again.
+    final: Annotated[bool, in_class(M)] = False
+
+
+class UndeliveredListOut(BaseModel):
+    items: Annotated[list[UndeliveredMessageOut], nested()] = Field(
+        default_factory=list
+    )

@@ -168,6 +168,15 @@ async def request_answered(db: AsyncSession, row: FederationOutbox) -> None:
     await cost_references.answered(db, cost_item_id, message["sequence"], outcome)
 
 
+async def request_resent(db: AsyncSession, row: FederationOutbox) -> None:
+    """Tell the domain that a refused or undelivered request goes out again."""
+    message = terms.from_contract(row.payload)
+    cost_item_id = _own_cost_item_id(message.get("reference_uri", ""))
+    if cost_item_id is None:
+        return
+    await cost_references.sent_again(db, cost_item_id, message["sequence"])
+
+
 def _date(value: str | None) -> date | None:
     return date.fromisoformat(value) if value else None
 
@@ -256,4 +265,5 @@ __all__ = [
     "queue_requests",
     "read_items",
     "request_answered",
+    "request_resent",
 ]

@@ -10,7 +10,8 @@ package connects the two, and is the only place that imports both:
 - :mod:`.providers`: what this instance answers when another one asks;
 - :mod:`.acceptance`: signing a received quote in the client's own instance;
 - :mod:`.cost_items`: requests for and reads of cost items another
-  organisation keeps.
+  organisation keeps;
+- :mod:`.deliveries`: what does not arrive at another instance.
 
 Everything here works in code names. The translation to the Dutch terms of
 the contract happens at the boundary, in :mod:`grip.federation.terms`.
@@ -20,17 +21,19 @@ from __future__ import annotations
 
 from grip.federation.registry import (
     register_delivery_hook,
+    register_delivery_reporter,
     register_inbound_handler,
     register_message_builder,
     register_outbox_source,
     register_provider,
+    register_resend_hook,
 )
 from grip.services import quote_channels
 
 
 def register_bridge() -> None:
     """Register every handler, builder and provider. Safe to call twice."""
-    from grip.federation.bridge import cost_items
+    from grip.federation.bridge import cost_items, deliveries
     from grip.federation.bridge.builders import BUILDERS
     from grip.federation.bridge.channels import (
         connection_check,
@@ -53,3 +56,5 @@ def register_bridge() -> None:
     cost_references.register_reader(cost_items.read_items)
     register_outbox_source(cost_items.queue_requests)
     register_delivery_hook(cost_items.REQUEST, cost_items.request_answered)
+    register_resend_hook(cost_items.REQUEST, cost_items.request_resent)
+    register_delivery_reporter(deliveries.report)

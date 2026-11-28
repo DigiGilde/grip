@@ -81,6 +81,7 @@ KIND_LABELS: dict[str, str] = {
     "form_template": "Aanvraagformulier",
     "instance_setting": "Instelling",
     "peer": "Koppeling",
+    "delivery_trouble": "Afleverprobleem",
     "billing_delivery": "Aanlevering van factuurgegevens",
     "billing_terms": "Afspraken over facturering",
     "client_billing_details": "Opgegeven factuurinformatie",

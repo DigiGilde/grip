@@ -162,6 +162,8 @@ SPECS: dict[str, Spec] = {
     "push_subscription": _spec(ADMIN),
     "notification_preference": _spec(ADMIN),
     "peer": _spec(ADMIN),
+    # Messages to a peer that do not arrive (ADR 0061).
+    "delivery_trouble": _spec(ADMIN),
     "stream": _spec(ADMIN),
 }
 
