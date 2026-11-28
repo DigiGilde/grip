@@ -28,5 +28,6 @@ De bootstrap biedt de sleutel `PEER_REGISTRY_KEY` aan als bearer-token. Zonder i
 - Na een uitrol staan de koppelingen er zonder handwerk, en de bootstrap meldt per koppeling of "Test de verbinding" in orde is. Dat is te lezen in het log van `fscboot-<k>`, zonder in te loggen.
 - Elke uitrol met FSC krijgt een geheim erbij: `PEER_REGISTRY_KEY`, gelijk op `component-2` en op `fscboot-<k>`. Zonder dat geheim print de bootstrap de rijen zoals voorheen.
 - Wie de sleutel heeft, kan in een voorbeeldinstantie een peer van de voorbeeldgroep vastleggen. Een voorbeeld praat alleen met voorbeelden (ADR 0054), en de sleutel staat alleen in de eigen uitrol.
+- Dit is een oplossing voor de voorbeeldgroep. Een instantie voor echt werk vult haar register niet zo; daar doet een beheerder het, hooguit geholpen door een tijdelijke sleutel voor de eerste inrichting (de eigenaar van grip, 28 november 2026).
 - Een corpus-systeem is geen instantie: de lokale Bouwmeester blijft een eigen weg houden (`fsc-bootstrap-corpus.sh`).
 - `grip.dev.seed` en de route lezen dezelfde voorwaarde voor voorbeeldgegevens (`Settings.may_hold_example_data`).
