@@ -2,7 +2,7 @@
 
 Deze pagina verzamelt wat niet verder kan zonder een beslissing of een antwoord. Elk punt staat een keer, bij wie het kan beantwoorden, met een verwijzing naar de plek waar het is uitgewerkt. Wat technisch nog niet af is staat hier niet: dat staat in [plan.md](plan.md) en [rondgang.md](rondgang.md).
 
-Stand: 9 oktober 2026, en voor wat de herinrichting van de interface openliet 7 november 2026.
+Stand: 9 oktober 2026, en voor wat de herinrichting van de interface openliet 28 november 2026.
 
 ## De opdrachtgever van grip
 
@@ -31,6 +31,12 @@ Beslissingen over wat grip moet doen.
 | Vervullen zonder het recht om te wijzigen | De taak "Leg vast wie is aangenomen" is van de aanvrager, maar een aanvrager mag een vacature als zodanig niet wijzigen. Zonder dat recht staat de taak er zonder weg erheen en zonder rij Vervullen, tot iemand die het wel mag haar overneemt. Hoort de taak dan bij een ander, of mag de aanvrager de aanname vastleggen? | [taken.md](taken.md), [toegang.md](toegang.md) |
 | Twee zoekvelden | Op Opdrachten en Kosten staan twee zoekvelden: dat in de balk zoekt overal op naam, dat op de pagina filtert de lijst, en op Opdrachten ook de tellingen van de weergaven. Blijft dat zo, of krijgt het filter van de lijst een andere vorm? | [ontwerp.md](ontwerp.md), "Navigatie" |
 | Lopende opdrachten | De lijst die eerst op de startpagina stond, toonde ook afgesloten opdrachten met een subtotaal, een subtotaal "Als alles doorgaat" voor het potentieel, en kon sorteren op aandacht of op naam. Op Lopende opdrachten onder Geld is dat bewust weggevallen: afgesloten opdrachten staan op Jaarverantwoording, het potentieel op Potentieel, en een keuze van de volgorde is er niet. Is dat genoeg? | ADR 0055 |
+| Plan op het bord | Op de pagina van een persoon staat "Plan op het bord" alleen voor wie mag plannen. Een beheerder zonder dat recht en een leidinggevende missen zo de link naar de rij van die persoon op het bord. Hoort die link er voor hen ook? | ADR 0055 |
+| Start zonder taken, en het nieuws op gezien | Heb je niets te doen, dan zegt Start "Niets te doen" en niet meer hoeveel taken op anderen wachten; dat staat op Taken. Start zet het nieuws ook niet meer op gezien: dat doet alleen Wat is er gebeurd. Moet Start een van beide weer doen? | ADR 0055, ADR 0059 |
+| De uitleg bij Afsluiten en factureren | Staat de stap in de kop, dan valt de werkkaart weg, en daarmee haar uitleg: "Gepland was € X", en bij een naverrekening de eerdere factuur en de oorzaak. Hoort die uitleg in het paneel van de stap? | ADR 0055 |
+| Twee signalen minder | Hoe staan we ervoor op Start heeft geen vlag "Boven de begroting", en Lopende opdrachten geen stand per rij, zoals "Akkoord". Beide staan nog op Omzet en op Opdrachten. Horen ze terug? | ADR 0055 |
+| Begroting voor het akkoord | De csv gaat alleen over de hele looptijd, niet per jaar, en de melding "Je kunt deze begroting bekijken" staat er alleen voor het akkoord. Is dat genoeg? | ADR 0055 |
+| Kleine verschillen met main | De lijst Vacatures noemt het type alleen als het niet Regulier is. De csv van de begroting heet `begroting-...` in plaats van `financieel-...`. Bewust zo laten? | ADR 0055 |
 | De eigen knop van een onderdeel | Leidt de volgende stap naar een onderdeel met een adres dat iets opent, dan staat de stap in de kop en valt de eigen hoofdknop van het onderdeel weg, zoals "Nieuwe begrotingsregel" of "Nieuwe taak", in plaats van terug te stappen naar een gewone knop. Nu gebeurt dat alleen bij een maand op Afsluiten, dat geen eigen knop heeft; het sluimert. Moet de eigen knop dan als gewone knop blijven staan? | [ontwerp.md](ontwerp.md), "Regels" |
 | Een begroting na afronden | Op een afgeronde opdracht is "Nieuwe begrotingsregel" nog de hoofdknop van Begroting: de server staat het wijzigen toe. Dat was al zo, maar het valt nu meer op in de kop. Mag een begroting na afronden nog wijzigen? | [werkstromen.md](werkstromen.md) |
 | Wijzigingen in Bouwmeester en Wies | De wijzigingen staan op lokale branches. Mogen ze worden voorgelegd? | [plan.md](plan.md), "Wijzigingen buiten grip" |

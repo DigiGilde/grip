@@ -234,7 +234,7 @@ export function ReceivedQuotePage() {
       }
       byline={[
         quote.reference ? `kenmerk ${quote.reference}` : null,
-        `uitgegeven op ${formatDate(quote.issued_at)}`,
+        `uitgegeven op ${formatDateTime(quote.issued_at)}`,
         quote.valid_until ? `geldig t/m ${formatDate(quote.valid_until)}` : null,
       ]
         .filter(Boolean)

@@ -261,7 +261,7 @@ Start zegt wat er voor de lezer ligt, in één kolom en voor iedereen in dezelfd
 
 | Blok | Voor wie | Wat er staat |
 |---|---|---|
-| Te doen | Iedereen | Per zaak één rij: de eerstvolgende taak, de zaak en wat erna komt ("daarna nog 7 maanden en 1 taak"), met "Te laat" als badge. Hooguit vijf zaken, op volgorde van termijn; de laatste plek gaat naar de eerste zaak zonder termijn als die anders wegvalt. Altijd "Alle taken (10)" eronder, met hetzelfde getal als bij Taken in de balk. Niets te doen is één regel |
+| Te doen | Iedereen | Per zaak één rij: de eerstvolgende taak, de zaak, de termijn en wat erna komt ("Opdracht Alfa, vóór 7 apr 2026, daarna nog 7 maanden en 1 taak"), met "Te laat" als badge. Hooguit vijf zaken, op volgorde van termijn; de laatste plek gaat naar de eerste zaak zonder termijn als die anders wegvalt. Altijd "Alle taken (10)" eronder, met hetzelfde getal als bij Taken in de balk. Niets te doen is één regel |
 | Je werkt aan | Wie zelf inzet heeft | Per opdracht de eigen inzet ("Developer, 100%, tot 31 dec 2026"), "Geen inzet vanaf januari 2027" als die binnenkort stopt, en een rij naar Mijn gegevens |
 | Planning | Planner | De open rollen met hun FTE, en hoeveel mensen zonder inzet zijn vanaf welke maand; beide naar het bord |
 | Mijn opdrachten | Eigenaar of manager | Per opdracht de stand en de eerste rij die iets vraagt ("Uitvoeren, 8 maanden af te sluiten"), met Ruimte of Overschrijding als badge; een overschrijding bovenaan |

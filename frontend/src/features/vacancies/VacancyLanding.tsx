@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { assignmentPath } from '@/features/assignments/paths';
 import { TakeOverButton } from '@/features/tasks/TakeOver';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { formatDate, formatPeriod } from '@/lib/format';
@@ -98,14 +99,16 @@ export function VacancyLanding() {
   // "En nog N taken voor jou" is the link to the tasks when there is such a line.
   const moreLinked =
     tasksHref !== null && course && !course.ended && course.next && (course.more_to_do ?? 0) > 0;
+  const hasDetails = parts.some((part) => part.key === 'details');
+  // Gegevens links the assignment; without that row the way there is here. The
+  // server gives the id only to who may open the assignment.
+  const assignmentHref =
+    !hasDetails && vacancy.assignment_id ? assignmentPath(vacancy.assignment_id) : null;
   return (
     <Page
       kind="list"
       title={vacancy.function_title}
-      lead={leadOf(
-        vacancy,
-        parts.some((part) => part.key === 'details'),
-      )}
+      lead={leadOf(vacancy, hasDetails)}
       instanceName={instanceName}
       back={{ href: PATHS.vacancies, text: 'Terug naar Vacatures' }}
       action={step ? <StepButton step={step} /> : undefined}
@@ -124,6 +127,13 @@ export function VacancyLanding() {
       <TakeOverButton course={course} />
       <PublishedLinks vacancyId={vacancy.id} />
       <Stack gap="related">
+        {assignmentHref && vacancy.assignment_name && (
+          <RouterLinks>
+            <div>
+              <nldd-link href={assignmentHref} size="sm" text={`Naar ${vacancy.assignment_name}`} />
+            </div>
+          </RouterLinks>
+        )}
         {tasksHref && !moreLinked && (
           <RouterLinks>
             <div>

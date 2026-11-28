@@ -5,7 +5,7 @@
 import { assignmentPath } from '@/features/assignments/paths';
 import { incompleteText } from '@/features/costs/costText';
 import { RouterLinks } from '@/layout/RouterLinks';
-import { formatEuro, formatFte, formatMonth, formatPercent } from '@/lib/format';
+import { formatDate, formatEuro, formatFte, formatMonth, formatPercent } from '@/lib/format';
 import { PATHS } from '@/paths';
 import { IconCell } from '@/ui/Icon';
 import { LinkRows, type LinkRow } from '@/ui/LinkRows';
@@ -30,7 +30,13 @@ export function ToDoBlock({ to_do }: { to_do: StartData['to_do'] }) {
   const rows: LinkRow[] = to_do.groups.map((group) => ({
     key: group.task_id,
     text: group.headline,
-    notice: [group.case_label, group.more_text].filter(Boolean).join(', '),
+    notice: [
+      group.case_label,
+      group.due_on ? `vóór ${formatDate(group.due_on)}` : '',
+      group.more_text,
+    ]
+      .filter(Boolean)
+      .join(', '),
     ...(group.href ? { href: group.href } : {}),
     ...(group.overdue ? { tag: { text: 'Te laat', color: 'critical' as const } } : {}),
   }));

@@ -8,7 +8,8 @@ import { EmptyNotice, LoadError, Loading, Page } from '@/ui/layout';
 import { QUOTE_STATUS_COLORS, QUOTE_STATUS_LABELS } from '@/features/quotes/api';
 import { useInstance } from '@/layout/useInstance';
 import { useViewer } from '@/layout/useViewer';
-import { formatDate, formatEuro, formatPeriod } from '@/lib/format';
+import { formatDateTime } from '@/features/quotes/format';
+import { formatEuro, formatPeriod } from '@/lib/format';
 import { PATHS } from '@/paths';
 import { routesFor } from '@/routes';
 import {
@@ -119,7 +120,7 @@ function ReceivedQuotes() {
             href: receivedQuotePath(item.id),
             notice: [
               item.contractor_name,
-              `uitgegeven op ${formatDate(item.issued_at)}`,
+              `uitgegeven op ${formatDateTime(item.issued_at)}`,
               item.may_decide ? 'Wacht op je besluit' : '',
             ]
               .filter(Boolean)
@@ -161,7 +162,7 @@ function ReceivedRequests() {
               item.client_name,
               formatPeriod(item.start_date, item.end_date),
               `Context: ${item.context_count ?? 0}`,
-              `ontvangen op ${formatDate(item.received_at)}`,
+              `ontvangen op ${formatDateTime(item.received_at)}`,
             ]
               .filter(Boolean)
               .join(' · '),

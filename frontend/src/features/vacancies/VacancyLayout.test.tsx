@@ -374,6 +374,23 @@ describe('the landing of a vacancy', () => {
     expect(rowsOf(container, ABOUT_LABEL)[0]?.[1]).toBe('Regulier, 1 jul 2026 t/m 30 jun 2027');
   });
 
+  it('leads a reader without the row Gegevens to the assignment from the landing', async () => {
+    const without = renderVacancy(REQUESTED, '', partsAre([REQUEST, HISTORY]));
+    await waitFor(() => expect(rowsOf(without.container, ABOUT_LABEL)).toHaveLength(1));
+    expect(
+      without.container.querySelector('nldd-link[text="Naar Opdracht Alfa"]'),
+    ).toHaveAttribute('href', '/opdrachten/a-1');
+    without.unmount();
+    // Gegevens links it already; the server gives no id to who may not open it.
+    const withDetails = renderVacancy(REQUESTED, '');
+    await waitFor(() => expect(rowsOf(withDetails.container, ABOUT_LABEL)).toHaveLength(2));
+    expect(withDetails.container.querySelector('nldd-link[text="Naar Opdracht Alfa"]')).toBeNull();
+    withDetails.unmount();
+    const closed = renderVacancy({ ...REQUESTED, assignment_id: null }, '', partsAre([REQUEST]));
+    await waitFor(() => expect(rowsOf(closed.container, STEPS_LABEL)).toHaveLength(1));
+    expect(closed.container.querySelector('nldd-link[text="Naar Opdracht Alfa"]')).toBeNull();
+  });
+
   it('has no link to the tasks when the server says there is none for this reader', async () => {
     const { container } = renderVacancy(REQUESTED, '', partsAre(ALL_PARTS, false));
     await waitFor(() => expect(rowsOf(container, STEPS_LABEL)).toHaveLength(4));

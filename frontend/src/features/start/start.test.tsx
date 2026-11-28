@@ -105,7 +105,9 @@ describe('Start: the to-do block', () => {
     expect(items).toHaveLength(3);
     const first = items[0]!.querySelector('nldd-text-cell');
     expect(first?.getAttribute('text')).toBe('Sluit maart 2026 af');
-    expect(first?.getAttribute('supporting-text')).toBe('Opdracht Alfa 2026, daarna nog 7 maanden');
+    expect(first?.getAttribute('supporting-text')).toBe(
+      'Opdracht Alfa 2026, vóór 7 apr 2026, daarna nog 7 maanden',
+    );
     expect(items[0]!.getAttribute('href')).toBe('/opdrachten/a1/afsluiten');
     expect(items[0]!.querySelector('nldd-badge')?.getAttribute('text')).toBe('Te laat');
     expect(items[1]!.querySelector('nldd-badge')).toBeNull();

@@ -390,17 +390,23 @@ def render_report_html(report: dict[str, Any], *, instance_name: str) -> str:
     )
     version = "interne versie" if internal else "versie voor de opdrachtgever"
     generated = _date(report.get("generated_on"))
+    # As the part is named: the Eindrapport once the work is done or the final
+    # report was issued, before that the Rapport of a running assignment.
+    final = report.get("status") in ("completed", "accounted") or bool(
+        report.get("final_report")
+    )
+    heading = "Eindrapport" if final else "Rapport"
     return f"""<!doctype html>
 <html lang="nl">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Eindrapport {name}</title>
+<title>{heading} {name}</title>
 <style>{_STYLE}</style>
 </head>
 <body>
 <main>
-<h1>Eindrapport</h1>
+<h1>{heading}</h1>
 <p class="lead">{name}</p>
 <dl class="meta">
 {meta_html}
