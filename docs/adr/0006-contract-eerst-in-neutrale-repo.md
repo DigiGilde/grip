@@ -1,6 +1,6 @@
 # 0006 Contract eerst, in een neutrale repo
 
-Status: aanvaard (2026-10-08)
+Status: aanvaard (2026-10-08). De eigen repo is vervangen door [ADR 0060](0060-het-contract-staat-in-grip.md): het contract staat in grip.
 
 ## Context
 

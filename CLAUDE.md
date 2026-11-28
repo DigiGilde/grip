@@ -66,7 +66,7 @@ Een route roept een service aan, een service een repository. Sla geen laag over.
 
 - Spoor A (uitvoering) weet niets van FSC. Het schrijft gebeurtenissen naar `federation_outbox`.
 - Spoor B (federatie) raakt geen domeintabellen rechtstreeks. Het verstuurt uit de outbox en verwerkt inkomende berichten via de servicelaag van spoor A.
-- De contracten voor `grip-opdrachtverkeer` en `corpus-context` staan in een aparte repo. Wijzig een contract daar, niet hier.
+- De contracten voor `grip-opdrachtverkeer` en `corpus-context` staan in `backend/grip/federation/contract` (ADR 0060). Een wijziging begint in het contract; `just contract-check` controleert het.
 
 ## Schermen
 

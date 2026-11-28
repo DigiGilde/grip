@@ -1,4 +1,4 @@
-"""The stand-in corpus: its answers follow the vendored contract."""
+"""The stand-in corpus: its answers follow the contract."""
 
 from __future__ import annotations
 
