@@ -69,4 +69,4 @@ Veertien onderzoeksrapporten, over persona's, de structuur, het designsysteem en
 
 ## Later gewijzigd (2026-11-28)
 
-Na de eerste blik van de opdrachtgever (ADR 0059): Taken staat weer in de balk, direct na Start, met het aantal taken. Een opdracht toont haar verloop weer als stappenbalk in plaats van in één regel tekst. Nieuw op Start toont de laatste vijf berichten als tijdlijn per dag, en Wat is er gebeurd kan filteren op opdracht en op persoon. Alle tekst die grip zelf schrijft staat in de gewone kleur. "Wat vraagt aandacht" blijft weg.
+Na de eerste blik van de opdrachtgever (ADR 0059): Taken staat weer in de balk, direct na Start, met het aantal taken. Een taak brengt je naar de pagina en opent daar geen paneel; de stap zet je met de knop. Een opdracht toont haar verloop weer als stappenbalk in plaats van in één regel tekst. Nieuw op Start toont de laatste vijf berichten als tijdlijn per dag, en Wat is er gebeurd kan filteren op opdracht en op persoon. Alle tekst die grip zelf schrijft staat in de gewone kleur. "Wat vraagt aandacht" blijft weg.

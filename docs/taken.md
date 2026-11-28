@@ -21,7 +21,7 @@ Een taak zegt wat jij moet doen, niet hoe de takenlaag werkt ([ADR 0038](adr/003
 4. vóór wanneer, en wat erna komt;
 5. één knop, met dezelfde naam als de knop op de pagina waar het werk gebeurt.
 
-De naam van een taak die jij moet doen, brengt je naar die pagina. Bovenaan staat dan voor welke taak je er bent, en na het werk dat de taak gedaan is. Een taak waarop je wacht, opent als paneel om te lezen.
+De naam van een taak die jij moet doen, brengt je naar die pagina. Bovenaan staat dan voor welke taak je er bent, en na het werk dat de taak gedaan is. De pagina opent daarbij niets vanzelf: de stap zet je met haar knop (`work_href`). Alleen de knop in de kop van een opdracht of vacature opent het paneel van de stap meteen (`step_href`, ADR 0059). Een taak waarop je wacht, opent als paneel om te lezen.
 
 ## Waar je taken ziet
 

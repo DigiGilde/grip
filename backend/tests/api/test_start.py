@@ -254,7 +254,8 @@ async def test_the_owner_hears_the_first_month_and_how_many_follow(
     assert group["headline"] == "Sluit augustus 2026 af"
     assert group["overdue"] is True
     assert group["due_on"] == "2026-09-07"
-    assert group["href"] == f"/opdrachten/{world.alfa.id}/afsluiten?maand=2026-08"
+    # A task leads to the page; it does not open the month there.
+    assert group["href"] == f"/opdrachten/{world.alfa.id}/afsluiten"
     assert group["more_text"].startswith("daarna nog 2 maanden")
     assert group["task_id"]
 

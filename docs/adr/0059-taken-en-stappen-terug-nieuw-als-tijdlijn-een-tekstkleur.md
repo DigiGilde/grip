@@ -6,9 +6,10 @@ Stelt bij: [0055 Vijf plekken en een rustig geopend ding](0055-vijf-plekken-en-e
 
 ## Context
 
-De opdrachtgever keek op 28 november 2026 voor het eerst door de bouw van ADR 0055, als beheerder, op een breed scherm en op een telefoon. Vier dingen vielen op.
+De opdrachtgever keek op 28 november 2026 voor het eerst door de bouw van ADR 0055, als beheerder, op een breed scherm en op een telefoon. Vijf dingen vielen op.
 
 - Taken stond niet meer in de balk. Wie bij Opdrachten was, kwam alleen via Start bij al zijn taken. ADR 0055 rekende dat al tot de zeven taken die slechter werden.
+- Wie een taak opende, kreeg meteen rechts het paneel van de stap, over een pagina die hij nog niet had gezien. Dat verwarde.
 - Een opdracht zei niet meer zichtbaar waar ze in haar verloop staat. Het verloop was één regel tekst in de regel onder de titel, en die las niemand als "waar staan we".
 - Nieuw op Start was een rijtje van drie. Wat er gebeurde laat zich beter lezen als een tijdlijn, zoals de Activity van Basecamp: per dag, terug in de tijd, te filteren op project en op persoon.
 - Tekst stond in twee kleuren. Een hele zin in grijs, zoals de regel boven de tabel van Begroting, maakte een pagina onrustiger in plaats van rustiger.
@@ -16,6 +17,8 @@ De opdrachtgever keek op 28 november 2026 voor het eerst door de bouw van ADR 00
 ## Besluit
 
 **Taken staat weer in de balk**, direct na Start, voor iedereen. Het aantal taken dat op de lezer wacht staat bij Taken. Start houdt Te doen, met "Alle taken".
+
+**Een taak brengt je naar de pagina, niet in het paneel.** Bovenaan staat voor welke taak je er bent; de stap zet je met de knop van de pagina. Alleen de knop in de kop van een opdracht of vacature opent het paneel van de stap meteen: daar kies je de stap zelf.
 
 **Een opdracht toont haar verloop weer als stappen**: de stappenbalk van het designsysteem, onder de zin wie aan zet is. Dat geldt op de landing, in een moment onder Geschiedenis en op de pagina voor de opdrachtgever. Op een smal scherm staan de stap waar ze is en de volgende in woorden. De regel onder de titel herhaalt het niet. Een vacature houdt haar stappen als rijen.
 
@@ -27,6 +30,7 @@ De opdrachtgever keek op 28 november 2026 voor het eerst door de bouw van ADR 00
 
 - Een teamlid ziet vier plekken, een aanvrager of tekenbevoegde vier, een planner vijf, een lezer vijf, een eigenaar zes en de beheerder zes plus Beheer. Op een telefoon van 390 pixels staan bij de beheerder Geld, Beheer en Ik achter "Meer tabs".
 - Van de zeven taken die in ADR 0055 slechter werden, zijn "Alle taken" en "Nieuwe taak" weer één klik vanaf elke plek. De balk boven een taak leidt terug naar Taken, zoals op main.
+- Een taak heeft naast `work_href`, de pagina, een `step_href`: dezelfde pagina met wat ze moet openen. De kop van een zaak gebruikt `step_href`; Taken, Te doen op Start en een melding gebruiken `work_href`. Beide zijn klasse A en volgen dezelfde toegang, met een lektest.
 - De stappen komen van de server, zoals de zin over wat er nu moet; het scherm tekent ze met `CourseBar` uit `@/ui/Workflow`. Er is geen tweede bron voor de stand.
 - `GET /api/updates` filtert met `opdracht` en `persoon`, en `GET /api/updates/filters` geeft de keuzes. Een filter knipt in de berichten die de lezer zonder filter krijgt, over hetzelfde venster, en een id dat de lezer niet mag zien antwoordt als een id dat niet bestaat. Wie een besluit van een ander alleen vastlegde, krijgt het niet op zijn naam. Alle velden zijn klasse A, met lektests. Zie `docs/toegang.md`.
 - Het filter op persoon toont alles wat één collega deed, aan ieder die die berichten mag zien. Zo'n voorziening is geschikt voor controle op gedrag of prestaties: voordat grip voor echt werk wordt gebruikt, is instemming van de ondernemingsraad nodig (artikel 27 lid 1 onder l van de Wet op de ondernemingsraden), en onder de AVG moet het noodzakelijk en in verhouding zijn. In deze fase, waarin we ontdekken wat grip moet doen, staat het erin. Zonder instemming gaat het filter op persoon eruit; dat op opdracht heeft dit bezwaar niet. Zie `docs/openstaand.md`, "De ondernemingsraad".

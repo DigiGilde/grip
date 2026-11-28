@@ -264,8 +264,10 @@ async def test_advice_nobody_is_named_for_asks_the_requester_to_name_someone(
     task = tasks["Noem wie het advies van concern control geeft"]
     assert task["needs_me"] is True
     assert task["action_text"] == "Noem iemand"
-    # Not only to the tab: the address asks it to open this advice.
-    assert task["work_href"] == (
+    # A task leads to the page and opens nothing there; the step itself is
+    # where the one button in the head of the case leads.
+    assert task["work_href"] == f"/vacatures/{world.vacancy.id}/advies"
+    assert task["step_href"] == (
         f"/vacatures/{world.vacancy.id}/advies?besluit=control_advice"
     )
     assert "door jou" in task["why"]
@@ -364,7 +366,8 @@ async def test_a_name_is_only_told_to_who_runs_the_case(as_person, world, build)
     )
     assert control["needs_me"] is True
     assert control["action_text"] == "Leg het advies vast"
-    assert control["work_href"].endswith("/advies?besluit=control_advice")
+    assert control["work_href"].endswith("/advies")
+    assert control["step_href"].endswith("/advies?besluit=control_advice")
     own = by_headline(await mine(as_person(world.beheerder)))
     assert control["headline"] in own
     course = (

@@ -307,7 +307,10 @@ class Telling:
     # The one action, and the place where it is done. The text is absent
     # when the reader has nothing to do there now.
     action_text: str | None = None
+    # The page, which opens nothing by itself: where following a task leads.
     work_href: str | None = None
+    # The same page asked to open the step: where the button in a head leads.
+    step_href: str | None = None
     # Who is waited on, when that is not the reader.
     waits_on: str | None = None
     # Nobody can do this until something outside the task changes.
@@ -615,8 +618,18 @@ def destination_of(task: Task) -> str | None:
     return guide.destination if guide is not None else None
 
 
-def work_href(task: Task) -> str | None:
-    """Where the work of a task is done, from its guidance or else its plan."""
+def page_of(href: str | None) -> str | None:
+    """The page of an address, without what it asks the page to open."""
+    return href.split("?", 1)[0] if href else href
+
+
+def step_href(task: Task) -> str | None:
+    """Where the step of a task is done, from its guidance or else its plan.
+
+    The query of such an address asks the page to open the step (the panel
+    of an advice, the sheet of a month): where the one button in the head of
+    a case leads. A task itself leads to the page (``page_of``).
+    """
     guide = _guide_of(task)
     if guide is None:
         return task.link
@@ -654,9 +667,10 @@ async def _tell_one(access: TaskAccess, view: TaskView, context: _Context) -> Te
     mine = view.is_mine
     # A name of a person only where the reader runs the case or does the work.
     may_name = rights.edit or mine
-    href = work_href(task)
-    if href is not None and not await access.may_open(task, destination_of(task)):
-        href = None
+    step = step_href(task)
+    if step is not None and not await access.may_open(task, destination_of(task)):
+        step = None
+    href = page_of(step)
 
     if not task.is_open:
         closed = _closed_headline(task, guide, view, context, may_name)
@@ -690,6 +704,7 @@ async def _tell_one(access: TaskAccess, view: TaskView, context: _Context) -> Te
             instruction=instruction,
             needs_me=needs_me,
             work_href=href,
+            step_href=step,
             waits_on=None if needs_me else (task.waiting_on or who),
         )
 
@@ -785,6 +800,7 @@ async def _tell_one(access: TaskAccess, view: TaskView, context: _Context) -> Te
         then=_fill(told.then, values) if told.then else None,
         action_text=(_fill(told.action, values) or told.action) if can_act else None,
         work_href=href,
+        step_href=step,
         waits_on=None if can_act else values.get("wie"),
         blocked=blocked,
         checklist=checklist,

@@ -78,6 +78,17 @@ describe('withOwnTask', () => {
     expect(told?.more_to_do).toBe(1);
   });
 
+  it('leads the button to the step itself, where the task only leads to the page', () => {
+    const own = {
+      ...task('t1', true),
+      work_href: '/opdrachten/a1/afsluiten',
+      step_href: '/opdrachten/a1/afsluiten?maand=2026-03',
+    };
+    expect(withOwnTask(waits, [{ tasks: [own] }])?.next?.action_href).toBe(
+      '/opdrachten/a1/afsluiten?maand=2026-03',
+    );
+  });
+
   it('leaves the course as it is without such a task, or when the reader is at move', () => {
     expect(withOwnTask(waits, [{ tasks: [task('t0', false)] }])).toBe(waits);
     const mine = { ...waits, next: { ...waits.next!, mine: true } };

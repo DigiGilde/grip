@@ -64,6 +64,7 @@ def _out(view: TaskView) -> TaskOut:
         then=told.then if told else None,
         action_text=told.action_text if told else None,
         work_href=told.work_href if told else task.link,
+        step_href=told.step_href if told else task.link,
         waits_on=told.waits_on if told else None,
         blocked=told.blocked if told else None,
         checklist=[

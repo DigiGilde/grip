@@ -67,7 +67,7 @@ export function withOwnTask(
       due_on: first.due_on ?? null,
       overdue: first.overdue ?? false,
       action_text: first.action_text ?? null,
-      action_href: first.work_href ?? null,
+      action_href: first.step_href ?? first.work_href ?? null,
       task_id: first.id,
     },
     more_to_do: own.length - 1,

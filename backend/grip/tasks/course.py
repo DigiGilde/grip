@@ -255,7 +255,7 @@ def _next(
             due_on=task.due_on if part != WATCHES else None,
             overdue=first.overdue and part != WATCHES,
             action_text=told.action_text if mine else None,
-            action_href=told.work_href if mine else None,
+            action_href=told.step_href if mine else None,
             missing=tuple(
                 _inline(item.text) for item in told.checklist if not item.done
             )

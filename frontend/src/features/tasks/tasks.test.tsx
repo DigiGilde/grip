@@ -35,7 +35,8 @@ function task(overrides: Partial<Task>): Task {
     why: 'September 2026 is voorbij en er was inzet gepland.',
     then: 'Daarna lever je de factuurgegevens aan.',
     action_text: 'Sluit september 2026 af',
-    work_href: '/opdrachten/a-1/afsluiten?maand=2026-09',
+    work_href: '/opdrachten/a-1/afsluiten',
+    step_href: '/opdrachten/a-1/afsluiten?maand=2026-09',
     ...overrides,
   };
 }
@@ -115,7 +116,8 @@ describe('telling', () => {
 
   it('sends who must do a task to the place of the work, with the task in the address', () => {
     expect(goesToWork(LATE)).toBe(true);
-    expect(workHref(LATE)).toBe('/opdrachten/a-1/afsluiten?maand=2026-09&bij-taak=t-late');
+    // The page, not the month opened on it: the page's own button takes the step.
+    expect(workHref(LATE)).toBe('/opdrachten/a-1/afsluiten?bij-taak=t-late');
     expect(workHref(AWAITED)).toBe('/opdrachten/a-1/team?bij-taak=t-awaited');
     // Who waits reads the task; a task of your own is finished where it is read.
     expect(goesToWork(WAITING)).toBe(false);
@@ -254,7 +256,7 @@ describe('TasksPage', () => {
     const { container } = renderApp(<TasksPage />, { path: '/taken' });
     await waitFor(() => expect(container.querySelectorAll('nldd-list-item')).toHaveLength(2));
     const [mine, waiting] = [...container.querySelectorAll('nldd-list-item-segment')];
-    expect(mine).toHaveAttribute('href', '/opdrachten/a-1/afsluiten?maand=2026-09&bij-taak=t-late');
+    expect(mine).toHaveAttribute('href', '/opdrachten/a-1/afsluiten?bij-taak=t-late');
     expect(waiting).not.toHaveAttribute('href');
     expect(waiting).toHaveAttribute('button');
   });

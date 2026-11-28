@@ -404,6 +404,7 @@ async def test_a_team_member_gets_no_address_to_the_budget_or_the_quote(
     assert str(budget.id) in by_id and str(quote.id) in by_id
     for task in (budget, quote):
         assert by_id[str(task.id)].get("work_href") is None
+        assert by_id[str(task.id)].get("step_href") is None
         assert by_id[str(task.id)].get("link") is None
 
     # Whoever reads the money of the assignment gets the address.
@@ -488,6 +489,7 @@ async def test_the_address_to_a_decision_is_for_whoever_may_decide_it(
     ):
         found = _find_by_prefix(await case(as_person(person), world), "Beoordeel")
         assert found.get("work_href") is None, person.name
+        assert found.get("step_href") is None, person.name
         assert found.get("link") is None, person.name
 
 
