@@ -28,7 +28,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,6 +36,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from grip.federation.contract_loader import ContractError, operations
 from grip.federation.models import FederationOutbox, Peer
 from grip.services import quote_channels
+
+if TYPE_CHECKING:
+    from grip.models.person import Person
 
 
 @dataclass(frozen=True)
@@ -89,8 +92,13 @@ OutboxSource = Callable[[AsyncSession], Awaitable[None]]
 DeliveryHook = Callable[[AsyncSession, FederationOutbox], Awaitable[None]]
 
 # Runs when a beheerder sends a message again that was final, in the same
-# transaction; the row is pending again.
-ResendHook = Callable[[AsyncSession, FederationOutbox], Awaitable[None]]
+# transaction, with the beheerder as the last argument. It puts what the
+# message is about back in its waiting state, and answers False when that no
+# longer waits for the message (gone, or overtaken by a later one): the
+# message is then not sent.
+ResendHook = Callable[
+    [AsyncSession, FederationOutbox, "Person | None"], Awaitable[bool]
+]
 
 
 @dataclass(frozen=True)

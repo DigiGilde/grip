@@ -8,12 +8,14 @@ import { Form, Sheet } from '@/features/team/ui/overlays';
 import { useInstance } from '@/layout/useInstance';
 import { ErrorNotice } from '@/ui/layout';
 import { TASK_KEYS } from '@/features/tasks';
+import { RowActions } from '@/ui/RowActions';
 import {
   PEERS_KEY,
   ROLE_LABELS,
   createPeer,
   fetchUndelivered,
   resendMessage,
+  setMessageAside,
   testConnection,
   undeliveredKey,
   updatePeer,
@@ -230,7 +232,7 @@ function Connection({ peer }: { peer: Peer }) {
   );
 }
 
-/** The messages to this peer that do not arrive; one that is final can go again. */
+/** The messages to this peer that do not arrive; one that is final can go again, or not. */
 function Undelivered({ peer }: { peer: Peer }) {
   const queryClient = useQueryClient();
   const query = useQuery({
@@ -238,13 +240,19 @@ function Undelivered({ peer }: { peer: Peer }) {
     queryFn: () => fetchUndelivered(peer.id),
   });
   const [error, setError] = useState<string | null>(null);
+  const settled = async () => {
+    setError(null);
+    await queryClient.invalidateQueries({ queryKey: PEERS_KEY });
+    await queryClient.invalidateQueries({ queryKey: TASK_KEYS.all });
+  };
   const resend = useMutation({
     mutationFn: (messageId: string) => resendMessage(peer.id, messageId),
-    onSuccess: async () => {
-      setError(null);
-      await queryClient.invalidateQueries({ queryKey: PEERS_KEY });
-      await queryClient.invalidateQueries({ queryKey: TASK_KEYS.all });
-    },
+    onSuccess: settled,
+    onError: (err) => setError(errorMessage(err)),
+  });
+  const setAside = useMutation({
+    mutationFn: (messageId: string) => setMessageAside(peer.id, messageId),
+    onSuccess: settled,
     onError: (err) => setError(errorMessage(err)),
   });
   if (query.isError) {
@@ -252,32 +260,37 @@ function Undelivered({ peer }: { peer: Peer }) {
   }
   const messages = query.data?.items ?? [];
   if (messages.length === 0) return null;
+  const busy = resend.isPending || setAside.isPending;
   return (
     <nldd-container gap="8">
       <nldd-title size={4} text="Berichten die niet aankomen" heading-level={2} />
       {error ? (
-        <nldd-banner
-          variant="critical"
-          text="Het bericht is niet opnieuw verstuurd"
-          supporting-text={error}
-        />
+        <nldd-banner variant="critical" text="Dat is niet gelukt" supporting-text={error} />
       ) : null}
       <nldd-list accessible-label={`Berichten aan ${peer.name} die niet aankomen`}>
         {messages.map((message) => (
           <nldd-list-item key={message.id}>
             <nldd-text-cell width="full" text={message.kind} supporting-text={standing(message)} />
-            {message.final ? (
-              <nldd-cell>
-                <Button
-                  size="sm"
-                  text="Opnieuw versturen"
-                  accessibleLabel={`${message.kind} opnieuw versturen`}
-                  loading={resend.isPending && resend.variables === message.id}
-                  disabled={resend.isPending}
-                  onClick={() => resend.mutate(message.id)}
-                />
-              </nldd-cell>
-            ) : null}
+            <RowActions
+              name={message.kind}
+              actions={
+                message.final && !busy
+                  ? [
+                      { text: 'Opnieuw versturen', onSelect: () => resend.mutate(message.id) },
+                      {
+                        text: 'Niet meer versturen',
+                        destructive: true,
+                        onSelect: () => setAside.mutate(message.id),
+                        confirm: {
+                          text: `${message.kind} niet meer versturen?`,
+                          supportingText: `Het bericht komt dan niet meer aan bij ${peer.name}, en telt niet meer als bericht dat niet aankomt.`,
+                          confirmText: 'Niet meer versturen',
+                        },
+                      },
+                    ]
+                  : []
+              }
+            />
           </nldd-list-item>
         ))}
       </nldd-list>

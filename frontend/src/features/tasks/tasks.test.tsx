@@ -10,7 +10,7 @@ import { movesOf } from './moves';
 import { MyTasksBlock } from './MyTasksBlock';
 import { TaskBar } from './TaskBar';
 import { TasksPage } from './TasksPage';
-import { aboutLine, dueWords, goesToWork, myWork, workHref } from './telling';
+import { aboutLine, aboutLinks, dueWords, goesToWork, myWork, workHref } from './telling';
 
 function task(overrides: Partial<Task>): Task {
   return {
@@ -140,6 +140,7 @@ describe('telling', () => {
       work_href: '/beheer/koppelingen?koppeling=p-1',
     });
     expect(aboutLine(ofInstance)).toBe('Koppelingen');
+    expect(aboutLinks(ofInstance)).toEqual([{ text: 'Koppelingen', href: '/beheer/koppelingen' }]);
     expect(workHref(ofInstance)).toBe('/beheer/koppelingen?koppeling=p-1&bij-taak=t-peer');
     expect(dueWords(LATE)).toBe('Te laat: vóór 7 okt 2026');
     expect(dueWords(task({ due_on: null }))).toBe('');

@@ -167,11 +167,14 @@ SUBJECT_FACTS: dict[str, frozenset[str]] = {
     "text_review": frozenset({"verdict_given"}),
     "peer": frozenset(
         {
-            # Every message to the peer arrived.
+            # Every message to the peer arrived, or was set aside.
             "messages_arrive",
-            # A message to it is final: refused for good, or tried for the
-            # whole window. Only a person sends it again.
-            "message_final",
+            # A message to it was refused for good: sending it again does
+            # not help until the receiver changes something.
+            "message_refused",
+            # A message to it was tried for the whole window. Only a person
+            # sends it again.
+            "message_given_up",
         }
     ),
 }

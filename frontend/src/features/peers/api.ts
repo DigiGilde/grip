@@ -105,3 +105,8 @@ export function fetchUndelivered(peerId: string): Promise<UndeliveredList> {
 export function resendMessage(peerId: string, messageId: string): Promise<UndeliveredMessage> {
   return apiPost<UndeliveredMessage>(`/api/peers/${peerId}/undelivered/${messageId}/resend`, {});
 }
+
+/** Stop sending a final message: it no longer counts as not arriving. */
+export function setMessageAside(peerId: string, messageId: string): Promise<UndeliveredMessage> {
+  return apiPost<UndeliveredMessage>(`/api/peers/${peerId}/undelivered/${messageId}/set-aside`, {});
+}

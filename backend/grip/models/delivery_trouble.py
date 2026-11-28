@@ -41,6 +41,10 @@ REASONS = (
     GONE,
     OTHER,
 )
+# A final message with one of these reasons was refused for good: sending it
+# again does not help. A final one with another reason was tried for the
+# whole window.
+REFUSING_REASONS = (INVALID, CONFLICT, GONE)
 
 
 def _in(column: str, values: tuple[str, ...]) -> str:

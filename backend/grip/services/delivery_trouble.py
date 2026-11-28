@@ -35,16 +35,17 @@ from grip.models.delivery_trouble import (
 )
 
 # Why messages do not arrive, as the end of a sentence for the beheerder.
+# Said of one message or of several alike.
 REASON_WORDS: dict[str, str] = {
     NO_CONNECTION: "grip kan de ontvanger niet bereiken",
     TIMEOUT: "de ontvanger antwoordt niet op tijd",
     UNKNOWN_SENDER: "de ontvanger kent deze instantie niet",
-    NOT_FOUND: "de ontvanger kent niet waar het bericht over gaat",
+    NOT_FOUND: "de ontvanger kent niet waar het over gaat",
     RECEIVER_ERROR: "er gaat iets mis bij de ontvanger",
     CONFIGURATION: "een instelling voor het versturen ontbreekt of klopt niet",
-    INVALID: "de ontvanger weigert het bericht omdat het niet klopt",
-    CONFLICT: "het bericht botst met wat de ontvanger al heeft",
-    GONE: "waar het bericht over gaat, is er bij de ontvanger niet meer",
+    INVALID: "de ontvanger weigert wat grip stuurt, omdat het niet klopt",
+    CONFLICT: "wat grip stuurt, botst met wat de ontvanger al heeft",
+    GONE: "waar het over gaat, is er bij de ontvanger niet meer",
     OTHER: "de ontvanger geeft een antwoord dat grip niet kent",
 }
 

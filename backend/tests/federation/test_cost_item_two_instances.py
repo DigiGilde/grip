@@ -11,7 +11,7 @@ what it asked for.
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -20,6 +20,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 
+from grip.core import clock
 from grip.core.config import get_settings
 from grip.federation import terms, undelivered
 from grip.federation.bridge import cost_items, providers
@@ -503,7 +504,7 @@ async def test_a_refused_request_sent_again_arrives(instances):
 
     # Once the cause is gone the beheerder sends it again: it waits again.
     async with client.session() as db:
-        await undelivered.resend(db, row.peer_id, row.id)
+        await undelivered.resend(db, row.peer_id, row.id, actor=None)
     overview = await _overview(client, item_id)
     assert overview.reference.state is ReferenceState.WAITING
     async with client.session() as db:
@@ -517,6 +518,69 @@ async def test_a_refused_request_sent_again_arrives(instances):
         (made,) = (await db.execute(select(CostItem))).scalars().all()
         assert made.description == "Zaal en catering"
     assert len(await _outbox(client)) == 1, "the same message, not a second one"
+
+
+async def test_a_request_tried_for_the_whole_window_is_undelivered_until_sent_again(
+    instances,
+):
+    client, contractor = instances
+    executor_id = await _connected(client, contractor)
+    _assignment_id, item_id = await _programme(client, executor_id)
+    first = datetime.now(UTC)
+    reachable, client.outway = client.outway, _unreachable(client)
+    try:
+        with clock.at(first):
+            async with client.session() as db:
+                stats = await send_due(db, client.outway, get_settings())
+        assert stats.retried == 1
+        (row,) = await _outbox(client)
+        assert row.retry_until == first + timedelta(days=7)
+        with clock.at(first + timedelta(days=7, minutes=1)):
+            async with client.session() as db:
+                stats = await send_due(db, client.outway, get_settings())
+        assert stats.dead == 1
+    finally:
+        client.outway = reachable
+    overview = await _overview(client, item_id)
+    assert overview.reference.state is ReferenceState.UNDELIVERED
+    (row,) = await _outbox(client)
+    assert (row.status, row.failure) == ("dead", "no_connection")
+
+    async with client.session() as db:
+        await undelivered.resend(db, row.peer_id, row.id, actor=None)
+    overview = await _overview(client, item_id)
+    assert overview.reference.state is ReferenceState.WAITING
+    await _deliver(client)
+    overview = await _overview(client, item_id)
+    assert overview.reference.state is ReferenceState.FOUND
+
+
+async def test_a_request_for_a_removed_reference_is_not_sent_again(instances):
+    client, contractor = instances
+    executor_id = await _connected(client, contractor)
+    _assignment_id, item_id = await _programme(client, executor_id)
+    reachable, client.outway = client.outway, _refusing(client)
+    try:
+        async with client.session() as db:
+            await send_due(db, client.outway, get_settings())
+    finally:
+        client.outway = reachable
+    async with client.session() as db:
+        await costs.delete_reference(db, item_id, actor=None)
+    (row,) = await _outbox(client)
+    async with client.session() as db:
+        with pytest.raises(DomainValidationError, match="niet meer op"):
+            await undelivered.resend(db, row.peer_id, row.id, actor=None)
+    (row,) = await _outbox(client)
+    assert row.status == "rejected"
+    async with contractor.session() as db:
+        assert (await db.execute(select(CostItem))).scalars().all() == []
+
+    # Set aside, it no longer troubles anyone.
+    async with client.session() as db:
+        await undelivered.set_aside(db, row.peer_id, row.id, actor=None)
+    async with client.session() as db:
+        assert (await db.execute(select(DeliveryTrouble))).scalars().all() == []
 
 
 async def test_a_refused_request(instances):

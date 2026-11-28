@@ -112,7 +112,7 @@ describe('PeersPage', () => {
       expect(texts(document.body, 'nldd-title')).toContain('Berichten die niet aankomen'),
     );
     expect(texts(document.body, 'nldd-sheet nldd-top-title-bar')).toEqual(['Voorbeeldgilde']);
-    expect(document.querySelector('nldd-button[text="Opnieuw versturen"]')).not.toBeNull();
+    expect(document.querySelector('nldd-menu-item[text="Opnieuw versturen"]')).not.toBeNull();
   });
 
   it('warns when no outway is configured', async () => {

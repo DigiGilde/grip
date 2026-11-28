@@ -149,10 +149,10 @@ function Board({
         filters={[
           viewFilter,
           {
-            label: 'Opdracht of vacature',
+            label: 'Waarover',
             value: filter.caseLabel,
             onChange: set('zaak'),
-            options: optionsOf(all, (task) => task.case_label, 'Alle opdrachten en vacatures'),
+            options: optionsOf(all, (task) => task.case_label, 'Alles'),
             width: '280px',
           },
           {

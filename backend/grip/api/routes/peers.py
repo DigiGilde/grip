@@ -4,7 +4,7 @@ A peer is another grip instance or a corpus system, known by its FSC peer
 id. Without a row here nothing is accepted from it and nothing is sent to
 it. The grant hash per service comes from the FSC contract with the peer.
 The messages to a peer that do not arrive are listed here, and one that
-will not arrive by itself can be sent again (ADR 0061).
+will not arrive by itself can be sent again or set aside (ADR 0061).
 """
 
 from __future__ import annotations
@@ -227,16 +227,25 @@ async def resend_undelivered(
     """Send a message that will not arrive by itself once more (ADR 0061)."""
     await _require_beheerder(access)
     peer = await _get(db, peer_row_id)
-    row = await undelivered.resend(db, peer.id, outbox_row_id)
-    record_audit(
-        db,
-        actor=person,
-        action=UPDATE,
-        entity="peer",
-        entity_id=peer.id,
-        new_value={"message_id": str(row.message_id)},
-        note=f"Opnieuw verstuurd: {undelivered.kind_words(row.operation)}",
-    )
+    row = await undelivered.resend(db, peer.id, outbox_row_id, actor=person)
+    return _message_out(row)
+
+
+@router.post(
+    "/{peer_row_id}/undelivered/{outbox_row_id}/set-aside",
+    response_model=UndeliveredMessageOut,
+)
+async def set_aside_undelivered(
+    peer_row_id: UUID,
+    outbox_row_id: UUID,
+    access: RequestAccess,
+    db: DbSession,
+    person: CurrentPerson,
+) -> dict[str, Any]:
+    """Stop sending a final message: it no longer counts (ADR 0061)."""
+    await _require_beheerder(access)
+    peer = await _get(db, peer_row_id)
+    row = await undelivered.set_aside(db, peer.id, outbox_row_id, actor=person)
     return _message_out(row)
 
 

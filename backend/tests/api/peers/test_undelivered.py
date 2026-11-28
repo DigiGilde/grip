@@ -10,7 +10,7 @@ from sqlalchemy import select
 
 from grip.access import unclassified_fields
 from grip.core.auth import DEV_PERSON_COOKIE
-from grip.federation import registry
+from grip.federation import registry, undelivered
 from grip.federation.bridge import deliveries
 from grip.federation.models import (
     FAILURE_CONFLICT,
@@ -27,6 +27,7 @@ from grip.models.audit_log import AuditLog
 from grip.models.delivery_trouble import DeliveryTrouble
 from grip.schema.peers import PeerOut, UndeliveredListOut, UndeliveredMessageOut
 from grip.services import events as domain_events
+from grip.tasks import engine
 from tests.federation.conftest import example
 
 # What a receiver answered: it must never reach anyone.
@@ -140,7 +141,7 @@ async def test_the_beheerder_sees_what_does_not_arrive(
     assert first == {
         "id": str(refused.id),
         "kind": "Offerte",
-        "reason": "Het bericht botst met wat de ontvanger al heeft",
+        "reason": "Wat grip stuurt, botst met wat de ontvanger al heeft",
         "since": "2026-11-27T09:00:00Z",
         "retry_until": None,
         "final": True,
@@ -292,6 +293,75 @@ async def test_what_the_receiver_answered_reaches_no_one(
     resent = await client.post(f"/api/peers/{peer.id}/undelivered/{refused.id}/resend")
     assert resent.status_code == 200
     assert ANSWER not in resent.text and "last_error" not in resent.text
+
+    # Nor through the task it gives the beheerder, or the events around it.
+    registry.register_delivery_reporter(deliveries.report)
+    await undelivered.report(db_session)
+    await engine.evaluate_instance(db_session)
+    await db_session.flush()
+    trouble = await db_session.get(DeliveryTrouble, peer.id)
+    assert trouble is not None and trouble.message_count == 2
+    mine = await client.get("/api/tasks/mine")
+    assert "Voorbeeldgilde" in mine.text
+    for path, params in (
+        ("/api/tasks/mine", {}),
+        ("/api/tasks", {}),
+        ("/api/events", {"limit": 200}),
+        ("/api/events", {"subject_kind": "delivery_trouble"}),
+        ("/api/events", {"subject_kind": "peer"}),
+    ):
+        response = await client.get(path, params=params)
+        assert response.status_code == 200, (path, params)
+        assert ANSWER not in response.text and "last_error" not in response.text
+    (task_id,) = [
+        item["id"]
+        for item in (await client.get("/api/tasks/mine")).json()["items"]
+        if item["case_kind"] == "instance"
+    ]
+    response = await client.get(f"/api/tasks/{task_id}")
+    assert ANSWER not in response.text and "last_error" not in response.text
+
+
+async def test_the_beheerder_sets_a_final_message_aside(
+    client, db_session, beheerder, act_as, gilde
+):
+    peer, refused, tried = gilde
+    act_as(beheerder)
+    still = await client.post(f"/api/peers/{peer.id}/undelivered/{tried.id}/set-aside")
+    assert still.status_code == 422
+    response = await client.post(
+        f"/api/peers/{peer.id}/undelivered/{refused.id}/set-aside"
+    )
+    assert response.status_code == 200, response.text
+    assert ANSWER not in response.text
+    await db_session.refresh(refused)
+    assert refused.status == OUTBOX_REJECTED and refused.set_aside_at is not None
+    listed = (await client.get(f"/api/peers/{peer.id}/undelivered")).json()["items"]
+    assert [item["id"] for item in listed] == [str(tried.id)]
+    assert (await client.get(f"/api/peers/{peer.id}")).json()["undelivered"] == 1
+
+    (audit,) = (
+        await db_session.scalars(
+            select(AuditLog).where(
+                AuditLog.subject_kind == "peer", AuditLog.subject_id == str(peer.id)
+            )
+        )
+    ).all()
+    assert audit.actor_person_id == beheerder.id
+    assert audit.note == "Niet meer verstuurd: Offerte"
+
+
+async def test_only_the_beheerder_sets_one_aside(
+    client, db_session, create_person, act_as, gilde
+):
+    peer, refused, _tried = gilde
+    act_as(await create_person("planner@example.org", functions=["planner"]))
+    response = await client.post(
+        f"/api/peers/{peer.id}/undelivered/{refused.id}/set-aside"
+    )
+    assert response.status_code == 403
+    await db_session.refresh(refused)
+    assert refused.set_aside_at is None
 
 
 def test_every_field_has_one_data_class():

@@ -4,7 +4,7 @@ Dit document beschrijft de takenlaag van grip: welke feiten er zijn, welk plan w
 
 ## In het kort
 
-- Een **zaak** is een opdracht of een vacature.
+- Een **zaak** is een opdracht of een vacature, of de instantie zelf voor het werk van haar beheerder.
 - Een **feit** is iets wat grip over een zaak weet uit de eigen gegevens.
 - Een **taak** ontstaat als haar voorwaarden gelden en sluit als haar feit geldt.
 - Het **plan** is de lijst sjablonen waaruit taken ontstaan.
@@ -28,7 +28,7 @@ De naam van een taak die jij moet doen, brengt je naar die pagina. Bovenaan staa
 | Plek | Wat er staat |
 |---|---|
 | Taken, in de navigatie | Twee groepen. "Te doen": wat jij nu moet doen, wat het eerst af moet bovenaan. "Wacht op anderen": wat van jou is en op een ander wacht, en de taken van anderen op de opdrachten waarvan je eigenaar bent en de vacatures die je hebt aangevraagd. Het getal in de navigatie telt alleen "Te doen". |
-| Taken, weergave Bord | Alle taken van de zaken die je mag inzien, in de kolommen te doen, bezig, wacht op een ander en klaar. Te filteren op opdracht of vacature, op persoon en op spoor. |
+| Taken, weergave Bord | Alle taken van de zaken die je mag inzien, in de kolommen te doen, bezig, wacht op een ander en klaar. Te filteren op waarover (de opdracht, de vacature of Koppelingen), op persoon en op spoor. |
 | Tabblad Taken van een opdracht of vacature | De stand per spoor in één regel, en de taken per spoor. Wie de zaak mag bewerken, kan een eigen taak toevoegen. |
 
 Een taak verplaats je met het menu aan het eind van de rij of op de kaart. Slepen is niet nodig. In hetzelfde menu staat "Bekijk de taak", met de notities.
@@ -132,8 +132,9 @@ Een sjabloon is voor de zaak als geheel, of herhaalt zich per onderwerp.
 | `period_ready` | Factuurperiode | Elke maand met inzet in de periode is afgesloten |
 | `period_delivered` | Factuurperiode | De periode is aangeleverd |
 | `period_invoiced` | Factuurperiode | De factuur over de periode is vastgelegd |
-| `messages_arrive` | Koppeling | Elk bericht aan de koppeling is aangekomen |
-| `message_final` | Koppeling | Een bericht aan de koppeling is definitief niet afgeleverd: geweigerd, of zeven dagen geprobeerd |
+| `messages_arrive` | Koppeling | Elk bericht aan de koppeling is aangekomen, of staat opzij omdat de beheerder het niet meer verstuurt |
+| `message_refused` | Koppeling | Een bericht aan de koppeling is voorgoed geweigerd: het klopt niet, botst of gaat over iets wat er niet meer is |
+| `message_given_up` | Koppeling | Een bericht aan de koppeling is zeven dagen geprobeerd en niet aangekomen |
 
 ### Feiten over een vacature
 
@@ -220,9 +221,9 @@ De taken voor het aanvraagformulier ontstaan alleen als de instantie een formuli
 
 | Spoor | Taak | Sluit door | Voor | Termijn |
 |---|---|---|---|---|
-| Beheer | Kijk waarom berichten aan (koppeling) niet aankomen | Feit: de berichten aan de koppeling komen aan | Beheerder |  |
+| Beheer | Kijk waarom berichten aan (koppeling) niet aankomen | Feit: de berichten aan de koppeling komen aan of staan opzij | Beheerder |  |
 
-De instantie is een zaak zonder pagina en zonder verloop (ADR 0061). Haar enige taak ontstaat per koppeling zodra een bericht aan die koppeling drie keer op rij mislukt of definitief is, en is klaar als alles is aangekomen. De feiten komen uit wat grip per koppeling bewaart over berichten die niet aankomen (`delivery_trouble`), nooit uit de outbox. Is een bericht definitief, dan heet de taak "Verstuur berichten aan (koppeling) opnieuw" en is de knop "Opnieuw versturen"; anders "Test de verbinding". De taak leidt naar de koppeling bij Beheer, Koppelingen. Alleen wie de instantie beheert, ziet haar. Een nieuwe soort zaak heeft nog geen lopende zaken, dus het plan kreeg er geen nieuwe versie voor.
+De instantie is een zaak zonder pagina en zonder verloop (ADR 0061). Haar enige taak ontstaat per koppeling zodra een bericht aan die koppeling drie keer op rij mislukt of definitief is, en is klaar als alles is aangekomen of opzij staat. De feiten komen uit wat grip per koppeling bewaart over berichten die niet aankomen (`delivery_trouble`), nooit uit de outbox. Zolang grip het probeert, is de knop "Test de verbinding". Is een bericht zeven dagen geprobeerd, dan heet de taak "Verstuur berichten aan (koppeling) opnieuw" en is de knop "Opnieuw versturen". Heeft de ontvanger een bericht voorgoed geweigerd, dan heet ze "Kijk welk bericht (koppeling) weigert" en is de knop "Niet meer versturen": opnieuw versturen helpt dan pas als de ontvanger iets verandert. Een bericht dat de beheerder niet meer verstuurt, telt niet meer mee. De taak leidt naar de koppeling bij Beheer, Koppelingen. Alleen wie de instantie beheert, ziet haar. Een nieuwe soort zaak heeft nog geen lopende zaken, dus het plan kreeg er geen nieuwe versie voor.
 
 ### Een nieuwe versie van het plan
 

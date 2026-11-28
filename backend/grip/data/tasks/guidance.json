@@ -471,10 +471,17 @@
       "why": "Sinds {sinds} {berichten} aan {koppeling} niet aan: {reden}. {pogingen}",
       "destination": "peer",
       "situations": {
-        "message_final": {
+        "message_refused": {
+          "title": "Kijk welk bericht {koppeling} weigert",
+          "awaited": "Berichten die {koppeling} weigert",
+          "do": "Een bericht aan {koppeling} wordt daar geweigerd. Opnieuw versturen helpt pas als de ontvanger iets verandert. Overleg met wie {koppeling} beheert, en verstuur het bericht daarna opnieuw of niet meer.",
+          "wait": "Je wacht op {wie}, die kijkt welk bericht {koppeling} weigert. Jij hoeft nu niets te doen.",
+          "action": "Niet meer versturen"
+        },
+        "message_given_up": {
           "title": "Verstuur berichten aan {koppeling} opnieuw",
           "awaited": "Berichten aan {koppeling} die opnieuw moeten",
-          "do": "Een bericht aan {koppeling} komt niet meer vanzelf aan. Los op wat er misgaat en verstuur het daarna opnieuw.",
+          "do": "Een bericht aan {koppeling} komt niet meer vanzelf aan. Los op wat er misgaat en verstuur het daarna opnieuw, of niet meer als het niet meer nodig is.",
           "wait": "Je wacht op {wie}, die berichten aan {koppeling} opnieuw verstuurt. Jij hoeft nu niets te doen.",
           "action": "Opnieuw versturen"
         }

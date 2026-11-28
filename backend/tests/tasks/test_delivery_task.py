@@ -54,16 +54,44 @@ async def beheerder(create_person):
 # --- the facts, without a database ---------------------------------------------
 
 
-def test_a_peer_is_a_subject_while_messages_to_it_do_not_arrive():
-    case = instance_snapshot(
-        [PeerTrouble(peer_id=GILDE, peer_name="Voorbeeldgilde", final=True)], []
+def _peer_trouble(final: bool, reason: str) -> PeerTrouble:
+    return PeerTrouble(
+        peer_id=GILDE, peer_name="Voorbeeldgilde", final=final, reason=reason
     )
+
+
+def test_a_peer_is_a_subject_while_messages_to_it_do_not_arrive():
+    case = instance_snapshot([_peer_trouble(True, "conflict")], [])
     assert (case.case_kind, case.case_id) == ("instance", INSTANCE_CASE_ID)
     assert case.assignment_id is None and case.vacancy_id is None
     (peer,) = case.subjects_of("peer")
     assert (peer.repeat_key, peer.subject_id) == (str(GILDE), str(GILDE))
-    assert peer.facts == {"messages_arrive": False, "message_final": True}
+    assert peer.facts == {
+        "messages_arrive": False,
+        "message_refused": True,
+        "message_given_up": False,
+    }
     assert peer.variables == {"koppeling": "Voorbeeldgilde"}
+
+
+@pytest.mark.parametrize(
+    ("final", "reason", "refused", "given_up"),
+    [
+        (False, "unknown_sender", False, False),
+        (True, "invalid", True, False),
+        (True, "gone", True, False),
+        (True, "timeout", False, True),
+        (True, "unknown_sender", False, True),
+    ],
+)
+def test_a_final_message_is_refused_or_given_up_by_its_reason(
+    final, reason, refused, given_up
+):
+    (peer,) = instance_snapshot([_peer_trouble(final, reason)], []).subjects_of("peer")
+    assert (peer.facts["message_refused"], peer.facts["message_given_up"]) == (
+        refused,
+        given_up,
+    )
 
 
 def test_a_peer_whose_task_is_open_stays_a_subject_once_everything_arrived():
@@ -119,7 +147,11 @@ async def test_a_final_message_changes_the_words_not_the_task(db_session, evalua
     await evaluate()
     (after,) = await tasks(db_session, key=KEY)
     assert after.id == before.id
-    assert (after.status, after.situation) == ("todo", "message_final")
+    assert (after.status, after.situation) == ("todo", "message_refused")
+    await _report(db_session, _trouble(final=True, reason="timeout"))
+    await evaluate()
+    (given_up,) = await tasks(db_session, key=KEY)
+    assert (given_up.id, given_up.situation) == (before.id, "message_given_up")
 
 
 async def test_the_task_is_done_when_everything_to_the_peer_arrived(
@@ -189,6 +221,18 @@ async def test_only_the_beheerder_gets_the_task(
     assert item["closes_by_fact"] is True and item["can_complete"] is False
     counts = (await as_person(beheerder).get("/api/tasks/count")).json()
     assert counts["to_do"] >= 1
+    # What the beheerder does on the task is as closed as the task.
+    keeper = as_person(beheerder)
+    noted = await keeper.post(
+        f"/api/tasks/{task.id}/notes", json={"body": "Gebeld met Voorbeeldgilde."}
+    )
+    assert noted.status_code == 201, noted.text
+    assigned = await keeper.patch(
+        f"/api/tasks/{task.id}", json={"assignee_person_id": str(beheerder.id)}
+    )
+    assert assigned.status_code == 200, assigned.text
+    events = (await keeper.get("/api/events", params={"limit": 200})).json()
+    assert str(task.id) in str(events)
 
     for functions in (["planner"], ["lezer"], ["aanvrager"], []):
         person = await create_person(
@@ -202,6 +246,10 @@ async def test_only_the_beheerder_gets_the_task(
         response = await client.get(f"/api/tasks/{task.id}")
         assert response.status_code == 404, functions
         assert "Voorbeeldgilde" not in response.text
+        for params in ({"limit": 200}, {"subject_kind": "task"}):
+            seen = (await client.get("/api/events", params=params)).json()
+            assert str(task.id) not in str(seen), (functions, params)
+            assert "Gebeld met Voorbeeldgilde" not in str(seen), functions
 
 
 async def test_the_beheerder_is_told_why_and_until_when(
@@ -214,7 +262,7 @@ async def test_the_beheerder_is_told_why_and_until_when(
     assert item["headline"] == "Kijk waarom berichten aan Voorbeeldgilde niet aankomen"
     assert item["why"] == (
         "Sinds 6 okt 2026 komen 2 berichten aan Voorbeeldgilde niet aan: de "
-        "ontvanger kent deze instantie niet. Grip probeert het tot 13 okt 2026."
+        "ontvanger kent deze instantie niet. Grip probeert ze tot 13 okt 2026."
     )
     assert item["action_text"] == "Test de verbinding"
     assert item["work_href"] == f"/beheer/koppelingen?koppeling={GILDE}"
@@ -222,12 +270,12 @@ async def test_the_beheerder_is_told_why_and_until_when(
     assert "403" not in str(item)
 
 
-async def test_a_final_message_asks_to_send_it_again(
+async def test_a_message_given_up_asks_to_send_it_again(
     db_session, evaluate, as_person, beheerder
 ):
     await _report(
         db_session,
-        _trouble(message_count=1, final=True, reason="invalid", retry_until=None),
+        _trouble(message_count=1, final=True, reason="timeout", retry_until=None),
     )
     await evaluate()
     (task,) = await tasks(db_session, key=KEY)
@@ -236,8 +284,26 @@ async def test_a_final_message_asks_to_send_it_again(
     assert item["action_text"] == "Opnieuw versturen"
     assert item["why"] == (
         "Sinds 6 okt 2026 komt 1 bericht aan Voorbeeldgilde niet aan: de "
-        "ontvanger weigert het bericht omdat het niet klopt. Grip probeert het "
-        "niet meer vanzelf."
+        "ontvanger antwoordt niet op tijd. Grip probeert het niet meer vanzelf."
+    )
+
+
+async def test_a_refused_message_does_not_ask_to_send_it_again(
+    db_session, evaluate, as_person, beheerder
+):
+    await _report(
+        db_session,
+        _trouble(message_count=3, final=True, reason="invalid"),
+    )
+    await evaluate()
+    (task,) = await tasks(db_session, key=KEY)
+    item = (await as_person(beheerder).get(f"/api/tasks/{task.id}")).json()
+    assert item["headline"] == "Kijk welk bericht Voorbeeldgilde weigert"
+    assert item["action_text"] == "Niet meer versturen"
+    assert item["why"] == (
+        "Sinds 6 okt 2026 komen 3 berichten aan Voorbeeldgilde niet aan: de "
+        "ontvanger weigert wat grip stuurt, omdat het niet klopt. Een of meer "
+        "ervan probeert grip niet meer vanzelf, de rest tot 13 okt 2026."
     )
 
 

@@ -1,4 +1,4 @@
-import { waitFor } from '@testing-library/react';
+import { fireEvent, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mockApi, texts } from '@/features/team/ui/testing';
 import { TEST_PERSON, renderApp } from '@/test/utils';
@@ -27,7 +27,7 @@ const MESSAGES = {
     {
       id: 'm-1',
       kind: 'Verzoek om een kostenpost',
-      reason: 'Het bericht botst met wat de ontvanger al heeft',
+      reason: 'Wat grip stuurt, botst met wat de ontvanger al heeft',
       since: '2026-11-27T09:00:00Z',
       retry_until: null,
       final: true,
@@ -67,18 +67,38 @@ describe('PeerSheet', () => {
     const lines = [...container.querySelectorAll('nldd-list nldd-text-cell')].map((cell) =>
       (cell.getAttribute('supporting-text') ?? '').replace(/\u00a0|\u202f/g, ' '),
     );
-    expect(lines[0]).toMatch(/^Het bericht botst met wat de ontvanger al heeft\. Sinds 27 nov/);
+    expect(lines[0]).toMatch(/^Wat grip stuurt, botst met wat de ontvanger al heeft\. Sinds 27 nov/);
     expect(lines[0]).toMatch(/Komt niet meer vanzelf aan\.$/);
     expect(lines[1]).toMatch(/^De ontvanger kent deze instantie niet\. Sinds 28 nov/);
     expect(lines[1]).toMatch(/Grip probeert het tot 5 dec/);
-    // Only the final message has the button; grip still tries the other one.
-    const resend = container.querySelectorAll('nldd-list nldd-button[text="Opnieuw versturen"]');
-    expect(resend).toHaveLength(1);
-    expect(resend[0]?.getAttribute('accessible-label')).toBe(
-      'Verzoek om een kostenpost opnieuw versturen',
-    );
+    // Only the final message has a menu, and no button sits in a row; grip
+    // still tries the other one.
+    expect(container.querySelector('nldd-list nldd-button')).toBeNull();
+    const menus = container.querySelectorAll('nldd-list nldd-icon-button');
+    expect(menus).toHaveLength(1);
+    expect(menus[0]?.getAttribute('accessible-label')).toMatch(/Verzoek om een kostenpost/);
+    expect(
+      [...container.querySelectorAll('nldd-list nldd-menu-item')].map((item) =>
+        item.getAttribute('text'),
+      ),
+    ).toEqual(['Opnieuw versturen', 'Niet meer versturen']);
     // The connection test stays where it was.
     expect(container.querySelector('nldd-button[text="Test de verbinding"]')).not.toBeNull();
+  });
+
+  it('sends a final message again from its menu', async () => {
+    const { container, api } = renderSheet(PEER, {
+      '/api/peers/p-1/undelivered': MESSAGES,
+      '/api/peers/p-1/undelivered/m-1/resend': { ...MESSAGES.items[0], final: false },
+    });
+    await waitFor(() => expect(container.querySelector('nldd-list nldd-menu-item')).not.toBeNull());
+    const resend = container.querySelector('nldd-list nldd-menu-item[text="Opnieuw versturen"]');
+    if (!resend) throw new Error('no menu item');
+    fireEvent(resend, new Event('select'));
+    await waitFor(() =>
+      expect(api.calls.some((call) => call.endsWith('/undelivered/m-1/resend'))).toBe(true),
+    );
+    expect(api.calls.some((call) => call.includes('set-aside'))).toBe(false);
   });
 
   it('shows nothing about messages when every message arrives', async () => {

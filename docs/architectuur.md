@@ -59,7 +59,7 @@ Elke instantie biedt achter de eigen inway de REST-dienst `grip-opdrachtverkeer`
 
 Elk bericht heeft een UUID en is idempotent. Uitgaand verkeer gaat via een outbox-tabel en een worker, inkomend via een inbox-tabel. De applicatie blijft daardoor werken als de tegenpartij onbereikbaar is.
 
-Een bericht dat niet aankomt, probeert de worker opnieuw, met een pauze die verdubbelt tot vier uur, tot zeven dagen na de eerste mislukking (`FEDERATION_RETRY_DAYS`). Alleen 400, 409, 410 en 422 zijn meteen definitief: het bericht zelf klopt niet of botst. Een definitief bericht kan de beheerder bij Beheer, Koppelingen opnieuw versturen. Vanaf de derde mislukking op rij krijgt de beheerder een taak per koppeling (ADR 0061).
+Een bericht dat niet aankomt, probeert de worker opnieuw, met een pauze die verdubbelt tot vier uur, tot zeven dagen na de eerste mislukking (`FEDERATION_RETRY_DAYS`). Alleen 400, 409, 410 en 422 zijn meteen definitief: het bericht zelf klopt niet of botst. Een definitief bericht kan de beheerder bij Beheer, Koppelingen opnieuw versturen, of niet meer versturen; dan telt het niet meer mee. Vanaf de derde mislukking op rij krijgt de beheerder een taak per koppeling (ADR 0061).
 
 De opdrachtgever ziet standaard status en voortgang. Uitputting en factuurgegevens haalt hij zelf op wanneer hij ze nodig heeft, binnen het FSC-contract met de opdrachtnemer. Namen van mensen op de opdracht gaan niet over de organisatiegrens.
 

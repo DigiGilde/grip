@@ -7,7 +7,10 @@ look again at once.
 
 from __future__ import annotations
 
+import os
 import re
+import subprocess
+import sys
 import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -35,6 +38,19 @@ def test_both_sides_know_the_same_reasons_and_have_words_for_each():
 def test_the_tasks_know_nothing_of_how_messages_travel():
     for path in (GRIP / "tasks").rglob("*.py"):
         assert not re.search(r"\bgrip\.federation\b", path.read_text()), path.name
+
+
+def test_the_audit_imports_on_its_own():
+    """grip.core.audit reaches the outbox through the models; the outbox must
+    not need audit's names while audit is still being read."""
+    result = subprocess.run(  # noqa: S603 - fixed command, own interpreter
+        [sys.executable, "-c", "import grip.core.audit"],
+        cwd=GRIP.parent,
+        env={**os.environ, "DEV_NO_AUTH": "1"},
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
 
 
 def _trouble(peer_id, **changes) -> Trouble:

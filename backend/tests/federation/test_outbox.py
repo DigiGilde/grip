@@ -395,14 +395,16 @@ async def test_a_final_message_is_sent_again_as_the_same_message(
     since = row.failing_since
     heard = []
 
-    async def hook(db, resent):
-        heard.append((resent.id, resent.status))
+    async def hook(db, resent, actor):
+        heard.append((resent.id, resent.status, actor))
+        return True
 
     registry.register_resend_hook("sendQuote", hook)
     with clock.at(T0):
-        again = await undelivered.resend(db_session, client_peer.id, row.id)
+        again = await undelivered.resend(db_session, client_peer.id, row.id, actor=None)
 
-    assert again.id == row.id and heard == [(row.id, OUTBOX_PENDING)]
+    # The hook hears it before the row changes, so it can still say no.
+    assert again.id == row.id and heard == [(row.id, OUTBOX_REJECTED, None)]
     assert (row.status, row.attempts, row.retry_until) == (OUTBOX_PENDING, 0, None)
     assert row.next_attempt_at == T0
     # Until it arrives it still does not arrive, since the first time.
@@ -424,14 +426,75 @@ async def test_only_a_final_message_of_that_peer_is_sent_again(
     other = await make_peer()
     row = await _refused(db_session, client_peer, fake_outway, outway, fed_settings)
     with pytest.raises(NotFoundError):
-        await undelivered.resend(db_session, other.id, row.id)
-    await undelivered.resend(db_session, client_peer.id, row.id)
+        await undelivered.resend(db_session, other.id, row.id, actor=None)
+    await undelivered.resend(db_session, client_peer.id, row.id, actor=None)
     with pytest.raises(DomainValidationError, match="nog te versturen"):
-        await undelivered.resend(db_session, client_peer.id, row.id)
+        await undelivered.resend(db_session, client_peer.id, row.id, actor=None)
+    with pytest.raises(DomainValidationError, match="nog te versturen"):
+        await undelivered.set_aside(db_session, client_peer.id, row.id, actor=None)
     fake_outway.handler = lambda _request: httpx.Response(201, json=RECEIPT)
     await send_due(db_session, outway, fed_settings)
     with pytest.raises(DomainValidationError, match="al aangekomen"):
-        await undelivered.resend(db_session, client_peer.id, row.id)
+        await undelivered.resend(db_session, client_peer.id, row.id, actor=None)
+
+
+async def test_a_failure_after_sending_again_starts_a_new_window(
+    db_session, client_peer, fake_outway, outway, fed_settings
+):
+    row = await _refused(db_session, client_peer, fake_outway, outway, fed_settings)
+    resent_at = T0 + timedelta(days=10)
+    with clock.at(resent_at):
+        await undelivered.resend(db_session, client_peer.id, row.id, actor=None)
+    fake_outway.handler = lambda _request: httpx.Response(503, text="later")
+    failed_at = resent_at + timedelta(hours=2)
+    await _attempt_at(failed_at, db_session, outway, fed_settings)
+    assert (row.status, row.attempts) == (OUTBOX_PENDING, 1)
+    assert row.retry_until == failed_at + timedelta(days=7)
+
+
+async def test_a_message_whose_subject_no_longer_waits_is_not_sent_again(
+    db_session, client_peer, fake_outway, outway, fed_settings
+):
+    row = await _refused(db_session, client_peer, fake_outway, outway, fed_settings)
+
+    async def gone(db, resent, actor):
+        return False
+
+    registry.register_resend_hook("sendQuote", gone)
+    with pytest.raises(DomainValidationError, match="niet meer op"):
+        await undelivered.resend(db_session, client_peer.id, row.id, actor=None)
+    assert (row.status, row.set_aside_at) == (OUTBOX_REJECTED, None)
+    assert [r.id for r in await undelivered.of_peer(db_session, client_peer.id)] == [
+        row.id
+    ]
+
+
+async def test_a_final_message_set_aside_no_longer_counts(
+    db_session, client_peer, fake_outway, outway, fed_settings
+):
+    heard = []
+
+    async def reporter(db, deliveries, peer_ids):
+        heard.append(([d.peer_id for d in deliveries], peer_ids))
+
+    registry.register_delivery_reporter(reporter)
+    row = await _refused(db_session, client_peer, fake_outway, outway, fed_settings)
+    # A refusal for good is refused again when it is sent again.
+    await undelivered.resend(db_session, client_peer.id, row.id, actor=None)
+    await send_due(db_session, outway, fed_settings)
+    assert row.status == OUTBOX_REJECTED
+    assert await undelivered.counts(db_session) == {client_peer.id: 1}
+
+    with clock.at(T0):
+        await undelivered.set_aside(db_session, client_peer.id, row.id, actor=None)
+    assert (row.status, row.set_aside_at) == (OUTBOX_REJECTED, T0)
+    assert await undelivered.of_peer(db_session, client_peer.id) == []
+    assert await undelivered.counts(db_session) == {}
+    assert heard[-1] == ([], {client_peer.id})
+    # Sent again after all, it counts again until it arrives.
+    await undelivered.resend(db_session, client_peer.id, row.id, actor=None)
+    assert row.set_aside_at is None
+    assert await undelivered.counts(db_session) == {client_peer.id: 1}
 
 
 async def test_after_every_round_the_domain_hears_what_does_not_arrive(
@@ -487,3 +550,17 @@ async def test_a_report_that_fails_does_not_stop_the_sending(
     fake_outway.handler = lambda _request: httpx.Response(201, json=RECEIPT)
     stats = await send_due(db_session, outway, fed_settings)
     assert stats.sent == 1 and row.status == OUTBOX_SENT
+
+
+async def test_a_report_that_fails_does_not_stop_sending_again(
+    db_session, client_peer, fake_outway, outway, fed_settings
+):
+    row = await _refused(db_session, client_peer, fake_outway, outway, fed_settings)
+
+    async def broken(db, deliveries, peer_ids):
+        raise RuntimeError("the worker reports on the same peer")
+
+    registry.register_delivery_reporter(broken)
+    await undelivered.resend(db_session, client_peer.id, row.id, actor=None)
+    await db_session.flush()
+    assert row.status == OUTBOX_PENDING

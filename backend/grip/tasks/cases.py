@@ -23,7 +23,7 @@ from grip.core import clock
 from grip.models.assignment import Allocation, Assignment, BudgetLine
 from grip.models.audit_log import AuditLog
 from grip.models.billing_delivery import BillingDelivery, BillingTerms
-from grip.models.delivery_trouble import DeliveryTrouble
+from grip.models.delivery_trouble import REFUSING_REASONS, DeliveryTrouble
 from grip.models.month_close import BillingExport, MonthClose
 from grip.models.organisation import Organisation
 from grip.models.outgoing_invoice import OutgoingInvoice, OutgoingInvoiceDelivery
@@ -1115,6 +1115,8 @@ class PeerTrouble:
     peer_id: UUID
     peer_name: str
     final: bool
+    # Why: of a final message when there is one.
+    reason: str
 
 
 def instance_snapshot(
@@ -1136,7 +1138,13 @@ def instance_snapshot(
                 kind="peer",
                 repeat_key=key,
                 subject_id=key,
-                facts={"messages_arrive": False, "message_final": trouble.final},
+                facts={
+                    "messages_arrive": False,
+                    "message_refused": trouble.final
+                    and trouble.reason in REFUSING_REASONS,
+                    "message_given_up": trouble.final
+                    and trouble.reason not in REFUSING_REASONS,
+                },
                 variables={"koppeling": trouble.peer_name},
             )
         )
@@ -1146,7 +1154,11 @@ def instance_snapshot(
                 kind="peer",
                 repeat_key=key,
                 subject_id=key,
-                facts={"messages_arrive": True, "message_final": False},
+                facts={
+                    "messages_arrive": True,
+                    "message_refused": False,
+                    "message_given_up": False,
+                },
             )
         )
     return CaseSnapshot(
@@ -1162,7 +1174,12 @@ def instance_snapshot(
 async def load_instance_cases(db: AsyncSession) -> list[CaseSnapshot]:
     """The instance case, or nothing when no work can arise on it now."""
     troubles = [
-        PeerTrouble(peer_id=row.peer_id, peer_name=row.peer_name, final=row.final)
+        PeerTrouble(
+            peer_id=row.peer_id,
+            peer_name=row.peer_name,
+            final=row.final,
+            reason=row.reason,
+        )
         for row in await db.scalars(select(DeliveryTrouble))
     ]
     open_peers = set(

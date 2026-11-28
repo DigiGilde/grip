@@ -351,32 +351,32 @@ async def answered(
     )
 
 
-async def sent_again(session: AsyncSession, cost_item_id: UUID, sequence: int) -> None:
+async def sent_again(
+    session: AsyncSession, cost_item_id: UUID, sequence: int, *, actor: Person | None
+) -> bool:
     """Request number ``sequence``, refused or not delivered, goes out once more.
 
-    The reference waits for the executor again. A request that a later one
-    overtook changes nothing.
+    The reference waits for the executor again. False when the request no
+    longer stands: the reference is gone, or a later request overtook it.
     """
     item = await session.get(CostItem, cost_item_id)
-    if item is None or not is_reference(item):
-        return
-    if sequence != item.request_sequence or item.request_status not in (
-        REQUEST_REFUSED,
-        REQUEST_UNDELIVERED,
-    ):
-        return
+    if item is None or not is_reference(item) or sequence != item.request_sequence:
+        return False
+    if item.request_status not in (REQUEST_REFUSED, REQUEST_UNDELIVERED):
+        return True
     old = audit_fields(item, _REQUEST_FIELDS)
     item.request_status = REQUEST_WAITING
     await session.flush()
     record_audit(
         session,
-        actor=None,
+        actor=actor,
         action=UPDATE,
         entity="cost_item",
         entity_id=item.id,
         old_value=old,
         new_value=audit_fields(item, _REQUEST_FIELDS),
     )
+    return True
 
 
 __all__ = [

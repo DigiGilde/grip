@@ -1,9 +1,10 @@
 """Federation outbox: why a message did not arrive, since when, until when.
 
 A message that does not arrive is tried again for a number of days from its
-first failure (ADR 0061). A message that was final before this revision
-counts as not arriving from the moment it was given up, with the reason its
-last answer gives, so the beheerder sees it and can send it again.
+first failure (ADR 0061). A message that was final before this revision gets
+the reason its last answer gives and the moment it was given up, and starts
+set aside: what became of it was settled before, so an upgrade opens no task
+for it.
 
 Revision ID: 0048_outbox_retry_window
 Revises: 0047_inbox_path_parameters
@@ -47,6 +48,10 @@ def upgrade() -> None:
         "federation_outbox",
         sa.Column("retry_until", sa.DateTime(timezone=True), nullable=True),
     )
+    op.add_column(
+        "federation_outbox",
+        sa.Column("set_aside_at", sa.DateTime(timezone=True), nullable=True),
+    )
     listed = ", ".join(f"'{failure}'" for failure in FAILURES)
     op.create_check_constraint(
         op.f("ck_federation_outbox_failure_valid"),
@@ -57,6 +62,7 @@ def upgrade() -> None:
         """
         UPDATE federation_outbox SET
             failing_since = next_attempt_at,
+            set_aside_at = now(),
             failure = CASE
                 WHEN last_error LIKE 'configuration:%' THEN 'configuration'
                 WHEN last_status_code IN (401, 403) AND last_error LIKE 'HTTP %'
@@ -84,6 +90,7 @@ def downgrade() -> None:
     op.drop_constraint(
         op.f("ck_federation_outbox_failure_valid"), "federation_outbox", type_="check"
     )
+    op.drop_column("federation_outbox", "set_aside_at")
     op.drop_column("federation_outbox", "retry_until")
     op.drop_column("federation_outbox", "failing_since")
     op.drop_column("federation_outbox", "failure")

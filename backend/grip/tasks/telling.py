@@ -877,17 +877,21 @@ def tell_watcher(task: Task, variables: Mapping[str, str]) -> Telling:
 def _trouble_values(trouble: DeliveryTrouble) -> dict[str, str]:
     """What a sentence says about messages to a peer that do not arrive."""
     count = trouble.message_count
+    it = "het" if count == 1 else "ze"
     retry_until = (
         day(clock.local_date(trouble.retry_until)) if trouble.retry_until else None
     )
-    if trouble.final:
-        attempts = "Grip probeert het niet meer vanzelf."
-        if retry_until and count > 1:
-            attempts += f" De andere berichten probeert grip tot {retry_until}."
+    if trouble.final and retry_until:
+        attempts = (
+            "Een of meer ervan probeert grip niet meer vanzelf, de rest tot"
+            f" {retry_until}."
+        )
+    elif trouble.final:
+        attempts = f"Grip probeert {it} niet meer vanzelf."
     elif retry_until:
-        attempts = f"Grip probeert het tot {retry_until}."
+        attempts = f"Grip probeert {it} tot {retry_until}."
     else:
-        attempts = "Grip verstuurt het opnieuw."
+        attempts = f"Grip verstuurt {it} opnieuw."
     return {
         "koppeling": trouble.peer_name,
         "sinds": day(clock.local_date(trouble.since)),

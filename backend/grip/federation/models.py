@@ -190,6 +190,11 @@ class FederationOutbox(Base):
     retry_until: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # A beheerder chose not to send this final message again: it no longer
+    # counts as not arriving. Cleared when it is sent again.
+    set_aside_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

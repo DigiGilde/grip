@@ -10,11 +10,13 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from grip.models.audit_log import AuditLog
 from grip.models.organisation import Organisation
 from grip.services import (
     assignments,
@@ -256,16 +258,36 @@ async def test_a_refused_request_sent_again_waits_again(
         actor=world.beheerder,
     )
     await cost_references.answered(db_session, item.id, 1, "refused")
-    # A request that a later one overtook changes nothing.
-    await cost_references.sent_again(db_session, item.id, 0)
+    # A request that a later one overtook no longer stands.
+    assert not await cost_references.sent_again(
+        db_session, item.id, 0, actor=world.beheerder
+    )
     as_person(world.beheerder)
     body = (await client.get(f"/api/costs/{item.id}")).json()
     assert body["reference_state"] == "refused"
 
-    await cost_references.sent_again(db_session, item.id, 1)
+    assert await cost_references.sent_again(
+        db_session, item.id, 1, actor=world.beheerder
+    )
     body = (await client.get(f"/api/costs/{item.id}")).json()
     assert (body["reference_state"], body["description"]) == ("waiting", "Zaal")
     assert [row.id for row in await cost_references.waiting(db_session)] == [item.id]
+    # The cost item's history names who sent it again.
+    updates = (
+        await db_session.scalars(
+            select(AuditLog)
+            .where(AuditLog.subject_kind == "cost_item")
+            .where(AuditLog.subject_id == str(item.id))
+            .where(AuditLog.action == "update")
+        )
+    ).all()
+    (again,) = [u for u in updates if u.new_value.get("request_status") == "waiting"]
+    assert again.actor_person_id == world.beheerder.id
+
+    # A reference that is gone no longer waits for anything.
+    assert not await cost_references.sent_again(
+        db_session, uuid4(), 1, actor=world.beheerder
+    )
 
 
 async def test_the_supplier_sees_who_asked(client, world, as_person, db_session):

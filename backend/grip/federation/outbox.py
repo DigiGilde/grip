@@ -313,17 +313,8 @@ async def send_due(
         if hook is not None and row.status != OUTBOX_PENDING:
             await hook(db, row)
     await db.flush()
-    await _report(db)
+    await undelivered.report_safely(db)
     return stats
-
-
-async def _report(db: AsyncSession) -> None:
-    # In a savepoint: sending goes on when telling the domain fails.
-    try:
-        async with db.begin_nested():
-            await undelivered.report(db)
-    except Exception:
-        logger.exception("Reporting the messages that do not arrive failed")
 
 
 async def run_outbox_loop(
