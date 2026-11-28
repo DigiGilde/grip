@@ -123,6 +123,10 @@ class Action(StrEnum):
     # Ask for internal approval of a made quote, and give or refuse it.
     REQUEST_QUOTE_APPROVAL = "request_quote_approval"
     DECIDE_QUOTE_APPROVAL = "decide_quote_approval"
+    # Enter or update another example instance in the peer registry and test
+    # the connection with it: the FSC bootstrap only, where example data may
+    # live (ADR 0062). A person changes the registry with MANAGE_USERS.
+    REGISTER_PEER = "register_peer"
 
 
 class SubjectKind(StrEnum):
@@ -131,6 +135,9 @@ class SubjectKind(StrEnum):
     GUEST = "guest"
     # Another instance or a corpus system, identified by its FSC peer id.
     PEER = "peer"
+    # A system of the own deployment that presents a key, such as the FSC
+    # bootstrap of the example group (ADR 0062).
+    MACHINE = "machine"
 
 
 class ResourceKind(StrEnum):
@@ -173,6 +180,8 @@ class Subject:
     invitation_id: UUID | None = None
     # Verified email of a guest; an invitation is matched on it.
     email: str | None = None
+    # Which machine presented its key.
+    machine: str | None = None
 
     @classmethod
     def for_person(
@@ -192,12 +201,18 @@ class Subject:
     def for_peer(cls, peer_id: str) -> Subject:
         return cls(SubjectKind.PEER, peer_id=peer_id)
 
+    @classmethod
+    def for_machine(cls, name: str) -> Subject:
+        return cls(SubjectKind.MACHINE, machine=name)
+
     @property
     def identifier(self) -> str:
         if self.kind is SubjectKind.PERSON:
             return str(self.person_id)
         if self.kind is SubjectKind.PEER:
             return self.peer_id or ""
+        if self.kind is SubjectKind.MACHINE:
+            return self.machine or ""
         return str(self.invitation_id or self.email or "")
 
 

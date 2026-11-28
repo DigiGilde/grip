@@ -50,6 +50,7 @@ MATRIX: dict[str, tuple[str, str]] = {
     "peer_stranger": ("", ""),
     "peer_child": ("", ""),
     "peer_unknown": ("", ""),
+    "machine": ("", ""),
 }
 
 CELLS = [
@@ -166,6 +167,7 @@ async def test_no_function_and_no_relation_gets_nothing(
         Subject.for_guest(),
         Subject.for_peer("peer-unknown"),
         Subject.for_peer(""),
+        Subject.for_machine("fsc-bootstrap"),
         Subject(SubjectKind.PERSON),
     ]
     for subject in subjects:

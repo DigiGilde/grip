@@ -14,10 +14,14 @@ from typing import Any
 from uuid import UUID
 
 import httpx
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy import select
 
 from grip.access import Action, Resource
+from grip.access.decider import MACHINE_FSC_BOOTSTRAP, PROPERTY_EXAMPLE_DATA
+from grip.access.deps import AccessDecider, require
+from grip.access.machine_deps import require_peer_registry_key
+from grip.access.types import ResourceKind, Subject
 from grip.api.assignment_support import DbSession, RequestAccess
 from grip.core.audit import CREATE, UPDATE, record_audit
 from grip.core.auth import CurrentPerson
@@ -42,11 +46,13 @@ from grip.schema.peers import (
     PeerIn,
     PeerListOut,
     PeerOut,
+    PeerRegistration,
+    PeerRegistryTest,
     PeerUpdate,
     UndeliveredListOut,
     UndeliveredMessageOut,
 )
-from grip.services import delivery_trouble, stale
+from grip.services import delivery_trouble, peer_registry, stale
 from grip.services.errors import DomainValidationError, NotFoundError
 
 router = APIRouter(prefix="/peers", tags=["peers"])
@@ -158,6 +164,60 @@ async def create_peer(
     return _out(peer)
 
 
+async def _require_bootstrap(decider: AccessDecider, settings: Settings) -> None:
+    example_data = "true" if settings.may_hold_example_data else "false"
+    await require(
+        decider,
+        Subject.for_machine(MACHINE_FSC_BOOTSTRAP),
+        Action.REGISTER_PEER,
+        Resource(
+            ResourceKind.INSTANCE, properties=((PROPERTY_EXAMPLE_DATA, example_data),)
+        ),
+    )
+
+
+@router.put(
+    "/registry",
+    response_model=PeerOut,
+    dependencies=[Depends(require_peer_registry_key)],
+)
+async def register_peer(
+    body: PeerRegistration,
+    response: Response,
+    decider: AccessDecider,
+    db: DbSession,
+    settings: Settings = Depends(get_settings),
+) -> dict[str, Any]:
+    """The FSC bootstrap enters another example instance (ADR 0062)."""
+    await _require_bootstrap(decider, settings)
+    registered = await peer_registry.register(
+        db, **body.model_dump(), is_example=settings.is_example
+    )
+    if registered.created:
+        response.status_code = status.HTTP_201_CREATED
+    return _out(registered.peer, await _not_arriving(db, registered.peer))
+
+
+@router.post(
+    "/registry/test-connection",
+    response_model=ConnectionTestOut,
+    dependencies=[Depends(require_peer_registry_key)],
+)
+async def test_registered_connection(
+    body: PeerRegistryTest,
+    decider: AccessDecider,
+    db: DbSession,
+    settings: Settings = Depends(get_settings),
+    outway: OutwayClient = Depends(get_outway_client),
+) -> dict[str, Any]:
+    """ "Test de verbinding" for the FSC bootstrap, by peer id (ADR 0062)."""
+    await _require_bootstrap(decider, settings)
+    peer = await peer_registry.by_peer_id(db, body.peer_id)
+    if peer is None:
+        raise NotFoundError("Peer", body.peer_id)
+    return await _test_connection(db, peer, outway)
+
+
 @router.get("/{peer_row_id}", response_model=PeerOut)
 async def get_peer(
     peer_row_id: UUID, access: RequestAccess, db: DbSession
@@ -262,8 +322,12 @@ async def test_connection(
     the peer and its listener. The keys are kept when the call succeeds.
     """
     await _require_beheerder(access)
-    peer = await _get(db, peer_row_id)
+    return await _test_connection(db, await _get(db, peer_row_id), outway)
 
+
+async def _test_connection(
+    db: DbSession, peer: Peer, outway: OutwayClient
+) -> dict[str, Any]:
     def result(
         ok: bool, detail: str, status_code: int | None = None, keys: int = 0
     ) -> dict[str, Any]:

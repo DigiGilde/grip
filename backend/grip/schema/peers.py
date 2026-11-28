@@ -72,6 +72,36 @@ class PeerUpdate(BaseModel):
         return None if value is None else value.strip().rstrip("/")
 
 
+class PeerRegistration(BaseModel):
+    """Another example instance, as the FSC bootstrap enters it (ADR 0062).
+
+    ``financial_inspection`` only counts for a new row: on an existing one
+    that switch, like ``is_active``, is the beheerder's.
+    """
+
+    peer_id: str = Field(min_length=1, max_length=64, pattern=r"^[0-9A-Za-z._:-]+$")
+    name: str = Field(min_length=1, max_length=200)
+    organisation_tooi_uri: str = Field(default="", max_length=500)
+    base_uri: str = Field(min_length=1, max_length=500, pattern=r"^https?://")
+    role: Literal["counterpart", "parent", "child"]
+    grant_hashes: dict[str, str] = Field(default_factory=dict)
+    financial_inspection: bool = False
+
+    @field_validator("grant_hashes")
+    @classmethod
+    def _grants(cls, value: dict[str, str]) -> dict[str, str]:
+        return _clean_grants(value)
+
+    @field_validator("base_uri")
+    @classmethod
+    def _base(cls, value: str) -> str:
+        return value.strip().rstrip("/")
+
+
+class PeerRegistryTest(BaseModel):
+    peer_id: str = Field(min_length=1, max_length=64, pattern=r"^[0-9A-Za-z._:-]+$")
+
+
 class PeerOut(BaseModel):
     id: Annotated[UUID, in_class(M)]
     # Counts what people changed; a form sends it back with its save.

@@ -51,6 +51,10 @@ PUBLIC_EXACT = (
     # No session: a system presents a key, checked by require_feed_key. The
     # feed stays closed while no key is configured.
     "/api/gebeurtenissen",
+    # No session: the FSC bootstrap of the example group presents a key,
+    # checked by require_peer_registry_key (ADR 0062).
+    "/api/peers/registry",
+    "/api/peers/registry/test-connection",
 )
 
 

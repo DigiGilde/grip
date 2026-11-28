@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     # "digigilde=https://grip.voorbeeld.example". A key that is missing keeps
     # the address of the local setup (deploy/local).
     EXAMPLE_INSTANCE_URIS: str = ""
+    # The key the FSC bootstrap of the example group presents to enter the
+    # other examples in the peer registry (ADR 0062). Empty keeps that route
+    # closed. Only an example instance or a local development instance opens it.
+    PEER_REGISTRY_KEY: str = ""
     # Who may enter an example instance: comma-separated mail domains
     # ("voorbeeld.example") or whole addresses. Empty: nobody. The address
     # must be one the identity provider vouches for.
@@ -411,6 +415,14 @@ class Settings(BaseSettings):
     def is_example(self) -> bool:
         """An instance that holds only the fictional example data."""
         return self.INSTANCE_MODE.strip().lower() == "voorbeeld"
+
+    @property
+    def may_hold_example_data(self) -> bool:
+        """An example instance, or a local development instance: without a
+        login, not deployed and without an identity provider."""
+        if self.is_example:
+            return True
+        return bool(self.DEV_NO_AUTH) and not self.PUBLIC_HOST and not self.OIDC_ISSUER
 
     @property
     def example_visitors(self) -> list[str]:
