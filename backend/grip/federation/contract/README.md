@@ -1,6 +1,6 @@
-# grip-koppelvlakken
+# Koppelvlakken
 
-De contracten voor het verkeer tussen grip-instanties en corpus-systemen. Deze repo is de bron
+De contracten voor het verkeer tussen grip-instanties en corpus-systemen. Deze map is de bron
 van waarheid: een implementatie volgt het contract, niet andersom.
 
 | Dienst | Wie biedt hem aan | Contract |

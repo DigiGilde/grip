@@ -28,7 +28,7 @@ info:
     alleen optionele velden, typen of operaties toe.
   contact:
     name: Beheer grip-koppelvlakken
-    url: https://github.com/DigiGilde/grip-koppelvlakken/issues
+    url: https://github.com/DigiGilde/grip-poc/issues
     email: koppelvlakken@grip-koppelvlakken.example
 servers:
   - url: https://corpus.voorbeeldministerie.example/v1

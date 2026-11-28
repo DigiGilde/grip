@@ -1,7 +1,7 @@
 # Voldoen aan het contract
 
 Een implementatie voldoet als ze de drie controles hieronder in haar eigen CI draait en ze slagen.
-Leg de versie van het contract vast (een tag van deze repo), zodat een wijziging hier een bewuste
+Leg de versie van het contract vast (een commit van grip), zodat een wijziging hier een bewuste
 stap is in de implementatie.
 
 ## 1. De gegenereerde OpenAPI vergelijken met het contract
@@ -45,5 +45,5 @@ Test deze expliciet:
 | Versie | Elk succesantwoord draagt `API-Version`; de implementatie serveert het contract op `/v1/openapi.json`. Voor grip-opdrachtverkeer is dat de operatie `getOpenapi`; voor corpus-context staat het pad niet in het contract en telt het niet mee in de vergelijking |
 | Bereikbaarheid | De federatieroutes zijn alleen via de inway bereikbaar; een verzoek dat de peer-header zelf zet en niet via de inway komt, wordt niet bediend |
 
-`scripts/validate.mjs` in deze repo laat zien hoe de offertehash en de JWS van het akkoord worden
+`scripts/validate.mjs` in deze map laat zien hoe de offertehash en de JWS van het akkoord worden
 nagerekend.

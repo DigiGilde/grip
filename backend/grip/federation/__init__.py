@@ -3,7 +3,7 @@
 Other instances and corpus systems are peers. Traffic to them goes through
 the outbox and the own outway; traffic from them arrives through the inway
 at the separate listener in :mod:`grip.federation.app`. The shapes that
-cross the boundary come from the vendored contract under ``contract/``.
+cross the boundary come from the contract under ``contract/``.
 
 The domain plugs in through three registries (see :mod:`.registry`) and
 queues messages with :func:`.outbox.enqueue`. It never imports transport

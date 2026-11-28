@@ -1,4 +1,4 @@
-"""The vendored contract: examples, hashes and the operation table."""
+"""The contract: examples, hashes and the operation table."""
 
 import json
 
@@ -8,7 +8,6 @@ from grip.federation import signing
 from grip.federation.contract_loader import (
     SERVICE_CORPUS_CONTEXT,
     api_version,
-    contract_version,
     example_files,
     load_openapi,
     load_schemas,
@@ -38,11 +37,12 @@ def test_there_are_examples():
     assert len(example_files("invalid")) >= 10
 
 
-def test_version_record_names_commit_and_versions():
-    record = contract_version()
-    assert len(record["commit"]) == 40
-    assert record["modified"] is False
+def test_api_version_is_the_version_of_the_openapi_document():
     assert api_version() == load_openapi("grip-opdrachtverkeer")["info"]["version"]
+    assert (
+        api_version(SERVICE_CORPUS_CONTEXT)
+        == load_openapi(SERVICE_CORPUS_CONTEXT)["info"]["version"]
+    )
 
 
 @pytest.mark.parametrize("name", ["quote", "quote.eigen-initiatief"])

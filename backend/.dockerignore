@@ -9,4 +9,6 @@ coverage.xml
 htmlcov
 *.egg-info
 tests
+grip/federation/contract/node_modules
+grip/federation/contract/dist
 .env

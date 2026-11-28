@@ -106,7 +106,7 @@ Een concept telt niet tot iemand het onderdeel opslaat. Bij de offerte wordt per
 
 ## Het contract kent de brief
 
-Het koppelvlak `grip-opdrachtverkeer` beschrijft `brief` in de `momentopname` van een offerte en `publicaties` op een vacature. Grip heeft het contract overgenomen (`just sync-contract`) en gebruikt de termen van het contract.
+Het koppelvlak `grip-opdrachtverkeer` beschrijft `brief` in de `momentopname` van een offerte en `publicaties` op een vacature. Grip gebruikt de termen van het contract.
 
 Een term is daarbij veranderd. Waar de afzender onderdeel van is, heet in het contract `valt_onder`: een eigenschap mag niet de naam van een type uit de woordenlijst dragen, en `onderdeel_van` is een type relatie. Een offerte die voor de overstap is gemaakt, houdt haar bytes en haar echtheidskenmerk; daarin staat nog `onderdeel_van`. Grip leest die term nog en schrijft hem nooit meer. Zo'n offerte gaat ongewijzigd naar een andere instantie: het contract laat eigenschappen toe die het niet noemt, en het kenmerk is over de bytes berekend.
 
@@ -114,7 +114,7 @@ Een term is daarbij veranderd. Waar de afzender onderdeel van is, heet in het co
 
 Voor een systeem dat het contract ook implementeert, zoals Bouwmeester op de eigen branch:
 
-1. Neem het contract over op dezelfde commit als grip (zie `backend/grip/federation/contract/CONTRACT_VERSION.json`).
+1. Neem het contract over uit `backend/grip/federation/contract` op dezelfde commit van grip.
 2. Niets is verplicht geworden: `brief`, `publicaties` en de velden `kenmerk`, `uw_kenmerk`, `afzender`, `schalen`, `jaar` en `maandtarieven_per_periode` zijn optioneel. Een implementatie die ze niet kent, blijft voldoen.
 3. Wie een offerte toont, toont `brief` als die er is: de onderdelen in volgorde, met de tabel van regels in het onderdeel met `met_kosten`. De tekst is platte tekst met de tekens uit de tabel hierboven, geen HTML.
 4. Reken het echtheidskenmerk altijd over de ontvangen bytes, nooit over een opnieuw opgebouwde vorm. Een offerte van voor de overstap bevat `onderdeel_van` in plaats van `valt_onder`; lees beide.

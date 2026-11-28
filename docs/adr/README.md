@@ -61,6 +61,7 @@ Een besluit dat anderen bindt staat hier als ADR: genummerd, met context, beslui
 | [0056](0056-de-kroniek-van-een-opdracht-als-bron.md) | De kroniek van een opdracht als bron | voorgesteld |
 | [0057](0057-bewaren-en-vernietigen-per-zaak.md) | Bewaren en vernietigen per zaak | aanvaard, op één open punt na |
 | [0058](0058-factuurinformatie-bij-het-akkoord.md) | Factuurinformatie wordt bij het akkoord opgegeven | voorgesteld |
+| [0060](0060-het-contract-staat-in-grip.md) | Het contract staat in grip, tot een tweede systeem het implementeert | aanvaard |
 
 ## Welke besluiten later zijn bijgesteld
 
@@ -68,6 +69,7 @@ Een besluit wordt niet herschreven. Is het later bijgesteld, dan staat onderaan 
 
 | Besluit | Bijgesteld door | Wat veranderde |
 |---|---|---|
+| 0006 Contract in een neutrale repo | 0060 | Het contract staat in grip tot een tweede systeem het implementeert |
 | 0009 Relaties en gegevensklassen | praktijk, zie `docs/toegang.md` | Smallere weergaven, en een eigen klasse voor de bedragen van een tarievenkaart |
 | 0010 Tekenen in drie vormen | 0029, 0037, 0048 | Bewijs van een besluit, bevestigen met een passkey, de maker tekent niet zelf |
 | 0011 Maandafsluiting | 0039, 0047 | Aanleveren per factuurperiode; een naverrekening is een opgeslagen verschil |

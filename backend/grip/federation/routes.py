@@ -8,7 +8,7 @@ translated right before it is validated and sent.
 
 Mounted without a prefix here; the federation app serves them under ``/v1``.
 Every route depends on the peer check. Paths, methods and parameters are
-written out by hand and compared with the vendored contract in the tests;
+written out by hand and compared with the contract in the tests;
 the schemas in the generated OpenAPI refer to the contract's own schemas.
 """
 
