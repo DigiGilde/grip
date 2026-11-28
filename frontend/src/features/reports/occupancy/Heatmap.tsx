@@ -156,7 +156,7 @@ export function Heatmap({
       .join(' ') || undefined;
 
   return (
-    <div className="grip-occ__scroll">
+    <div className="grip-occ__scroll" data-spacing="grid">
       <table ref={tableRef} className="grip-occ__table" role="grid" aria-label={label}>
         <thead>
           {hasBoundary && (
@@ -202,7 +202,7 @@ export function Heatmap({
                   <Link
                     to={personBoardPath(person.person_id)}
                     className="grip-occ__name"
-                    title={`${person.person_name} op het inzetbord`}
+                    title={`${person.person_name} op het bord`}
                   >
                     {person.person_name}
                   </Link>

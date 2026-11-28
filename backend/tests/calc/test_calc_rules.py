@@ -39,6 +39,7 @@ from grip.calc import (
     cost_item_coverage,
     coverage_amount,
     forecast,
+    kpi_gap,
     kpi_realisation,
     kpi_target,
     person_monthly_rate,
@@ -502,6 +503,13 @@ class TestR12R13Kpi:
         # 90 percent x 12 x 18,000 = 194,400.
         target = BillabilityTarget("p-d", 2026, Decimal("90"))
         assert kpi_target(target, rates, scales) == 194_400 * EUR
+
+    def test_gap_is_negative_below_the_target(self):
+        # Target 194,400 and an expected 216,000: 21,600 above.
+        assert kpi_gap(216_000 * EUR, 194_400 * EUR) == 21_600 * EUR
+        assert kpi_gap(180_000 * EUR, 194_400 * EUR) == -14_400 * EUR
+        assert kpi_gap(194_400 * EUR, 194_400 * EUR) == 0
+        assert kpi_gap(216_000 * EUR, None) is None
 
     def test_target_follows_a_scale_change(self, rates, scales):
         target = BillabilityTarget("p-move", 2026, Decimal("90"))

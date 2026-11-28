@@ -14,7 +14,7 @@ export function StructuredText({ text, headingLevel = 3 }: { text: string; headi
       {splitSections(text).map((section, index) => (
         <Stack key={`${section.heading}-${index}`} gap="close">
           {section.heading && (
-            <nldd-title size={6} text={section.heading} heading-level={headingLevel} />
+            <nldd-title size="display-6" text={section.heading} heading-level={headingLevel} />
           )}
           <RichText text={section.body} headingLevel={4} />
         </Stack>

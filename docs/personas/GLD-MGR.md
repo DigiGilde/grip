@@ -53,11 +53,11 @@ Naar het voorbeeld van het Mandaatbesluit BZK 2025 gaat een manager van een orga
 
 ## In Grip
 
-**DigiGilde voorbeeld** (account, lezer en interne goedkeurder van offertes). Zij landt op Start en ziet Start, Taken, Opdrachten, Vacatures, Financieel en Rapportage.
+**DigiGilde voorbeeld** (account, lezer en interne goedkeurder van offertes). Zij landt op Start en ziet Start, Taken, Opdrachten, Vacatures en Geld.
 
 - In "Een opdracht winnen" krijgt zij de taak "Beoordeel offerte {kenmerk}, binnen 3 werkdagen" als de instantie interne goedkeuring heeft aangezet. Zij keurt goed of stuurt terug met een reden.
 - In "Iemand werven" geeft zij akkoord op een vacature waarop zij is genoemd.
-- Onder Rapportage ziet zij onder meer omzet, bezetting, potentiële opdrachten, kosten en open rollen, voor zover haar recht lezer dat toelaat: geen bemensing en geen gegevens van personen.
+- Onder Geld ziet zij onder meer omzet, potentiële opdrachten en kosten, voor zover haar recht lezer dat toelaat: geen bemensing en geen gegevens van personen.
 
 Haar naam staat als ondertekenaar in het tekenblok van de offerte (Beheer, Afzender en teksten van offertes). Dat is tekst op de brief, geen handeling in grip.
 

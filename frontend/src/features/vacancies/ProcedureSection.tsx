@@ -203,11 +203,11 @@ export function ProcedureSection({ vacancy }: { vacancy: Vacancy }) {
           return (
             <nldd-table-row key={step.kind}>
               <nldd-text-cell
+                row-header
                 text={`${step.position}. ${step.label}`}
                 {...(detail ? { 'supporting-text': detail } : {})}
               />
               <nldd-text-cell
-                color={step.recorded ? 'content' : 'secondary'}
                 text={stepState(step)}
               />
             </nldd-table-row>

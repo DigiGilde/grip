@@ -7,7 +7,7 @@ export const VIEW_PARAM = 'weergave';
 export const SEARCH_PARAM = 'zoek';
 
 export const VIEWS: readonly { phase: Phase; slug: string }[] = [
-  { phase: 'potential', slug: 'pijplijn' },
+  { phase: 'potential', slug: 'potentieel' },
   { phase: 'active', slug: 'lopend' },
   { phase: 'closed', slug: 'afgesloten' },
 ];

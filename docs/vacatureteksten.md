@@ -86,7 +86,7 @@ Een standaardtekst bestaat uit onderdelen. Een onderdeel heeft een kop en een te
 
 ## Een tekst op een vacature
 
-Op het tabblad Tekst van een vacature zijn er twee ingangen.
+Op het onderdeel Tekst en openstellen van een vacature zijn er twee ingangen.
 
 1. **Begin met de standaardtekst.** Grip zoekt de tekst van de rol: eerst op de rol van de begrotingsregel, dan op de functienaam of een andere naam van de rol, en anders de tekst van een rol in dezelfde functiegroep. Dat laatste zegt het scherm erbij. De invulplekken worden gevuld en het resultaat is een concept met de herkomst "Uit de standaardtekst Software engineer, versie 2026-10-08".
 2. **Stel een tekst op maat op.** Het taalmodel schrijft de onderdelen van de rol opnieuw voor deze vacature, met de standaardtekst als voorbeeld. De gedeelde onderdelen worden daarna ingevoegd uit de bibliotheek en niet door het model geschreven.
@@ -102,13 +102,13 @@ Een open plek in een tekst is een van twee dingen.
 
 Een gegeven dat nog niet bekend is, leest als de plek waar je het invult ("Vul de schaal in op de aanvraag"), met een link daarheen, en houdt het vaststellen tegen. "Ga naar de volgende" loopt langs het proza en de onbekende gegevens, niet langs wat al gevuld is. Bij een plek voor proza stelt "Stel voor" alleen die passage op, met de beleidscontext van de opdracht en de gegevens van de vacature; je neemt het voorstel over of niet. Zonder taalmodel is die knop er niet. Dat een model een passage voorstelde staat in het logboek van de vacature; de bewaarde versie is van de schrijver.
 
-**Vaststellen bevriest.** De waarden worden uitgeschreven in de tekst, en de rij bewaart het concept met sleutels en de waarden van dat moment. Wijzigt daarna een gegeven, dan zegt het tabblad Tekst wat de vastgestelde tekst noemt en wat de vacature nu heeft. Wie de tekst aanpast, begint weer vanuit het concept met sleutels, zodat de nieuwe waarde er vanzelf staat.
+**Vaststellen bevriest.** De waarden worden uitgeschreven in de tekst, en de rij bewaart het concept met sleutels en de waarden van dat moment. Wijzigt daarna een gegeven, dan zegt het onderdeel Tekst en openstellen wat de vastgestelde tekst noemt en wat de vacature nu heeft. Wie de tekst aanpast, begint weer vanuit het concept met sleutels, zodat de nieuwe waarde er vanzelf staat.
 
 Afgeleide woorden horen bij het gegeven. `{uren}` is de omvang maal de volle werkweek van 36 uur, afgerond op hele uren: 0,2 fte leest als "7 uur per week". De werkweek is een vaste waarde in de code, geen instelling. `{contract}` is een zin per type contract. `{sluitingsdatum}` is geen gegeven: een vacature heeft daar geen veld voor, dus blijft het een plek die de schrijver invult. `{opdracht}` ook niet: de interne naam van een opdracht gaat niet naar buiten.
 
 Teksten van voor deze opzet hebben een onbekend gegeven als letterlijke open plek gekregen (`[vul aan: de schaal van de vacature]`). `just fix-open-places` zet die terug naar de sleutel, in concepten en in de standaardteksten; met `--check` telt het alleen. Het raakt alleen de zinnen die grip toen zelf schreef, laat vastgestelde teksten en alles wat iemand typte met rust, en kan vaker draaien. Het laden van de bibliotheek doet hetzelfde voor de standaardteksten.
 
-Een vacature voor een gerede of beoogde kandidaat wordt niet opengesteld en heeft geen vacaturetekst nodig. Het tabblad zegt dat in een regel, met de keuze "Schrijf toch een vacaturetekst"; daarna hoort de tekst bij het verloop van die vacature, met de taken die erbij horen.
+Een vacature voor een gerede of beoogde kandidaat wordt niet opengesteld en heeft geen vacaturetekst nodig. Het onderdeel Tekst zegt dat in een regel, met de keuze "Schrijf toch een vacaturetekst"; daarna hoort de tekst bij het verloop van die vacature, met de taken die erbij horen.
 
 ### Wat er naar het taalmodel gaat
 
@@ -163,9 +163,9 @@ De taken staan in planversie 2026.3. Een vacature die onder een eerdere versie i
 
 ## Gepubliceerd
 
-Een opengestelde vacature heeft een adres dat iedereen kan openen. Dat leg je vast op het tabblad Tekst, per plek: de interne vacaturepagina, Werken voor Nederland, een externe site. Het staat daarna in de kop van de vacature.
+Een opengestelde vacature heeft een adres dat iedereen kan openen. Dat leg je vast op het onderdeel Tekst en openstellen, per plek: de interne vacaturepagina, Werken voor Nederland, een externe site. Het staat daarna in de kop van de vacature.
 
-Dit is iets anders dan de verwijzing naar het wervingssysteem op het tabblad Vervulling. Die link opent alleen voor recruiters. Grip haalt niets op uit het wervingssysteem: kenmerk en link worden met de hand ingevuld.
+Dit is iets anders dan de verwijzing naar het wervingssysteem op het onderdeel Vervullen. Die link opent alleen voor recruiters. Grip haalt niets op uit het wervingssysteem: kenmerk en link worden met de hand ingevuld.
 
 ## Nog niet gebouwd
 

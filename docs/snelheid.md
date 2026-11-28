@@ -38,7 +38,7 @@ just check-speed --base http://speed.localhost:5184
 `just check-speed` opent elke pagina als elke soort lezer (beheerder, de eigenaar met de meeste opdrachten, de leidinggevende met de meeste mensen, planner, lezer, teamlid) in een browser zonder venster en meldt per pagina: wanneer ze bruikbaar is, hoeveel verzoeken ze doet, het traagste verzoek, het grootste aantal statements, de kilobytes, de tijd dat de pagina vastzat in lange taken en het geheugen. Een pagina wordt twee keer geopend; de tweede keer telt.
 
 - `--calls` toont elk verzoek per pagina.
-- `--only /inzet` meet een deel, `--readers beheerder,teamlid` een deel van de lezers.
+- `--only /mensen/bord` meet een deel, `--readers beheerder,teamlid` een deel van de lezers.
 - `--json uit.json` bewaart de meting; `--api uit.json` meet daarna alleen de verzoeken, zonder browser.
 - `--first` meet iets anders: de eerste keer laden van de startpagina, Taken en Opdrachten in een browser die nog niets bewaard heeft, en nog eens met de bestanden bewaard, op het profiel van een trage kantoorlaptop.
 
@@ -80,7 +80,7 @@ De eerste ronde liet twee dingen aan de kant van de schermen liggen: alle eigen 
 
 ### Wat de eerste pagina laadt
 
-De schil, de startpagina en Taken komen met de eerste pagina mee. Elke andere pagina is een eigen bestand en wordt opgehaald op weg erheen: zodra de muis of de focus op een link naar die pagina staat, en anders als de route wordt getekend. Een kop met tabs (een opdracht, een vacature) en de pagina erin worden naast elkaar opgehaald, niet na elkaar. Tijdens het ophalen blijft de vorige pagina staan; alleen bij de allereerste pagina staat er kort de gewone laadregel in de schil.
+De schil, de startpagina en Taken komen met de eerste pagina mee. Elke andere pagina is een eigen bestand en wordt opgehaald op weg erheen: zodra de muis of de focus op een link naar die pagina staat, en anders als de route wordt getekend. Een opdracht of een vacature en het onderdeel erin worden naast elkaar opgehaald, niet na elkaar. Tijdens het ophalen blijft de vorige pagina staan; alleen bij de allereerste pagina staat er kort de gewone laadregel in de schil.
 
 Van het designsysteem komt alleen mee wat de schil, de startpagina en Taken tekenen. De rest reist met de pagina die het gebruikt: de datumkiezer met een formulier, de teksteditor met een pagina waarop je schrijft. Welke onderdelen bij de schil horen staat als lijst in `frontend/vite.config.ts`.
 

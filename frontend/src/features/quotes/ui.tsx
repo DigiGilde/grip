@@ -5,7 +5,7 @@
  */
 import { DocumentLink as SharedDocumentLink } from '@/ui/Icon';
 import { useRef, useState } from 'react';
-import { orUndef, useNlddEvent } from '@/components/nldd/events';
+import { orUndef, useMenuSelect, useNlddEvent } from '@/components/nldd/events';
 import './register';
 
 interface CheckboxProps {
@@ -108,6 +108,6 @@ export function CopyButton({ text, value, appearance = 'secondary', size }: Copy
 /** One choice in a "meer acties" menu. */
 export function MenuAction({ text, onSelect }: { text: string; onSelect: () => void }) {
   const ref = useRef<HTMLElement>(null);
-  useNlddEvent(ref, 'select', onSelect);
+  useMenuSelect(ref, onSelect);
   return <nldd-menu-item ref={ref} text={text} />;
 }

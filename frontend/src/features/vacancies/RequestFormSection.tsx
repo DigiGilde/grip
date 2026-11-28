@@ -17,6 +17,8 @@ import {
 import { VacancyShellContext } from './shell';
 import { Button, FileInput } from './ui';
 
+const SIGNED_FORM_TASK = 'werving.getekend_formulier_vastleggen';
+
 function madeLine(form: KeptForm): string {
   return [
     `gemaakt op ${formatDate(form.made_at)}`,
@@ -32,8 +34,8 @@ function FormRow({ vacancyId, form, text }: { vacancyId: string; form: KeptForm;
       <nldd-cell width="full">
         <nldd-container gap="4">
           <DocumentLink href={keptFormUrl(vacancyId, form.id)} text={text} kind="view" />
-          <nldd-text color="secondary" size="sm">
-            {madeLine(form)}
+          <nldd-text size="sm">
+            <span>{madeLine(form)}</span>
           </nldd-text>
         </nldd-container>
       </nldd-cell>
@@ -135,6 +137,11 @@ export function RequestFormSection({ vacancyId }: { vacancyId: string }) {
           {current ? (
             <Button
               text="Leg het getekende formulier vast"
+              appearance={
+                shell && !shell.headerPrimary && shell.nextTask === SIGNED_FORM_TASK
+                  ? 'primary'
+                  : 'secondary'
+              }
               onClick={() => {
                 setError(null);
                 setRecording(true);

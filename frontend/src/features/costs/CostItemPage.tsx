@@ -6,7 +6,7 @@ import { ApiError, errorMessage } from '@/api/client';
 import { formatEuro, formatPercent } from '@/lib/format';
 import { useInstance } from '@/layout/useInstance';
 import { useRouterLinks } from '@/layout/useRouterLinks';
-import { assignmentTabPath } from '@/features/assignments/paths';
+import { assignmentPartPath } from '@/features/assignments/paths';
 import { Figures, type Figure } from '@/features/reports/ui';
 import { Button } from '@/features/team/ui/controls';
 import { ActionBar } from '@/ui/ActionBar';
@@ -57,6 +57,7 @@ import {
   addCoverageText,
   attachmentCount,
   changeStateText,
+  costItemName,
   costsPath,
   coverageStep,
   inTimeOrder,
@@ -121,12 +122,13 @@ export function CostItemPage() {
   return (
     <div ref={rootRef}>
       <Page
-        title={item?.description || 'Kostenpost'}
+        kind="document"
+        title={item ? costItemName(item) : 'Kostenpost'}
         instanceName={instance?.name}
+        back={{ href: costsPath(year), text: 'Terug naar Kosten' }}
         spacing="sections"
       >
         <Stack gap="group">
-          {/* No link back: the second bar of Financieel marks Kosten and leads there. */}
           {notFound ? (
             <NotFound what="Deze kostenpost" />
           ) : query.isError ? (
@@ -169,10 +171,12 @@ export function CostItemPage() {
                 {...(item.may_edit && item.reference_state !== null
                   ? {
                       more: {
-                        name: item.description || 'deze kostenpost',
+                        name: item.description
+                          ? `kostenpost ${item.description}`
+                          : 'deze kostenpost',
                         actions: [
                           {
-                            text: 'Verwijder kostenpost',
+                            text: 'Verwijder',
                             destructive: true,
                             confirm: {
                               text: 'Deze kostenpost verwijderen?',
@@ -380,21 +384,19 @@ function Invoices({ item, onOpen }: InvoicesProps) {
                 <nldd-text-cell
                   hide-below="md"
                   size="sm"
-                  color="secondary"
                   text={lacksDocument(line) ? 'Bijlage ontbreekt' : ''}
                 />
               )}
               <nldd-text-cell
                 text={formatEuro(line.amount_cents)}
                 horizontal-alignment="right"
-                {...(expected ? { color: 'secondary' } : {})}
               />
               {item.may_edit && (
                 <RowActions
                   name={`factuur ${name}`}
                   actions={[
                     {
-                      text: 'Verwijder factuur',
+                      text: 'Verwijder',
                       destructive: true,
                       confirm: {
                         text: `Factuur '${name}' verwijderen?`,
@@ -439,7 +441,6 @@ function ExecutorInvoices({ item }: { item: CostItem }) {
               <nldd-text-cell
                 text={formatEuro(line.amount_cents)}
                 horizontal-alignment="right"
-                {...(expected ? { color: 'secondary' } : {})}
               />
             </OpenRow>
           );
@@ -487,7 +488,7 @@ function Coverages({ item, onOpen }: CoveragesProps) {
           {anyEditable && <RowActionsHeader />}
         </nldd-table-row>
         {item.coverages.map((coverage, index) => {
-          const finance = assignmentTabPath(coverage.assignment_id, 'finance');
+          const finance = assignmentPartPath(coverage.assignment_id, 'budget');
           return (
             <OpenRow key={coverage.budget_line_id} onOpen={() => navigate(finance)}>
               <nldd-cell>
@@ -500,8 +501,8 @@ function Coverages({ item, onOpen }: CoveragesProps) {
                     />
                     <nldd-link href={finance} text={coverage.assignment_name} />
                   </span>
-                  <nldd-text size="sm" color="secondary">
-                    {coverage.budget_line_description}
+                  <nldd-text size="sm">
+                    <span>{coverage.budget_line_description}</span>
                   </nldd-text>
                 </nldd-container>
               </nldd-cell>
@@ -540,7 +541,9 @@ function Coverages({ item, onOpen }: CoveragesProps) {
             <nldd-cell>
               <span className="cost-line-name cost-chart">
                 <span className="cost-swatch" data-kind="hidden" aria-hidden="true" />
-                <nldd-text>Opdrachten die je niet kunt inzien</nldd-text>
+                <nldd-text>
+                  <span>Opdrachten die je niet kunt inzien</span>
+                </nldd-text>
               </span>
             </nldd-cell>
             <nldd-text-cell
@@ -555,7 +558,9 @@ function Coverages({ item, onOpen }: CoveragesProps) {
             <nldd-cell>
               <span className="cost-line-name cost-chart">
                 <span className="cost-swatch" data-kind="uncovered" aria-hidden="true" />
-                <nldd-text>{COST_LABELS.uncovered}</nldd-text>
+                <nldd-text>
+                  <span>{COST_LABELS.uncovered}</span>
+                </nldd-text>
               </span>
             </nldd-cell>
             <ShareCell cents={item.uncovered_cents} pct={item.uncovered_pct} />

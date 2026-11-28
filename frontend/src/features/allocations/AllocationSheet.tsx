@@ -298,7 +298,7 @@ export function AllocationSheet({
           variant="neutral"
           size="sm"
           text={`Vastgesteld t/m ${formatMonth(closedMonths[closedMonths.length - 1])}`}
-          supporting-text="Afgesloten maanden kun je hier niet wijzigen. Heropen de maand bij de maandafsluiting van de opdracht om dat wel te doen."
+          supporting-text="Afgesloten maanden kun je hier niet wijzigen. Heropen de maand bij Afsluiten van de opdracht om dat wel te doen."
         />
       )}
       {/* Nothing to follow until a line is chosen. */}
@@ -345,7 +345,7 @@ export function AllocationSheet({
             size="md"
             actions={[
               {
-                text: 'Verwijder de inzet',
+                text: 'Verwijder',
                 destructive: true,
                 confirm: {
                   text: `De inzet van ${allocation.person_name} verwijderen?`,

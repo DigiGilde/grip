@@ -70,5 +70,26 @@ describe('FormSheet', () => {
     expect(bar).toHaveAttribute('text', 'Wijzig gegevens');
     expect(bar).toHaveAttribute('dismiss-text', 'Annuleer');
     expect(document.querySelector('nldd-sheet nldd-title')).toHaveAttribute('heading-level', '1');
+    expect(document.querySelector('nldd-sheet')).toHaveAttribute(
+      'accessible-label',
+      'Wijzig gegevens',
+    );
+  });
+
+  it('does not send a form with text in a date field that is no date, and says so', () => {
+    const onSubmit = vi.fn();
+    render(
+      <FormSheet open title="Looptijd" submitText="Bewaar" onSubmit={onSubmit} onClose={() => {}}>
+        <nldd-date-field />
+      </FormSheet>,
+    );
+    const field = document.querySelector('nldd-date-field') as HTMLElement & {
+      ownValidity: () => { flags: { badInput: boolean } };
+    };
+    field.ownValidity = () => ({ flags: { badInput: true } });
+    fireEvent.submit(document.querySelector('nldd-form') as HTMLElement);
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(document.querySelector('nldd-banner')).toHaveAttribute('text', 'Dit is geen datum');
+    expect(field).toHaveProperty('invalid', true);
   });
 });

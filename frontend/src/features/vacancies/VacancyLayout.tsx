@@ -1,20 +1,16 @@
 import { PageBoundary } from '@/PageBoundary';
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { assignmentTabPath } from '@/features/assignments/paths';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { Outlet, useLocation, useParams } from 'react-router-dom';
+import { assignmentPartPath } from '@/features/assignments/paths';
 import { useCaseCourse } from '@/features/tasks/course';
-import { TakeOverButton } from '@/features/tasks/TakeOver';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { useInstance } from '@/layout/useInstance';
 import { formatPeriod } from '@/lib/format';
-import { formatDate } from '@/lib/format';
 import { PATHS } from '@/paths';
 import { courseAction, type Course } from '@/ui/course';
-import { LoadError, Loading, Quiet, SectionHeading, Stack, ThingHead } from '@/ui/layout';
-import { PrimaryTakenContext } from '@/ui/primary';
-import { CourseBar, CourseNow } from '@/ui/Workflow';
-import { VACANCY_KEYS, fetchVacancy, fetchVacancyHire, hireKey, type Vacancy } from './api';
+import { LoadError, Loading, NoAccess, Page, Quiet, SectionHeading, Stack } from '@/ui/layout';
+import { VACANCY_KEYS, fetchVacancy, type Vacancy } from './api';
 import { HireSheet } from './HireSheets';
 import { useVacancyOptions } from './hooks';
 import {
@@ -24,31 +20,15 @@ import {
   publishedOrigin,
   scaleAndFte,
 } from './labels';
-import { vacancyTabPath, type VacancyTabKey } from './paths';
+import { vacancyPartAt, vacancyPartPath } from './paths';
+import { fetchVacancyParts, vacancyPartsKey, type VacancyPart } from './partsApi';
 import { PrepareRequestSheet } from './PrepareRequestSheet';
 import { PublishSheet } from './ProcedureSection';
 import { EditSheet, SubmitSheet } from './RoleSheets';
-import {
-  TAB_LABELS,
-  VacancyShellContext,
-  seesWholeVacancy,
-  visibleTabs,
-  type SharedSheet,
-} from './shell';
+import { VacancyShellContext, seesWholeVacancy, type SharedSheet, type VacancyStep } from './shell';
 import { PublishedLinks } from './TextWork';
-import { Button, Paragraphs } from './ui';
-
-/** The tab the address is on; none for an address that is no tab the reader has. */
-function currentTab(
-  id: string,
-  pathname: string,
-  tabs: VacancyTabKey[],
-): VacancyTabKey | undefined {
-  const path = pathname.replace(/\/$/, '');
-  const deeper = tabs.find((tab) => tab !== 'request' && path.startsWith(vacancyTabPath(id, tab)));
-  if (deeper) return deeper;
-  return path === vacancyTabPath(id, 'request').replace(/\/$/, '') ? 'request' : undefined;
-}
+import { NOT_FOR_THIS_READER } from './VacancyPartPage';
+import { Paragraphs } from './ui';
 
 /** The one thing the request needs that is not a field of its form. */
 const MOTIVATION_MISSING = 'een vastgestelde aanleiding en motivatie';
@@ -64,7 +44,7 @@ function sheetFor(course: Course | null | undefined): SharedSheet | null {
     case 'werving.aanvraag_voorbereiden': {
       const missing = next.missing ?? [];
       if (missing.length === 0) return 'submit';
-      // Only the motivation is missing: that is written on the Tekst tab.
+      // Only the motivation is missing: that is written under Tekst.
       return missing.every((item) => item === MOTIVATION_MISSING) ? null : 'prepare';
     }
     case 'werving.openstellen':
@@ -77,33 +57,40 @@ function sheetFor(course: Course | null | undefined): SharedSheet | null {
 }
 
 /**
- * The one next step on the vacancy for this reader, as the server decides
- * it: done in a sheet here, or at the place it leads to. Null when it is
- * someone else's move, or when the reader already is where it is done.
+ * The primary button of the page the reader is on, as the server decides the
+ * next step. The landing always has it. A part has it only when the step is
+ * done in a sheet of that part; a step done in the part itself is the part's
+ * own button, and on the request its rows open the sheet that fills it. A
+ * step that leads to a part the reader does not have is not offered.
  */
 function nextStep(
+  vacancyId: string,
   course: Course | null | undefined,
   pathname: string,
-): { text: string; sheet: SharedSheet | null; href: string } | null {
+  parts: readonly VacancyPart[],
+): VacancyStep | null {
   const action = courseAction(course);
   if (!action) return null;
   const sheet = sheetFor(course);
-  const here = pathname.replace(/\/$/, '');
   const onlyMotivation =
     course?.next?.task_key === 'werving.aanvraag_voorbereiden' &&
     !sheet &&
     (course.next.missing ?? []).length > 0;
-  // Not only to the tab: the address asks it to open the writing at once.
+  // Not only to the part: the address asks it to open the writing at once.
   const href = onlyMotivation
-    ? `${action.href.replace(/\/$/, '')}/tekst?schrijf=motivation`
+    ? `${vacancyPartPath(vacancyId, 'text')}?schrijf=motivation`
     : action.href;
-  const there = href.split('?')[0]?.replace(/\/$/, '');
-  if (!sheet && there === here) return null;
+  const target = vacancyPartAt(vacancyId, href);
+  if (target && !['landing', 'tasks'].includes(target)) {
+    if (!parts.some((part) => part.key === target)) return null;
+  }
+  const here = vacancyPartAt(vacancyId, pathname);
+  if (here !== 'landing' && (!sheet || sheet === 'prepare' || target !== here)) return null;
   return { text: onlyMotivation ? 'Schrijf de motivatie' : action.text, sheet, href };
 }
 
 /** Function, where it belongs and what kind it is, in one quiet line. */
-function Belonging({ vacancy, withStatus = true }: { vacancy: Vacancy; withStatus?: boolean }) {
+function Belonging({ vacancy }: { vacancy: Vacancy }) {
   const facts = [
     vacancy.vacancy_type ? VACANCY_TYPE_LABELS[vacancy.vacancy_type] : null,
     scaleAndFte(vacancy.scale, vacancy.fte),
@@ -113,13 +100,11 @@ function Belonging({ vacancy, withStatus = true }: { vacancy: Vacancy; withStatu
   ].filter(Boolean);
   return (
     <nldd-container layout="wrap" gap="8" vertical-alignment="center">
-      {withStatus && (
-        <nldd-badge color={STATUS_COLORS[vacancy.status]} text={STATUS_LABELS[vacancy.status]} />
-      )}
+      <nldd-badge color={STATUS_COLORS[vacancy.status]} text={STATUS_LABELS[vacancy.status]} />
       {vacancy.assignment_id && vacancy.assignment_name && (
         <RouterLinks>
           <nldd-link
-            href={assignmentTabPath(vacancy.assignment_id, 'staffing')}
+            href={assignmentPartPath(vacancy.assignment_id, 'landing')}
             text={vacancy.assignment_name}
           />
         </RouterLinks>
@@ -129,112 +114,52 @@ function Belonging({ vacancy, withStatus = true }: { vacancy: Vacancy; withStatu
   );
 }
 
-/** What everyone sees of a published vacancy: the established text. */
-function PublishedText({ vacancy }: { vacancy: Vacancy }) {
-  if (!vacancy.published_text) return null;
-  return (
-    <nldd-simple-section>
-      <Stack gap="related">
-        <SectionHeading text="Vacaturetekst" />
-        <Paragraphs text={vacancy.published_text.body} />
-        <Quiet>{publishedOrigin(vacancy.published_text)}</Quiet>
-      </Stack>
-    </nldd-simple-section>
-  );
-}
-
 const BACK = { href: PATHS.vacancies, text: 'Terug naar Vacatures' };
 
-interface WholeHeadProps {
+/** What everyone sees of a published vacancy: the established text, and no parts. */
+function PublishedVacancy({
+  vacancy,
+  instanceName,
+  onPart,
+}: {
   vacancy: Vacancy;
-  /** None for an address that is no tab the reader has. */
-  current: VacancyTabKey | undefined;
-  instanceName?: string;
-  course: Course | null | undefined;
-  step: ReturnType<typeof nextStep>;
-  onSheet: (sheet: SharedSheet) => void;
-}
-
-/**
- * How a filled vacancy ended: who starts, and when. The name is there only
- * for who may read staffing; without it the date alone.
- */
-function Filled({ vacancy }: { vacancy: Vacancy }) {
-  const filled = vacancy.status === 'filled';
-  const hire = useQuery({
-    queryKey: hireKey(vacancy.id),
-    queryFn: () => fetchVacancyHire(vacancy.id),
-    enabled: filled,
-  });
-  const found = hire.data?.hire;
-  if (!filled || !found) return null;
-  const started = found.stage !== 'prospective';
-  const when = `${started ? 'is gestart' : 'start'} op ${formatDate(found.start_date)}`;
+  instanceName: string | undefined;
+  onPart: boolean;
+}) {
+  if (onPart) {
+    return (
+      <Page
+        kind="document"
+        title={vacancy.function_title}
+        instanceName={instanceName}
+        back={{
+          href: vacancyPartPath(vacancy.id, 'landing'),
+          text: `Terug naar ${vacancy.function_title}`,
+        }}
+      >
+        <NoAccess who={NOT_FOR_THIS_READER} />
+      </Page>
+    );
+  }
   return (
-    <nldd-text size="md">
-      {found.person_name
-        ? `Vervuld: ${found.person_name} ${when}.`
-        : `Vervuld: de collega ${when}.`}
-    </nldd-text>
-  );
-}
-
-/** The head for who sees the whole vacancy: what is next, its course and its tabs. */
-function WholeHead({ vacancy, current, instanceName, course, step, onSheet }: WholeHeadProps) {
-  const navigate = useNavigate();
-  const waits = Boolean(course?.next && !course.next.mine);
-  return (
-    <ThingHead
-      title={vacancy.function_title}
-      instanceName={instanceName}
-      back={BACK}
-      {...(step
-        ? {
-            action: (
-              <Button
-                text={step.text}
-                appearance="primary"
-                onClick={() => (step.sheet ? onSheet(step.sheet) : navigate(step.href))}
-              />
-            ),
-          }
-        : {})}
-      tabs={{
-        label: `Onderdelen van de vacature ${vacancy.function_title}`,
-        current: current ?? '',
-        items: visibleTabs(vacancy).map((tab) => ({
-          key: tab,
-          text: TAB_LABELS[tab],
-          href: vacancyTabPath(vacancy.id, tab),
-        })),
-      }}
-    >
-      {course && <CourseNow course={course} tasksHref={vacancyTabPath(vacancy.id, 'tasks')} />}
-      <Filled vacancy={vacancy} />
-      <TakeOverButton course={course} />
-      {course && !course.ended && (
-        <CourseBar
-          course={course}
-          accessibleLabel={`Verloop van de vacature ${vacancy.function_title}`}
-        />
-      )}
-      {/* The course says where it stands; the status only once it has ended. */}
-      <Belonging vacancy={vacancy} withStatus={!course || Boolean(course.ended)} />
+    <Page kind="document" title={vacancy.function_title} instanceName={instanceName} back={BACK}>
+      <Belonging vacancy={vacancy} />
       <PublishedLinks vacancyId={vacancy.id} />
-      {/* The sentence above already says whose move it is, when it is not the reader's. */}
-      {!vacancy.permissions.can_edit && !waits && (
-        <Quiet>
-          Je kunt deze vacature bekijken. Wijzigen kan de aanvrager of wie de opdracht beheert.
-        </Quiet>
+      {vacancy.published_text && (
+        <Stack gap="related">
+          <SectionHeading text="Vacaturetekst" />
+          <Paragraphs text={vacancy.published_text.body} />
+          <Quiet>{publishedOrigin(vacancy.published_text)}</Quiet>
+        </Stack>
       )}
-    </ThingHead>
+    </Page>
   );
 }
 
 /**
- * The frame around every page of one vacancy: a compact header with the
- * steps and the one primary action, and the tabs. Each tab is one concern.
- * The sheets that the step bar and a tab can both open live here.
+ * Loads one vacancy for all its pages and holds what they share: the parts,
+ * the course, and the sheets that the head and a part can both open. Each
+ * page draws its own head.
  */
 export function VacancyLayout() {
   const { vacancyId = '' } = useParams();
@@ -250,60 +175,75 @@ export function VacancyLayout() {
   });
   const vacancy = query.data;
   const whole = vacancy ? seesWholeVacancy(vacancy) : false;
-  const current = vacancy ? currentTab(vacancy.id, pathname, visibleTabs(vacancy)) : 'request';
   const close = () => setSheet(null);
   // Where the vacancy stands and what is next, from the same facts as its tasks.
   const course = useCaseCourse('vacancy', vacancyId, whole).data?.course;
-  const step = nextStep(course, pathname);
+  const partsQuery = useQuery({
+    queryKey: vacancyPartsKey(vacancyId),
+    queryFn: () => fetchVacancyParts(vacancyId),
+    enabled: whole && vacancyId !== '',
+    retry: false,
+    staleTime: 0,
+    placeholderData: keepPreviousData,
+  });
+  const parts = partsQuery.data?.parts ?? [];
+  const step = nextStep(vacancyId, course, pathname, parts);
 
+  if (!vacancy) {
+    return (
+      <Page kind="document" title="Vacature" instanceName={instance?.name} back={BACK}>
+        {query.isPending && <Loading />}
+        {query.isError && (
+          <LoadError error={query.error} retry={() => void query.refetch()} what="Deze vacature" />
+        )}
+      </Page>
+    );
+  }
+  if (!whole) {
+    return (
+      <PublishedVacancy
+        vacancy={vacancy}
+        instanceName={instance?.name}
+        onPart={vacancyPartAt(vacancy.id, pathname) !== 'landing'}
+      />
+    );
+  }
   return (
     <>
-      {vacancy && whole ? (
-        <WholeHead
-          vacancy={vacancy}
-          current={current}
-          instanceName={instance?.name}
-          course={course}
-          step={step}
-          onSheet={setSheet}
-        />
-      ) : (
-        <ThingHead
-          title={vacancy?.function_title ?? 'Vacature'}
-          instanceName={instance?.name}
-          back={BACK}
-        >
-          {query.isPending && <Loading />}
-          {query.isError && (
-            <LoadError
-              error={query.error}
-              retry={() => void query.refetch()}
-              what="Deze vacature"
-            />
-          )}
-          {vacancy && <Belonging vacancy={vacancy} />}
-          {vacancy && <PublishedLinks vacancyId={vacancy.id} />}
-        </ThingHead>
-      )}
-      {vacancy && !whole && <PublishedText vacancy={vacancy} />}
-      {vacancy && whole && (
+      {partsQuery.data ? (
         <VacancyShellContext.Provider
           value={{
             vacancy,
             options: options.data,
+            instanceName: instance?.name,
             openSheet: setSheet,
+            parts,
+            tasksLink: partsQuery.data.tasks_link,
+            course,
+            step,
             headerPrimary: step !== null,
             nextTask: course?.next?.mine ? (course.next.task_key ?? null) : null,
           }}
         >
-          <PrimaryTakenContext.Provider value={step !== null}>
-            <PageBoundary resetKey={pathname}>
-              <Outlet />
-            </PageBoundary>
-          </PrimaryTakenContext.Provider>
+          <PageBoundary resetKey={pathname}>
+            <Outlet />
+          </PageBoundary>
         </VacancyShellContext.Provider>
+      ) : (
+        <Page
+          kind="document"
+          title={vacancy.function_title}
+          instanceName={instance?.name}
+          back={BACK}
+        >
+          {partsQuery.isError ? (
+            <LoadError error={partsQuery.error} retry={() => void partsQuery.refetch()} />
+          ) : (
+            <Loading />
+          )}
+        </Page>
       )}
-      {vacancy && vacancy.permissions.can_edit && (
+      {vacancy.permissions.can_edit && (
         <>
           <EditSheet
             // A fresh form per saved state, so the fields show what was saved.

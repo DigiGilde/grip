@@ -82,7 +82,7 @@ Dezelfde pagina's, de besluiten en het personaboek staan ook opgemaakt en doorzo
 | [rondgang.md](rondgang.md) | Bevindingen uit het zelf doorlopen van grip, en hun stand |
 | [ontwerp.md](ontwerp.md) | Wanneer een scherm af is, de bouwstenen, vaste woorden, navigatie, iconen, meten |
 | [merk.md](merk.md) | Het productmerk naast de organisatie, naam, zin en toon |
-| [navigatie-evaluatie.md](navigatie-evaluatie.md) | Wat in het menu hoort, met bewijs en varianten |
+| [navigatie-evaluatie.md](navigatie-evaluatie.md) | Wat in het menu hoort, met bewijs en varianten; de keuze is herzien in ADR 0055 |
 | [hierarchie/](hierarchie/) | De doorloop op visuele hiërarchie, per gebied, met beelden |
 | [taken.md](taken.md) | Feiten, taken en het plan; wat een taak vertelt |
 | [werkstromen.md](werkstromen.md) | Praktijkgevallen, het verloop van een zaak, stappen en taken, wat nog niet kan |

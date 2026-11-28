@@ -34,6 +34,7 @@ from grip.core.database import get_db
 from grip.models.organisation import Organisation
 from grip.schema.billing import (
     BatchDeliverIn,
+    BillingAcrossOut,
     BillingDeliveryOut,
     BillingOverviewOut,
     BillingPeriodOut,
@@ -89,8 +90,11 @@ def _terms_out(terms: billing_deliveries.Terms) -> BillingTermsOut:
     )
 
 
-def _delivery_out(view: billing_deliveries.DeliveryView) -> BillingDeliveryOut:
+def _delivery_out(
+    view: billing_deliveries.DeliveryView, may_open: bool
+) -> BillingDeliveryOut:
     return BillingDeliveryOut(
+        may_open=may_open,
         id=view.id,
         reference=view.reference,
         period_key=view.period_key,
@@ -117,7 +121,9 @@ def _delivery_out(view: billing_deliveries.DeliveryView) -> BillingDeliveryOut:
     )
 
 
-def _period_out(view: billing_deliveries.PeriodView) -> BillingPeriodOut:
+def _period_out(
+    view: billing_deliveries.PeriodView, may_open: bool
+) -> BillingPeriodOut:
     return BillingPeriodOut(
         key=view.period.key,
         label=view.period.label,
@@ -140,7 +146,7 @@ def _period_out(view: billing_deliveries.PeriodView) -> BillingPeriodOut:
         to_deliver_cents=view.to_deliver_cents,
         delivered_cents=view.delivered_cents,
         invoiced_cents=view.invoiced_cents,
-        deliveries=[_delivery_out(d) for d in view.deliveries],
+        deliveries=[_delivery_out(d, may_open) for d in view.deliveries],
         invoice_numbers=list(view.invoice_numbers),
         awaits_invoice=bool(view.open_export_ids),
         last_step_at=view.last_step_at,
@@ -185,6 +191,22 @@ def _next_out(
     )
 
 
+async def _may_open_delivery(
+    decider: Decider,
+    subject: Subject,
+    resource: Resource,
+    terms: billing_deliveries.Terms,
+) -> bool:
+    """The questions ``_readable_delivery`` puts, for any delivery of the assignment."""
+    if not await decide(decider, subject, Action.READ, resource, B):
+        return False
+    if terms.names_on_specification:
+        return bool(
+            await decide(decider, subject, Action.READ, resource, DataClass.PERSON_RATE)
+        )
+    return True
+
+
 async def _overview_value(
     db: AsyncSession,
     decider: Decider,
@@ -213,6 +235,7 @@ async def _overview_value(
     may_edit = open_dossier and bool(
         await decide(decider, subject, Action.EDIT, resource, B)
     )
+    may_open = await _may_open_delivery(decider, subject, resource, state.terms)
     upcoming = state.upcoming
     return BillingOverviewOut(
         assignment_id=assignment.id,
@@ -224,13 +247,13 @@ async def _overview_value(
         and bool(await decide(decider, subject, Action.CLOSE_MONTH, resource)),
         may_reopen=open_dossier
         and bool(await decide(decider, subject, Action.REOPEN_MONTH, resource)),
-        may_deliver=may_edit,
+        may_deliver=may_edit and state.billable,
         may_record_invoice=open_dossier
         and bool(await decide(decider, subject, Action.RECORD_INVOICE, resource)),
         may_edit_terms=may_edit,
         terms=_terms_out(state.terms),
         next_step=_next_out(state),
-        periods=[_period_out(view) for view in state.periods],
+        periods=[_period_out(view, may_open) for view in state.periods],
         upcoming_count=len(upcoming),
         upcoming_until=billing_periods.month_name(upcoming[-1].period.last)
         if upcoming
@@ -493,6 +516,7 @@ async def billing_across(
         if B in permitted:
             readable.append((row, resource, permitted))
     reads_money = bool(readable)
+    ready_cents = 0
     try:
         # Read together what the rows share; a row that cannot be priced is
         # found again below, on its own.
@@ -524,8 +548,18 @@ async def billing_across(
         if not value.periods:
             continue
         items.append(build_response(value, permitted))
+        if value.may_deliver and not value.terms.missing_details:
+            ready_cents += billing_deliveries.ready_cents(value.periods)
     mailable, _ = await billing_deliveries.can_mail(db)
-    return {"assignments": items, "can_mail": mailable, "reads_money": reads_money}
+    return {
+        "assignments": items,
+        **build_response(
+            BillingAcrossOut(
+                can_mail=mailable, reads_money=reads_money, ready_cents=ready_cents
+            ),
+            {A, B} if reads_money else {A},
+        ),
+    }
 
 
 @router.post("/billing/deliveries/batch", response_model=None)

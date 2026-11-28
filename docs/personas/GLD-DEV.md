@@ -50,7 +50,7 @@ Geen mandaat [aanname].
 
 ## In Grip
 
-**DigiGilde voorbeeld** (account, geen recht in grip, lid van opdrachten). Hij landt op Start en ziet Start, Taken, Opdrachten en Vacatures. Als lid leest hij de basis van zijn opdrachten en de namen en rollen van het team, geen bedragen. Over zichzelf leest hij zijn inzet, inzetschaal en declarabiliteit. Onder Vacatures ziet hij open rollen die zijn gepubliceerd.
+**DigiGilde voorbeeld** (account, geen recht in grip, lid van opdrachten). Hij landt op Start en ziet Start, Taken, Opdrachten en Vacatures. Als lid leest hij de basis van zijn opdrachten en de namen en rollen van het team, geen bedragen. Over zichzelf leest hij zijn inzet, inzetschaal en declarabiliteit. Onder Vacatures ziet hij de opengestelde vacatures.
 
 ## Wat Grip nog niet kan
 

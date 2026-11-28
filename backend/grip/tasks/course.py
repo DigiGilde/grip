@@ -255,7 +255,7 @@ def _next(
             due_on=task.due_on if part != WATCHES else None,
             overdue=first.overdue and part != WATCHES,
             action_text=told.action_text if mine else None,
-            action_href=told.work_href if mine else None,
+            action_href=told.step_href if mine else None,
             missing=tuple(
                 _inline(item.text) for item in told.checklist if not item.done
             )
@@ -443,6 +443,52 @@ async def _snapshots(
     return await load_vacancy_cases(db, case_ids)
 
 
+async def _plan_versions(
+    db: AsyncSession, case_kind: str, case_ids: set[UUID]
+) -> dict[UUID, str]:
+    return dict(
+        (
+            await db.execute(
+                select(TaskCase.case_id, TaskCase.plan_version).where(
+                    TaskCase.case_kind == case_kind, TaskCase.case_id.in_(case_ids)
+                )
+            )
+        ).all()
+    )
+
+
+async def step_keys_of_cases(
+    db: AsyncSession, case_kind: str, snapshots: list[CaseSnapshot]
+) -> dict[UUID, set[str]]:
+    """The steps of the course of each case itself, without the tasks: which
+    steps apply depends on the facts of the case only."""
+    versions = await _plan_versions(db, case_kind, {s.case_id for s in snapshots})
+    found: dict[UUID, set[str]] = {}
+    for snapshot in snapshots:
+        work = _CaseWork(
+            snapshot=snapshot, plan=plan_for(versions.get(snapshot.case_id))
+        )
+        own = next((view for view in views_of(work) if view.subject == "case"), None)
+        found[snapshot.case_id] = {step.key for step in own.steps} if own else set()
+    return found
+
+
+async def current_labels_of_cases(
+    db: AsyncSession, case_kind: str, snapshots: list[CaseSnapshot]
+) -> dict[UUID, str | None]:
+    """The current step of the course of each case itself, without the tasks:
+    which step is current depends on the facts of the case only."""
+    versions = await _plan_versions(db, case_kind, {s.case_id for s in snapshots})
+    found: dict[UUID, str | None] = {}
+    for snapshot in snapshots:
+        work = _CaseWork(
+            snapshot=snapshot, plan=plan_for(versions.get(snapshot.case_id))
+        )
+        own = next((view for view in views_of(work) if view.subject == "case"), None)
+        found[snapshot.case_id] = own.current_label if own else None
+    return found
+
+
 async def of_cases(
     db: AsyncSession,
     access: TaskAccess,
@@ -462,15 +508,7 @@ async def of_cases(
         snapshots = await _snapshots(
             db, case_kind, case_ids, today=today, instance_base_uri=instance_base_uri
         )
-    versions = dict(
-        (
-            await db.execute(
-                select(TaskCase.case_id, TaskCase.plan_version).where(
-                    TaskCase.case_kind == case_kind, TaskCase.case_id.in_(case_ids)
-                )
-            )
-        ).all()
-    )
+    versions = await _plan_versions(db, case_kind, case_ids)
     column = Task.assignment_id if case_kind == "assignment" else Task.vacancy_id
     tasks = (
         await db.scalars(

@@ -4,6 +4,7 @@ import { errorMessage } from '@/api/client';
 import { formatDate } from '@/lib/format';
 import { impactSentences } from '@/features/rates/impact';
 import { RolePicker } from '@/features/roles';
+import { Loading } from '@/ui/layout';
 import {
   FUNCTIONS,
   ROLE_SOURCE_LABELS,
@@ -146,25 +147,29 @@ export function ScaleForm({
       <DateField label="Vanaf" value={from} onChange={setFrom} required />
       <TextField label="Schaal" value={scale} onChange={setScale} keyboard="numeric" required />
       <nldd-container gap="8">
-        <nldd-title size={5} text="Dit verandert er" heading-level={2} />
+        <nldd-title size="display-5" text="Dit verandert er" heading-level={2} />
         {!valid ? (
-          <nldd-text size="sm" color="secondary">
-            Vul een datum en een schaal in om te zien wat er verandert.
+          <nldd-text size="sm">
+            <p>Vul een datum en een schaal in om te zien wat er verandert.</p>
           </nldd-text>
         ) : impact.isPending ? (
-          <nldd-inline-dialog variant="loading" text="Bezig met narekenen wat er verandert" />
+          <Loading text="Bezig met narekenen wat er verandert" />
         ) : impact.isError ? (
           <nldd-banner variant="critical" size="sm" text={errorMessage(impact.error)} />
         ) : (
           <>
             {sameStart ? (
               <nldd-text>
-                Op {formatDate(from)} begint al een periode; die wordt verbeterd naar schaal{' '}
-                {number}.
+                <p>
+                  Op {formatDate(from)} begint al een periode; die wordt verbeterd naar schaal{' '}
+                  {number}.
+                </p>
               </nldd-text>
             ) : null}
             {impactSentences(impact.data, from).map((sentence) => (
-              <nldd-text key={sentence}>{sentence}</nldd-text>
+              <nldd-text key={sentence}>
+                <p>{sentence}</p>
+              </nldd-text>
             ))}
           </>
         )}

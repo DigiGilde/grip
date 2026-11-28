@@ -58,7 +58,7 @@ Naar het voorbeeld van het Mandaatbesluit BZK 2025 gaat een directeur verplichti
 
 ## In Grip
 
-**Ministerie van BZK voorbeeld** (account, tekenbevoegde). Ze landt op Start en ziet Start, Taken, Vacatures en Aanvragen. Onder Taken staat "Beoordeel de ontvangen offerte"; de knop brengt haar naar de ontvangen offerte, waar ze akkoord geeft of afwijst. Dat is de werkstroom "Ontvangen offerte bij de opdrachtgever". Bij een aanvraag kan zij de uitputting opvragen bij de grip van de opdrachtnemer, als die dat toestaat.
+**Ministerie van BZK voorbeeld** (account, tekenbevoegde). Ze landt op Start en ziet Start, Taken, Aanvragen en Vacatures. Onder Taken staat "Beoordeel de ontvangen offerte"; de knop brengt haar naar de ontvangen offerte, waar ze akkoord geeft of afwijst. Dat is de werkstroom "Ontvangen offerte bij de opdrachtgever". Bij een aanvraag kan zij de uitputting opvragen bij de grip van de opdrachtnemer, als die dat toestaat.
 
 **DigiGilde voorbeeld** (gast). Biedt het gilde een offerte aan met een tekenlink, dan logt zij in, krijgt een gastsessie en tekent op de tekenpagina. Ze ziet alleen die offerte. In de dataset `voorbeeld` gaat Opdracht Delta 2026-2027 zo naar een tekenaar van het ministerie.
 

@@ -174,7 +174,7 @@ _OUTCOME = {
     "inactief": "Geweigerd: de persoon is in grip niet actief.",
     "andere_aanmelding": (
         "Geweigerd: de persoon is eerder aan een andere identiteit gekoppeld. "
-        "Een beheerder ontkoppelt de login bij Team."
+        "Een beheerder ontkoppelt de login op de pagina van die persoon onder Mensen."
     ),
 }
 

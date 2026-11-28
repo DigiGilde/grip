@@ -156,7 +156,7 @@ async def test_invoiced_then_a_late_promotion_the_task_the_delivery_and_the_invo
     assert told["headline"] == TITLE
     assert "-€ 2.400" in told["sentence"]
     assert "inzetschaal gewijzigd" in told["sentence"]
-    assert told["action_href"].endswith("/maandafsluiting?periode=2026-Q1")
+    assert told["action_href"].endswith("/afsluiten?periode=2026-Q1")
 
     # Delivering the difference closes the correction and the task.
     delivered = await client.post(

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import date
+
 ASSIGNMENT_STATUS_LABELS: dict[str, str] = {
     "draft": "In voorbereiding",
     "requested": "Aangevraagd",
@@ -40,6 +42,26 @@ MONTH_NAMES: tuple[str, ...] = (
     "november",
     "december",
 )
+
+MONTH_NAMES_SHORT: tuple[str, ...] = (
+    "jan",
+    "feb",
+    "mrt",
+    "apr",
+    "mei",
+    "jun",
+    "jul",
+    "aug",
+    "sep",
+    "okt",
+    "nov",
+    "dec",
+)
+
+
+def day(value: date) -> str:
+    """A date in a sentence: "3 mrt 2026"."""
+    return f"{value.day} {MONTH_NAMES_SHORT[value.month - 1]} {value.year}"
 
 
 def status_label(status: str | None) -> str:

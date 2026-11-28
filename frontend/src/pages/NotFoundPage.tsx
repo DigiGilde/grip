@@ -9,7 +9,7 @@ export function NotFoundPage() {
       variant="alert"
       title="Pagina niet gevonden"
       message="Deze pagina bestaat niet of is verplaatst."
-      action={{ text: 'Naar Stand van zaken', onClick: () => navigate(PATHS.statusOverview) }}
+      action={{ text: 'Naar Start', onClick: () => navigate(PATHS.start) }}
     />
   );
 }

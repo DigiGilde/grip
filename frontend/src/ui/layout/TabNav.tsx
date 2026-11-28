@@ -1,56 +1,42 @@
 /**
- * The tabs of one open thing (an assignment, a vacancy): each tab a page with
- * its own address. They read as sides of the thing, never as buttons: plain
- * text on one line with a hairline under the row and a line under the tab
- * you are on. Nothing is filled; the only filled accent on a page is its
- * primary action. On a narrow screen the same choice is one select, because
- * a row that does not fit hides its labels.
+ * The tabs of one open thing (an assignment, a vacancy) or the views of a
+ * list: each a page with its own address. They read as sides of the thing,
+ * never as buttons: plain text on one line with a hairline under the row and
+ * a line under the tab you are on. Nothing is filled; the only filled accent
+ * on a page is its primary action. The bar stays a bar on every width; a row
+ * that does not fit puts the rest behind the bar's own "Meer".
  */
 import { useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { orUndef } from '@/components/nldd/events';
 import { useRouterLinks } from '@/layout/useRouterLinks';
-import { FilterSelect } from './FilterSelect';
 import { useNarrow } from './useNarrow';
 
 export interface TabNavItem {
   key: string;
   text: string;
+  /** What the item says on a narrow screen, when `text` is too long for it. */
+  short?: string;
   href: string;
 }
 
-interface TabNavProps {
+export interface TabNavProps {
   /** Accessible name: "Onderdelen van <naam>". */
   label: string;
   items: readonly TabNavItem[];
   current: string;
+  /**
+   * What a narrow screen shows. 'hide' for the parts of a thing: switching
+   * between them goes through its landing. 'bar' for the views of a list.
+   */
+  narrow?: 'hide' | 'bar';
 }
 
-/** Below this width the tabs become a select. */
-const NARROW = '(max-width: 720px)';
-
-export function TabNav({ label, items, current }: TabNavProps) {
+export function TabNav({ label, items, current, narrow = 'bar' }: TabNavProps) {
   const ref = useRef<HTMLElement>(null);
-  const navigate = useNavigate();
-  const narrow = useNarrow(NARROW);
+  const isNarrow = useNarrow();
   useRouterLinks(ref);
 
-  if (narrow) {
-    return (
-      <nav aria-label={label}>
-        <FilterSelect
-          label={label}
-          value={current}
-          onChange={(key) => {
-            const item = items.find((candidate) => candidate.key === key);
-            if (item && item.key !== current) navigate(item.href);
-          }}
-          options={items.map((item) => ({ value: item.key, label: item.text }))}
-          width="100%"
-        />
-      </nav>
-    );
-  }
+  if (isNarrow && narrow === 'hide') return null;
   // Each tab is a page with its own address, so this is navigation between
   // pages: links in a nav landmark, the current one marked `aria-current`.
   // The design system's menu bar draws exactly that, with a line under the
@@ -63,7 +49,7 @@ export function TabNav({ label, items, current }: TabNavProps) {
           <nldd-menu-bar-item
             key={item.key}
             href={item.href}
-            text={item.text}
+            text={isNarrow ? (item.short ?? item.text) : item.text}
             current={orUndef(item.key === current)}
           />
         ))}

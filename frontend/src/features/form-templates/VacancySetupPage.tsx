@@ -266,8 +266,8 @@ function Templates() {
                 {template.is_active ? (
                   <nldd-tag color="success" text="In gebruik" />
                 ) : (
-                  <nldd-text color="secondary" size="sm">
-                    Eerder gebruikt
+                  <nldd-text size="sm">
+                    <span>Eerder gebruikt</span>
                   </nldd-text>
                 )}
               </nldd-cell>
@@ -326,13 +326,14 @@ export function VacancySetupPage() {
   return (
     <RouterLinks>
       <Page
+        kind="document"
         title="Aanvraagformulier"
         instanceName={instance?.name}
         spacing="sections"
         back={adminBack}
       >
         {denied ? (
-          <NoAccess who="Beheer is voor beheerders. Wie dat zijn zie je onder Team." />
+          <NoAccess who="Beheer is voor beheerders. Wie dat zijn zie je onder Mensen." />
         ) : (
           <Templates />
         )}

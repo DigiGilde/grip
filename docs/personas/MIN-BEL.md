@@ -64,7 +64,7 @@ Geen eigen mandaat om verplichtingen aan te gaan [aanname]. Zij vraagt aan; de d
 
 ## In Grip
 
-**Ministerie van BZK voorbeeld** (account, aanvrager). Ze landt op Start en ziet Start, Taken, Vacatures en Aanvragen. Onder Aanvragen stuurt ze een aanvraag naar een gekoppelde grip en wordt ze eigenaar van die aanvraag in de eigen grip. Ze volgt de werkstroom "Ontvangen offerte bij de opdrachtgever": aanvraag, offerte ontvangen, besluit door de tekenbevoegde. Daarna vraagt ze de uitputting op, als de opdrachtnemer dat in de koppeling toestaat.
+**Ministerie van BZK voorbeeld** (account, aanvrager). Ze landt op Start en ziet Start, Taken, Aanvragen en Vacatures. Onder Aanvragen stuurt ze een aanvraag naar een gekoppelde grip en wordt ze eigenaar van die aanvraag in de eigen grip. Ze volgt de werkstroom "Ontvangen offerte bij de opdrachtgever": aanvraag, offerte ontvangen, besluit door de tekenbevoegde. Daarna vraagt ze de uitputting op, als de opdrachtnemer dat in de koppeling toestaat.
 
 **MOZa voorbeeld en DigiGilde voorbeeld** (via federatie). Ze komt daar nooit binnen. Haar grip haalt de stand en, op verzoek, de uitputting en de factuurgegevens op; namen van mensen gaan niet over de grens.
 

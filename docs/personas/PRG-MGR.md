@@ -54,7 +54,7 @@ Het Functiegebouw Rijk zegt dat een project-/programmamanager werkt binnen de ka
 
 ## In Grip
 
-**MOZa voorbeeld** (account, lezer, lid van de opdracht van het programma en leidinggevende van de teamleden van de diensten). Hij landt op Start en ziet Start, Taken, Opdrachten, Team, Vacatures, Financieel en Rapportage. Als lezer leest hij de basis en de bedragen van alle opdrachten, en de rapportage. Hij heeft geen stap in een werkstroom en kan zelf niets begroten, aanbieden of afsluiten.
+**MOZa voorbeeld** (account, lezer, lid van de opdracht van het programma en leidinggevende van de teamleden van de diensten). Hij landt op Start en ziet Start, Taken, Opdrachten, Vacatures, Mensen en Geld. Als lezer leest hij de basis en de bedragen van alle opdrachten, en onder Geld de cijfers over alle opdrachten. Hij heeft geen stap in een werkstroom en kan zelf niets begroten, aanbieden of afsluiten.
 
 Hij is het voorbeeld van een lid zonder bekend aandeel in een dienst. Zodra diensten bestaan, bereiken zijn kosten de diensten via de algemene verdeelsleutel: standaard het aandeel directe kosten, met de hand aan te passen.
 

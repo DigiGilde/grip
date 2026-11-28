@@ -2,7 +2,8 @@
  * Icons by concept. A feature says what something is; `@/ui/icons` decides
  * the picture. See docs/ontwerp.md, "Iconen".
  */
-import type { ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
+import { useNlddEvent } from '@/components/nldd/events';
 import { ICON_SIZE, iconAttribute, iconLabel, iconOf, type IconConcept } from './icons';
 
 interface IconProps {
@@ -40,10 +41,14 @@ export function IconCell({ concept, color = 'secondary', label, ...rest }: IconC
     <nldd-icon-cell
       size={ICON_SIZE.cell}
       color={color}
-      icon={iconOf(concept)}
       {...(label ? { 'aria-label': label } : {})}
       {...rest}
-    />
+    >
+      {/* In 0.23.0 the icon the cell draws from `icon` ignores the cell's
+          `color`: it reads --context-content-color, which the cell does not
+          set. A slotted icon takes the colour itself. */}
+      <nldd-icon icon={iconOf(concept)} color={color} />
+    </nldd-icon-cell>
   );
 }
 
@@ -69,6 +74,34 @@ export function MoreButton({ name, size = 'sm', children }: MoreButtonProps) {
     >
       {children}
     </nldd-icon-button>
+  );
+}
+
+interface RemoveButtonProps {
+  /** The action, as the menu item would say it: "Verwijder". */
+  text: string;
+  /** The name of the row it removes. */
+  name: string;
+  size?: 'sm' | 'md';
+  /** The action takes back a right or a registration: the picture of going back, not a trash can. */
+  withdraws?: boolean;
+  onClick: () => void;
+}
+
+/** A removal that stands alone: the one icon button that takes the place of a menu of one. */
+export function RemoveButton({ text, name, size = 'sm', withdraws = false, onClick }: RemoveButtonProps) {
+  const ref = useRef<HTMLElement>(null);
+  useNlddEvent(ref, 'click', onClick);
+  const label = `${text} ${name}`;
+  return (
+    <nldd-icon-button
+      ref={ref}
+      icon={iconOf(withdraws ? 'undo' : 'remove')}
+      size={size}
+      appearance="critical-transparent"
+      accessible-label={label}
+      text={label}
+    />
   );
 }
 

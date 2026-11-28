@@ -36,7 +36,6 @@ import {
 import { useAdminBack } from '@/layout/useAdminBack';
 
 if (import.meta.env.MODE !== 'test') {
-  void import('@nldd/design-system/search-field');
   void import('@nldd/design-system/tag');
 }
 
@@ -228,7 +227,7 @@ function FamilyRow({ family, open, onToggle }: FamilyRowProps) {
       ) : (
         <>
           <nldd-text-cell text={family.name} />
-          <nldd-text-cell width="fit-content" color="secondary" text={groups} />
+          <nldd-text-cell width="fit-content" text={groups} />
         </>
       )}
     </nldd-list-item>
@@ -261,7 +260,7 @@ function Toolbar({ query, onQuery, canManage, onAdd, onReload, reloading }: Tool
   useNlddEvent(reloadRef, 'click', onReload);
   useNlddEvent(reloadMenuRef, 'select', onReload);
   return (
-    <nldd-toolbar size="md" label="Zoeken in het Functiegebouw Rijk">
+    <nldd-toolbar size="md" accessible-label="Zoeken in het Functiegebouw Rijk">
       <nldd-toolbar-item slot="start" priority={3}>
         <nldd-search-field
           ref={searchRef}
@@ -334,7 +333,7 @@ export function FunctionFrameworkPage() {
 
   return (
     <RouterLinks>
-      <Page title="Functiegebouw Rijk" instanceName={instance?.name} back={adminBack}>
+      <Page kind="list" title="Functiegebouw Rijk" instanceName={instance?.name} back={adminBack}>
         <Toolbar
           query={query}
           onQuery={setQuery}

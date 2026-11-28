@@ -42,11 +42,11 @@ const onSearch = Astro.url.pathname.replace(/\/?$/, '/') === ROUTES.search;
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   </head>
   <body>
-    <nldd-app-view>
+    <nldd-shell>
       <nldd-page>
         <nldd-skip-link slot="header" text="Direct naar de inhoud">
           <nldd-simple-section padding-block="0">
-            <nldd-toolbar label={SITE_NAME}>
+            <nldd-toolbar accessible-label={SITE_NAME}>
               <nldd-toolbar-title slot="start" text={SITE_NAME} href={ROUTES.start}>
                 <BrandMark slot="media" />
               </nldd-toolbar-title>
@@ -97,7 +97,7 @@ const onSearch = Astro.url.pathname.replace(/\/?$/, '/') === ROUTES.search;
           </nldd-page-footer>
         </div>
       </nldd-page>
-    </nldd-app-view>
+    </nldd-shell>
 
     <nldd-window
       id="zoekvenster"
@@ -112,7 +112,7 @@ const onSearch = Astro.url.pathname.replace(/\/?$/, '/') === ROUTES.search;
           id="zoekvenster-veld"
           placeholder="Zoek in documentatie, besluiten en persona’s"
           accessible-label="Zoeken"></nldd-search-field>
-        <nldd-text id="zoekvenster-stand" size="sm" color="secondary" aria-live="polite"></nldd-text>
+        <nldd-text size="sm" color="secondary"><p id="zoekvenster-stand" aria-live="polite"></p></nldd-text>
         <nldd-list id="zoekvenster-resultaten" type="navigation" aria-label="Zoekresultaten"></nldd-list>
         <nldd-link id="zoekvenster-meer" href={ROUTES.search} text="Alle resultaten en filters" hidden></nldd-link>
       </nldd-container>

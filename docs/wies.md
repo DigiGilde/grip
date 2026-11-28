@@ -47,7 +47,7 @@ Wat erin zit:
 - Een personeelsregel van de begroting levert een rol per inzet op: de plek die iemand vult, met het eigen aandeel en de eigen periode van die persoon. Wies telt uren per rol, dus zo kloppen de uren per collega. Wat van de regel overblijft is een open rol. Vaste posten zijn geen rollen.
 - De opdrachtgever gaat mee als TOOI-URI en als nummer van het overheidsregister. Wies zoekt de organisatie op de TOOI-URI en anders op dat nummer, want de meeste onderdelen van organisaties hebben geen TOOI-URI. Zie [organisaties.md](organisaties.md).
 
-Wat er nooit in zit: bedragen, tarieven, tariefcategorieën, notities en contactpersonen. Het aandeel van een persoon gaat wel mee, als omvang van de rol in FTE; dat is bemensing en geen geld. De export bevat alleen gegevens uit de klassen A (opdracht-basis) en C (bemensing) uit [toegang.md](toegang.md). Het schema heeft geen veld voor iets anders, en een test controleert het antwoord daarop.
+Wat er nooit in zit: bedragen, tarieven, tariefcategorieën, notities en contactpersonen. Het aandeel van een persoon gaat wel mee, als omvang van de rol in FTE; dat is inzet en geen geld. De export bevat alleen gegevens uit de klassen A (opdracht-basis) en C (inzet) uit [toegang.md](toegang.md). Het schema heeft geen veld voor iets anders, en een test controleert het antwoord daarop.
 
 ### Wanneer een rol open is
 

@@ -243,6 +243,9 @@ class BillingDeliveryOut(BaseModel):
     reference: Annotated[str, B]
     period_key: Annotated[str, B]
     total_cents: Annotated[int, B]
+    # Whether the reader may open the request itself: it asks the same of
+    # the reader as the page of the request does.
+    may_open: Annotated[bool, B] = False
     # mail | self
     via: Annotated[str, B]
     recipient: Annotated[str | None, B] = None
@@ -338,6 +341,17 @@ class BillingOverviewOut(BaseModel):
     # Whether grip can mail the financial administration.
     can_mail: Annotated[bool, A] = False
     recipient: Annotated[str | None, B] = None
+
+
+class BillingAcrossOut(BaseModel):
+    """What is left of billing over all assignments, apart from the assignments
+    themselves, which are each filtered by their own classes."""
+
+    can_mail: Annotated[bool, A] = False
+    # Whether the reader may see the money of any assignment at all.
+    reads_money: Annotated[bool, A] = False
+    # Over the periods that are ready and that the reader may deliver now.
+    ready_cents: Annotated[int, B] = 0
 
 
 class DeliverIn(BaseModel):

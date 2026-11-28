@@ -15,7 +15,7 @@ just kroniek-herstel <id>        # schrijf de stand van de kroniek terug naar de
 
 `kroniek-nieuw`, `kroniek-stap` en `kroniek-herstel` schrijven en weigeren daarom op een instantie die geen voorbeeldgegevens mag hebben. `kroniek-check` leest alleen en draait overal (zie Controleren).
 
-Je kunt elke stap ook gewoon in het scherm doen. Bij de opdracht staat op de tab Geschiedenis de keuze Toon: Momenten of Wijzigingen. Momenten is de lijst van momenten. Open je een moment, dan zie je wie wat vastlegde en hoe opdracht, begroting en offerte er toen voorstonden, met het verloop van de zaak: de stappen en wie aan zet was. Het adres bevat het moment (`?moment=<volgnummer>`), dus de terugknop werkt.
+Je kunt elke stap ook gewoon in het scherm doen. Het onderdeel Geschiedenis van een opdracht opent op de momenten. "Bekijk de wijzigingen" leidt naar de lijst van wijzigingen (`?toon=wijzigingen`), "Bekijk de momenten" weer terug. Open je een moment, dan zie je wie wat vastlegde en hoe opdracht, begroting en offerte er toen voorstonden, met het verloop van de zaak: de stappen en wie aan zet was. Het adres bevat het moment (`?moment=<volgnummer>`), dus de terugknop werkt.
 
 Verloop betekent in grip de stappen van een zaak (zie [ontwerp.md](ontwerp.md)). De lijst van feiten heet Momenten.
 
@@ -117,7 +117,7 @@ Elk veld hoort bij een gegevensklasse en heeft in een stand de klasse die het li
 - `outside` (klasse A) zegt zonder waarde wat er rond de zaak veranderde; `outside_values` (klasse B) zegt het met het bedrag en de dag en vervangt voor wie het krijgt `outside`. Voor klasse A zijn tarieven één regel, "De tarieven zijn gewijzigd.", hoeveel feiten er ook waren.
 - Is de stand onvolledig, dan noemt hij geen totaal, geen bedragen per regel, geen vorig totaal en geen status ("Onbekend"), en geeft hij geen verloop.
 
-Een feit is niet te lezen via `/api/events` voor wie geen beheerder is: het bevat waarden van meer klassen onder één sleutel. Het tabblad Wijzigingen is daarmee strenger dan een stand: een wijziging van een regel zegt aan klasse A alleen dat ze gebeurde. Een stand geeft die lezer de eerdere naam van een regel en de naam van een verwijderde regel, omdat de klasse van het veld op elk moment geldt (ADR 0056).
+Een feit is niet te lezen via `/api/events` voor wie geen beheerder is: het bevat waarden van meer klassen onder één sleutel. De lijst Wijzigingen is daarmee strenger dan een stand: een wijziging van een regel zegt aan klasse A alleen dat ze gebeurde. Een stand geeft die lezer de eerdere naam van een regel en de naam van een verwijderde regel, omdat de klasse van het veld op elk moment geldt (ADR 0056).
 
 ### Wat er in een stand gaat
 

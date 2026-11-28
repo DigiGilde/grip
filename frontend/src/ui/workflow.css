@@ -1,7 +1,7 @@
 /*
- * The course of a case. The sentence about what happens now leads; the steps
- * stay small and never span the page, so they inform without competing with
- * the one primary action.
+ * The course of a case. The sentence about what happens now leads; the line
+ * of steps stays small and never spans the page, so it informs without
+ * competing with the one primary action.
  */
 .course-now {
   display: flex;

@@ -28,9 +28,22 @@ class KpiOut(BaseModel):
     # Open months with the planned inzet.
     forecast_cents: Annotated[int | None, _KPI]
     realisation_cents: Annotated[int | None, _KPI]
+    # Realisation minus the target; negative when below it. Null without a target.
+    gap_cents: Annotated[int | None, _KPI] = None
     # Set when the amounts cannot be derived, for example without a rate
     # card for the year.
     unavailable_reason: Annotated[str | None, _KPI]
+
+
+class KpiTotalsOut(BaseModel):
+    """Over the persons listed, where the amounts are known."""
+
+    target_cents: Annotated[int, _KPI]
+    realised_cents: Annotated[int, _KPI]
+    forecast_cents: Annotated[int, _KPI]
+    realisation_cents: Annotated[int, _KPI]
+    # Realisation minus the target over the same persons; negative when below it.
+    gap_cents: Annotated[int, _KPI]
 
 
 class KpiTargetUpdate(BaseModel):

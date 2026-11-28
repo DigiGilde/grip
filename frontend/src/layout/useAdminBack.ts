@@ -1,7 +1,7 @@
 import { useAuth } from '@/auth/context';
 import { PATHS } from '@/paths';
 
-export const TO_START = { href: PATHS.statusOverview, text: 'Terug naar Start' };
+export const TO_START = { href: PATHS.start, text: 'Terug naar Start' };
 const TO_ADMIN = { href: PATHS.admin, text: 'Terug naar Beheer' };
 
 /**

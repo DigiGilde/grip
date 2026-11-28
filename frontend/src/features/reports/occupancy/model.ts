@@ -1,4 +1,5 @@
 import { formatDate, formatPercent } from '@/lib/format';
+import { PATHS } from '@/paths';
 import type { OccupancyCell, OccupancyPart, PersonOccupancy } from '../api';
 import { monthName } from '../labels';
 import { cellState } from './scale';
@@ -83,5 +84,5 @@ export function freeSummary(person: PersonOccupancy, withRoomNow = false): strin
   return '';
 }
 
-/** The Inzet board, opened on one person. */
-export const personBoardPath = (personId: string) => `/inzet?persoon=${personId}`;
+/** The board, opened on one person. */
+export const personBoardPath = (personId: string) => `${PATHS.peopleBoard}?persoon=${personId}`;

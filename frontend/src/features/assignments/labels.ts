@@ -57,13 +57,6 @@ export const PHASE_VIEW_LABELS: Record<Phase, string> = {
   closed: 'Afgesloten',
 };
 
-/** What the phase is called next to amounts, where pipeline must not read as work. */
-export const PHASE_LABELS: Record<Phase, string> = {
-  potential: 'Potentiële opdrachten',
-  active: 'Lopende opdrachten',
-  closed: 'Afgesloten opdrachten',
-};
-
 export const ROLE_LABELS: Record<string, string> = {
   owner: 'Eigenaar',
   manager: 'Manager',

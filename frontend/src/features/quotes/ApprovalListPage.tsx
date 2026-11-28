@@ -21,13 +21,13 @@ export function ApprovalListPage() {
   const items = query.data?.items ?? [];
 
   return (
-    <Page title="Wacht op mijn goedkeuring" instanceName={instance?.name}>
+    <Page kind="list" title="Wacht op mijn goedkeuring" instanceName={instance?.name}>
       {query.isPending ? <Loading /> : null}
       {query.isError ? (
         <LoadError
           error={query.error}
           retry={() => void query.refetch()}
-          who="Offertes goedkeuren is voor wie dat recht heeft. Een beheerder kent het toe bij Team, onder Rechten in grip van een persoon."
+          who="Offertes goedkeuren is voor wie dat recht heeft. Een beheerder kent het toe onder Mensen, bij Rechten in grip van een persoon."
         />
       ) : null}
       {query.data && items.length === 0 ? (
@@ -56,8 +56,8 @@ export function ApprovalListPage() {
                         item.quote_reference ?? ''
                       } voor ${item.assignment_name}`}
                     />
-                    <nldd-text size="sm" color="secondary">
-                      {item.quote_reference ?? ''}
+                    <nldd-text size="sm">
+                      <span>{item.quote_reference ?? ''}</span>
                     </nldd-text>
                   </nldd-container>
                 </nldd-cell>

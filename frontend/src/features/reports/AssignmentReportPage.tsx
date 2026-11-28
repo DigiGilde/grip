@@ -1,16 +1,11 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useParams } from 'react-router-dom';
 import { ApiError } from '@/api/client';
 import { STATUS_COLORS, statusLabel } from '@/features/assignments/labels';
-import { assignmentPath } from '@/features/assignments/paths';
 import { DocumentLink } from '@/ui/Icon';
-import { EmptyNotice, LoadError, Loading, Page, Quiet, NotFound } from '@/ui/layout';
+import { EmptyNotice, LoadError, Loading, Quiet, NotFound, Stack } from '@/ui/layout';
 import { Segments } from '@/features/team/ui/controls';
-import { RouterLinks } from '@/layout/RouterLinks';
-import { useInstance } from '@/layout/useInstance';
 import { formatDate, formatEuro, formatFte, formatPercent, formatPeriod } from '@/lib/format';
-import { PATHS } from '@/paths';
 import { incompleteText } from '@/features/costs/costText';
 import {
   assignmentReportDocumentUrl,
@@ -70,7 +65,7 @@ function reportFigures(report: AssignmentReport): Figure[] {
   if (hasAmounts(totals)) {
     figures.push(
       {
-        label: 'Gerealiseerd',
+        label: 'Gerealiseerde inzet',
         value: formatEuro(totals.realised_cents),
         detail: `${report.months_closed} van ${report.months_total} maanden afgesloten`,
         quiet: totals.realised_cents === 0,
@@ -155,10 +150,12 @@ function AgreedBlock({ report }: { report: AssignmentReport }) {
   return (
     <ReportBlock testId="agreed" title="Wat is afgesproken">
       <nldd-text>
-        Er is geen offerte waarop akkoord is gegeven.
-        {typeof report.quoted_amount_cents === 'number'
-          ? ` Het afgesproken bedrag is ${formatEuro(report.quoted_amount_cents)}.`
-          : ''}
+        <p>
+          Er is geen offerte waarop akkoord is gegeven.
+          {typeof report.quoted_amount_cents === 'number'
+            ? ` Het afgesproken bedrag is ${formatEuro(report.quoted_amount_cents)}.`
+            : ''}
+        </p>
       </nldd-text>
     </ReportBlock>
   );
@@ -179,8 +176,14 @@ function DeliveredBlock({ report }: { report: AssignmentReport }) {
     >
       {final ? (
         <nldd-container gap="8">
-          <nldd-text>Eindrapport van {formatDate(final.issued_at)}.</nldd-text>
-          {final.summary && <nldd-text>{final.summary}</nldd-text>}
+          <nldd-text>
+            <p>Eindrapport van {formatDate(final.issued_at)}.</p>
+          </nldd-text>
+          {final.summary && (
+            <nldd-text>
+              <p>{final.summary}</p>
+            </nldd-text>
+          )}
           <nldd-list accessible-label="Geleverd" appearance="box-base">
             {(final.delivered ?? []).length === 0 && (
               <nldd-list-item>
@@ -248,7 +251,7 @@ function CostBlock({ report }: { report: AssignmentReport }) {
     <ReportBlock
       testId="cost"
       title="Wat het heeft gekost"
-      note="Gerealiseerd is de vastgestelde inzet van afgesloten maanden. Nog gepland is de geplande inzet van open maanden. Afwijking is begroot min verwacht totaal."
+      note="Gerealiseerde inzet is de vastgestelde inzet van afgesloten maanden. Nog gepland is de geplande inzet van open maanden. Afwijking is begroot min verwacht totaal."
     >
       {report.pricing_error && (
         <nldd-banner variant="warning" size="sm" text={report.pricing_error} />
@@ -355,9 +358,7 @@ function StaffingBlock({ report }: { report: AssignmentReport }) {
  * it cost. The version for the client never names staff; the internal one
  * adds who worked on it, as far as the reader may see that.
  */
-export function AssignmentReportPage() {
-  const { assignmentId = '' } = useParams();
-  const instance = useInstance();
+export function AssignmentReportContent({ assignmentId }: { assignmentId: string }) {
   const [audience, setAudience] = useState<Audience>('client');
   const query = useQuery({
     queryKey: reportKeys.assignment(assignmentId, audience),
@@ -368,12 +369,7 @@ export function AssignmentReportPage() {
   const notFound = query.error instanceof ApiError && query.error.status === 404;
 
   return (
-    <Page
-      title={report ? `Rapportage ${report.name}` : 'Rapportage'}
-      instanceName={instance?.name}
-      spacing="sections"
-      back={{ href: PATHS.reports, text: 'Terug naar Rapportage' }}
-    >
+    <Stack gap="section">
       {query.isPending && <Loading />}
       {query.isError &&
         (notFound ? (
@@ -383,33 +379,26 @@ export function AssignmentReportPage() {
         ))}
       {report && (
         <>
-          <RouterLinks>
-            <nldd-container layout="wrap" gap="16" vertical-alignment="center">
-              <nldd-badge
-                color={STATUS_COLORS[report.status] ?? 'neutral'}
-                text={statusLabel(report.status)}
-              />
-              <Segments
-                label="Versie"
-                value={audience}
-                onChange={(next) => setAudience(next === 'internal' ? 'internal' : 'client')}
-                options={[
-                  { value: 'client', label: 'Voor de opdrachtgever' },
-                  { value: 'internal', label: 'Intern' },
-                ]}
-              />
-              <DocumentLink
-                kind="view"
-                href={assignmentReportDocumentUrl(report.assignment_id, audience)}
-                text="Afdrukbare versie"
-              />
-              <nldd-link
-                href={assignmentPath(report.assignment_id)}
-                text="Naar de opdracht"
-                size="md"
-              />
-            </nldd-container>
-          </RouterLinks>
+          <nldd-container layout="wrap" gap="16" vertical-alignment="center">
+            <nldd-badge
+              color={STATUS_COLORS[report.status] ?? 'neutral'}
+              text={statusLabel(report.status)}
+            />
+            <Segments
+              label="Versie"
+              value={audience}
+              onChange={(next) => setAudience(next === 'internal' ? 'internal' : 'client')}
+              options={[
+                { value: 'client', label: 'Voor de opdrachtgever' },
+                { value: 'internal', label: 'Intern' },
+              ]}
+            />
+            <DocumentLink
+              kind="view"
+              href={assignmentReportDocumentUrl(report.assignment_id, audience)}
+              text="Afdrukbare versie"
+            />
+          </nldd-container>
           <Facts report={report} />
           {reportFigures(report).length > 0 && (
             <Figures label="De opdracht in het kort" figures={reportFigures(report)} />
@@ -420,6 +409,6 @@ export function AssignmentReportPage() {
           {audience === 'internal' && <StaffingBlock report={report} />}
         </>
       )}
-    </Page>
+    </Stack>
   );
 }

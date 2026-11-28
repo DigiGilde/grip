@@ -9,7 +9,7 @@ export function TotalsHeaderCells() {
   return (
     <>
       <nldd-text-cell text="Begroot" horizontal-alignment="right" />
-      <nldd-text-cell text="Gerealiseerd" horizontal-alignment="right" />
+      <nldd-text-cell text="Gerealiseerde inzet" horizontal-alignment="right" />
       <nldd-text-cell text="Prognose" horizontal-alignment="right" />
       <nldd-text-cell text="Kosten" horizontal-alignment="right" />
       <nldd-text-cell text="Beschikbaar" horizontal-alignment="right" />
@@ -36,7 +36,6 @@ export function TotalsCells({
         <nldd-text-cell
           text={error ? 'Niet berekend' : ''}
           {...(error ? { 'supporting-text': error } : {})}
-          color="secondary"
         />
         <nldd-text-cell />
         <nldd-text-cell />

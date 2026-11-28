@@ -7,14 +7,17 @@
  *
  *   CourseNow     the sentence about what happens now: first, under the title
  *   courseAction  the one next step for the page's primary button
- *   CourseBar     the steps, quiet: it informs and never competes
+ *   CourseBar     the steps, quiet: it informs and never competes; on a narrow
+ *                 screen the step it is at and the one after, in words
  *
  * A list says the same in one line with `courseLine`.
  */
 import { formatDate } from '@/lib/format';
-import { useNarrow } from '@/ui/layout/useNarrow';
 import { courseBrief, lowerFirst, type Course, type CourseNext } from './course';
+import { useNarrow } from './layout/useNarrow';
 import './workflow.css';
+
+if (import.meta.env.MODE !== 'test') void import('@nldd/design-system/step-bar');
 
 /** "Vóór 15 okt 2026", or that the date has passed. */
 function dueWords(next: CourseNext): string | null {
@@ -45,17 +48,19 @@ export function CourseNow({ course, tasksHref }: CourseNowProps) {
       data-mine={next.mine ? 'true' : 'false'}
       data-part={next.part ?? (next.mine ? 'acts' : 'waits')}
     >
-      <nldd-text size="lg">{next.blocked ?? next.sentence}</nldd-text>
+      <nldd-text>
+        <p>{next.blocked ?? next.sentence}</p>
+      </nldd-text>
       {missing.length > 0 && (
-        <nldd-text size="sm" color="secondary">
-          {`Ontbreekt nog: ${missing.join(', ')}.`}
+        <nldd-text size="sm">
+          <p>{`Ontbreekt nog: ${missing.join(', ')}.`}</p>
         </nldd-text>
       )}
       {(due || (more > 0 && tasksHref)) && (
         <div className="course-now-meta">
           {due && (
-            <nldd-text size="sm" color={next.overdue ? 'critical' : 'secondary'}>
-              {due}
+            <nldd-text size="sm" {...(next.overdue ? { color: 'critical' } : {})}>
+              <span>{due}</span>
             </nldd-text>
           )}
           {more > 0 && tasksHref && (
@@ -84,17 +89,17 @@ export function CourseBar({ course, accessibleLabel }: CourseBarProps) {
   const narrow = useNarrow();
   if (course.steps.length === 0) return null;
   if (narrow) {
-    // No room for the bar: the step it is at and the one after, in words.
     const brief = courseBrief(course);
     if (!brief) return null;
     return (
-      <nldd-text size="sm" color="secondary" role="group" aria-label={accessibleLabel}>
-        <strong>{brief.now}</strong>
-        {`, ${brief.then}`}
+      <nldd-text size="sm" role="group" aria-label={accessibleLabel}>
+        <span>
+          <strong>{brief.now}</strong>
+          {`, ${brief.then}`}
+        </span>
       </nldd-text>
     );
   }
-  // The sentence above the bar already says what holds for the current step.
   const notes = course.steps.filter((step) => step.note && step.state === 'done');
   return (
     <div className="course-bar">
@@ -108,8 +113,8 @@ export function CourseBar({ course, accessibleLabel }: CourseBarProps) {
         ))}
       </nldd-step-bar>
       {notes.length > 0 && (
-        <nldd-text size="sm" color="secondary">
-          {notes.map((step) => `${step.label}: ${lowerFirst(step.note ?? '')}`).join(' · ')}
+        <nldd-text size="sm">
+          <p>{notes.map((step) => `${step.label}: ${lowerFirst(step.note ?? '')}`).join(' · ')}</p>
         </nldd-text>
       )}
     </div>

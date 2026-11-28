@@ -166,6 +166,59 @@ async def test_unfilled_roles_follow_the_assignments_you_manage(
     assert (await client.get(f"{BASE}/unfilled-roles")).json() == []
 
 
+async def test_a_line_with_a_running_vacancy_is_open_but_not_offered_again(
+    client, act_as, manager, budget_line, db_session
+) -> None:
+    from grip.services.vacancies import service
+
+    act_as(manager)
+    vacancy = await _create(client, budget_line)
+
+    # Not offered for a second vacancy, and still an open role with its stand.
+    assert (await client.get(f"{BASE}/unfilled-roles")).json() == []
+    assert [r.budget_line_id for r in await service.unfilled_roles(db_session)] == []
+    (role,) = await service.open_roles(db_session)
+    assert role.budget_line_id == budget_line.id
+    assert str(role.vacancy_id) == vacancy["id"]
+    assert role.vacancy_status == "draft"
+    assert float(role.unfilled_fte) == 0.8
+
+    # Withdrawn: offered again, and the open role has no vacancy.
+    response = await client.post(f"{BASE}/{vacancy['id']}/withdraw", json={})
+    assert response.status_code == 200, response.text
+    offered = (await client.get(f"{BASE}/unfilled-roles")).json()
+    assert [r["budget_line_id"] for r in offered] == [str(budget_line.id)]
+    (role,) = await service.open_roles(db_session)
+    assert role.vacancy_id is None and role.vacancy_status is None
+
+
+async def test_open_roles_leave_out_a_vacancy_without_a_line_and_a_filled_line(
+    client, act_as, planner, budget_line, db_session
+) -> None:
+    from decimal import Decimal
+
+    from grip.services import assignments
+    from grip.services.vacancies import service
+
+    act_as(planner)
+    body = {"function_title": "Teamleider", "fte": "1", "scale": 13}
+    assert (await client.post(BASE, json=body)).status_code == 201
+    (role,) = await service.open_roles(db_session)
+    assert role.budget_line_id == budget_line.id
+
+    await assignments.add_allocation(
+        db_session,
+        budget_line.id,
+        planner.id,
+        start_date=budget_line.start_date,
+        end_date=budget_line.end_date,
+        fte_pct=Decimal("100"),
+        actor=planner,
+    )
+    db_session.expire_all()
+    assert await service.open_roles(db_session) == []
+
+
 async def test_update_only_what_is_sent(client, act_as, manager, budget_line) -> None:
     act_as(manager)
     vacancy = await _create(client, budget_line)
@@ -210,6 +263,31 @@ async def test_draft_is_invisible_without_a_role(
         )
         assert response.status_code == 404, (method, path)
     assert (await client.get(f"{BASE}/{vacancy['id']}/request-form")).status_code == 404
+
+
+async def test_the_assignment_id_is_only_given_to_who_reads_the_assignment(
+    client, act_as, manager, beheerder, lezer, adviser, budget_line
+) -> None:
+    act_as(manager)
+    vacancy = await _create(client, budget_line)
+    await _motivate(client, vacancy["id"])
+    response = await client.post(
+        f"{BASE}/{vacancy['id']}/submit", json={"requested_on": "2026-09-28"}
+    )
+    assert response.status_code == 200, response.text
+    act_as(beheerder)
+    await _decide(client, vacancy["id"], "hr_advice", person_id=str(adviser.id))
+    for person in (manager, beheerder, lezer):
+        act_as(person)
+        seen = (await client.get(f"{BASE}/{vacancy['id']}")).json()
+        assert seen["assignment_id"] == vacancy["assignment_id"], person.name
+    act_as(adviser)
+    response = await client.get(f"{BASE}/{vacancy['id']}")
+    assert response.status_code == 200
+    seen = response.json()
+    assert seen["assignment_id"] is None
+    assert seen["assignment_name"] == "Opdracht Alfa"
+    assert vacancy["assignment_id"] not in response.text
 
 
 async def test_lezer_sees_the_vacancy_without_names(

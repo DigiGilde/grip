@@ -50,8 +50,10 @@ export interface Task {
   then?: string | null;
   /** The name of the one action; absent when the reader has nothing to do now. */
   action_text?: string | null;
-  /** Where the work is done, inside the application. */
+  /** Where the work is done, inside the application: the page, which opens nothing by itself. */
   work_href?: string | null;
+  /** The same page asked to open the step, for the one button in a head. */
+  step_href?: string | null;
   /** Who is waited on, when that is not the reader. */
   waits_on?: string | null;
   /** Nobody can do this until something outside the task changes. */
@@ -67,8 +69,6 @@ export interface Task {
   assignee_person_id?: string | null;
   assignee_label: string;
   waiting_on?: string | null;
-  /** The link the plan gave the task. Use `work_href` instead. */
-  link?: string | null;
   is_mine?: boolean;
   can_change?: boolean;
   /** False for a task that only its fact closes. */

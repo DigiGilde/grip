@@ -49,9 +49,9 @@ export function BillingDetailsFields({
   const change = (key: DetailKey, value: string) => onChange({ ...details, [key]: value });
   return (
     <>
-      <nldd-title size={5} heading-level={2} text="Waar gaat de factuur heen?" />
+      <nldd-title size="display-5" heading-level={2} text="Adres voor de factuur" />
       <DetailFields keys={ADDRESS_KEYS} details={details} onChange={change} required={required} />
-      <nldd-title size={5} heading-level={2} text="Contact bij de financiële afdeling" />
+      <nldd-title size="display-5" heading-level={2} text="Contact bij de financiële afdeling" />
       <DetailFields keys={CONTACT_KEYS} details={details} onChange={change} required={required} />
     </>
   );

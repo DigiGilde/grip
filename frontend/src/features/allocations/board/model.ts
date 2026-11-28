@@ -3,6 +3,8 @@
  * is drawn. No dates are computed from "now" here; the server says which
  * month is the current one.
  */
+import { STATUS_LABELS } from '@/features/vacancies/labels';
+import { personPath } from '@/features/vacancies/paths';
 import { formatFte, formatMonth, formatPercent, formatPeriod } from '@/lib/format';
 import {
   assignLanes,
@@ -137,12 +139,25 @@ function personRow(months: readonly string[], person: BoardPerson, currentMonth:
   };
 }
 
+/** How far the vacancy of an open role has got, as a clause; empty without one. */
+export function vacancyStanding(role: BoardOpenRole): string {
+  return role.vacancy_status ? `vacature: ${STATUS_LABELS[role.vacancy_status].toLowerCase()}` : '';
+}
+
+const notFilled = (role: BoardOpenRole) =>
+  [
+    `${formatFte(role.unfilled_fte)} van ${formatFte(role.fte)} FTE niet ingevuld`,
+    vacancyStanding(role),
+  ]
+    .filter(Boolean)
+    .join(', ');
+
 function roleRow(months: readonly string[], role: BoardOpenRole): RowModel {
   const bar = roleBar(months, role);
   return {
     key: `role-${role.budget_line_id}`,
     label: role.role ?? role.description,
-    summary: `${role.assignment_name}, ${formatFte(role.unfilled_fte)} van ${formatFte(role.fte)} FTE niet ingevuld`,
+    summary: `${role.assignment_name}, ${notFilled(role)}`,
     attention: '',
     kind: 'role',
     role,
@@ -201,7 +216,7 @@ function assignmentGroups(board: Board): GroupModel[] {
     if (existing) {
       if (bar) existing.bars.push(bar);
       existing.role = role;
-      existing.attention = `${formatFte(role.unfilled_fte)} van ${formatFte(role.fte)} FTE niet ingevuld`;
+      existing.attention = notFilled(role);
     } else {
       const row = roleRow(board.months, role);
       lines.set(role.budget_line_id, {
@@ -209,7 +224,7 @@ function assignmentGroups(board: Board): GroupModel[] {
         key: `line-${role.budget_line_id}`,
         kind: 'line',
         summary: '',
-        attention: `${formatFte(role.unfilled_fte)} van ${formatFte(role.fte)} FTE niet ingevuld`,
+        attention: notFilled(role),
       });
     }
   }
@@ -293,7 +308,7 @@ export function describeBar(bar: PlacedBar, name?: (category: string) => string)
     const role = bar.role;
     return [
       `open rol ${role.role ?? role.description}`,
-      `${formatFte(role.unfilled_fte)} van ${formatFte(role.fte)} FTE niet ingevuld`,
+      notFilled(role),
       formatPeriod(role.start_date, role.end_date),
     ]
       .filter(Boolean)
@@ -408,6 +423,7 @@ export function toTimeline(
       attention: row.attention,
       lanes: row.lanes,
       link: linkFor(row),
+      labelHref: row.person ? personPath(row.person.person_id) : null,
       data: row,
       cells: months.map((month, column) => {
         const cell = row.cells[column] ?? null;

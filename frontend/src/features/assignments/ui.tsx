@@ -97,17 +97,13 @@ export function SelectInput({
   required,
   disabled,
 }: SelectProps) {
-  const ref = useRef<HTMLElement>(null);
-  // The dropdown stops the native change event and sends its own, so a
-  // handler on the slotted select would never fire.
-  useNlddEvent(ref, 'change', (event) => onChange(eventValue(event)));
   return (
     <nldd-form-field
       label={label}
       optional={orUndef(optional)}
       {...(hint ? { 'supporting-label': hint } : {})}
     >
-      <nldd-dropdown ref={ref} required={orUndef(required)} disabled={orUndef(disabled)}>
+      <nldd-dropdown required={orUndef(required)} disabled={orUndef(disabled)}>
         <select value={value} onChange={(event) => onChange(event.target.value)}>
           {placeholder !== undefined && <option value="">{placeholder}</option>}
           {options.map((option) => (

@@ -408,3 +408,21 @@ async def test_the_steering_costs_say_what_they_miss(
     (item,) = [i for i in body["costs"]["items"] if i["cost_item_id"] == str(item_id)]
     assert item["incomplete_by"] == ["Voorbeeldgilde"]
     assert body["turnover"]["incomplete_by"] == ["Voorbeeldgilde"]
+
+
+async def test_the_start_figures_say_what_they_miss(
+    client, world, as_person, db_session, gilde
+):
+    world.alfa.status = "accepted"
+    await db_session.flush()
+    await _made(db_session, world, gilde)
+    as_person(world.beheerder)
+
+    async def figures():
+        response = await client.get("/api/start")
+        assert response.status_code == 200
+        return response.json()["figures"]
+
+    assert (await figures())["incomplete_by"] == []
+    gilde.reachable = False
+    assert (await figures())["incomplete_by"] == ["Voorbeeldgilde"]

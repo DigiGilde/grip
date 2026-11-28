@@ -1,4 +1,4 @@
-"""Stand van zaken: budgeted, used and available per assignment."""
+"""Lopende opdrachten: budgeted, used and available per assignment."""
 
 from datetime import date
 from typing import Any
@@ -19,7 +19,6 @@ from grip.schema.board import (
 )
 from grip.schema.overview import (
     AssignmentOverviewOut,
-    AttentionOut,
     LineCostOut,
     LineOverviewOut,
     OverviewRowOut,
@@ -29,14 +28,12 @@ from grip.schema.overview import (
 from grip.services import assignment_finance as finance
 from grip.services import assignment_views as views
 from grip.services import guards, staffing_board
-from grip.services.overview_attention import attention_points
 from grip.services.phase import Phase
 
 router = APIRouter(tags=["overview"])
 
 A = DataClass.ASSIGNMENT_BASIC
 B = DataClass.ASSIGNMENT_FINANCIAL
-SIGNAL = DataClass.RATE_MISMATCH_SIGNAL
 _ROW_CLASSES = schema_classes(OverviewRowOut)
 _TEAM_CLASSES = schema_classes(TeamMemberOut)
 _LINE_CLASSES = schema_classes(LineOverviewOut) - _TEAM_CLASSES | {DataClass.STAFFING}
@@ -75,7 +72,7 @@ async def get_overview(
     """One row per assignment the person may read.
 
     The amounts are class B: a reader without it gets the rows without them.
-    They come from the same read model as the Financieel tab of an
+    They come from the same read model as the Begroting part of an
     assignment, so the two always agree.
     """
     selected = parse_year(year)
@@ -91,34 +88,25 @@ async def get_overview(
     to_deliver = to_invoice = 0
     # Who may read what, per row; the figures are then read for all rows
     # that need them at once.
-    readable: list[tuple[views.AssignmentRow, frozenset[DataClass], bool]] = []
+    readable: list[tuple[views.AssignmentRow, frozenset[DataClass]]] = []
     for row in rows:
         resource = Resource.assignment(row.assignment.id)
         permitted = await access.classes(resource, _ROW_CLASSES)
         if A not in permitted:
             continue
-        # The R14 signal is also for a planner, as a fact without amounts.
-        signal = await access.may(Action.READ, resource, SIGNAL)
-        readable.append((row, frozenset(permitted), signal))
+        readable.append((row, frozenset(permitted)))
     finances = await finance.assignment_finances(
         db,
-        [row for row, permitted, signal in readable if B in permitted or signal],
+        [row for row, permitted in readable if B in permitted],
         year=selected,
     )
-    for row, permitted, signal in readable:
+    for row, permitted in readable:
         figures: finance.Figures | None = None
         error: str | None = None
         reference = None
         money = B in permitted
-        attention: list[AttentionOut] = []
-        if money or signal:
-            data = finances[row.assignment.id]
-            attention = [
-                AttentionOut(kind=point.kind, text=point.text, tab=point.tab)
-                for point in attention_points(data)
-                if (money if point.about_money else signal)
-            ]
         if money:
+            data = finances[row.assignment.id]
             any_financial = True
             figures, error = data.totals, data.pricing_error
             reference = data.reference_month
@@ -143,7 +131,6 @@ async def get_overview(
                     pricing_error=error,
                     reference_month=reference,
                     in_year=_in_year(a.start_date, a.end_date, selected),
-                    attention=attention,
                 ),
                 permitted,
             )

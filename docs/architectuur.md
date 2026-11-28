@@ -132,7 +132,7 @@ Daarop rusten de onderdelen:
 | Aanmelden | Via de identiteitsprovider van het platform; alleen op een bevestigd adres; een weigering heeft een reden; daarna kan een passkey | [sso-rijk.md](sso-rijk.md), [passkeys-en-installeren.md](passkeys-en-installeren.md) |
 | Berichten naar mensen | Mail via een wachtrij; meldingen op het eigen apparaat voor wat op de lezer wacht, zonder namen of bedragen | ADR 0031, [meldingen.md](meldingen.md) |
 | Taalmodel | Een servicelaag met een instelling. In productie VLAM; alleen in de lokale ontwikkelmodus kan een eigen model die plaats innemen. Er gaan geen namen en geen gegevens van de klassen D, E en F naar een model | ADR 0018, ADR 0035 |
-| Schermen | Gedeelde bouwstenen, een hoofdbalk met zeven plekken, vaste woorden, en metingen die de regels bewaken | [ontwerp.md](ontwerp.md), ADR 0042 |
+| Schermen | Gedeelde bouwstenen, een hoofdbalk met zes plekken, vaste woorden, en metingen die de regels bewaken | [ontwerp.md](ontwerp.md), ADR 0055 en 0059 |
 
 ## Wies
 

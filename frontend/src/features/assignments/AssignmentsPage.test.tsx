@@ -18,11 +18,22 @@ const LIST = {
   can_create: true,
 };
 
-async function renderList(body: object, path: string) {
-  const api = mockApi({ '/api/assignments': body, '/api/tasks/courses': { items: [] } });
+async function renderList(body: object, path: string, courses: object[] = []) {
+  const api = mockApi({ '/api/assignments': body, '/api/tasks/courses': { items: courses } });
   const view = renderApp(<AssignmentsPage />, { path });
-  await waitFor(() => expect(view.container.querySelector('nldd-table')).not.toBeNull());
+  await waitFor(() => expect(view.container.querySelector('nldd-list')).not.toBeNull());
   return { container: view.container, calls: api.calls };
+}
+
+function narrowWindow(narrow: boolean) {
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn().mockImplementation(() => ({
+      matches: narrow,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    })),
+  );
 }
 
 describe('AssignmentsPage', () => {
@@ -48,10 +59,75 @@ describe('AssignmentsPage', () => {
     ]);
     // Another view starts at its first page, with the same words.
     expect(tabs.map((tab) => tab.getAttribute('href'))).toEqual([
-      '/opdrachten?weergave=pijplijn&zoek=alfa',
+      '/opdrachten?weergave=potentieel&zoek=alfa',
       '/opdrachten?zoek=alfa',
       '/opdrachten?weergave=afgesloten&zoek=alfa',
     ]);
+  });
+
+  it('keeps the views as a bar on a narrow screen, without the counts', async () => {
+    narrowWindow(true);
+    const { container } = await renderList(LIST, '/opdrachten');
+    const tabs = [...container.querySelectorAll('.thing-tabs nldd-menu-bar-item')];
+    expect(tabs.map((tab) => tab.getAttribute('text'))).toEqual([
+      'Potentieel',
+      'Lopend',
+      'Afgesloten',
+    ]);
+    expect(container.querySelector('select, nldd-dropdown')).toBeNull();
+  });
+
+  it('shows each assignment as a row: what, for whom and when, and where it stands', async () => {
+    const running = assignment({ id: 'a-1', name: 'Opdracht Alfa 2026' });
+    const course = {
+      case_kind: 'assignment',
+      case_id: 'a-1',
+      course: {
+        key: 'assignment',
+        label: 'Opdracht',
+        steps: [],
+        current_label: 'Uitvoeren',
+        next: { mine: true, headline: 'Sluit maart 2026 af', sentence: '' },
+      },
+    };
+    const { container } = await renderList(
+      { ...LIST, items: [running], total: 1, counts: { potential: 0, active: 1, closed: 0 } },
+      '/opdrachten',
+      [course],
+    );
+    expect(container.querySelector('nldd-table')).toBeNull();
+    expect(container.querySelector('nldd-list')).toHaveAttribute('accessible-label', 'Lopend');
+    const row = container.querySelector('nldd-list-item');
+    expect(row).toHaveAttribute('href', '/opdrachten/a-1');
+    await waitFor(() =>
+      expect(row?.querySelector('nldd-text-cell')?.getAttribute('supporting-text')).toBe(
+        'Voorbeeldministerie · 1 jan 2026 t/m 31 dec 2026 · Jij: sluit maart 2026 af',
+      ),
+    );
+    expect(row?.querySelector('nldd-text-cell')).toHaveAttribute('text', 'Opdracht Alfa 2026');
+    // The view says it is running, so the row does not say it again.
+    expect(row?.querySelector('nldd-badge')).toBeNull();
+  });
+
+  it('names the amount of a potential assignment at the end of its row', async () => {
+    const potential = assignment({
+      id: 'a-2',
+      name: 'Opdracht Beta 2026',
+      phase: 'potential',
+      status: 'quoted',
+      pipeline_amount_cents: 1250000,
+      pipeline_amount_source: 'quote',
+    });
+    const { container } = await renderList(
+      { ...LIST, items: [potential], total: 1, counts: { potential: 1, active: 0, closed: 0 } },
+      '/opdrachten?weergave=potentieel',
+    );
+    const row = container.querySelector('nldd-list-item');
+    expect(row?.textContent).toContain('12.500');
+    expect(row?.querySelector('nldd-text-cell')?.getAttribute('supporting-text')).toContain(
+      'bedrag uit de laatste offerte',
+    );
+    expect(row?.querySelector('nldd-badge')).toHaveAttribute('text', 'Offerte gemaakt');
   });
 
   it('says which rows these are and links to the other pages', async () => {

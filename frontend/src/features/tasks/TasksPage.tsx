@@ -6,7 +6,8 @@ import { useRouterLinks } from '@/layout/useRouterLinks';
 import { useViewer } from '@/layout/useViewer';
 import { PATHS } from '@/paths';
 import { formatDate } from '@/lib/format';
-import { ActionBar, type ActionBarFilter } from '@/ui/ActionBar';
+import { ActionBar } from '@/ui/ActionBar';
+import { Button } from '@/ui/Button';
 import {
   CardGrid,
   EmptyNotice,
@@ -30,10 +31,12 @@ import { aboutLine, headlineOf, myWork } from './telling';
 
 const VIEW_PARAM = 'weergave';
 type View = 'mine' | 'board';
-const VIEWS = [
-  { value: 'mine', label: 'Mijn taken' },
-  { value: 'board', label: 'Bord' },
-] as const;
+
+/** Each view has its own address; the board's filters belong to the board and do not travel. */
+const VIEW_TABS: readonly { key: View; text: string; href: string }[] = [
+  { key: 'mine', text: 'Mijn taken', href: PATHS.tasks },
+  { key: 'board', text: 'Bord', href: `${PATHS.tasks}?${VIEW_PARAM}=bord` },
+];
 
 /**
  * My work in two groups: what I must do now, and what I wait for. The second
@@ -119,13 +122,7 @@ function BoardCard({ task, onOpen }: { task: Task; onOpen: (id: string) => void 
 }
 
 /** Every task the reader may see, as columns. Moving a card is in its menu. */
-function Board({
-  onOpen,
-  viewFilter,
-}: {
-  onOpen: (id: string) => void;
-  viewFilter: ActionBarFilter;
-}) {
+function Board({ onOpen }: { onOpen: (id: string) => void }) {
   const [params, setParams] = useSearchParams();
   const query = useQuery({ queryKey: TASK_KEYS.board, queryFn: fetchBoard });
   const filter = {
@@ -145,9 +142,8 @@ function Board({
   return (
     <Stack gap="group">
       <ActionBar
-        label="Weergave en filters van de taken"
+        label="Filters van de taken"
         filters={[
-          viewFilter,
           {
             label: 'Waarover',
             value: filter.caseLabel,
@@ -163,11 +159,11 @@ function Board({
             width: '240px',
           },
           {
-            label: 'Spoor',
+            label: 'Soort werk',
             value: filter.track,
             onChange: set('spoor'),
-            options: optionsOf(all, (task) => task.track_label, 'Alle sporen'),
-            width: '180px',
+            options: optionsOf(all, (task) => task.track_label, 'Alle soorten werk'),
+            width: '220px',
           },
         ]}
         actions={[]}
@@ -200,45 +196,32 @@ export function TasksPage() {
   const instance = useInstance();
   const containerRef = useRef<HTMLDivElement>(null);
   useRouterLinks(containerRef);
-  const [params, setParams] = useSearchParams();
+  const [params] = useSearchParams();
   const [openId, openTask] = useOpenTask();
   const viewer = useViewer();
   const view: View = params.get(VIEW_PARAM) === 'bord' ? 'board' : 'mine';
-  const setView = (value: string) => {
-    const next = new URLSearchParams();
-    if (value === 'board') next.set(VIEW_PARAM, 'bord');
-    setParams(next);
-  };
-
-  const viewFilter: ActionBarFilter = {
-    label: 'Weergave',
-    value: view,
-    onChange: setView,
-    options: VIEWS,
-    width: '180px',
-  };
 
   return (
     <div ref={containerRef}>
-      <Page title="Taken" instanceName={instance?.name}>
-        {/* One bar per view: the choice of view first, then the filters of that view. */}
-        {view === 'mine' ? (
-          <>
-            <ActionBar
-              label="Weergave van de taken"
-              filters={[viewFilter]}
-              actions={
-                // Approving quotes is work that comes to who holds that right.
-                viewer.functions.includes('offertegoedkeurder')
-                  ? [{ text: 'Offertes ter goedkeuring', href: PATHS.quoteApprovals }]
-                  : []
-              }
-            />
-            <MyTasks onOpen={openTask} />
-          </>
-        ) : (
-          <Board onOpen={openTask} viewFilter={viewFilter} />
-        )}
+      {/* The board is columns side by side, so it takes the width of a worksheet. */}
+      <Page
+        kind={view === 'board' ? 'worksheet' : 'list'}
+        title="Taken"
+        instanceName={instance?.name}
+        action={
+          // Approving quotes is work that comes to who holds that right.
+          view === 'mine' && viewer.functions.includes('offertegoedkeurder') ? (
+            <Button text="Offertes ter goedkeuring" href={PATHS.quoteApprovals} />
+          ) : undefined
+        }
+        tabs={{
+          label: 'Weergave van de taken',
+          current: view,
+          narrow: 'bar',
+          items: VIEW_TABS,
+        }}
+      >
+        {view === 'mine' ? <MyTasks onOpen={openTask} /> : <Board onOpen={openTask} />}
       </Page>
       <TaskSheet taskId={openId} onClose={() => openTask(null)} />
     </div>

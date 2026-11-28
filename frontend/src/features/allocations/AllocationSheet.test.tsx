@@ -96,8 +96,10 @@ describe('AllocationSheet', () => {
       'text',
       'Bewaar boven 100%',
     );
-    const remove = sheet.querySelector('nldd-menu-item[text="Verwijder de inzet"]');
-    expect(remove).toHaveAttribute('destructive');
+    const remove = [...sheet.querySelectorAll('nldd-icon-button')].find((el) =>
+      el.getAttribute('accessible-label')?.startsWith('Verwijder de inzet'),
+    );
+    expect(remove).toHaveAttribute('appearance', 'critical-transparent');
   });
   it('asks about the load from a month on the board, before an end date is filled in', async () => {
     const fetchMock = mockApi({

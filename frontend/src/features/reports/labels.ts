@@ -46,20 +46,6 @@ export function monthAbbreviation(month: string): string {
   return number ? (MONTH_ABBREVIATIONS[number - 1] ?? month) : month;
 }
 
-export const QUOTE_STATUS_LABELS: Record<string, string> = {
-  issued: 'Gemaakt, wacht op akkoord',
-  accepted: 'Akkoord',
-  rejected: 'Afgewezen',
-  superseded: 'Vervangen door een nieuwe offerte',
-};
-
-export const VACANCY_STATUS_LABELS: Record<string, string> = {
-  draft: 'Vacature in concept',
-  requested: 'Vacature aangevraagd',
-  approved: 'Vacature goedgekeurd',
-  open: 'Vacature open',
-};
-
 export const ACCEPTANCE_FORM_LABELS: Record<string, string> = {
   own_instance: 'in de eigen omgeving van de opdrachtgever',
   signing_link: 'via een tekenlink',

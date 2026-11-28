@@ -27,7 +27,7 @@ De lokale ontwikkelclient `development-clusters` zit rechtstreeks in `rig-platfo
 
 - **Wie binnenkomt.** Alleen een persoon die een beheerder vooraf heeft aangemaakt. Eerst op `sub`; bij een eerste aanmelding op het e-mailadres, en dan alleen als de provider voor dat adres instaat. Het adres wordt vergeleken zonder onderscheid tussen hoofd- en kleine letters. Daarna geldt alleen nog `sub`: een later gewijzigd adres doet niets.
 - **Een adres zonder bevestiging telt niet,** ook niet als de claim ontbreekt. Dat is de verdediging tegen het incident hierboven en wordt niet instelbaar gemaakt.
-- **Een bekend adres met een ander `sub`** bindt niets opnieuw. De beheerder ontkoppelt de login bij Team; de volgende aanmelding bindt dan weer. Bouwmeester maakt in dat geval een tweede persoon aan; grip doet dat bewust niet.
+- **Een bekend adres met een ander `sub`** bindt niets opnieuw. De beheerder ontkoppelt de login op de pagina van die persoon onder Mensen; de volgende aanmelding bindt dan weer. Bouwmeester maakt in dat geval een tweede persoon aan; grip doet dat bewust niet.
 - **Elke aanmelding staat in de gebeurtenissen,** alleen voor beheer: gelukt (met de regel waarop), als gast, of geweigerd met de reden en het aangeboden adres. Een eerste aanmelding kan zo niet stil mislukken.
 - **De naam** komt uit `name`, anders uit voor- en achternaam. Een kenmerk wordt nooit als naam getoond.
 - **De organisatie** leest grip uit de claim, genest of plat. Het is wat SSO Rijk heeft vastgelegd, geen feit dat grip heeft gecontroleerd.
@@ -41,7 +41,7 @@ Redenen van een weigering:
 |---|---|---|
 | `onbekend` | Geen persoon met dit adres | De beheerder maakt de persoon aan, met het adres zoals SSO Rijk het stuurt |
 | `emailadres_niet_bevestigd` | De provider staat niet in voor het adres | Navragen bij het platform; niet omzeilen |
-| `andere_aanmelding` | De persoon is aan een andere identiteit gebonden | De login ontkoppelen bij Team |
+| `andere_aanmelding` | De persoon is aan een andere identiteit gebonden | De login ontkoppelen op de pagina van de persoon, onder Mensen |
 | `inactief` | De persoon is niet actief | Activeren, als dat de bedoeling is |
 | `geen_emailadres`, `geen_subject` | De provider stuurde het niet | Navragen bij het platform |
 

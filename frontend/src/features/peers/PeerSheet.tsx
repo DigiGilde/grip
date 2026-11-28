@@ -205,7 +205,7 @@ function Connection({ peer }: { peer: Peer }) {
   return (
     <nldd-container gap="8">
       <nldd-title
-        size={4}
+        size="display-4"
         text="Verbinding"
         heading-level={2}
         supporting-text={peer.role === 'corpus' ? 'Vraagt het corpus op via de outway' : known}
@@ -263,7 +263,7 @@ function Undelivered({ peer }: { peer: Peer }) {
   const busy = resend.isPending || setAside.isPending;
   return (
     <nldd-container gap="8">
-      <nldd-title size={4} text="Berichten die niet aankomen" heading-level={2} />
+      <nldd-title size="display-4" text="Berichten die niet aankomen" heading-level={2} />
       {error ? (
         <nldd-banner variant="critical" text="Dat is niet gelukt" supporting-text={error} />
       ) : null}

@@ -328,7 +328,7 @@ describe('NodePathView', () => {
     expect(rows(lists[2] as Element)[0]?.text).toBe('draagt bij aan');
     const branches = container.querySelector('.grip-path-branches');
     expect(branches?.children).toHaveLength(2);
-    expect([...(branches?.querySelectorAll('nldd-text[color="secondary"]') ?? [])]
+    expect([...(branches?.querySelectorAll('nldd-text[size="sm"]') ?? [])]
       .map((el) => el.textContent)
       .filter((text) => text === 'Komt voort uit')).toHaveLength(2);
   });
@@ -515,7 +515,7 @@ describe('NodePicker', () => {
     );
     expect(container.querySelector('nldd-search-field')).toBeNull();
     expect(texts(container, 'nldd-inline-dialog')).not.toContain('Nog geen context gekozen');
-    expect(texts(container, 'nldd-button')).toContain('Voeg URI toe');
+    expect(texts(container, 'nldd-button')).toContain('Voeg context toe');
   });
 
   it('offers the search when a corpus can be asked, and searches nothing unasked', async () => {
@@ -527,7 +527,7 @@ describe('NodePicker', () => {
     });
     const { container } = renderApp(<Harness />);
     await waitFor(() => expect(container.querySelector('nldd-search-field')).not.toBeNull());
-    expect(container.textContent).toContain('Corpus: Corpus Voorbeeldministerie');
+    expect(container.textContent).toContain('Je zoekt in Corpus Voorbeeldministerie');
     expect(container.querySelector('nldd-table')).toBeNull();
   });
 

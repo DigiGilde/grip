@@ -39,7 +39,7 @@ function ViewSheet({
   useNlddEvent(barRef, 'dismiss', onClose);
   return createPortal(
     <nldd-sheet ref={sheetRef} open={orUndef(open)} placement="right" width="640px">
-      <nldd-page>
+      <nldd-page sticky-header>
         <nldd-top-title-bar
           ref={barRef}
           slot="header"
@@ -48,7 +48,7 @@ function ViewSheet({
           collapse-anchor={titleId}
         />
         <nldd-simple-section>
-          <nldd-title id={titleId} slot="header" size={2} text={title} heading-level={1} />
+          <nldd-title id={titleId} slot="header" size="display-2" text={title} heading-level={1} />
           <nldd-container gap="24">{children}</nldd-container>
         </nldd-simple-section>
       </nldd-page>
@@ -252,6 +252,7 @@ export function MonthSheet({
       await queryClient.invalidateQueries({ queryKey: ['assignments'] });
       await queryClient.invalidateQueries({ queryKey: ['billing'] });
       await queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      await queryClient.invalidateQueries({ queryKey: ['overview'] });
       onClose();
     },
     onError: (failure) => setError(errorMessage(failure)),
@@ -322,7 +323,9 @@ export function MonthSheet({
         />
       ) : null}
       {data && data.lines.length === 0 ? (
-        <nldd-text>In deze maand was niemand ingezet.</nldd-text>
+        <nldd-text>
+          <p>In deze maand was niemand ingezet.</p>
+        </nldd-text>
       ) : null}
     </>
   );
@@ -331,7 +334,7 @@ export function MonthSheet({
     return (
       <FormSheet
         open={month !== null}
-        title={`Klopt dit met wat er in ${name} is gewerkt?`}
+        title={`${name.charAt(0).toUpperCase()}${name.slice(1)} afsluiten`}
         submitText={`Sluit ${name} af`}
         size="wide"
         busy={run.isPending}
@@ -339,13 +342,18 @@ export function MonthSheet({
         onClose={onClose}
         onSubmit={close}
       >
+        <nldd-text>
+          <p>Klopt dit met wat er in {name} is gewerkt?</p>
+        </nldd-text>
         {body}
         {previewNow?.total_cents !== undefined &&
         data?.planned_total_cents !== undefined &&
         previewNow.total_cents !== data.planned_total_cents ? (
           <nldd-text data-month-total>
-            De maand komt op {formatEuro(previewNow.total_cents)}; gepland was{' '}
-            {formatEuro(data.planned_total_cents)}.
+            <p>
+              De maand komt op {formatEuro(previewNow.total_cents)}; gepland was{' '}
+              {formatEuro(data.planned_total_cents)}.
+            </p>
           </nldd-text>
         ) : (
           <Quiet>Werkte iemand meer of minder, pas dan het percentage aan.</Quiet>
@@ -376,8 +384,10 @@ export function MonthSheet({
         }}
       >
         <nldd-text>
-          Na heropenen telt deze maand weer met de geplande inzet, tot de maand opnieuw wordt
-          afgesloten. De eerdere afsluiting en de reden blijven bewaard.
+          <p>
+            Na heropenen telt deze maand weer met de geplande inzet, tot de maand opnieuw wordt
+            afgesloten. De eerdere afsluiting en de reden blijven bewaard.
+          </p>
         </nldd-text>
         {delivered ? (
           <nldd-banner

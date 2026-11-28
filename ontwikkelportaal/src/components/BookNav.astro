@@ -28,21 +28,21 @@ const groups = [
   <nldd-spacer size="8" />
   {
     about ? (
-      <nldd-text size="sm" color="secondary">Over het personaboek</nldd-text>
+      <nldd-text size="sm" color="secondary"><p>Over het personaboek</p></nldd-text>
     ) : (
       <nldd-link href={ROUTES.bookAbout} text="Over het personaboek" />
     )
   }
   <nldd-spacer size="8" />
-  <nldd-text id="personaboek-aantal" size="sm" color="secondary" aria-live="polite">
-    {personas.length} persona’s
+  <nldd-text size="sm" color="secondary">
+    <p id="personaboek-aantal" aria-live="polite">{personas.length} persona’s</p>
   </nldd-text>
 
   {
     groups.map((group) => (
       <Fragment>
         <nldd-spacer size="24" />
-        <nldd-title size="5" heading-level="2" text={group.title} />
+        <nldd-title size="display-5" heading-level="2" text={group.title} />
         <nldd-spacer size="4" />
         <nldd-list appearance="simple" dividers="never" accessible-label={group.title}>
           {group.values.map(({ value, param }) => (

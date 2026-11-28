@@ -21,7 +21,7 @@
  *
  * Usage (servers must be running; see `just check-speed`):
  *   node scripts/check-speed.mjs --base http://speed.localhost:5184
- *     [--only /inzet] [--readers beheerder,eigenaar] [--json out.json]
+ *     [--only /mensen/bord] [--readers beheerder,eigenaar] [--json out.json]
  *     [--calls] [--api]
  *
  * --calls lists every request per page; --api skips the browser pages and
@@ -38,7 +38,8 @@
  *
  * Use a host name of your own in --base: the reader is chosen with the
  * development cookie, which must not land on the localhost you work in.
- * Exit code 1 when something is over budget.
+ * Exit code 1 when something is over budget, when a page never settles or an
+ * API request fails with a server error, or when there was nothing to measure.
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { chromium } from 'playwright-core';
@@ -61,16 +62,19 @@ const SETTLE_MS = 30000;
 const RETRY_BELOW_MS = 3000;
 const QUIET_MS = 250;
 
-const REPORT_TOPICS = [
-  'omzet',
-  'bezetting',
-  'pijplijn',
-  'kosten',
-  'declarabiliteit',
-  'open-rollen',
-  'jaarverantwoording',
+/** Pages left out because an id they need is not in the example data. */
+const skipped = new Set();
+
+const MONEY_PAGES = [
+  ['Lopende opdrachten', '/geld/opdrachten'],
+  ['Omzet', '/geld/omzet'],
+  ['Investeerruimte', '/geld/investeerruimte'],
+  ['Potentieel', '/geld/potentieel'],
+  ['Kosten', '/geld/kosten'],
+  ['Factureren', '/geld/factureren'],
+  ['Jaarverantwoording', '/geld/jaarverantwoording'],
 ];
-const ASSIGNMENT_TABS = ['', 'taken', 'financieel', 'bemensing', 'begroting', 'maandafsluiting'];
+const ASSIGNMENT_PARTS = ['', 'taken', 'afsluiten', 'begroting', 'team', 'gegevens'];
 
 function browserPath() {
   if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
@@ -155,25 +159,27 @@ async function pages(reader) {
     ['Taken', '/taken'],
     ['Wat is er gebeurd', '/wat-is-er-gebeurd'],
     ['Opdrachten', '/opdrachten'],
-    ['Inzet', '/inzet'],
-    ['Kosten', '/kosten'],
-    ['Factureren', '/factureren'],
-    ['Team', '/team'],
+    ['Mensen', '/mensen'],
+    ['Bord', '/mensen/bord'],
+    ['Bezetting', '/mensen/bezetting'],
+    ['Declarabiliteit', '/mensen/declarabiliteit'],
     ['Vacatures', '/vacatures'],
-    ['Open rollen', '/vacatures/open-rollen'],
-    ['Rapportage', '/rapportage'],
-    ...REPORT_TOPICS.map((topic) => [`Rapportage ${topic}`, `/rapportage/${topic}`]),
+    ['Opengesteld', '/vacatures/opengesteld'],
+    ['Geld', '/geld'],
+    ...MONEY_PAGES,
     ['Tarieven', '/beheer/tarieven'],
     ['Activiteit', '/beheer/activiteit'],
   ];
+  if (!running) skipped.add('/opdrachten/:assignmentId');
+  if (!vacancy) skipped.add('/vacatures/:vacancyId');
   if (running)
-    for (const tab of ASSIGNMENT_TABS)
+    for (const tab of ASSIGNMENT_PARTS)
       out.push([
         `Opdracht ${tab || 'overzicht'}`,
         `/opdrachten/${running.id}${tab ? `/${tab}` : ''}`,
       ]);
   if (vacancy) out.push(['Vacature', `/vacatures/${vacancy.id}`]);
-  if (reader.id) out.push(['Persoon', `/team/${reader.id}`]);
+  if (reader.id) out.push(['Persoon', `/mensen/${reader.id}`]);
   const list = out.map(([name, url]) => ({ name, url }));
   return ONLY ? list.filter((p) => p.url.startsWith(ONLY)) : list;
 }
@@ -279,6 +285,7 @@ function summary(result) {
   const over = [];
   if (result.usableMs === null) over.push('komt niet tot rust');
   else if (result.usableMs > BUDGET.usableMs) over.push('pagina');
+  if (calls.some((c) => c.status >= 500)) over.push('verzoek mislukt');
   if (slowest && slowest.ms > BUDGET.callMs) over.push('verzoek');
   if (heaviest && (heaviest.statements ?? 0) > BUDGET.statements) over.push('statements');
   return {
@@ -473,6 +480,9 @@ async function main() {
   await browser.close();
 
   printTable(rows);
+  if (skipped.size > 0)
+    console.error(`Overgeslagen, geen id in de voorbeeldgegevens: ${[...skipped].join(', ')}`);
+  if (rows.length === 0) console.error("FOUT: er is niets gemeten (nul pagina's).");
   const over = rows.filter((row) => row.summary.over.length > 0);
   console.log(
     `\n${rows.length} metingen, ${over.length} boven het budget ` +
@@ -480,7 +490,7 @@ async function main() {
   );
   if (typeof args.json === 'string')
     writeFileSync(args.json, JSON.stringify({ base: BASE, budget: BUDGET, rows }, null, 2));
-  process.exitCode = over.length > 0 ? 1 : 0;
+  process.exitCode = over.length > 0 || rows.length === 0 ? 1 : 0;
 }
 
 main().catch((error) => {

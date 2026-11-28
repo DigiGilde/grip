@@ -49,7 +49,7 @@ def test_a_fact_that_closes_a_task_has_words_for_the_screen():
         ("when", ["invented_fact"], "onbekend feit"),
         ("done_when", "invented_fact", "onbekend feit"),
         ("assignee", "koning", "onbekende rol"),
-        ("track", "nergens", "onbekend spoor"),
+        ("track", "nergens", "onbekende soort werk"),
         ("due", {"working_days": 3, "after": "ooit"}, "onbekend moment"),
         ("set_fact", "quote_accepted", "onbekende instelling"),
     ],

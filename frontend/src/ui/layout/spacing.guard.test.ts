@@ -21,7 +21,13 @@ const SOURCES: Record<string, string> = Object.fromEntries(
   )
     .map(
       ([file, text]) =>
-        [file.replace(/^(\.\.\/)+/, '').replace(/^\.\//, 'ui/layout/'), text] as const,
+        [
+          file
+            .replace(/^\.\.\/\.\.\//, '')
+            .replace(/^\.\.\//, 'ui/')
+            .replace(/^\.\//, 'ui/layout/'),
+          text,
+        ] as const,
     )
     .filter(([file]) => !/\.(test|d)\.tsx?$/.test(file)),
 );
@@ -39,11 +45,9 @@ const GAP_EXCEPTIONS: Record<string, number> = {};
 const PIXEL_EXCEPTIONS: Record<string, number> = {
   'features/costs/costs.css': 11,
   'features/nodes/path.css': 7,
-  'features/overview/overview.css': 1,
   'features/reports/charts/MonthColumns.tsx': 2,
-  'features/reports/reports.css': 41,
+  'features/reports/reports.css': 29,
   'index.css': 3,
-  'layout/shell.css': 3,
   'ui/timeline/timeline.css': 20,
 };
 

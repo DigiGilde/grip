@@ -57,7 +57,7 @@ Geen mandaat; hij tekent niets [aanname]. Het verloop bij ODI is aanvraag, intak
 
 ## In Grip
 
-**DigiGilde voorbeeld** (account, lezer). Hij landt op Start en ziet Start, Taken, Opdrachten, Vacatures, Financieel en Rapportage. Een aanvraag die een gekoppelde grip stuurt, komt binnen als potentiële opdracht met de stand Aangevraagd, gedeeld met die grip. Als lezer ziet hij die en alle andere opdrachten met hun bedragen, maar niet wie erop werkt of tegen welk tarief. In "Een opdracht winnen" kijkt hij mee: de zin zegt wie aan zet is, zonder knop.
+**DigiGilde voorbeeld** (account, lezer). Hij landt op Start en ziet Start, Taken, Opdrachten, Vacatures en Geld. Een aanvraag die een gekoppelde grip stuurt, komt binnen als potentiële opdracht met de stand Aangevraagd, gedeeld met die grip. Als lezer ziet hij die en alle andere opdrachten met hun bedragen, maar niet wie erop werkt of tegen welk tarief. In "Een opdracht winnen" kijkt hij mee: de zin zegt wie aan zet is, zonder knop.
 
 **MOZa voorbeeld** (via federatie). De aanvraag van het programma, de offerte die terug gaat en het akkoord lopen via de koppeling. Hij komt niet in de grip van het programma.
 

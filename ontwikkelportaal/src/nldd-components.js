@@ -1,7 +1,7 @@
 // The design-system components this site renders, one entry point each.
 // `npm run check` fails when a page uses an nldd-* element that no import
 // here defines: such an element would never upgrade.
-import '@nldd/design-system/app-view';
+import '@nldd/design-system/shell';
 import '@nldd/design-system/breadcrumbs';
 import '@nldd/design-system/button';
 import '@nldd/design-system/button-group';
@@ -18,6 +18,7 @@ import '@nldd/design-system/link';
 import '@nldd/design-system/list';
 import '@nldd/design-system/list-item';
 import '@nldd/design-system/menu';
+import '@nldd/design-system/menu-item';
 import '@nldd/design-system/menu-bar';
 import '@nldd/design-system/menu-bar-item';
 import '@nldd/design-system/one-third-two-thirds-section';
@@ -36,5 +37,7 @@ import '@nldd/design-system/text';
 import '@nldd/design-system/text-cell';
 import '@nldd/design-system/title';
 import '@nldd/design-system/toolbar';
+import '@nldd/design-system/toolbar-item';
+import '@nldd/design-system/toolbar-title';
 import '@nldd/design-system/window';
 import '@nldd/design-system/table';

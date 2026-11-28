@@ -1,12 +1,18 @@
 import { useRef, useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { fetchSteering, reportKeys, type CostCoverage } from '@/features/reports/api';
+import { scopeNote } from '@/features/reports/labels';
+import { Figures } from '@/features/reports/ui';
+import { currentReportYear } from '@/features/reports/years';
 import { formatEuro } from '@/lib/format';
 import { useInstance } from '@/layout/useInstance';
 import { useRouterLinks } from '@/layout/useRouterLinks';
+import { PATHS } from '@/paths';
 import { ActionBar } from '@/ui/ActionBar';
 import { OpenRow } from '@/ui/RowActions';
-import { LoadError, Loading, Page, Stack } from '@/ui/layout';
+import { LoadError, Loading, Page, Quiet, Stack } from '@/ui/layout';
+import { useNarrow } from '@/ui/layout/useNarrow';
 import { PageRange, Pager } from '@/ui/Pager';
 import { PAGE_PARAM, usePaging, useSearchWords } from '@/ui/paging';
 import { COST_PAGE_SIZE, costsKey, fetchCostItems, type CostItem } from './api';
@@ -17,8 +23,10 @@ import {
   SEARCH_PARAM,
   YEAR_PARAM,
   attentionPoints,
+  costItemName,
   costItemPath,
   coverageText,
+  incompleteText,
   isCounted,
   parseYear,
   referenceStateText,
@@ -35,10 +43,61 @@ function invoiceCount(item: CostItem): string {
   return count === 1 ? '1 factuur' : `${count} facturen`;
 }
 
+/** The share a budget covers, in words and as an amount. */
+function coveredText(item: CostItem): string {
+  return item.covered_cents === null
+    ? coverageText(item)
+    : `${coverageText(item)}, ${formatEuro(item.covered_cents)}`;
+}
+
+/** What the figures are over: all cost items or the reader's, and the year. */
+function coverNote(scope: CostCoverage['scope'], year: number | null): string {
+  const period = year === null ? 'over de hele looptijd' : `met de facturen van ${year}`;
+  return scopeNote(
+    scope,
+    `Alle kostenposten, ${period}.`,
+    `De kostenposten die door je eigen opdrachten worden gedekt, ${period}.`,
+  );
+}
+
+/** The totals exist per year only; over the whole duration the rows say it. */
+function CoverFigures({ costs }: { costs: CostCoverage }) {
+  const missing = costs.incomplete_by ?? [];
+  return (
+    <Figures
+      label="Kosten in het kort"
+      {...(missing.length > 0 ? { note: incompleteText(missing) } : {})}
+      figures={[
+        {
+          label: 'Ongedekt',
+          value: formatEuro(costs.uncovered_cents),
+          ...(costs.uncovered_cents > 0
+            ? {
+                attention: 'Geen begrotingsregel dekt dit',
+                detail: `van ${formatEuro(costs.forecast_cents)} verwachte kosten`,
+              }
+            : { quiet: true, detail: 'alle kosten zijn gedekt' }),
+        },
+        {
+          label: 'Verwachte kosten',
+          value: formatEuro(costs.forecast_cents),
+          quiet: costs.forecast_cents === 0,
+        },
+        {
+          label: 'Gedekt door begrotingsregels',
+          value: formatEuro(costs.covered_cents),
+          quiet: costs.covered_cents === 0,
+        },
+      ]}
+    />
+  );
+}
+
 /**
- * External costs: per cost item what it is expected to be against its
- * budget, and how much of it a budget covers. What needs attention comes
- * first: money nobody pays for, an overrun, an invoice without its document.
+ * External costs: how the year stands, then per cost item what it is expected
+ * to be against its budget and how much of it a budget covers. What needs
+ * attention comes first: money nobody pays for, an overrun, an invoice without
+ * its document.
  */
 export function CostsPage() {
   const instance = useInstance();
@@ -59,6 +118,16 @@ export function CostsPage() {
   const items = query.data?.items ?? [];
   const mayCreate = query.data?.may_create ?? false;
   const [adding, setAdding] = useState<ItemTarget | null>(null);
+  // The column Dekking follows the width of the table, which is the window minus
+  // the margins of the page: from this width on it is gone, so the row says it.
+  const tableNarrow = useNarrow('(max-width: 720px)');
+  const coverYear = String(year ?? currentReportYear());
+  // Its own request, so a problem with it never hides the list.
+  const cover = useQuery({
+    queryKey: reportKeys.steering(coverYear),
+    queryFn: () => fetchSteering(coverYear),
+    select: (steering) => steering.costs,
+  });
 
   const setYear = (value: string) =>
     setSearchParams(
@@ -75,7 +144,12 @@ export function CostsPage() {
 
   return (
     <div ref={rootRef}>
-      <Page title="Kosten en facturen" instanceName={instance?.name}>
+      <Page
+        kind="list"
+        title="Kosten"
+        instanceName={instance?.name}
+        back={{ href: PATHS.money, text: 'Terug naar Geld' }}
+      >
         <ActionBar
           label="Kostenposten zoeken, filteren en acties"
           search={{ label: 'Zoek op kostenpost', value: words, onChange: setWords }}
@@ -100,6 +174,12 @@ export function CostsPage() {
               : []
           }
         />
+        {cover.data && (
+          <Stack gap="related">
+            <Quiet>{coverNote(cover.data.scope, year)}</Quiet>
+            {year !== null && <CoverFigures costs={cover.data} />}
+          </Stack>
+        )}
         {query.isPending && <Loading />}
         {query.isError && <LoadError error={query.error} retry={() => void query.refetch()} />}
         {query.data && (
@@ -125,23 +205,24 @@ export function CostsPage() {
                     ? []
                     : [referenceStateText(item.reference_state, item.executor_name)]),
                   ...(counted ? [invoiceCount(item)] : []),
+                  ...(tableNarrow ? [coveredText(item)] : []),
                   ...points,
                 ];
                 return (
                   <OpenRow key={item.id} onOpen={() => navigate(path)}>
-                    <nldd-cell>
+                    <nldd-cell row-header>
                       <nldd-container gap="4">
-                        <nldd-link href={path} text={item.description} />
-                        <nldd-text size="sm" color="secondary">
-                          {detail.join(' · ')}
+                        <nldd-link href={path} text={costItemName(item)} />
+                        <nldd-text size="sm">
+                          <span>{detail.join(' · ')}</span>
                         </nldd-text>
                       </nldd-container>
                     </nldd-cell>
                     <nldd-cell hide-below="md">
                       <nldd-container gap="4">
                         {counted && <CoverageMiniBar item={item} />}
-                        <nldd-text size="sm" color="secondary">
-                          {coverageText(item)}
+                        <nldd-text size="sm">
+                          <span>{coveredText(item)}</span>
                         </nldd-text>
                       </nldd-container>
                     </nldd-cell>
@@ -157,7 +238,6 @@ export function CostsPage() {
                         text={formatEuro(item.budgeted_cents)}
                         {...(item.budgeted_cents === null ? {} : { 'supporting-text': 'begroot' })}
                         horizontal-alignment="right"
-                        color="secondary"
                       />
                     )}
                   </OpenRow>

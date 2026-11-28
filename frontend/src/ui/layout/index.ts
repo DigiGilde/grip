@@ -12,10 +12,8 @@ export {
   SectionHeading,
   SignalList,
   Stack,
-  ThingHead,
-  TitleBlock,
 } from './primitives';
-export type { Fact, Gap, KeyFigure, PageBack, Signal } from './primitives';
+export type { Fact, Gap, KeyFigure, PageBack, PageKind, PageTabs, Signal } from './primitives';
 export { FilterSelect } from './FilterSelect';
 export { FormFields, FormSheet } from './FormSheet';
 export { LoadError, NoAccess, NotFound, StateNotice } from './states';

@@ -256,7 +256,7 @@ async def test_a_quarter_is_delivered_once_when_all_its_months_are_closed(
     delivery = await one(db_session, "financien.factuurgegevens_aanleveren")
     assert delivery.title == "Lever het eerste kwartaal van 2026 aan"
     assert delivery.repeat_key == "2026-Q1"
-    assert delivery.link.endswith("/maandafsluiting?periode=2026-Q1")
+    assert delivery.link.endswith("/afsluiten?periode=2026-Q1")
     assert delivery.due_on == add_working_days(NOW.date(), 5)
 
     exports = [await build.export(close) for close in closes]

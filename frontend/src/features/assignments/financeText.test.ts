@@ -31,13 +31,6 @@ describe('signals in words', () => {
     );
   });
 
-  it('says which way the budget differs from the signed quote', () => {
-    const higher = signalText(signal({ kind: 'budget_differs_from_agreed', amount_cents: -250000 }), '10');
-    expect(plain(higher.text)).toBe('De begroting is € 2.500 hoger dan de getekende offerte');
-    const lower = signalText(signal({ kind: 'budget_differs_from_agreed', amount_cents: 100000 }), '10');
-    expect(plain(lower.text)).toBe('De begroting is € 1.000 lager dan de getekende offerte');
-  });
-
   it('gives the cause of a rate difference with the person only to who got it', () => {
     const named = 'gepromoveerd per 1 juli 2026: vanaf dan categorie C, de regel is begroot op B';
     expect(

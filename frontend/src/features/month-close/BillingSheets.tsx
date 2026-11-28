@@ -30,6 +30,7 @@ function useRefresh(assignmentId: string) {
     await queryClient.invalidateQueries({ queryKey: ['billing'] });
     await queryClient.invalidateQueries({ queryKey: ['assignments'] });
     await queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    await queryClient.invalidateQueries({ queryKey: ['overview'] });
   };
 }
 
@@ -105,13 +106,13 @@ export function TermsSheet({ overview, open, onClose }: TermsSheetProps) {
         disabled={delivered}
         {...(delivered ? { hint: 'Ligt vast: er is al een periode aangeleverd' } : {})}
       />
-      <nldd-title size={5} heading-level={2} text="Factuur aan" />
+      <nldd-title size="display-5" heading-level={2} text="Factuur aan" />
       <DetailFields
         keys={ADDRESS_KEYS}
         details={details}
         onChange={(key, value) => setDetails((current) => ({ ...current, [key]: value }))}
       />
-      <nldd-title size={5} heading-level={2} text="Contact bij de financiële afdeling" />
+      <nldd-title size="display-5" heading-level={2} text="Contact bij de financiële afdeling" />
       <DetailFields
         keys={CONTACT_KEYS}
         details={details}
@@ -211,15 +212,19 @@ export function DeliverSheet({ overview, period, onClose }: DeliverSheetProps) {
         {/* The words of the document that comes out: only differences is a naverrekening. */}
         {shown?.correction ? (
           <nldd-text>
-            Grip maakt een naverrekening: één document met het verschil over{' '}
-            {corrections.map((month) => month.label).join(' en ')} en het factuuradres. De prijs is
-            na de aanlevering gewijzigd; de financiële administratie verrekent het verschil.
+            <p>
+              Grip maakt een naverrekening: één document met het verschil over{' '}
+              {corrections.map((month) => month.label).join(' en ')} en het factuuradres. De prijs
+              is na de aanlevering gewijzigd; de financiële administratie verrekent het verschil.
+            </p>
           </nldd-text>
         ) : (
           <>
             <nldd-text>
-              Grip maakt een factuurverzoek: één document met het bedrag, de specificatie per maand
-              en het factuuradres. Daarmee maakt de financiële administratie de factuur.
+              <p>
+                Grip maakt een factuurverzoek: één document met het bedrag, de specificatie per
+                maand en het factuuradres. Daarmee maakt de financiële administratie de factuur.
+              </p>
             </nldd-text>
             {corrections.length > 0 ? (
               <Quiet>
@@ -233,7 +238,7 @@ export function DeliverSheet({ overview, period, onClose }: DeliverSheetProps) {
       </Stack>
       {asked ? (
         <>
-          <nldd-title size={5} heading-level={2} text="Waar gaat de factuur heen?" />
+          <nldd-title size="display-5" heading-level={2} text="Adres voor de factuur" />
           <DetailFields
             keys={ADDRESS_KEYS}
             details={details}

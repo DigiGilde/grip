@@ -30,6 +30,8 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from grip.core import clock
+from grip.core.config import Settings
 from grip.models.task import OPEN_STATUSES, Task, TaskCase, TaskEngineRun
 from grip.services import read_cache
 from grip.services.vacancies.procedure import is_working_day
@@ -500,6 +502,39 @@ _CASE_KINDS = read_cache.UNRELATED_KINDS - {
 }
 
 
+async def assignment_facts(
+    db: AsyncSession,
+    assignment_ids: set[UUID],
+    *,
+    today: date,
+    instance_base_uri: str,
+) -> list[CaseSnapshot]:
+    """The facts of these assignment cases, as the engine reads them.
+
+    They hold until an event about the case, or one that is not about a
+    single assignment, and until the day turns. A case nothing happened on is
+    not read again.
+    """
+
+    async def compute(ids: list[UUID]) -> dict[UUID, CaseSnapshot | None]:
+        found = await load_assignment_cases(
+            db, set(ids), today=today, instance_base_uri=instance_base_uri
+        )
+        by_id: dict[UUID, CaseSnapshot | None] = dict.fromkeys(ids)
+        by_id.update({case.case_id: case for case in found})
+        return by_id
+
+    found = await read_cache.remember_many(
+        db,
+        "task_case",
+        sorted(assignment_ids, key=str),
+        (today, instance_base_uri),
+        compute,
+        count=_CASE_KINDS,
+    )
+    return [case for case in found.values() if case is not None]
+
+
 async def evaluate_assignments(
     db: AsyncSession,
     assignment_ids: set[UUID],
@@ -510,27 +545,10 @@ async def evaluate_assignments(
 ) -> Outcome:
     await db.flush()
 
-    async def compute(ids: list[UUID]) -> dict[UUID, CaseSnapshot | None]:
-        found = await load_assignment_cases(
-            db, set(ids), today=today, instance_base_uri=instance_base_uri
-        )
-        by_id: dict[UUID, CaseSnapshot | None] = dict.fromkeys(ids)
-        by_id.update({case.case_id: case for case in found})
-        return by_id
-
     async def load(ids: set[UUID]) -> list[CaseSnapshot]:
-        # The facts of a case hold until an event about it, or one that is
-        # not about a single assignment, and until the day turns. A case
-        # nothing happened on is not read again.
-        found = await read_cache.remember_many(
-            db,
-            "task_case",
-            sorted(ids, key=str),
-            (today, instance_base_uri),
-            compute,
-            count=_CASE_KINDS,
+        return await assignment_facts(
+            db, ids, today=today, instance_base_uri=instance_base_uri
         )
-        return [case for case in found.values() if case is not None]
 
     cases, failed = await _load_each_if_needed(db, "assignment", assignment_ids, load)
     outcome = await _reconcile(db, cases, now=now or datetime.now(UTC))
@@ -654,6 +672,17 @@ async def ensure_current(
 
     sa_event.listen(db.sync_session, "after_commit", _committed, once=True)
     return outcome
+
+
+async def look(db: AsyncSession, settings: Settings) -> Outcome | None:
+    """Bring the tasks up to date for a reader, unless nothing changed since the
+    last look."""
+    return await ensure_current(
+        db,
+        today=clock.today(),
+        instance_base_uri=settings.INSTANCE_BASE_URI,
+        max_idle_seconds=settings.TASKS_EVALUATE_INTERVAL_SECONDS or 300,
+    )
 
 
 async def invalidate(db: AsyncSession) -> None:

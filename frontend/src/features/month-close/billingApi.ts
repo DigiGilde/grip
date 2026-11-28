@@ -55,6 +55,8 @@ export interface BillingDelivery {
   delivered_at: string;
   delivered_by_name: string | null;
   has_document: boolean;
+  /** Whether the reader may open the request this delivery went out with. */
+  may_open?: boolean;
   mail_state: 'queued' | 'sent' | 'failed' | null;
   invoice_id: string | null;
   invoice_number: string | null;
@@ -216,6 +218,8 @@ export interface BillingAcross {
   assignments: BillingOverview[];
   /** False when the reader may see the money of no assignment: the page is then not theirs. */
   reads_money?: boolean;
+  /** What the reader may deliver now: the periods that are ready, on assignments with the invoice details. */
+  ready_cents?: number;
   can_mail: boolean;
 }
 

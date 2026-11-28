@@ -6,7 +6,7 @@ import { PRODUCT_SENTENCE, ROUTES } from '../lib/site';
 <Base>
   <nldd-simple-section padding-bottom="0">
     <nldd-container slot="header">
-      <nldd-title size="1" heading-level="1" text={PRODUCT_SENTENCE}></nldd-title>
+      <nldd-title size="display-1" heading-level="1" text={PRODUCT_SENTENCE}></nldd-title>
       <nldd-spacer size="16"></nldd-spacer>
       <nldd-rich-text>
         <p>
@@ -28,7 +28,7 @@ import { PRODUCT_SENTENCE, ROUTES } from '../lib/site';
   <template id="demo-sjabloon">
     <nldd-simple-section id="demo">
       <nldd-container slot="header">
-        <nldd-title size="4" heading-level="2" text="Demo"></nldd-title>
+        <nldd-title size="display-4" heading-level="2" text="Demo"></nldd-title>
         <nldd-spacer size="16"></nldd-spacer>
         <nldd-rich-text>
           <p>
@@ -37,7 +37,7 @@ import { PRODUCT_SENTENCE, ROUTES } from '../lib/site';
           </p>
         </nldd-rich-text>
       </nldd-container>
-      <nldd-collection id="demo-instanties" layout="grid" item-width="280px"></nldd-collection>
+      <nldd-collection id="demo-instanties" layout="grid" item-min-width="280px"></nldd-collection>
     </nldd-simple-section>
   </template>
 </Base>

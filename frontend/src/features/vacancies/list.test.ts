@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { VacancySummary } from './api';
 import { orderVacancies, standingOf } from './list';
-import { STEP_NAMES, vacancySteps } from './steps';
+import { STEP_NAMES } from './steps';
 
 const NOW = new Date(2026, 9, 8); // 8 October 2026
 
@@ -36,26 +36,6 @@ describe('standingOf', () => {
     expect(ended).toEqual({ step: '', detail: 'Sinds 1 okt 2026' });
     // A reader of the published vacancy only gets no step at all.
     expect(standingOf(row('a', { status: 'open' }), NOW)).toEqual({ step: '', detail: '' });
-  });
-
-  it('uses the same words as the step bar of the vacancy page', () => {
-    const steps = vacancySteps({
-      id: 'v',
-      function_title: 'x',
-      fte: '1.00',
-      status: 'draft',
-      procedure: [],
-      decisions: [],
-      texts: [],
-      permissions: {
-        can_edit: true,
-        can_record_hr_advice: false,
-        can_record_control_advice: false,
-        can_record_approval: false,
-        can_download_form: false,
-      },
-    })!;
-    expect(steps.items).toEqual(Object.values(STEP_NAMES));
   });
 });
 

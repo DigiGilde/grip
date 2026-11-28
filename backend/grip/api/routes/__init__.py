@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 
 from grip.api.routes.allocations import router as allocations_router
 from grip.api.routes.assignment_finance import router as assignment_finance_router
+from grip.api.routes.assignment_parts import router as assignment_parts_router
 from grip.api.routes.assignments import router as assignments_router
 from grip.api.routes.auth import router as auth_router
 from grip.api.routes.billing import router as billing_router
@@ -38,11 +39,14 @@ from grip.api.routes.rates import router as rates_router
 from grip.api.routes.received_quotes import router as received_quotes_router
 from grip.api.routes.received_quotes_list import router as received_quotes_list_router
 from grip.api.routes.reports import router as reports_router
+from grip.api.routes.search import router as search_router
 from grip.api.routes.signing import router as signing_router
+from grip.api.routes.start import router as start_router
 from grip.api.routes.tasks import router as tasks_router
 from grip.api.routes.updates import router as updates_router
 from grip.api.routes.vacancies import router as vacancies_router
 from grip.api.routes.vacancy_hire import router as vacancy_hire_router
+from grip.api.routes.vacancy_parts import router as vacancy_parts_router
 from grip.api.routes.vacancy_request_forms import (
     router as vacancy_request_forms_router,
 )
@@ -62,6 +66,7 @@ api_router.include_router(instance_router)
 api_router.include_router(organisations_router)
 api_router.include_router(assignments_router)
 api_router.include_router(assignment_finance_router)
+api_router.include_router(assignment_parts_router)
 api_router.include_router(budget_lines_router)
 api_router.include_router(chronicle_router)
 api_router.include_router(overview_router)
@@ -73,6 +78,7 @@ api_router.include_router(costs_router)
 api_router.include_router(vacancy_request_forms_router)
 api_router.include_router(vacancies_router)
 api_router.include_router(vacancy_hire_router)
+api_router.include_router(vacancy_parts_router)
 api_router.include_router(vacancy_texts_router)
 api_router.include_router(form_templates_router)
 api_router.include_router(quotes_router)
@@ -104,3 +110,5 @@ api_router.include_router(proof_router)
 api_router.include_router(events_router)
 api_router.include_router(event_feed_router)
 api_router.include_router(updates_router)
+api_router.include_router(start_router)
+api_router.include_router(search_router)

@@ -138,10 +138,6 @@ export function SelectField({
   invalid,
   width,
 }: SelectFieldProps) {
-  const ref = useRef<HTMLElement>(null);
-  // The dropdown stops the native change event of the slotted select and
-  // sends its own, so the handler on the select alone never fires.
-  useNlddEvent(ref, 'change', (event) => onChange(eventValue(event)));
   return (
     <Sized width={width}>
       <nldd-form-field
@@ -149,7 +145,7 @@ export function SelectField({
         {...(supportingLabel ? { 'supporting-label': supportingLabel } : {})}
         optional={orUndef(optional)}
       >
-        <nldd-dropdown ref={ref} invalid={orUndef(invalid)}>
+        <nldd-dropdown invalid={orUndef(invalid)}>
           <select value={value} onChange={(event) => onChange(event.target.value)}>
             {emptyLabel !== undefined && <option value="">{emptyLabel}</option>}
             {groupOptions(options).map(([group, entries]) =>

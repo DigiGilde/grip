@@ -93,6 +93,12 @@ function BackItem() {
   return <nldd-menu-item ref={ref} icon="arrow-u-turn-backward" text="Terug naar de beheerder" />;
 }
 
+/** Whether the menu group below draws anything, for a menu that holds nothing else. */
+export function useCanSwitchDevPerson(): boolean {
+  const data = useDevPeople();
+  return data?.enabled === true && data.people.length > 0;
+}
+
 /** The menu group for acting as someone else; nothing outside local development. */
 export function DevPersonSwitch({ currentId }: { currentId: string | null }) {
   const data = useDevPeople();

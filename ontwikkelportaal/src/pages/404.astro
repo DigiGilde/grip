@@ -11,10 +11,8 @@ import { ROUTES } from '../lib/site';
       text="Deze pagina bestaat niet"
       supporting-text="Misschien is ze verplaatst. Zoek haar op, of begin bij de start."
     >
-      <nldd-button-group slot="actions">
-        <nldd-button appearance="secondary" text="Zoeken" href={ROUTES.search}></nldd-button>
-        <nldd-button appearance="secondary" text="Naar de start" href={ROUTES.start}></nldd-button>
-      </nldd-button-group>
+      <nldd-button slot="actions" appearance="secondary" text="Zoeken" href={ROUTES.search}></nldd-button>
+      <nldd-button slot="actions" appearance="secondary" text="Naar de start" href={ROUTES.start}></nldd-button>
     </nldd-inline-dialog>
   </nldd-simple-section>
 </Base>

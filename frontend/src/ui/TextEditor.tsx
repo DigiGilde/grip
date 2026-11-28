@@ -3,8 +3,8 @@
  * vacancy text, a section of a quote, a standard text.
  *
  * It is the design system's text editor (nldd-text-editor): the text stays
- * plain text with marks, the formatting shows while you write and the marks
- * themselves stand dimmed beside it. The editor has no toolbar of its own;
+ * plain text with marks, the formatting shows while you write and a mark only
+ * shows where the caret touches it. The editor has no toolbar of its own;
  * this component gives it one with exactly the formats the text can hold,
  * and brings whatever is typed or pasted back to those (see ./text/marks).
  * A person never has to type a mark.
@@ -191,7 +191,7 @@ export function TextEditor({
     const stored = toStored(el.value ?? '', marks);
     if (stored !== el.value) el.value = stored;
   });
-  useNlddEvent(editor, 'nldd-text-editor-state', (event) => {
+  useNlddEvent(editor, 'state-change', (event) => {
     const formats = (event as CustomEvent<{ active?: ActiveFormats }>).detail?.active;
     if (formats) setActive(formats);
   });
@@ -319,10 +319,12 @@ export function TextEditor({
           {open.length > 0 ? (
             <>
               <nldd-spacer />
-              <nldd-text size="sm" color="secondary">
-                {open.length === 1
-                  ? 'Nog 1 plek in te vullen'
-                  : `Nog ${open.length} plekken in te vullen`}
+              <nldd-text size="sm">
+                <span>
+                  {open.length === 1
+                    ? 'Nog 1 plek in te vullen'
+                    : `Nog ${open.length} plekken in te vullen`}
+                </span>
               </nldd-text>
               {canPropose ? (
                 <Button size="sm" text="Stel voor" loading={proposing} onClick={propose} />
@@ -334,7 +336,6 @@ export function TextEditor({
         {proposal}
         <nldd-text-editor
           ref={editor}
-          appearance="input-field"
           accessible-label={label}
           rows={rows}
           required={orUndef(required)}

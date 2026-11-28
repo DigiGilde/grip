@@ -10,13 +10,16 @@ from sqlalchemy import select
 
 from grip.access.decider import LocalDecider
 from grip.access.sql import SqlRelationSource
-from grip.access.types import Subject
+from grip.access.types import DataClass, ResourceKind, Subject
+from grip.access.vacancies import vacancy_resource
 from grip.core.config import get_settings
 from grip.events import news, stream, words
 from grip.events.classification import SPECS
 from grip.events.reading import EventAccess
 from grip.models.stream_event import StreamEvent
+from grip.models.vacancy import VacancyText
 from grip.services import events as domain_events
+from grip.tasks import engine
 
 
 def _all_types() -> set[str]:
@@ -70,6 +73,8 @@ def _add(
 async def day(db_session, world):
     """A day of work on the assignment, done by the owner."""
     db, owner = db_session, world.owner
+    # Months can be closed, so the assignment has the part the news points at.
+    world.assignment.status = "in_progress"
     quote_id = uuid.uuid4()
     made = {
         "quote_made": _add(
@@ -154,7 +159,42 @@ async def test_a_burst_is_one_item_and_two_steps_are_one_sentence(
     link = next(part for part in months["parts"] if part.get("href"))
     assert link == {
         "text": "Opdracht Alfa 2026",
-        "href": f"/opdrachten/{world.assignment.id}/maandafsluiting",
+        "href": f"/opdrachten/{world.assignment.id}/afsluiten",
+    }
+
+
+async def test_the_links_of_the_feed_lead_to_the_addresses_of_the_places(
+    client, as_person, world, day, db_session
+):
+    stream.append(
+        db_session,
+        subject=("person", world.member.id),
+        action="create",
+        actor_person_id=world.owner.id,
+        person_id=world.member.id,
+    )
+    await db_session.flush()
+    items = (await _feed(client, as_person, world.beheerder))["items"]
+    href = {
+        item["kind"]: next(p["href"] for p in item["parts"] if p.get("href"))
+        for item in items
+        if any(p.get("href") for p in item["parts"])
+    }
+    assignment = f"/opdrachten/{world.assignment.id}"
+    assert href["month_closed"] == f"{assignment}/afsluiten"
+    assert href["joined"] == f"{assignment}/team"
+    assert href["person_new"] == f"/mensen/{world.member.id}"
+
+
+def test_the_part_a_news_rule_points_at_is_a_part_of_the_case():
+    parts = {rule.tab for rule in news.NEWS if rule.tab}
+    assert parts <= {
+        "offerte",
+        "afsluiten",
+        "team",
+        "advies",
+        "tekst",
+        "vervulling",
     }
 
 
@@ -253,6 +293,134 @@ async def test_news_about_you_names_a_closed_assignment_without_a_link(
     assert any(
         (part.get("href") or "").startswith(f"/opdrachten/{world.assignment.id}")
         for part in item["parts"]
+    )
+
+
+def _link_of(body: dict, kind: str) -> str | None:
+    item = next(item for item in body["items"] if item["kind"] == kind)
+    return next((p["href"] for p in item["parts"] if p.get("href")), None)
+
+
+async def test_a_team_member_gets_the_assignment_where_the_quote_is_closed_to_them(
+    client, as_person, world, db_session
+):
+    """The tab of a quote shows money. A reader who reads none of it is sent
+    to the assignment itself, not to a page that would refuse them."""
+    _add(db_session, world, "quote_acceptance", actor=world.beheerder)
+    await db_session.flush()
+    assignment = f"/opdrachten/{world.assignment.id}"
+    assert _link_of(await _feed(client, as_person, world.member), "quote_signed") == (
+        assignment
+    )
+    for reader in (world.owner, world.lezer):
+        body = await _feed(client, as_person, reader)
+        assert _link_of(body, "quote_signed") == f"{assignment}/offerte", reader.name
+
+
+async def test_fulfilment_is_linked_only_for_who_may_edit_the_vacancy(
+    client, as_person, world, db_session
+):
+    from decimal import Decimal
+
+    from grip.services.vacancies import service as vacancy_service
+
+    vacancy = await vacancy_service.create_vacancy(
+        db_session,
+        actor=world.planner,
+        function_title="Teamleider",
+        fte=Decimal("1"),
+        declarable=False,
+    )
+    stream.append(
+        db_session,
+        subject=("vacancy", vacancy.id),
+        action="update",
+        actor_person_id=world.owner.id,
+        vacancy_id=vacancy.id,
+        new={"status": "filled"},
+    )
+    await db_session.flush()
+    page = f"/vacatures/{vacancy.id}"
+    assert _link_of(
+        await _feed(client, as_person, world.planner), "vacancy_filled"
+    ) == (f"{page}/vervulling")
+    assert _link_of(await _feed(client, as_person, world.lezer), "vacancy_filled") == (
+        page
+    )
+
+
+class _Answers:
+    """An access that answers from a list, to try the rules of a link."""
+
+    def __init__(self, allowed=(), edit=False, resource=None):
+        self.allowed = set(allowed)
+        self.edit = edit
+        self.resource = resource
+
+    async def may(self, resource, data_class):
+        return (resource.kind, data_class) in self.allowed
+
+    async def may_edit(self, resource):
+        return self.edit
+
+    async def resource_of(self, event):
+        return self.resource
+
+
+def _event_about(kind, object_id):
+    return StreamEvent(case_kind=kind, case_id=object_id)
+
+
+async def test_a_tab_is_linked_only_when_the_reader_may_read_what_it_shows():
+    assignment, other = uuid.uuid4(), ResourceKind.ASSIGNMENT
+    event = _event_about("assignment", assignment)
+    basic = {(other, DataClass.ASSIGNMENT_BASIC)}
+    money = basic | {(other, DataClass.ASSIGNMENT_FINANCIAL)}
+    roster = basic | {(other, DataClass.STAFFING_ROSTER)}
+    staffing = basic | {(other, DataClass.STAFFING)}
+
+    async def tab(tab_name, allowed):
+        return await news._tab_openable(
+            _Answers(allowed), event, tab_name, "assignment", assignment
+        )
+
+    assert not await tab("offerte", basic)
+    assert await tab("offerte", money)
+    assert not await tab("afsluiten", basic)
+    assert await tab("afsluiten", money)
+    assert not await tab("team", basic | {(other, DataClass.ASSIGNMENT_FINANCIAL)})
+    assert await tab("team", roster)
+    assert await tab("team", staffing)
+    # Without a tab there is nothing to refuse.
+    assert await tab("", basic)
+
+
+async def test_a_vacancy_and_a_person_are_openable_only_with_a_right_to_read_them():
+    vacancy, person = uuid.uuid4(), uuid.uuid4()
+    resource = vacancy_resource(vacancy)
+    event = _event_about("vacancy", vacancy)
+
+    async def opens(access, kind, object_id):
+        return await news._openable(access, event, kind, object_id)
+
+    none = _Answers(resource=resource)
+    counts = _Answers(
+        {(ResourceKind.VACANCY, DataClass.STAFFING_COUNTS)}, resource=resource
+    )
+    assert not await opens(none, "vacancy", vacancy)
+    assert await opens(counts, "vacancy", vacancy)
+    assert not await opens(_Answers(resource=None), "vacancy", vacancy)
+    # The fulfilment is the part of whoever may edit.
+    assert await news._tab_openable(counts, event, "advies", "vacancy", vacancy)
+    assert not await news._tab_openable(counts, event, "vervulling", "vacancy", vacancy)
+    editor = _Answers(
+        {(ResourceKind.VACANCY, DataClass.STAFFING_COUNTS)}, True, resource
+    )
+    assert await news._tab_openable(editor, event, "vervulling", "vacancy", vacancy)
+
+    assert not await opens(_Answers(), "person", person)
+    assert await opens(
+        _Answers({(ResourceKind.PERSON, DataClass.STAFFING_ROSTER)}), "person", person
     )
 
 
@@ -380,3 +548,172 @@ def test_no_sentence_template_holds_a_code_name():
                 plain.replace("{n}", "3").replace("{ref}", "").replace("{detail}", "x")
             )
             assert not words.CODE.search(plain) and "{" not in plain, template
+
+
+async def test_a_link_to_a_part_goes_only_to_a_part_the_reader_has(
+    client, as_person, world, day, db_session
+):
+    """Whatever the kind of reader, the part a sentence points at is one the
+    page of that object lists for them."""
+    from decimal import Decimal
+
+    from grip.services.vacancies import service as vacancy_service
+
+    created = set()
+    for title, vacancy_type, kind, new in (
+        (
+            "Teamleider",
+            "regulier",
+            "vacancy_decision",
+            {"kind": "approval", "agreed": True},
+        ),
+        ("Beheerder", "beoogd", "vacancy_text", {"established": True}),
+        ("Gerede", "gerede", "vacancy_text", {"established": True}),
+    ):
+        vacancy = await vacancy_service.create_vacancy(
+            db_session,
+            actor=world.planner,
+            function_title=title,
+            fte=Decimal("1"),
+            declarable=False,
+            vacancy_type=vacancy_type,
+        )
+        created.add(vacancy.id)
+        if title == "Gerede":
+            ready = vacancy.id
+            db_session.add(
+                VacancyText(
+                    vacancy_id=vacancy.id,
+                    kind="motivation",
+                    body="Reden.",
+                    source="human",
+                    established_by_id=world.planner.id,
+                    established_at=datetime.now(UTC),
+                )
+            )
+        stream.append(
+            db_session,
+            subject=(kind, vacancy.id),
+            action="update",
+            actor_person_id=world.owner.id,
+            vacancy_id=vacancy.id,
+            new=new,
+        )
+    # A month that was closed on an assignment that has not started: its page
+    # has no closing part.
+    from grip.services import assignments
+
+    early = await assignments.create_assignment(
+        db_session, name="Opdracht Nog Niet", actor=world.owner
+    )
+    stream.append(
+        db_session,
+        subject=("month_close", uuid.uuid4()),
+        action="create",
+        actor_person_id=world.owner.id,
+        assignment_id=early.id,
+        new={"month": "2026-01"},
+    )
+    await db_session.flush()
+    await engine.evaluate_vacancies(db_session, created)
+
+    segment = {"quote": "offerte", "close": "afsluiten", "team": "team"}
+    segment |= {"decisions": "advies", "text": "tekst", "fulfilment": "vervulling"}
+    tab_of = {rule.key: rule.tab for rule in news.NEWS}
+    seen = 0
+    ready_linked: set[str] = set()
+    for reader in (world.beheerder, world.planner, world.lezer, world.member):
+        body = await _feed(client, as_person, reader)
+        for item in body["items"]:
+            for part in item["parts"]:
+                path = (part.get("href") or "").strip("/").split("/")
+                if len(path) < 2 or path[0] not in ("opdrachten", "vacatures"):
+                    continue
+                api = "assignments" if path[0] == "opdrachten" else "vacancies"
+                answer = await as_person(reader).get(f"/api/{api}/{path[1]}/parts")
+                assert answer.status_code == 200, answer.text
+                have = {
+                    segment[row["key"]]
+                    for row in answer.json()["parts"]
+                    if row["key"] in segment
+                }
+                where = (reader.name, item["kind"], part["href"])
+                if len(path) == 3:
+                    assert path[2] in have, where
+                    seen += 1
+                    if path[1] == str(ready) and path[2] == "tekst":
+                        ready_linked.add(reader.name)
+                    continue
+                tab = tab_of.get(item["kind"])
+                if tab:
+                    assert tab not in have, where
+    assert seen > 0
+    assert world.planner.name in ready_linked
+
+    # The work of a task leads to a part of the same page, under the same rule.
+    from grip.services.assignment_parts import PART_OF_DESTINATION
+    from grip.tasks.telling import guidance
+
+    row_of = {}
+    for destination, part in PART_OF_DESTINATION.items():
+        path = guidance().destinations[destination].split("?")[0]
+        row_of[path.rsplit("/", 1)[1]] = part
+    led = 0
+    for reader in (world.beheerder, world.planner, world.lezer, world.member):
+        mine = await as_person(reader).get("/api/tasks/mine")
+        assert mine.status_code == 200, mine.text
+        for task in mine.json()["items"]:
+            path = (task.get("work_href") or "").split("?")[0].strip("/").split("/")
+            if len(path) != 3 or path[0] != "opdrachten" or path[2] not in row_of:
+                continue
+            answer = await as_person(reader).get(f"/api/assignments/{path[1]}/parts")
+            assert answer.status_code == 200, answer.text
+            have = {row["key"] for row in answer.json()["parts"]}
+            assert row_of[path[2]] in have, (reader.name, task["work_href"])
+            led += 1
+    assert led > 0
+
+
+async def test_the_link_check_does_not_grow_with_what_is_shown(
+    client, as_person, world, day, db_session
+):
+    from sqlalchemy import event
+
+    from grip.services import assignments
+
+    async def statements() -> int:
+        engine = db_session.bind.sync_engine
+        count = 0
+
+        def _count(*_):
+            nonlocal count
+            count += 1
+
+        await _feed(client, as_person, world.beheerder)
+        event.listen(engine, "before_cursor_execute", _count)
+        try:
+            await _feed(client, as_person, world.beheerder)
+        finally:
+            event.remove(engine, "before_cursor_execute", _count)
+        return count
+
+    async def more(number: int) -> None:
+        for index in range(number):
+            assignment = await assignments.create_assignment(
+                db_session, name=f"Opdracht Veel {index}", actor=world.owner
+            )
+            assignment.status = "in_progress"
+            stream.append(
+                db_session,
+                subject=("month_close", uuid.uuid4()),
+                action="create",
+                actor_person_id=world.owner.id,
+                assignment_id=assignment.id,
+                new={"month": "2026-01"},
+            )
+        await db_session.flush()
+
+    await more(2)
+    few = await statements()
+    await more(8)
+    assert await statements() <= few + 1

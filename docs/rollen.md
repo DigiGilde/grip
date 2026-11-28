@@ -75,7 +75,7 @@ Wat Wies zegt, overschrijft nooit iets vanzelf. Grip vergelijkt de rollen van ee
 
 De beheerder bevestigt de voorstellen. Grip past alleen toe wat Wies op dat moment nog onderbouwt.
 
-De rollen van een persoon zijn bemensing (klasse C in [toegang.md](toegang.md)): te zien voor wie de bemensing van die persoon mag zien, te wijzigen door de beheerder.
+De rollen van een persoon vallen onder inzet (klasse C in [toegang.md](toegang.md)): te zien voor wie de inzet van die persoon mag zien, te wijzigen door de beheerder.
 
 ## API
 
@@ -87,7 +87,7 @@ De rollen van een persoon zijn bemensing (klasse C in [toegang.md](toegang.md)):
 | `PATCH /api/catalogue-roles/{id}` | Hernoemen, toelichten, in- of uitschakelen, beoordeeld | Beheerder |
 | `POST /api/catalogue-roles/{id}/merge` | Samenvoegen met `into_id` | Beheerder |
 | `GET` en `POST /api/catalogue-roles/sync` | Stand en uitvoeren van het ophalen uit Wies | Beheerder |
-| `GET /api/people/{id}/roles` | De rollen van een persoon met herkomst | Wie de bemensing van de persoon mag zien |
+| `GET /api/people/{id}/roles` | De rollen van een persoon met herkomst | Wie de inzet van de persoon mag zien |
 | `PUT /api/people/{id}/roles` | De rollen van een persoon zetten (`role_ids`) | Beheerder |
 | `GET` en `POST /api/integrations/wies/role-proposals` | Voorstellen uit Wies voor rollen van personen, en bevestigen | Beheerder |
 

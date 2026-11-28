@@ -141,6 +141,25 @@ async def test_rejection_in_the_own_instance(
     assert "verklaring" not in sent and "bevoegdheid" not in sent
 
 
+async def test_the_browser_comes_back_on_the_received_quote(
+    client, cast, act_as, received
+):
+    act_as(cast.signer)
+    created = await client.post(
+        "/api/proof/intents",
+        json={
+            "kind": "accept_received",
+            "quote_id": str(received.quote.id),
+            "quote_hash": received.quote.snapshot_hash,
+        },
+    )
+    back = await client.get(created.json()["authorize_url"])
+    assert (
+        urlsplit(back.headers["location"]).path
+        == f"/aanvragen/offerte/{received.quote.id}"
+    )
+
+
 async def test_only_a_tekenbevoegde_starts_the_decision(client, cast, act_as, received):
     body = {
         "kind": "accept_received",

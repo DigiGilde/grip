@@ -89,11 +89,25 @@ export interface Kpi {
   realised_cents: number | null;
   forecast_cents: number | null;
   realisation_cents: number | null;
+  /** Realisation minus the target: negative below it, null without a target. */
+  gap_cents: number | null;
   unavailable_reason: string | null;
 }
 
+export interface KpiTotals {
+  target_cents: number;
+  realised_cents: number;
+  forecast_cents: number;
+  realisation_cents: number;
+  /** Realisation minus the target, summed by the server; absent from an older server. */
+  gap_cents?: number | null;
+}
+
 export interface KpiList {
+  /** Below target first, then the others, then whoever has no target. */
   items: Kpi[];
+  totals: KpiTotals | null;
+  scope: 'all' | 'own';
   year: number;
   may_manage: boolean;
 }
@@ -150,9 +164,17 @@ export function functionLabel(id: string): string {
 
 export const peopleKey = (day: string, includeInactive: boolean) =>
   ['team', 'people', day, includeInactive] as const;
+export const peopleViewsKey = ['team', 'views'] as const;
 export const kpiKey = (year: number) => ['team', 'kpi', year] as const;
 export const personKey = (id: string, day: string) => ['team', 'person', id, day] as const;
 export const personKpiKey = (id: string, year: number) => ['team', 'kpi', year, id] as const;
+
+export type PeopleViewName = 'list' | 'board' | 'occupancy' | 'billability';
+
+/** The views of Mensen this reader has, in the order they are shown. */
+export function fetchPeopleViews(): Promise<{ views: PeopleViewName[] }> {
+  return apiGet<{ views: PeopleViewName[] }>('/api/people/views');
+}
 
 /** One person as the asker may see them; 404 when the asker may see nothing. */
 export function fetchPerson(id: string, day: string): Promise<Person> {

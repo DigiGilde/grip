@@ -31,12 +31,12 @@ from fractions import Fraction
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip import calc
 from grip.calc import AmountSource, Month
-from grip.models.assignment import Allocation, Assignment, BudgetLine
+from grip.models.assignment import Allocation, Assignment
 from grip.models.organisation import Organisation
 from grip.models.person import Person
 from grip.models.person_details import BillabilityTarget, PersonScale
@@ -45,6 +45,7 @@ from grip.repositories.domain import AssignmentRepository, MonthCloseRepository
 from grip.services import (
     assignment_finance,
     assignment_views,
+    client_side,
     cost_overview,
     pricing,
     read_cache,
@@ -52,7 +53,6 @@ from grip.services import (
 )
 from grip.services.phase import Commitment, commitment_of
 from grip.services.pricing import DEFAULT_OPTIONS, PricingOptions
-from grip.services.vacancies import service as vacancies
 
 QUOTE_STATUSES = ("issued", "accepted", "rejected", "superseded")
 
@@ -142,7 +142,7 @@ async def _turnover(
     line_assignment = {str(line.id): line.assignment_id for line in lines}
 
     # Per assignment and month: (realised, open). An assignment that cannot
-    # be priced is left out as a whole, like on the stand van zaken.
+    # be priced is left out as a whole, like on Lopende opdrachten.
     per_assignment: dict[UUID, dict[Month, list[int]]] = defaultdict(
         lambda: defaultdict(lambda: [0, 0])
     )
@@ -210,7 +210,7 @@ async def agreed_figures(
 ) -> tuple[assignment_finance.Figures, tuple[str, ...]]:
     """The year of the agreed assignments in the words of the assignment pages.
 
-    The sum of the figures the Financieel tab shows per assignment, over the
+    The sum of the figures the Begroting part shows per assignment, over the
     assignments that count in the forecast (agreed formally or verbally).
     An assignment that cannot be priced is left out, as in the turnover.
     Also the executors whose cost items could not be counted in it.
@@ -485,6 +485,25 @@ async def occupancy(
     return rows
 
 
+async def occupancy_person_ids(
+    session: AsyncSession, months: Sequence[Month]
+) -> set[UUID]:
+    """The persons ``occupancy`` would give a row for, without building it."""
+    if not months:
+        return set()
+    first_day, last_day = months[0].first_day, months[-1].last_day
+    allocations = await staffing.staffed_allocations(
+        session, start=first_day, end=last_day
+    )
+    scaled = await session.scalars(
+        select(PersonScale.person_id).where(
+            PersonScale.valid_from <= last_day,
+            (PersonScale.valid_to.is_(None)) | (PersonScale.valid_to >= first_day),
+        )
+    )
+    return {a.person_id for a in allocations} | set(scaled)
+
+
 async def occupancy_of_year(
     session: AsyncSession, year: int, *, options: PricingOptions = DEFAULT_OPTIONS
 ) -> list[PersonOccupancy]:
@@ -622,12 +641,20 @@ async def quotes_of_year(
     *,
     assignment_ids: Iterable[UUID] | None = None,
 ) -> list[QuoteRow]:
-    """Quotes issued in ``year``, newest first."""
+    """Quotes issued in ``year``, newest first. A quote this instance received
+    as the client is money it would pay, and is not among them."""
+    own = await client_side.own_organisation_ids(session)
     query = (
         select(Quote, Assignment, Organisation.name)
         .join(Assignment, Assignment.id == Quote.assignment_id)
         .outerjoin(Organisation, Organisation.id == Assignment.client_organisation_id)
-        .where(func.extract("year", Quote.issued_at) == year)
+        .where(
+            func.extract("year", Quote.issued_at) == year,
+            or_(
+                Assignment.client_organisation_id.is_(None),
+                Assignment.client_organisation_id.not_in(own),
+            ),
+        )
         .order_by(Quote.issued_at.desc(), Quote.id)
     )
     if assignment_ids is not None:
@@ -721,78 +748,3 @@ async def kpi_rows(
         KpiRow(person_id=person_id, person_name=name, overview=overviews[person_id])
         for person_id, name in people
     ]
-
-
-# -- open roles ---------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class OpenRole:
-    # ``None`` for a vacancy that hangs on no budget line.
-    assignment_id: UUID | None
-    assignment_name: str | None
-    budget_line_id: UUID | None
-    description: str
-    unfilled_fte: Decimal
-    start_date: date | None
-    end_date: date | None
-    # The status of the vacancy that runs for this role, if any.
-    vacancy_status: str | None
-
-
-_LIVE_VACANCY_STATUSES = ("draft", "requested", "approved", "open")
-
-
-async def open_roles(
-    session: AsyncSession, *, today: date | None = None
-) -> list[OpenRole]:
-    """Roles with room left: unfilled budget lines, and vacancies that run.
-
-    "Unfilled" is the definition of the vacancy service. A line with a running
-    vacancy is not in that list, so the running vacancies are added here.
-    """
-    roles: list[OpenRole] = [
-        OpenRole(
-            assignment_id=role.assignment_id,
-            assignment_name=role.assignment_name,
-            budget_line_id=role.budget_line_id,
-            description=role.role or role.description,
-            unfilled_fte=role.unfilled_fte,
-            start_date=role.start_date,
-            end_date=role.end_date,
-            vacancy_status=None,
-        )
-        for role in await vacancies.unfilled_roles(session, today=today)
-    ]
-    running = [
-        vacancy
-        for vacancy in await vacancies.list_vacancies(session)
-        if vacancy.status in _LIVE_VACANCY_STATUSES
-    ]
-    line_ids = [v.budget_line_id for v in running if v.budget_line_id is not None]
-    on_line: dict[UUID, tuple[UUID, str]] = {}
-    if line_ids:
-        result = await session.execute(
-            select(BudgetLine.id, Assignment.id, Assignment.name)
-            .join(Assignment, Assignment.id == BudgetLine.assignment_id)
-            .where(BudgetLine.id.in_(line_ids))
-        )
-        on_line = {row[0]: (row[1], row[2]) for row in result}
-    for vacancy in running:
-        assignment = (
-            on_line.get(vacancy.budget_line_id) if vacancy.budget_line_id else None
-        )
-        roles.append(
-            OpenRole(
-                assignment_id=assignment[0] if assignment else None,
-                assignment_name=assignment[1] if assignment else None,
-                budget_line_id=vacancy.budget_line_id,
-                description=vacancy.function_title,
-                unfilled_fte=Decimal(vacancy.fte),
-                start_date=vacancy.start_date,
-                end_date=vacancy.end_date,
-                vacancy_status=vacancy.status,
-            )
-        )
-    roles.sort(key=lambda r: ((r.assignment_name or "").lower(), r.description.lower()))
-    return roles

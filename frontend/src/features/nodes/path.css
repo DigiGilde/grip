@@ -124,6 +124,8 @@
   align-items: center;
   gap: 8px;
   color: var(--path-marker);
+  /* An nldd-icon takes --context-content-color, not the color around it. */
+  --context-content-color: var(--path-marker);
 }
 
 /* A step that opens is one control: the whole row. */

@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from grip import calc
 from grip.access import Action, DataClass, Resource
 from grip.access.deps import AccessDecider, CurrentSubject, decide, require
+from grip.api.quote_access import may_issue_quote, require_issue_quote
 from grip.api.routes import node_picker
 from grip.core import clock
 from grip.core.auth import CurrentPerson
@@ -135,7 +136,7 @@ async def _editable(
         DataClass.ASSIGNMENT_BASIC,
         hide_existence=True,
     )
-    await require(decider, subject, Action.ISSUE_QUOTE, resource)
+    await require_issue_quote(db, decider, subject, resource)
     return await get_assignment(db, assignment_id)
 
 
@@ -230,8 +231,8 @@ async def read_quote_draft(
     """The text of the next quote: the saved draft, or the organisation's
     starting texts when nothing was saved yet."""
     assignment, resource = await _readable(db, decider, subject, assignment_id)
-    may_edit = assignment.dossier_closed_on is None and bool(
-        await decide(decider, subject, Action.ISSUE_QUOTE, resource)
+    may_edit = assignment.dossier_closed_on is None and await may_issue_quote(
+        db, decider, subject, resource
     )
     return await _answer(db, decider, subject, assignment, may_edit=may_edit)
 

@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query';
 import { waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mockApi, texts } from '@/features/quotes/testing';
@@ -156,6 +157,102 @@ describe('Invoices', () => {
   });
 });
 
+/** Stands in for the figures at the top of Afsluiten, which live under ['overview']. */
+function OverviewProbe() {
+  useQuery({
+    queryKey: ['overview', 'probe'],
+    queryFn: () => fetch('/api/overview-probe').then((response) => response.json()),
+  });
+  return null;
+}
+
+const probeCalls = (calls: { url: string }[]) =>
+  calls.filter((call) => call.url === '/api/overview-probe').length;
+
+describe('the figures of the overview after an invoice action', () => {
+  const replies = {
+    '/api/overview-probe': {},
+    'POST /api/assignments/a-1/outgoing-invoices': status(),
+    'PATCH /api/outgoing-invoices/i-1': status(),
+    'POST /api/outgoing-invoices/i-1/withdraw': status(),
+    '/api/assignments/a-1/outgoing-invoices/proposal?export_id=e-2': {
+      months: ['2026-02'],
+      delivered_cents: 1440000,
+    },
+  };
+
+  const submit = () =>
+    (openSheet() as Element)
+      .querySelector('nldd-form')
+      ?.dispatchEvent(new Event('submit', { cancelable: true }));
+
+  it('asks for them again after recording an invoice', async () => {
+    const { calls } = mockApi(replies);
+    renderApp(
+      <>
+        <OverviewProbe />
+        <Invoices
+          assignmentId="a-1"
+          status={status()}
+          recordFor={['2026-02']}
+          onRecordDone={() => {}}
+        />
+      </>,
+    );
+    await waitFor(() => expect(openSheet()).toBeDefined());
+    const sheet = openSheet() as Element;
+    await waitFor(() =>
+      expect(
+        [...sheet.querySelectorAll('nldd-text-field')].map((el) => el.getAttribute('value')),
+      ).toContain('14400'),
+    );
+    const fields = [...sheet.querySelectorAll('nldd-text-field')];
+    fields[0]?.dispatchEvent(new CustomEvent('input', { detail: { value: 'F-2026-002' } }));
+    sheet
+      .querySelector('nldd-date-field')
+      ?.dispatchEvent(new CustomEvent('change', { detail: { value: '2026-04-10' } }));
+    await waitFor(() => expect(fields[0]?.getAttribute('value')).toBe('F-2026-002'));
+    expect(probeCalls(calls)).toBe(1);
+    submit();
+    await waitFor(() => expect(probeCalls(calls)).toBe(2));
+  });
+
+  it('asks for them again after withdrawing an invoice', async () => {
+    const { calls } = mockApi(replies);
+    const { container } = renderApp(
+      <>
+        <OverviewProbe />
+        <Invoices assignmentId="a-1" status={status()} recordFor={null} onRecordDone={() => {}} />
+      </>,
+    );
+    container.querySelector('nldd-menu-item[text="Trek in"]')?.dispatchEvent(new Event('select'));
+    await waitFor(() => expect(openSheet()).toBeDefined());
+    const sheet = openSheet() as Element;
+    const reason = sheet.querySelector('nldd-multi-line-text-field') as Element;
+    expect(reason).not.toBeNull();
+    reason.dispatchEvent(new CustomEvent('input', { detail: { value: 'Verkeerde opdracht' } }));
+    await waitFor(() => expect(reason.getAttribute('value')).toBe('Verkeerde opdracht'));
+    expect(probeCalls(calls)).toBe(1);
+    submit();
+    await waitFor(() => expect(probeCalls(calls)).toBe(2));
+  });
+
+  it('asks for them again after correcting an invoice', async () => {
+    const { calls } = mockApi(replies);
+    const { container } = renderApp(
+      <>
+        <OverviewProbe />
+        <Invoices assignmentId="a-1" status={status()} recordFor={null} onRecordDone={() => {}} />
+      </>,
+    );
+    container.querySelector('nldd-menu-item[text="Corrigeer"]')?.dispatchEvent(new Event('select'));
+    await waitFor(() => expect(openSheet()).toBeDefined());
+    expect(probeCalls(calls)).toBe(1);
+    submit();
+    await waitFor(() => expect(probeCalls(calls)).toBe(2));
+  });
+});
+
 describe('BillingTotals', () => {
   it('never calls a delivered amount invoiced', () => {
     const { container } = renderApp(
@@ -181,9 +278,9 @@ describe('BillingTotals', () => {
 
 describe('addresses of the steps', () => {
   it('lands on closing one month, and on recording an invoice for some', () => {
-    expect(monthClosePath('a-1', '2026-09')).toBe('/opdrachten/a-1/maandafsluiting?maand=2026-09');
+    expect(monthClosePath('a-1', '2026-09')).toBe('/opdrachten/a-1/afsluiten?maand=2026-09');
     expect(recordInvoicePath('a-1', ['2026-01', '2026-02'])).toBe(
-      '/opdrachten/a-1/maandafsluiting?factuur=2026-01,2026-02',
+      '/opdrachten/a-1/afsluiten?factuur=2026-01,2026-02',
     );
     expect(monthsFromParam('2026-01,onzin,2026-02')).toEqual(['2026-01', '2026-02']);
     expect(monthsFromParam(null)).toEqual([]);

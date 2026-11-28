@@ -5,6 +5,8 @@ import { useSearchParams } from 'react-router-dom';
 import { useRateCards } from '@/features/assignments/rateText';
 import { EmptyNotice, Loading } from '@/features/assignments/ui';
 import { VACANCY_KEYS, fetchUnfilledRoles, newVacancyPath } from '@/features/vacancies/api';
+import { vacancyPath } from '@/features/vacancies/paths';
+import { usePeopleViews } from '@/features/team/peopleTabs';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { useInstance } from '@/layout/useInstance';
 import { formatMonth } from '@/lib/format';
@@ -64,15 +66,16 @@ interface SheetState {
 }
 
 /**
- * Inzet: the planner's board. Who is available when, where someone is
+ * Bord: the planner's board. Who is available when, where someone is
  * double-booked, which roles are open and what ends soon, and from there:
  * put someone on a role, change an inzet, open a vacancy. No amounts.
  */
 export function AllocationsPage() {
   const instance = useInstance();
+  const { tabs, pending } = usePeopleViews('board');
   // Empty means the server's default: three months back, nine ahead.
   const [start, setStart] = useState('');
-  // `?opdracht=<id>` opens the board on one assignment, as the Bemensing tab links to it.
+  // `?opdracht=<id>` opens the board on one assignment, as the Team part of an assignment links to it.
   const [searchParams] = useSearchParams();
   const onlyAssignment = searchParams.get('opdracht');
   // `?persoon=<id>` opens it on one person, as a person's page links to it.
@@ -178,10 +181,15 @@ export function AllocationsPage() {
         groups,
         months,
         board.current_month,
-        (row) =>
-          row.role && mayOpenVacancy.has(row.role.budget_line_id)
+        (row) => {
+          if (!row.role) return null;
+          if (row.role.vacancy_id) {
+            return { href: vacancyPath(row.role.vacancy_id), text: 'Bekijk de vacature' };
+          }
+          return mayOpenVacancy.has(row.role.budget_line_id)
             ? { href: newVacancyPath(row.role.budget_line_id), text: 'Open een vacature' }
-            : null,
+            : null;
+        },
         rates.name,
       )
     : [];
@@ -192,112 +200,123 @@ export function AllocationsPage() {
   };
 
   return (
-    <Page title="Inzet" instanceName={instance?.name}>
-      <ActionBar
-        label="Inzet: weergave en periode"
-        filters={[
-          {
-            label: 'Weergave',
-            value: view,
-            onChange: (value) => {
-              setSelected(null);
-              setView(value === 'team' || value === 'assignment' ? value : 'person');
-            },
-            options: VIEWS,
-            width: '190px',
-          },
-          ...(view === 'assignment'
-            ? []
-            : [
-                {
-                  label: 'Toon',
-                  value: show,
-                  onChange: (value: string) => {
-                    setSelected(null);
-                    setShow(value === 'room' || value === 'over' ? value : 'all');
-                  },
-                  options: SHOWS,
-                  width: '210px',
+    <Page kind="worksheet" title="Bord" instanceName={instance?.name} tabs={tabs}>
+      {pending ? (
+        <Loading />
+      ) : (
+        <>
+          <ActionBar
+            label="Bord: groepering en periode"
+            filters={[
+              {
+                label: 'Groepering',
+                value: view,
+                onChange: (value) => {
+                  setSelected(null);
+                  setView(value === 'team' || value === 'assignment' ? value : 'person');
                 },
-              ]),
-        ]}
-        actions={[
-          { text: 'Eerdere maanden', onClick: () => move(-STEP_MONTHS) },
-          { text: 'Latere maanden', onClick: () => move(STEP_MONTHS) },
-          ...(canAdd
-            ? [{ text: 'Nieuwe inzet', primary: true, onClick: () => openSheet({}) }]
-            : []),
-        ]}
-      />
-      {query.isPending && <Loading />}
-      {query.isError && <LoadError error={query.error} retry={() => void query.refetch()} />}
-      {board && rowCount === 0 && (
-        <EmptyNotice
-          text={
-            show === 'over'
-              ? 'Niemand is boven 100% ingepland'
-              : show === 'room'
-                ? 'Niemand heeft ruimte in deze maanden'
-                : 'Er is geen inzet om te tonen'
-          }
-          supportingText="Je ziet je eigen inzet en die op opdrachten en van mensen waar je over gaat."
-        />
-      )}
-      {board && rowCount > 0 && first && last && (
-        <RouterLinks>
-          <Timeline
-            label={`Inzet van ${formatMonth(first)} t/m ${formatMonth(last)}`}
-            rowHeader={view === 'assignment' ? 'Opdracht en rol' : 'Persoon'}
-            months={months}
-            currentMonth={board.current_month}
-            groups={timelineGroups}
-            selected={selectedRef}
-            onBar={(bar) => editBar(bar.data)}
-            onCell={(row, column, source) => onCell(row.data, column, source)}
-            legend={occurringLegend(timelineGroups)}
+                options: VIEWS,
+                width: '190px',
+              },
+              ...(view === 'assignment'
+                ? []
+                : [
+                    {
+                      label: 'Toon',
+                      value: show,
+                      onChange: (value: string) => {
+                        setSelected(null);
+                        setShow(value === 'room' || value === 'over' ? value : 'all');
+                      },
+                      options: SHOWS,
+                      width: '210px',
+                    },
+                  ]),
+            ]}
+            actions={[
+              { text: 'Eerdere maanden', onClick: () => move(-STEP_MONTHS) },
+              { text: 'Latere maanden', onClick: () => move(STEP_MONTHS) },
+              ...(canAdd
+                ? [{ text: 'Nieuwe inzet', primary: true, onClick: () => openSheet({}) }]
+                : []),
+            ]}
           />
-        </RouterLinks>
-      )}
-      {selected && selectedMonth && (
-        <CellPanel
-          cellKey={`${selected.row.key}-${selected.column}`}
-          title={`${selected.row.label}, ${formatMonth(selectedMonth)}`}
-          summary={
-            describeCell(
-              selected.row,
-              selected.column,
-              selectedMonth,
-              board?.current_month ?? '',
-            ).split('; ')[0] ?? ''
-          }
-          items={selectedBars.map((bar) => {
-            const editable = bar.role ? bar.role.can_fill : bar.allocation?.can_edit;
-            return {
-              key: bar.key,
-              text: describeBar(bar, rates.name),
-              ...(editable
-                ? { action: { text: bar.role ? 'Vul in' : 'Bewerk', onClick: () => editBar(bar) } }
-                : {}),
-            };
-          })}
-          {...(canAdd && selected.row.kind !== 'line'
-            ? {
-                action: {
-                  text: `Nieuwe inzet vanaf ${formatMonth(selectedMonth)}`,
-                  onClick: () => proposeNew(selected.row, selected.column),
-                },
+          {query.isPending && <Loading />}
+          {query.isError && <LoadError error={query.error} retry={() => void query.refetch()} />}
+          {board && rowCount === 0 && (
+            <EmptyNotice
+              text={
+                show === 'over'
+                  ? 'Niemand is boven 100% ingepland'
+                  : show === 'room'
+                    ? 'Niemand heeft ruimte in deze maanden'
+                    : 'Er is geen inzet om te tonen'
               }
-            : {})}
-        />
+              supportingText="Je ziet je eigen inzet en die op opdrachten en van mensen waar je over gaat."
+            />
+          )}
+          {board && rowCount > 0 && first && last && (
+            <RouterLinks>
+              <Timeline
+                label={`Inzet van ${formatMonth(first)} t/m ${formatMonth(last)}`}
+                rowHeader={view === 'assignment' ? 'Opdracht en rol' : 'Persoon'}
+                months={months}
+                currentMonth={board.current_month}
+                groups={timelineGroups}
+                selected={selectedRef}
+                onBar={(bar) => editBar(bar.data)}
+                onCell={(row, column, source) => onCell(row.data, column, source)}
+                legend={occurringLegend(timelineGroups)}
+              />
+            </RouterLinks>
+          )}
+          {selected && selectedMonth && (
+            <CellPanel
+              cellKey={`${selected.row.key}-${selected.column}`}
+              title={`${selected.row.label}, ${formatMonth(selectedMonth)}`}
+              summary={
+                describeCell(
+                  selected.row,
+                  selected.column,
+                  selectedMonth,
+                  board?.current_month ?? '',
+                ).split('; ')[0] ?? ''
+              }
+              items={selectedBars.map((bar) => {
+                const editable = bar.role ? bar.role.can_fill : bar.allocation?.can_edit;
+                return {
+                  key: bar.key,
+                  text: describeBar(bar, rates.name),
+                  ...(editable
+                    ? {
+                        action: {
+                          text: bar.role ? 'Vul in' : 'Bewerk',
+                          onClick: () => editBar(bar),
+                        },
+                      }
+                    : {}),
+                };
+              })}
+              {...(canAdd && selected.row.kind !== 'line'
+                ? {
+                    action: {
+                      text: `Nieuwe inzet vanaf ${formatMonth(selectedMonth)}`,
+                      onClick: () => proposeNew(selected.row, selected.column),
+                    },
+                  }
+                : {})}
+            />
+          )}
+          <AllocationSheet
+            open={sheet.open}
+            session={sheet.session}
+            allocation={sheet.allocation}
+            preset={sheet.preset}
+            closedMonths={sheet.closedMonths}
+            onClose={() => setSheet((current) => ({ ...current, open: false }))}
+          />
+        </>
       )}
-      <AllocationSheet
-        open={sheet.open}
-        session={sheet.session}
-        allocation={sheet.allocation}
-        preset={sheet.preset}
-        closedMonths={sheet.closedMonths}
-        onClose={() => setSheet((current) => ({ ...current, open: false }))}
-      />
     </Page>
   );
 }

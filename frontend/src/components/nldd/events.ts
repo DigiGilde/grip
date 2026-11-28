@@ -57,3 +57,40 @@ export function useNlddEvent<T extends HTMLElement = HTMLElement>(
     [],
   );
 }
+
+/**
+ * `select` on an nldd-menu-item whose choice opens a sheet or a dialog, in the
+ * popup menu of a button or icon button. Since 0.24.0 a chosen item blinks
+ * before its menu closes. A sheet that opens during the blink remembers the
+ * item as where focus goes back to; by the time the sheet closes the menu is
+ * gone, and focus falls to the page. Acting once the menu has closed lets
+ * focus return to the button that opened the menu. The overflow menu of a
+ * toolbar gives focus back itself since 0.26.2, so its items need none of this.
+ */
+export function useMenuSelect<T extends HTMLElement = HTMLElement>(
+  ref: RefObject<T | null>,
+  handler: (() => void) | undefined,
+): void {
+  useNlddEvent(ref, 'select', handler ? (event) => afterMenuCloses(event, handler) : undefined);
+}
+
+/** Runs `action` once the menu that `event` passed through has closed. */
+export function afterMenuCloses(event: Event, action: () => void): void {
+  const menu = event
+    .composedPath()
+    .find((node): node is Element => node instanceof Element && node.localName === 'nldd-menu');
+  if (!menu?.matches(':popover-open')) {
+    action();
+    return;
+  }
+  let done = false;
+  const run = () => {
+    if (done) return;
+    done = true;
+    clearTimeout(fallback);
+    action();
+  };
+  // A menu that leaves the page while it blinks never says it closed.
+  const fallback = setTimeout(run, 1000);
+  menu.addEventListener('toggle', run, { once: true });
+}

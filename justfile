@@ -73,7 +73,7 @@ seed-scale *ARGS:
     cd backend && uv run python -m grip.dev.seed_scale {{ ARGS }}
 
 # Walk an example assignment along the path, one committed step at a time, and
-# look back at each moment in tab Geschiedenis. Uses DATABASE_URL; needs a seeded
+# look back at each moment on Geschiedenis of the assignment. Uses DATABASE_URL; needs a seeded
 # database and no containers of its own. `--days N` lays the facts N days apart,
 # `--geen-goedkeuring` leaves internal approval as it is set.
 kroniek-nieuw *ARGS:

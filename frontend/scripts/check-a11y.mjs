@@ -19,7 +19,8 @@
  * development cookie, which must not land on the localhost you work in.
  * --open clicks buttons that open a form; nothing is submitted, but run it
  * against a database you can throw away.
- * Exit code 1 when a rule fails.
+ * Exit code 1 when a rule fails, when a page could not be loaded or shows no
+ * content, or when there was nothing to measure.
  */
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
@@ -44,6 +45,9 @@ const WIDTHS = String(args.widths ?? '1280,390')
 const THEMES = String(args.themes ?? 'dark,light').split(',');
 const DEV_PERSON_COOKIE = 'grip_dev_person';
 const SETTLE_MS = 6000;
+
+/** Addresses left out because an id they need is not in the example data. */
+const skipped = new Set();
 
 /** WCAG 2.1 A and AA, plus the best practices that say something about structure. */
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'best-practice'];
@@ -84,10 +88,11 @@ async function api(pathname, personId) {
 async function routes() {
   const paths = literal('paths.ts', 'PATHS');
   const assignmentTabs = Object.values(
-    literal('features/assignments/paths.ts', 'ASSIGNMENT_TAB_SEGMENTS'),
+    literal('features/assignments/paths.ts', 'ASSIGNMENT_PART_SEGMENTS'),
   );
-  const vacancyTabs = Object.values(literal('features/vacancies/paths.ts', 'VACANCY_TAB_SEGMENTS'));
-  const topics = Object.keys(literal('features/reports/topics.ts', 'TOPICS'));
+  const vacancyTabs = Object.values(
+    literal('features/vacancies/paths.ts', 'VACANCY_PART_SEGMENTS'),
+  );
 
   const assignments = (await api('/api/assignments')) ?? [];
   const perPhase = [...new Map(assignments.map((a) => [a.phase, a])).values()];
@@ -112,14 +117,7 @@ async function routes() {
     ':templateId': template?.id,
   };
   const out = [];
-  const skip = new Set([
-    'assignmentFinance',
-    'assignmentStaffing',
-    'assignmentBudget',
-    'assignmentQuote',
-    'assignmentMonthClose',
-    'ratesLegacy',
-  ]);
+  const skip = new Set([]);
   for (const [key, template_] of Object.entries(paths)) {
     if (skip.has(key)) continue;
     if (template_.includes(':assignmentId')) {
@@ -135,16 +133,18 @@ async function routes() {
           out.push({ name: `${key} (${assignment.phase})`, url: base });
         }
       }
-    } else if (template_.includes(':topic')) {
-      for (const topic of topics)
-        out.push({ name: `rapportage /${topic}`, url: template_.replace(':topic', topic) });
-    } else if (key === 'vacancyDetail' && vacancy) {
+    } else if (key === 'vacancyDetail' && !vacancy) {
+      skipped.add(template_);
+    } else if (key === 'vacancyDetail') {
       const base = template_.replace(':vacancyId', vacancy.id);
       for (const tab of vacancyTabs)
         out.push({ name: `vacature /${tab}`, url: tab ? `${base}/${tab}` : base });
     } else {
       const params = template_.match(/:\w+/g) ?? [];
-      if (params.some((param) => !fill[param])) continue;
+      if (params.some((param) => !fill[param])) {
+        skipped.add(template_);
+        continue;
+      }
       let url = template_;
       for (const param of params) url = url.replace(param, fill[param]);
       out.push({ name: template_, url });
@@ -315,6 +315,10 @@ async function main() {
     }
   }
   const list = await routes();
+  if (list.length === 0) {
+    console.error('FOUT: er is niets gemeten (nul adressen).');
+    process.exit(1);
+  }
   const browser = await chromium.launch({ executablePath: browserPath(), headless: true });
   const findings = [];
   // What axe could not decide by itself (contrast over an image, for instance).
@@ -337,8 +341,6 @@ async function main() {
         }
         const page = await context.newPage();
         for (const route of list) {
-          await page.goto(`${BASE}${route.url}`, { waitUntil: 'domcontentloaded' }).catch(() => {});
-          await settle(page);
           const record = (state, outcome) => {
             scans += 1;
             for (const item of outcome.incomplete) {
@@ -369,7 +371,57 @@ async function main() {
               });
             }
           };
-          record('pagina', await scan(page));
+          try {
+            await page.goto(`${BASE}${route.url}`, { waitUntil: 'domcontentloaded' });
+            await settle(page);
+            // The heading may sit inside a shadow root, so look through them.
+            const empty = await page
+              .waitForFunction(
+                () => {
+                  const found = (root) =>
+                    Boolean(root.querySelector('#inhoud, h1, nldd-title')) ||
+                    [...root.querySelectorAll('*')].some(
+                      (el) => el.shadowRoot && found(el.shadowRoot),
+                    );
+                  return found(document);
+                },
+                null,
+                { timeout: SETTLE_MS },
+              )
+              .then(() => false)
+              .catch(() => true);
+            if (empty) {
+              record('pagina', {
+                incomplete: [],
+                violations: [
+                  {
+                    id: 'page-empty',
+                    impact: 'critical',
+                    help: 'The page shows no content, so nothing was measured',
+                    tags: [],
+                    nodes: [{ target: route.url, html: '', summary: '' }],
+                  },
+                ],
+              });
+            } else {
+              record('pagina', await scan(page));
+            }
+          } catch (error) {
+            record('pagina', {
+              incomplete: [],
+              violations: [
+                {
+                  id: 'measurement-failed',
+                  impact: 'critical',
+                  help: 'The page could not be loaded or measured',
+                  tags: [],
+                  nodes: [{ target: route.url, html: '', summary: String(error).slice(0, 200) }],
+                },
+              ],
+            });
+            if (VERBOSE) process.stderr.write(`${reader.kind} ${width} ${theme} ${route.name}\n`);
+            continue;
+          }
           // Opening things once is enough: wide, dark, as who may act.
           if (OPEN && reader.id === null && width === WIDTHS[0] && theme === THEMES[0]) {
             await scanOpened(page, record);
@@ -415,6 +467,8 @@ async function main() {
     console.log('\nNiet te beslissen door de machine (met de hand nalopen):');
     for (const [rule, count] of unsure) console.log(`- ${rule}: ${count} elementen`);
   }
+  if (skipped.size > 0)
+    console.error(`Overgeslagen, geen id in de voorbeeldgegevens: ${[...skipped].join(', ')}`);
   if (VERBOSE || args.detail) {
     for (const [rule, entry] of sorted) {
       console.log(`\n## ${rule} (${entry.tags.join(', ')})`);

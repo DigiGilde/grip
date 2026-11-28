@@ -195,6 +195,7 @@ export function SenderPage() {
   return (
     <>
       <Page
+        kind="document"
         title="Afzender en teksten van offertes"
         instanceName={instance?.name}
         spacing="sections"
@@ -205,14 +206,16 @@ export function SenderPage() {
           <LoadError
             error={query.error}
             retry={() => void query.refetch()}
-            who="Beheer is voor beheerders. Wie dat zijn zie je onder Team."
+            who="Beheer is voor beheerders. Wie dat zijn zie je onder Mensen."
           />
         ) : null}
 
         {data && !data.sender.organisation ? (
           // Nothing filled in yet: the page has one job, and says so first.
           <Stack gap="related">
-            <nldd-text>Op een offerte staat nog geen afzender.</nldd-text>
+            <nldd-text>
+              <p>Op een offerte staat nog geen afzender.</p>
+            </nldd-text>
             <nldd-container layout="row" gap="8">
               {data.profiles.map((name, index) => (
                 <Button
@@ -361,7 +364,9 @@ export function SenderPage() {
       >
         {conflictPanel}
         <nldd-text>
-          Geldt voor offertes die je hierna maakt. Een offerte die al is gemaakt verandert niet.
+          <p>
+            Geldt voor offertes die je hierna maakt. Een offerte die al is gemaakt verandert niet.
+          </p>
         </nldd-text>
         <TextInput
           label="Naam van de organisatie"

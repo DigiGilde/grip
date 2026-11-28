@@ -2,24 +2,23 @@ import { PATHS } from '@/paths';
 
 /** The page of one assignment. */
 export const assignmentPath = (id: string) => `${PATHS.assignments}/${id}`;
-export const assignmentQuotePath = (id: string) => `${assignmentPath(id)}/offerte`;
-export const assignmentMonthClosePath = (id: string) => `${assignmentPath(id)}/maandafsluiting`;
 
-/** The tabs of an assignment, each with its own address. */
-export const ASSIGNMENT_TAB_SEGMENTS = {
-  overview: '',
-  tasks: 'taken',
-  finance: 'financieel',
-  staffing: 'bemensing',
+/** The parts of an assignment, each with its own address. */
+export const ASSIGNMENT_PART_SEGMENTS = {
+  landing: '',
+  close: 'afsluiten',
   budget: 'begroting',
   quote: 'offerte',
-  monthClose: 'maandafsluiting',
+  team: 'team',
+  report: 'rapport',
+  details: 'gegevens',
   history: 'geschiedenis',
+  tasks: 'taken',
 } as const;
 
-export type AssignmentTabKey = keyof typeof ASSIGNMENT_TAB_SEGMENTS;
+export type AssignmentPartKey = keyof typeof ASSIGNMENT_PART_SEGMENTS;
 
-export function assignmentTabPath(id: string, tab: AssignmentTabKey): string {
-  const segment = ASSIGNMENT_TAB_SEGMENTS[tab];
+export function assignmentPartPath(id: string, key: AssignmentPartKey): string {
+  const segment = ASSIGNMENT_PART_SEGMENTS[key];
   return segment ? `${assignmentPath(id)}/${segment}` : assignmentPath(id);
 }

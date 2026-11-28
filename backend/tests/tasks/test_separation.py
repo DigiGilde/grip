@@ -232,7 +232,7 @@ async def test_when_nobody_else_can_approve_she_reads_who_grants_the_right(
 
     # Before asking: the only holder made the quote, so nobody can approve.
     found = (await _course(as_person(only), "assignment", assignment.id))["course"]
-    assert "Een beheerder geeft dat recht bij Team" in found["next"]["sentence"]
+    assert "Een beheerder geeft dat recht onder Mensen" in found["next"]["sentence"]
 
     await build.approval(quote, by=only)
     await db_session.flush()
@@ -253,7 +253,7 @@ async def test_the_owner_does_not_wait_for_a_planner_to_staff_her_own_assignment
     mine = (await owner.get("/api/tasks/mine")).json()["items"]
     staffing = [t for t in mine if "rol" in t["headline"].lower()]
     assert staffing and staffing[0]["needs_me"] is True
-    assert staffing[0]["work_href"].endswith("/bemensing")
+    assert staffing[0]["work_href"].endswith("/team")
     # A reader with no right to staff still waits for whoever can.
     found = (await _course(as_person(people.reader), "assignment", assignment.id))[
         "course"

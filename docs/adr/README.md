@@ -36,7 +36,7 @@ Een besluit dat anderen bindt staat hier als ADR: genummerd, met context, beslui
 | [0030](0030-het-bestand-van-een-offerte-ligt-vast.md) | Het bestand van een offerte ligt vast | aanvaard |
 | [0031](0031-tekenlink-per-mail.md) | De tekenlink gaat per mail, via een wachtrij | aanvaard |
 | [0032](0032-een-offerte-is-een-brief-met-tekst.md) | Een offerte is een brief met tekst | aanvaard |
-| [0033](0033-hoofdnavigatie-volgt-het-werk-en-de-lezer.md) | De hoofdnavigatie volgt het werk en de lezer | aanvaard |
+| [0033](0033-hoofdnavigatie-volgt-het-werk-en-de-lezer.md) | De hoofdnavigatie volgt het werk en de lezer | vervangen door 0055 |
 | [0034](0034-vacatureteksten-uit-een-bibliotheek-en-als-werk.md) | Vacatureteksten komen uit een bibliotheek en zijn werk met een verloop | aanvaard |
 | [0035](0035-lokaal-een-ontwikkelmodel-in-plaats-van-vlam.md) | Lokaal kan een ontwikkelmodel de plaats van VLAM innemen | aanvaard |
 | [0036](0036-een-productmerk-naast-de-organisatie.md) | Een productmerk naast de organisatie | aanvaard |
@@ -45,7 +45,7 @@ Een besluit dat anderen bindt staat hier als ADR: genummerd, met context, beslui
 | [0039](0039-afsluiten-per-maand-aanleveren-per-periode.md) | Afsluiten per maand, aanleveren per factuurperiode | aanvaard |
 | [0040](0040-meldingen-op-het-eigen-apparaat.md) | Meldingen op het eigen apparaat | aanvaard |
 | [0041](0041-aanmelden-weigeren-met-een-reden-en-nooit-op-een-onbevestigd-adres.md) | Aanmelden: weigeren met een reden, en nooit op een onbevestigd adres | aanvaard |
-| [0042](0042-zeven-plekken-en-een-tweede-balk.md) | Zeven plekken in de hoofdbalk, en een tweede balk voor pagina's die bij elkaar horen | aanvaard |
+| [0042](0042-zeven-plekken-en-een-tweede-balk.md) | Zeven plekken in de hoofdbalk, en een tweede balk voor pagina's die bij elkaar horen | vervangen door 0055 |
 | [0043](0043-wat-is-er-gebeurd-een-selectie-uit-de-stroom.md) | Wat is er gebeurd: een selectie uit de stroom | aanvaard |
 | [0044](0044-een-verloop-per-zaak-uit-dezelfde-feiten-als-de-taken.md) | Een verloop per zaak, uit dezelfde feiten als de taken | aanvaard |
 | [0045](0045-een-afgewezen-offerte-sluit-de-opdracht-niet.md) | Een afgewezen offerte sluit de opdracht niet | aanvaard |
@@ -58,9 +58,11 @@ Een besluit dat anderen bindt staat hier als ADR: genummerd, met context, beslui
 | [0052](0052-een-kostenpost-bij-een-andere-partij.md) | Een kostenpost bij een andere partij | voorgesteld |
 | [0053](0053-een-gegeven-heeft-een-eigenaar-elders-een-verwijzing.md) | Een gegeven heeft één eigenaar, elders een verwijzing | voorgesteld |
 | [0054](0054-voorbeeldinstanties-federeren-in-een-besloten-groep.md) | Voorbeeldinstanties federeren in een besloten groep | voorgesteld |
+| [0055](0055-vijf-plekken-en-een-rustig-geopend-ding.md) | Vijf plekken en een rustig geopend ding | aanvaard |
 | [0056](0056-de-kroniek-van-een-opdracht-als-bron.md) | De kroniek van een opdracht als bron | voorgesteld |
 | [0057](0057-bewaren-en-vernietigen-per-zaak.md) | Bewaren en vernietigen per zaak | aanvaard, op één open punt na |
 | [0058](0058-factuurinformatie-bij-het-akkoord.md) | Factuurinformatie wordt bij het akkoord opgegeven | voorgesteld |
+| [0059](0059-taken-en-stappen-terug-nieuw-als-tijdlijn-een-tekstkleur.md) | Taken en de stappen terug, Nieuw als tijdlijn, één tekstkleur | aanvaard |
 | [0060](0060-het-contract-staat-in-grip.md) | Het contract staat in grip, tot een tweede systeem het implementeert | aanvaard |
 | [0061](0061-een-bericht-dat-niet-aankomt-blijft-proberen-en-valt-op.md) | Een bericht dat niet aankomt, blijft het proberen en valt op | voorgesteld |
 
@@ -86,10 +88,12 @@ Een besluit wordt niet herschreven. Is het later bijgesteld, dan staat onderaan 
 | 0027 Tarievenkaart per periode | geen | Vervangt het uitgangspunt van een kaart per kalenderjaar |
 | 0028 Stroom van gebeurtenissen | 0043, 0056, 0057 | Inzage per verzoek; een selectie als nieuws; op het pad naar een opdracht een echte bron; wissen op leeftijd raakt geen opdracht |
 | 0029 Bewijs van een akkoord | 0030, 0037 | Het bestand in de bundel; een passkey als extra bevestiging |
-| 0033 Hoofdnavigatie | 0042 | Zeven plekken en een tweede balk |
+| 0033 Hoofdnavigatie | 0042, 0055 | Zeven plekken en een tweede balk; daarna vervangen door vijf plekken |
 | 0036 Productmerk | open | De keuze voor het merk is voorlopig |
 | 0038 Een taak vertelt | 0039, 0044, 0047 | Taken per factuurperiode; verloop uit dezelfde bron; een taak voor de naverrekening |
-| 0039 Afsluiten en aanleveren | 0047, 0058 | De naverrekening als opgeslagen verschil; de factuurinformatie bij het akkoord |
-| 0044 Een verloop per zaak | 0045, 0048 | Een afwijzing is een stap terug; overnemen geeft geen recht |
+| 0039 Afsluiten en aanleveren | 0047, 0055, 0058 | De naverrekening als opgeslagen verschil; het tabblad is een onderdeel van de opdracht; de factuurinformatie bij het akkoord |
+| 0042 Zeven plekken | 0055 | Vervangen: vijf plekken, geen tweede balk, onderdelen in plaats van tabs |
+| 0044 Een verloop per zaak | 0045, 0048, 0055, 0059 | Een afwijzing is een stap terug; overnemen geeft geen recht; het verloop is één regel; op een opdracht weer als stappen |
 | 0050 Een voorbeeldinstantie | 0054 | Voorbeelden federeren met elkaar, in een eigen groep |
+| 0055 Vijf plekken | 0059 | Taken weer in de balk; het verloop van een opdracht als stappen; Nieuw als tijdlijn met filters; één tekstkleur |
 | 0056 De kroniek van een opdracht | 0057 | Bewaren en vernietigen per zaak in plaats van wissen op verzoek |

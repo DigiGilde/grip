@@ -237,7 +237,7 @@ async def test_csv_has_stable_columns_and_the_same_figures(world, as_person):
     response = await as_person(world.owner).get(f"{base}/csv?year=2026")
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/csv")
-    assert "financieel-regels-2026.csv" in response.headers["content-disposition"]
+    assert "begroting-regels-2026.csv" in response.headers["content-disposition"]
     rows = response.text.strip().split("\r\n")
     assert rows[0] == ",".join(finance.LINE_CSV_COLUMNS)
     assert len(rows) == 4  # header, two lines, total

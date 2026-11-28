@@ -58,7 +58,7 @@
 .grip-board__table thead th {
   padding: 8px 6px 6px;
   font-size: 0.8125rem;
-  color: var(--board-muted);
+  color: var(--semantics-content-color);
   border-bottom: 1px solid var(--board-line);
   vertical-align: bottom;
   white-space: nowrap;
@@ -98,14 +98,14 @@
   font-size: 0.75rem;
   font-weight: 400;
   font-variant-numeric: tabular-nums;
-  color: var(--board-muted);
+  color: var(--semantics-content-color);
 }
 
 .grip-board__closed-tag {
   display: block;
   font-size: 0.625rem;
   font-weight: 400;
-  color: var(--board-muted);
+  color: var(--semantics-content-color);
 }
 
 .grip-board__summary,
@@ -113,7 +113,7 @@
   display: block;
   font-size: 0.75rem;
   line-height: 1.35;
-  color: var(--board-muted);
+  color: var(--semantics-content-color);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -139,7 +139,7 @@
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--board-muted);
+  color: var(--semantics-content-color);
   background: var(--board-surface);
   border-bottom: 1px solid var(--board-line);
 }
@@ -197,7 +197,7 @@
   text-align: right;
   white-space: nowrap;
   overflow: hidden;
-  color: var(--board-muted);
+  color: var(--semantics-content-color);
 }
 
 .grip-board__total[data-state='room'] {
@@ -205,8 +205,11 @@
   font-weight: 600;
 }
 
+/* An nldd-icon takes --context-content-color, not the color around it: a rule
+   here that colours an icon sets both. */
 .grip-board__total[data-state='over'] {
   color: var(--board-over-text);
+  --context-content-color: var(--board-over-text);
   font-weight: 700;
   font-size: 0.75rem;
 }
@@ -237,6 +240,7 @@
   border-radius: 4px;
   background: var(--board-fill);
   color: var(--board-inverse);
+  --context-content-color: var(--board-inverse);
   font-size: 0.75rem;
   line-height: 1;
   white-space: nowrap;
@@ -278,6 +282,7 @@
     repeating-linear-gradient(45deg, transparent 0 4px, var(--board-line) 4px 6px),
     var(--board-surface);
   color: var(--board-ink);
+  --context-content-color: var(--board-ink);
   box-shadow: inset 0 0 0 1.5px var(--board-fill);
 }
 
@@ -285,6 +290,7 @@
 .grip-board__bar[data-open] {
   background: var(--board-surface);
   color: var(--board-ink);
+  --context-content-color: var(--board-ink);
   font-weight: 600;
   box-shadow: none;
   border: 1.5px dashed var(--board-ink);
@@ -331,7 +337,8 @@
   padding: 0;
   list-style: none;
   font-size: 0.75rem;
-  color: var(--board-muted);
+  color: var(--semantics-content-color);
+  --context-content-color: var(--semantics-content-color);
 }
 
 .grip-board__legend li {
@@ -379,6 +386,7 @@
 .grip-board__legend-over {
   font-weight: 700;
   color: var(--board-over-text);
+  --context-content-color: var(--board-over-text);
 }
 
 .grip-board__sr-only {
@@ -403,6 +411,27 @@
   position: absolute;
   overflow: visible;
   color: var(--board-ink);
+  --context-content-color: var(--board-ink);
+}
+
+/* The short form only takes the place of the label when it is chosen; until
+   then it is there to be measured. */
+.grip-board__bar-label[data-short] {
+  position: absolute;
+  visibility: hidden;
+  white-space: nowrap;
+}
+
+.grip-board__bar[data-label='short'] .grip-board__bar-label[data-short] {
+  position: relative;
+  visibility: visible;
+  color: inherit;
+}
+
+.grip-board__bar[data-label='short'] .grip-board__bar-label:not([data-short]),
+.grip-board__bar[data-label='none'] .grip-board__bar-label {
+  position: absolute;
+  visibility: hidden;
 }
 
 .grip-board__bar[data-label='after'] .grip-board__bar-label {
@@ -427,7 +456,7 @@
   block-size: 14px;
   font-size: 0.6875rem;
   font-variant-numeric: tabular-nums;
-  color: var(--board-muted);
+  color: var(--semantics-content-color);
 }
 
 .grip-board__weeks > span {
@@ -451,7 +480,7 @@
 /* The whole period on screen in narrow columns: the figure per month gives
    way to the bars, and the month names lose their extras. */
 .grip-board[data-compact] .grip-board__total {
-  visibility: hidden;
+  display: none;
 }
 
 .grip-board[data-compact] .grip-board__closed-tag {

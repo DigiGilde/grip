@@ -38,8 +38,8 @@ describe('RequireAuth', () => {
   });
 
   it('sends an unauthenticated visitor to login and remembers where they were', () => {
-    renderGuarded({ status: 'unauthenticated', oidcConfigured: true }, '/tarieven');
-    expect(screen.getByText('login, from /tarieven')).toBeInTheDocument();
+    renderGuarded({ status: 'unauthenticated', oidcConfigured: true }, '/geld/kosten');
+    expect(screen.getByText('login, from /geld/kosten')).toBeInTheDocument();
     expect(screen.queryByText('protected content')).not.toBeInTheDocument();
   });
 
@@ -168,7 +168,7 @@ describe('an invited signer without a person record', () => {
     expect(screen.getByText('one quote')).toBeInTheDocument();
   });
 
-  it.each(['/', '/opdrachten', '/team', '/vacatures/beheer', '/bestaat-niet'])(
+  it.each(['/', '/opdrachten', '/mensen', '/vacatures/beheer', '/bestaat-niet'])(
     'lands on the signing page from %s, never in the application',
     (path) => {
       renderWithSigning(GUEST, path);

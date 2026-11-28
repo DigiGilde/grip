@@ -1,10 +1,12 @@
 import { waitFor } from '@testing-library/react';
-import { Route, Routes } from 'react-router-dom';
+import { Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AssignmentDetail } from '@/features/assignments/api';
 import { AssignmentShellContext } from '@/features/assignments/shell';
+import { PERMISSIONS, assignment, plain } from '@/features/assignments/testing';
 import { clickButton, mockApi, texts } from '@/features/quotes/testing';
 import { renderApp } from '@/test/utils';
+import { PrimaryTakenContext } from '@/ui/primary';
 import { normalisePercent, percentInput } from './api';
 import type { BillingOverview, BillingPeriod, PeriodMonth } from './billingApi';
 import { MonthClosePage } from './MonthClosePage';
@@ -191,17 +193,21 @@ afterEach(() => vi.unstubAllGlobals());
 function renderTab(
   overview: unknown,
   replies: Record<string, unknown> = {},
-  path = '/opdrachten/a-1/maandafsluiting',
+  path = '/opdrachten/a-1/afsluiten',
+  shell: AssignmentDetail = assignment({ id: 'a-1', permissions: PERMISSIONS.lezer }),
 ) {
   const api = mockApi({
     '/api/assignments/a-1/billing': overview,
     '/api/assignments/a-1/billing-status': NO_INVOICES,
+    '/api/assignments/a-1/financial?year=all': { key_figures: {} },
     ...replies,
   });
   const view = renderApp(
-    <Routes>
-      <Route path="/opdrachten/:assignmentId/maandafsluiting" element={<MonthClosePage />} />
-    </Routes>,
+    <AssignmentShellContext.Provider value={shell}>
+      <Routes>
+        <Route path="/opdrachten/:assignmentId/afsluiten" element={<MonthClosePage />} />
+      </Routes>
+    </AssignmentShellContext.Provider>,
     { path },
   );
   return { ...api, container: view.container };
@@ -304,6 +310,317 @@ describe('the words of the one thing to do', () => {
   });
 });
 
+const KEY_FIGURES = {
+  agreed_cents: 19000000,
+  budgeted_cents: 18780000,
+  expected_total_cents: 16650000,
+  agreed_minus_budgeted_cents: 220000,
+  budgeted_minus_expected_cents: 2130000,
+  realised_cents: 2700000,
+  realised_pct: '16.0',
+  delivered_cents: 1350000,
+  to_deliver_cents: 1250000,
+  invoiced_cents: 900000,
+  to_invoice_cents: 450000,
+};
+
+type FigureValues = { [K in keyof typeof KEY_FIGURES]?: (typeof KEY_FIGURES)[K] | null };
+
+function renderInShell(
+  shell: AssignmentDetail,
+  figures: FigureValues = {},
+  overview: unknown = OVERVIEW,
+) {
+  const api = mockApi({
+    '/api/assignments/a-1/billing': overview,
+    '/api/assignments/a-1/billing-status': NO_INVOICES,
+    '/api/assignments/a-1/financial?year=all': { key_figures: { ...KEY_FIGURES, ...figures } },
+  });
+  const view = renderApp(
+    <AssignmentShellContext.Provider value={shell}>
+      <Routes>
+        <Route path="/opdrachten/:assignmentId/afsluiten" element={<MonthClosePage />} />
+      </Routes>
+    </AssignmentShellContext.Provider>,
+    { path: '/opdrachten/a-1/afsluiten' },
+  );
+  return { ...api, container: view.container };
+}
+
+describe('where delivery and invoicing stand', () => {
+  const external = assignment({ id: 'a-1' });
+
+  it('stands above the periods of an external assignment, over the whole period', async () => {
+    const { container, calls } = renderInShell(external);
+    await waitFor(() =>
+      expect(container.querySelector('dl[aria-label="Aanleveren en factureren"]')).not.toBeNull(),
+    );
+    const block = container.querySelector('dl[aria-label="Aanleveren en factureren"]') as Element;
+    const pairs = [...block.querySelectorAll('.key-figure')].map((figure) => [
+      figure.querySelector('dt')?.textContent,
+      plain(figure.querySelector('dd')?.textContent),
+    ]);
+    expect(pairs).toEqual([
+      ['Aangeleverd', '€ 13.500'],
+      ['Nog aan te leveren', '€ 12.500'],
+      ['Gefactureerd', '€ 9.000'],
+      ['Nog te factureren', '€ 4.500'],
+    ]);
+    const table = container.querySelector('nldd-table') as Element;
+    expect(block.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(calls.map((call) => call.url)).toContain('/api/assignments/a-1/financial?year=all');
+  });
+
+  it('says so when more was invoiced than delivered', async () => {
+    const { container } = renderInShell(external, { to_invoice_cents: -10000 });
+    await waitFor(() => expect(container.querySelector('.key-figures')).not.toBeNull());
+    expect(container.querySelector('.key-figure-value.critical')?.textContent).toMatch(/100/);
+    expect(container.textContent).toContain('Meer gefactureerd dan aangeleverd');
+  });
+
+  it('says that a figure is not known rather than zero', async () => {
+    const { container } = renderInShell(external, { to_deliver_cents: null });
+    await waitFor(() => expect(container.querySelector('.key-figures')).not.toBeNull());
+    const known = [...container.querySelectorAll('.key-figure-value')].map((el) => el.textContent);
+    expect(known.filter((value) => value === 'Niet bekend')).toHaveLength(1);
+  });
+
+  it('leaves out what is zero, and the block when nothing is left', async () => {
+    const { container } = renderInShell(external, { delivered_cents: 0, invoiced_cents: 0 });
+    await waitFor(() => expect(container.querySelector('.key-figures')).not.toBeNull());
+    const labels = [...container.querySelectorAll('.key-figure dt')].map((el) => el.textContent);
+    expect(labels).toEqual(['Nog aan te leveren', 'Nog te factureren']);
+    vi.unstubAllGlobals();
+    const none = renderInShell(external, {
+      delivered_cents: 0,
+      to_deliver_cents: 0,
+      invoiced_cents: 0,
+      to_invoice_cents: 0,
+    });
+    await waitFor(() => expect(none.container.querySelector('nldd-table')).not.toBeNull());
+    expect(none.container.querySelector('.key-figures')).toBeNull();
+  });
+
+  it('is asked for again after a month is closed on this page', async () => {
+    const overview = { ...OVERVIEW, next_step: CLOSE_STEP, periods: [Q3] };
+    const url = '/api/assignments/a-1/financial?year=all';
+    const { calls } = (() => {
+      const api = mockApi({
+        '/api/assignments/a-1/billing': overview,
+        '/api/assignments/a-1/billing-status': NO_INVOICES,
+        [url]: { key_figures: KEY_FIGURES },
+        '/api/assignments/a-1/months/2026-07': OPEN_MONTH,
+        'POST /api/assignments/a-1/months/2026-07/close': { ...OPEN_MONTH, closed: true },
+      });
+      renderApp(
+        <AssignmentShellContext.Provider value={external}>
+          <Routes>
+            <Route path="/opdrachten/:assignmentId/afsluiten" element={<MonthClosePage />} />
+          </Routes>
+        </AssignmentShellContext.Provider>,
+        { path: '/opdrachten/a-1/afsluiten?maand=2026-07' },
+      );
+      return api;
+    })();
+    await waitFor(() => expect(openSheet()?.querySelector('nldd-table')).toBeTruthy());
+    expect(calls.filter((call) => call.url === url)).toHaveLength(1);
+    (openSheet() as Element)
+      .querySelector('nldd-form')
+      ?.dispatchEvent(new Event('submit', { cancelable: true }));
+    await waitFor(() => expect(calls.some((call) => call.url.endsWith('/close'))).toBe(true));
+    await waitFor(() => expect(calls.filter((call) => call.url === url)).toHaveLength(2));
+  });
+
+  it('is not there for an internal assignment, which has no invoices', async () => {
+    const { container, calls } = renderInShell(assignment({ id: 'a-1', kind: 'internal' }));
+    await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
+    expect(container.querySelector('.key-figures')).toBeNull();
+    expect(calls.some((call) => call.url.includes('/financial'))).toBe(false);
+  });
+
+  it('is not asked for by who may not read the money', async () => {
+    const { container, calls } = renderInShell(
+      assignment({ id: 'a-1', permissions: PERMISSIONS.planner }),
+    );
+    await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
+    expect(container.querySelector('.key-figures')).toBeNull();
+    expect(calls.some((call) => call.url.includes('/financial'))).toBe(false);
+  });
+});
+
+function Search() {
+  return <span data-testid="search">{useLocation().search}</span>;
+}
+
+describe('an address that asks for a month', () => {
+  function renderAt(path: string) {
+    mockApi({
+      '/api/assignments/a-1/billing': { ...OVERVIEW, next_step: CLOSE_STEP, periods: [Q3] },
+      '/api/assignments/a-1/billing-status': NO_INVOICES,
+      '/api/assignments/a-1/months/2026-07': OPEN_MONTH,
+    });
+    return renderApp(
+      <Routes>
+        <Route
+          path="/opdrachten/:assignmentId/afsluiten"
+          element={
+            <>
+              <MonthClosePage />
+              <Search />
+            </>
+          }
+        />
+      </Routes>,
+      { path },
+    );
+  }
+
+  it('opens a month that is in a period', async () => {
+    renderAt('/opdrachten/a-1/afsluiten?maand=2026-07');
+    await waitFor(() => expect(openSheet()).toBeDefined());
+    expect(document.querySelector('[data-testid="search"]')?.textContent).toBe('?maand=2026-07');
+  });
+
+  it('opens nothing for a month that is in no period, and drops it from the address', async () => {
+    const { container } = renderAt('/opdrachten/a-1/afsluiten?maand=2030-01');
+    await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
+    await waitFor(() =>
+      expect(document.querySelector('[data-testid="search"]')?.textContent).toBe(''),
+    );
+    expect(openSheet()).toBeUndefined();
+  });
+});
+
+describe('the periods', () => {
+  const lineAbove = (container: Element) =>
+    plain(container.querySelector('[data-periods-line]')?.textContent);
+
+  it('has no heading of its own: the title of the part says it', async () => {
+    const { container } = renderTab(OVERVIEW);
+    await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
+    expect(container.querySelector('nldd-title[text="Perioden"]')).toBeNull();
+  });
+
+  it('says how the assignment is billed and what is to be closed above the table', async () => {
+    const overview = { ...OVERVIEW, next_step: CLOSE_STEP, periods: [Q1, Q3] };
+    const { container } = renderTab(overview);
+    await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
+    expect(lineAbove(container)).toBe(
+      'Factureren per kwartaal, factuur aan Voorbeeldministerie. 3 maanden af te sluiten. Nog 1 kwartaal te gaan, t/m december 2026.',
+    );
+    const line = container.querySelector('[data-periods-line]') as Element;
+    const table = container.querySelector('nldd-table') as Element;
+    expect(line.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('speaks of one month in the singular, and leaves out what there is not', async () => {
+    const one = { ...Q3, months: [month('2026-07', 'juli 2026', 'to_close')] };
+    const overview = { ...OVERVIEW, periods: [Q1, one], upcoming_count: 0, upcoming_until: null };
+    const { container } = renderTab(overview);
+    await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
+    expect(lineAbove(container)).toBe(
+      'Factureren per kwartaal, factuur aan Voorbeeldministerie. 1 maand af te sluiten.',
+    );
+  });
+
+  it('does not name who the invoice goes to for who may not read that', async () => {
+    const overview = { ...OVERVIEW, terms: { rhythm: 'quarter', rhythm_is_default: false } };
+    const { container } = renderTab(overview);
+    await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
+    expect(lineAbove(container)).toContain('Factureren per kwartaal.');
+    expect(lineAbove(container)).not.toContain('Voorbeeldministerie');
+  });
+
+  it('says nothing about invoices on an internal assignment', async () => {
+    const { container } = renderInShell(
+      assignment({ id: 'a-1', kind: 'internal' }),
+      {},
+      {
+        ...OVERVIEW,
+        periods: [Q3],
+        upcoming_count: 0,
+      },
+    );
+    await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
+    expect(lineAbove(container)).toBe('3 maanden af te sluiten.');
+    expect(container.querySelector('nldd-link[text="Wijzig factuurafspraken"]')).toBeNull();
+  });
+
+  it('adds up to the total of the service, in a row of its own', async () => {
+    const { container } = renderTab(OVERVIEW);
+    await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
+    const rows = [...container.querySelectorAll('nldd-table > nldd-table-row:not([slot])')];
+    const total = rows.at(-1) as Element;
+    const cells = [...total.querySelectorAll('nldd-text-cell')].map((cell) =>
+      plain(cell.getAttribute('text')),
+    );
+    expect(cells).toEqual(['**Totaal afgesloten**', '', '**€ 86.400**']);
+    // A figure the server did not add up the same way is shown as sent.
+    vi.unstubAllGlobals();
+    const other = renderTab({ ...OVERVIEW, closed_cents: 123400 });
+    await waitFor(() => expect(other.container.querySelector('nldd-table')).not.toBeNull());
+    expect(
+      [...other.container.querySelectorAll('nldd-text-cell')].some(
+        (cell) => plain(cell.getAttribute('text')) === '**€ 1.234**',
+      ),
+    ).toBe(true);
+  });
+
+  it('has no total without an amount: nothing closed, or nothing to read', async () => {
+    const { container } = renderTab({ ...OVERVIEW, closed_cents: 0 });
+    await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
+    expect(container.querySelector('nldd-text-cell[text="**Totaal afgesloten**"]')).toBeNull();
+    vi.unstubAllGlobals();
+    const other = renderTab({ ...OVERVIEW, closed_cents: undefined });
+    await waitFor(() => expect(other.container.querySelector('nldd-table')).not.toBeNull());
+    expect(
+      other.container.querySelector('nldd-text-cell[text="**Totaal afgesloten**"]'),
+    ).toBeNull();
+  });
+
+  it('keeps the Bedrag column for who may read amounts, also when a month has no price', async () => {
+    const { container } = renderTab({ ...OVERVIEW, closed_cents: null });
+    await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
+    expect(
+      container.querySelector('nldd-table-row[slot="header"] nldd-text-cell[text="Bedrag"]'),
+    ).not.toBeNull();
+  });
+
+  it('leaves out the Bedrag column for who may not read amounts', async () => {
+    const { container } = renderTab(
+      OVERVIEW,
+      {},
+      undefined,
+      assignment({ id: 'a-1', permissions: PERMISSIONS.planner }),
+    );
+    await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
+    expect(
+      container.querySelector('nldd-table-row[slot="header"] nldd-text-cell[text="Bedrag"]'),
+    ).toBeNull();
+  });
+
+  it('keeps the total to the columns of a narrow screen', async () => {
+    const { container } = renderTab(OVERVIEW);
+    await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
+    const total = container.querySelector('nldd-text-cell[text="**Totaal afgesloten**"]')
+      ?.parentElement as Element;
+    expect(total.children).toHaveLength(5);
+    expect(total.children[2]).toHaveAttribute('hide-below', 'md');
+  });
+
+  it('puts the way to the terms under the table, for who may change them', async () => {
+    const { container } = renderTab(OVERVIEW);
+    await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
+    const link = container.querySelector('nldd-link[text="Wijzig factuurafspraken"]') as Element;
+    const table = container.querySelector('nldd-table') as Element;
+    expect(table.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    vi.unstubAllGlobals();
+    const other = renderTab({ ...OVERVIEW, may_edit_terms: false });
+    await waitFor(() => expect(other.container.querySelector('nldd-table')).not.toBeNull());
+    expect(other.container.querySelector('nldd-link[text="Wijzig factuurafspraken"]')).toBeNull();
+  });
+});
+
 describe('MonthClosePage', () => {
   it('is one calm state until there is an agreement', async () => {
     const { container } = renderTab({ ...OVERVIEW, closing_started: false, periods: [] });
@@ -331,6 +648,46 @@ describe('MonthClosePage', () => {
     expect(block.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it('leaves the heading and the section to the page of the part', async () => {
+    const { container } = renderTab(OVERVIEW);
+    await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
+    expect(container.querySelector('h1')).toBeNull();
+    expect(container.querySelector('nldd-simple-section')).toBeNull();
+  });
+
+  it('leaves the step to the head of the part when the head carries it', async () => {
+    mockApi({
+      '/api/assignments/a-1/billing': OVERVIEW,
+      '/api/assignments/a-1/billing-status': NO_INVOICES,
+    });
+    const { container } = renderApp(
+      <PrimaryTakenContext.Provider value={true}>
+        <Routes>
+          <Route path="/opdrachten/:assignmentId/afsluiten" element={<MonthClosePage />} />
+        </Routes>
+      </PrimaryTakenContext.Provider>,
+      { path: '/opdrachten/a-1/afsluiten' },
+    );
+    await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
+    expect(container.querySelector('nldd-card')).toBeNull();
+    expect(primaryButtons(container)).toEqual([]);
+  });
+
+  it('keeps period, state and amount on a narrow screen and lets only the step go', async () => {
+    const { container } = renderTab(OVERVIEW);
+    await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
+    const table = container.querySelector('nldd-table') as Element;
+    expect(table.getAttribute('sm-columns')?.trim().split(' ')).toHaveLength(4);
+    const header = (text: string) =>
+      table.querySelector(`nldd-table-row[slot="header"] nldd-text-cell[text="${text}"]`);
+    expect(header('Periode')).not.toHaveAttribute('hide-below');
+    expect(header('Stand')).not.toHaveAttribute('hide-below');
+    expect(header('Bedrag')).not.toHaveAttribute('hide-below');
+    expect(header('Stap')).toHaveAttribute('hide-below', 'md');
+    expect(table.querySelector('nldd-cell[hide-below]')).toBeNull();
+    expect(table.querySelector('[hide-above]')).toBeNull();
+  });
+
   it('shows periods as the course: one tag per row, colour only on the next step', async () => {
     const { container } = renderTab(OVERVIEW);
     await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
@@ -350,6 +707,16 @@ describe('MonthClosePage', () => {
     // Periods that have not begun are one quiet line, not rows.
     expect(container.textContent).toContain('Nog 1 kwartaal te gaan, t/m december 2026');
     expect(container.textContent).toContain('Factureren per kwartaal');
+  });
+
+  it('says that the amount of a period still being closed is what is already closed', async () => {
+    const part = { ...Q3, closed_cents: 6880000 };
+    const { container } = renderTab({ ...OVERVIEW, periods: [part] });
+    await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
+    const cell = [...container.querySelectorAll('nldd-text-cell')].find(
+      (el) => plain(el.getAttribute('text')) === '**€ 68.800**',
+    );
+    expect(cell?.getAttribute('supporting-text')).toBe('afgesloten');
   });
 
   it('opens only the period of the next step; months of others come on demand', async () => {
@@ -381,7 +748,7 @@ describe('MonthClosePage', () => {
     await waitFor(() => expect(openSheet()?.querySelector('nldd-table')).toBeTruthy());
     const sheet = openSheet() as Element;
     expect(sheet.querySelector('nldd-top-title-bar')?.getAttribute('text')).toBe(
-      'Klopt dit met wat er in juli 2026 is gewerkt?',
+      'Juli 2026 afsluiten',
     );
     expect(primaryButtons(sheet)).toEqual(['Sluit juli 2026 af']);
     const field = sheet.querySelector('nldd-text-field') as Element;
@@ -431,7 +798,7 @@ describe('MonthClosePage', () => {
     renderTab(
       { ...OVERVIEW, periods: [Q1] },
       { '/api/assignments/a-1/months/2026-02': closed },
-      '/opdrachten/a-1/maandafsluiting?maand=2026-02',
+      '/opdrachten/a-1/afsluiten?maand=2026-02',
     );
     await waitFor(() =>
       expect(document.querySelector('nldd-button[text="Heropen de maand"]')).not.toBeNull(),
@@ -499,7 +866,7 @@ describe('MonthClosePage', () => {
     renderTab(
       { ...OVERVIEW, periods: [Q1] },
       { '/api/assignments/a-1/months/2026-02': closed },
-      '/opdrachten/a-1/maandafsluiting?maand=2026-02',
+      '/opdrachten/a-1/afsluiten?maand=2026-02',
     );
     await waitFor(() =>
       expect(document.body.textContent).toContain(
@@ -514,7 +881,7 @@ describe('MonthClosePage', () => {
     const { calls } = renderTab(
       overview,
       { '/api/assignments/a-1/months/2026-07': OPEN_MONTH },
-      '/opdrachten/a-1/maandafsluiting?maand=2026-07',
+      '/opdrachten/a-1/afsluiten?maand=2026-07',
     );
     await waitFor(() => expect(openSheet()?.querySelector('nldd-text-field')).toBeTruthy());
     const sheet = openSheet() as Element;
@@ -565,7 +932,7 @@ describe('MonthClosePage', () => {
     clickButton(container, 'Lever aan');
     await waitFor(() => expect(openSheet()).toBeDefined());
     const sheet = openSheet() as Element;
-    expect(texts(sheet, 'nldd-title')).toContain('Waar gaat de factuur heen?');
+    expect(texts(sheet, 'nldd-title')).toContain('Adres voor de factuur');
     sheet.querySelector('nldd-form')?.dispatchEvent(new Event('submit', { cancelable: true }));
     await waitFor(() =>
       expect(sheet.querySelector('nldd-banner')?.getAttribute('text')).toBe('Vul in: organisatie.'),
@@ -589,7 +956,7 @@ describe('MonthClosePage', () => {
     const { calls } = renderTab(
       overview,
       { 'POST /api/assignments/a-1/billing/periods/2026-Q2/invoice': overview },
-      '/opdrachten/a-1/maandafsluiting?factuur=2026-04,2026-05',
+      '/opdrachten/a-1/afsluiten?factuur=2026-04,2026-05',
     );
     await waitFor(() => expect(openSheet()).toBeDefined());
     const sheet = openSheet() as Element;
@@ -651,8 +1018,8 @@ describe('MonthClosePage', () => {
   });
 
   it('says the dossier is closed instead of who can act', async () => {
-    mockApi({
-      '/api/assignments/a-1/billing': {
+    const { container } = renderTab(
+      {
         ...OVERVIEW,
         may_close: false,
         may_reopen: false,
@@ -660,21 +1027,9 @@ describe('MonthClosePage', () => {
         may_record_invoice: false,
         may_edit_terms: false,
       },
-      '/api/assignments/a-1/billing-status': { ...NO_INVOICES, may_record_invoice: false },
-    });
-    const shell = { id: 'a-1', dossier_closed_on: '2026-11-25' } as unknown as AssignmentDetail;
-    const { container } = renderApp(
-      <Routes>
-        <Route
-          path="/opdrachten/:assignmentId/maandafsluiting"
-          element={
-            <AssignmentShellContext.Provider value={shell}>
-              <MonthClosePage />
-            </AssignmentShellContext.Provider>
-          }
-        />
-      </Routes>,
-      { path: '/opdrachten/a-1/maandafsluiting' },
+      { '/api/assignments/a-1/billing-status': { ...NO_INVOICES, may_record_invoice: false } },
+      '/opdrachten/a-1/afsluiten',
+      assignment({ id: 'a-1', permissions: PERMISSIONS.lezer, dossier_closed_on: '2026-11-25' }),
     );
     await waitFor(() => expect(container.querySelector('[data-waiting]')).not.toBeNull());
     const waiting = container.querySelector('[data-waiting]')?.textContent ?? '';

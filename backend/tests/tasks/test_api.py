@@ -139,7 +139,7 @@ async def test_a_case_shows_its_tracks_to_who_may_read_it(as_person, world):
     body = await case(as_person(world.owner), world)
     assert [track["label"] for track in body["tracks"]] == [
         "Offerte",
-        "Bemensing",
+        "Team",
         "Uitvoering",
         "Financiën",
     ]
@@ -320,7 +320,7 @@ async def test_the_tasks_of_a_vacancy_follow_the_vacancy_s_rights(as_person, wor
     assert [track["label"] for track in body["tracks"]] == ["Werving", "Teksten"]
     task = body["tracks"][0]["tasks"][0]
     assert task["case_label"] == "Vacature Developer"
-    assert task["link"] == f"/vacatures/{world.vacancy.id}"
+    assert task["link"] == f"/vacatures/{world.vacancy.id}/aanvraag"
     assert (await as_person(world.planner).get(path)).json()["can_add"] is True
     assert (await as_person(world.lezer).get(path)).json()["can_add"] is False
     assert (await as_person(world.outsider).get(path)).status_code == 404
@@ -348,3 +348,318 @@ async def test_an_approver_sees_the_request_and_nothing_else_of_the_case(
     assert case.status_code == 404
     outsider = (await as_person(world.outsider).get("/api/tasks/mine")).json()
     assert outsider.get("items", []) == []
+
+
+# --- the address of the work: only to a page the reader may open ---------------
+
+
+async def _plan_task(db_session, world, template_key, *, case="assignment", **extra):
+    from grip.models.task import Task
+    from grip.tasks.plan import current_plan
+
+    task = Task(
+        case_kind=case,
+        assignment_id=world.assignment.id if case == "assignment" else None,
+        vacancy_id=world.vacancy.id if case == "vacancy" else None,
+        origin="plan",
+        template_key=template_key,
+        plan_version=current_plan().version,
+        title="Werk",
+        track="offerte",
+        **extra,
+    )
+    db_session.add(task)
+    await db_session.flush()
+    return task
+
+
+def _href_in_case(body: dict, task_id) -> str | None:
+    for track in body["tracks"]:
+        for task in track.get("tasks", []):
+            if task["id"] == str(task_id):
+                return task.get("work_href")
+    raise AssertionError("taak niet gevonden")
+
+
+async def test_a_team_member_gets_no_address_to_the_budget_or_the_quote(
+    as_person, world, db_session
+):
+    base = f"/opdrachten/{world.assignment.id}"
+    budget = await _plan_task(
+        db_session,
+        world,
+        "offerte.aanvraag_uitwerken",
+        assignee_person_id=world.member.id,
+        link=f"{base}/begroting",
+    )
+    quote = await _plan_task(
+        db_session,
+        world,
+        "offerte.opstellen",
+        assignee_person_id=world.member.id,
+        link=f"{base}/offerte",
+    )
+    mine = (await as_person(world.member).get("/api/tasks/mine")).json()["items"]
+    by_id = {item["id"]: item for item in mine}
+    assert str(budget.id) in by_id and str(quote.id) in by_id
+    for task in (budget, quote):
+        assert by_id[str(task.id)].get("work_href") is None
+        assert by_id[str(task.id)].get("step_href") is None
+        assert by_id[str(task.id)].get("link") is None
+
+    # Whoever reads the money of the assignment gets the address.
+    for person in (world.owner, world.beheerder, world.lezer):
+        body = await case(as_person(person), world)
+        assert _href_in_case(body, budget.id) == (
+            f"/opdrachten/{world.assignment.id}/begroting"
+        ), person.name
+        assert _href_in_case(body, quote.id) == (
+            f"/opdrachten/{world.assignment.id}/offerte"
+        ), person.name
+
+
+async def test_the_address_to_staffing_follows_the_staffing_right(
+    as_person, world, db_session
+):
+    task = await _plan_task(db_session, world, "bemensing.rol_invullen")
+    expected = f"/opdrachten/{world.assignment.id}/team"
+    for person in (world.owner, world.planner, world.beheerder, world.member):
+        body = await case(as_person(person), world)
+        assert _href_in_case(body, task.id) == expected, person.name
+    # A reader of the money alone does not read the team.
+    assert _href_in_case(await case(as_person(world.lezer), world), task.id) is None
+
+
+async def test_the_address_to_fulfilment_is_for_who_may_edit_the_vacancy(
+    as_person, world, db_session
+):
+    task = await _plan_task(db_session, world, "werving.vervullen", case="vacancy")
+    expected = f"/vacatures/{world.vacancy.id}/vervulling"
+    url = f"/api/tasks/cases/vacancy/{world.vacancy.id}"
+    for person, address in (
+        (world.requester, expected),
+        (world.planner, expected),
+        (world.beheerder, expected),
+        (world.lezer, None),
+    ):
+        found = await as_person(person).get(url)
+        assert found.status_code == 200, person.name
+        assert _href_in_case(found.json(), task.id) == address, person.name
+
+
+async def test_the_other_addresses_need_only_the_case(as_person, world, db_session):
+    task = await _plan_task(db_session, world, "uitvoering.starten")
+    for person in (world.owner, world.member, world.lezer):
+        body = await case(as_person(person), world)
+        assert _href_in_case(body, task.id) == f"/opdrachten/{world.assignment.id}", (
+            person.name
+        )
+
+
+def _find_by_prefix(body: dict, prefix: str) -> dict:
+    for track in body["tracks"]:
+        for task in track.get("tasks", []):
+            if task["title"].startswith(prefix):
+                return task
+    raise AssertionError(f"{prefix} niet gevonden")
+
+
+async def test_the_address_to_a_decision_is_for_whoever_may_decide_it(
+    as_person, world, build, create_person
+):
+    """The page of an internal approval asks the right to approve quotes, not
+    only a reading of the case."""
+    approver = await create_person(
+        "goedkeurder@example.org", functions=["offertegoedkeurder"]
+    )
+    quote = await build.quote(world.assignment)
+    await build.approval(quote, by=world.beheerder)
+
+    mine = (await as_person(approver).get("/api/tasks/mine")).json()["items"]
+    (task,) = [item for item in mine if item["title"].startswith("Beoordeel")]
+    assert task["work_href"] == f"/goedkeuren/{quote.id}"
+    assert task["link"] == f"/goedkeuren/{quote.id}"
+
+    for person in (
+        world.owner,
+        world.planner,
+        world.beheerder,
+        world.member,
+        world.lezer,
+    ):
+        found = _find_by_prefix(await case(as_person(person), world), "Beoordeel")
+        assert found.get("work_href") is None, person.name
+        assert found.get("step_href") is None, person.name
+        assert found.get("link") is None, person.name
+
+
+async def test_the_address_to_a_received_quote_follows_reading_that_quote(
+    as_person, world, build, db_session
+):
+    from grip.access import Action, DataClass, LocalDecider, Resource, Subject, decide
+    from grip.access.sql import SqlRelationSource
+    from grip.core.config import get_settings
+
+    quote = await build.quote(world.assignment)
+    task = await _plan_task(
+        db_session,
+        world,
+        "offerte.beoordelen_en_tekenen",
+        subject_kind="quote",
+        subject_id=str(quote.id),
+        link=f"/aanvragen/offerte/{quote.id}",
+    )
+    decider = LocalDecider(
+        SqlRelationSource(
+            db_session, instance_base_uri=get_settings().INSTANCE_BASE_URI
+        )
+    )
+    expected = f"/aanvragen/offerte/{quote.id}"
+    seen = set()
+    for person, functions in (
+        (world.owner, ()),
+        (world.planner, ("planner",)),
+        (world.beheerder, ("beheerder",)),
+        (world.member, ()),
+        (world.lezer, ("lezer",)),
+    ):
+        # What the route decides: reading class A of the quote.
+        allowed = (
+            await decide(
+                decider,
+                Subject.for_person(person.id, frozenset(functions)),
+                Action.READ,
+                Resource.quote(quote.id, world.assignment.id),
+                DataClass.ASSIGNMENT_BASIC,
+            )
+        ).allowed
+        href = _href_in_case(await case(as_person(person), world), task.id)
+        assert href == (expected if allowed else None), person.name
+        seen.add(allowed)
+    # The test sees both outcomes, so it cannot pass by being one-sided.
+    assert seen == {True, False}
+
+
+# --- names: only for who runs the case or does the work ------------------------
+
+NAME = "Lot Lid"
+
+
+def _no_name(response, who: str) -> None:
+    assert response.status_code == 200, (who, response.text)
+    assert NAME not in response.text, who
+    named = {key for key, value in _walk(response.json()) if value not in (None, "")}
+    assert "assignee_person_id" not in named, who
+
+
+def _walk(value):
+    if isinstance(value, dict):
+        for key, inner in value.items():
+            yield key, inner
+            yield from _walk(inner)
+    elif isinstance(value, list):
+        for inner in value:
+            yield from _walk(inner)
+
+
+async def _hand_over(as_person, world, case_kind, case_id, by, title=None):
+    """The first open task of the case goes to the member, by hand."""
+    client = as_person(by)
+    found = await client.get(f"/api/tasks/cases/{case_kind}/{case_id}")
+    task = next(
+        task
+        for track in found.json()["tracks"]
+        for task in track["tasks"]
+        if task["status"] in ("todo", "doing") and title in (None, task["title"])
+    )
+    handed = await client.patch(
+        f"/api/tasks/{task['id']}",
+        json={"assignee_person_id": str(world.member.id)},
+    )
+    assert handed.status_code == 200, handed.text
+    return task["id"]
+
+
+async def test_a_reader_gets_no_name_in_the_tasks_of_a_vacancy(as_person, world):
+    await _hand_over(as_person, world, "vacancy", world.vacancy.id, world.requester)
+    base = f"/api/tasks/cases/vacancy/{world.vacancy.id}"
+    # The lezer reads the vacancy without names, so also its tasks.
+    for url in (base, f"{base}/course", "/api/tasks"):
+        _no_name(await as_person(world.lezer).get(url), f"lezer {url}")
+    # Whoever runs the case keeps the name.
+    assert NAME in (await as_person(world.requester).get(base)).text
+    assert NAME in (await as_person(world.beheerder).get(base)).text
+
+
+async def test_a_reader_gets_no_name_in_the_tasks_of_an_assignment(as_person, world):
+    task_id = await _hand_over(
+        as_person, world, "assignment", world.assignment.id, world.owner
+    )
+    noted = await as_person(world.member).post(
+        f"/api/tasks/{task_id}/notes", json={"body": "Gebeld."}
+    )
+    assert noted.status_code == 201
+    created = await as_person(world.owner).post(
+        "/api/tasks",
+        json={
+            "case_kind": "assignment",
+            "case_id": str(world.assignment.id),
+            "title": "Bel de opdrachtgever",
+            "track": "uitvoering",
+            "assignee_person_id": str(world.member.id),
+        },
+    )
+    assert created.status_code == 201, created.text
+    done = await as_person(world.member).patch(
+        f"/api/tasks/{created.json()['id']}", json={"status": "done"}
+    )
+    assert done.status_code == 200
+    assert done.json()["completed_by_name"] == NAME
+
+    base = f"/api/tasks/cases/assignment/{world.assignment.id}"
+    for url in (base, f"{base}/course", "/api/tasks", f"/api/tasks/{task_id}"):
+        _no_name(await as_person(world.lezer).get(url), f"lezer {url}")
+    # The one who runs it, and the one who does the work, keep the name.
+    assert NAME in (await as_person(world.owner).get(base)).text
+    assert NAME in (await as_person(world.owner).get(f"/api/tasks/{task_id}")).text
+    assert NAME in (await as_person(world.member).get("/api/tasks/mine")).text
+
+
+async def test_a_take_over_leaves_no_name_in_the_note(as_person, world, db_session):
+    from sqlalchemy import select
+
+    from grip.models.audit_log import AuditLog
+
+    # Staffing is the planner's step, which she may do for the member.
+    task_id = await _hand_over(
+        as_person,
+        world,
+        "assignment",
+        world.assignment.id,
+        world.owner,
+        title="Vul de rol Ontwerper in",
+    )
+    taken = await as_person(world.planner).post(f"/api/tasks/{task_id}/takeover")
+    assert taken.status_code == 200, taken.text
+    assert [note["body"] for note in taken.json()["notes"]] == [
+        "Overgenomen van een collega."
+    ]
+    assert NAME not in taken.text
+
+    base = f"/api/tasks/cases/assignment/{world.assignment.id}"
+    for url in (base, f"/api/tasks/{task_id}"):
+        _no_name(await as_person(world.lezer).get(url), f"lezer {url}")
+
+    # Who held it before is in the history, not in the note.
+    await db_session.flush()
+    changes = (
+        await db_session.scalars(
+            select(AuditLog).where(
+                AuditLog.entity == "task", AuditLog.entity_id == str(task_id)
+            )
+        )
+    ).all()
+    assert any(
+        (row.old_value or {}).get("assignee_person_id") == str(world.member.id)
+        for row in changes
+    )

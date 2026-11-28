@@ -81,8 +81,11 @@ class TaskOut(BaseModel):
     then: Annotated[str | None, A] = None
     # The one action; absent when the reader has nothing to do now.
     action_text: Annotated[str | None, A] = None
-    # Where the work is done, inside the application.
+    # Where the work is done, inside the application: the page, which opens
+    # nothing by itself.
     work_href: Annotated[str | None, A] = None
+    # The same page asked to open the step, for the one button in a head.
+    step_href: Annotated[str | None, A] = None
     waits_on: Annotated[str | None, A] = None
     blocked: Annotated[str | None, A] = None
     checklist: Annotated[list[ChecklistItemOut], nested()] = Field(default_factory=list)

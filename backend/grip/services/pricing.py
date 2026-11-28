@@ -15,7 +15,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from decimal import Decimal
-from typing import Any
+from typing import Any, Protocol
 from uuid import UUID
 
 from sqlalchemy import select
@@ -154,6 +154,57 @@ class KpiOverview:
     @property
     def realisation_cents(self) -> int:
         return self.realised_cents + self.forecast_cents
+
+    @property
+    def gap_cents(self) -> int | None:
+        return calc.kpi_gap(self.realisation_cents, self.target_cents)
+
+
+class _HasGap(Protocol):
+    person_name: str
+    gap_cents: int | None
+
+
+def below_target_first[T: _HasGap](items: Iterable[T]) -> list[T]:
+    """Sort KPI items by gap, lowest first; no gap (no target, not derived) last."""
+    return sorted(
+        items,
+        key=lambda i: (
+            i.gap_cents is None,
+            i.gap_cents or 0,
+            i.person_name.casefold(),
+        ),
+    )
+
+
+class _HasAmounts(Protocol):
+    target_cents: int | None
+    realised_cents: int | None
+    forecast_cents: int | None
+    realisation_cents: int | None
+
+
+@dataclass(frozen=True)
+class KpiTotals:
+    target_cents: int
+    realised_cents: int
+    forecast_cents: int
+    realisation_cents: int
+    gap_cents: int | None
+
+
+def kpi_totals(items: Iterable[_HasAmounts]) -> KpiTotals:
+    """The KPI amounts of the items summed, where they are known."""
+    rows = list(items)
+    target = sum(i.target_cents or 0 for i in rows)
+    realisation = sum(i.realisation_cents or 0 for i in rows)
+    return KpiTotals(
+        target_cents=target,
+        realised_cents=sum(i.realised_cents or 0 for i in rows),
+        forecast_cents=sum(i.forecast_cents or 0 for i in rows),
+        realisation_cents=realisation,
+        gap_cents=calc.kpi_gap(realisation, target),
+    )
 
 
 # -- conversion ---------------------------------------------------------------

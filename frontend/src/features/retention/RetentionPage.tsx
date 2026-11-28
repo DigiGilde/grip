@@ -206,6 +206,7 @@ export function RetentionPage() {
   return (
     <>
       <Page
+        kind="document"
         title="Bewaartermijnen"
         instanceName={instance?.name}
         spacing="sections"
@@ -264,8 +265,10 @@ export function RetentionPage() {
       >
         {conflictPanel}
         <nldd-text>
-          Volg de selectielijst van de organisatie. De termijn loopt vanaf de dag dat het dossier is
-          gesloten.
+          <p>
+            Volg de selectielijst van de organisatie. De termijn loopt vanaf de dag dat het dossier
+            is gesloten.
+          </p>
         </nldd-text>
         <SelectInput
           label="Na het sluiten van het dossier"

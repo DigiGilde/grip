@@ -43,7 +43,7 @@ Elk veld hoort bij precies een klasse.
 |---|---|
 | A Opdracht-basis | Naam, partijen, status, periode, context-URI's, voortgang |
 | B Opdracht-financieel | Begroting, uitputting, beschikbaar, offertebedrag, factuurgegevens, kosten en dekking |
-| C Bemensing | Wie, rol, percentage, periode |
+| C Inzet | Wie, rol, percentage, periode |
 | D Persoon-tarief | Inzetschaal, categorie, inzetbedrag per persoon |
 | E Persoon-kosten | Kostprijs van inhuur, marge |
 | F Persoon-KPI | Declarabiliteitstarget en realisatie |
@@ -146,7 +146,7 @@ De server beslist over toegang. Het scherm moet daar de waarheid over zeggen. Da
 - Een pagina of een deel van een pagina staat in precies een stand: laden, de inhoud, niets te tonen, geen toegang, niet gevonden, of niet bereikbaar. De laatste vier komen uit een plek (`StateNotice`, `NoAccess`, `NotFound` en `LoadError` in `frontend/src/ui/layout/states.tsx`); geen scherm schrijft een eigen versie.
 - Geen toegang zegt voor wie het wel is ("De bedragen van deze opdracht zijn voor de eigenaar, een manager, de beheerder en een lezer") en nooit wat er staat. Niet gevonden zegt "het bestaat niet, of je hebt er geen toegang toe", zoals de server geen onderscheid maakt.
 - Een antwoord van de server over de lezer (geen toegang, niet gevonden, geweigerd) wordt niet opnieuw gevraagd. Alleen een uitblijvend antwoord wordt een keer herhaald. Anders blijft "Bezig met laden" seconden staan nadat de server nee heeft gezegd.
-- Een tab die de lezer niet heeft, toont geen toegang als iemand het adres toch opent (`AssignmentTab`, `VacancyTab`). Een pagina onder Beheer die alleen een beheerder heeft, doet hetzelfde (`AdminOnly`). Acties volgen de rechten die de server meegeeft, nooit de stand van het scherm alleen.
+- Een onderdeel van een opdracht of vacature waarvoor de lezer geen rij heeft, toont geen toegang als iemand het adres toch opent (`AssignmentPartPage`, `VacancyPartPage`). Een pagina onder Beheer die alleen een beheerder heeft, doet hetzelfde (`AdminOnly`). Acties volgen de rechten die de server meegeeft, nooit de stand van het scherm alleen.
 
 `just check-access` loopt dit na in een echte browser. Het opent elk adres uit de routetabel met echte id's, als elke soort lezer die de voorbeeldgegevens kennen (beheerder, eigenaar, planner die ook manager is, alleen planner, lezer, teamlid, aanvrager, zonder rechten), en meldt per pagina:
 
@@ -159,6 +159,80 @@ De server beslist over toegang. Het scherm moet daar de waarheid over zeggen. Da
 
 De servers moeten draaien. Geef een eigen hostnaam mee (`--base http://toegang.localhost:5183`): de lezer wordt gekozen met het ontwikkelcookie, en dat mag niet op de localhost landen waarin je zelf werkt. `--shots <map>` bewaart een afbeelding van elke pagina met een bevinding. Een soort lezer die in de gegevens niet voorkomt, wordt overgeslagen en genoemd; de voorbeeldgegevens kennen geen persoon die alleen planner is en geen persoon zonder rechten, dus maak die eerst aan in een eigen kopie. Uitgelogd is in de ontwikkelmodus zonder login niet na te lopen.
 
+## Rijen, Start en zoeken
+
+Een rij op een geopend ding of een blok op Start meldt in een zin wat er speelt, en zo'n zin kan meer verraden dan een veld. Hij wordt daarom per gegevensklasse opgebouwd, net als een antwoordschema: de route vraagt welke klassen de lezer heeft, de lader leest alleen de feiten van die klassen, en een pure functie (`parts_of`) vraagt de klassen opnieuw voordat ze een zin schrijft. Een zin van een klasse die niet mag, kan zo niet ontstaan. Elke rij en elk blok heeft een lektest per soort lezer.
+
+### De rijen van een opdracht
+
+`GET /api/assignments/{id}/parts`. Wie klasse A van de opdracht niet mag lezen, krijgt 404, net als bij een opdracht die niet bestaat. Een rij en haar zin zijn klasse A, omdat ze alleen uit toegestane klassen zijn gemaakt.
+
+| Rij | Klasse | Wanneer | Wat ze meldt |
+|---|---|---|---|
+| Afsluiten en factureren | B of C | Zodra de opdracht maanden mag afsluiten, of er een maand is afgesloten: dezelfde regel als de taak. Zo heet ze met B op een externe opdracht, anders Afsluiten | Met B of C het aantal maanden af te sluiten; alleen met B ook de stap van de factuurperiode of een naverrekening |
+| Begroting | B | Altijd | In Potentieel het aantal regels; daarna de regels over de begroting en de regels die niet te berekenen zijn |
+| Offerte | B | Op een externe opdracht, of als er een offerte is | De stand van de offerte ("Getekend op 18 dec 2025") |
+| Team | C of de teamlijst | Als er een regel met personeel is | Met C het aantal open rollen; met het signaal van R14 hoeveel mensen in een andere schaal werken, nooit de categorie; met alleen de teamlijst niets. Na afsluiten van de opdracht zegt de rij ook met C niets meer |
+| Eindrapport | B | Vanaf afgerond, of als het eindrapport is uitgegeven | Of het nog moet worden opgeleverd |
+| Gegevens | A | Altijd | De eigenaar |
+| Geschiedenis | A | Altijd | Niets |
+
+Is deze instantie de opdrachtgever, dan zijn Afsluiten, Begroting, Team en Eindrapport het werk van de opdrachtnemer en staan ze er niet (`is_client`, klasse A). Een offerte maken of beheren kan dan evenmin: die brengt de opdrachtnemer uit (`api/quote_access.py`). De ontvangen offerte staat onder Aanvragen, Ontvangen offertes. `own_line` is klasse C en wordt beslist op de eigen inzet van de lezer: "Developer, 100%, tot 31 dec 2026". `tasks_link` zegt of de lezer de taken van de opdracht mag wijzigen, volgens de regel van de takenlaag.
+
+Zonder rij is er geen onderdeel. De ene uitzondering is het rapport van een lopende opdracht: dat opent voor wie klasse B van de opdracht leest.
+
+### De rijen van een vacature
+
+`GET /api/vacancies/{id}/parts`. Wie van een vacature alleen de opengestelde tekst mag lezen, krijgt een lege lijst. Voor de anderen vallen de rijen onder de aantallen zonder namen, de smalle weergave van klasse C; een naam in "Wacht op ..." staat er alleen voor wie de vacature mag wijzigen, volgens de naamregel van de takenlaag.
+
+| Rij | Wanneer |
+|---|---|
+| Aanvraag, Advies en akkoord, Tekst en openstellen | Als de stap bij deze vacature hoort, of als een open taak ernaar leidt. Een gerede kandidaat heeft geen stap Openstellen; is de rij er toch, dan heet ze Tekst |
+| Vervullen | Alleen voor wie de vacature mag wijzigen |
+| Gegevens | Voor wie de vacature mag wijzigen, voor wie haar kandidaat mag zien (klasse C), of als er een soort contract is vastgelegd |
+| Geschiedenis | Altijd |
+
+De stand van een rij komt uit dezelfde feiten als de taken: aan de beurt als een open taak van de lezer naar die rij leidt, wachtend als die taak van een ander is, en anders klaar of nog niet, uit de stappen van het verloop. `tasks_link` betekent hetzelfde als bij een opdracht.
+
+### Start
+
+`GET /api/start`. Elk blok vraagt zijn eigen toegang; een blok zonder recht of zonder inhoud ontbreekt. Er staat geen veld op van de klassen D, E en F: zo'n veld zou bij elk bezoek een inzage vastleggen. Dat geldt per veld, niet per afleiding: de investeerruimte is afgeleid uit de targets (F) en staat er wel, voor wie ze mag zien (zie Hoe staan we ervoor).
+
+| Blok | Voor wie | Klasse |
+|---|---|---|
+| Te doen | Iedereen | A. Het aantal maanden in "daarna nog 7 maanden" alleen voor wie B of C van de opdracht leest, ook als de taak aan hem is overgedragen; anders telt een maand als een taak. Een rij leidt naar het werk, anders naar de zaak, en alleen als de lezer daar mag komen |
+| Je werkt aan | Wie zelf inzet heeft | C, beslist op de eigen inzet |
+| Mijn opdrachten | Eigenaar of manager | A, met de zin van de rijen en hun klassen; Ruimte of Overschrijding is B |
+| Planning | Wie de inzet op alle opdrachten mag wijzigen en ook C op alle personen leest | Aantallen zonder namen |
+| Mijn mensen | Leidinggevende, voor de eigen medewerkers | Namen uit de teamlijst; de inzet nu en vrij vanaf uit C. Geen declarabiliteit |
+| Hoe staan we ervoor | Wie B van alle opdrachten leest | B. De investeerruimte valt alleen weg voor wie de targets niet leest (F op personen) en als te weinig mensen een target hebben (minder dan vijf, maar meer dan nul), omdat het verschil dan de som van hun targets verraadt |
+| Mijn aanvragen | Aanvrager, voor de aanvragen waarvan hij eigenaar of manager is | A. De stand van de offerte, in de zin van de rij Offerte, is B en staat er alleen voor wie B van die opdracht leest |
+| Verbindingen | Beheerder, alleen bij een probleem | Stamgegevens |
+
+Nieuw onder aan Start en de pagina Wat is er gebeurd komen uit het nieuws (ADR 0043): een link gaat alleen naar wat de lezer mag openen.
+
+`GET /api/updates` filtert met `opdracht` (de berichten over die opdracht en haar onderdelen) en `persoon` (de berichten waarvan de zin zegt dat die persoon het deed). Een filter knipt in de berichten die de lezer zonder filter krijgt, over hetzelfde venster van achthonderd gebeurtenissen, en toont nooit meer. Een bericht dat niet zegt door wie, is van niemand. Wie een besluit van een ander alleen vastlegde (een getekende pdf, een afwijzing van elders, advies of akkoord op een vacature), krijgt het niet op zijn naam; de zin zegt dan "vastgelegd door". Een opdracht die de lezer niet mag openen en een persoon die geen zin noemt, vinden niets; het antwoord is gelijk aan dat voor een id dat niet bestaat, nooit 403 of 404.
+
+`GET /api/updates/filters` geeft de keuzes uit dezelfde berichten: de opdrachten waar een bericht over gaat en die de lezer mag openen, en de mensen die een zin noemt, met de naam uit de zin. Een keuze die elk bericht heeft, staat er niet. Alle velden zijn klasse A, zoals bij een taak: elk bericht is per gebeurtenis beslist. De lektests staan in `backend/tests/events/test_news_filters.py`; de veegtest loopt ook de keuzes na.
+
+Het filter op persoon toont alles wat één collega deed, voor ieder die die berichten mag zien. Dat maakt het geschikt voor controle op gedrag of prestaties; voordat grip voor echt werk wordt gebruikt, is instemming van de ondernemingsraad nodig (artikel 27 lid 1 onder l van de Wet op de ondernemingsraden) en moet het onder de AVG noodzakelijk en in verhouding zijn. Zie [openstaand.md](openstaand.md), "De ondernemingsraad".
+
+### Zoeken
+
+`GET /api/search?q=`. Eerst zoeken, dan per treffer beslissen, en pas daarna afkappen op twintig per soort. Het antwoord heeft geen totaal en zegt dus niet hoeveel er verborgen blijft. `q` is twee tot honderd tekens; `%` en `_` zijn gewone tekens.
+
+| Soort | Beslissing | Velden |
+|---|---|---|
+| Opdrachten | Klasse A van de opdracht | Naam, opdrachtgever, fase |
+| Vacatures | De opengestelde vacature: wie geen relatie met de vacature heeft, vindt alleen een opengestelde | Functie |
+| Mensen | Dezelfde beslissing als de lijst van mensen, zodat de link van een treffer werkt | Naam, uit de teamlijst |
+
+Zoeken legt geen inzage vast: het antwoord bevat niets van D, E of F.
+
+### De weergaven van Mensen
+
+`GET /api/people/views` noemt de weergaven waarin de lezer iets heeft, in een vaste volgorde: de lijst voor wie minstens één persoon ziet, en het bord, Bezetting en Declarabiliteit als ze voor deze lezer niet leeg zijn. Declarabiliteit vraagt de cijfers van een ander. Het eigen cijfer staat op de eigen pagina; dat een teamlid op `/mensen/declarabiliteit` alleen zijn eigen rij ziet, is geen lek.
+
 ## Open
 
 - Een tekenbevoegdheid is nu ja of nee per eenheid. Een grens op het bedrag is niet uitgewerkt.
@@ -168,13 +242,13 @@ De servers moeten draaien. Geef een eigen hostnaam mee (`--base http://toegang.l
 
 **Kostprijs en marge (klasse E).** Deze gegevens hangen aan een persoon, niet aan een opdracht. Een eigenaar of manager ziet ze alleen van personen die in de getoonde periode een inzet hebben op de eigen opdracht.
 
-**Bemensing naar de moeder (klasse C).** De moederinstantie krijgt standaard aantallen: hoeveel mensen ingezet, beschikbaar en gezocht, per rol en per periode. Namen gaan alleen mee als de beheerder van de dochterinstantie dat aanzet.
+**Inzet naar de moeder (klasse C).** De moederinstantie krijgt standaard aantallen: hoeveel mensen ingezet, beschikbaar en gezocht, per rol en per periode. Namen gaan alleen mee als de beheerder van de dochterinstantie dat aanzet.
 
 **Kostenposten (klasse B).** Een kostenpost hoort niet bij een opdracht. De beheerder mag kostenposten aanmaken en wijzigen. Daarnaast wijzigt een kostenpost wie een opdracht beheert waarvan de begroting hem dekt; zolang nog niets hem dekt, is dat wie hem heeft aangemaakt. Een kostenpost die nog door niets wordt gedekt, zoekt een begroting: wie een opdracht beheert mag hem lezen en een eigen begrotingsregel laten dekken, en wijzigt verder niets. Zonder die regel kon een kostenpost van de beheerder door niemand worden gedekt: de beheerder wijzigt geen begroting, en geen manager wist dat de post bestond. Uitvoerder, de stand van een verwijzing, de factuurregels die bij de uitvoerder zijn opgehaald en "Gevraagd door" zijn ook klasse B: wie de kostenpost mag lezen, ziet ze (ADR 0052). Een uitvoerder kiezen kan wie een kostenpost mag aanmaken.
 
 **Eigenaar en managers van een opdracht.** Wie eigenaar of manager is, wijzigt de eigenaar of een manager van die opdracht, en de beheerder op elke opdracht, want een eigenaar kan vertrokken zijn. Het is een eigen handeling: ze geeft de beheerder geen recht om de opdracht zelf te wijzigen. Een beheerder die zichzelf manager maakt, heeft daarna de rechten van een manager, en het auditlog vermeldt dat hij zichzelf heeft aangewezen. Een opdracht houdt altijd een eigenaar.
 
-**Het dossier van een opdracht sluiten.** Wie eigenaar of manager is, sluit het dossier van een afgeronde, verantwoorde of geannuleerde opdracht en legt vast dat het open blijft (`close_dossier`). De beheerder kan dat op elke opdracht, want een eigenaar kan vertrokken zijn. Heropenen kan alleen de beheerder, op elke opdracht, en vraagt een reden (`reopen_dossier`), zoals het heropenen van een maand: eigenaar en managers maken het sluiten niet zelf ongedaan. Beide zijn een eigen handeling, zoals eigenaar en managers aanwijzen: de beheerder krijgt er geen recht door om de opdracht te wijzigen. Het antwoord over de opdracht draagt `permissions.close_dossier` en `permissions.reopen_dossier`. Een gesloten dossier weigert elke wijziging aan de opdracht, haar begroting, rollen, inzet, kostendekking, offertes, maanden en facturen, ook een bericht van een andere organisatie (ADR 0057). Het antwoord over de opdracht zet dan de rechten om te wijzigen uit (`edit_basic`, `edit_financial`, `edit_staffing`, `manage_roles`), en zo ook elk recht om te wijzigen dat een tabblad van de opdracht krijgt: begroting, inzet, offerte en concept, goedkeuring, maanden, aanleveren, facturen en kostendekking. Alleen `may_manage` van de offertes blijft staan, want wie beheert downloadt er ook het bewijs mee; de offertekaart laat de handelingen weg zodra het dossier gesloten is. Drie dingen gaan wel door: het samenvoegen van twee rollen uit de catalogus herschrijft ook de regels van een gesloten dossier, het bewaren van het document van een oudere offerte bij het lezen, en een herstelfeit van de beheerder.
+**Het dossier van een opdracht sluiten.** Wie eigenaar of manager is, sluit het dossier van een afgeronde, verantwoorde of geannuleerde opdracht en legt vast dat het open blijft (`close_dossier`). De beheerder kan dat op elke opdracht, want een eigenaar kan vertrokken zijn. Heropenen kan alleen de beheerder, op elke opdracht, en vraagt een reden (`reopen_dossier`), zoals het heropenen van een maand: eigenaar en managers maken het sluiten niet zelf ongedaan. Beide zijn een eigen handeling, zoals eigenaar en managers aanwijzen: de beheerder krijgt er geen recht door om de opdracht te wijzigen. Het antwoord over de opdracht draagt `permissions.close_dossier` en `permissions.reopen_dossier`. Een gesloten dossier weigert elke wijziging aan de opdracht, haar begroting, rollen, inzet, kostendekking, offertes, maanden en facturen, ook een bericht van een andere organisatie (ADR 0057). Het antwoord over de opdracht zet dan de rechten om te wijzigen uit (`edit_basic`, `edit_financial`, `edit_staffing`, `manage_roles`), en zo ook elk recht om te wijzigen dat een onderdeel van de opdracht krijgt: begroting, inzet, offerte en concept, goedkeuring, maanden, aanleveren, facturen en kostendekking. Alleen `may_manage` van de offertes blijft staan, want wie beheert downloadt er ook het bewijs mee; de offertekaart laat de handelingen weg zodra het dossier gesloten is. Drie dingen gaan wel door: het samenvoegen van twee rollen uit de catalogus herschrijft ook de regels van een gesloten dossier, het bewaren van het document van een oudere offerte bij het lezen, en een herstelfeit van de beheerder.
 
 **Een tekst uit een moment halen.** Alleen de beheerder haalt een getypte tekst die er nooit in hoorde uit een moment van een opdracht (`restate_fact`, ADR 0057), op elke opdracht, ook met een gesloten dossier. Eigenaar en managers niet: het gaat om wat er over de zaak is vastgelegd, niet om het werk eraan. Het is een eigen handeling: de beheerder krijgt er geen recht door om de opdracht te wijzigen. De route vraagt eerst of de lezer de opdracht mag zien (anders 404) en dan deze handeling (anders 403). Welke teksten in een moment weg kunnen, staat alleen in de stand voor wie het mag (`removable_texts`); voor ieder ander is dat veld leeg.
 

@@ -121,6 +121,24 @@ async def test_a_lezer_gets_no_sum_that_gives_one_target_away(as_person, world):
     assert "time" not in body
 
 
+async def test_one_person_short_the_totals_stay_withheld(
+    as_person, world, db_session, create_person
+):
+    for index in range(3):
+        person = await create_person(
+            f"extra{index}@example.org", name=f"Extra Persoon {index}"
+        )
+        await rates.set_person_scale(
+            db_session, person.id, date(2026, 1, 1), 14, actor=world.beheerder
+        )
+        await rates.set_billability_target(
+            db_session, person.id, 2026, Decimal("50"), actor=world.beheerder
+        )
+    body = (await _get(as_person(world.lezer))).json()
+    assert body["money_withheld"] == {"reason": "few_targets", "min_persons": 5}
+    assert "money" not in body
+
+
 async def test_a_lezer_gets_the_totals_when_the_sum_covers_enough_people(
     as_person, world, db_session, create_person
 ):

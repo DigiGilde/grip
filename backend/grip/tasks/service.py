@@ -67,6 +67,8 @@ class TaskView:
     closes_by_fact: bool
     closing_fact_label: str | None
     overdue: bool
+    # The reader runs the case or does the work: only then a person is named.
+    may_name: bool = True
     note_count: int = 0
     notes: list[NoteView] = field(default_factory=list)
     # What this reader must hear about the task; set by ``telling.tell``.
@@ -173,14 +175,18 @@ async def _views(
             case_label = "Koppelingen"
         else:
             case_label = assignment_name or "Opdracht"
+        may_name = rights.edit or mine
         assignee_name = (
             names["person"].get(task.assignee_person_id)
-            if task.assignee_person_id
+            if task.assignee_person_id and may_name
             else None
         )
-        assignee_label = assignee_name or catalogue.ROLE_LABELS.get(
-            task.assignee_role or "", "Niemand"
-        )
+        if task.assignee_person_id:
+            assignee_label = assignee_name or "Een collega"
+        else:
+            assignee_label = catalogue.ROLE_LABELS.get(
+                task.assignee_role or "", "Niemand"
+            )
         can_change = task.is_open and (rights.edit or mine)
         notes: list[NoteView] = []
         if with_notes:
@@ -197,7 +203,7 @@ async def _views(
                     body=note.body,
                     created_at=note.created_at,
                     author_name=author_names.get(note.created_by_id)
-                    if note.created_by_id
+                    if note.created_by_id and may_name
                     else None,
                 )
                 for note in task.notes
@@ -212,7 +218,7 @@ async def _views(
                 assignee_name=assignee_name,
                 assignee_label=assignee_label,
                 completed_by_name=names["person"].get(task.completed_by_id)
-                if task.completed_by_id
+                if task.completed_by_id and may_name
                 else None,
                 is_mine=mine,
                 can_change=can_change,
@@ -226,6 +232,7 @@ async def _views(
                 overdue=task.is_open
                 and task.due_on is not None
                 and task.due_on < today,
+                may_name=may_name,
                 note_count=len(task.notes),
                 notes=notes,
             )
@@ -545,7 +552,7 @@ async def create_manual_task(
     if track is None:
         track = tracks[0]
     elif track not in tracks:
-        raise DomainValidationError("Dit spoor bestaat niet voor deze zaak.")
+        raise DomainValidationError("Deze soort werk bestaat niet voor deze zaak.")
     assignment_id: UUID | None = None
     vacancy_id: UUID | None = None
     if case_kind == "assignment":
@@ -667,21 +674,17 @@ async def assign(
 
 async def take_over(db: AsyncSession, task: Task, *, actor: Person) -> Task:
     """Do someone else's step for them: the task becomes the actor's, and a
-    note on the task says from whom it was taken."""
+    note on the task says it was taken over."""
     if not task.is_open:
         raise DomainValidationError("Deze taak is al afgerond.")
     if task.assignee_person_id == actor.id:
         return task
     if task_access.separated(task):
         raise DomainValidationError(SEPARATED)
-    previous = (
-        await db.get(Person, task.assignee_person_id)
-        if task.assignee_person_id
-        else None
-    )
+    # The note is read by whoever reads the task; who held it is in the history.
     holder = (
-        previous.name
-        if previous is not None
+        "een collega"
+        if task.assignee_person_id
         else telling.role_words(task.assignee_role)
     )
     await assign(db, task, actor.id, actor=actor)
