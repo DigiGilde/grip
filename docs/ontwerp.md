@@ -77,6 +77,7 @@ Ze staan in `frontend/src/ui/layout/` en `frontend/src/ui/`.
 | `KeyFigures` | Een paar cijfers die een pagina samenvatten: een gedempt label boven de waarde, zonder kader. Een tabel is voor rijen van één soort. |
 | `SignalList` | Wat aandacht vraagt, als één lijst: een zin per punt, met eronder waar het over gaat. Geen stapel balken. |
 | `LinkRows` (`@/ui/LinkRows`) | Rijen die elk ergens heen leiden: de onderdelen van een ding, de blokken van Start, de pagina's van Geld en Ik. Per rij een regel tekst, gedempt eronder wat er speelt (`notice`), een stand als badge (`tag`) en een korte waarde aan het eind (`end`). Een rij met een adres eindigt met het icoon `open`. |
+| `UpdateTimeline` (`features/history`) | Het nieuws als tijdlijn, op Start en op Wat is er gebeurd: per dag een kop, en de berichten van die dag op één spoor (`nldd-step-cell` met `level="minor"`), nieuwste boven, elk een zin met zijn links en de tijd rechts. Op Wat is er gebeurd staan de filters Opdracht en Persoon in de `ActionBar` en in het adres (`?opdracht=&persoon=`). Een filter staat er alleen als het de lijst kan veranderen, een gefilterde lijst zet het nieuws niet op gezien, en leeg na een filter is "Niets gevonden". |
 | `TabNav` | De onderdelen van één geopend ding of de weergaven van een lijst, elk een pagina met een eigen adres: gewone tekst op één regel, een haarlijn onder de rij en een lijn onder waar je bent. `narrow="hide"` voor onderdelen (op een smal scherm wissel je via de landing), `narrow="bar"` voor weergaven, met korte tekst in `short`. Past de balk niet, dan staat de rest achter zijn knop Meer. Nooit een keuzelijst. |
 | `omitEmpty` op `Facts` | Laat een feit zonder waarde weg, waar een lege waarde geen nieuws is. Op een smal scherm staat het label boven de waarde, zodat een waarde nooit midden in een woord breekt. |
 | `hideBelow`, `hideAbove`, `narrowText` op `OpenCell` | Een kolom die op smal wegvalt, vouw je in de naam: `narrowText` is de gedempte regel die alleen smal verschijnt. |
@@ -268,7 +269,7 @@ Start zegt wat er voor de lezer ligt, in één kolom en voor iedereen in dezelfd
 | Hoe staan we ervoor | Wie het geld van alle opdrachten leest | Het verwacht totaal van begroot, de investeerruimte en het potentieel, elk met het jaar of "hele looptijd" |
 | Mijn aanvragen | Aanvrager | Per eigen aanvraag de stand in haar woorden |
 | Verbindingen | Beheerder, alleen bij een probleem | Hoeveel berichten niet aankomen bij een andere instantie |
-| Nieuw | Wie er nieuws heeft | De laatste drie gebeurtenissen, en "Alles wat er gebeurd is" |
+| Nieuw | Wie er nieuws heeft | De laatste vijf berichten als tijdlijn, per dag een kop, en "Alles wat er gebeurd is" |
 
 Elk ander blok toont hooguit acht rijen, wat aandacht vraagt bovenaan, met "Alle 50" naar de plek met de rest. Binnenkort is deze maand en de drie maanden erna, het venster van Bezetting: daarbinnen waarschuwt Je werkt aan voor inzet die stopt, en telt Planning wie leeg valt. Wie nu al geen inzet heeft telt daarbij mee, zodat het getal klopt met het bord. Op Start staat niets van de klassen D, E en F: zo'n veld zou bij elk bezoek een inzage vastleggen, en het scherm wordt in overleg gedeeld.
 
@@ -276,7 +277,7 @@ Elk ander blok toont hooguit acht rijen, wat aandacht vraagt bovenaan, met "Alle
 
 Een zaak met een verloop (een opdracht, een vacature) zegt overal op dezelfde plek: onder de titel in een zin wat er nu gebeurt en wie aan zet is, rechts van de titel de ene knop die de stap zet. Op een opdracht staat het verloop onder die zin als stappenbalk van het designsysteem, elke stap met haar stand; op een smal scherm de stap waar ze staat en de stap daarna in woorden. De `lead` herhaalt het niet. Op een vacature zijn de stappen de rijen van de landing. De server beslist het; een scherm tekent het met `CourseNow` en `CourseBar` uit `@/ui/Workflow` en de gegevens van `useCaseCourse`. Een lijst toont dezelfde stand met `courseLine`. Draagt de kop de volgende stap, dan zet zij `PrimaryTakenContext`; de gedeelde knop en actiebalk tekenen een hoofdknop eronder dan als gewone knop. Op het scherm staat geen woord van het systeem. Het patroon, de regels en de praktijkgevallen staan in [werkstromen.md](werkstromen.md).
 
-## Vier valkuilen in het designsysteem
+## Vijf valkuilen in het designsysteem
 
 **`nldd-form` verplaatst zijn kinderen.** Het zet zijn directe kinderen in een eigen formulierelement. Verschijnt er daarna een veld, dan vindt React de plek niet meer en wordt de pagina leeg. Zet de velden daarom in één vast element: `FormSheet` en `FormFields` doen dat.
 
@@ -285,6 +286,8 @@ Een zaak met een verloop (een opdracht, een vacature) zegt overal op dezelfde pl
 **Een keuze in een menu die een paneel of dialoog opent, wacht tot het menu dicht is.** Sinds 0.24.0 knippert een gekozen menu-item voordat het menu sluit, terwijl `select` meteen komt. Een paneel dat dan al opent, geeft bij het sluiten de focus aan de pagina in plaats van aan de knop van het menu. Dat geldt voor een menu onder een knop of een icoonknop; het menu Meer van een werkbalk geeft de focus sinds 0.26.2 zelf terug. Luister in zo'n menu daarom met `useMenuSelect` uit `@/components/nldd/events`; `RowActions` doet het zo.
 
 **Een cel hoort in een rij.** `nldd-text-cell` en `nldd-cell` krijgen hun hoogte van de rij van een tabel of lijst. Los op een pagina heeft zo'n cel geen hoogte: de tekst wordt wel getekend, maar valt over wat eronder staat. Gebruik buiten een rij `Quiet`, `Facts` of gewone tekst.
+
+**Een stip op een spoor staat midden in de rij.** Een `nldd-step-cell` naast tekst die kan afbreken, zet zijn stip halverwege de hoogte van de rij, en dus naast de tweede regel. Geef hem `vertical-alignment="top"` en `marker-offset` op de helft van de eerste regel, zoals `UpdateTimeline` doet; dan blijft de stip naast de eerste regel staan.
 
 ## Meten in een browser
 

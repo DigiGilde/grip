@@ -6,6 +6,7 @@ import { formatMoment } from '@/features/history/words';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { IconCell } from '@/ui/Icon';
 import { LoadError, Loading, NameLine, Quiet, Section, SectionHeading, Stack } from '@/ui/layout';
+import { placeOf } from '@/ui/track';
 import { CourseBar, CourseNow } from '@/ui/Workflow';
 import { MOMENT_PARAM, useStand, type Moment, type Stand } from './api';
 import { StandAssignmentPart } from './StandAssignmentPart';
@@ -24,14 +25,6 @@ const FOCUS_TARGET = { outline: 'none' };
 
 function momentHref(assignmentId: string, seq: number): string {
   return `${assignmentPartPath(assignmentId, 'history')}?${MOMENT_PARAM}=${seq}`;
-}
-
-type Place = 'first' | 'between' | 'last' | 'only';
-
-function placeOf(index: number, count: number): Place {
-  if (count === 1) return 'only';
-  if (index === 0) return 'first';
-  return index === count - 1 ? 'last' : 'between';
 }
 
 function statusOf(seq: number, current: number | null): 'past' | 'current' | 'future' {

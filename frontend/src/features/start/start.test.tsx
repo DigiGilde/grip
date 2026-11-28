@@ -403,7 +403,8 @@ describe('Start: what concerns the reader', () => {
   it('shows only the to-do block and what is new to a reader with nothing else, and no 0%', async () => {
     const { container } = renderStart(NOTHING, UPDATES);
     await waitFor(() => expect(titles(container)).toContain('Nieuw'));
-    expect(titles(container)).toEqual(['Te doen', 'Nieuw']);
+    // The day is the heading of the news under it.
+    expect(titles(container)).toEqual(['Te doen', 'Nieuw', 'Vandaag']);
     expect(plain(allText(container))).not.toContain('0%');
   });
 
@@ -438,31 +439,31 @@ describe('Start: what concerns the reader', () => {
       'Mijn aanvragen',
       'Verbindingen',
       'Nieuw',
+      'Vandaag',
     ]);
   });
 });
 
 describe('Start: what is new', () => {
-  it('shows at most three rows and the link to everything', async () => {
+  it('shows at most five on the timeline of their day, and the link to everything', async () => {
     const { container, fetchMock } = renderStart(NOTHING, UPDATES);
     await waitFor(() => expect(titles(container)).toContain('Nieuw'));
     const calls = (fetchMock.mock.calls as unknown[][]).map((call) => String(call[0]));
-    expect(calls).toContain('/api/updates?limiet=3');
-    const list = container.querySelector('nldd-list[accessible-label="Wat er gebeurde"]')!;
+    expect(calls).toContain('/api/updates?limiet=5');
+    const day = container.querySelector('nldd-title[text="Vandaag"]');
+    expect(day?.getAttribute('heading-level')).toBe('3');
+    const list = container.querySelector('nldd-list[accessible-label="Wat er gebeurde: Vandaag"]')!;
     const rows = [...list.querySelectorAll('nldd-list-item')];
-    expect(rows.map((row) => row.getAttribute('href'))).toEqual([
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.querySelector('nldd-step-cell')?.getAttribute('position')).toBe('only');
+    const link = rows[0]!.querySelector('nldd-link');
+    expect([link?.getAttribute('href'), link?.getAttribute('text')]).toEqual([
       '/opdrachten/a1',
-      '/wat-is-er-gebeurd',
+      'Opdracht Alfa 2026',
     ]);
-    expect(rows[0]!.querySelector('nldd-text-cell')?.getAttribute('text')).toBe(
-      'Opdracht Alfa 2026 is gestart',
-    );
-    expect(rows[0]!.querySelector('nldd-text-cell')?.getAttribute('supporting-text')).toBe(
-      'vanochtend',
-    );
-    expect(rows[1]!.querySelector('nldd-text-cell')?.getAttribute('text')).toBe(
-      'Alles wat er gebeurd is',
-    );
+    expect(rows[0]!.textContent).toBe(' is gestartvanochtend');
+    expect(linksIn(container, 'Meer nieuws')).toEqual(['/wat-is-er-gebeurd']);
+    expect(rowTexts(container, 'Meer nieuws')).toEqual(['Alles wat er gebeurd is']);
   });
 
   it('leaves the block out when nothing happened', async () => {

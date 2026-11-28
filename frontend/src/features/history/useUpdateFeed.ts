@@ -1,13 +1,27 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
-import { UPDATE_KEYS, fetchUpdates, markUpdatesSeen } from './updates';
+import {
+  NO_FILTER,
+  UPDATE_KEYS,
+  fetchUpdates,
+  isFiltered,
+  markUpdatesSeen,
+  type UpdateFilter,
+} from './updates';
 
-/** The feed, paging back. Showing all of it marks it as seen; a few rows do not. */
-export function useUpdateFeed(limit: number, markSeen: boolean) {
+/**
+ * The feed, paging back. Showing all of it marks it as seen; a few rows do
+ * not, and neither does the part a filter leaves.
+ */
+export function useUpdateFeed(
+  limit: number,
+  markSeen: boolean,
+  filter: UpdateFilter = NO_FILTER,
+) {
   const queryClient = useQueryClient();
   const query = useInfiniteQuery({
-    queryKey: UPDATE_KEYS.list(limit),
-    queryFn: ({ pageParam }) => fetchUpdates(limit, pageParam),
+    queryKey: UPDATE_KEYS.list(limit, filter),
+    queryFn: ({ pageParam }) => fetchUpdates(limit, pageParam, filter),
     initialPageParam: undefined as number | undefined,
     getNextPageParam: (last) => last.next ?? undefined,
   });
@@ -16,7 +30,7 @@ export function useUpdateFeed(limit: number, markSeen: boolean) {
   // Seen is when the feed was shown, once; what was new stays marked on
   // this screen until the reader comes back.
   const marked = useRef(false);
-  const shown = query.isSuccess;
+  const shown = query.isSuccess && !isFiltered(filter);
   useEffect(() => {
     if (!markSeen || !shown || marked.current) return;
     marked.current = true;

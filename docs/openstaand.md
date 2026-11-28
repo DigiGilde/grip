@@ -66,6 +66,12 @@ De zes vragen staan uitgeschreven onderaan [bewijs.md](bewijs.md). Kort:
 
 Daarnaast: grip bewaart het aanvraagformulier van een vacature met namen van collega's, en ruimt het op na een termijn die de instantie instelt. Die termijn staat op nul dagen (direct na het sluiten van de vacature), maar het opruimen gebeurt alleen als iemand de opdracht daarvoor draait; een vast ritme is er niet ([ADR 0018](adr/0018-vacatureformulier-en-vacaturetekst.md)). En: hoe lang blijven gebeurtenissen met persoonsgegevens bewaard ([gebeurtenissen.md](gebeurtenissen.md), "Bewaren en wissen").
 
+## De ondernemingsraad
+
+| Punt | Vraag | Waar |
+|---|---|---|
+| Het filter op persoon in Wat is er gebeurd | Met dat filter toont de tijdlijn alles wat één collega deed, aan ieder die die gebeurtenissen mag zien. Zo'n voorziening is geschikt voor controle op gedrag of prestaties, ook als dat het doel niet is. Daarvoor is instemming van de ondernemingsraad nodig (artikel 27 lid 1 onder l van de Wet op de ondernemingsraden), en onder de AVG moet het noodzakelijk en in verhouding zijn. In deze fase, waarin we ontdekken wat grip moet doen, staat het filter erin; voordat grip voor echt werk wordt gebruikt, wordt het afgestemd. Zonder instemming gaat het filter op persoon eruit; dat op opdracht heeft dit bezwaar niet | ADR 0059, [toegang.md](toegang.md) |
+
 ## De financiële administratie
 
 De zes vragen staan in [ADR 0039](adr/0039-afsluiten-per-maand-aanleveren-per-periode.md). Kort:

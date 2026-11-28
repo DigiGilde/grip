@@ -45,7 +45,7 @@ export function StartPage() {
             {start.figures && <FiguresBlock block={start.figures} />}
             {start.my_requests && <MyRequestsBlock block={start.my_requests} />}
             {start.connections && <ConnectionsBlock block={start.connections} />}
-            <NewUpdates limit={3} />
+            <NewUpdates limit={5} />
           </>
         )}
       </Page>

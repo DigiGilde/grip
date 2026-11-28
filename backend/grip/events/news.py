@@ -118,6 +118,10 @@ class News:
     by: bool = True
     # On an assignment: only for who owns or manages it, not the team.
     managers_only: bool = False
+    # A person acting here may only have recorded what someone else decided:
+    # a signed pdf, a rejection made elsewhere, the advice or approval of a
+    # vacancy. Narrowing the feed to a person never counts it as theirs.
+    recorded: bool = False
 
 
 NEWS: tuple[News, ...] = (
@@ -130,6 +134,7 @@ NEWS: tuple[News, ...] = (
         "Offerte{ref} voor {object} is getekend",
         "{n} offertes voor {object} zijn getekend",
         tab="offerte",
+        recorded=True,
     ),
     News(
         "quote_rejected",
@@ -139,6 +144,7 @@ NEWS: tuple[News, ...] = (
         "Offerte{ref} voor {object} is afgewezen",
         "{n} offertes voor {object} zijn afgewezen",
         tab="offerte",
+        recorded=True,
     ),
     News(
         "quote_made",
@@ -369,6 +375,7 @@ NEWS: tuple[News, ...] = (
         "{n} vacatures goedgekeurd",
         match=_decision("approval", True),
         tab="advies",
+        recorded=True,
     ),
     News(
         "vacancy_refused",
@@ -379,6 +386,7 @@ NEWS: tuple[News, ...] = (
         "{n} vacatures niet goedgekeurd",
         match=_decision("approval", False),
         tab="advies",
+        recorded=True,
     ),
     News(
         "vacancy_advice",
@@ -389,6 +397,7 @@ NEWS: tuple[News, ...] = (
         "{n} adviezen gegeven over vacature {object}",
         match=lambda event: _new(event, "kind") in ("hr_advice", "control_advice"),
         tab="advies",
+        recorded=True,
     ),
     News(
         "vacancy_text_settled",
@@ -664,6 +673,21 @@ class Feed:
     next_cursor: int | None = None
 
 
+@dataclass(frozen=True)
+class Option:
+    id: UUID
+    name: str
+
+
+@dataclass
+class FilterOptions:
+    """What the feed of this reader can be narrowed to: the assignments it is
+    about that the reader may open, and who it says did something."""
+
+    assignments: list[Option] = field(default_factory=list)
+    people: list[Option] = field(default_factory=list)
+
+
 def _uuid(value: Any) -> UUID | None:
     try:
         return UUID(str(value))
@@ -913,7 +937,9 @@ def _sentence(
     names: Mapping[tuple[str, UUID], str],
     people: Mapping[UUID, str],
     refs: Mapping[str, str],
-) -> tuple[Part, ...]:
+) -> tuple[tuple[Part, ...], UUID | None]:
+    """The sentence in parts, and the person it says did it, if it names one
+    who did not only record it (``News.recorded``)."""
     rule, event = raw.rule, raw.event
     object_name = (
         names.get((raw.object_kind, raw.object_id))
@@ -958,7 +984,7 @@ def _sentence(
     )
     if "{object}" not in text:
         href = rule.href
-        return (Part(text, href),) if href else (Part(text),)
+        return ((Part(text, href),) if href else (Part(text),)), None
     before, _, after = text.partition("{object}")
     href = None
     if object_name and raw.object_kind and raw.object_id and raw.openable:
@@ -969,6 +995,7 @@ def _sentence(
     if not before and label:
         label = label[0].upper() + label[1:]
     parts = [Part(before), Part(label, href), Part(after)]
+    named = None
     if rule.by and len(raw.actors) == 1:
         ((kind, person_id),) = raw.actors
         by = (
@@ -981,7 +1008,9 @@ def _sentence(
         )
         if by and by != object_name and person_id != event.person_id:
             parts.append(Part(f" door {by}"))
-    return tuple(part for part in parts if part.text)
+            if not rule.recorded:
+                named = person_id
+    return tuple(part for part in parts if part.text), named
 
 
 async def _names(
@@ -1197,21 +1226,12 @@ async def mark_seen(db: AsyncSession, person_id: UUID) -> int:
     return head
 
 
-async def read(
-    db: AsyncSession,
-    access: EventAccess,
-    relations: RelationSource,
-    *,
-    cursor: int | None = None,
-    limit: int = 10,
-    now: datetime | None = None,
-) -> Feed:
-    """The news for this reader, newest first, bursts as one item."""
+async def _selection(
+    db: AsyncSession, access: EventAccess, relations: RelationSource, now: datetime
+) -> list[_Raw]:
+    """Every item the feed of this reader holds, newest first, before words."""
     subject = access.subject
-    if subject.person_id is None:
-        return Feed()
-    now = now or datetime.now(UTC)
-    limit = max(1, min(limit, MAX_ITEMS))
+    assert subject.person_id is not None
     query = (
         select(StreamEvent)
         .where(
@@ -1273,7 +1293,49 @@ async def read(
             )
         )
 
-    collapsed = _collapse(_supersede(_combine(raws)))
+    return _collapse(_supersede(_combine(raws)))
+
+
+def _about_assignment(raw: _Raw, assignment_id: UUID) -> bool:
+    """Whether an item is about this assignment, one of its parts included,
+    and the reader may open it. One they may not open is not offered as a
+    filter, so filtering on it finds nothing, as on one that does not exist."""
+    return (
+        raw.object_kind == "assignment"
+        and raw.object_id == assignment_id
+        and raw.openable
+    )
+
+
+async def read(
+    db: AsyncSession,
+    access: EventAccess,
+    relations: RelationSource,
+    *,
+    cursor: int | None = None,
+    limit: int = 10,
+    now: datetime | None = None,
+    assignment_id: UUID | None = None,
+    actor_id: UUID | None = None,
+) -> Feed:
+    """The news for this reader, newest first, bursts as one item.
+
+    ``assignment_id`` keeps the items about that assignment, ``actor_id`` the
+    items that say that person did it. Both cut the same items the feed shows
+    without them, so a filter never shows what the feed would not.
+    """
+    subject = access.subject
+    if subject.person_id is None:
+        return Feed()
+    now = now or datetime.now(UTC)
+    limit = max(1, min(limit, MAX_ITEMS))
+    collapsed = await _selection(db, access, relations, now)
+    if assignment_id is not None:
+        collapsed = [raw for raw in collapsed if _about_assignment(raw, assignment_id)]
+    known = None
+    if actor_id is not None:
+        known = await _names(db, collapsed)
+        collapsed = [raw for raw in collapsed if _sentence(raw, *known)[1] == actor_id]
     marker = await seen_seq(db, subject.person_id)
     feed = Feed(
         new_count=sum(1 for raw in collapsed if marker is not None and raw.top > marker)
@@ -1284,9 +1346,9 @@ async def read(
         collapsed = [raw for raw in collapsed if raw.top < cursor]
     shown = collapsed[:limit]
     await _keep_to_existing_parts(access, shown)
-    names, people, refs = await _names(db, shown)
+    names, people, refs = known if known is not None else await _names(db, shown)
     for raw in shown:
-        parts = _sentence(raw, names, people, refs)
+        parts, _by = _sentence(raw, names, people, refs)
         feed.items.append(
             Item(
                 id=str(raw.top),
@@ -1306,3 +1368,50 @@ async def read(
         # Read on below the last item shown.
         feed.next_cursor = shown[-1].top
     return feed
+
+
+def _narrowing(found: Mapping[UUID, tuple[str, int]], total: int) -> list[Option]:
+    """The options by name, without one that every item has: choosing it
+    would leave the feed as it is."""
+    return [
+        Option(option_id, name)
+        for option_id, (name, count) in sorted(
+            found.items(), key=lambda entry: (entry[1][0].casefold(), str(entry[0]))
+        )
+        if count < total
+    ]
+
+
+async def filter_options(
+    db: AsyncSession,
+    access: EventAccess,
+    relations: RelationSource,
+    *,
+    now: datetime | None = None,
+) -> FilterOptions:
+    """What the feed of this reader can be narrowed to, from the items it holds.
+
+    The same items as the feed, over the same window: an assignment that an
+    item is about and that the reader may open, and a person an item says did
+    it, each by the name the feed gives them. An assignment the reader may not
+    open and a person no sentence names are never an option, and neither is
+    one that every item has.
+    """
+    if access.subject.person_id is None:
+        return FilterOptions()
+    collapsed = await _selection(db, access, relations, now or datetime.now(UTC))
+    names, people, refs = await _names(db, collapsed)
+    assignments: dict[UUID, tuple[str, int]] = {}
+    actors: dict[UUID, tuple[str, int]] = {}
+    for raw in collapsed:
+        if raw.object_kind == "assignment" and raw.object_id and raw.openable:
+            name = names.get(("assignment", raw.object_id))
+            if name:
+                count = assignments.get(raw.object_id, (name, 0))[1]
+                assignments[raw.object_id] = (name, count + 1)
+        _parts, by = _sentence(raw, names, people, refs)
+        if by is not None:
+            count = actors.get(by, (people[by], 0))[1]
+            actors[by] = (people[by], count + 1)
+    total = len(collapsed)
+    return FilterOptions(_narrowing(assignments, total), _narrowing(actors, total))

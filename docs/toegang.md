@@ -209,7 +209,13 @@ De stand van een rij komt uit dezelfde feiten als de taken: aan de beurt als een
 | Mijn aanvragen | Aanvrager, voor de aanvragen waarvan hij eigenaar of manager is | A. De stand van de offerte, in de zin van de rij Offerte, is B en staat er alleen voor wie B van die opdracht leest |
 | Verbindingen | Beheerder, alleen bij een probleem | Stamgegevens |
 
-Nieuw onder aan Start komt uit het nieuws (ADR 0043): een link gaat alleen naar wat de lezer mag openen.
+Nieuw onder aan Start en de pagina Wat is er gebeurd komen uit het nieuws (ADR 0043): een link gaat alleen naar wat de lezer mag openen.
+
+`GET /api/updates` filtert met `opdracht` (de berichten over die opdracht en haar onderdelen) en `persoon` (de berichten waarvan de zin zegt dat die persoon het deed). Een filter knipt in de berichten die de lezer zonder filter krijgt, over hetzelfde venster van achthonderd gebeurtenissen, en toont nooit meer. Een bericht dat niet zegt door wie, is van niemand. Wie een besluit van een ander alleen vastlegde (een getekende pdf, een afwijzing van elders, advies of akkoord op een vacature), krijgt het niet op zijn naam. Een opdracht die de lezer niet mag openen en een persoon die geen zin noemt, vinden niets; het antwoord is gelijk aan dat voor een id dat niet bestaat, nooit 403 of 404.
+
+`GET /api/updates/filters` geeft de keuzes uit dezelfde berichten: de opdrachten waar een bericht over gaat en die de lezer mag openen, en de mensen die een zin noemt, met de naam uit de zin. Een keuze die elk bericht heeft, staat er niet. Alle velden zijn klasse A, zoals bij een taak: elk bericht is per gebeurtenis beslist. De lektests staan in `backend/tests/events/test_news_filters.py`; de veegtest loopt ook de keuzes na.
+
+Het filter op persoon toont alles wat één collega deed, voor ieder die die berichten mag zien. Dat maakt het geschikt voor controle op gedrag of prestaties; voordat grip voor echt werk wordt gebruikt, is instemming van de ondernemingsraad nodig (artikel 27 lid 1 onder l van de Wet op de ondernemingsraden) en moet het onder de AVG noodzakelijk en in verhouding zijn. Zie [openstaand.md](openstaand.md), "De ondernemingsraad".
 
 ### Zoeken
 
