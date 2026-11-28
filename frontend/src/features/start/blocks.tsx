@@ -3,6 +3,7 @@
  * said and shows it; nothing is counted or summed here.
  */
 import { assignmentPath } from '@/features/assignments/paths';
+import { clientAssignmentPath } from '@/features/client/paths';
 import { incompleteText } from '@/features/costs/costText';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { formatDate, formatEuro, formatFte, formatMonth, formatPercent } from '@/lib/format';
@@ -97,7 +98,9 @@ export function MyAssignmentsBlock({ block }: { block: Block<'my_assignments'> }
     key: row.assignment_id,
     text: row.name,
     notice: row.line,
-    href: assignmentPath(row.assignment_id),
+    href: row.as_client
+      ? clientAssignmentPath(row.assignment_id)
+      : assignmentPath(row.assignment_id),
     ...(row.verdict ? { tag: VERDICT[row.verdict] } : {}),
   }));
   return (

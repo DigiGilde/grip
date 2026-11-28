@@ -56,7 +56,10 @@ function Facts({ assignment }: { assignment: ClientAssignmentDetail }) {
     ['Opdrachtnemer', assignment.contractor_name ?? ''],
     ['Gewenste periode', formatPeriod(assignment.start_date, assignment.end_date)],
     ['Aangevraagd op', formatDateTime(assignment.created_at)],
-    ['Verzending van de aanvraag', deliveryText(assignment.request_delivery)],
+    [
+      'Verzending van de aanvraag',
+      assignment.request_delivery ? deliveryText(assignment.request_delivery) : '',
+    ],
     ['Wat is gevraagd', assignment.description ?? ''],
   ];
   return (

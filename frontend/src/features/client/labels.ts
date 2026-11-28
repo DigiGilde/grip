@@ -9,8 +9,7 @@ const DELIVERY_SUBJECT: Record<string, string> = {
 };
 
 /** Whether the other side has the message, in a sentence. */
-export function deliveryText(delivery: Delivery | null | undefined): string {
-  if (!delivery) return 'Niet verstuurd';
+export function deliveryText(delivery: Delivery): string {
   const subject = DELIVERY_SUBJECT[delivery.operation] ?? 'Het bericht';
   switch (delivery.status) {
     case 'sent':

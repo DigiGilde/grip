@@ -20,6 +20,12 @@ grips:
     relaties: [eigenaar, leidinggevende, zelf]
     voorbeeldpersoon: Lotte Leiding
     dataset: voorbeeld
+  - instantie: NLDD voorbeeld
+    toegang: via-federatie
+    rechten: []
+    relaties: []
+    voorbeeldpersoon: null
+    dataset: null
 ---
 
 # GLD-VAK Lotte Leiding
@@ -56,6 +62,8 @@ Naar het voorbeeld van het Mandaatbesluit BZK 2025 gaat een afdelingshoofd bij O
 - Als leidinggevende leest zij bemensing, inzetschaal, tarief en declarabiliteit van haar eigen mensen, niet hun kostprijs tenzij ze op haar opdracht staan.
 - Als eigenaar loopt zij "Een opdracht winnen" en "Een opdracht uitvoeren en factureren"; de interne opdracht heeft het korte verloop Begroting, Starten, Uitvoeren.
 - In "Iemand werven" opent zij een vacature voor een rol op haar opdracht.
+
+**NLDD voorbeeld** (via federatie). Zij is eigenaar van RegelRecht 2026-2027, de opdracht van NLDD voorbeeld, naast Fundament van Priya Product. De offerte gaat via de grip van NLDD, het akkoord komt terug. NLDD volgt de stand en de uitputting, niet wie eraan werkt.
 
 ## Wat Grip nog niet kan
 

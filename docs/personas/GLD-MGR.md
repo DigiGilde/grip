@@ -26,7 +26,7 @@ grips:
 
 ## Wie
 
-Dana is hoofd van DigiGilde, een organisatie-eenheid van de Rijksorganisatie Voorbeeld ODI met een paar tientallen experts die ministeries snel en zonder aanbesteding kunnen inzetten. Zij zet haar naam onder de offertes van het gilde en geeft akkoord op elke vacature. Wat haar 's nachts bezighoudt: bezetting en declarabiliteit.
+Dana is hoofd van DigiGilde, een organisatie-eenheid van de ODI voorbeeld met een paar tientallen experts die ministeries snel en zonder aanbesteding kunnen inzetten. Zij zet haar naam onder de offertes van het gilde en geeft akkoord op elke vacature. Wat haar 's nachts bezighoudt: bezetting en declarabiliteit.
 
 ## Verantwoordelijk voor
 

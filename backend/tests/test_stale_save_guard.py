@@ -91,6 +91,11 @@ EXCEPTIONS = {
     "PUT /api/people/{person_id}/functions/{function}": (
         "granting one right is the same whoever does it and whenever"
     ),
+    "PUT /api/peers/registry": (
+        "the FSC bootstrap sets what the contract says and leaves what the "
+        "beheerder decides; it counts as a change, so a form on an older "
+        "version is refused (ADR 0062)"
+    ),
 }
 
 

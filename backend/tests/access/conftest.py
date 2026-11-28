@@ -123,6 +123,8 @@ def world() -> World:
         "unknown",
     ):
         subjects[f"peer_{peer}"] = Subject.for_peer(f"peer-{peer}")
+    # The FSC bootstrap with its key: it enters peers and reads nothing.
+    subjects["machine"] = Subject.for_machine("fsc-bootstrap")
 
     return World(
         relations=relations,

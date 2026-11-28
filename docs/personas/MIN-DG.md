@@ -17,9 +17,9 @@ grips:
   - instantie: Ministerie van BZK voorbeeld
     toegang: account
     rechten: [lezer]
-    relaties: []
-    voorbeeldpersoon: null
-    dataset: null
+    relaties: [eigenaar]
+    voorbeeldpersoon: Dorien Digitalisering
+    dataset: bzk
 ---
 
 # MIN-DG Dorien Digitalisering
@@ -52,7 +52,7 @@ Naar het voorbeeld van het Mandaatbesluit BZK 2025 gaat een DG verplichtingen aa
 
 ## In Grip
 
-**Ministerie van BZK voorbeeld** (account, lezer). Ze landt op Start en ziet Start, Taken, Opdrachten, Vacatures en Geld. Als lezer leest ze de basis en de bedragen van alle opdrachten in de grip van het ministerie, maar niet wie erop werkt of tegen welk tarief. Aanvragen, de plek waar de ontvangen offertes en aanvragen van het ministerie staan, staat niet in haar balk. Ze doet geen stap in een werkstroom; ze kijkt mee zoals de lezer in "Een opdracht winnen".
+**Ministerie van BZK voorbeeld** (account, lezer). Ze landt op Start en ziet Start, Taken, Opdrachten, Vacatures en Geld. Als lezer leest ze de basis en de bedragen van alle opdrachten in de grip van het ministerie, maar niet wie erop werkt of tegen welk tarief. Aanvragen, de plek waar de ontvangen offertes en aanvragen van het ministerie staan, staat niet in haar balk. Ze doet geen stap in een werkstroom; ze kijkt mee zoals de lezer in "Een opdracht winnen". Zij is de eigenaar van de opdracht die het ministerie van GDI voorbeeld kreeg (gedelegeerd opdrachtgeverschap MOZa voorbeeld 2026); de opdrachten naar MOZa voorbeeld en ODI voorbeeld staan bij haar in de lijst. De voorbeeldpersoon is Dorien Digitalisering in de dataset `bzk`.
 
 ## Wat Grip nog niet kan
 
@@ -61,7 +61,6 @@ Naar het voorbeeld van het Mandaatbesluit BZK 2025 gaat een DG verplichtingen aa
 - **Budget van een programma.** Het jaarbudget van het programma is in grip één opdracht, geen budget boven de opdrachten.
 - **Overleg.** Gepland: de stuurgroep als reeks, besluiten en acties als taken die zij via federatie kan volgen, een vastgesteld verslag.
 - **Grote ICT-activiteit.** Geen kenmerk en geen plek voor het oordeel van de CIO.
-- **Dataset voor het Ministerie van BZK voorbeeld.** Er is geen voorbeeldpersoon voor deze persona.
 
 ## Bronnen
 

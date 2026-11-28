@@ -18,8 +18,8 @@ grips:
     toegang: account
     rechten: [lezer]
     relaties: []
-    voorbeeldpersoon: null
-    dataset: null
+    voorbeeldpersoon: Coen Controle
+    dataset: bzk
 ---
 
 # MIN-FEZ Coen Controle
@@ -52,7 +52,7 @@ Hij verplicht niets zelf. Zijn instemming is een voorwaarde voor wat boven de gr
 
 ## In Grip
 
-**Ministerie van BZK voorbeeld** (account, lezer). Hij landt op Start en ziet Start, Taken, Opdrachten, Vacatures en Geld. Als lezer leest hij de basis en de bedragen van alle opdrachten in de grip van het ministerie, maar niet wie erop werkt of tegen welk tarief. Aanvragen staat niet in zijn balk. Hij doet geen stap in een werkstroom.
+**Ministerie van BZK voorbeeld** (account, lezer; voorbeeldpersoon Coen Controle in de dataset `bzk`). Hij landt op Start en ziet Start, Taken, Opdrachten, Vacatures en Geld. Als lezer leest hij de basis en de bedragen van alle opdrachten in de grip van het ministerie, maar niet wie erop werkt of tegen welk tarief. Aanvragen staat niet in zijn balk. Hij doet geen stap in een werkstroom.
 
 ## Wat Grip nog niet kan
 
@@ -63,7 +63,6 @@ Hij verplicht niets zelf. Zijn instemming is een voorwaarde voor wat boven de gr
 - **Verrekenen tussen onderdelen.** Factuur, doorbelasting of overboeking is een open vraag.
 - **Prestatieverklaring.** Er is geen bewijs dat geleverd is voor er betaald wordt.
 - **Budget van een programma.** Geen budget boven de opdrachten.
-- **Dataset voor het Ministerie van BZK voorbeeld.**
 
 ## Bronnen
 

@@ -66,6 +66,8 @@ class MyAssignmentRowOut(BaseModel):
     assignment_id: Annotated[UUID, in_class(A)]
     name: Annotated[str, in_class(A)]
     line: Annotated[str, in_class(A)]
+    # This instance is the client: the assignment is followed under Aanvragen.
+    as_client: Annotated[bool, in_class(A)]
     # Over the whole period of the assignment. Null while it is potential.
     verdict: Annotated[Literal["room", "overrun"] | None, in_class(B)]
 

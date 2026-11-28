@@ -19,7 +19,7 @@ grips:
     rechten: [tekenbevoegde]
     relaties: []
     voorbeeldpersoon: Tess Teken
-    dataset: voorbeeld
+    dataset: bzk
   - instantie: DigiGilde voorbeeld
     toegang: gast
     rechten: []
@@ -58,11 +58,11 @@ Naar het voorbeeld van het Mandaatbesluit BZK 2025 gaat een directeur verplichti
 
 ## In Grip
 
-**Ministerie van BZK voorbeeld** (account, tekenbevoegde). Ze landt op Start en ziet Start, Taken, Aanvragen en Vacatures. Onder Taken staat "Beoordeel de ontvangen offerte"; de knop brengt haar naar de ontvangen offerte, waar ze akkoord geeft of afwijst. Dat is de werkstroom "Ontvangen offerte bij de opdrachtgever". Bij een aanvraag kan zij de uitputting opvragen bij de grip van de opdrachtnemer, als die dat toestaat.
+**Ministerie van BZK voorbeeld** (account, tekenbevoegde). Ze landt op Start en ziet Start, Taken, Aanvragen en Vacatures. Onder Taken staat "Beoordeel de ontvangen offerte"; de knop brengt haar naar de ontvangen offerte, waar ze akkoord geeft of afwijst. Dat is de werkstroom "Ontvangen offerte bij de opdrachtgever". Bij een aanvraag kan zij de uitputting opvragen bij de grip van de opdrachtnemer, als die dat toestaat. De voorbeeldpersoon is Tess Teken in de dataset `bzk`.
 
 **DigiGilde voorbeeld** (gast). Biedt het gilde een offerte aan met een tekenlink, dan logt zij in, krijgt een gastsessie en tekent op de tekenpagina. Ze ziet alleen die offerte. In de dataset `voorbeeld` gaat Opdracht Delta 2026-2027 zo naar een tekenaar van het ministerie.
 
-In de dataset `voorbeeld` speelt Tess Teken de tekenbevoegde van de opdrachtgever na binnen DigiGilde voorbeeld; zie de [README](README.md).
+Tess Teken staat ook in de dataset `voorbeeld`, waar ze de tekenbevoegde van de opdrachtgever binnen DigiGilde voorbeeld naspeelt; zie de [README](README.md).
 
 ## Wat Grip nog niet kan
 
@@ -71,7 +71,6 @@ In de dataset `voorbeeld` speelt Tess Teken de tekenbevoegde van de opdrachtgeve
 - **Budget van een programma.** Geen budget boven de opdrachten van het programma.
 - **Verlengen of groeien na akkoord.** Een aanvullende offerte bestaat nog niet; een verlenging is een nieuwe opdracht of een nieuwe offerte.
 - **Overleg.** Stuurgroepbesluiten en acties leven buiten grip.
-- **Dataset voor het Ministerie van BZK voorbeeld.** Haar voorbeeldpersoon staat nu in de dataset van het gilde.
 
 ## Bronnen
 

@@ -52,7 +52,7 @@ Geen financieel mandaat [aanname]. Een beheerder wijzigt geen begroting, inzet o
 
 ## In Grip
 
-**MOZa voorbeeld** (account, beheerder). Hij landt op Start en ziet alle plekken behalve Aanvragen, met Beheer apart aan het eind. Hij leest alle gegevensklassen. "De dag van de beheerder" uit de rondgang is zijn reis: opdracht aanmaken, persoon toevoegen, rechten toekennen, eigenaar aanwijzen, koppelingen, "Bekijk als". In "Een opdracht uitvoeren en factureren" is hij de enige die een maand heropent; in "Iemand werven" kan hij een vacature maken en een advies vastleggen van iemand zonder account. Een offerte maken en een maand afsluiten kan hij niet, ook als beheerder niet.
+**MOZa voorbeeld** (account, beheerder). Hij landt op Start en ziet alle plekken behalve Aanvragen, met Beheer apart aan het eind. Hij leest alle gegevensklassen. De koppelingen die hij onderhoudt zijn die met het gilde en met het Ministerie van BZK voorbeeld, dat nu de moederinstantie van MOZa voorbeeld is. "De dag van de beheerder" uit de rondgang is zijn reis: opdracht aanmaken, persoon toevoegen, rechten toekennen, eigenaar aanwijzen, koppelingen, "Bekijk als". In "Een opdracht uitvoeren en factureren" is hij de enige die een maand heropent; in "Iemand werven" kan hij een vacature maken en een advies vastleggen van iemand zonder account. Een offerte maken en een maand afsluiten kan hij niet, ook als beheerder niet.
 
 ## Wat Grip nog niet kan
 

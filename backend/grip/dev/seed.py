@@ -66,6 +66,7 @@ from grip.core.bootstrap import (
 from grip.core.config import Settings, get_settings
 from grip.core.database import Base
 from grip.dev import corpus_standin, datasets
+from grip.dev.datasets import chain
 from grip.federation.contract_loader import SERVICE_CORPUS_CONTEXT
 from grip.federation.models import PEER_ROLE_CORPUS, Peer
 from grip.models.assignment import Assignment
@@ -193,6 +194,23 @@ PEOPLE: tuple[ExamplePerson, ...] = (
         target_pct=90,
         note="ingehuurd",
     ),
+    # On the assignments of NLDD voorbeeld.
+    ExamplePerson("cas.cloud", "Cas Cloud", 12, manager="pim.planner", target_pct=90),
+    ExamplePerson(
+        "pleun.platform", "Pleun Platform", 13, manager="pim.planner", target_pct=90
+    ),
+    ExamplePerson(
+        "joost.jurist", "Joost Jurist", 12, manager="lotte.leiding", target_pct=90
+    ),
+    ExamplePerson("kim.kode", "Kim Kode", 11, manager="pim.planner", target_pct=90),
+    ExamplePerson(
+        "erik.extern",
+        "Erik Extern",
+        13,
+        manager="lotte.leiding",
+        target_pct=90,
+        note="ingehuurd",
+    ),
 )
 
 
@@ -220,9 +238,7 @@ def ensure_local_instance(settings: Settings) -> None:
     That is a local development instance, or an instance that was deployed
     as an example (``INSTANCE_MODE=voorbeeld``, see grip.core.example).
     """
-    if settings.is_example:
-        return
-    if not settings.DEV_NO_AUTH or settings.PUBLIC_HOST or settings.OIDC_ISSUER:
+    if not settings.may_hold_example_data:
         raise SeedRefusedError(
             "Voorbeeldgegevens kunnen alleen in een lokale ontwikkelinstantie "
             "(DEV_NO_AUTH=1, zonder PUBLIC_HOST en zonder OIDC_ISSUER) of in "
@@ -349,6 +365,17 @@ async def _person_details(db: AsyncSession, result: SeedResult, actor: Person) -
         valid_to=date(2026, 12, 31),
         contract_reference="INH-26-001",
         notes="Fictieve inhuur voor Opdracht Beta 2026.",
+        actor=actor,
+    )
+    await rates.add_hire(
+        db,
+        result.people["erik.extern"].id,
+        supplier="Voorbeeld Detachering B.V.",
+        cost_monthly_rate_cents=1400000,
+        valid_from=date(2026, 8, 1),
+        valid_to=date(2027, 7, 31),
+        contract_reference="INH-26-002",
+        notes="Fictieve inhuur voor RegelRecht 2026-2027.",
         actor=actor,
     )
 
@@ -536,13 +563,12 @@ async def _seed_voorbeeld(db: AsyncSession, settings: Settings) -> SeedResult:
         name="Voorbeelddienst Uitvoering",
         tooi_uri=f"{EXAMPLE_TOOI}/oorg/oorg99001",
     )
-    own = await assignments.upsert_organisation(
-        db,
-        name="Voorbeeldgilde",
-        tooi_uri=f"{EXAMPLE_TOOI}/oorg/oorg99002",
-        unit_key="voorbeeldgilde",
-        instance_uri=settings.INSTANCE_BASE_URI,
+    # The gilde is a brand of ODI voorbeeld, its parent, and the contractor
+    # of NLDD voorbeeld.
+    chained = await chain.organisations(
+        db, settings, ("odi", "digigilde", "nldd"), own="digigilde"
     )
+    own = chained["digigilde"]
     ministry_ref = {"name": ministry.name, "tooi_uri": ministry.tooi_uri}
     agency_ref = {"name": agency.name, "tooi_uri": agency.tooi_uri}
 
@@ -859,6 +885,8 @@ async def _seed_voorbeeld(db: AsyncSession, settings: Settings) -> SeedResult:
         valid_until=date(2026, 11, 30),
     )
 
+    nldd = await _nldd_work(db, settings, result, own, chained["nldd"], beheerder)
+
     result.assignments = {
         "gamma": gamma,
         "alfa": alfa,
@@ -866,6 +894,7 @@ async def _seed_voorbeeld(db: AsyncSession, settings: Settings) -> SeedResult:
         "delta": delta,
         "internal": internal,
         "epsilon": epsilon,
+        **nldd,
     }
     result.lines = {
         "alfa_productmanager": alfa_pm.id,
@@ -1083,8 +1112,8 @@ async def _seed_voorbeeld(db: AsyncSession, settings: Settings) -> SeedResult:
         people=len(PEOPLE),
         rate_cards=len(RATES) + 1,
         assignments=len(result.assignments),
-        organisations=3,
-        hires=1,
+        organisations=5,
+        hires=2,
     )
     await db.flush()
     # The roles of the example budget lines became catalogue entries on the
@@ -1099,6 +1128,83 @@ async def _seed_voorbeeld(db: AsyncSession, settings: Settings) -> SeedResult:
     extended = await extend(db, settings=settings)
     result.counts.update(corpus_peers=extended["peers"], context_refs=extended["refs"])
     return result
+
+
+# Who works on the assignments of NLDD voorbeeld: (budget line, person,
+# percentage). The period is that of the line.
+NLDD_STAFFING: dict[str, tuple[tuple[str, str, str], ...]] = {
+    "fundament": (
+        ("Productmanager", "priya.product", "20"),
+        ("Platformengineer #1", "cas.cloud", "100"),
+        ("Platformengineer #2", "pleun.platform", "100"),
+    ),
+    "regelrecht": (
+        ("Juridisch analist", "joost.jurist", "100"),
+        ("Developer #1", "kim.kode", "100"),
+        ("Developer #2 (inhuur)", "erik.extern", "100"),
+    ),
+}
+NLDD_ROLES = {"fundament": "priya.product", "regelrecht": "lotte.leiding"}
+
+
+async def _nldd_work(
+    db: AsyncSession,
+    settings: Settings,
+    result: SeedResult,
+    own,
+    client,
+    actor: Person,
+) -> dict[str, Assignment]:
+    """The contractor's half of the two assignments of NLDD voorbeeld.
+
+    They came in as requests from NLDD's instance, so they are shared with it;
+    August and September are closed. NLDD holds the client's half in its own
+    dataset (grip.dev.datasets.nldd).
+    """
+    made: dict[str, Assignment] = {}
+    for key, owner in NLDD_ROLES.items():
+        shared = chain.SHARED[key]
+        assignment, lines = await chain.as_contractor(
+            db,
+            settings,
+            shared,
+            own=own,
+            client=client,
+            owner=result.people[owner],
+            manager=result.people["pim.planner"],
+            actor=actor,
+        )
+        result.relate(owner, f"eigenaar van {assignment.name}")
+        result.relate("pim.planner", f"manager van {assignment.name}")
+        placed = {}
+        for description, person, pct in NLDD_STAFFING[key]:
+            placed[person] = await _allocate(
+                db,
+                result,
+                lines[description],
+                person,
+                shared.start,
+                shared.end,
+                pct,
+                result.people[owner],
+            )
+        for month in (8, 9):
+            # September deviates: a platform engineer worked 80 percent.
+            established = (
+                {placed["pleun.platform"].id: Decimal("80")}
+                if key == "fundament" and month == 9
+                else None
+            )
+            await month_close.close_month(
+                db,
+                assignment.id,
+                Month(2026, month),
+                actor=result.people[owner],
+                established=established,
+                closed_at=_at(date(2026, month + 1, 3)),
+            )
+        made[key] = assignment
+    return made
 
 
 # The context of the example assignments: nodes of the fictional corpus that

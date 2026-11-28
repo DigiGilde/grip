@@ -14,6 +14,9 @@ name: grip-local
 # that script can also build from the last commit when the working tree is
 # halfway through a change.
 
+# The seven local example instances, by the key the instances know each other by.
+x-example-instance-uris: &example-instance-uris "digigilde=http://localhost:9001,ministerie=http://localhost:9002,programma=http://localhost:9003,nldd=http://localhost:9004,gdi=http://localhost:9005,odi=http://localhost:9006,ezk=http://localhost:9007"
+
 x-instance-a-env: &instance-a-env
   DATABASE_URL: postgresql+asyncpg://grip:grip@db-a:5432/grip
   INSTANCE_NAME: DigiGilde voorbeeld
@@ -36,11 +39,13 @@ x-instance-a-env: &instance-a-env
   OIDC_DISCOVERY_URL: ${OIDC_DISCOVERY_URL:-}
   # Public CAs plus the private CA of the local Keycloak (setup.sh).
   SSL_CERT_FILE: /tls/ca-bundle.crt
+  EXAMPLE_INSTANCE_URIS: *example-instance-uris
+  PEER_REGISTRY_KEY: lokale-sleutel-koppelingen-a
 
 x-instance-b-env: &instance-b-env
   DATABASE_URL: postgresql+asyncpg://grip:grip@db-b:5432/grip
   INSTANCE_NAME: Ministerie van BZK voorbeeld
-  INSTANCE_KEY: voorbeeldministerie
+  INSTANCE_KEY: bzk
   INSTANCE_TOOI_URI: https://identifier.overheid.nl/tooi/id/ministerie/mnre9001
   INSTANCE_BASE_URI: http://localhost:9002
   FRONTEND_URL: http://localhost:9002
@@ -54,6 +59,10 @@ x-instance-b-env: &instance-b-env
   OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
   OIDC_DISCOVERY_URL: ${OIDC_DISCOVERY_URL:-}
   SSL_CERT_FILE: /tls/ca-bundle.crt
+  EXAMPLE_INSTANCE_URIS: *example-instance-uris
+  PEER_REGISTRY_KEY: lokale-sleutel-koppelingen-b
+  VACANCY_TEXT_PROFILE: ""
+  SEED_DATASET: bzk
 
 x-instance-d-env: &instance-d-env
   DATABASE_URL: postgresql+asyncpg://grip:grip@db-d:5432/grip
@@ -75,6 +84,96 @@ x-instance-d-env: &instance-d-env
   # The default profile holds the vacancy texts of DigiGilde.
   VACANCY_TEXT_PROFILE: ""
   SEED_DATASET: programma
+  EXAMPLE_INSTANCE_URIS: *example-instance-uris
+  PEER_REGISTRY_KEY: lokale-sleutel-koppelingen-d
+
+x-instance-e-env: &instance-e-env
+  DATABASE_URL: postgresql+asyncpg://grip:grip@db-e:5432/grip
+  INSTANCE_NAME: NLDD voorbeeld
+  INSTANCE_KEY: nldd
+  INSTANCE_TOOI_URI: https://identifier.overheid.nl/tooi/id/ministerie/mnre9002
+  INSTANCE_BASE_URI: http://localhost:9004
+  FRONTEND_URL: http://localhost:9004
+  BACKEND_URL: http://localhost:9004
+  TRUSTED_PROXIES: 172.31.250.0/24
+  SESSION_SECRET_KEY: ${SESSION_SECRET_KEY_E:-lokale-omgeving-geen-geheim-e-9004}
+  BOOTSTRAP_BEHEERDER_EMAILS: ${BOOTSTRAP_BEHEERDER_EMAILS:-}
+  DEV_NO_AUTH: ${DEV_NO_AUTH:-1}
+  OIDC_ISSUER: ${OIDC_ISSUER:-}
+  OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-grip}
+  OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+  OIDC_DISCOVERY_URL: ${OIDC_DISCOVERY_URL:-}
+  SSL_CERT_FILE: /tls/ca-bundle.crt
+  VACANCY_TEXT_PROFILE: ""
+  SEED_DATASET: nldd
+  EXAMPLE_INSTANCE_URIS: *example-instance-uris
+  PEER_REGISTRY_KEY: lokale-sleutel-koppelingen-e
+
+x-instance-g-env: &instance-g-env
+  DATABASE_URL: postgresql+asyncpg://grip:grip@db-g:5432/grip
+  INSTANCE_NAME: GDI voorbeeld
+  INSTANCE_KEY: gdi
+  INSTANCE_TOOI_URI: https://identifier.overheid.nl/tooi/id/oorg/oorg99004
+  INSTANCE_BASE_URI: http://localhost:9005
+  FRONTEND_URL: http://localhost:9005
+  BACKEND_URL: http://localhost:9005
+  TRUSTED_PROXIES: 172.31.250.0/24
+  SESSION_SECRET_KEY: ${SESSION_SECRET_KEY_G:-lokale-omgeving-geen-geheim-g-9005}
+  BOOTSTRAP_BEHEERDER_EMAILS: ${BOOTSTRAP_BEHEERDER_EMAILS:-}
+  DEV_NO_AUTH: ${DEV_NO_AUTH:-1}
+  OIDC_ISSUER: ${OIDC_ISSUER:-}
+  OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-grip}
+  OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+  OIDC_DISCOVERY_URL: ${OIDC_DISCOVERY_URL:-}
+  SSL_CERT_FILE: /tls/ca-bundle.crt
+  VACANCY_TEXT_PROFILE: ""
+  SEED_DATASET: gdi
+  EXAMPLE_INSTANCE_URIS: *example-instance-uris
+  PEER_REGISTRY_KEY: lokale-sleutel-koppelingen-g
+
+x-instance-o-env: &instance-o-env
+  DATABASE_URL: postgresql+asyncpg://grip:grip@db-o:5432/grip
+  INSTANCE_NAME: ODI voorbeeld
+  INSTANCE_KEY: odi
+  INSTANCE_TOOI_URI: https://identifier.overheid.nl/tooi/id/oorg/oorg99002
+  INSTANCE_BASE_URI: http://localhost:9006
+  FRONTEND_URL: http://localhost:9006
+  BACKEND_URL: http://localhost:9006
+  TRUSTED_PROXIES: 172.31.250.0/24
+  SESSION_SECRET_KEY: ${SESSION_SECRET_KEY_O:-lokale-omgeving-geen-geheim-o-9006}
+  BOOTSTRAP_BEHEERDER_EMAILS: ${BOOTSTRAP_BEHEERDER_EMAILS:-}
+  DEV_NO_AUTH: ${DEV_NO_AUTH:-1}
+  OIDC_ISSUER: ${OIDC_ISSUER:-}
+  OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-grip}
+  OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+  OIDC_DISCOVERY_URL: ${OIDC_DISCOVERY_URL:-}
+  SSL_CERT_FILE: /tls/ca-bundle.crt
+  VACANCY_TEXT_PROFILE: ""
+  SEED_DATASET: odi
+  EXAMPLE_INSTANCE_URIS: *example-instance-uris
+  PEER_REGISTRY_KEY: lokale-sleutel-koppelingen-o
+
+x-instance-z-env: &instance-z-env
+  DATABASE_URL: postgresql+asyncpg://grip:grip@db-z:5432/grip
+  INSTANCE_NAME: Ministerie van EZK voorbeeld
+  INSTANCE_KEY: ezk
+  INSTANCE_TOOI_URI: https://identifier.overheid.nl/tooi/id/ministerie/mnre9002
+  INSTANCE_BASE_URI: http://localhost:9007
+  FRONTEND_URL: http://localhost:9007
+  BACKEND_URL: http://localhost:9007
+  TRUSTED_PROXIES: 172.31.250.0/24
+  SESSION_SECRET_KEY: ${SESSION_SECRET_KEY_Z:-lokale-omgeving-geen-geheim-z-9007}
+  BOOTSTRAP_BEHEERDER_EMAILS: ${BOOTSTRAP_BEHEERDER_EMAILS:-}
+  DEV_NO_AUTH: ${DEV_NO_AUTH:-1}
+  OIDC_ISSUER: ${OIDC_ISSUER:-}
+  OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-grip}
+  OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+  OIDC_DISCOVERY_URL: ${OIDC_DISCOVERY_URL:-}
+  SSL_CERT_FILE: /tls/ca-bundle.crt
+  VACANCY_TEXT_PROFILE: ""
+  SEED_DATASET: ezk
+  EXAMPLE_INSTANCE_URIS: *example-instance-uris
+  PEER_REGISTRY_KEY: lokale-sleutel-koppelingen-z
 
 services:
   # --- Instance A: the contractor ------------------------------------------
@@ -197,21 +296,193 @@ services:
         condition: service_started
         restart: true
 
+  # --- Instance E: NLDD voorbeeld. Only with `--profile keten` -------------------
+  db-e:
+    profiles: ["keten"]
+    image: postgres:16
+    environment:
+      POSTGRES_USER: grip
+      POSTGRES_PASSWORD: grip
+      POSTGRES_DB: grip
+    volumes:
+      - db-e:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U grip -d grip"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  backend-e:
+    profiles: ["keten"]
+    image: grip-local/backend
+    environment:
+      <<: *instance-e-env
+      GRIP_PROCESS: web
+    volumes:
+      - ./state/tls:/tls:ro
+    depends_on:
+      db-e:
+        condition: service_healthy
+
+  frontend-e:
+    profiles: ["keten"]
+    image: grip-local/frontend
+    environment:
+      BACKEND_URL: http://backend-e:8080
+    ports:
+      - "127.0.0.1:9004:8080"
+    depends_on:
+      backend-e:
+        condition: service_started
+        restart: true
+
+  # --- Instance G: GDI voorbeeld. Only with `--profile keten` -------------------
+  db-g:
+    profiles: ["keten"]
+    image: postgres:16
+    environment:
+      POSTGRES_USER: grip
+      POSTGRES_PASSWORD: grip
+      POSTGRES_DB: grip
+    volumes:
+      - db-g:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U grip -d grip"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  backend-g:
+    profiles: ["keten"]
+    image: grip-local/backend
+    environment:
+      <<: *instance-g-env
+      GRIP_PROCESS: web
+    volumes:
+      - ./state/tls:/tls:ro
+    depends_on:
+      db-g:
+        condition: service_healthy
+
+  frontend-g:
+    profiles: ["keten"]
+    image: grip-local/frontend
+    environment:
+      BACKEND_URL: http://backend-g:8080
+    ports:
+      - "127.0.0.1:9005:8080"
+    depends_on:
+      backend-g:
+        condition: service_started
+        restart: true
+
+  # --- Instance O: ODI voorbeeld. Only with `--profile keten` -------------------
+  db-o:
+    profiles: ["keten"]
+    image: postgres:16
+    environment:
+      POSTGRES_USER: grip
+      POSTGRES_PASSWORD: grip
+      POSTGRES_DB: grip
+    volumes:
+      - db-o:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U grip -d grip"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  backend-o:
+    profiles: ["keten"]
+    image: grip-local/backend
+    environment:
+      <<: *instance-o-env
+      GRIP_PROCESS: web
+    volumes:
+      - ./state/tls:/tls:ro
+    depends_on:
+      db-o:
+        condition: service_healthy
+
+  frontend-o:
+    profiles: ["keten"]
+    image: grip-local/frontend
+    environment:
+      BACKEND_URL: http://backend-o:8080
+    ports:
+      - "127.0.0.1:9006:8080"
+    depends_on:
+      backend-o:
+        condition: service_started
+        restart: true
+
+  # --- Instance Z: Ministerie van EZK voorbeeld. Only with `--profile keten` -------------------
+  db-z:
+    profiles: ["keten"]
+    image: postgres:16
+    environment:
+      POSTGRES_USER: grip
+      POSTGRES_PASSWORD: grip
+      POSTGRES_DB: grip
+    volumes:
+      - db-z:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U grip -d grip"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  backend-z:
+    profiles: ["keten"]
+    image: grip-local/backend
+    environment:
+      <<: *instance-z-env
+      GRIP_PROCESS: web
+    volumes:
+      - ./state/tls:/tls:ro
+    depends_on:
+      db-z:
+        condition: service_healthy
+
+  frontend-z:
+    profiles: ["keten"]
+    image: grip-local/frontend
+    environment:
+      BACKEND_URL: http://backend-z:8080
+    ports:
+      - "127.0.0.1:9007:8080"
+    depends_on:
+      backend-z:
+        condition: service_started
+        restart: true
+
   # --- Ontwikkelportaal: docs and links to all instances. Only with `--profile two`
   ontwikkelportaal:
     profiles: ["two"]
     image: grip-local/ontwikkelportaal
     environment:
       ONTWIKKELPORTAAL_INSTANCES: >-
-        [{"naam": "Ministerie van BZK voorbeeld", "rol": "Opdrachtgever",
-          "omschrijving": "Financiert MOZa voorbeeld met een jaarbudget en volgt de uitputting.",
+        [{"naam": "GDI voorbeeld", "rol": "Opdrachtgever",
+          "omschrijving": "Keurt het programma MOZa voorbeeld goed en legt het opdrachtgeverschap bij het Ministerie van BZK voorbeeld.",
+          "url": "http://localhost:9005"},
+         {"naam": "Ministerie van BZK voorbeeld", "rol": "Ministerie",
+          "omschrijving": "Gedelegeerd opdrachtgever namens GDI: geeft MOZa voorbeeld het jaarbudget en ODI voorbeeld de opdracht voor de uitvoering.",
           "url": "http://localhost:9002"},
          {"naam": "MOZa voorbeeld", "rol": "Programma",
           "omschrijving": "Geeft opdrachten aan DigiGilde voorbeeld en boekt kosten die een leverancier voor het programma doet.",
           "url": "http://localhost:9003"},
+         {"naam": "ODI voorbeeld", "rol": "Opdrachtnemer",
+          "omschrijving": "Agentschap en contractpartij van het programma; moeder van DigiGilde voorbeeld.",
+          "url": "http://localhost:9006"},
          {"naam": "DigiGilde voorbeeld", "rol": "Opdrachtnemer",
           "omschrijving": "Maakt offertes, voert opdrachten uit, sluit maanden af en factureert.",
-          "url": "http://localhost:9001"}]
+          "url": "http://localhost:9001"},
+         {"naam": "Ministerie van EZK voorbeeld", "rol": "Ministerie",
+          "omschrijving": "Moeder van NLDD voorbeeld.",
+          "url": "http://localhost:9007"},
+         {"naam": "NLDD voorbeeld", "rol": "Opdrachtgever",
+          "omschrijving": "Geeft DigiGilde voorbeeld opdrachten en volgt ze: de stand en de uitputting.",
+          "url": "http://localhost:9004"}]
     ports:
       - "127.0.0.1:9000:8080"
 
@@ -248,3 +519,7 @@ volumes:
   db-a:
   db-b:
   db-d:
+  db-e:
+  db-g:
+  db-o:
+  db-z:

@@ -88,7 +88,7 @@ const personas = defineCollection({
   schema: z
     .object({
       file: z.string(),
-      code: z.string().regex(/^(MIN|PRG|GLD|BHO|ODI)-[A-Z]+$/),
+      code: z.string().regex(/^(MIN|PRG|GLD|BHO|ODI|GDI|EZK|NLDD)-[A-Z]+$/),
       naam: z.string().min(1),
       rol: z.string().min(1),
       organisatie: z.enum(ORGANISATIONS),

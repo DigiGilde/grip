@@ -26,6 +26,9 @@ _SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "TRACE"})
 _CSRF_EXEMPT_PREFIXES = (
     "/api/auth/callback",
     "/api/health/",
+    # A key in the Authorization header, never a session: nothing a browser
+    # sends by itself (ADR 0062).
+    "/api/peers/registry",
 )
 
 

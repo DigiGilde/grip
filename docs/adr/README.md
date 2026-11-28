@@ -65,6 +65,7 @@ Een besluit dat anderen bindt staat hier als ADR: genummerd, met context, beslui
 | [0059](0059-taken-en-stappen-terug-nieuw-als-tijdlijn-een-tekstkleur.md) | Taken en de stappen terug, Nieuw als tijdlijn, één tekstkleur | aanvaard |
 | [0060](0060-het-contract-staat-in-grip.md) | Het contract staat in grip, tot een tweede systeem het implementeert | aanvaard |
 | [0061](0061-een-bericht-dat-niet-aankomt-blijft-proberen-en-valt-op.md) | Een bericht dat niet aankomt, blijft het proberen en valt op | voorgesteld |
+| [0062](0062-de-bootstrap-zet-de-koppelingen-van-de-voorbeeldgroep.md) | De bootstrap zet de koppelingen van de voorbeeldgroep | voorgesteld |
 
 ## Welke besluiten later zijn bijgesteld
 
@@ -94,6 +95,6 @@ Een besluit wordt niet herschreven. Is het later bijgesteld, dan staat onderaan 
 | 0039 Afsluiten en aanleveren | 0047, 0055, 0058 | De naverrekening als opgeslagen verschil; het tabblad is een onderdeel van de opdracht; de factuurinformatie bij het akkoord |
 | 0042 Zeven plekken | 0055 | Vervangen: vijf plekken, geen tweede balk, onderdelen in plaats van tabs |
 | 0044 Een verloop per zaak | 0045, 0048, 0055, 0059 | Een afwijzing is een stap terug; overnemen geeft geen recht; het verloop is één regel; op een opdracht weer als stappen |
-| 0050 Een voorbeeldinstantie | 0054 | Voorbeelden federeren met elkaar, in een eigen groep |
+| 0050 Een voorbeeldinstantie | 0054, 0062 | Voorbeelden federeren met elkaar, in een eigen groep; de bootstrap zet hun koppelingen |
 | 0055 Vijf plekken | 0059 | Taken weer in de balk; het verloop van een opdracht als stappen; Nieuw als tijdlijn met filters; één tekstkleur |
 | 0056 De kroniek van een opdracht | 0057 | Bewaren en vernietigen per zaak in plaats van wissen op verzoek |

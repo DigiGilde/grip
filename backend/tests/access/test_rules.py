@@ -16,6 +16,8 @@ from grip.access import (
     decide,
     permitted_classes,
 )
+from grip.access.decider import PROPERTY_EXAMPLE_DATA
+from grip.access.types import ResourceKind
 from grip.models import role as role_model
 
 
@@ -339,6 +341,7 @@ ALL_SUBJECTS = [
     "peer_child",
     "peer_corpus",
     "peer_unknown",
+    "machine",
 ]
 
 
@@ -354,6 +357,15 @@ async def _allowed_subjects(world, action: Action, resource: Resource) -> set[st
 
 async def test_subject_list_is_complete(world) -> None:
     assert set(ALL_SUBJECTS) == set(world.subjects)
+
+
+async def test_only_the_bootstrap_registers_a_peer(world) -> None:
+    instance = Resource(
+        ResourceKind.INSTANCE, properties=((PROPERTY_EXAMPLE_DATA, "true"),)
+    )
+    assert await _allowed_subjects(world, Action.REGISTER_PEER, instance) == {"machine"}
+    plain = Resource.instance()
+    assert await _allowed_subjects(world, Action.REGISTER_PEER, plain) == set()
 
 
 async def test_manage_users_and_rates_are_for_the_beheerder(world) -> None:

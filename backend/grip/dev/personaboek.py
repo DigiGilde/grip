@@ -36,9 +36,13 @@ REQUIRED_KEYS = (
     "grips",
 )
 ORGANISATIONS = (
-    "Voorbeeldministerie",
-    "Voorbeeldprogramma",
+    "GDI voorbeeld",
+    "Ministerie van BZK voorbeeld",
+    "MOZa voorbeeld",
+    "ODI voorbeeld",
     "DigiGilde voorbeeld",
+    "Ministerie van EZK voorbeeld",
+    "NLDD voorbeeld",
     "Voorbeeldbeheerorganisatie",
 )
 ACCESS_LABELS = {

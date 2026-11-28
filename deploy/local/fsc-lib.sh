@@ -10,6 +10,38 @@ dir_peer="01700000000000000099"
 peer_a="01700000000000000001"
 peer_b="01700000000000000002"
 peer_d="01700000000000000004"
+peer_e="01700000000000000005"
+peer_g="01700000000000000006"
+peer_o="01700000000000000007"
+peer_z="01700000000000000008"
+
+# The example instances by peer key: peer id, name, TOOI uri, local port.
+peer_id_of() { eval "printf %s \"\$peer_$1\""; }
+peer_name() {
+    case "$1" in
+        a) echo "DigiGilde voorbeeld" ;;
+        b) echo "Ministerie van BZK voorbeeld" ;;
+        d) echo "MOZa voorbeeld" ;;
+        e) echo "NLDD voorbeeld" ;;
+        g) echo "GDI voorbeeld" ;;
+        o) echo "ODI voorbeeld" ;;
+        z) echo "Ministerie van EZK voorbeeld" ;;
+    esac
+}
+peer_tooi() {
+    case "$1" in
+        a | o) echo "https://identifier.overheid.nl/tooi/id/oorg/oorg99002" ;;
+        b | d) echo "https://identifier.overheid.nl/tooi/id/ministerie/mnre9001" ;;
+        e | z) echo "https://identifier.overheid.nl/tooi/id/ministerie/mnre9002" ;;
+        g) echo "https://identifier.overheid.nl/tooi/id/oorg/oorg99004" ;;
+    esac
+}
+peer_port() {
+    case "$1" in
+        a) echo 9001 ;; b) echo 9002 ;; d) echo 9003 ;; e) echo 9004 ;;
+        g) echo 9005 ;; o) echo 9006 ;; z) echo 9007 ;;
+    esac
+}
 
 # curl inside the compose network, with the admin client certificate of a
 # peer. The internal APIs of manager and controller only accept clients
@@ -19,9 +51,6 @@ api() { # peer key, curl args...
     docker run --rm --network "$network" -v "$here/state/pki:/pki:ro" curlimages/curl -s \
         --cacert "/pki/internal/$k/ca.pem" \
         --cert "/pki/internal/$k/admin/cert.pem" --key "/pki/internal/$k/admin/key.pem" "$@"
-}
-psql_grip() { # instance key, sql
-    docker compose -p grip-local -f "$here/compose.yml" --profile two exec -T "db-$1" psql -U grip -At -c "$2"
 }
 json() { python3 -c "$1"; }
 
@@ -93,14 +122,41 @@ for c in json.load(sys.stdin).get("pending_contracts", []):
     done
 }
 
-# Set peer_is_example=true first for example instances (ADR 0054).
-registry() { # instance key, other peer id, other name, other base uri, grant hash, role (default counterpart)
-    psql_grip "$1" "
-        insert into peer (id, peer_id, name, organisation_tooi_uri, base_uri, role, grant_hashes, is_active, is_example)
-        values (gen_random_uuid(), '$2', '$3', '', '$4', '${6:-counterpart}', '{\"$service\": \"$5\"}'::jsonb, true, ${peer_is_example:-false})
-        on conflict (peer_id) do update
-            set grant_hashes = peer.grant_hashes || excluded.grant_hashes, base_uri = excluded.base_uri,
-                name = excluded.name, is_active = true, is_example = excluded.is_example;" >/dev/null
-    echo "  registry of instance $1: peer $2, grant $(printf %s "$5" | cut -c1-24)..."
+# Writes the peer registry of an instance through its route, with the local
+# key of compose.yml. On an example instance the route marks the peer as
+# example itself, and it merges the grant hash into an existing row.
+registry() { # instance key, other peer key, grant hash, role, financial_inspection (true or false)
+    body="$(NAME="$(peer_name "$2")" TOOI="$(peer_tooi "$2")" PID="$(peer_id_of "$2")" \
+        URI="http://localhost:$(peer_port "$2")" GRANT="$3" ROLE="$4" FI="${5:-false}" SVC="$service" python3 -c '
+import json, os
+e = os.environ
+body = {"peer_id": e["PID"], "name": e["NAME"], "organisation_tooi_uri": e["TOOI"], "base_uri": e["URI"],
+        "role": e["ROLE"], "grant_hashes": {e["SVC"]: e["GRANT"]}}
+if e["FI"] == "true":
+    body["financial_inspection"] = True
+print(json.dumps(body))')"
+    code="$(printf %s "$body" | curl -s -o /dev/null -w '%{http_code}' -X PUT \
+        -H "Authorization: Bearer lokale-sleutel-koppelingen-$1" -H 'Content-Type: application/json' \
+        --data-binary @- "http://localhost:$(peer_port "$1")/api/peers/registry")"
+    echo "  registry of instance $1: peer $2 as $4: HTTP $code"
+    case "$code" in 200 | 201) ;; *) return 1 ;; esac
 }
 
+# "Test de verbinding" of grip for a registered peer: prints ok or the detail,
+# fails when the connection does not work.
+registry_test() { # instance key, other peer key
+    out="$(printf '{"peer_id": "%s"}' "$(peer_id_of "$2")" | curl -s -w '\n%{http_code}' -X POST \
+        -H "Authorization: Bearer lokale-sleutel-koppelingen-$1" -H 'Content-Type: application/json' \
+        --data-binary @- "http://localhost:$(peer_port "$1")/api/peers/registry/test-connection")"
+    code="$(printf %s "$out" | tail -n 1)"
+    result="$(printf %s "$out" | sed '$d' | python3 -c '
+import json, sys
+try:
+    r = json.load(sys.stdin)
+except ValueError:
+    print("FAIL: no JSON answer")
+else:
+    print("ok" if r.get("ok") else "FAIL: " + str(r.get("detail")))')"
+    echo "  test $1 -> $2: $result (HTTP $code)"
+    [ "$result" = "ok" ]
+}

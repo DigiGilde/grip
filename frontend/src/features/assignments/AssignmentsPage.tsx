@@ -3,6 +3,7 @@ import { LoadError, Page, Stack } from '@/ui/layout';
 import { useRef, useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { clientAssignmentPath } from '@/features/client/paths';
 import { useInstance } from '@/layout/useInstance';
 import { useRouterLinks } from '@/layout/useRouterLinks';
 import { formatEuro, formatPeriod } from '@/lib/format';
@@ -69,7 +70,7 @@ function rowOf(item: AssignmentSummary, phase: Phase, courses: Courses): LinkRow
   return {
     key: item.id,
     text: item.name,
-    href: assignmentPath(item.id),
+    href: item.as_client ? clientAssignmentPath(item.id) : assignmentPath(item.id),
     ...(notice ? { notice } : {}),
     ...(item.status !== VIEW_DEFAULT_STATUS[phase]
       ? { tag: { text: statusLabel(item.status), color: STATUS_COLORS[item.status] ?? 'neutral' } }

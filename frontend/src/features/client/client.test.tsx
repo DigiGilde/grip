@@ -104,7 +104,6 @@ describe('validateRequest', () => {
 
 describe('deliveryText', () => {
   it('says whether the other side has the message', () => {
-    expect(deliveryText(null)).toBe('Niet verstuurd');
     expect(deliveryText({ operation: 'sendAcceptance', status: 'pending', queued_at: '' })).toBe(
       'Het akkoord wacht op verzending',
     );
@@ -129,6 +128,22 @@ describe('ClientPage', () => {
     expect(row?.textContent).toMatch(/€\s86\.400/);
     expect(container.querySelector('nldd-table')).toBeNull();
     expect(texts(container, 'nldd-button')).toContain('Offerte aanvragen');
+  });
+
+  it('says nothing of sending for an assignment this grip sent no request for', async () => {
+    mockApi({
+      '/api/client/assignments': {
+        may_request: true,
+        items: [{ ...ASSIGNMENT, status: 'in_progress', request_delivery: null }],
+      },
+    });
+    const { container } = renderApp(<ClientPage />, { path: PATHS.client });
+    await waitFor(() => expect(container.querySelector('nldd-list-item')).not.toBeNull());
+    const notice =
+      container.querySelector('nldd-list-item nldd-text-cell')?.getAttribute('supporting-text') ??
+      '';
+    expect(notice).toBe('Voorbeeldgilde · 1 jul 2026 t/m 30 jun 2027');
+    expect(container.textContent).not.toContain('Niet verstuurd');
   });
 
   it.each([
@@ -793,6 +808,30 @@ describe('ClientAssignmentPage', () => {
       });
       await waitFor(() => expect(openSheet()).toBeUndefined());
     });
+  });
+
+  it('names the sending of the request only when this grip sent one', async () => {
+    mockApi({
+      '/api/client/assignments/a-1': {
+        ...DETAIL,
+        status: 'in_progress',
+        request_delivery: null,
+        contractor_reachable: false,
+        context_refs: [],
+      },
+      '/api/client/assignments/a-1/final-report': { received: false },
+    });
+    const { container } = renderAt(
+      clientAssignmentPath('a-1'),
+      PATHS.clientAssignment,
+      <ClientAssignmentPage />,
+    );
+    const facts = 'nldd-list[accessible-label="Gegevens van de aanvraag"] nldd-text-cell';
+    await waitFor(() => expect(container.querySelector(facts)).not.toBeNull());
+    const labels = [...container.querySelectorAll(facts)].map((el) => el.getAttribute('overline'));
+    expect(labels).toContain('Opdrachtnemer');
+    expect(labels).not.toContain('Verzending van de aanvraag');
+    expect(texts(container, 'nldd-text-cell')).not.toContain('Niet verstuurd');
   });
 
   it('does not offer the spending to who may not read amounts', async () => {

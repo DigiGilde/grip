@@ -175,8 +175,8 @@ jobs:
           DEPLOYMENT: ${{ matrix.deployment }}
           FSC_DEPLOYMENTS: ${{ vars.ZAD_FSC_DEPLOYMENTS || '{}' }}
         run: |
-          if ! jq -e 'type == "object" and all(.[]; IN("dir", "a", "b", "d"))' <<< "$FSC_DEPLOYMENTS" > /dev/null 2>&1; then
-            echo '::error title=ZAD_FSC_DEPLOYMENTS::not a JSON object from deployment to peer key (dir, a, b or d), such as {"directory":"dir","gilde":"a","programma":"d"}'
+          if ! jq -e 'type == "object" and all(.[]; IN("dir", "a", "b", "d", "e", "g", "o", "z"))' <<< "$FSC_DEPLOYMENTS" > /dev/null 2>&1; then
+            echo '::error title=ZAD_FSC_DEPLOYMENTS::not a JSON object from deployment to peer key (dir, a, b, d, e, g, o or z), such as {"directory":"dir","gilde":"a","programma":"d"}'
             exit 1
           fi
           prefix="ghcr.io/${GITHUB_REPOSITORY,,}"
@@ -238,8 +238,8 @@ jobs:
         env:
           FSC_DEPLOYMENTS: ${{ vars.ZAD_FSC_DEPLOYMENTS }}
         run: |
-          if ! jq -e 'type == "object" and all(.[]; IN("dir", "a", "b", "d"))' <<< "$FSC_DEPLOYMENTS" > /dev/null 2>&1; then
-            echo '::error title=ZAD_FSC_DEPLOYMENTS::not a JSON object from deployment to peer key (dir, a, b or d), such as {"directory":"dir","gilde":"a","programma":"d"}'
+          if ! jq -e 'type == "object" and all(.[]; IN("dir", "a", "b", "d", "e", "g", "o", "z"))' <<< "$FSC_DEPLOYMENTS" > /dev/null 2>&1; then
+            echo '::error title=ZAD_FSC_DEPLOYMENTS::not a JSON object from deployment to peer key (dir, a, b, d, e, g, o or z), such as {"directory":"dir","gilde":"a","programma":"d"}'
             exit 1
           fi
           echo "value=$(jq -c 'to_entries | map({deployment: .key, peer: .value})' <<< "$FSC_DEPLOYMENTS")" >> "$GITHUB_OUTPUT"

@@ -31,7 +31,7 @@ Bente zit op het bedrijfsbureau van het gilde en is de beheerder van grip. Ze st
 ## Verantwoordelijk voor
 
 - Personen, rechten in grip, tarievenkaarten en de afzender en teksten van offertes.
-- Koppelingen met andere grips en met de moederinstantie van ODI.
+- Koppelingen met andere grips en met de moederinstantie ODI voorbeeld, en per koppeling de financiële inzage.
 - Een maand heropenen, een factuur vastleggen, een eigenaar aanwijzen.
 - Vacatures: het formulier, de standaardteksten en advies vastleggen van iemand zonder account.
 
@@ -52,7 +52,7 @@ Geen financieel mandaat [aanname]. Een beheerder wijzigt geen begroting, inzet o
 
 ## In Grip
 
-**DigiGilde voorbeeld** (account, beheerder). Zij landt op Start en ziet alle plekken behalve Aanvragen, met Beheer apart aan het eind, en leest alle gegevensklassen. "De dag van de beheerder" uit de rondgang is haar reis. In "Een opdracht uitvoeren en factureren" is zij de enige die een maand heropent. In "Iemand werven" kan zij een vacature maken en een advies vastleggen. Onder Beheer zet zij per koppeling of de tegenpartij de uitputting mag opvragen.
+**DigiGilde voorbeeld** (account, beheerder). Zij landt op Start en ziet alle plekken behalve Aanvragen, met Beheer apart aan het eind, en leest alle gegevensklassen. "De dag van de beheerder" uit de rondgang is haar reis. In "Een opdracht uitvoeren en factureren" is zij de enige die een maand heropent. In "Iemand werven" kan zij een vacature maken en een advies vastleggen. Onder Beheer zet zij per koppeling of de tegenpartij de uitputting mag opvragen, en per koppeling of die tegenpartij ook financiële inzage krijgt. Voor NLDD voorbeeld staat financiële inzage aan.
 
 ## Wat Grip nog niet kan
 

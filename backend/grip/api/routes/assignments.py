@@ -30,7 +30,7 @@ from grip.schema.assignments import (
 )
 from grip.services import assignment_views as views
 from grip.services import assignments as service
-from grip.services import dossiers, internal_judges
+from grip.services import client_side, dossiers, internal_judges
 from grip.services.phase import Phase, phase_of
 
 router = APIRouter(tags=["assignments"])
@@ -46,6 +46,7 @@ def _summary_fields(
     budgeted_cents: int | None = None,
     *,
     dossier_due: bool = False,
+    as_client: bool = False,
 ) -> dict[str, Any]:
     """The fields of a summary.
 
@@ -84,6 +85,7 @@ def _summary_fields(
         "pipeline_amount_source": pipeline_source,
         "dossier_closed_on": a.dossier_closed_on,
         "dossier_due": dossier_due,
+        "as_client": as_client,
     }
 
 
@@ -104,7 +106,12 @@ async def _detail(
         # No relation of their own: they read it from a function in grip.
         relations = [f"function:{name}" for name in sorted(access.subject.functions)]
     model = AssignmentDetailOut(
-        **_summary_fields(row, dossier_due=await dossiers.dossier_due(db, a)),
+        **_summary_fields(
+            row,
+            dossier_due=await dossiers.dossier_due(db, a),
+            as_client=a.client_organisation_id
+            in await client_side.own_organisation_ids(db),
+        ),
         contractor_organisation_id=a.contractor_organisation_id,
         contractor_name=row.contractor_name,
         parent_assignment_uri=a.parent_assignment_uri,
@@ -209,6 +216,7 @@ async def list_assignments(
         ],
     )
     due = await dossiers.due_ids(db, [row.assignment for row, _ in readable])
+    own = await client_side.own_organisation_ids(db)
     items = [
         build_response(
             AssignmentSummaryOut(
@@ -216,6 +224,7 @@ async def list_assignments(
                     row,
                     budgeted.get(row.assignment.id),
                     dossier_due=row.assignment.id in due,
+                    as_client=row.assignment.client_organisation_id in own,
                 )
             ),
             permitted,

@@ -231,6 +231,36 @@ describe('Start: what concerns the reader', () => {
     ]);
   });
 
+  it('links an assignment this instance is the client of to its page under Aanvragen', async () => {
+    const { container } = renderStart({
+      ...NOTHING,
+      my_assignments: {
+        rows: [
+          {
+            assignment_id: 'a1',
+            name: 'Fundament 2026-2027',
+            line: 'Uitvoeren',
+            as_client: true,
+            verdict: null,
+          },
+          {
+            assignment_id: 'a2',
+            name: 'Opdracht Beta 2026',
+            line: 'Uitvoeren',
+            as_client: false,
+            verdict: null,
+          },
+        ],
+        total: 2,
+      },
+    });
+    await waitFor(() => expect(titles(container)).toContain('Mijn opdrachten'));
+    expect(linksIn(container, 'Mijn opdrachten')).toEqual([
+      '/aanvragen/opdracht/a1',
+      '/opdrachten/a2',
+    ]);
+  });
+
   it('shows planning as rows to the board, and leaves out a row that is 0', async () => {
     const both = renderStart({
       ...NOTHING,

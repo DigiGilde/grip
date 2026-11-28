@@ -233,8 +233,13 @@ async def upsert_organisation(
     tooi_uri: str | None = None,
     unit_key: str | None = None,
     instance_uri: str | None = None,
+    parent_id: UUID | None = None,
 ) -> Organisation:
-    """Find a counterparty by TOOI URI and unit key, or create it."""
+    """Find a counterparty by TOOI URI and unit key, or create it.
+
+    An instance URI or a parent that the row lacks is filled in; one it has
+    is kept.
+    """
     if tooi_uri is not None:
         stmt = select(Organisation).where(Organisation.tooi_uri == tooi_uri)
         stmt = stmt.where(
@@ -244,12 +249,22 @@ async def upsert_organisation(
         )
         found = (await session.execute(stmt)).scalar_one_or_none()
         if found is not None:
+            changed = False
             if instance_uri and found.instance_uri is None:
                 found.instance_uri = instance_uri
+                changed = True
+            if parent_id and found.parent_id is None:
+                found.parent_id = parent_id
+                changed = True
+            if changed:
                 await session.flush()
             return found
     organisation = Organisation(
-        name=name, tooi_uri=tooi_uri, unit_key=unit_key, instance_uri=instance_uri
+        name=name,
+        tooi_uri=tooi_uri,
+        unit_key=unit_key,
+        instance_uri=instance_uri,
+        parent_id=parent_id,
     )
     session.add(organisation)
     await session.flush()

@@ -53,6 +53,10 @@ _PERSON_CLASSES = {
 }
 
 _NO_GRANT = "no_grant"
+# The FSC bootstrap of an example instance, and the property of the instance
+# that says example data may live there.
+MACHINE_FSC_BOOTSTRAP = "fsc-bootstrap"
+PROPERTY_EXAMPLE_DATA = "example_data"
 
 
 class Decider(Protocol):
@@ -116,6 +120,25 @@ class LocalDecider:
             if not request.subject.peer_id:
                 return deny("no_identity")
             return await self._peer(request)
+        if kind is SubjectKind.MACHINE:
+            return self._machine(request)
+        return deny(_NO_GRANT)
+
+    def _machine(self, req: AccessRequest) -> Decision:
+        """A system of the own deployment that presented its key.
+
+        The FSC bootstrap of the example group enters the other examples in
+        the peer registry, and only where example data may live: the caller
+        looked that up and passes it as a property of the instance (ADR 0062).
+        """
+        if (
+            req.subject.machine == MACHINE_FSC_BOOTSTRAP
+            and req.action is Action.REGISTER_PEER
+            and req.resource.kind is ResourceKind.INSTANCE
+        ):
+            if req.resource.property(PROPERTY_EXAMPLE_DATA) == "true":
+                return allow(f"machine:{MACHINE_FSC_BOOTSTRAP}")
+            return deny("not_an_example_instance")
         return deny(_NO_GRANT)
 
     # ------------------------------------------------------------------

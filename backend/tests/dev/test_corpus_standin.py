@@ -264,4 +264,4 @@ async def test_extend_is_idempotent_and_removes_the_stray_draft(
     second = await extend(db_session)
     assert second["changed"] == 0
     names = (await db_session.execute(select(Assignment.name))).scalars().all()
-    assert "s" not in names and len(names) == 6
+    assert "s" not in names and len(names) == 8

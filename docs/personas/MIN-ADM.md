@@ -18,8 +18,8 @@ grips:
     toegang: account
     rechten: [lezer]
     relaties: []
-    voorbeeldpersoon: null
-    dataset: null
+    voorbeeldpersoon: Astrid Administratie
+    dataset: bzk
 ---
 
 # MIN-ADM Astrid Administratie
@@ -51,7 +51,7 @@ Geen mandaat om te verplichten. De prestatieverklaring tekent een budgethouder o
 
 ## In Grip
 
-**Ministerie van BZK voorbeeld** (account, lezer). Ze ziet de opdrachten en hun bedragen. Er is geen werkstroom aan de kant van de opdrachtgever waar zij een stap in heeft. Het factuurverzoek dat de opdrachtnemer maakt bij "Een opdracht uitvoeren en factureren" gaat naar de financiële administratie van de opdrachtnemer, niet naar haar.
+**Ministerie van BZK voorbeeld** (account, lezer; voorbeeldpersoon Astrid Administratie in de dataset `bzk`). Ze ziet de opdrachten en hun bedragen. Er is geen werkstroom aan de kant van de opdrachtgever waar zij een stap in heeft. Het factuurverzoek dat de opdrachtnemer maakt bij "Een opdracht uitvoeren en factureren" gaat naar de financiële administratie van de opdrachtnemer, niet naar haar.
 
 ## Wat Grip nog niet kan
 
@@ -59,7 +59,6 @@ Geen mandaat om te verplichten. De prestatieverklaring tekent een budgethouder o
 - **Verplichtingen met kasprognose.** Een akkoord wordt geen verplichting waar een factuur onder valt.
 - **Verrekenen tussen onderdelen.** De vragen aan de financiële administratie staan open (openstaand.md, ADR 0039).
 - **Meekijken bij de opdrachtgever.** Geen overzicht van ontvangen offertes, akkoorden en facturen voor wie niet aanvraagt of tekent.
-- **Dataset voor het Ministerie van BZK voorbeeld.**
 
 ## Bronnen
 

@@ -41,6 +41,22 @@ async def require_wies_export_key(
         )
 
 
+async def require_peer_registry_key(
+    request: Request,
+    settings: Settings = Depends(get_settings),
+) -> None:
+    """The caller presented the key of the FSC bootstrap (ADR 0062).
+
+    Refused while no key is configured. Whether the bootstrap may then change
+    the registry is for the decision point.
+    """
+    if not key_matches(presented_bearer_key(request), settings.PEER_REGISTRY_KEY):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Geen geldige sleutel voor de koppelingen",
+        )
+
+
 async def require_feed_key(
     request: Request,
     settings: Settings = Depends(get_settings),

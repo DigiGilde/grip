@@ -1,10 +1,10 @@
-# The three instances as example instances that federate with each other
+# The seven instances as example instances that federate with each other
 # (ADR 0050, ADR 0054), over the FSC group of compose.fsc.yml.
 #
 # Used on top of the other files, with the local Keycloak:
 #   docker compose -f compose.yml -f compose.fsc.yml -f compose.fsc-corpus.yml \
 #     -f compose.fsc-voorbeeld.yml --env-file state/keycloak.env \
-#     --profile keycloak --profile two ...
+#     --profile keycloak --profile two --profile keten ...
 #   (./local.sh up fsc-voorbeeld)
 #
 # An example instance fills itself on an empty database and refuses one that
@@ -31,11 +31,27 @@ x-example-a: &example-a
 
 x-example-b: &example-b
   <<: *example
-  SEED_DATASET: voorbeeld
+  SEED_DATASET: bzk
 
 x-example-d: &example-d
   <<: *example
   SEED_DATASET: programma
+
+x-example-e: &example-e
+  <<: *example
+  SEED_DATASET: nldd
+
+x-example-g: &example-g
+  <<: *example
+  SEED_DATASET: gdi
+
+x-example-o: &example-o
+  <<: *example
+  SEED_DATASET: odi
+
+x-example-z: &example-z
+  <<: *example
+  SEED_DATASET: ezk
 
 services:
   db-a:
@@ -47,6 +63,18 @@ services:
   db-d:
     volumes:
       - db-d-voorbeeld:/var/lib/postgresql/data
+  db-e:
+    volumes:
+      - db-e-voorbeeld:/var/lib/postgresql/data
+  db-g:
+    volumes:
+      - db-g-voorbeeld:/var/lib/postgresql/data
+  db-o:
+    volumes:
+      - db-o-voorbeeld:/var/lib/postgresql/data
+  db-z:
+    volumes:
+      - db-z-voorbeeld:/var/lib/postgresql/data
 
   backend-a:
     environment: *example-a
@@ -69,7 +97,39 @@ services:
   worker-d:
     environment: *example-d
 
+  backend-e:
+    environment: *example-e
+  federation-e:
+    environment: *example-e
+  worker-e:
+    environment: *example-e
+
+  backend-g:
+    environment: *example-g
+  federation-g:
+    environment: *example-g
+  worker-g:
+    environment: *example-g
+
+  backend-o:
+    environment: *example-o
+  federation-o:
+    environment: *example-o
+  worker-o:
+    environment: *example-o
+
+  backend-z:
+    environment: *example-z
+  federation-z:
+    environment: *example-z
+  worker-z:
+    environment: *example-z
+
 volumes:
   db-a-voorbeeld:
   db-b-voorbeeld:
   db-d-voorbeeld:
+  db-e-voorbeeld:
+  db-g-voorbeeld:
+  db-o-voorbeeld:
+  db-z-voorbeeld:

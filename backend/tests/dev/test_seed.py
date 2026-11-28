@@ -41,7 +41,7 @@ async def seeded(db_session: AsyncSession):
 async def test_seeding_an_empty_database_succeeds(db_session, seeded):
     names = set((await db_session.execute(select(Assignment.name))).scalars().all())
     assert {"Opdracht Alfa 2026", "Opdracht Beta 2026"} <= names
-    assert len(names) == 6
+    assert len(names) == 8
     statuses = dict(
         (await db_session.execute(select(Assignment.name, Assignment.status))).all()
     )
@@ -71,7 +71,7 @@ async def test_reset_empties_and_seeds_again(db_session, seeded):
     count = (
         await db_session.execute(select(func.count()).select_from(Assignment))
     ).scalar_one()
-    assert count == 6
+    assert count == 8
     assert again.people["bente.beheer"].id != seeded.people["bente.beheer"].id
 
 

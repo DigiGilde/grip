@@ -44,6 +44,12 @@ _PUBLIC_ROUTES: dict[str, str] = {
         "no session: a machine with a key (Wies)"
     ),
     "/api/gebeurtenissen": "no session: a system with a key reads the event feed",
+    "/api/peers/registry": (
+        "no session: the FSC bootstrap with a key enters an example peer"
+    ),
+    "/api/peers/registry/test-connection": (
+        "no session: the FSC bootstrap with a key tests an example peer"
+    ),
 }
 
 # Dependency callables that count as authorization.
