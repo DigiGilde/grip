@@ -1,9 +1,11 @@
 """Example dataset ``programma``: a programme team with a budget of a ministry.
 
 The instance is "MOZa voorbeeld", an example after the MOZa programme; its
-people and amounts are invented. The Ministerie van BZK voorbeeld funds it
-from the GDI with one assignment, "MOZa voorbeeld 2026", whose budget is the
-programme's budget for the year. The programme in its turn gives work to two
+people and amounts are invented. The Ministerie van BZK voorbeeld, its parent,
+funds it from the GDI with one assignment, "MOZa voorbeeld 2026", whose budget
+is the programme's budget for the year. That assignment runs between the two
+instances: BZK holds the client's half in its own dataset, from the same
+description (``grip.dev.datasets.chain``). The programme in its turn gives work to two
 suppliers: the Voorbeeldgilde (which runs grip, instance "DigiGilde
 voorbeeld") and the Voorbeeldbeheerorganisatie (which does not). What it
 spends on them and on meetings and travel are cost items on its own budget.
@@ -26,18 +28,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from grip.calc import Month
 from grip.core.config import Settings
+from grip.dev.datasets import chain
 from grip.dev.seed import (
     EXAMPLE_TOOI,
     ExamplePerson,
     SeedResult,
-    _accept_by_pdf,
     _allocate,
     _at,
-    _fixed,
     _people,
-    _personnel,
     _rate_card,
-    _roles,
 )
 from grip.models.assignment import Assignment
 from grip.models.organisation import Organisation
@@ -50,13 +49,8 @@ from grip.services.canonical import snapshot_hash
 # is found by the instance URI of an organisation, so these must equal the
 # base_uri that the FSC bootstrap registers for them. Deployed example
 # instances name theirs in EXAMPLE_INSTANCE_URIS.
-DIGIGILDE_INSTANCE_URI = "http://localhost:9001"
-MINISTRY_INSTANCE_URI = "http://localhost:9002"
-
-# Same identifiers as the default dataset, so the instances recognise each
-# other's organisations.
-MINISTRY_TOOI = f"{EXAMPLE_TOOI}/ministerie/mnre9001"
-GUILD_TOOI = f"{EXAMPLE_TOOI}/oorg/oorg99002"
+DIGIGILDE_INSTANCE_URI = chain.INSTANCES["digigilde"].local_uri
+MINISTRY_INSTANCE_URI = chain.INSTANCES["ministerie"].local_uri
 
 PROFILE = "programma"
 YEARS = (2026, 2027)
@@ -248,28 +242,11 @@ async def fill(db: AsyncSession, settings: Settings) -> SeedResult:
     await _person_details(db, result, beheerder)
     await quote_sender.apply_profile(db, PROFILE, actor=beheerder)
 
-    elsewhere = settings.example_instance_uris
-    ministry = await assignments.upsert_organisation(
-        db,
-        name="Ministerie van BZK voorbeeld",
-        tooi_uri=MINISTRY_TOOI,
-        instance_uri=elsewhere.get("ministerie", MINISTRY_INSTANCE_URI),
+    # MOZa is a unit of the ministry: its TOOI URI plus a key of its own.
+    rows = await chain.organisations(
+        db, settings, ("ministerie", "programma", "digigilde"), own="programma"
     )
-    # A unit of the ministry: its TOOI URI plus a key of its own.
-    own = await assignments.upsert_organisation(
-        db,
-        name="MOZa voorbeeld",
-        tooi_uri=MINISTRY_TOOI,
-        unit_key="programma",
-        instance_uri=settings.INSTANCE_BASE_URI,
-    )
-    guild = await assignments.upsert_organisation(
-        db,
-        name="Voorbeeldgilde",
-        tooi_uri=GUILD_TOOI,
-        unit_key="voorbeeldgilde",
-        instance_uri=elsewhere.get("digigilde", DIGIGILDE_INSTANCE_URI),
-    )
+    ministry, own, guild = rows["ministerie"], rows["programma"], rows["digigilde"]
     operator = await assignments.upsert_organisation(
         db,
         name="Voorbeeldbeheerorganisatie",
@@ -281,95 +258,26 @@ async def fill(db: AsyncSession, settings: Settings) -> SeedResult:
     fenna = result.people["fenna.financien"]
 
     # -- The programme budget: MOZa voorbeeld 2026 ------------------------
-    programme = await assignments.create_assignment(
+    programme, lines = await chain.as_contractor(
         db,
-        name="MOZa voorbeeld 2026",
-        kind="external",
-        client_organisation_id=ministry.id,
-        contractor_organisation_id=own.id,
-        client_contact="Contactpersoon Ministerie van BZK voorbeeld",
-        start_date=date(2026, 1, 1),
-        end_date=date(2026, 12, 31),
-        notes=(
-            "Voorbeeldprogramma, gefinancierd uit de GDI door het Ministerie van BZK "
-            "voorbeeld."
-        ),
-        actor=mila,
-    )
-    await _roles(
-        db,
-        result,
-        programme,
-        owner="mila.programma",
-        manager="fenna.financien",
+        settings,
+        chain.SHARED["programme"],
+        own=own,
+        client=ministry,
+        owner=mila,
+        manager=fenna,
         actor=beheerder,
     )
+    result.relate("mila.programma", f"eigenaar van {programme.name}")
+    result.relate("fenna.financien", f"manager van {programme.name}")
     year_2026 = (date(2026, 1, 1), date(2026, 12, 31))
-    manager_line = await _personnel(
-        db,
-        programme,
-        "Programmamanager",
-        "Programmamanager",
-        "1",
-        "E",
-        *year_2026,
-        mila,
-    )
-    finance_line = await _personnel(
-        db,
-        programme,
-        "Financieel adviseur",
-        "Financieel adviseur",
-        "0.5",
-        "D",
-        *year_2026,
-        mila,
-    )
-    product_line = await _personnel(
-        db, programme, "Productowner", "Productowner", "1", "D", *year_2026, mila
-    )
-    service_line = await _personnel(
-        db,
-        programme,
-        "Adviseur dienstverlening",
-        "Adviseur",
-        "1",
-        "C",
-        *year_2026,
-        mila,
-    )
-    communication_line = await _personnel(
-        db,
-        programme,
-        "Communicatieadviseur",
-        "Communicatieadviseur",
-        "0.6",
-        "C",
-        *year_2026,
-        mila,
-    )
-    events_line = await _fixed(
-        db, programme, "Bijeenkomsten en reizen", 6000000, 2026, mila
-    )
-    suppliers_line = await _fixed(
-        db, programme, "Opdrachten aan leveranciers", 65000000, 2026, mila
-    )
-    quote = await quotes.issue_quote(
-        db,
-        programme.id,
-        actor=mila,
-        issued_at=_at(date(2025, 11, 17)),
-        valid_until=date(2025, 12, 31),
-    )
-    await _accept_by_pdf(
-        db,
-        quote,
-        _ref(ministry),
-        "Opdrachtgever Ministerie van BZK voorbeeld",
-        date(2025, 12, 11),
-        mila,
-    )
-    await assignments.transition(db, programme.id, "in_progress", actor=mila)
+    manager_line = lines["Programmamanager"]
+    finance_line = lines["Financieel adviseur"]
+    product_line = lines["Productowner"]
+    service_line = lines["Adviseur dienstverlening"]
+    communication_line = lines["Communicatieadviseur"]
+    events_line = lines["Bijeenkomsten en reizen"]
+    suppliers_line = lines["Opdrachten aan leveranciers"]
     for line, person, pct in (
         (manager_line, "mila.programma", "100"),
         (finance_line, "fenna.financien", "50"),
