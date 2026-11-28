@@ -50,7 +50,7 @@ De sporen lopen tegelijk. Spoor A vervangt Grist, spoor B bouwt de federatie. Wa
 | 4. Aanvraag, offerte en akkoord | Deels | Gebouwd en getest met twee instanties in de tests; lokaal is een bericht over FSC aangetoond. De hele gang van aanvraag tot akkoord is niet in een browser tussen twee gekoppelde instanties doorlopen |
 | 5. Bouwmeester | Deels | `corpus-context` en "opdrachten bij een node" staan op lokale branches van Bouwmeester, niet voorgelegd. Een opdracht met nodes uit twee corpora is niet aangetoond |
 | 6. Inzage en eindrapport | Deels | De routes voor voortgang, uitputting, factuurgegevens en het eindrapport bestaan met tests; niet tussen twee echte instanties gebruikt |
-| 7. Moeder en dochter | Deels | De routes voor doorgifte bestaan met tests; niet gebruikt. Of bezetting met namen of als aantallen naar de moeder gaat is een instelling, standaard aantallen |
+| 7. Moeder en dochter | Deels | De routes voor doorgifte bestaan met tests; niet gebruikt. Of bezetting met namen of als aantallen naar de moeder gaat is een instelling, standaard aantallen. De overhead in de kosten (ADR 0016) staat nog niet in het contract en niet in de code |
 | 8. Wies en federatieve vacatures | Deels | Wies lokaal in beide richtingen, op een lokale branch van Wies, niet voorgelegd. Een vacature gaat naar een andere instantie; ontvangen vacatures hebben nog geen scherm |
 
 ### Wat het plan niet voorzag
