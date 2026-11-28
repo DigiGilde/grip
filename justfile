@@ -240,14 +240,20 @@ zad-fsc-env deployment *flags:
     for template in $templates; do
         components="$components $(component_of "$template")"
     done
-    while read -r component _; do
+    fsc=deploy/zad/fsc
+    while read -r component name; do
         [ -n "$component" ] || continue
         case "$components " in
             *" $component "*) ;;
             *) echo "--existing: $component is not a component of $deployment:$components" >&2; exit 2 ;;
         esac
+        for template in $templates; do
+            if [ "$(component_of "$template")" = "$component" ] && ! grep -q "^$name=" "$fsc/env/$template.env"; then
+                echo "--existing: $template.env sets no $name, so $component has nothing to set for it" >&2
+                exit 2
+            fi
+        done
     done <<< "$existing"
-    fsc=deploy/zad/fsc
     out="${ENV_DIR:-$fsc/state/env}/$deployment"
     manifest="${PKI_DIR:-$fsc/state/pki}/upload/MANIFEST.tsv"
     [ -f "$manifest" ] || echo "No $manifest yet: the TLS_* paths are not compared with it." >&2

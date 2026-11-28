@@ -250,6 +250,7 @@ jobs:
     needs: [build, build-fsc-bootstrap, fsc-plan, deploy]
     if: >-
       ${{ !cancelled() && needs.build.result == 'success' && needs.build-fsc-bootstrap.result == 'success'
+      && needs.fsc-plan.result == 'success'
       && needs.fsc-plan.outputs.changed == 'true' && needs.fsc-plan.outputs.targets != '[]' }}
     runs-on: ubuntu-latest
     permissions:

@@ -310,7 +310,7 @@ Een onderdeel bestaat één keer in het project en draait in elke uitrol waaraan
 | `outway` | `federatedserviceconnectivity/outway` | niet gepubliceerd | groep en intern |
 | `controller` | `fsc-controller` (wrapper) | niet gepubliceerd: het scherm heeft geen login | intern |
 | `txlog` | `fsc-txlog` (wrapper) | niet gepubliceerd | intern |
-| `fscboot-<k>` | `fsc-bootstrap` | niet gepubliceerd, geen poort; alleen de dienst `attachments` | intern: de CA en het beheercertificaat van de peer |
+| `fscboot-<k>` | `fsc-bootstrap` | niet gepubliceerd, geen poort; de diensten `attachments` en `health-check` (`scheme=none`) | intern: de CA en het beheercertificaat van de peer |
 | `dirui` | `federatedserviceconnectivity/directory-ui` | gewoon, met het certificaat van het platform | groep |
 | `component-1`, `component-2` | `frontend`, `backend` | gewoon | geen |
 | `federation` | `backend` met `GRIP_PROCESS=federation` | niet gepubliceerd; alleen de inway bereikt poort 8090 | geen |
@@ -334,12 +334,22 @@ De eerste keer gaat in deze volgorde. Het image van de bootstrap bestaat pas na 
    De bootstrap van een peer draait in één uitrol. Zijn instellingen staan daarom op het onderdeel zelf, zonder `--deployment`: dan staan ze er al wanneer het onderdeel in zijn uitrol komt, ook als de workflow het daar neerzet.
 
    In `-grip.env` en `-federation.env` staan de instellingen van een voorbeeldinstantie met federatie: `INSTANCE_MODE=voorbeeld`, `EXAMPLE_FSC_GROUP=grip-voorbeeld`, `EXAMPLE_RESET_HOUR` (op alle instanties hetzelfde uur), `SEED_DATASET`, `INSTANCE_NAME`, `INSTANCE_KEY`, `INSTANCE_TOOI_URI`, `INSTANCE_BASE_URI`, `EXAMPLE_INSTANCE_URIS` (waar de andere staan; op alle instanties gelijk), `FEDERATION_INBOUND_ENABLED`, `FEDERATION_OUTBOUND_ENABLED` en `OUTWAY_URL`, en in `-grip.env` ook `ORGANISATION_NAME`. Een nieuwe instantie neemt over wat op `component-2` zelf staat, en daar staat wat `gilde` bij de eerste uitrol kreeg; daarom zet `-grip.env` alles wat per instantie verschilt op haar eigen laag, en krijgt ze bij de geheimen (stap 5 hieronder) een eigen `SESSION_SECRET_KEY`. `EXAMPLE_VISITORS` en `VLAM_*` neemt ze bewust over: de bezoekerslijst kan namen bevatten en staat één keer op `component-2`, voor alle voorbeelden. De listener heeft geen login, maar start alleen met authenticatie: `-federation.env` zet `OIDC_ISSUER` op de realm van het project (`https://keycloak.rijksapp.nl/realms/<project>-odcn-production`), en hij krijgt een eigen `SESSION_SECRET_KEY`. `BOOTSTRAP_BEHEERDER_EMAILS` blijft weg: dat is in een voorbeeld een startfout.
-4. **Venster 1: wat de uitrollen delen, en de directory.** Een bijlage hoort bij een onderdeel en geldt in elke uitrol die het draait; een latere wijziging herstart het onderdeel overal. De bijlagen van alle uitrollen gaan er daarom nu op, voordat een uitrol de onderdelen draait. Voeg de onderdelen eenmalig toe aan het project, met hun poorten, publicatie en de dienst `postgresql-database` waar een database nodig is (backend, listener, manager, controller, transactielog); in `gv-ukr` bestaan ze al, op de bootstraps na. De manager en `dirmgr` krijgen drie poorten met 8443 vooraan (`--ports 8443 --ports 8444 --ports 8445`): de eerste is die van de publicatie. Een bootstrap heeft geen poort. Geef de onderdelen van OpenFSC een gezondheidscontrole op TCP-poort 8081, waar hun monitoring luistert, en de listener een op HTTP-poort 8090 met `/healthz`. Zonder die dienst controleert het platform de eerste poort, en dat geeft op een TLS-poort bij elke controle een foutregel in het logboek.
+4. **Venster 1: wat de uitrollen delen, en de directory.** Een bijlage hoort bij een onderdeel en geldt in elke uitrol die het draait; een latere wijziging herstart het onderdeel overal. De bijlagen van alle uitrollen gaan er daarom nu op, voordat een uitrol de onderdelen draait. Voeg de onderdelen eenmalig toe aan het project, met hun poorten, publicatie en de dienst `postgresql-database` waar een database nodig is (backend, listener, manager, controller, transactielog); in `gv-ukr` bestaan ze al, op de bootstraps na. De manager en `dirmgr` krijgen drie poorten met 8443 vooraan (`--ports 8443 --ports 8444 --ports 8445`): de eerste is die van de publicatie. Een bootstrap heeft geen poort. Geef de onderdelen van OpenFSC een gezondheidscontrole op TCP-poort 8081, waar hun monitoring luistert, en de listener een op HTTP-poort 8090 met `/healthz`. Zonder die dienst controleert het platform de eerste poort, en dat geeft op een TLS-poort bij elke controle een foutregel in het logboek. Een bootstrap luistert nergens; `scheme=none` zet de controle daar uit.
 
    ```sh
    zadctl config set rollout false
    zadctl component add fscboot-a --service attachments
    zadctl component add fscboot-d --service attachments
+   zadctl service assign health-check -c manager -c controller -c inway -c outway -c txlog \
+     -c dirmgr -c dirui -c federation -c fscboot-a -c fscboot-d
+   for c in manager controller inway outway txlog dirmgr dirui; do
+     zadctl service config set health-check --component "$c" --set scheme=tcp --set port=8081
+   done
+   zadctl service config set health-check --component federation \
+     --set scheme=http --set port=8090 --set liveness-path=/healthz --set readiness-path=/healthz
+   for c in fscboot-a fscboot-d; do
+     zadctl service config set health-check --component "$c" --set scheme=none
+   done
    just zad-fsc-attachments directory
    just zad-fsc-attachments gilde
    just zad-fsc-attachments programma
