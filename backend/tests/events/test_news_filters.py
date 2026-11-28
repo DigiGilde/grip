@@ -192,15 +192,15 @@ async def test_who_only_recorded_a_decision_is_not_offered_as_who_made_it(
     as_person, world, news
 ):
     """A signed pdf is recorded by someone of this organisation; the client
-    signed it. The sentence names who recorded it, the filter does not
-    count it as theirs."""
+    signed it. The sentence says that person recorded it, and the filter does
+    not count it as theirs."""
     client = as_person(world.lezer)
     signed = next(
         item
         for item in (await _feed(client))["items"]
         if item["kind"] == "quote_signed"
     )
-    assert signed["text"].endswith(" door Eva Eigenaar")
+    assert signed["text"].endswith(" is getekend, vastgelegd door Eva Eigenaar")
     assert _names((await _options(client))["people"]) == ["Bo Buiten"]
     assert await _feed(client, persoon=str(world.owner.id)) == NOTHING
 

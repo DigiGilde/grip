@@ -120,7 +120,8 @@ class News:
     managers_only: bool = False
     # A person acting here may only have recorded what someone else decided:
     # a signed pdf, a rejection made elsewhere, the advice or approval of a
-    # vacancy. Narrowing the feed to a person never counts it as theirs.
+    # vacancy. The sentence says they recorded it, and narrowing the feed to
+    # a person never counts it as theirs.
     recorded: bool = False
 
 
@@ -1007,8 +1008,11 @@ def _sentence(
             }.get(kind)
         )
         if by and by != object_name and person_id != event.person_id:
-            parts.append(Part(f" door {by}"))
-            if not rule.recorded:
+            if rule.recorded:
+                # Who records that another signed is not who signed.
+                parts.append(Part(f", vastgelegd door {by}"))
+            else:
+                parts.append(Part(f" door {by}"))
                 named = person_id
     return tuple(part for part in parts if part.text), named
 
