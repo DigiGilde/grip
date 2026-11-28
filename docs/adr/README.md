@@ -62,6 +62,7 @@ Een besluit dat anderen bindt staat hier als ADR: genummerd, met context, beslui
 | [0056](0056-de-kroniek-van-een-opdracht-als-bron.md) | De kroniek van een opdracht als bron | voorgesteld |
 | [0057](0057-bewaren-en-vernietigen-per-zaak.md) | Bewaren en vernietigen per zaak | aanvaard, op één open punt na |
 | [0058](0058-factuurinformatie-bij-het-akkoord.md) | Factuurinformatie wordt bij het akkoord opgegeven | voorgesteld |
+| [0059](0059-taken-en-stappen-terug-nieuw-als-tijdlijn-een-tekstkleur.md) | Taken en de stappen terug, Nieuw als tijdlijn, één tekstkleur | aanvaard |
 
 ## Welke besluiten later zijn bijgesteld
 
@@ -89,6 +90,7 @@ Een besluit wordt niet herschreven. Is het later bijgesteld, dan staat onderaan 
 | 0038 Een taak vertelt | 0039, 0044, 0047 | Taken per factuurperiode; verloop uit dezelfde bron; een taak voor de naverrekening |
 | 0039 Afsluiten en aanleveren | 0047, 0055, 0058 | De naverrekening als opgeslagen verschil; het tabblad is een onderdeel van de opdracht; de factuurinformatie bij het akkoord |
 | 0042 Zeven plekken | 0055 | Vervangen: vijf plekken, geen tweede balk, onderdelen in plaats van tabs |
-| 0044 Een verloop per zaak | 0045, 0048, 0055 | Een afwijzing is een stap terug; overnemen geeft geen recht; het verloop is één regel |
+| 0044 Een verloop per zaak | 0045, 0048, 0055, 0059 | Een afwijzing is een stap terug; overnemen geeft geen recht; het verloop is één regel; op een opdracht weer als stappen |
 | 0050 Een voorbeeldinstantie | 0054 | Voorbeelden federeren met elkaar, in een eigen groep |
+| 0055 Vijf plekken | 0059 | Taken weer in de balk; het verloop van een opdracht als stappen; Nieuw als tijdlijn met filters; één tekstkleur |
 | 0056 De kroniek van een opdracht | 0057 | Bewaren en vernietigen per zaak in plaats van wissen op verzoek |

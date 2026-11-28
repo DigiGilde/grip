@@ -36,3 +36,7 @@ Een afgewezen offerte is voor de opdrachtnemer een stap terug en geen einde (ADR
 ## Later gewijzigd (2026-11-04)
 
 Het verloop is overal één regel tekst: de stap waar de zaak staat en de stap daarna, zonder stappenbalk. Op een opdracht staat die regel onder de titel, met de zin over wat er nu moet eronder. Op een vacature zijn de stappen de rijen van haar landing, elk met haar stand (ADR 0055).
+
+## Later gewijzigd (2026-11-28)
+
+Op een opdracht staat het verloop weer als stappenbalk, onder de zin over wat er nu moet; op een smal scherm de stap waar ze staat en de volgende in woorden. Een vacature houdt haar stappen als rijen (ADR 0059).

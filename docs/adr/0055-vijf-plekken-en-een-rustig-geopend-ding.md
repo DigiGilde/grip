@@ -66,3 +66,7 @@ Veertien onderzoeksrapporten, over persona's, de structuur, het designsysteem en
 - ADR 0033 en 0042 zijn vervangen. ADR 0039 en 0044 zijn bijgesteld: Afsluiten en factureren is een onderdeel dat op een interne opdracht en zonder het geld Afsluiten heet, en het verloop is één regel. De regels voor een scherm staan in `docs/ontwerp.md`.
 - Een hoofd zonder rechten op personen of op het geld van alle opdrachten krijgt op Start geen blok met bezetting of geld, en geen tegel die 0% zegt. Of een hoofd de bezetting als totaal zonder namen krijgt, is niet beslist; zie `docs/openstaand.md`.
 - Niemand die het werk doet heeft dit getoetst. De frequenties zijn afgeleid en de persona's zijn verzonnen. Of mensen vaker landen of vaker wisselen weet niemand, en dat beslist of de wisselbalk nodig blijft. De vragen staan in `docs/openstaand.md`.
+
+## Later gewijzigd (2026-11-28)
+
+Na de eerste blik van de opdrachtgever (ADR 0059): Taken staat weer in de balk, direct na Start, met het aantal taken. Een opdracht toont haar verloop weer als stappenbalk in plaats van in één regel tekst. Nieuw op Start toont de laatste vijf berichten als tijdlijn per dag, en Wat is er gebeurd kan filteren op opdracht en op persoon. Alle tekst die grip zelf schrijft staat in de gewone kleur. "Wat vraagt aandacht" blijft weg.
