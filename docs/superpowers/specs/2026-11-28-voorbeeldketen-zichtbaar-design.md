@@ -43,13 +43,13 @@ MOZa is een programma met een eigen instantie, en blijft dat. BZK is een ministe
 |---|---|---|---|---|
 | GDI voorbeeld | `gdi` (nieuw) | g | | keurt het programma MOZa goed, delegeert het opdrachtgeverschap aan BZK |
 | Ministerie van BZK voorbeeld | `bzk` (nieuw) | b | | ministerie; opdrachtgever van MOZa, namens GDI; verstrekt de opdracht aan ODI |
-| MOZa voorbeeld | `programma` (bestaat) | d | GDI | het programma; geeft opdrachten aan DigiGilde en boekt kosten |
+| MOZa voorbeeld | `programma` (bestaat) | d | BZK | het programma; geeft opdrachten aan DigiGilde en boekt kosten |
 | ODI voorbeeld | `odi` (nieuw) | o | | opdrachtnemer en contractpartij van MOZa |
 | DigiGilde voorbeeld | `gilde` (bestaat) | a | ODI | voert MOZa uit; de programmamanager werkt hier |
 | Ministerie van EZK voorbeeld | `ezk` (nieuw) | z | | moeder van NLDD |
 | NLDD voorbeeld | `nldd` (nieuw) | e | EZK | dienst van EZK, opdrachtgever van eigen projecten bij DigiGilde |
 
-**Keuze van de ontwerper:** BZK krijgt peer b, die daar al voor bedoeld was; de sjablonen `b-*.env` krijgen een eigen dataset voor BZK in plaats van die van DigiGilde. MOZa voorbeeld blijft wat het is, in de uitrol `programma` met peer d. GDI is de moeder van MOZa: het programma valt onder GDI (de eigenaar, 28 november). De TOOI van MOZa voorbeeld is nu die van het ministerie (`mnre9001`); die gaat naar BZK, en MOZa krijgt een eigen TOOI als onderdeel.
+**Keuze van de ontwerper:** BZK krijgt peer b, die daar al voor bedoeld was; de sjablonen `b-*.env` krijgen een eigen dataset voor BZK in plaats van die van DigiGilde. MOZa voorbeeld blijft wat het is, in de uitrol `programma` met peer d. BZK is de moeder van MOZa: daar liggen het budget en de verantwoording (de Centrale Financiering GDI staat op de begroting van BZK). GDI leest mee op MOZa, waarschijnlijk via BZK, voor inzicht in uitgaven en voortgang (de eigenaar, 28 november); dat meelezen hoort bij het project waarin moeders meelezen, niet bij deze ronde. De TOOI van MOZa voorbeeld is nu die van het ministerie (`mnre9001`); die gaat naar BZK, en MOZa krijgt een eigen TOOI als onderdeel.
 
 **Keuze van de ontwerper:** GDI krijgt een eigen instantie. Grip volgt de organisatie, en een instantie mag kleiner zijn dan een geregistreerde organisatie (ADR 0016). GDI heeft een eigen besluit (het programma goedkeuren) en een eigen relatie met BZK.
 
@@ -59,7 +59,7 @@ Elke instantie krijgt een eigen dataset in `backend/grip/dev/datasets/`, gekozen
 
 - **GDI voorbeeld:** de programmaraad of het bestuur dat goedkeurt; het programma MOZa als goedgekeurd voorstel. Hoe dat in grip staat zonder een nieuw begrip, is aan de bouwer; een opdracht van GDI aan BZK met de status "In uitvoering" volstaat als niets beters bestaat.
 - **Ministerie van BZK voorbeeld:** een nieuwe dataset: een directie met de opdrachtgever van MOZa (namens GDI) en de opdracht aan ODI. Personas met een code `BZK-`.
-- **MOZa voorbeeld:** de dataset `programma` blijft, met de opdracht MOZa voorbeeld 2026 bij DigiGilde, de kostenposten en de Zaalhuur. GDI staat erin als moederorganisatie, BZK als opdrachtgever. **Keuze van de ontwerper:** de opdrachtnemer blijft in deze ronde DigiGilde; ODI ertussen hoort bij project 3.
+- **MOZa voorbeeld:** de dataset `programma` blijft, met de opdracht MOZa voorbeeld 2026 bij DigiGilde, de kostenposten en de Zaalhuur. BZK staat erin als moederorganisatie en opdrachtgever. **Keuze van de ontwerper:** de opdrachtnemer blijft in deze ronde DigiGilde; ODI ertussen hoort bij project 3.
 - **ODI voorbeeld:** de directie (ODI-AD, ODI-DIG, ODI-BV, ODI-BC), DigiGilde als dochter. Geen eigen opdrachten in deze ronde.
 - **Ministerie van EZK voorbeeld:** een kleine directie, NLDD als dochter. Personas naar het voorbeeld van het personaboek; nieuwe personas krijgen een code `EZK-`.
 - **NLDD voorbeeld:** de dataset uit het ontwerp voor NLDD voorbeeld (branch `ontwerp-nldd-voorbeeld`, hoofdstuk 7), zonder de bemensing, want die hoort bij project 1. De twee eigen opdrachten Fundament en RegelRecht staan als ontvangen offertes van DigiGilde.
@@ -91,7 +91,7 @@ Wat de uitrol van de groep op 27 en 28 november vastlegde (`docs/uitrol-zad.md`,
 | Van | Naar | Rol |
 |---|---|---|
 | MOZa | DigiGilde | opdrachtgever en opdrachtnemer (de Zaalhuur) |
-| GDI | MOZa | moeder en dochter |
+| BZK | MOZa | moeder en dochter |
 | BZK | GDI | opdrachtgever en opdrachtnemer (delegatie) |
 | BZK | ODI | opdrachtgever en opdrachtnemer |
 | ODI | DigiGilde | moeder en dochter |
@@ -124,4 +124,4 @@ Elke relatie staat aan beide kanten. Een verbindingscontract in FSC is er per ri
 
 ## 10. Waarom MOZa een eigen instantie houdt
 
-Een programma valt onder GDI en hoeft geen eigen organisatie te zijn. Toch houdt MOZa hier een eigen instantie: daar kan het werk van het programma zelf een plek krijgen, zoals planning, mijlpalen, risico's en besluiten. Dat is een weergave die de bedrijfsvoering niet heeft, maar die haar wel raakt (de eigenaar, 28 november). Volgens ADR 0053 is de instantie van het programma eigenaar van wat daar ontstaat, en verwijst ze naar wat elders ligt, zoals de opdracht bij BZK en de kosten bij ODI. Dat past bij het beeld van de eigenaar van eigen apps per organisatie of project, die informatie op verschillende plekken ophalen. Het uitwerken daarvan hoort niet bij deze ronde.
+Inhoudelijk valt een programma onder GDI, financieel onder BZK, en het hoeft geen eigen organisatie te zijn. Toch houdt MOZa hier een eigen instantie: daar kan het werk van het programma zelf een plek krijgen, zoals planning, mijlpalen, risico's en besluiten. Dat is een weergave die de bedrijfsvoering niet heeft, maar die haar wel raakt (de eigenaar, 28 november). Volgens ADR 0053 is de instantie van het programma eigenaar van wat daar ontstaat, en verwijst ze naar wat elders ligt, zoals de opdracht bij BZK en de kosten bij ODI. Dat past bij het beeld van de eigenaar van eigen apps per organisatie of project, die informatie op verschillende plekken ophalen. Het uitwerken daarvan hoort niet bij deze ronde.
