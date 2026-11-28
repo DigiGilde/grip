@@ -177,7 +177,7 @@ Een rij op een geopend ding of een blok op Start meldt in een zin wat er speelt,
 | Gegevens | A | Altijd | De eigenaar |
 | Geschiedenis | A | Altijd | Niets |
 
-Is deze instantie de opdrachtgever, dan zijn Afsluiten, Begroting, Team en Eindrapport het werk van de opdrachtnemer en staan ze er niet (`is_client`, klasse A). `own_line` is klasse C en wordt beslist op de eigen inzet van de lezer: "Developer, 100%, tot 31 dec 2026". `tasks_link` zegt of de lezer de taken van de opdracht mag wijzigen, volgens de regel van de takenlaag.
+Is deze instantie de opdrachtgever, dan zijn Afsluiten, Begroting, Team en Eindrapport het werk van de opdrachtnemer en staan ze er niet (`is_client`, klasse A). Een offerte maken of beheren kan dan evenmin: die brengt de opdrachtnemer uit (`api/quote_access.py`). De ontvangen offerte staat onder Aanvragen, Ontvangen offertes. `own_line` is klasse C en wordt beslist op de eigen inzet van de lezer: "Developer, 100%, tot 31 dec 2026". `tasks_link` zegt of de lezer de taken van de opdracht mag wijzigen, volgens de regel van de takenlaag.
 
 Zonder rij is er geen onderdeel. De ene uitzondering is het rapport van een lopende opdracht: dat opent voor wie klasse B van de opdracht leest.
 

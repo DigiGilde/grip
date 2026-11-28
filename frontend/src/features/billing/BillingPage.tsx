@@ -84,7 +84,9 @@ function deliveryLink({ period }: Row): string | null {
 function link(row: Row): string {
   const { overview, period } = row;
   if (period.state === 'ready') return deliverPeriodPath(overview.assignment_id, period.key);
-  const request = deliveryLink(row);
+  // Who delivers also records the invoice, on the assignment's own part; the
+  // request is for whoever may only read it.
+  const request = overview.may_deliver ? null : deliveryLink(row);
   if (request) return request;
   const month = period.months.find((entry) => entry.state === 'to_close');
   if (month) return monthClosePath(overview.assignment_id, month.month);

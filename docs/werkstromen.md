@@ -163,7 +163,7 @@ Wie akkoord geeft, geeft daarbij de factuurinformatie op; heeft de offerte de bi
 |---|---|---|---|---|---|
 | Begroting | eigenaar | Maak de begroting | Maak de begroting | Begroting | de begroting heeft een regel |
 | Starten | eigenaar | Start de opdracht | Start de opdracht (in de kop, in een keer) | Landing van de opdracht | de opdracht is in uitvoering |
-| Uitvoeren | planner, eigenaar of manager | dezelfde taken als bij Uitvoering | | | de opdracht is afgerond |
+| Uitvoeren | planner, eigenaar of manager | de rollen invullen en de maanden afsluiten, zoals bij Uitvoering; een interne opdracht heeft geen opdrachtgever en levert dus niets aan en krijgt geen factuur (het onderdeel heet Afsluiten) | | | de opdracht is afgerond |
 
 ### Factuurperiode (per factuurperiode)
 

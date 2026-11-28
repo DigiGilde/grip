@@ -622,14 +622,29 @@ describe('Factureren', () => {
     );
   });
 
-  it('opens the request from a delivered period', async () => {
+  it('leads who delivers from a delivered period to where the invoice is recorded', async () => {
+    const delivered = {
+      ...PERIOD,
+      state: 'delivered',
+      delivered_cents: 6880000,
+      deliveries: [DELIVERY],
+      months: PERIOD.months.map((month) => ({ ...month, state: 'closed' })),
+    };
+    const { container } = page(billingOf([delivered]));
+    await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
+    expect(container.querySelector('nldd-table nldd-link')?.getAttribute('href')).toBe(
+      '/opdrachten/a1/afsluiten',
+    );
+  });
+
+  it('opens the request from a delivered period for whoever may only read it', async () => {
     const delivered = {
       ...PERIOD,
       state: 'delivered',
       delivered_cents: 6880000,
       deliveries: [DELIVERY],
     };
-    const { container } = page(billingOf([delivered]));
+    const { container } = page(billingOf([delivered], { may_deliver: false }));
     await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
     expect(container.querySelector('nldd-table nldd-link')).toHaveAttribute(
       'href',
