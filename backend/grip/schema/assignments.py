@@ -73,6 +73,8 @@ class AssignmentSummaryOut(BaseModel):
     dossier_closed_on: Annotated[date | None, in_class(A)] = None
     # Ended, open, and quiet for long enough that closing is proposed.
     dossier_due: Annotated[bool, in_class(A)] = False
+    # This instance is the client: the assignment is followed under Aanvragen.
+    as_client: Annotated[bool, in_class(A)] = False
 
 
 class AssignmentListOut(BaseModel):

@@ -109,6 +109,19 @@ describe('AssignmentsPage', () => {
     expect(row?.querySelector('nldd-badge')).toBeNull();
   });
 
+  it('links an assignment this instance is the client of to its page under Aanvragen', async () => {
+    const asked = assignment({ id: 'a-1', name: 'Fundament 2026-2027', as_client: true });
+    const own = assignment({ id: 'a-2', name: 'Opdracht Beta 2026', as_client: false });
+    const { container } = await renderList(
+      { ...LIST, items: [asked, own], total: 2, counts: { potential: 0, active: 2, closed: 0 } },
+      '/opdrachten',
+    );
+    const hrefs = [...container.querySelectorAll('nldd-list-item')].map((row) =>
+      row.getAttribute('href'),
+    );
+    expect(hrefs).toEqual(['/aanvragen/opdracht/a-1', '/opdrachten/a-2']);
+  });
+
   it('names the amount of a potential assignment at the end of its row', async () => {
     const potential = assignment({
       id: 'a-2',

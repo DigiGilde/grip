@@ -79,7 +79,7 @@ function SentRequests() {
                 item.contractor_name,
                 formatPeriod(item.start_date, item.end_date),
                 failed ? statusLabel(item.status) : '',
-                deliveryText(delivery),
+                delivery ? deliveryText(delivery) : '',
               ]
                 .filter(Boolean)
                 .join(' · '),

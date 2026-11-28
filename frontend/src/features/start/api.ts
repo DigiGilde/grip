@@ -31,6 +31,8 @@ export interface StartData {
       assignment_id: string;
       name: string;
       line: string;
+      /** This instance is the client: the assignment is followed under Aanvragen. */
+      as_client?: boolean;
       verdict: 'room' | 'overrun' | null;
     }[];
     total: number;

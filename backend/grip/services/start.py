@@ -286,6 +286,7 @@ class MyAssignment:
     # What the assignment asks, in the words of its rows.
     notice: str | None
     verdict: Literal["room", "overrun"] | None
+    as_client: bool
 
     @property
     def rank(self) -> tuple[int, str]:
@@ -486,6 +487,7 @@ async def my_assignments(
                 verdict=_verdict(read.finance, assignment.status)
                 if read.finance
                 else None,
+                as_client=read.facts.is_client,
             )
         )
     found.sort(key=lambda item: item.rank)

@@ -159,6 +159,7 @@ async def _my_assignments(
                 assignment_id=item.assignment_id,
                 name=item.name,
                 line=start.line_of(stands[item.assignment_id], item.notice),
+                as_client=item.as_client,
                 verdict=item.verdict,
             ),
             classes_of[item.assignment_id],

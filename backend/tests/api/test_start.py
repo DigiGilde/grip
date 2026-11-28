@@ -1196,6 +1196,33 @@ async def test_a_request_of_a_beheerder_reports_no_work_of_the_contractor(
     assert asked.name not in json.dumps(body.get("my_assignments", {}))
 
 
+async def test_a_row_says_when_this_instance_is_the_client(
+    as_person, world, db_session
+):
+    """Not an asker, so her request is among her assignments: the row says it
+    is followed under Aanvragen."""
+    asked = await _ask(db_session, world.owner)
+    rows = (await _body(as_person, world.owner))["my_assignments"]["rows"]
+    by_id = {row["assignment_id"]: row for row in rows}
+    assert by_id[str(asked.id)]["as_client"] is True
+    assert by_id[str(world.alfa.id)]["as_client"] is False
+
+
+async def test_without_class_a_the_row_and_its_client_flag_are_not_there(
+    as_person, world, db_session, _test_app
+):
+    asked = await _ask(db_session, world.owner)
+    _deny(
+        _test_app,
+        lambda request: (
+            request.data_class is A and request.resource.assignment_id == asked.id
+        ),
+    )
+    body = await _body(as_person, world.owner)
+    assert str(asked.id) not in json.dumps(body)
+    assert [row["as_client"] for row in body["my_assignments"]["rows"]] == [False]
+
+
 async def test_a_received_quote_is_no_potential(as_person, world, asker, db_session):
     """It is money this instance would pay. Start and Geld say the same."""
     asked = await _ask(db_session, asker)

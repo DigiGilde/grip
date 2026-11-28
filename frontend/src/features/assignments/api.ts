@@ -33,6 +33,8 @@ export interface AssignmentSummary {
   dossier_closed_on?: string | null;
   /** Ended, open, and quiet for long enough that closing is proposed. */
   dossier_due?: boolean;
+  /** This instance is the client: the assignment is followed under Aanvragen. */
+  as_client?: boolean;
 }
 
 export interface AssignmentList {
