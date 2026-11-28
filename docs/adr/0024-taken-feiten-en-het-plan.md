@@ -46,3 +46,7 @@ De woorden volgen zaakgericht werken, zonder de componenten ervan: een opdracht 
 ## Later gewijzigd (2026-10-09)
 
 De regel dat een zaak de versie van het plan houdt waarmee ze begon, geldt niet meer zonder uitzondering: een plan kan een eerdere versie opvolgen, en een zaak op die eerdere versie gaat dan bij de volgende beoordeling over (ADR 0038). Wat een taak de lezer vertelt staat naast het plan en niet erin (ADR 0038). Waar een zaak staat en wat de volgende stap is komt uit dezelfde feiten als de taken (ADR 0044).
+
+## Later gewijzigd (2026-11-28)
+
+Een taak hoort niet meer altijd bij een opdracht of een vacature. De instantie zelf is een zaak, zonder pagina en zonder verloop, voor het werk van wie haar beheert: de taak over berichten die niet aankomen bij een andere instantie. Zo'n taak leest alleen wie de instantie beheert (ADR 0061).

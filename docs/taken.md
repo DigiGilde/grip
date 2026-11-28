@@ -89,6 +89,7 @@ Een sjabloon is voor de zaak als geheel, of herhaalt zich per onderwerp.
 | `month_to_close` | Verstreken maand met inzet die nog niet is afgesloten |
 | `closed_month` | Afgesloten maand |
 | `billing_period` | Factuurperiode van de opdracht waarin een maand is afgesloten: een maand of een kalenderkwartaal |
+| `peer` | Andere instantie waaraan berichten niet aankomen; alleen bij de zaak van de instantie zelf |
 
 ### Feiten over een opdracht
 
@@ -131,6 +132,8 @@ Een sjabloon is voor de zaak als geheel, of herhaalt zich per onderwerp.
 | `period_ready` | Factuurperiode | Elke maand met inzet in de periode is afgesloten |
 | `period_delivered` | Factuurperiode | De periode is aangeleverd |
 | `period_invoiced` | Factuurperiode | De factuur over de periode is vastgelegd |
+| `messages_arrive` | Koppeling | Elk bericht aan de koppeling is aangekomen |
+| `message_final` | Koppeling | Een bericht aan de koppeling is definitief niet afgeleverd: geweigerd, of zeven dagen geprobeerd |
 
 ### Feiten over een vacature
 
@@ -161,7 +164,7 @@ De takenlaag luistert naar alle bestaande domeingebeurtenissen en doet bij elk h
 
 ## Het meegeleverde plan
 
-Versie 2026.4, in `backend/grip/data/tasks/plan.json`; 33 sjablonen. De titels hieronder zijn die voor wie het werk doet, uit `guidance.json`.
+Versie 2026.4, in `backend/grip/data/tasks/plan.json`; 34 sjablonen. De titels hieronder zijn die voor wie het werk doet, uit `guidance.json`.
 
 ### Opdracht
 
@@ -213,6 +216,14 @@ Een verzoek om goedkeuring bestaat alleen als de instantie interne goedkeuring v
 
 De taken voor het aanvraagformulier ontstaan alleen als de instantie een formulier in gebruik heeft. "Stel de nieuwe collega voor aan Wies" en "Vraag een account en e-mailadres aan" sluiten door hun feit en zijn ook af te vinken, omdat het werk buiten grip gebeurt. Een taak die iemand zelf toevoegt, sluit alleen met de hand.
 
+### De instantie zelf
+
+| Spoor | Taak | Sluit door | Voor | Termijn |
+|---|---|---|---|---|
+| Beheer | Kijk waarom berichten aan (koppeling) niet aankomen | Feit: de berichten aan de koppeling komen aan | Beheerder |  |
+
+De instantie is een zaak zonder pagina en zonder verloop (ADR 0061). Haar enige taak ontstaat per koppeling zodra een bericht aan die koppeling drie keer op rij mislukt of definitief is, en is klaar als alles is aangekomen. De feiten komen uit wat grip per koppeling bewaart over berichten die niet aankomen (`delivery_trouble`), nooit uit de outbox. Is een bericht definitief, dan heet de taak "Verstuur berichten aan (koppeling) opnieuw" en is de knop "Opnieuw versturen"; anders "Test de verbinding". De taak leidt naar de koppeling bij Beheer, Koppelingen. Alleen wie de instantie beheert, ziet haar. Een nieuwe soort zaak heeft nog geen lopende zaken, dus het plan kreeg er geen nieuwe versie voor.
+
 ### Een nieuwe versie van het plan
 
 Een zaak houdt de versie waarmee ze begon. Een plan kan onder `replaces` oudere versies noemen waarvan het de lopende zaken overneemt; dat is voor een versie waarin het werk verkeerd was ingedeeld, niet voor elke wijziging. Versie 2026.3 nam de zaken van 2026.2 over; versie 2026.4 neemt die van 2026.2 en 2026.3 over, zodat ook een lopende zaak het voorstel krijgt om haar dossier te sluiten. Bij de eerstvolgende evaluatie krijgt zo'n zaak de taken van het nieuwe plan. Een open taak die het nieuwe plan niet meer vraagt, vervalt; een taak die beide plannen vragen, blijft dezelfde taak.
@@ -235,7 +246,7 @@ Een sjabloon in het plan krijgt een vermelding met dezelfde sleutel in `backend/
 | `destination` | Een naam uit `destinations` in hetzelfde bestand: de pagina waar het werk gebeurt |
 | `situations` | Andere `title`, `awaited`, `do`, `wait` of `action` voor een stand die grip herkent (optioneel) |
 
-In een zin kunnen staan: `{opdracht}`, `{opdrachtgever}`, `{functie}`, `{aanvrager}`, `{ingediend_op}`, `{wie}`, `{kenmerk}`, `{maand}`, `{periode}`, `{rol}`, `{tekst}`, `{gevraagd_door}` en `{gevraagd_op}`. Een nieuwe naam of een nieuwe stand komt erbij in `backend/grip/tasks/telling.py`.
+In een zin kunnen staan: `{opdracht}`, `{opdrachtgever}`, `{functie}`, `{aanvrager}`, `{ingediend_op}`, `{wie}`, `{kenmerk}`, `{maand}`, `{periode}`, `{rol}`, `{tekst}`, `{gevraagd_door}`, `{gevraagd_op}`, en voor een koppeling `{koppeling}`, `{sinds}`, `{berichten}`, `{reden}` en `{pogingen}`. Een nieuwe naam of een nieuwe stand komt erbij in `backend/grip/tasks/telling.py`.
 
 ## Zaakgericht werken
 
@@ -243,7 +254,7 @@ Grip gebruikt de woorden van zaakgericht werken en niet de componenten. Er is ge
 
 | Zaakgericht werken | In grip |
 |---|---|
-| Zaak | Een opdracht of een vacature |
+| Zaak | Een opdracht of een vacature, en de instantie zelf voor het werk van haar beheerder |
 | Zaaktype | De soort zaak met haar deel van het plan, in een versie |
 | Statustype en status | De feiten van de zaak; de stand per spoor is de leesbare vorm |
 | Deelzaak | Een vacature die bij een begrotingsregel van een opdracht hoort |
