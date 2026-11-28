@@ -7,13 +7,17 @@
  *
  *   CourseNow     the sentence about what happens now: first, under the title
  *   courseAction  the one next step for the page's primary button
- *   CourseLine    the step it is at and the one after, quiet: it informs and never competes
+ *   CourseBar     the steps, quiet: it informs and never competes; on a narrow
+ *                 screen the step it is at and the one after, in words
  *
  * A list says the same in one line with `courseLine`.
  */
 import { formatDate } from '@/lib/format';
-import { courseBrief, type Course, type CourseNext } from './course';
+import { courseBrief, lowerFirst, type Course, type CourseNext } from './course';
+import { useNarrow } from './layout/useNarrow';
 import './workflow.css';
+
+if (import.meta.env.MODE !== 'test') void import('@nldd/design-system/step-bar');
 
 /** "Vóór 15 okt 2026", or that the date has passed. */
 function dueWords(next: CourseNext): string | null {
@@ -72,24 +76,47 @@ export function CourseNow({ course, tasksHref }: CourseNowProps) {
   );
 }
 
-interface CourseLineProps {
+interface CourseBarProps {
   course: Course;
   accessibleLabel: string;
 }
 
 /**
- * Where the course is, in one line: the step it is at and the one after.
- * A step says its own state, so work done out of order still reads right.
+ * The steps of the course. A step says its own state, so work done out of
+ * order shows as done. A note says what happened at a step.
  */
-export function CourseLine({ course, accessibleLabel }: CourseLineProps) {
-  const brief = courseBrief(course);
-  if (!brief) return null;
+export function CourseBar({ course, accessibleLabel }: CourseBarProps) {
+  const narrow = useNarrow();
+  if (course.steps.length === 0) return null;
+  if (narrow) {
+    const brief = courseBrief(course);
+    if (!brief) return null;
+    return (
+      <nldd-text size="sm" role="group" aria-label={accessibleLabel}>
+        <span>
+          <strong>{brief.now}</strong>
+          {`, ${brief.then}`}
+        </span>
+      </nldd-text>
+    );
+  }
+  const notes = course.steps.filter((step) => step.note && step.state === 'done');
   return (
-    <nldd-text size="sm" color="secondary" role="group" aria-label={accessibleLabel}>
-      <span>
-        <strong>{brief.now}</strong>
-        {`, ${brief.then}`}
-      </span>
-    </nldd-text>
+    <div className="course-bar">
+      <nldd-step-bar accessible-label={accessibleLabel}>
+        {course.steps.map((step) => (
+          <nldd-step-bar-item
+            key={step.key}
+            text={step.label}
+            status={step.state === 'done' ? 'past' : step.state}
+          />
+        ))}
+      </nldd-step-bar>
+      {notes.length > 0 && (
+        <nldd-text size="sm">
+          <p>{notes.map((step) => `${step.label}: ${lowerFirst(step.note ?? '')}`).join(' · ')}</p>
+        </nldd-text>
+      )}
+    </div>
   );
 }

@@ -6,7 +6,7 @@ import { formatMoment } from '@/features/history/words';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { IconCell } from '@/ui/Icon';
 import { LoadError, Loading, NameLine, Quiet, Section, SectionHeading, Stack } from '@/ui/layout';
-import { CourseLine, CourseNow } from '@/ui/Workflow';
+import { CourseBar, CourseNow } from '@/ui/Workflow';
 import { MOMENT_PARAM, useStand, type Moment, type Stand } from './api';
 import { StandAssignmentPart } from './StandAssignmentPart';
 import { StandBudgetPart } from './StandBudgetPart';
@@ -84,7 +84,7 @@ function StandCourse({ stand }: { stand: Stand }) {
     <Stack gap="related">
       {course && <CourseNow course={course} />}
       {course && !course.ended && (
-        <CourseLine
+        <CourseBar
           course={course}
           accessibleLabel={`Verloop op ${formatMoment(moment.occurred_at)}`}
         />

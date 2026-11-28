@@ -102,7 +102,7 @@ Een pagina van een zaak met een verloop zegt van boven naar beneden, overal op d
 
 1. **Wat er nu gebeurt**, in een zin aan de lezer, onder de titel. Is de lezer aan zet, dan staat rechts van de titel de ene knop die de stap zet, met de naam van de stap. Is een ander aan zet, dan zegt de zin wie en is er geen knop.
 2. **Wat nog ontbreekt** voor die stap, alleen zolang er iets ontbreekt, en de termijn. Een verlopen termijn staat rood.
-3. **Het verloop**, klein en rustig in één regel: de stap waar de zaak staat en de stap daarna. Op een opdracht staat die regel direct onder de titel, voor de zin; op een vacature zijn de stappen de rijen van de landing, elk met haar stand. Een stap die niet van toepassing is ontbreekt. Een stap die gedaan is telt als gedaan waar hij ook staat.
+3. **Het verloop**, rustig: op een opdracht de stappenbalk van het designsysteem onder de zin, elke stap met haar stand, en op een smal scherm de stap waar de zaak staat en de stap daarna in woorden (ADR 0059); op een vacature zijn de stappen de rijen van de landing, elk met haar stand. Een stap die niet van toepassing is ontbreekt. Een stap die gedaan is telt als gedaan waar hij ook staat.
 4. **Het werk** van de huidige stap op het onderdeel waar de knop heen leidt. De onderdelen staan als rijen onder de zin.
 5. **Wat er gebeurd is**: het onderdeel Geschiedenis.
 

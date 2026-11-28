@@ -34,7 +34,7 @@ import { useRouterLinks } from '@/layout/useRouterLinks';
 import { formatDate, formatEuro, formatPeriod } from '@/lib/format';
 import { PageHeading } from '@/pages/PageHeading';
 import { courseAction } from '@/ui/course';
-import { CourseLine, CourseNow } from '@/ui/Workflow';
+import { CourseBar, CourseNow } from '@/ui/Workflow';
 import {
   clientKeys,
   fetchClientAssignment,
@@ -429,7 +429,7 @@ export function ClientAssignmentPage() {
                 </nldd-button-group>
               ) : null}
               {course && !course.ended ? (
-                <CourseLine course={course} accessibleLabel={`Verloop van ${assignment.name}`} />
+                <CourseBar course={course} accessibleLabel={`Verloop van ${assignment.name}`} />
               ) : (
                 <div>
                   <nldd-badge

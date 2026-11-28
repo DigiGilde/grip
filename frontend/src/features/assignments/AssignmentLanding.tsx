@@ -13,7 +13,7 @@ import { Button } from '@/ui/Button';
 import { courseAction, courseBrief, lowerFirst, type Course } from '@/ui/course';
 import { ErrorNotice, Page, Quiet, Stack } from '@/ui/layout';
 import { LinkRows } from '@/ui/LinkRows';
-import { CourseNow } from '@/ui/Workflow';
+import { CourseBar, CourseNow } from '@/ui/Workflow';
 import { assignmentKeys, transitionAssignment, type AssignmentDetail } from './api';
 import { fetchAssignmentFinance, financeKeys, type Figures as Totals } from './financeApi';
 import {
@@ -41,7 +41,7 @@ const IN_PLACE: Record<string, string> = {
   'intern.starten': 'in_progress',
 };
 
-/** For whom and when, and where it stands, as one quiet line. */
+/** For whom and when, and where it stands when the course bar does not say it. */
 function factsLine(assignment: AssignmentDetail, course: Course | null | undefined): string {
   const facts = [
     assignment.client_name,
@@ -57,7 +57,7 @@ function factsLine(assignment: AssignmentDetail, course: Course | null | undefin
     // Said in words: a tag would pull the eye from the sentence and the one action.
     assignment.phase === 'potential' ? 'Potentiële opdracht' : '',
     facts.join(', '),
-    course?.ended ?? (brief ? `${brief.now}, ${brief.then}` : standing),
+    course?.ended ?? (brief ? '' : standing),
   ]
     .filter(Boolean)
     .map((sentence) => `${sentence}.`)
@@ -177,6 +177,9 @@ function Landing({ assignment, parts, course }: LandingProps) {
           <RouterLinks>
             <CourseNow course={course} {...(tasksHref ? { tasksHref } : {})} />
           </RouterLinks>
+        )}
+        {course && !course.ended && (
+          <CourseBar course={course} accessibleLabel={`Verloop van ${assignment.name}`} />
         )}
         <TakeOverButton course={course} />
       </Stack>

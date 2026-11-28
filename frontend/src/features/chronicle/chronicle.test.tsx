@@ -477,12 +477,16 @@ describe('how things stood at a moment', () => {
     const text = allText(container);
     // The fact.
     expect(container.textContent).toContain(CHANGED.statement);
-    // The course as it was, in one line, with no way to act on it.
+    // The course as it was, as the bar, with no way to act on it.
     expect(text).toContain('De eigenaar is aan zet: de offerte.');
     expect(text).toContain('Eigenaar: Anna Voorbeeld');
-    const course = container.querySelector('[role="group"][aria-label^="Verloop op 3 nov 2026"]');
-    expect(course).toHaveTextContent('Offerte, daarna akkoord');
-    expect(container.querySelector('nldd-step-bar')).toBeNull();
+    const bar = container.querySelector('nldd-step-bar[accessible-label^="Verloop op 3 nov 2026"]');
+    expect(bar).not.toBeNull();
+    expect(
+      [...container.querySelectorAll('nldd-step-bar-item')].map((item) =>
+        item.getAttribute('status'),
+      ),
+    ).toEqual(['past', 'current', 'future']);
     // The one button leads to the changes; nothing acts on the moment itself.
     expect(
       [...container.querySelectorAll('nldd-button')].map((button) => button.getAttribute('text')),

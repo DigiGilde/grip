@@ -465,12 +465,28 @@ describe('the landing of an assignment', () => {
     expect(container.querySelector('nldd-badge')).toBeNull();
   });
 
-  it('gives the course one line and the next step the one button', async () => {
+  it('gives the course a bar and the next step the one button', async () => {
     const { container } = renderShell({ extra: courseWith(CLOSE_MARCH) });
     await waitFor(() => expect(primaries(container)).toEqual(['Sluit maart 2026 af']));
-    expect(container.textContent).toContain('Offerte, daarna aanbieden.');
     expect(container.textContent).toContain('Stel vast wie in maart 2026');
-    expect(container.querySelector('nldd-step-bar')).toBeNull();
+    // The bar says where the course is; the lead does not repeat it.
+    expect(
+      container.querySelector('nldd-step-bar[accessible-label^="Verloop van"]'),
+    ).not.toBeNull();
+    expect(
+      [...container.querySelectorAll('nldd-step-bar-item')].map((item) => [
+        item.getAttribute('text'),
+        item.getAttribute('status'),
+      ]),
+    ).toEqual([
+      ['Begroting', 'past'],
+      ['Offerte', 'current'],
+      ['Aanbieden', 'future'],
+      ['Akkoord', 'future'],
+    ]);
+    const lead = container.querySelector('nldd-title')?.getAttribute('supporting-text') ?? '';
+    expect(lead).not.toContain('daarna');
+    expect(lead).not.toContain('Offerte');
   });
 
   it('does a step that is one decision in place', async () => {
