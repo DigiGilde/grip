@@ -229,16 +229,22 @@ De variabele `ZAD_PROJECT_ID` en het geheim `ZAD_API_KEY` uit stap 4 zijn genoeg
 
 ### Welke instanties erop staan
 
-`ONTWIKKELPORTAAL_INSTANCES` is een JSON-lijst met per instantie `naam`, `url` en optioneel `rol` en `omschrijving`; de velden staan in [lokaal.md](lokaal.md#ontwikkelportaal). Een latere wijziging gaat met `zadctl env set` en geldt vanaf de volgende start van de container. Met de zeven voorbeeldinstanties, in de volgorde van de keten, en het overzicht van de directory uit [Voorbeeldinstanties met federatie](#voorbeeldinstanties-met-federatie):
+`ONTWIKKELPORTAAL_INSTANCES` is een JSON-lijst met per instantie `naam`, `url` en optioneel `rol` en `omschrijving`; de velden staan in [lokaal.md](lokaal.md#ontwikkelportaal). Een latere wijziging gaat met `zadctl env set` en geldt vanaf de volgende start van de container. Met de zeven voorbeeldinstanties, NLDD voorop, dan de twee ministeries en de keten van BZK, en het overzicht van de directory uit [Voorbeeldinstanties met federatie](#voorbeeldinstanties-met-federatie):
 
 ```json
 [
-  {"naam": "GDI voorbeeld", "rol": "Opdrachtgever",
-   "omschrijving": "Keurt het programma MOZa voorbeeld goed en legt het opdrachtgeverschap bij het Ministerie van BZK voorbeeld.",
-   "url": "https://component-1-gdi-<project>.<basisdomein>/"},
+  {"naam": "NLDD voorbeeld", "rol": "Opdrachtgever",
+   "omschrijving": "Geeft DigiGilde voorbeeld opdrachten en volgt ze: de stand en de uitputting.",
+   "url": "https://component-1-nldd-<project>.<basisdomein>/"},
+  {"naam": "Ministerie van EZK voorbeeld", "rol": "Ministerie",
+   "omschrijving": "Moeder van NLDD voorbeeld.",
+   "url": "https://component-1-ezk-<project>.<basisdomein>/"},
   {"naam": "Ministerie van BZK voorbeeld", "rol": "Ministerie",
    "omschrijving": "Gedelegeerd opdrachtgever namens GDI: geeft MOZa voorbeeld het jaarbudget en ODI voorbeeld de opdracht voor de uitvoering.",
    "url": "https://component-1-bzk-<project>.<basisdomein>/"},
+  {"naam": "GDI voorbeeld", "rol": "Opdrachtgever",
+   "omschrijving": "Keurt het programma MOZa voorbeeld goed en legt het opdrachtgeverschap bij het Ministerie van BZK voorbeeld.",
+   "url": "https://component-1-gdi-<project>.<basisdomein>/"},
   {"naam": "MOZa voorbeeld", "rol": "Programma",
    "omschrijving": "Geeft opdrachten aan DigiGilde voorbeeld en boekt kosten die een leverancier voor het programma doet.",
    "url": "https://component-1-programma-<project>.<basisdomein>/"},
@@ -248,12 +254,6 @@ De variabele `ZAD_PROJECT_ID` en het geheim `ZAD_API_KEY` uit stap 4 zijn genoeg
   {"naam": "DigiGilde voorbeeld", "rol": "Opdrachtnemer",
    "omschrijving": "Maakt offertes, voert opdrachten uit, sluit maanden af en factureert.",
    "url": "https://component-1-gilde-<project>.<basisdomein>/"},
-  {"naam": "Ministerie van EZK voorbeeld", "rol": "Ministerie",
-   "omschrijving": "Moeder van NLDD voorbeeld.",
-   "url": "https://component-1-ezk-<project>.<basisdomein>/"},
-  {"naam": "NLDD voorbeeld", "rol": "Opdrachtgever",
-   "omschrijving": "Geeft DigiGilde voorbeeld opdrachten en volgt ze: de stand en de uitputting.",
-   "url": "https://component-1-nldd-<project>.<basisdomein>/"},
   {"naam": "Directory", "rol": "FSC-groep grip-voorbeeld",
    "omschrijving": "Welke voorbeeldinstanties in de groep zitten en welke diensten ze elkaar aanbieden.",
    "url": "https://dirui-directory-<project>.<basisdomein>/"}
