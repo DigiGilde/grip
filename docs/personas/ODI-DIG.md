@@ -2,7 +2,7 @@
 code: ODI-DIG
 naam: Dilara Digitaal
 rol: Directeur digitalisering
-organisatie: Rijksorganisatie Voorbeeld ODI
+organisatie: ODI voorbeeld
 eenheid: Directie Digitalisering ODI
 fgr:
   functie: Topmanager
@@ -14,12 +14,12 @@ mandaat:
   tekst: "Naar het voorbeeld van het Mandaatbesluit BZK 2025: directeur bij ODI tot € 5.000.000 per verplichting. Dat dit voor de directeur digitalisering geldt, is een aanname"
   bron: https://wetten.overheid.nl/BWBR0051453/
 grips:
-  - instantie: Rijksorganisatie Voorbeeld ODI
+  - instantie: ODI voorbeeld
     toegang: account
     rechten: [lezer]
-    relaties: []
-    voorbeeldpersoon: null
-    dataset: null
+    relaties: [eigenaar]
+    voorbeeldpersoon: Dilara Digitaal
+    dataset: odi
   - instantie: DigiGilde voorbeeld
     toegang: via-federatie
     rechten: []
@@ -57,7 +57,7 @@ Naar het voorbeeld van het Mandaatbesluit BZK 2025 (bijlage 1) gaat een directeu
 
 ## In Grip
 
-**Rijksorganisatie Voorbeeld ODI** (account, lezer; de moederinstantie van DigiGilde). In de voorbeelden bestaat die instantie nog niet: er zijn er drie, DigiGilde voorbeeld, Ministerie van BZK voorbeeld en MOZa voorbeeld. Wat hieronder staat, is wat de bestaande doorgifte van DigiGilde aan de moeder oplevert, niet wat een scherm toont.
+**ODI voorbeeld** (account, lezer; de moederinstantie van DigiGilde, opdrachtnemer van het Ministerie van BZK voorbeeld). Zij is eigenaar van de opdracht Uitvoering MOZa voorbeeld 2026 die ODI van het ministerie ontving. Een scherm dat doorgifte van het gilde toont, bestaat nog niet. Wat hieronder staat, is wat de bestaande doorgifte van DigiGilde aan de moeder oplevert.
 
 **DigiGilde voorbeeld** (via federatie). Ze leest de bedragen van de opdrachten, de omzet en de bezetting als aantallen.
 
@@ -65,7 +65,7 @@ De moeder haalt op wat het gilde doorgeeft: opdrachten met status en bedragen, f
 
 ## Wat Grip nog niet kan
 
-- **ODI als instantie.** Er is geen voorbeeldinstantie voor ODI en geen scherm voor de moeder; de doorgifte bestaat als route.
+- **Een scherm voor een moederinstantie.** ODI voorbeeld is een instantie met personen en opdrachten, maar toont de doorgifte van het gilde nog niet; die bestaat als route.
 - **Tertaalrapportage.** Rapportage staat per jaar, niet per tertaal.
 - **Afstemmen met bedrijfsvoering.** De cijfers voor de rapportage worden buiten grip afgestemd; grip kent geen vastgestelde stand.
 

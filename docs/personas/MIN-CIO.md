@@ -18,8 +18,8 @@ grips:
     toegang: account
     rechten: [lezer]
     relaties: []
-    voorbeeldpersoon: null
-    dataset: null
+    voorbeeldpersoon: Ivo Informatie
+    dataset: bzk
 ---
 
 # MIN-CIO Ivo Informatie
@@ -51,13 +51,12 @@ Geen financieel mandaat. Het oordeel is van de CIO; Ivo bereidt het voor.
 
 ## In Grip
 
-**Ministerie van BZK voorbeeld** (account, lezer). Hij leest de basis en de bedragen van alle opdrachten in de grip van het ministerie, met de context-URI's die naar het corpus wijzen. Hij heeft geen stap in een werkstroom.
+**Ministerie van BZK voorbeeld** (account, lezer; voorbeeldpersoon Ivo Informatie in de dataset `bzk`). Hij leest de basis en de bedragen van alle opdrachten in de grip van het ministerie, met de context-URI's die naar het corpus wijzen. Hij heeft geen stap in een werkstroom.
 
 ## Wat Grip nog niet kan
 
 - **Grote ICT-activiteit en CIO-oordeel.** Geen kenmerk voor een ICT-activiteit, geen drempel, geen plek voor het oordeel.
 - **Meekijken bij de opdrachtgever.** Geen overzicht van wat het ministerie heeft gevraagd en getekend, voor wie geen aanvrager of tekenbevoegde is.
-- **Dataset voor het Ministerie van BZK voorbeeld.**
 
 ## Bronnen
 

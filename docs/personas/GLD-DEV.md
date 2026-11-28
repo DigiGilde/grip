@@ -26,7 +26,7 @@ grips:
 
 ## Wie
 
-Daan is ontwikkelaar bij het gilde en zit nu bij het team dat voor MOZa voorbeeld bouwt. Hij werkt in de tools van het team, niet in grip; daar komt hij als iemand hem vraagt te kijken waar hij na de zomer staat. Dewi Developer, Olaf Ontwerp en Anna Analist hebben dezelfde plek in grip.
+Daan is ontwikkelaar bij het gilde en zit nu bij het team dat voor MOZa voorbeeld bouwt. Hij werkt in de tools van het team, niet in grip; daar komt hij als iemand hem vraagt te kijken waar hij na de zomer staat. Dewi Developer, Olaf Ontwerp en Anna Analist hebben dezelfde plek in grip, net als Cas Cloud, Pleun Platform, Joost Jurist, Kim Kode en Erik Extern, de vijf mensen die op de opdrachten van NLDD voorbeeld werken. Erik Extern is ingehuurd bij "Voorbeeld Detachering B.V.".
 
 ## Verantwoordelijk voor
 

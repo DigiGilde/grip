@@ -12,10 +12,13 @@ export const PRODUCT_SENTENCE = 'Grip op opdrachten, van offerte tot verantwoord
 
 /** The organisations of the example chain, in the order of the chain. */
 export const ORGANISATIONS = [
+  'GDI voorbeeld',
   'Ministerie van BZK voorbeeld',
   'MOZa voorbeeld',
+  'ODI voorbeeld',
   'DigiGilde voorbeeld',
-  'Rijksorganisatie Voorbeeld ODI',
+  'Ministerie van EZK voorbeeld',
+  'NLDD voorbeeld',
   'Voorbeeldbeheerorganisatie',
 ] as const;
 
@@ -23,10 +26,13 @@ export type Organisation = (typeof ORGANISATIONS)[number];
 
 /** The code prefix of an organisation's personas: PRG for the programme. */
 export const PREFIX: Record<Organisation, string> = {
+  'GDI voorbeeld': 'GDI',
   'Ministerie van BZK voorbeeld': 'MIN',
   'MOZa voorbeeld': 'PRG',
+  'ODI voorbeeld': 'ODI',
   'DigiGilde voorbeeld': 'GLD',
-  'Rijksorganisatie Voorbeeld ODI': 'ODI',
+  'Ministerie van EZK voorbeeld': 'EZK',
+  'NLDD voorbeeld': 'NLDD',
   Voorbeeldbeheerorganisatie: 'BHO',
 };
 

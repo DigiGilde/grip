@@ -26,6 +26,12 @@ grips:
     relaties: []
     voorbeeldpersoon: null
     dataset: null
+  - instantie: NLDD voorbeeld
+    toegang: via-federatie
+    rechten: []
+    relaties: []
+    voorbeeldpersoon: null
+    dataset: null
 ---
 
 # GLD-EIG Priya Product
@@ -65,6 +71,8 @@ Geen mandaat om te verplichten [aanname]. Zij maakt de offerte; de handtekening 
 - Onder Geld, Kosten dekt zij een kostenpost die het programma bij het gilde vraagt, met "Gevraagd door" erbij, met een begrotingsregel van haar opdracht (ADR 0052).
 
 **MOZa voorbeeld** (via federatie). De offerte gaat via de grip van het programma; het akkoord, en het verzoek om een kostenpost, komen terug. Het programma leest die kostenpost bij het gilde.
+
+**NLDD voorbeeld** (via federatie). Zij is eigenaar van Fundament 2026-2027, de opdracht van NLDD voorbeeld, en Pim Planner is manager van haar en van RegelRecht 2026-2027. De offerte gaat via de grip van NLDD, het akkoord komt terug. NLDD volgt de stand en de uitputting van de opdracht, niet wie eraan werkt.
 
 ## Wat Grip nog niet kan
 
