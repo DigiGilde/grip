@@ -28,7 +28,8 @@
 # of the peer (default: from PKI_DIR, the output of pki.sh).
 #
 # A round exits 0 when every connection is valid, 3 while it waits for
-# another peer or the directory, and otherwise on an error.
+# another peer or the directory, 2 on a missing setting or an unknown option,
+# and 1 on any other error.
 #   --loop     the entrypoint of the image: a round every BOOTSTRAP_INTERVAL
 #              seconds (default 30), slowing down to ten times that while
 #              nothing moves, and once done every BOOTSTRAP_RECHECK seconds
@@ -114,6 +115,11 @@ if [ "$mode" = loop ]; then
         wait $!
     done
 fi
+
+# Under set -e a failing command ends the round with its own status, and curl
+# also exits with 3. Only the explicit wait below may end a round with 3.
+round_waits=0
+trap '[ "$?" = 0 ] || [ "$round_waits" = 1 ] || exit 1' EXIT
 
 service="grip-opdrachtverkeer"
 group="grip-voorbeeld"
@@ -291,6 +297,7 @@ if [ "$mode" = dry ]; then
 fi
 if [ "$waiting" = 1 ]; then
     echo "not done yet"
+    round_waits=1
     exit 3
 fi
 
