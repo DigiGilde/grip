@@ -28,7 +28,7 @@ export function Section({ title, supportingText, level = 2, action, children }: 
   return (
     <nldd-container gap="16">
       <nldd-title
-        size={level === 2 ? 4 : 5}
+        size={level === 2 ? 'display-4' : 'display-5'}
         text={title}
         heading-level={level}
         {...(supportingText ? { 'supporting-text': supportingText } : {})}

@@ -210,7 +210,7 @@ export function AddOrganisationForm({ initialName, onAdded, onCancel }: AddFormP
 
   return (
     <nldd-container gap="16" padding="16" role="group" aria-label="Organisatie toevoegen">
-      <nldd-title size={5} text="Organisatie toevoegen" heading-level={3} />
+      <nldd-title size="display-5" text="Organisatie toevoegen" heading-level={3} />
       {problem ? <nldd-banner variant="critical" text={problem} /> : null}
       <nldd-form-field
         label="Naam"

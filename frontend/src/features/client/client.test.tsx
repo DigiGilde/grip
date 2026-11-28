@@ -2,6 +2,8 @@ import { waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Route, Routes } from 'react-router-dom';
 import { mockApi, texts } from '@/features/team/ui/testing';
+import * as quoteTesting from '@/features/quotes/testing';
+import { SigningPage } from '@/features/signing/SigningPage';
 import { AdminPage } from '@/pages/AdminPage';
 import { PATHS } from '@/paths';
 import { renderApp, TEST_PERSON } from '@/test/utils';
@@ -11,7 +13,6 @@ import { deliveryText } from './labels';
 import { clientAssignmentPath, clientPath, receivedQuotePath } from './paths';
 import { ReceivedQuotePage } from './ReceivedQuotePage';
 import { navigation } from '@/features/quotes/proof';
-import { mockApi as mockApiWithBodies } from '@/features/quotes/testing';
 import { validateRequest } from './requestForm';
 import { RequestQuotePage } from './RequestQuotePage';
 
@@ -114,16 +115,68 @@ describe('deliveryText', () => {
 });
 
 describe('ClientPage', () => {
-  it('lists the sent requests with their delivery and offers to request a quote', async () => {
+  it('lists the sent requests as rows that say whether they arrived, and offers to request a quote', async () => {
     mockApi({ '/api/client/assignments': { may_request: true, items: [ASSIGNMENT] } });
     const { container } = renderApp(<ClientPage />, { path: PATHS.client });
-    await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
-    const link = container.querySelector('nldd-table nldd-link');
-    expect(link?.getAttribute('text')).toBe('Opdracht Alfa');
-    expect(link?.getAttribute('href')).toBe(clientAssignmentPath('a-1'));
-    expect(texts(container, 'nldd-table nldd-badge')).toEqual(['Offerte gemaakt', 'Aangekomen']);
-    expect(texts(container, 'nldd-table nldd-text-cell')).toContain('Voorbeeldgilde');
+    await waitFor(() => expect(container.querySelector('nldd-list-item')).not.toBeNull());
+    const row = container.querySelector('nldd-list-item');
+    expect(row?.getAttribute('href')).toBe(clientAssignmentPath('a-1'));
+    expect(row?.querySelector('nldd-text-cell')?.getAttribute('text')).toBe('Opdracht Alfa');
+    const notice = row?.querySelector('nldd-text-cell')?.getAttribute('supporting-text') ?? '';
+    expect(notice).toContain('Voorbeeldgilde');
+    expect(notice).toContain('De aanvraag is aangekomen bij de opdrachtnemer');
+    expect(texts(container, 'nldd-list-item nldd-badge')).toEqual(['Offerte gemaakt']);
+    expect(row?.textContent).toMatch(/€\s86\.400/);
+    expect(container.querySelector('nldd-table')).toBeNull();
     expect(texts(container, 'nldd-button')).toContain('Offerte aanvragen');
+  });
+
+  it.each([
+    ['dead', 'Niet aangekomen'],
+    ['rejected', 'Geweigerd'],
+  ])('puts a request that is %s in a critical tag', async (status, text) => {
+    mockApi({
+      '/api/client/assignments': {
+        may_request: true,
+        items: [{ ...ASSIGNMENT, request_delivery: { ...ASSIGNMENT.request_delivery, status } }],
+      },
+    });
+    const { container } = renderApp(<ClientPage />, { path: PATHS.client });
+    await waitFor(() => expect(container.querySelector('nldd-list-item')).not.toBeNull());
+    const badge = container.querySelector('nldd-list-item nldd-badge');
+    expect(badge?.getAttribute('text')).toBe(text);
+    expect(badge?.getAttribute('color')).toBe('critical');
+    expect(
+      container.querySelector('nldd-list-item nldd-text-cell')?.getAttribute('supporting-text'),
+    ).toContain('Offerte gemaakt');
+  });
+
+  it('shows how much context a received request has', async () => {
+    mockApi({
+      '/api/received-requests': {
+        items: [
+          {
+            id: 'a-2',
+            name: 'Aanvraag Beta',
+            status: 'requested',
+            client_name: 'Voorbeeldministerie',
+            start_date: '2026-07-01',
+            end_date: '2027-06-30',
+            received_at: '2026-06-01T09:00:00Z',
+            context_count: 3,
+            quote_count: 1,
+          },
+        ],
+      },
+    });
+    const { container } = renderApp(<ClientPage />, {
+      path: clientPath('ontvangen'),
+      auth: { status: 'authenticated', person: TEST_PERSON, functions: ['planner'] },
+    });
+    await waitFor(() => expect(container.querySelector('nldd-list-item')).not.toBeNull());
+    expect(
+      container.querySelector('nldd-list-item nldd-text-cell')?.getAttribute('supporting-text'),
+    ).toContain('Context: 3');
   });
 
   it('hides amounts and the request button from who may not use them', async () => {
@@ -135,10 +188,8 @@ describe('ClientPage', () => {
       },
     });
     const { container } = renderApp(<ClientPage />, { path: PATHS.client });
-    await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
-    expect(texts(container, 'nldd-table-row[slot="header"] nldd-text-cell')).not.toContain(
-      'Offerte',
-    );
+    await waitFor(() => expect(container.querySelector('nldd-list-item')).not.toBeNull());
+    expect(container.querySelector('nldd-list-item [horizontal-alignment="right"]')).toBeNull();
     expect(texts(container, 'nldd-button')).not.toContain('Offerte aanvragen');
   });
 
@@ -160,16 +211,20 @@ describe('ClientPage', () => {
       },
     });
     const { container } = renderApp(<ClientPage />, { path: clientPath('offertes') });
-    await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
-    expect(container.querySelector('nldd-table nldd-link')?.getAttribute('href')).toBe(
-      receivedQuotePath('q-1'),
+    await waitFor(() => expect(container.querySelector('nldd-list-item')).not.toBeNull());
+    const row = container.querySelector('nldd-list-item');
+    expect(row?.getAttribute('href')).toBe(receivedQuotePath('q-1'));
+    expect(row?.querySelector('nldd-text-cell')?.getAttribute('supporting-text')).toContain(
+      'Wacht op je besluit',
     );
-    expect(texts(container, 'nldd-table nldd-text-cell')).toContain('Wacht op je besluit');
   });
 
   it('shows the received requests with an empty state when there are none', async () => {
     mockApi({ '/api/received-requests': { items: [] } });
-    const { container } = renderApp(<ClientPage />, { path: clientPath('ontvangen') });
+    const { container } = renderApp(<ClientPage />, {
+      path: clientPath('ontvangen'),
+      auth: { status: 'authenticated', person: TEST_PERSON, functions: ['planner'] },
+    });
     await waitFor(() =>
       expect(texts(container, 'nldd-inline-dialog')).toContain('Er zijn geen ontvangen aanvragen'),
     );
@@ -203,14 +258,40 @@ describe('RequestQuotePage', () => {
     expect(texts(container, 'nldd-banner[variant="warning"]')).toEqual([
       'Het verkeer met andere organisaties staat uit in deze instantie.',
     ]);
-    // Without a corpus the picker says so, and the request can still be sent.
-    await waitFor(() =>
-      expect(texts(container, 'nldd-banner[variant="neutral"]')[0]).toContain('geen corpus'),
-    );
-    // Nothing chosen and no explanation: the heading says the field is optional.
-    expect(texts(container, 'nldd-inline-dialog')).not.toContain('Nog geen context gekozen');
-    expect(container.textContent).not.toContain('Context is niet verplicht');
+    // Without a corpus to search there is nothing to pick: no Context, no corpus, no URI field.
+    await waitFor(() => expect(container.querySelector('select')).not.toBeNull());
+    expect(container.textContent).not.toContain('Context');
+    expect(container.textContent).not.toMatch(/corpus|Node-URI/i);
     expect(texts(container, 'nldd-button')).toContain('Verstuur aanvraag');
+  });
+
+  it('offers the context when a corpus can be searched, in the words of a reader', async () => {
+    mockApi({
+      '/api/client/options': {
+        may_request: true,
+        problem: null,
+        contractors: [
+          {
+            peer_id: 'p-1',
+            name: 'Voorbeeldgilde',
+            base_uri: 'https://x.example',
+            reachable: true,
+          },
+        ],
+      },
+      '/api/nodes/corpora': {
+        corpora: [{ base_uri: 'https://corpus.example', name: 'Beleidsstukken', searchable: true }],
+        problem: null,
+      },
+    });
+    const { container } = renderApp(<RequestQuotePage />, { path: PATHS.clientRequest });
+    await waitFor(() => expect(container.querySelector('nldd-search-field')).not.toBeNull());
+    expect(texts(container, 'nldd-title')).toContain('Context (optioneel)');
+    expect(container.querySelector('nldd-search-field')?.getAttribute('placeholder')).toBe(
+      'Zoek een stuk op titel',
+    );
+    expect(texts(container, 'nldd-button')).toContain('Voeg context toe');
+    expect(container.textContent).not.toMatch(/Node-URI|nodes? /);
   });
 
   it('tells a person without the function why there is no form', async () => {
@@ -243,7 +324,7 @@ describe('ReceivedQuotePage', () => {
     deliveries: [],
   };
 
-  it('shows the snapshot with its hash and lets a tekenbevoegde decide', async () => {
+  it('is the page of a guest: the amount, two buttons, the reference behind Details', async () => {
     mockApi({ '/api/received-quotes/q-1': DETAIL });
     const { container } = renderAt(
       receivedQuotePath('q-1'),
@@ -251,18 +332,43 @@ describe('ReceivedQuotePage', () => {
       <ReceivedQuotePage />,
     );
     await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
+    expect(container.querySelector('h1')?.textContent).toBe('Offerte Opdracht Alfa');
+    const amount = container.querySelector('nldd-title[heading-level="2"]');
+    expect(amount?.getAttribute('text')).toMatch(/^€\s86\.400$/);
+    expect(amount?.getAttribute('overline')).toBe('Voorbeeldgilde biedt aan');
     expect(texts(container, 'nldd-table nldd-text-cell')).toContain('Productmanager');
-    expect(container.textContent).toContain('ab'.repeat(32));
-    expect(texts(container, 'nldd-button')).toEqual(
-      expect.arrayContaining(['Geef akkoord', 'Wijs af']),
+    expect(texts(container, 'nldd-button').filter((text) => text !== 'Details')).toEqual([
+      'Geef akkoord',
+      'Wijs af',
+    ]);
+    expect(texts(container, 'nldd-button[appearance="primary"]')).toEqual(['Geef akkoord']);
+    // Description and amount: the other columns do not fit a reading column.
+    expect(texts(container, 'nldd-table-row[slot="header"] nldd-text-cell')).toEqual([
+      'Omschrijving',
+      'Bedrag',
+    ]);
+    // The standing of the quote and what it means stay at the top.
+    expect(container.querySelector('nldd-badge')?.getAttribute('text')).toBeTruthy();
+    expect(container.textContent).toContain(
+      'Dit is de offerte zoals Voorbeeldgilde hem heeft uitgegeven; de inhoud kan niet meer veranderen.',
     );
+    // The hash is not in the open text, and no field is open on the page.
+    expect(container.textContent).not.toContain('ab'.repeat(32));
+    expect(container.textContent).not.toContain('SHA-256');
+    expect(container.querySelector('nldd-form-field')).toBeNull();
+    expect(texts(container, 'nldd-button')).toContain('Details');
+    expect(document.body.querySelectorAll('nldd-sheet [data-code-line]').length).toBe(2);
+    // The way to the request stays.
+    expect(
+      container.querySelector('nldd-link[text="Bekijk de aanvraag"]')?.getAttribute('href'),
+    ).toBe(clientAssignmentPath('a-1'));
   });
 
-  it('sends an acceptance through the login and decides nothing before the return', async () => {
+  it('asks for the function in the sheet and sends it with the intent, deciding nothing yet', async () => {
     const go = vi.spyOn(navigation, 'go').mockImplementation(() => {});
-    const { calls } = mockApi({
+    const { calls } = quoteTesting.mockApi({
       '/api/received-quotes/q-1': DETAIL,
-      '/api/proof/intents': {
+      'POST /api/proof/intents': {
         id: 'in-1',
         authorize_url: '/api/proof/intents/in-1/authorize',
         expires_at: '2026-02-03T10:05:00Z',
@@ -275,17 +381,60 @@ describe('ReceivedQuotePage', () => {
       <ReceivedQuotePage />,
     );
     await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
-    expect(container.textContent).toContain('Daarna is je akkoord vastgelegd.');
-    [...container.querySelectorAll('nldd-button')]
-      .find((el) => el.getAttribute('text') === 'Geef akkoord')
-      ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    await waitFor(() => expect(openSheet()).toBeDefined());
-    submit(openSheet() as Element);
+    quoteTesting.clickButton(container, 'Geef akkoord');
+    const sheet = await waitFor(() => {
+      const open = [...document.body.querySelectorAll('nldd-sheet')].find((el) =>
+        el.hasAttribute('open'),
+      );
+      expect(open).toBeDefined();
+      return open as Element;
+    });
+    expect(sheet.textContent).toContain('Een akkoord is niet terug te draaien.');
+    expect(sheet.textContent).toContain('Daarna is je akkoord vastgelegd.');
+    expect(sheet.querySelector('nldd-form-field[label="Je functie"]')).not.toBeNull();
+    sheet
+      .querySelector('nldd-form-field[label="Je functie"] nldd-text-field')
+      ?.dispatchEvent(new CustomEvent('input', { detail: { value: 'Directeur' } }));
+    sheet.querySelector('nldd-form')?.dispatchEvent(new Event('submit', { cancelable: true }));
     await waitFor(() => expect(go).toHaveBeenCalledWith('/api/proof/intents/in-1/authorize'));
     // Only the intent was asked for; the old route that decides at once is not used.
-    expect(calls).toContain('/api/proof/intents');
-    expect(calls.some((url) => url.includes('/acceptance'))).toBe(false);
+    const posts = calls.filter((call) => call.method === 'POST');
+    expect(posts.map((call) => call.url)).toEqual(['/api/proof/intents']);
+    expect(posts[0]?.body).toMatchObject({
+      kind: 'accept_received',
+      quote_id: 'q-1',
+      signer_function: 'Directeur',
+      return_path: receivedQuotePath('q-1'),
+    });
     go.mockRestore();
+  });
+
+  it('shows the same heading and buttons as the page a guest gets', async () => {
+    const guest = {
+      id: 'q-1',
+      uri: 'x',
+      reference: 'VG-1',
+      status: 'issued',
+      issued_at: '2026-06-02T10:00:00Z',
+      contractor_name: 'Voorbeeldgilde',
+      client_name: 'Voorbeeldministerie',
+      snapshot_hash: 'ab'.repeat(32),
+      decided_at: null,
+      content: CONTENT,
+    };
+    mockApi({ '/api/received-quotes/q-1': DETAIL, '/api/signing/quotes/q-1': guest });
+    const account = renderAt(receivedQuotePath('q-1'), PATHS.receivedQuote, <ReceivedQuotePage />);
+    await waitFor(() => expect(account.container.querySelector('nldd-table')).not.toBeNull());
+    const seen = (container: ParentNode) => ({
+      heading: container.querySelector('h1')?.textContent,
+      amount: container.querySelector('nldd-title[heading-level="2"]')?.getAttribute('text'),
+      buttons: texts(container, 'nldd-button'),
+    });
+    const fromAccount = seen(account.container);
+    account.unmount();
+    const signing = renderAt('/tekenen/q-1', '/tekenen/:quoteId', <SigningPage />);
+    await waitFor(() => expect(signing.container.querySelector('nldd-table')).not.toBeNull());
+    expect(seen(signing.container)).toEqual(fromAccount);
   });
 
   describe('factuurinformatie', () => {
@@ -303,7 +452,7 @@ describe('ReceivedQuotePage', () => {
       reauthentication: true,
     };
     async function openAccept(replies: Record<string, unknown>, path = receivedQuotePath('q-1')) {
-      const api = mockApiWithBodies(replies);
+      const api = quoteTesting.mockApi(replies);
       const { container } = renderAt(path, PATHS.receivedQuote, <ReceivedQuotePage />);
       await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
       [...container.querySelectorAll('nldd-button')]
@@ -319,7 +468,7 @@ describe('ReceivedQuotePage', () => {
       const { container, sheet } = await openAccept({ '/api/received-quotes/q-1': ANNEX });
       expect(container.querySelector('nldd-text-field')).toBeNull();
       expect(field(sheet, 'Je functie')).not.toBeNull();
-      expect(texts(sheet, 'nldd-title')).toContain('Waar gaat de factuur heen?');
+      expect(texts(sheet, 'nldd-title')).toContain('Adres voor de factuur');
       expect(field(sheet, 'Kenmerk op de factuur')?.getAttribute('value')).toBe('ORD-2026-12');
       expect(field(sheet, 'Postcode en plaats')?.hasAttribute('required')).toBe(true);
     });
@@ -558,7 +707,7 @@ describe('ClientAssignmentPage', () => {
     };
     const ACCEPTED = { ...DETAIL, quotes: [{ ...ASSIGNMENT.latest_quote, status: 'accepted' }] };
     async function renderPage(detail: object, extra: Record<string, unknown> = {}) {
-      const api = mockApiWithBodies({
+      const api = quoteTesting.mockApi({
         '/api/client/assignments/a-1': detail,
         '/api/client/assignments/a-1/final-report': { received: false },
         ...extra,
@@ -667,7 +816,9 @@ describe('ClientAssignmentPage', () => {
       ),
     );
     expect(texts(container, 'nldd-button')).not.toContain('Vraag de uitputting op');
-    expect(texts(container, 'nldd-inline-dialog')).toContain('Deze opdracht heeft geen context');
+    // Nothing to show is not shown: no Context section for a request without context.
+    expect(texts(container, 'nldd-title')).not.toContain('Context');
+    expect(container.textContent).not.toContain('geen context');
   });
 });
 

@@ -10,8 +10,10 @@ const personas = await bookPersonas();
 <Article title="Personaboek" sidebarLabel="Personaboek" search={{ onderdeel: 'Personaboek' }}>
   <BookNav slot="sidebar" />
   <nldd-text>
-    {personas.length} verzonnen persona’s in de keten rond grip. Kies een persona voor werk, mandaat en rechten. Bij
-    <nldd-link href={ROUTES.bookAbout} text="Over het personaboek" /> staat hoe het boek is opgebouwd.
+    <p>
+      {personas.length} verzonnen persona’s in de keten rond grip. Kies een persona voor werk, mandaat en rechten.
+      Bij <nldd-link href={ROUTES.bookAbout} text="Over het personaboek" /> staat hoe het boek is opgebouwd.
+    </p>
   </nldd-text>
   <nldd-spacer size="24"></nldd-spacer>
   <nldd-table

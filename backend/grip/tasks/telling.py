@@ -41,6 +41,7 @@ from grip.models.role import PersonRole
 from grip.models.task import Task
 from grip.models.vacancy import Vacancy, VacancyText
 from grip.services import billing_corrections, quote_approval
+from grip.services.reports.labels import day
 from grip.services.vacancies import service as vacancy_service
 from grip.tasks import catalogue
 from grip.tasks.cases import period_words
@@ -152,20 +153,6 @@ _DECISION_WORDS = {
     "control_advice": "de controller",
     "approval": "wie akkoord moet geven",
 }
-_MONTHS_SHORT = (
-    "jan",
-    "feb",
-    "mrt",
-    "apr",
-    "mei",
-    "jun",
-    "jul",
-    "aug",
-    "sep",
-    "okt",
-    "nov",
-    "dec",
-)
 _MONTHS = (
     "januari",
     "februari",
@@ -320,16 +307,15 @@ class Telling:
     # The one action, and the place where it is done. The text is absent
     # when the reader has nothing to do there now.
     action_text: str | None = None
+    # The page, which opens nothing by itself: where following a task leads.
     work_href: str | None = None
+    # The same page asked to open the step: where the button in a head leads.
+    step_href: str | None = None
     # Who is waited on, when that is not the reader.
     waits_on: str | None = None
     # Nobody can do this until something outside the task changes.
     blocked: str | None = None
     checklist: list[ChecklistItem] = field(default_factory=list)
-
-
-def day(value: date) -> str:
-    return f"{value.day} {_MONTHS_SHORT[value.month - 1]} {value.year}"
 
 
 def _euros(cents: int) -> str:
@@ -620,13 +606,33 @@ def _missing_request_fields(vacancy: Vacancy, motivated: bool) -> list[Checklist
     ]
 
 
-def work_href(task: Task) -> str | None:
-    """Where the work of a task is done, from its guidance or else its plan."""
+def _guide_of(task: Task) -> Guide | None:
     guide = guidance().templates.get(task.template_key or "")
+    # The situation the facts gave the task may lead somewhere else.
+    return guide.in_situation(task.situation) if guide is not None else None
+
+
+def destination_of(task: Task) -> str | None:
+    """The name of the destination its guidance gives the task, if any."""
+    guide = _guide_of(task)
+    return guide.destination if guide is not None else None
+
+
+def page_of(href: str | None) -> str | None:
+    """The page of an address, without what it asks the page to open."""
+    return href.split("?", 1)[0] if href else href
+
+
+def step_href(task: Task) -> str | None:
+    """Where the step of a task is done, from its guidance or else its plan.
+
+    The query of such an address asks the page to open the step (the panel
+    of an advice, the sheet of a month): where the one button in the head of
+    a case leads. A task itself leads to the page (``page_of``).
+    """
+    guide = _guide_of(task)
     if guide is None:
         return task.link
-    # The situation the facts gave the task may lead somewhere else.
-    guide = guide.in_situation(task.situation)
     values = {
         "assignment_id": str(task.assignment_id or ""),
         "vacancy_id": str(task.vacancy_id or ""),
@@ -661,7 +667,10 @@ async def _tell_one(access: TaskAccess, view: TaskView, context: _Context) -> Te
     mine = view.is_mine
     # A name of a person only where the reader runs the case or does the work.
     may_name = rights.edit or mine
-    href = work_href(task)
+    step = step_href(task)
+    if step is not None and not await access.may_open(task, destination_of(task)):
+        step = None
+    href = page_of(step)
 
     if not task.is_open:
         closed = _closed_headline(task, guide, view, context, may_name)
@@ -695,6 +704,7 @@ async def _tell_one(access: TaskAccess, view: TaskView, context: _Context) -> Te
             instruction=instruction,
             needs_me=needs_me,
             work_href=href,
+            step_href=step,
             waits_on=None if needs_me else (task.waiting_on or who),
         )
 
@@ -762,7 +772,7 @@ async def _tell_one(access: TaskAccess, view: TaskView, context: _Context) -> Te
         label = catalogue.ROLE_LABELS.get(task.assignee_role or "", "dit recht")
         blocked = (
             f"Niemand heeft het recht {label} in grip. Een beheerder geeft dat "
-            "recht bij Team, op de pagina van een persoon."
+            "recht onder Mensen, op de pagina van een persoon."
         )
     elif (
         task.subject_kind == "quote_approval"
@@ -772,8 +782,8 @@ async def _tell_one(access: TaskAccess, view: TaskView, context: _Context) -> Te
         blocked = (
             "Niemand anders kan deze offerte goedkeuren: wie de offerte maakte "
             "of de goedkeuring vroeg, beslist er niet zelf over. Een beheerder "
-            "geeft een collega het recht Interne goedkeurder van offertes bij "
-            "Team, op de pagina van een persoon."
+            "geeft een collega het recht Interne goedkeurder van offertes onder "
+            "Mensen, op de pagina van een persoon."
         )
     if can_act:
         instruction = _fill(told.do, values) or told.do
@@ -790,6 +800,7 @@ async def _tell_one(access: TaskAccess, view: TaskView, context: _Context) -> Te
         then=_fill(told.then, values) if told.then else None,
         action_text=(_fill(told.action, values) or told.action) if can_act else None,
         work_href=href,
+        step_href=step,
         waits_on=None if can_act else values.get("wie"),
         blocked=blocked,
         checklist=checklist,
@@ -883,6 +894,9 @@ def _values(
         values["wie"] = view.assignee_name
     elif task.status == "waiting" and task.waiting_on:
         values["wie"] = _waited_on(task.waiting_on, values.get("opdrachtgever"))
+    elif task.assignee_person_id is not None:
+        # Handed to a person the reader may not name.
+        values["wie"] = "een collega"
     elif (
         task.assignee_role in ("owner", "manager")
         and task.assignment_id in context.owners

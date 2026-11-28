@@ -438,9 +438,9 @@ describe('where the rate cards live', () => {
     expect(APP_ROUTES.map((route) => route.title)).not.toContain('Tarieven');
   });
 
-  it.each(['/beheer/tarieven', '/tarieven'])('shows the screen at %s', async (path) => {
+  it('shows the screen under Beheer', async () => {
     mockApi({ '/api/rates/cards': { items: [], may_manage: false, default_increase_pct: '5.00' } });
-    const { container } = renderApp(<AppRoutes />, { path });
+    const { container } = renderApp(<AppRoutes />, { path: '/beheer/tarieven' });
     await waitFor(() =>
       expect(texts(container, 'nldd-inline-dialog')).toContain('Er is nog geen tarievenkaart'),
     );

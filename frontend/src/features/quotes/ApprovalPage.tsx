@@ -106,9 +106,10 @@ export function ApprovalPage() {
   return (
     <>
       <Page
+        kind="document"
         title={quote ? `Offerte ${quote.assignment_name}` : 'Offerte goedkeuren'}
         instanceName={instance?.name}
-        width="960px"
+       
       >
         {query.isPending ? <Loading /> : null}
         {query.isError && hidden ? (
@@ -156,7 +157,7 @@ export function ApprovalPage() {
 
             <Stack gap="close">
               <nldd-title
-                size={3}
+                size="display-3"
                 heading-level={2}
                 overline="Ter goedkeuring"
                 text={quote.total_cents !== undefined ? formatEuro(quote.total_cents) : 'Offerte'}
@@ -166,7 +167,9 @@ export function ApprovalPage() {
 
             {approval.current?.request_note ? (
               <Section title="Toelichting bij de aanvraag" level={2}>
-                <nldd-text>{approval.current.request_note}</nldd-text>
+                <nldd-text>
+                  <p>{approval.current.request_note}</p>
+                </nldd-text>
               </Section>
             ) : null}
 
@@ -176,7 +179,9 @@ export function ApprovalPage() {
 
             {quote.content?.conditions ? (
               <Section title="Voorwaarden" level={2}>
-                <nldd-text>{quote.content.conditions}</nldd-text>
+                <nldd-text>
+                  <p>{quote.content.conditions}</p>
+                </nldd-text>
               </Section>
             ) : null}
 
@@ -194,8 +199,10 @@ export function ApprovalPage() {
             {waiting && approval.may_decide_approval ? (
               <Stack gap="related">
                 <nldd-text>
-                  Na je goedkeuring kan de offerte naar de opdrachtgever. Vastgelegd wordt wie
-                  goedkeurde en wanneer; de opdrachtgever ziet dat niet.
+                  <p>
+                    Na je goedkeuring kan de offerte naar de opdrachtgever. Vastgelegd wordt wie
+                    goedkeurde en wanneer; de opdrachtgever ziet dat niet.
+                  </p>
                 </nldd-text>
                 <nldd-button-group>
                   <Button text="Keur goed" appearance="primary" onClick={() => open('approve')} />
@@ -223,10 +230,14 @@ export function ApprovalPage() {
         onSubmit={() => decide.mutate('approve')}
       >
         <nldd-text>
-          Je keurt offerte {quote?.quote_reference ?? ''} van{' '}
-          {quote?.total_cents !== undefined ? formatEuro(quote.total_cents) : ''} goed.
+          <p>
+            Je keurt offerte {quote?.quote_reference ?? ''} van{' '}
+            {quote?.total_cents !== undefined ? formatEuro(quote.total_cents) : ''} goed.
+          </p>
         </nldd-text>
-        <nldd-text>{beforeLeaving('approve', Boolean(decide.data?.passkey))}</nldd-text>
+        <nldd-text>
+          <p>{beforeLeaving('approve', Boolean(decide.data?.passkey))}</p>
+        </nldd-text>
         <TextInput label="Opmerking" value={note} onChange={setNote} optional multiline />
       </FormSheet>
 
@@ -246,9 +257,11 @@ export function ApprovalPage() {
         }}
       >
         <nldd-text>
-          Wie de offerte maakte leest je toelichting en maakt een nieuwe offerte.
+          <p>Wie de offerte maakte leest je toelichting en maakt een nieuwe offerte.</p>
         </nldd-text>
-        <nldd-text>{beforeLeaving('send_back', Boolean(decide.data?.passkey))}</nldd-text>
+        <nldd-text>
+          <p>{beforeLeaving('send_back', Boolean(decide.data?.passkey))}</p>
+        </nldd-text>
         <TextInput label="Wat moet er anders" value={note} onChange={setNote} required multiline />
       </FormSheet>
     </>

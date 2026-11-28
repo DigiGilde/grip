@@ -30,6 +30,7 @@ function RegisterState({ status, justFetched }: { status: SyncStatus; justFetche
     return (
       <nldd-inline-dialog
         variant="loading"
+        data-state="loading"
         text="Het register wordt opgehaald"
         supporting-text="Dat duurt een paar minuten. Je kunt deze pagina verlaten; het ophalen gaat door."
       />
@@ -184,7 +185,7 @@ export function OrganisationsAdminPage() {
   const manualItems = manual.data?.items ?? [];
 
   return (
-    <Page title="Organisaties" instanceName={instance?.name} spacing="sections" back={adminBack}>
+    <Page kind="list" title="Organisaties" instanceName={instance?.name} spacing="sections" back={adminBack}>
       <ActionBar
         label="Organisaties bijwerken"
         actions={[

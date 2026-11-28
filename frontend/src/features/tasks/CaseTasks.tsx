@@ -1,10 +1,9 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useParams } from 'react-router-dom';
 import { errorMessage } from '@/api/client';
 import { RouterLinks } from '@/layout/RouterLinks';
-import { ActionBar } from '@/ui/ActionBar';
-import { EmptyNotice, Facts, FormSheet, LoadError, Loading, Section, Stack } from '@/ui/layout';
+import { Button } from '@/ui/Button';
+import { EmptyNotice, FormSheet, LoadError, Loading, Section, Stack } from '@/ui/layout';
 import { DateInput, SelectInput, TextInput } from '@/features/vacancies/ui';
 import {
   TASK_KEYS,
@@ -12,21 +11,9 @@ import {
   fetchCaseTasks,
   type CaseKind,
   type CaseTasks as CaseTasksData,
-  type Track,
 } from './api';
 import { useOpenTask } from './moves';
 import { TaskSheet, TaskTable } from './parts';
-
-/** Where each track of a case stands, one quiet line per track. */
-export function TrackStandings({ tracks }: { tracks: readonly Track[] }) {
-  return (
-    <Facts
-      label="Stand per spoor"
-      labelWidth="160px"
-      facts={tracks.map((track) => ({ label: track.label, value: track.standing }))}
-    />
-  );
-}
 
 interface NewTaskSheetProps {
   data: CaseTasksData;
@@ -74,7 +61,7 @@ function NewTaskSheet({ data, open, onClose }: NewTaskSheetProps) {
       <TextInput label="Wat moet er gebeuren" value={title} onChange={setTitle} required />
       {data.tracks.length > 1 && (
         <SelectInput
-          label="Spoor"
+          label="Soort werk"
           value={track}
           onChange={setTrack}
           options={data.tracks.map((item) => ({ value: item.key, label: item.label }))}
@@ -85,12 +72,18 @@ function NewTaskSheet({ data, open, onClose }: NewTaskSheetProps) {
   );
 }
 
+interface CaseTasksProps {
+  kind: CaseKind;
+  caseId: string;
+  /** Puts the content in a page whose head carries the action. Without it the action leads. */
+  frame?: (action: ReactNode, content: ReactNode) => ReactNode;
+}
+
 /**
- * The work on one case: where each track stands, and the tasks per track.
- * Tasks of the plan arise and close by themselves; a task of your own can
- * be added here.
+ * The work on one case: the tasks per kind of work. Tasks of the plan arise
+ * and close by themselves; a task of your own can be added here.
  */
-export function CaseTasks({ kind, caseId }: { kind: CaseKind; caseId: string }) {
+export function CaseTasks({ kind, caseId, frame }: CaseTasksProps) {
   const [adding, setAdding] = useState(false);
   const [openId, openTask] = useOpenTask();
   const query = useQuery({
@@ -100,26 +93,26 @@ export function CaseTasks({ kind, caseId }: { kind: CaseKind; caseId: string }) 
   });
   const data = query.data;
   const withTasks = data?.tracks.filter((track) => track.tasks.length > 0) ?? [];
-  return (
-    <nldd-simple-section>
+  const action = data?.can_add ? (
+    <Button appearance="primary" text="Nieuwe taak" onClick={() => setAdding(true)} />
+  ) : undefined;
+  const content = (
+    <>
       <RouterLinks>
         <Stack gap="section">
-          <Stack gap="group">
-            {data?.can_add && (
-              <ActionBar
-                label="Acties voor de taken"
-                filters={[]}
-                actions={[{ text: 'Nieuwe taak', onClick: () => setAdding(true) }]}
-              />
-            )}
-            {query.isPending && <Loading />}
-            {query.isError && <LoadError error={query.error} retry={() => void query.refetch()} />}
-            {data && withTasks.length === 0 && <EmptyNotice text="Geen taken" />}
-          </Stack>
+          {(query.isPending || query.isError || (data && withTasks.length === 0)) && (
+            <Stack gap="group">
+              {query.isPending && <Loading />}
+              {query.isError && (
+                <LoadError error={query.error} retry={() => void query.refetch()} />
+              )}
+              {data && withTasks.length === 0 && <EmptyNotice text="Geen taken" />}
+            </Stack>
+          )}
           {withTasks.map((track) => (
             <Section key={track.key} title={track.label}>
               <TaskTable
-                label={`Taken in het spoor ${track.label}`}
+                label={`Taken: ${track.label}`}
                 tasks={track.tasks}
                 withCase={false}
                 onOpen={openTask}
@@ -130,18 +123,13 @@ export function CaseTasks({ kind, caseId }: { kind: CaseKind; caseId: string }) 
       </RouterLinks>
       {data?.can_add && <NewTaskSheet data={data} open={adding} onClose={() => setAdding(false)} />}
       <TaskSheet taskId={openId} onClose={() => openTask(null)} />
-    </nldd-simple-section>
+    </>
   );
-}
-
-/** The tab "Taken" of an assignment. */
-export function AssignmentTasksTab() {
-  const { assignmentId = '' } = useParams();
-  return <CaseTasks kind="assignment" caseId={assignmentId} />;
-}
-
-/** The tab "Taken" of a vacancy. */
-export function VacancyTasksTab() {
-  const { vacancyId = '' } = useParams();
-  return <CaseTasks kind="vacancy" caseId={vacancyId} />;
+  if (frame) return frame(action, content);
+  return (
+    <>
+      {action && <nldd-button-group>{action}</nldd-button-group>}
+      {content}
+    </>
+  );
 }

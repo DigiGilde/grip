@@ -21,7 +21,9 @@ function ToldLines({ lines }: { lines: readonly Told[] }): ReactNode {
     <Stack gap="close">
       {lines.map((line) => (
         <Stack key={`${line.text} ${line.note ?? ''}`} gap="tight">
-          <nldd-text>{line.text}</nldd-text>
+          <nldd-text>
+            <p>{line.text}</p>
+          </nldd-text>
           {line.note ? <Quiet>{line.note}</Quiet> : null}
         </Stack>
       ))}
@@ -63,7 +65,9 @@ function QuoteAtMoment({ quote }: { quote: StandQuote }) {
           />
         }
       >
-        <nldd-text>{name}</nldd-text>
+        <nldd-text>
+          <span>{name}</span>
+        </nldd-text>
       </NameLine>
       {facts.length > 0 && <Facts label={`Gegevens van ${name}`} facts={facts} omitEmpty />}
       {/* Only a document that existed then: the live route could otherwise lay one out now. */}

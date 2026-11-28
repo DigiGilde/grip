@@ -2,7 +2,8 @@
 
 One invariant, checked over the whole list instead of a chosen day: a reader
 never gets an item, in "Wat is er gebeurd" or in the history, about an
-assignment, a vacancy or a person they could not open. Every rule of
+assignment, a vacancy or a person they could not open, nor an assignment to
+narrow "Wat is er gebeurd" to that they could not open. Every rule of
 ``news.NEWS`` is made to happen on an assignment the readers are part of,
 on one they are not, on a vacancy of someone else, and about a person; a new
 rule that cannot be made to happen here fails the test, so it gets swept too.
@@ -167,6 +168,19 @@ async def test_nobody_gets_news_about_what_they_cannot_open(
             for part in item.get("parts", [])
             if part.get("href") and (match := _ID.match(part["href"]))
         }
+        # What the feed offers to narrow to is as open as what it shows, and
+        # narrowing keeps to the items the feed shows.
+        options = await reader.get("/api/updates/filters")
+        assert options.status_code == 200, options.text
+        for key, kind in (("opdracht", "assignments"), ("persoon", "people")):
+            for option in options.json()[kind]:
+                if kind == "assignments":
+                    targets.add(("opdrachten", option["id"]))
+                narrowed = await _all_items(
+                    reader, "/api/updates", "na", limiet=50, **{key: option["id"]}
+                )
+                assert narrowed, (name, key, option["name"])
+                assert all(item in feed for item in narrowed), (name, option["name"])
         history = await _all_items(reader, "/api/events", "before", limit=200)
         targets |= {
             (

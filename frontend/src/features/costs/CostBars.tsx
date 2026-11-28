@@ -1,20 +1,12 @@
 import { formatEuro, formatPercent } from '@/lib/format';
 import '@/features/reports/reports.css';
+import { Icon } from '@/ui/Icon';
 import type { CostItem, Coverage } from './api';
 import { COST_LABELS, coverageStep, type CountedItem } from './costText';
 import './costs.css';
 
 function coverageTitle(coverage: Coverage): string {
   return `${coverage.assignment_name}, ${coverage.budget_line_description}: ${formatPercent(coverage.pct)}, ${formatEuro(coverage.amount_cents)}`;
-}
-
-/** The mark that goes with a word that asks for attention. */
-function AttentionMark() {
-  return (
-    <span className="grip-mark" aria-hidden="true">
-      !
-    </span>
-  );
 }
 
 /**
@@ -170,7 +162,7 @@ export function CoverageBar({ item }: { item: CostItem }) {
       <ul className="cost-legend">
         {item.covered_cents === null ? (
           <li className="cost-legend__attention">
-            <AttentionMark />
+            <Icon concept="attention" />
             Dekking boven 100% <strong>{formatPercent(item.pct_total)}</strong>
           </li>
         ) : (

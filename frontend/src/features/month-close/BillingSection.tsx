@@ -155,15 +155,19 @@ export function Invoices({ assignmentId, status, recordFor, onRecordDone }: Invo
     setDialog(null);
     onRecordDone();
   };
+  const refreshAround = async () => {
+    await queryClient.invalidateQueries({ queryKey: ['assignments'] });
+    await queryClient.invalidateQueries({ queryKey: ['overview'] });
+    await queryClient.invalidateQueries({ queryKey: ['reports'] });
+    await queryClient.invalidateQueries({ queryKey: ['tasks'] });
+  };
   const run = useMutation({
     mutationFn: (action: () => Promise<BillingStatus>) => action(),
     onSuccess: async (updated) => {
       queryClient.setQueryData(billingKey(assignmentId), updated);
       setFormError(null);
       close();
-      await queryClient.invalidateQueries({ queryKey: ['assignments'] });
-      await queryClient.invalidateQueries({ queryKey: ['reports'] });
-      await queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      await refreshAround();
     },
     onError: (failure) => setFormError(errorMessage(failure)),
   });
@@ -222,9 +226,7 @@ export function Invoices({ assignmentId, status, recordFor, onRecordDone }: Invo
       queryClient.setQueryData(billingKey(assignmentId), updated);
       setFormError(null);
       close();
-      await queryClient.invalidateQueries({ queryKey: ['assignments'] });
-      await queryClient.invalidateQueries({ queryKey: ['reports'] });
-      await queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      await refreshAround();
     },
     onError: setFormError,
     onTakeTheirs: close,
@@ -255,14 +257,13 @@ export function Invoices({ assignmentId, status, recordFor, onRecordDone }: Invo
                 <nldd-text-cell
                   hide-below="md"
                   size="sm"
-                  color="secondary"
                   text={monthsText(invoice.months)}
                 />
                 <nldd-text-cell
                   hide-below="md"
                   size="sm"
                   text={differenceText(invoice)}
-                  color={invoice.difference_cents !== 0 ? 'warning' : 'secondary'}
+                  {...(invoice.difference_cents !== 0 ? { color: 'warning' } : {})}
                 />
                 <nldd-text-cell
                   text={`**${formatEuro(invoice.amount_cents)}**`}
@@ -333,7 +334,7 @@ export function Invoices({ assignmentId, status, recordFor, onRecordDone }: Invo
         }}
       >
         <nldd-text>
-          Grip verstuurt geen facturen. Hier leg je vast dat de factuur is verstuurd.
+          <p>Grip verstuurt geen facturen. Hier leg je vast dat de factuur is verstuurd.</p>
         </nldd-text>
         {open.length > 1 ? (
           <nldd-container gap="8">
@@ -355,9 +356,11 @@ export function Invoices({ assignmentId, status, recordFor, onRecordDone }: Invo
           </nldd-container>
         ) : (
           <nldd-text>
-            {selection[0]
-              ? `${formatMonth(selection[0].month)}, aangeleverd ${formatEuro(selection[0].delivered_cents)}`
-              : ''}
+            <p>
+              {selection[0]
+                ? `${formatMonth(selection[0].month)}, aangeleverd ${formatEuro(selection[0].delivered_cents)}`
+                : ''}
+            </p>
           </nldd-text>
         )}
         <TextInput label="Factuurnummer" value={number} onChange={setNumber} required />
@@ -393,7 +396,7 @@ export function Invoices({ assignmentId, status, recordFor, onRecordDone }: Invo
       >
         {correction.panel}
         <nldd-text>
-          De oude en de nieuwe waarden komen in de auditlog te staan, met jouw naam.
+          <p>De oude en de nieuwe waarden komen in de auditlog te staan, met jouw naam.</p>
         </nldd-text>
         <TextInput label="Factuurnummer" value={number} onChange={setNumber} required />
         <DateInput label="Factuurdatum" value={invoiceDate} onChange={setInvoiceDate} required />
@@ -425,8 +428,10 @@ export function Invoices({ assignmentId, status, recordFor, onRecordDone }: Invo
         }}
       >
         <nldd-text>
-          Voor een factuur die hier ten onrechte is vastgelegd. De maanden staan daarna weer als
-          aangeleverd. De vastlegging en de reden blijven bewaard.
+          <p>
+            Voor een factuur die hier ten onrechte is vastgelegd. De maanden staan daarna weer als
+            aangeleverd. De vastlegging en de reden blijven bewaard.
+          </p>
         </nldd-text>
         <TextInput label="Reden" value={reason} onChange={setReason} required multiline />
       </FormSheet>

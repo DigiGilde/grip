@@ -1,4 +1,4 @@
-import { PATHS } from '@/paths';
+import { assignmentPartPath } from '@/features/assignments/paths';
 
 /** The report of one assignment. */
-export const assignmentReportPath = (id: string) => `${PATHS.reports}/opdrachten/${id}`;
+export const assignmentReportPath = (id: string) => assignmentPartPath(id, 'report');

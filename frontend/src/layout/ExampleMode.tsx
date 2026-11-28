@@ -80,16 +80,27 @@ function PersonItem({ person, current }: { person: ExamplePerson; current: boole
   );
 }
 
-/** The menu group for looking as another example person; only for a visitor. */
-export function ExamplePersonSwitch() {
-  const visit = useExampleVisit();
-  const { data: people } = useQuery({
+function useExamplePersons(visit: ExampleVisit | null): ExamplePerson[] | undefined {
+  return useQuery({
     queryKey: ['example-persons'],
     queryFn: fetchExamplePersons,
     enabled: visit !== null,
     staleTime: Infinity,
     retry: false,
-  });
+  }).data;
+}
+
+/** Whether the menu group below draws anything, for a menu that holds nothing else. */
+export function useCanSwitchExamplePerson(): boolean {
+  const visit = useExampleVisit();
+  const people = useExamplePersons(visit);
+  return visit !== null && Boolean(people?.length);
+}
+
+/** The menu group for looking as another example person; only for a visitor. */
+export function ExamplePersonSwitch() {
+  const visit = useExampleVisit();
+  const people = useExamplePersons(visit);
   if (!visit || !people?.length) return null;
   return (
     <nldd-menu-group text="Bekijk het voorbeeld als">

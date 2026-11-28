@@ -1,34 +1,42 @@
-import { BackLink } from '@/ui/Icon';
-import { useRef, useState } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
-import { ApiError, errorMessage } from '@/api/client';
-import { Button, TextInput } from '@/features/assignments/ui';
-import { EmptyNotice, FormSheet, LoadError, Loading, SectionHeading, NotFound } from '@/ui/layout';
+import { ApiError } from '@/api/client';
 import {
   ACCEPTANCE_FORM_LABELS,
   QUOTE_STATUS_COLORS,
   QUOTE_STATUS_LABELS,
 } from '@/features/quotes/api';
-import { DecisionFailed, DecisionReceipt } from '@/features/quotes/DecisionReceipt';
 import { formatDateTime } from '@/features/quotes/format';
 import {
-  beforeLeaving,
   clearDraft,
   createDecisionIntent,
-  leaveForDecision,
   readDraft,
   saveDraft,
   useDecisionReturn,
 } from '@/features/quotes/proof';
-import { QuoteContentTable } from '@/features/quotes/QuoteContentTable';
+import {
+  QuoteDecisionView,
+  type Decision,
+  type DecisionDraft,
+  type DecisionValues,
+} from '@/features/quotes/QuoteDecisionView';
 import type { BillingDetails } from '@/features/month-close/billingApi';
 import { BillingDetailsFields } from '@/features/month-close/BillingDetailFields';
 import { filledDetails, missingText, startDetails } from '@/features/month-close/billingDetails';
 import { useInstance } from '@/layout/useInstance';
-import { useRouterLinks } from '@/layout/useRouterLinks';
+import { RouterLinks } from '@/layout/RouterLinks';
 import { formatDate } from '@/lib/format';
-import { PageHeading } from '@/pages/PageHeading';
+import {
+  EmptyNotice,
+  LoadError,
+  Loading,
+  NotFound,
+  Page,
+  Quiet,
+  Section,
+  Stack,
+} from '@/ui/layout';
 import { clientKeys, fetchReceivedQuote, type Delivery, type ReceivedQuoteDetail } from './api';
 import { DELIVERY_COLORS, DELIVERY_SHORT, deliveryText } from './labels';
 import { clientAssignmentPath, clientPath, receivedQuotePath } from './paths';
@@ -80,24 +88,48 @@ function DecisionNotice({ detail }: { detail: ReceivedQuoteDetail }) {
   return null;
 }
 
+function Standing({ detail }: { detail: ReceivedQuoteDetail }) {
+  const { quote } = detail;
+  return (
+    <Stack gap="related">
+      <div>
+        <nldd-badge
+          color={QUOTE_STATUS_COLORS[quote.status] ?? 'neutral'}
+          text={QUOTE_STATUS_LABELS[quote.status] ?? quote.status}
+        />
+      </div>
+      <Quiet>
+        Dit is de offerte zoals {detail.contractor_name ?? 'de opdrachtnemer'} hem heeft uitgegeven;
+        de inhoud kan niet meer veranderen.
+      </Quiet>
+      <DecisionNotice detail={detail} />
+    </Stack>
+  );
+}
+
 function Deliveries({ deliveries }: { deliveries: Delivery[] }) {
   return (
     <nldd-table
       accessible-label="Verzending van het besluit"
-      columns="minmax(260px,2fr) 190px 190px"
+      columns="minmax(160px,1fr) minmax(90px,auto)"
     >
       <nldd-table-row slot="header">
         <nldd-text-cell text="Bericht" />
         <nldd-text-cell text="Stand" />
-        <nldd-text-cell text="Klaargezet" />
       </nldd-table-row>
       {deliveries.map((delivery, index) => (
         <nldd-table-row key={`${delivery.operation}-${index}`}>
           <nldd-text-cell
             text={deliveryText(delivery)}
-            {...(delivery.status === 'pending' && (delivery.attempts ?? 0) > 0
-              ? { 'supporting-text': `${delivery.attempts} keer geprobeerd` }
-              : {})}
+            supporting-text={[
+              `Klaargezet ${formatDateTime(delivery.queued_at)}`,
+              delivery.sent_at ? `aangekomen ${formatDateTime(delivery.sent_at)}` : '',
+              delivery.status === 'pending' && (delivery.attempts ?? 0) > 0
+                ? `${delivery.attempts} keer geprobeerd`
+                : '',
+            ]
+              .filter(Boolean)
+              .join(' · ')}
           />
           <nldd-cell>
             <nldd-badge
@@ -105,12 +137,6 @@ function Deliveries({ deliveries }: { deliveries: Delivery[] }) {
               text={DELIVERY_SHORT[delivery.status] ?? delivery.status}
             />
           </nldd-cell>
-          <nldd-text-cell
-            text={formatDateTime(delivery.queued_at)}
-            {...(delivery.sent_at
-              ? { 'supporting-text': `Aangekomen ${formatDateTime(delivery.sent_at)}` }
-              : {})}
-          />
         </nldd-table-row>
       ))}
     </nldd-table>
@@ -118,15 +144,13 @@ function Deliveries({ deliveries }: { deliveries: Delivery[] }) {
 }
 
 /**
- * A quote a contractor sent: the frozen content as it was issued, its hash,
- * the decision of a tekenbevoegde, and whether the decision reached the
- * contractor.
+ * A quote a contractor sent: the frozen content as it was issued, the
+ * decision of a tekenbevoegde, and whether the decision reached the
+ * contractor. The page is the one an invited signer gets.
  */
 export function ReceivedQuotePage() {
   const { quoteId = '' } = useParams();
   const instance = useInstance();
-  const ref = useRef<HTMLDivElement>(null);
-  useRouterLinks(ref);
 
   const query = useQuery({
     queryKey: clientKeys.receivedQuote(quoteId),
@@ -139,217 +163,104 @@ export function ReceivedQuotePage() {
         : false,
   });
 
-  const [signerFunction, setSignerFunction] = useState('');
-  const [details, setDetails] = useState<BillingDetails>({});
-  const [accepting, setAccepting] = useState(false);
-  const [rejecting, setRejecting] = useState(false);
-  const [reason, setReason] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [rejectError, setRejectError] = useState<string | null>(null);
-
   const back = useDecisionReturn();
-  const [draft] = useState(() =>
-    readDraft<{ signerFunction?: string; reason?: string }>(quoteId),
-  );
-  // The decision is made when the browser is back from the identity
-  // provider; asking for the intent records nothing.
-  const leaveFor = (kind: 'accept_received' | 'reject_received') => {
-    // The billing details stay out of the draft: the contact person is
-    // personal data, and the server keeps them with the intent.
-    saveDraft(quoteId, { signerFunction, reason });
-    const billing = kind === 'accept_received' ? filledDetails(details) : null;
+  // What was filled in before leaving for the login; only needed when the
+  // browser comes back without a decision.
+  const [draft] = useState(() => readDraft<DecisionDraft & Record<string, unknown>>(quoteId));
+  // Not in the draft: the contact person is personal data, and the server
+  // keeps what was given with the intent.
+  const [details, setDetails] = useState<BillingDetails>({});
+  if (back.evidenceId) clearDraft(quoteId);
+
+  const detail = query.data;
+  const quote = detail?.quote;
+  const notFound = query.error instanceof ApiError && query.error.status === 404;
+  const contractor = detail?.contractor_name ?? 'de opdrachtnemer';
+  const deliveries = detail?.deliveries ?? [];
+
+  // Asking for the intent decides nothing: the decision is made when the
+  // browser is back from the identity provider.
+  const createIntent = (decision: Decision, values: DecisionValues) => {
+    saveDraft(quoteId, { decision, ...values });
+    const billing = decision === 'accept' ? filledDetails(details) : null;
     return createDecisionIntent({
-      kind,
+      kind: decision === 'accept' ? 'accept_received' : 'reject_received',
       quote_id: quoteId,
-      quote_hash: query.data?.quote.snapshot_hash ?? '',
-      signer_function: signerFunction.trim() || null,
-      note: kind === 'reject_received' ? reason.trim() || null : null,
+      quote_hash: quote?.snapshot_hash ?? '',
+      signer_function: values.signerFunction.trim() || null,
+      note: decision === 'reject' ? values.reason.trim() || null : null,
       ...(billing ? { billing_details: billing } : {}),
       return_path: receivedQuotePath(quoteId),
     });
   };
-  const accept = useMutation({
-    mutationFn: () => leaveFor('accept_received'),
-    onSuccess: leaveForDecision,
-    onError: (failure) => setError(errorMessage(failure)),
-  });
-  const reject = useMutation({
-    mutationFn: () => leaveFor('reject_received'),
-    onSuccess: leaveForDecision,
-    onError: (failure) => setRejectError(errorMessage(failure)),
-  });
-  if (back.evidenceId) clearDraft(quoteId);
-  // Back without a decision: the form holds what was written before leaving.
-  const [restored, setRestored] = useState(false);
-  if (back.errorCode && draft && !restored) {
-    setRestored(true);
-    setSignerFunction(draft.signerFunction ?? '');
-    setReason(draft.reason ?? '');
+
+  if (!detail || !quote) {
+    return (
+      <Page
+        kind="document"
+        title="Ontvangen offerte"
+        instanceName={instance?.name}
+        back={{ href: clientPath('offertes'), text: 'Terug naar ontvangen offertes' }}
+      >
+        {query.isPending ? <Loading /> : null}
+        {query.isError && notFound ? <NotFound what="Deze offerte" /> : null}
+        {query.isError && !notFound ? (
+          <LoadError error={query.error} retry={() => void query.refetch()} />
+        ) : null}
+      </Page>
+    );
   }
 
-  const detail = query.data;
-  const quote = detail?.quote;
-  const content = quote?.content ?? null;
-  const notFound = query.error instanceof ApiError && query.error.status === 404;
-  const contractor = detail?.contractor_name ?? 'de opdrachtnemer';
-  const deliveries = detail?.deliveries ?? [];
+  const content = quote.content ?? null;
   const annex = content?.billing_annex === true;
-
   return (
-    <div ref={ref}>
-      <nldd-simple-section>
-        <PageHeading
-          text={detail ? `Offerte voor ${detail.assignment_name}` : 'Ontvangen offerte'}
-          instanceName={instance?.name}
+    <QuoteDecisionView
+      title={`Offerte ${detail.assignment_name}`}
+      instanceName={instance?.name}
+      back={{ href: clientPath('offertes'), text: 'Terug naar ontvangen offertes' }}
+      receipt={back.evidenceId ? { scope: 'proof', evidenceId: back.evidenceId } : null}
+      notice={<Standing detail={detail} />}
+      failure={
+        back.errorCode && detail.may_decide ? { code: back.errorCode, dismiss: back.dismiss } : null
+      }
+      contractorName={contractor}
+      signerLabel="je organisatie"
+      content={content}
+      unreadable={
+        <EmptyNotice
+          text="Je ziet de inhoud van deze offerte niet"
+          supportingText="Bedragen en regels zijn zichtbaar voor de eigenaar van de aanvraag, een tekenbevoegde, een lezer en de beheerder."
         />
-        <nldd-container gap="16">
-          <BackLink href={clientPath('offertes')} text="Terug naar ontvangen offertes" />
-          {query.isPending ? <Loading /> : null}
-          {query.isError && notFound ? <NotFound what="Deze offerte" /> : null}
-          {query.isError && !notFound ? (
-            <LoadError error={query.error} retry={() => void query.refetch()} />
-          ) : null}
-
-          {detail && quote ? (
-            <>
-              <div>
-                <nldd-badge
-                  color={QUOTE_STATUS_COLORS[quote.status] ?? 'neutral'}
-                  text={QUOTE_STATUS_LABELS[quote.status] ?? quote.status}
-                />
-              </div>
-              {back.evidenceId ? (
-                <DecisionReceipt scope="proof" evidenceId={back.evidenceId} />
-              ) : (
-                <DecisionNotice detail={detail} />
-              )}
-              {back.errorCode && detail.may_decide ? (
-                <DecisionFailed code={back.errorCode} onRetry={back.dismiss} />
-              ) : null}
-              <nldd-text>
-                Van {contractor}, uitgegeven op {formatDateTime(quote.issued_at)}
-                {quote.valid_until ? `, geldig tot en met ${formatDate(quote.valid_until)}` : ''}.
-                Dit is de offerte zoals de opdrachtnemer hem heeft uitgegeven; de inhoud kan niet
-                meer veranderen.
-              </nldd-text>
-              <nldd-link
-                href={clientAssignmentPath(detail.assignment_id)}
-                text="Bekijk de aanvraag waar deze offerte bij hoort"
-              />
-              {content ? (
-                <>
-                  <QuoteContentTable content={content} label="Regels van de offerte" />
-                  {content.conditions ? (
-                    <>
-                      <SectionHeading text="Voorwaarden" />
-                      <nldd-text>{content.conditions}</nldd-text>
-                    </>
-                  ) : null}
-                </>
-              ) : (
-                <EmptyNotice
-                  text="Je ziet de inhoud van deze offerte niet"
-                  supportingText="Bedragen en regels zijn zichtbaar voor de eigenaar van de aanvraag, een tekenbevoegde, een lezer en de beheerder."
-                />
-              )}
-              {quote.snapshot_hash ? (
-                <nldd-text size="sm">
-                  Controlegetal van deze offerte (SHA-256): {quote.snapshot_hash}. De opdrachtnemer
-                  heeft hetzelfde getal. Een akkoord geldt voor precies deze inhoud.
-                </nldd-text>
-              ) : null}
-            </>
-          ) : null}
-        </nldd-container>
-      </nldd-simple-section>
-
-      {detail?.may_decide ? (
-        <nldd-simple-section>
-          <SectionHeading text="Besluiten" />
-          <nldd-container gap="16">
-            <nldd-text>
-              Je bent tekenbevoegd voor deze organisatie. Met je akkoord leggen we vast wie je bent,
-              namens welke organisatie je tekent en op welk moment. Het akkoord wordt ondertekend
-              met de sleutel van deze instantie en naar {contractor} gestuurd.
-            </nldd-text>
-            <nldd-text>{beforeLeaving('accept', Boolean(accept.data?.passkey))}</nldd-text>
-            <nldd-button-group>
-              <Button
-                text="Geef akkoord"
-                appearance="primary"
-                onClick={() => {
-                  setError(null);
-                  setDetails((now) =>
-                    startDetails(now, content?.client_reference),
-                  );
-                  setAccepting(true);
-                }}
-              />
-              <Button
-                text="Wijs af"
-                onClick={() => {
-                  setRejectError(null);
-                  setRejecting(true);
-                }}
-              />
-            </nldd-button-group>
-          </nldd-container>
-        </nldd-simple-section>
-      ) : null}
-
-      {deliveries.length > 0 ? (
-        <nldd-simple-section>
-          <SectionHeading text="Verzending naar de opdrachtnemer" />
-          <Deliveries deliveries={deliveries} />
-        </nldd-simple-section>
-      ) : null}
-
-      <FormSheet
-        open={accepting}
-        title="Akkoord geven"
-        submitText="Geef akkoord"
-        busy={accept.isPending}
-        error={error}
-        onClose={() => setAccepting(false)}
-        onSubmit={() => {
-          const gap = annex ? missingText(details) : null;
-          if (gap) {
-            setError(gap);
-            return;
-          }
-          setError(null);
-          accept.mutate();
-        }}
-      >
-        <nldd-text>
-          Je geeft namens deze organisatie akkoord aan {contractor}. Een akkoord is niet terug te
-          draaien.
-        </nldd-text>
-        <TextInput
-          label="Je functie"
-          value={signerFunction}
-          onChange={setSignerFunction}
-          optional
-          hint="Staat bij je akkoord, bijvoorbeeld Directeur."
-        />
+      }
+      byline={[
+        quote.reference ? `kenmerk ${quote.reference}` : null,
+        `uitgegeven op ${formatDateTime(quote.issued_at)}`,
+        quote.valid_until ? `geldig t/m ${formatDate(quote.valid_until)}` : null,
+      ]
+        .filter(Boolean)
+        .join(' · ')}
+      reference={quote.reference}
+      documentHref={`/api/quotes/${quote.id}/document`}
+      hash={quote.snapshot_hash}
+      fileHash={quote.document_sha256}
+      fileNote={quote.document_note}
+      canDecide={detail.may_decide === true}
+      draft={draft}
+      createIntent={createIntent}
+      onAcceptOpen={() => setDetails((now) => startDetails(now, content?.client_reference))}
+      checkAccept={() => (annex ? missingText(details) : null)}
+      acceptFields={
         <BillingDetailsFields details={details} onChange={setDetails} required={annex} />
-      </FormSheet>
-      <FormSheet
-        open={rejecting}
-        title="Offerte afwijzen"
-        submitText="Wijs af"
-        busy={reject.isPending}
-        error={rejectError}
-        onClose={() => setRejecting(false)}
-        onSubmit={() => reject.mutate()}
-      >
-        <nldd-text>
-          {contractor} ziet dat de offerte is afgewezen, met de reden die je hier geeft. Afwijzen is
-          niet terug te draaien.
-        </nldd-text>
-        <nldd-text>{beforeLeaving('reject', Boolean(reject.data?.passkey))}</nldd-text>
-        <TextInput label="Reden" value={reason} onChange={setReason} optional multiline />
-      </FormSheet>
-    </div>
+      }
+    >
+      <RouterLinks>
+        <nldd-link href={clientAssignmentPath(detail.assignment_id)} text="Bekijk de aanvraag" />
+      </RouterLinks>
+      {deliveries.length > 0 ? (
+        <Section title="Verzending naar de opdrachtnemer">
+          <Deliveries deliveries={deliveries} />
+        </Section>
+      ) : null}
+    </QuoteDecisionView>
   );
 }

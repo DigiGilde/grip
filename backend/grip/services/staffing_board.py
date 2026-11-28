@@ -33,6 +33,15 @@ from grip.services.reports import steering
 from grip.services.vacancies import service as vacancies
 
 MAX_MONTHS = 24
+DEFAULT_MONTHS = 12
+
+
+def default_start(today: date) -> Month:
+    """Three months of what has been, nine of what is coming."""
+    year, number = today.year, today.month - 3
+    if number < 1:
+        year, number = year - 1, number + 12
+    return Month(year, number)
 
 
 def window(start: Month, count: int) -> tuple[Month, ...]:
@@ -110,6 +119,10 @@ class BoardOpenRole:
     unfilled_fte: Decimal
     start_date: date | None
     end_date: date | None
+    # The vacancy that runs for the role, with who is named on it.
+    vacancy_id: UUID | None
+    vacancy_status: str | None
+    vacancy_named: tuple[tuple[str, UUID | None], ...]
 
 
 @dataclass(frozen=True)
@@ -124,7 +137,22 @@ def _first(month: Month) -> date:
     return date(month.year, month.month, 1)
 
 
-def _summary(
+def cells_of(row: steering.PersonOccupancy) -> tuple[BoardCell, ...]:
+    """The row of a person in the occupancy, as the cells of the board."""
+    return tuple(
+        BoardCell(
+            month=_first(cell.month),
+            available=cell.available,
+            pct=cell.pct,
+            tentative_pct=cell.tentative_pct,
+            over=cell.over,
+            established=cell.established,
+        )
+        for cell in row.cells
+    )
+
+
+def summary(
     cells: Sequence[BoardCell], current: date
 ) -> tuple[Decimal | None, date | None, date | None]:
     """Now, the first month with room, and the month the person falls idle."""
@@ -139,11 +167,20 @@ def _summary(
     return now, room, idle
 
 
+def role_in_span(role: vacancies.OpenRole, span: Sequence[Month]) -> bool:
+    """Whether the stretch that is open touches these months."""
+    opens = role.open_from or role.start_date
+    closes = role.open_until or role.end_date
+    return (opens is None or opens <= span[-1].last_day) and (
+        closes is None or closes >= span[0].first_day
+    )
+
+
 async def board(
     session: AsyncSession,
     start: Month,
     *,
-    months: int = 12,
+    months: int = DEFAULT_MONTHS,
     today: date | None = None,
 ) -> Board:
     """The board for ``months`` consecutive months from ``start``."""
@@ -214,18 +251,8 @@ async def board(
     for person_id in person_ids:
         name, manager_id = people.get(person_id, ("", None))
         row = occupancy.get(person_id)
-        cells = tuple(
-            BoardCell(
-                month=_first(cell.month),
-                available=cell.available,
-                pct=cell.pct,
-                tentative_pct=cell.tentative_pct,
-                over=cell.over,
-                established=cell.established,
-            )
-            for cell in (row.cells if row else ())
-        )
-        now, room, idle = _summary(cells, current)
+        cells = cells_of(row) if row else ()
+        now, room, idle = summary(cells, current)
         persons.append(
             BoardPerson(
                 person_id=person_id,
@@ -260,16 +287,12 @@ async def board(
             # someone who stops earlier leaves only the months after.
             start_date=role.open_from or role.start_date,
             end_date=role.open_until or role.end_date,
+            vacancy_id=role.vacancy_id,
+            vacancy_status=role.vacancy_status,
+            vacancy_named=role.vacancy_named,
         )
-        for role in await vacancies.unfilled_roles(session, today=today)
-        if (
-            (role.open_from or role.start_date) is None
-            or (role.open_from or role.start_date) <= last_day
-        )
-        and (
-            (role.open_until or role.end_date) is None
-            or (role.open_until or role.end_date) >= first_day
-        )
+        for role in await vacancies.open_roles(session, today=today)
+        if role_in_span(role, span)
     )
     return Board(
         months=tuple(_first(month) for month in span),

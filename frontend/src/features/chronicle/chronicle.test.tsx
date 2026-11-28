@@ -2,8 +2,8 @@ import { act, fireEvent, waitFor } from '@testing-library/react';
 import { StrictMode, useEffect } from 'react';
 import { Route, Routes, useNavigate } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { AssignmentHistory } from '@/features/assignments/parts/HistoryPart';
 import { allText, plain } from '@/features/assignments/testing';
-import { AssignmentHistoryTab } from '@/features/history/History';
 import { renderApp } from '@/test/utils';
 import type {
   Moment,
@@ -356,7 +356,10 @@ function renderTab(
     <>
       <HoldNavigate />
       <Routes>
-        <Route path="/opdrachten/:assignmentId/geschiedenis" element={<AssignmentHistoryTab />} />
+        <Route
+          path="/opdrachten/:assignmentId/geschiedenis"
+          element={<AssignmentHistory assignmentId="a1" />}
+        />
       </Routes>
     </>
   );
@@ -389,15 +392,18 @@ function focused(selector: string): Element | null {
   return active === document.body ? null : (active?.querySelector(selector) ?? null);
 }
 
-describe('the tab Geschiedenis of an assignment', () => {
-  it('opens on the moments, oldest first, with a choice of what to show', async () => {
+describe('the part Geschiedenis of an assignment', () => {
+  it('opens on the moments, oldest first, with one way to the changes', async () => {
     const { container, fetchMock } = renderTab('/opdrachten/a1/geschiedenis');
     await waitFor(() => expect(container.querySelector('nldd-list-item')).not.toBeNull());
-    expect(container.querySelector('select')).toHaveValue('momenten');
-    expect([...container.querySelectorAll('option')].map((option) => option.textContent)).toEqual([
-      'Momenten',
-      'Wijzigingen',
-    ]);
+    // A view is never a select.
+    expect(container.querySelector('select')).toBeNull();
+    expect(
+      [...container.querySelectorAll('nldd-button')].map((button) => [
+        button.getAttribute('text'),
+        button.getAttribute('href'),
+      ]),
+    ).toEqual([['Bekijk de wijzigingen', '/opdrachten/a1/geschiedenis?toon=wijzigingen']]);
     const rows = [...container.querySelectorAll('nldd-list-item')];
     expect(rows.map((row) => row.getAttribute('href'))).toEqual([
       '/opdrachten/a1/geschiedenis?moment=3',
@@ -424,17 +430,20 @@ describe('the tab Geschiedenis of an assignment', () => {
     await waitFor(() =>
       expect(container.querySelector('[text="Nog niets gebeurd"]')).not.toBeNull(),
     );
-    expect(container.querySelector('select')).toHaveValue('wijzigingen');
+    expect(container.querySelector('nldd-button[text="Bekijk de momenten"]')).toHaveAttribute(
+      'href',
+      '/opdrachten/a1/geschiedenis',
+    );
     expect(container.querySelector('nldd-list-item')).toBeNull();
     expect(requests(fetchMock).some((url) => url.startsWith('/api/events'))).toBe(true);
   });
 
-  it('shows an old case without moments the existing list, without the choice', async () => {
+  it('shows an old case without moments the existing list, with no way to moments', async () => {
     const { container } = renderTab('/opdrachten/a1/geschiedenis', { moments: [] });
     await waitFor(() =>
       expect(container.querySelector('[text="Nog niets gebeurd"]')).not.toBeNull(),
     );
-    expect(container.querySelector('select')).toBeNull();
+    expect(container.querySelector('nldd-button')).toBeNull();
   });
 });
 
@@ -468,14 +477,20 @@ describe('how things stood at a moment', () => {
     const text = allText(container);
     // The fact.
     expect(container.textContent).toContain(CHANGED.statement);
-    // The course as it was, with no button and no way to act.
+    // The course as it was, as the bar, with no way to act on it.
     expect(text).toContain('De eigenaar is aan zet: de offerte.');
     expect(text).toContain('Eigenaar: Anna Voorbeeld');
-    expect(container.querySelector('nldd-step-bar')).toHaveAttribute(
-      'accessible-label',
-      expect.stringContaining('Verloop op 3 nov 2026'),
-    );
-    expect(container.querySelector('nldd-button')).toBeNull();
+    const bar = container.querySelector('nldd-step-bar[accessible-label^="Verloop op 3 nov 2026"]');
+    expect(bar).not.toBeNull();
+    expect(
+      [...container.querySelectorAll('nldd-step-bar-item')].map((item) =>
+        item.getAttribute('status'),
+      ),
+    ).toEqual(['past', 'current', 'future']);
+    // The one button leads to the changes; nothing acts on the moment itself.
+    expect(
+      [...container.querySelectorAll('nldd-button')].map((button) => button.getAttribute('text')),
+    ).toEqual(['Bekijk de wijzigingen']);
     // The budget, with what changed marked in place.
     const rows = [
       ...container.querySelectorAll(
@@ -537,7 +552,7 @@ describe('how things stood at a moment', () => {
     ].map((word) => read.indexOf(word));
     expect(order.every((position) => position >= 0)).toBe(true);
     expect(order).toEqual([...order].sort((a, b) => a - b));
-    // The word also stands in the choice above the stand; the list comes last.
+    // The list comes last.
     expect(read.lastIndexOf('Momenten')).toBeGreaterThan(read.indexOf('Terug naar nu'));
   });
 
@@ -611,7 +626,7 @@ describe('how things stood at a moment', () => {
     expect(allText(container)).toContain('0,8 FTE');
   });
 
-  it('walks by links, and back to now is the tab without a moment', async () => {
+  it('walks by links, and back to now is the part without a moment', async () => {
     const { container } = await opened(FULL);
     const link = (text: string) => container.querySelector(`nldd-link[text="${text}"]`);
     expect(link('Vorige')).toHaveAttribute('href', '/opdrachten/a1/geschiedenis?moment=3');
@@ -757,7 +772,7 @@ describe('how things stood at a moment', () => {
       course: { ...COURSE, next: null, ended: 'Niet doorgegaan' },
     });
     expect(container.querySelector('nldd-badge[text="Niet doorgegaan"]')).not.toBeNull();
-    expect(container.querySelector('nldd-step-bar')).toBeNull();
+    expect(container.querySelector('[aria-label^="Verloop op"]')).toBeNull();
   });
 
   it('says so when values were erased', async () => {

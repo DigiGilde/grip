@@ -112,13 +112,15 @@ De parameter `kind` kiest tussen `changes` (de standaard: alles behalve inzage),
 
 Het antwoord bevat geen totaal. Een gebeurtenis die de lezer niet mag kennen is afwezig, ook als een filter er precies op past. Wie filtert op een persoon, krijgt alleen gebeurtenissen waarvan hij mag weten over wie ze gaan.
 
-In het scherm staat de geschiedenis als tabblad "Geschiedenis" bij een opdracht en een vacature, en als pagina "Activiteit" onder Beheer.
+In het scherm staat de geschiedenis als onderdeel "Geschiedenis" van een opdracht en een vacature, en als pagina "Activiteit" onder Beheer.
 
 ## Wat is er gebeurd
 
 Naast de geschiedenis is er een overzicht voor de vraag "wat heb ik gemist" (ADR 0043). Het leest dezelfde stroom met een andere selectie.
 
-`GET /api/updates?limiet=<aantal>&na=<cursor>` geeft berichten, nieuwste eerst. Een bericht heeft een zin in delen (`parts`, waarvan het onderwerp een `href` naar de plek in grip heeft), de zin als platte tekst (`text`), de tijd in woorden (`when_text`), de dag waaronder het staat (`day`), de soort (`kind`), het aantal gebeurtenissen dat erin is samengenomen (`count`) en of het nieuw is (`new`). Het antwoord bevat ook `new_count`, het aantal nieuwe berichten, en `next`, de cursor om verder terug te lezen. `POST /api/updates/seen` legt vast dat de lezer heeft gekeken.
+`GET /api/updates?limiet=<aantal>&na=<cursor>` geeft berichten, nieuwste eerst. Een bericht heeft een zin in delen (`parts`, waarvan het onderwerp een `href` naar de plek in grip heeft), de zin als platte tekst (`text`), de tijd in woorden (`when_text`), de dag waaronder het staat (`day`), de soort (`kind`), het aantal gebeurtenissen dat erin is samengenomen (`count`) en of het nieuw is (`new`). Het antwoord bevat ook `new_count`, het aantal nieuwe berichten, en `next`, de cursor om verder terug te lezen. `POST /api/updates/seen` legt vast dat de lezer heeft gekeken. Een deel zonder link heeft `href` null.
+
+`GET /api/updates` neemt ook `opdracht` (de berichten over die opdracht en haar onderdelen) en `persoon` (de berichten waarvan de zin zegt dat die persoon het deed). `GET /api/updates/filters` geeft de opdrachten en mensen waarop het overzicht van de lezer te filteren is. Wat een filter wel en niet laat zien staat in [toegang.md](toegang.md), "Rijen, Start en zoeken" (ADR 0059).
 
 Wat nieuws is, staat in `grip.events.news`:
 

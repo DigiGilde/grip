@@ -1,57 +1,10 @@
-import { waitFor } from '@testing-library/react';
+import { fireEvent, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { renderApp } from '@/test/utils';
-import { BudgetEditor } from './BudgetEditor';
+import { BANDS, BUDGET, CARDS, renderBudgetPart } from './budget/testing';
 import { allText, assignment, mockApi, plain } from './testing';
 
 afterEach(() => vi.unstubAllGlobals());
 
-const BUDGET = {
-  assignment_id: 'a1',
-  assignment_name: 'Opdracht Alfa 2026',
-  can_edit: true,
-  total_budgeted_cents: 17280000,
-  subtotals_by_year: { '2026': 17280000 },
-  quoted_amount_cents: null,
-  pricing_error: null,
-  lines: [
-    {
-      id: 'l1',
-      assignment_id: 'a1',
-      description: 'Productmanager',
-      kind: 'personnel',
-      position: 1,
-      role: 'Productmanager',
-      fte: '0.800',
-      start_date: '2026-01-01',
-      end_date: '2026-12-31',
-      rate_category: 'D',
-      budgeted_cents: 17280000,
-      budgeted_by_year: { '2026': 17280000 },
-      pricing_error: null,
-      intended_person_id: 'p1',
-      intended_person_name: 'Voorbeeld Een',
-      intended_tentative: true,
-      intended_in_step: true,
-      intended_notes: [],
-    },
-  ],
-};
-
-const BANDS = {
-  rate_bands: [{ category: 'B', monthly_rate_cents: 1312500 }],
-  scale_bands: [
-    { scale: 10, category: 'B' },
-    { scale: 11, category: 'B' },
-  ],
-};
-const CARDS = {
-  may_manage: false,
-  default_increase_pct: '0',
-  items: [
-    { status: 'active', valid_from: '2020-01-01', valid_to: null, name: 'Tarieven 2026', ...BANDS },
-  ],
-};
 const VALID = {
   start_date: '2026-01-01',
   end_date: '2026-12-31',
@@ -101,7 +54,7 @@ function renderEditor(derive: unknown = DERIVED, detail = assignment(), valid: u
       reason: null,
     },
     '/api/assignments/a1/budget': BUDGET,
-    '/api/assignments/a1': detail,
+    '/api/assignments/a1/quotes': { quotes: [] },
     '/api/person-options': {
       items: [
         { id: 'p1', name: 'Voorbeeld Een' },
@@ -111,7 +64,8 @@ function renderEditor(derive: unknown = DERIVED, detail = assignment(), valid: u
     '/api/rates/cards': CARDS,
     '/api/rates/valid': valid,
   });
-  return { ...renderApp(<BudgetEditor assignmentId="a1" />), fetchMock };
+  const potential = { ...detail, phase: 'potential' as const, status: 'quoted' };
+  return { ...renderBudgetPart(potential), fetchMock };
 }
 
 async function openNewLine(container: HTMLElement) {
@@ -122,7 +76,7 @@ async function openNewLine(container: HTMLElement) {
     .querySelector('nldd-button[text="Nieuwe begrotingsregel"]')
     ?.dispatchEvent(new Event('click'));
   await waitFor(() => expect(document.querySelector('nldd-sheet[open]')).not.toBeNull());
-  return document.querySelector('nldd-sheet') as HTMLElement;
+  return document.querySelector('nldd-sheet[open]') as HTMLElement;
 }
 
 const field = (sheet: HTMLElement, label: string) =>
@@ -205,9 +159,8 @@ describe('budget line sheet', () => {
     );
     expect(scale.querySelector('select')).toHaveValue('');
 
-    field(sheet, 'Beoogde persoon')
-      .querySelector('nldd-dropdown')
-      ?.dispatchEvent(new CustomEvent('change', { detail: { value: 'p2' } }));
+    const person = field(sheet, 'Beoogde persoon').querySelector('select') as HTMLSelectElement;
+    fireEvent.change(person, { target: { value: 'p2' } });
     await waitFor(() =>
       expect(field(sheet, 'Schaal en tarief').querySelector('select')).toHaveValue('B'),
     );
@@ -238,9 +191,9 @@ describe('budget line sheet', () => {
     expect(calls).toContain('/api/assignments/a1/budget-lines/derive');
 
     // Changing away from it says so at the field.
-    moved
-      .querySelector('nldd-dropdown')
-      ?.dispatchEvent(new CustomEvent('change', { detail: { value: 'C' } }));
+    fireEvent.change(moved.querySelector('select') as HTMLSelectElement, {
+      target: { value: 'C' },
+    });
     await waitFor(() =>
       expect(
         sheet.querySelector('nldd-banner[text^="De beoogde persoon declareert in"]'),
@@ -257,9 +210,9 @@ describe('budget line sheet', () => {
       notes: ['Start op 1 december 2026.'],
     });
     const sheet = await openNewLine(container);
-    field(sheet, 'Beoogde persoon')
-      .querySelector('nldd-dropdown')
-      ?.dispatchEvent(new CustomEvent('change', { detail: { value: 'p2' } }));
+    const person = field(sheet, 'Beoogde persoon').querySelector('select') as HTMLSelectElement;
+    await waitFor(() => expect(person.querySelector('option[value="p2"]')).not.toBeNull());
+    fireEvent.change(person, { target: { value: 'p2' } });
     await waitFor(() =>
       expect(field(sheet, 'Beoogde persoon').querySelector('select')).toHaveValue('p2'),
     );

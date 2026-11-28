@@ -144,7 +144,7 @@ function MergeForm({ role, onDone }: { role: CatalogueRole; onDone: () => void }
 
   return (
     <nldd-container gap="16">
-      <nldd-title size={4} text="Samenvoegen" heading-level={2} />
+      <nldd-title size="display-4" text="Samenvoegen" heading-level={2} />
       <nldd-rich-text>
         <p>
           Betekent deze rol hetzelfde als een andere, voeg ze dan samen. De begrotingsregels van
@@ -241,7 +241,7 @@ export function RolesAdminPage() {
   return (
     <>
       <RouterLinks>
-        <Page title="Rollen" instanceName={instance?.name} back={adminBack}>
+        <Page kind="list" title="Rollen" instanceName={instance?.name} back={adminBack}>
           <ActionBar
             label="Rollen filteren en acties"
             filters={[
@@ -264,9 +264,11 @@ export function RolesAdminPage() {
           {status.data ? <SyncState status={status.data} /> : null}
           {review > 0 ? (
             <nldd-text>
-              {review === 1
-                ? 'Eén rol is ter plekke toegevoegd en nog niet beoordeeld.'
-                : `${review} rollen zijn ter plekke toegevoegd en nog niet beoordeeld.`}
+              <p>
+                {review === 1
+                  ? 'Eén rol is ter plekke toegevoegd en nog niet beoordeeld.'
+                  : `${review} rollen zijn ter plekke toegevoegd en nog niet beoordeeld.`}
+              </p>
             </nldd-text>
           ) : null}
           <QueryState query={list}>
@@ -293,7 +295,6 @@ export function RolesAdminPage() {
                   <nldd-text-cell
                     text={usageText(role.usage_count)}
                     hide-below="md"
-                    {...(role.usage_count === 0 ? { color: 'secondary' } : {})}
                   />
                   {/* A label only for what differs from the rule: a role is
                       there to be chosen. */}

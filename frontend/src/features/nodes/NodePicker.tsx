@@ -46,9 +46,9 @@ function SearchBox({
     <nldd-search-field
       ref={ref}
       value={value}
-      placeholder="Zoek een node op titel"
-      accessible-label="Zoek een node op titel"
-      show-search-button
+      placeholder="Zoek een stuk op titel"
+      accessible-label="Zoek een stuk op titel"
+      search-button="secondary"
       disabled={orUndef(disabled)}
     />
   );
@@ -74,7 +74,9 @@ function ResultRow({
       <nldd-text-cell text={organisation} />
       <nldd-cell>
         {chosen ? (
-          <nldd-text size="sm">Toegevoegd</nldd-text>
+          <nldd-text size="sm">
+            <span>Toegevoegd</span>
+          </nldd-text>
         ) : (
           <Button
             text="Voeg toe"
@@ -134,11 +136,11 @@ export function NodePicker({ value, onChange, max = 50 }: NodePickerProps) {
   const addPasted = () => {
     const uri = pasted.trim();
     if (!isNodeUri(uri)) {
-      setPasteError('Een node-URI begint met https:// en verwijst naar een node in een corpus.');
+      setPasteError('Het adres van een stuk begint met https://.');
       return;
     }
     if (value.includes(uri)) {
-      setPasteError('Deze URI staat al bij de context.');
+      setPasteError('Dit stuk staat al bij de context.');
       return;
     }
     setPasteError(null);
@@ -156,14 +158,14 @@ export function NodePicker({ value, onChange, max = 50 }: NodePickerProps) {
       {/* Nothing chosen is not news: the heading comes with the first node. */}
       {value.length > 0 ? (
         <>
-          <SectionHeading text="Gekozen context" level={2} size={5} />
+          <SectionHeading text="Gekozen context" level={2} size="display-5" />
           <NodeCardGrid label="Gekozen context">
             {value.map((uri, index) => {
               const lookup = lookups[index];
               const item: NodeLookup = lookup?.data ?? {
                 uri,
                 resolved: false,
-                problem: 'Deze URI kon niet worden opgezocht. Hij blijft bewaard zoals hij is.',
+                problem: 'Dit adres kon niet worden opgezocht. Het blijft bewaard zoals het is.',
               };
               const name = item.node?.title ?? uri;
               return (
@@ -190,12 +192,12 @@ export function NodePicker({ value, onChange, max = 50 }: NodePickerProps) {
         <nldd-banner
           variant="warning"
           size="sm"
-          text={`Een aanvraag draagt ten hoogste ${max} nodes als context.`}
+          text={`Een aanvraag draagt ten hoogste ${max} stukken als context.`}
         />
       ) : null}
 
-      <SectionHeading text="Zoek in een corpus" level={2} size={5} />
-      {corpora.isPending ? <Loading text="Bezig met ophalen van de corpora" /> : null}
+      <SectionHeading text="Zoek een stuk" level={2} size="display-5" />
+      {corpora.isPending ? <Loading text="Bezig met zoeken naar bronnen" /> : null}
       {corpora.isError ? (
         <LoadError error={corpora.error} retry={() => void corpora.refetch()} />
       ) : null}
@@ -206,7 +208,7 @@ export function NodePicker({ value, onChange, max = 50 }: NodePickerProps) {
         <nldd-container gap="8">
           {searchable.length > 1 ? (
             <FilterSelect
-              label="Corpus"
+              label="Zoek in"
               value={activeCorpus}
               onChange={(next) => {
                 setCorpus(next);
@@ -215,7 +217,9 @@ export function NodePicker({ value, onChange, max = 50 }: NodePickerProps) {
               options={searchable.map((item) => ({ value: item.base_uri, label: item.name }))}
             />
           ) : (
-            <nldd-text size="sm">Corpus: {searchable[0]?.name}</nldd-text>
+            <nldd-text size="sm">
+              <p>Je zoekt in {searchable[0]?.name}</p>
+            </nldd-text>
           )}
           <SearchBox
             value={draft}
@@ -235,18 +239,20 @@ export function NodePicker({ value, onChange, max = 50 }: NodePickerProps) {
           ) : null}
           {search.isSuccess && !search.data.problem && results.length === 0 ? (
             <EmptyNotice
-              text="Geen nodes gevonden"
-              supportingText="Probeer een ander woord, of plak de URI van de node hieronder."
+              text="Geen stukken gevonden"
+              supportingText="Probeer een ander woord, of plak hieronder het adres van het stuk."
             />
           ) : null}
           {results.length > 0 ? (
             <>
               <nldd-text size="sm" aria-live="polite">
-                {total} {total === 1 ? 'node' : 'nodes'} gevonden
-                {lastPage > 1 ? `, pagina ${page} van ${lastPage}` : ''}
+                <p>
+                  {total} {total === 1 ? 'stuk' : 'stukken'} gevonden
+                  {lastPage > 1 ? `, pagina ${page} van ${lastPage}` : ''}
+                </p>
               </nldd-text>
               <nldd-table
-                accessible-label="Gevonden nodes"
+                accessible-label="Gevonden stukken"
                 columns="150px minmax(220px,2fr) minmax(160px,1fr) 130px"
               >
                 <nldd-table-row slot="header">
@@ -285,19 +291,19 @@ export function NodePicker({ value, onChange, max = 50 }: NodePickerProps) {
         </nldd-container>
       ) : null}
 
-      <SectionHeading text="Plak een URI" level={2} size={5} />
+      <SectionHeading text="Of plak het adres van een stuk" level={2} size="display-5" />
       {pasteError ? <nldd-banner variant="critical" size="sm" text={pasteError} /> : null}
       <TextInput
-        label="Node-URI"
+        label="Adres van het stuk"
         value={pasted}
         onChange={setPasted}
         optional
         keyboard="url"
-        hint="Bijvoorbeeld uit de adresbalk van het corpus."
+        hint="Bijvoorbeeld uit de adresbalk."
         invalid={pasteError !== null}
       />
       <div>
-        <Button text="Voeg URI toe" onClick={addPasted} disabled={full} />
+        <Button text="Voeg context toe" onClick={addPasted} disabled={full} />
       </div>
       <NodeDetailSheet
         uri={openUri}

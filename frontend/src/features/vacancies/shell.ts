@@ -1,27 +1,43 @@
 /**
  * What the pages under one vacancy share: the vacancy itself, the value
- * lists, which tabs its reader gets, and the sheets that the header and a
- * tab can both open.
+ * lists, its parts for this reader, where it stands, and the sheets that the
+ * head and a part can both open.
  */
 import { createContext, useContext } from 'react';
+import type { Course } from '@/ui/course';
 import type { Vacancy, VacancyOptions } from './api';
-import type { VacancyTabKey } from './paths';
+import type { VacancyPart } from './partsApi';
 
-/** The sheets the layout owns, because the step bar and a tab both open them. */
+/** The sheets the layout owns, because the head and a part both open them. */
 export type SharedSheet = 'edit' | 'prepare' | 'submit' | 'publish' | 'hire';
+
+/** The one next step of this reader on the page they are on. */
+export interface VacancyStep {
+  text: string;
+  /** Done in this sheet; otherwise at `href`. */
+  sheet: SharedSheet | null;
+  href: string;
+}
 
 export interface VacancyShell {
   vacancy: Vacancy;
   options: VacancyOptions | undefined;
+  instanceName: string | undefined;
   openSheet: (sheet: SharedSheet) => void;
+  /** The parts the server gives this reader, in their fixed order. */
+  parts: readonly VacancyPart[];
+  /** Whether the vacancy has tasks this reader may read. */
+  tasksLink: boolean;
+  course: Course | null | undefined;
+  step: VacancyStep | null;
   /**
-   * Whether the header of the vacancy holds the one primary button of the
-   * page. A tab gives its own next step the accent only when it does not.
+   * Whether the head of this page holds its one primary button. A part gives
+   * its own next step the accent only when it does not.
    */
   headerPrimary: boolean;
   /**
    * The kind of work that is the reader's next step, when it is her move.
-   * The tab where that step is done gives its button the accent.
+   * The part where that step is done gives its button the accent.
    */
   nextTask: string | null;
 }
@@ -30,59 +46,11 @@ export const VacancyShellContext = createContext<VacancyShell | null>(null);
 
 export function useVacancyShell(): VacancyShell {
   const shell = useContext(VacancyShellContext);
-  if (!shell) throw new Error('A vacancy tab must be rendered inside VacancyLayout.');
+  if (!shell) throw new Error('A part of a vacancy must be rendered inside VacancyLayout.');
   return shell;
 }
-
-export const TAB_LABELS: Record<VacancyTabKey, string> = {
-  request: 'Aanvraag',
-  tasks: 'Taken',
-  decisions: 'Advies en akkoord',
-  text: 'Tekst',
-  procedure: 'Procedure',
-  fulfilment: 'Vervulling',
-  history: 'Geschiedenis',
-};
-
-const TAB_ORDER: readonly VacancyTabKey[] = [
-  'request',
-  'tasks',
-  'decisions',
-  'text',
-  'procedure',
-  'fulfilment',
-  'history',
-];
 
 /** True when the reader gets more than the published text of the vacancy. */
 export function seesWholeVacancy(vacancy: Vacancy): boolean {
   return vacancy.vacancy_type !== undefined;
 }
-
-/**
- * The tabs this reader gets. A tab that has nothing for the reader is
- * absent, not disabled: who only sees the published vacancy gets none, and
- * the recruitment reference and the hire are for who may edit the vacancy.
- */
-export function visibleTabs(vacancy: Vacancy): VacancyTabKey[] {
-  if (!seesWholeVacancy(vacancy)) return [];
-  const shown: Record<VacancyTabKey, boolean> = {
-    request: true,
-    tasks: true,
-    decisions: true,
-    text: true,
-    procedure: true,
-    fulfilment: vacancy.permissions.can_edit,
-    history: true,
-  };
-  return TAB_ORDER.filter((tab) => shown[tab]);
-}
-
-/** The tab on which each step of the vacancy is done. */
-export const STEP_TABS = {
-  prepare: 'request',
-  submit: 'request',
-  decide: 'decisions',
-  open: 'procedure',
-  fill: 'fulfilment',
-} as const satisfies Record<string, VacancyTabKey>;

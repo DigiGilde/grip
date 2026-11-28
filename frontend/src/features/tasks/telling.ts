@@ -16,7 +16,7 @@ export const headlineOf = (task: Task) => task.headline || task.title;
  * the page can say what the reader came to do.
  */
 export function workHref(task: Task): string | null {
-  const href = task.work_href ?? task.link;
+  const href = task.work_href;
   if (!href) return null;
   return `${href}${href.includes('?') ? '&' : '?'}${FOR_TASK_PARAM}=${task.id}`;
 }

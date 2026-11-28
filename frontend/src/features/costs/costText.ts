@@ -54,6 +54,15 @@ export function costsPath(year: number | null = null): string {
   return year === null ? PATHS.costs : `${PATHS.costs}?${YEAR_PARAM}=${year}`;
 }
 
+/**
+ * What a cost item is called. A cost item at another party that cannot be
+ * fetched has no description here; a link to it still needs a name.
+ */
+export function costItemName(item: { description: string | null; executor_name?: string | null }): string {
+  if (item.description) return item.description;
+  return item.executor_name ? `Kostenpost bij ${item.executor_name}` : 'Kostenpost';
+}
+
 /** What an invoice is called: its reference, else its description. */
 export function lineLabel(line: Pick<InvoiceLine, 'reference' | 'description' | 'kind'>): string {
   return (

@@ -1,7 +1,7 @@
 import type { RequestHeaders } from '@/api/client';
 import { ConflictPanel } from '@/ui/ConflictPanel';
 import { useStaleChoice } from '@/ui/stale';
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type MutableRefObject, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage } from '@/api/client';
 import { formatDate, formatEuro } from '@/lib/format';
@@ -224,14 +224,14 @@ export function RatesPage() {
 
   if (query.isPending) {
     return (
-      <Page title="Tarieven" instanceName={instance?.name}>
+      <Page kind="worksheet" title="Tarieven" instanceName={instance?.name}>
         <Loading />
       </Page>
     );
   }
   if (query.isError) {
     return (
-      <Page title="Tarieven" instanceName={instance?.name}>
+      <Page kind="worksheet" title="Tarieven" instanceName={instance?.name}>
         <LoadError error={query.error} retry={() => void query.refetch()} />
       </Page>
     );
@@ -250,7 +250,7 @@ export function RatesPage() {
             : null;
 
   return (
-    <Page title="Tarieven" instanceName={instance?.name} spacing="sections">
+    <Page kind="worksheet" title="Tarieven" instanceName={instance?.name} spacing="sections">
       <Stack gap="group">
         <ActionBar
           label="Tarievenkaarten"
@@ -573,23 +573,41 @@ interface NewCardSheetProps extends SheetCommon {
  * an increase and an explicit rounding. It starts as a draft.
  */
 function NewCardSheet({ open, ...props }: NewCardSheetProps) {
-  // Mounted while open, so every opening starts from the defaults.
-  return open ? <NewCardForm {...props} /> : <ClosedSheet title="Nieuwe tarievenkaart" />;
-}
-
-/** The closed form sheet, kept in the document so opening animates. */
-function ClosedSheet({ title }: { title: string }) {
+  const submit = useSubmitHandle();
   return (
     <FormSheet
-      open={false}
-      title={title}
-      submitText="Bewaar"
-      onSubmit={() => {}}
-      onClose={() => {}}
+      open={open}
+      size="wide"
+      title="Nieuwe tarievenkaart"
+      submitText="Maak concept"
+      busy={props.busy}
+      error={props.error}
+      onClose={props.onClose}
+      onSubmit={() => submit.current()}
     >
-      {null}
+      {open ? <NewCardForm {...props} submit={submit} /> : null}
     </FormSheet>
   );
+}
+
+/** What the form inside a sheet does on submit; the sheet itself stays mounted. */
+type SubmitHandle = MutableRefObject<() => void>;
+
+function useSubmitHandle(): SubmitHandle {
+  return useRef<() => void>(() => {});
+}
+
+function useSubmitting(submitRef: SubmitHandle, onSubmit: () => void) {
+  useEffect(() => {
+    submitRef.current = onSubmit;
+  });
+}
+
+/** The last non-null value, so a closing sheet keeps its title while it animates out. */
+function useLastShown<T>(value: T | null): T | null {
+  const [last, setLast] = useState(value);
+  if (value !== null && value !== last) setLast(value);
+  return value ?? last;
 }
 
 function NewCardForm({
@@ -597,12 +615,10 @@ function NewCardForm({
   cards,
   hasCards,
   defaultIncreasePct,
-  busy,
-  error,
-  onClose,
   onInvalid,
   onSave,
-}: Omit<NewCardSheetProps, 'open'>) {
+  submit,
+}: Omit<NewCardSheetProps, 'open'> & { submit: SubmitHandle }) {
   const [validFrom, setValidFrom] = useState(() => proposedStart(today, cards));
   // A card that starts before a later one ends the day before that one;
   // the end date follows the start date until someone sets it by hand.
@@ -628,36 +644,29 @@ function NewCardForm({
     retry: false,
   });
 
+  useSubmitting(submit, () => {
+    if (!dateValid) {
+      onInvalid('Vul de datum in vanaf wanneer de tarievenkaart geldt.');
+      return;
+    }
+    if (copy && !pctValid) {
+      onInvalid(`Vul een verhoging in van 0 tot en met ${MAX_INCREASE_PCT} procent.`);
+      return;
+    }
+    if (validTo && validTo < validFrom) {
+      onInvalid('De einddatum ligt voor de begindatum.');
+      return;
+    }
+    onSave({
+      validFrom,
+      validTo: validTo || null,
+      name: name.trim() || null,
+      indexation: copy ? indexation : null,
+    });
+  });
+
   return (
-    <FormSheet
-      open
-      size="wide"
-      title="Nieuwe tarievenkaart"
-      submitText="Maak concept"
-      busy={busy}
-      error={error}
-      onClose={onClose}
-      onSubmit={() => {
-        if (!dateValid) {
-          onInvalid('Vul de datum in vanaf wanneer de tarievenkaart geldt.');
-          return;
-        }
-        if (copy && !pctValid) {
-          onInvalid(`Vul een verhoging in van 0 tot en met ${MAX_INCREASE_PCT} procent.`);
-          return;
-        }
-        if (validTo && validTo < validFrom) {
-          onInvalid('De einddatum ligt voor de begindatum.');
-          return;
-        }
-        onSave({
-          validFrom,
-          validTo: validTo || null,
-          name: name.trim() || null,
-          indexation: copy ? indexation : null,
-        });
-      }}
-    >
+    <>
       <DateField
         label="Geldig vanaf"
         supportingLabel="Elke datum kan, ook midden in een jaar"
@@ -709,7 +718,7 @@ function NewCardForm({
           />
           <nldd-container gap="8">
             <nldd-title
-              size={5}
+              size="display-5"
               text="Dit komt in het concept"
               heading-level={2}
               {...(preview.data
@@ -755,7 +764,7 @@ function NewCardForm({
           </nldd-container>
         </>
       ) : null}
-    </FormSheet>
+    </>
   );
 }
 
@@ -795,9 +804,11 @@ function ActivateSheet({ card, busy, error, onClose, onActivate }: ActivateSheet
         <ErrorNotice message={errorMessage(preview.error)} />
       ) : (
         <nldd-container gap="8">
-          <nldd-title size={5} text="Dit gebeurt als je vaststelt" heading-level={2} />
+          <nldd-title size="display-5" text="Dit gebeurt als je vaststelt" heading-level={2} />
           {activationSentences(preview.data).map((sentence) => (
-            <nldd-text key={sentence}>{sentence}</nldd-text>
+            <nldd-text key={sentence}>
+              <p>{sentence}</p>
+            </nldd-text>
           ))}
         </nldd-container>
       )}
@@ -812,51 +823,53 @@ interface BandSheetProps extends SheetCommon {
 }
 
 function BandSheet({ editing, ...props }: BandSheetProps) {
-  return editing ? (
-    <BandForm key={editing.category} editing={editing} {...props} />
-  ) : (
-    <ClosedSheet title="Maandtarief" />
+  const submit = useSubmitHandle();
+  const shown = useLastShown(editing);
+  return (
+    <FormSheet
+      open={editing !== null}
+      title={shown ? `Maandtarief categorie ${shown.category}, ${props.cardName}` : 'Maandtarief'}
+      submitText="Bewaar"
+      busy={props.busy}
+      error={props.error}
+      onClose={props.onClose}
+      onSubmit={() => submit.current()}
+    >
+      {props.panel}
+      {editing ? (
+        <BandForm key={editing.category} editing={editing} {...props} submit={submit} />
+      ) : null}
+    </FormSheet>
   );
 }
 
 function BandForm({
   editing,
-  cardName,
-  busy,
-  error,
-  panel,
-  onClose,
   onInvalid,
   onSave,
-}: Omit<BandSheetProps, 'editing'> & { editing: { category: string; cents: number | null } }) {
+  submit,
+}: Omit<BandSheetProps, 'editing'> & {
+  editing: { category: string; cents: number | null };
+  submit: SubmitHandle;
+}) {
   const [amount, setAmount] = useState(centsToEuroInput(editing.cents));
+  useSubmitting(submit, () => {
+    const cents = eurosToCents(amount);
+    if (cents === null || cents < 0) {
+      onInvalid('Vul een bedrag in euro in, bijvoorbeeld 18000.');
+      return;
+    }
+    onSave(editing.category, cents);
+  });
   return (
-    <FormSheet
-      open
-      title={`Maandtarief categorie ${editing.category}, ${cardName}`}
-      submitText="Bewaar"
-      busy={busy}
-      error={error}
-      onClose={onClose}
-      onSubmit={() => {
-        const cents = eurosToCents(amount);
-        if (cents === null || cents < 0) {
-          onInvalid('Vul een bedrag in euro in, bijvoorbeeld 18000.');
-          return;
-        }
-        onSave(editing.category, cents);
-      }}
-    >
-      {panel}
-      <TextField
-        label="Maandtarief per FTE"
-        supportingLabel="In euro"
-        value={amount}
-        onChange={setAmount}
-        keyboard="decimal"
-        required
-      />
-    </FormSheet>
+    <TextField
+      label="Maandtarief per FTE"
+      supportingLabel="In euro"
+      value={amount}
+      onChange={setAmount}
+      keyboard="decimal"
+      required
+    />
   );
 }
 
@@ -867,47 +880,53 @@ interface ScaleSheetProps extends SheetCommon {
 }
 
 function ScaleSheet({ editing, ...props }: ScaleSheetProps) {
-  return editing ? (
-    <ScaleForm key={String(editing.scale)} editing={editing} {...props} />
-  ) : (
-    <ClosedSheet title="Schaal" />
+  const submit = useSubmitHandle();
+  const shown = useLastShown(editing);
+  return (
+    <FormSheet
+      open={editing !== null}
+      title={
+        shown === null
+          ? 'Schaal'
+          : shown.scale === null
+            ? `Schaal toevoegen, ${props.cardName}`
+            : `Categorie van schaal ${shown.scale}, ${props.cardName}`
+      }
+      submitText="Bewaar"
+      busy={props.busy}
+      error={props.error}
+      onClose={props.onClose}
+      onSubmit={() => submit.current()}
+    >
+      {props.panel}
+      {editing ? (
+        <ScaleForm key={String(editing.scale)} editing={editing} {...props} submit={submit} />
+      ) : null}
+    </FormSheet>
   );
 }
 
 function ScaleForm({
   editing,
-  cardName,
-  busy,
-  error,
-  panel,
-  onClose,
   onInvalid,
   onSave,
-}: Omit<ScaleSheetProps, 'editing'> & { editing: { scale: number | null; category: string } }) {
+  submit,
+}: Omit<ScaleSheetProps, 'editing'> & {
+  editing: { scale: number | null; category: string };
+  submit: SubmitHandle;
+}) {
   const [scale, setScale] = useState(editing.scale === null ? '' : String(editing.scale));
   const [category, setCategory] = useState(editing.category);
+  useSubmitting(submit, () => {
+    const number = Number.parseInt(scale, 10);
+    if (!/^\d+$/.test(scale.trim()) || number < 1 || number > 30) {
+      onInvalid('Vul een schaal in van 1 tot en met 30.');
+      return;
+    }
+    onSave(number, category);
+  });
   return (
-    <FormSheet
-      open
-      title={
-        editing.scale === null
-          ? `Schaal toevoegen, ${cardName}`
-          : `Categorie van schaal ${editing.scale}, ${cardName}`
-      }
-      submitText="Bewaar"
-      busy={busy}
-      error={error}
-      onClose={onClose}
-      onSubmit={() => {
-        const number = Number.parseInt(scale, 10);
-        if (!/^\d+$/.test(scale.trim()) || number < 1 || number > 30) {
-          onInvalid('Vul een schaal in van 1 tot en met 30.');
-          return;
-        }
-        onSave(number, category);
-      }}
-    >
-      {panel}
+    <>
       {editing.scale === null ? (
         <TextField label="Schaal" value={scale} onChange={setScale} keyboard="numeric" required />
       ) : null}
@@ -917,7 +936,7 @@ function ScaleForm({
         onChange={setCategory}
         options={CATEGORIES.map((c) => ({ value: c, label: c }))}
       />
-    </FormSheet>
+    </>
   );
 }
 
@@ -927,45 +946,45 @@ interface DetailsSheetProps extends SheetCommon {
 }
 
 function DetailsSheet({ card, ...props }: DetailsSheetProps) {
-  return card ? (
-    <DetailsForm key={card.id} card={card} {...props} />
-  ) : (
-    <ClosedSheet title="Naam en einddatum" />
+  const submit = useSubmitHandle();
+  const shown = useLastShown(card);
+  return (
+    <FormSheet
+      open={card !== null}
+      title={shown ? `Naam en einddatum van ${shown.name}` : 'Naam en einddatum'}
+      submitText="Bewaar"
+      busy={props.busy}
+      error={props.error}
+      onClose={props.onClose}
+      onSubmit={() => submit.current()}
+    >
+      {props.panel}
+      {card ? <DetailsForm key={card.id} card={card} {...props} submit={submit} /> : null}
+    </FormSheet>
   );
 }
 
 function DetailsForm({
   card,
-  busy,
-  error,
-  panel,
-  onClose,
   onInvalid,
   onSave,
-}: Omit<DetailsSheetProps, 'card'> & { card: RateCard }) {
+  submit,
+}: Omit<DetailsSheetProps, 'card'> & { card: RateCard; submit: SubmitHandle }) {
   const [name, setName] = useState(card.name);
   const [validTo, setValidTo] = useState(card.valid_to ?? '');
+  useSubmitting(submit, () => {
+    if (!name.trim()) {
+      onInvalid('Geef de tarievenkaart een naam.');
+      return;
+    }
+    if (validTo && validTo < card.valid_from) {
+      onInvalid('De einddatum ligt voor de begindatum.');
+      return;
+    }
+    onSave(card, { name: name.trim(), valid_to: validTo || null });
+  });
   return (
-    <FormSheet
-      open
-      title={`Naam en einddatum van ${card.name}`}
-      submitText="Bewaar"
-      busy={busy}
-      error={error}
-      onClose={onClose}
-      onSubmit={() => {
-        if (!name.trim()) {
-          onInvalid('Geef de tarievenkaart een naam.');
-          return;
-        }
-        if (validTo && validTo < card.valid_from) {
-          onInvalid('De einddatum ligt voor de begindatum.');
-          return;
-        }
-        onSave(card, { name: name.trim(), valid_to: validTo || null });
-      }}
-    >
-      {panel}
+    <>
       <TextField label="Naam" value={name} onChange={setName} required />
       <DateField
         label="Geldig tot en met"
@@ -974,6 +993,6 @@ function DetailsForm({
         value={validTo}
         onChange={setValidTo}
       />
-    </FormSheet>
+    </>
   );
 }

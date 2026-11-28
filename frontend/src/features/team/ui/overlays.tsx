@@ -51,7 +51,7 @@ export function Sheet({
 
   return createPortal(
     <nldd-sheet ref={ref} open={orUndef(open)} placement="right" width={width}>
-      <nldd-page>
+      <nldd-page sticky-header>
         <nldd-top-title-bar
           slot="header"
           text={title}
@@ -59,7 +59,7 @@ export function Sheet({
           collapse-anchor={titleId}
         />
         <nldd-simple-section>
-          <nldd-title id={titleId} slot="header" size={2} text={title} heading-level={1} />
+          <nldd-title id={titleId} slot="header" size="display-2" text={title} heading-level={1} />
           {/* Content only while open: a closed sheet holds no stale form. */}
           {open ? children : null}
         </nldd-simple-section>
@@ -149,7 +149,14 @@ export function ConfirmDialog({
       text={text}
       supporting-text={supportingText}
     >
-      <Button slot="actions" text="Annuleer" onClick={onClose} />
+      <Button
+        slot="actions"
+        text="Annuleer"
+        // Beside an irreversible action the way back is the primary one: who
+        // clicks without reading ends at the safe choice.
+        {...(destructive ? { appearance: 'primary' as const } : {})}
+        onClick={onClose}
+      />
       <Button
         slot="actions"
         appearance={destructive ? 'destructive' : 'primary'}

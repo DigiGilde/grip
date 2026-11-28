@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
-import { SectionHeading } from '@/ui/layout';
+import { Quiet, SectionHeading, Stack } from '@/ui/layout';
 import { formatEuro } from '@/lib/format';
+import { Icon } from '@/ui/Icon';
 import type { Totals } from './api';
 import { hasAmounts } from './api';
 import './reports.css';
@@ -30,8 +31,8 @@ export function ReportBlock({
         <nldd-container gap="4">
           {!bare && <SectionHeading text={title} />}
           {note && (
-            <nldd-text size="sm" color="secondary">
-              {note}
+            <nldd-text size="sm">
+              <p>{note}</p>
             </nldd-text>
           )}
         </nldd-container>
@@ -67,53 +68,57 @@ export function Figures({
   /** One quiet line under all figures, e.g. that they are incomplete. */
   note?: string;
 }) {
+  const list = (
+    <dl className="grip-figures" aria-label={label}>
+      {figures.map((figure) => (
+        <div
+          key={figure.label}
+          className={[
+            'grip-figure',
+            figure.attention ? 'grip-figure--attention' : '',
+            figure.quiet ? 'grip-figure--quiet' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        >
+          <dt>{figure.label}</dt>
+          <dd className="grip-figure__value">{figure.value}</dd>
+          {figure.attention && (
+            <dd className="grip-figure__flag">
+              <Icon concept="attention" />
+              {figure.attention}
+            </dd>
+          )}
+          {figure.detail && <dd className="grip-figure__detail">{figure.detail}</dd>}
+        </div>
+      ))}
+    </dl>
+  );
+  if (!note) return list;
   return (
-    <>
-      <dl className="grip-figures" aria-label={label}>
-        {figures.map((figure) => (
-          <div
-            key={figure.label}
-            className={[
-              'grip-figure',
-              figure.attention ? 'grip-figure--attention' : '',
-              figure.quiet ? 'grip-figure--quiet' : '',
-            ]
-              .filter(Boolean)
-              .join(' ')}
-          >
-            <dt>{figure.label}</dt>
-            <dd className="grip-figure__value">{figure.value}</dd>
-            {figure.attention && (
-              <dd className="grip-figure__flag">
-                <span className="grip-mark" aria-hidden="true">
-                  !
-                </span>
-                {figure.attention}
-              </dd>
-            )}
-            {figure.detail && <dd className="grip-figure__detail">{figure.detail}</dd>}
-          </div>
-        ))}
-      </dl>
-      {note ? <p className="grip-figure__detail grip-figures__note">{note}</p> : null}
-    </>
+    <Stack gap="close">
+      {list}
+      <Quiet>{note}</Quiet>
+    </Stack>
   );
 }
 
 /**
- * An amount in a table, right aligned. Empty when the API sent none; a zero
- * is muted, so the amounts that matter stand out.
+ * An amount in a table, right aligned. Empty when the API sent none.
  */
 export function MoneyCell({
   cents,
   bold,
   note,
   critical,
+  hideBelow,
 }: {
   cents: number | null | undefined;
   bold?: boolean;
   note?: string;
   critical?: boolean;
+  /** Leave the cell out below this width, with the column's header. */
+  hideBelow?: 'md';
 }) {
   const text = formatEuro(cents);
   const zero = cents === 0;
@@ -121,8 +126,9 @@ export function MoneyCell({
     <nldd-text-cell
       text={bold && text && !zero ? `**${text}**` : text}
       horizontal-alignment="right"
+      {...(hideBelow ? { 'hide-below': hideBelow } : {})}
       {...(note ? { 'supporting-text': note } : {})}
-      {...(critical ? { color: 'critical' } : zero ? { color: 'secondary' } : {})}
+      {...(critical ? { color: 'critical' } : {})}
     />
   );
 }
@@ -130,12 +136,10 @@ export function MoneyCell({
 export function NumberCell({
   text,
   note,
-  muted,
   hideBelow,
 }: {
   text: string;
   note?: string;
-  muted?: boolean;
   /** Leave the cell out below this width, with the column's header. */
   hideBelow?: 'md';
 }) {
@@ -145,7 +149,6 @@ export function NumberCell({
       horizontal-alignment="right"
       {...(hideBelow ? { 'hide-below': hideBelow } : {})}
       {...(note ? { 'supporting-text': note } : {})}
-      {...(muted ? { color: 'secondary' } : {})}
     />
   );
 }
@@ -156,7 +159,7 @@ export function TotalsHeaderCells() {
   return (
     <>
       <nldd-text-cell text="Begroot" horizontal-alignment="right" />
-      <nldd-text-cell text="Gerealiseerd" horizontal-alignment="right" />
+      <nldd-text-cell text="Gerealiseerde inzet" horizontal-alignment="right" />
       <nldd-text-cell text="Nog gepland" horizontal-alignment="right" />
       <nldd-text-cell text="Kosten" horizontal-alignment="right" />
       <nldd-text-cell text="Verwacht totaal" horizontal-alignment="right" />
@@ -166,7 +169,7 @@ export function TotalsHeaderCells() {
 }
 
 /**
- * The amounts in the words of the assignment pages: begroot, gerealiseerd,
+ * The amounts in the words of the assignment pages: begroot, gerealiseerde inzet,
  * nog gepland, kosten, verwacht totaal and afwijking (begroot min verwacht
  * totaal). An overrun is said in words.
  */
@@ -185,7 +188,6 @@ export function TotalsCells({
         <nldd-text-cell
           text={error ? 'Niet berekend' : ''}
           {...(error ? { 'supporting-text': error } : {})}
-          color="secondary"
         />
         <nldd-text-cell />
         <nldd-text-cell />

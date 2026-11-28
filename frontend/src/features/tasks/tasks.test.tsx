@@ -1,13 +1,11 @@
 import { screen, waitFor } from '@testing-library/react';
 import { Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { MainNavigation } from '@/layout/MainNavigation';
 import { renderApp, TEST_PERSON } from '@/test/utils';
 import type { CaseTasks as CaseTasksData, Task } from './api';
-import { AssignmentTasksTab } from './CaseTasks';
+import { CaseTasks } from './CaseTasks';
 import { filterTasks, optionsOf } from './groups';
 import { movesOf } from './moves';
-import { MyTasksBlock } from './MyTasksBlock';
 import { TaskBar } from './TaskBar';
 import { TasksPage } from './TasksPage';
 import { aboutLine, dueWords, goesToWork, myWork, workHref } from './telling';
@@ -25,7 +23,6 @@ function task(overrides: Partial<Task>): Task {
     status_label: 'Te doen',
     origin: 'plan',
     assignee_label: 'Eigenaar of manager van de opdracht',
-    link: '/opdrachten/a-1/maandafsluiting?maand=2026-09',
     is_mine: true,
     can_change: true,
     can_complete: false,
@@ -38,7 +35,8 @@ function task(overrides: Partial<Task>): Task {
     why: 'September 2026 is voorbij en er was inzet gepland.',
     then: 'Daarna lever je de factuurgegevens aan.',
     action_text: 'Sluit september 2026 af',
-    work_href: '/opdrachten/a-1/maandafsluiting?maand=2026-09',
+    work_href: '/opdrachten/a-1/afsluiten',
+    step_href: '/opdrachten/a-1/afsluiten?maand=2026-09',
     ...overrides,
   };
 }
@@ -54,7 +52,6 @@ const MANUAL = task({
   closing_fact_label: null,
   assignee_label: 'Fictieve Collega',
   is_mine: false,
-  link: null,
   work_href: null,
   needs_me: false,
   action_text: null,
@@ -90,7 +87,7 @@ const AWAITED = task({
   needs_me: false,
   action_text: null,
   waits_on: 'een planner',
-  work_href: '/opdrachten/a-1/bemensing',
+  work_href: '/opdrachten/a-1/team',
 });
 
 /** Answers GET requests from a table of path to body; anything else is a 404. */
@@ -119,10 +116,14 @@ describe('telling', () => {
 
   it('sends who must do a task to the place of the work, with the task in the address', () => {
     expect(goesToWork(LATE)).toBe(true);
-    expect(workHref(LATE)).toBe('/opdrachten/a-1/maandafsluiting?maand=2026-09&bij-taak=t-late');
-    expect(workHref(AWAITED)).toBe('/opdrachten/a-1/bemensing?bij-taak=t-awaited');
+    // The page, not the month opened on it: the page's own button takes the step.
+    expect(workHref(LATE)).toBe('/opdrachten/a-1/afsluiten?bij-taak=t-late');
+    expect(workHref(AWAITED)).toBe('/opdrachten/a-1/team?bij-taak=t-awaited');
     // Who waits reads the task; a task of your own is finished where it is read.
     expect(goesToWork(WAITING)).toBe(false);
+    // Without a place the server allows, there is no address and nothing to go to.
+    expect(workHref({ ...LATE, work_href: null })).toBeNull();
+    expect(goesToWork({ ...LATE, work_href: null })).toBe(false);
     expect(goesToWork({ ...MANUAL, needs_me: true, is_mine: true })).toBe(false);
   });
 
@@ -145,8 +146,8 @@ describe('grouping', () => {
     expect(filterTasks(all, { ...none, track: 'Offerte' })).toEqual([WAITING]);
     expect(filterTasks(all, { ...none, assignee: 'mine' })).toEqual([LATE, WAITING]);
     expect(filterTasks(all, { ...none, assignee: 'Fictieve Collega' })).toEqual([MANUAL]);
-    expect(optionsOf(all, (item) => item.track_label, 'Alle sporen').map((o) => o.label)).toEqual([
-      'Alle sporen',
+    expect(optionsOf(all, (item) => item.track_label, 'Alle soorten werk').map((o) => o.label)).toEqual([
+      'Alle soorten werk',
       'Offerte',
       'Uitvoering',
     ]);
@@ -172,15 +173,15 @@ describe('TasksPage', () => {
     stubApi({ '/api/tasks/mine': { items: [SOON, LATE, WAITING], awaited: [AWAITED] } });
     const { container } = renderApp(<TasksPage />, { path: '/taken' });
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Taken');
-    await waitFor(() => expect(container.querySelectorAll('nldd-table')).toHaveLength(2));
+    await waitFor(() => expect(container.querySelectorAll('nldd-list')).toHaveLength(2));
     const headings = [...container.querySelectorAll('nldd-title[heading-level="2"]')].map((el) =>
       el.getAttribute('text'),
     );
     expect(headings).toEqual(['Te doen', 'Wacht op anderen']);
-    const [toDo, waiting] = [...container.querySelectorAll('nldd-table')];
+    const [toDo, waiting] = [...container.querySelectorAll('nldd-list')];
     // The late one first; each task by what to do, and on what.
     const names = (table: Element | undefined) =>
-      [...(table?.querySelectorAll('nldd-table-row:not([slot]) nldd-link') ?? [])].map((el) =>
+      [...(table?.querySelectorAll('nldd-list-item nldd-text-cell') ?? [])].map((el) =>
         el.getAttribute('text'),
       );
     expect(names(toDo)).toEqual(['Sluit september 2026 af', 'Vul de rol Ontwerper in']);
@@ -188,8 +189,19 @@ describe('TasksPage', () => {
       'Akkoord van de opdrachtgever',
       'De invulling van de rol Ontwerper',
     ]);
-    expect(waiting).toHaveTextContent('Wacht op Voorbeeldministerie · Opdracht Beta 2026');
-    expect(waiting).toHaveTextContent('Wacht op een planner');
+    const details = [...waiting!.querySelectorAll('nldd-text-cell')].map((el) =>
+      el.getAttribute('supporting-text'),
+    );
+    expect(details).toContain('Wacht op Voorbeeldministerie · Opdracht Beta 2026');
+    expect(details).toContain('Wacht op een planner · Opdracht Alfa 2026');
+    // Rows, not a table: no header over a single column.
+    expect(container.querySelector('nldd-table')).toBeNull();
+    // The late one says so, and when it was due.
+    const late = toDo!.querySelector('nldd-list-item')!;
+    expect(late.querySelector('nldd-badge')).toHaveAttribute('text', 'Te laat');
+    expect(late.querySelector('nldd-text-cell')?.getAttribute('supporting-text')).toBe(
+      'Opdracht Alfa 2026 · Vóór 7 okt 2026',
+    );
     // Nothing is open by default, and no word about how tasks close.
     expect(container.ownerDocument.querySelector('nldd-sheet[open]')).toBeNull();
     expect(container).not.toHaveTextContent('Sluit vanzelf');
@@ -198,7 +210,7 @@ describe('TasksPage', () => {
   it('leads who approves quotes to the quotes that wait, and nobody else', async () => {
     stubApi({ '/api/tasks/mine': { items: [SOON], awaited: [] } });
     const plain = renderApp(<TasksPage />, { path: '/taken' });
-    await waitFor(() => expect(plain.container.querySelector('nldd-table')).not.toBeNull());
+    await waitFor(() => expect(plain.container.querySelector('nldd-list')).not.toBeNull());
     expect(plain.container.querySelector('[text="Offertes ter goedkeuring"]')).toBeNull();
     plain.unmount();
 
@@ -210,10 +222,67 @@ describe('TasksPage', () => {
         functions: ['offertegoedkeurder'],
       },
     });
-    await waitFor(() => expect(approver.container.querySelector('nldd-table')).not.toBeNull());
+    await waitFor(() => expect(approver.container.querySelector('nldd-list')).not.toBeNull());
     expect(
       approver.container.querySelector('[text="Offertes ter goedkeuring"]')?.getAttribute('href'),
     ).toBe('/goedkeuren');
+  });
+
+  it('puts the two views under the title as one bar, each with its own address', async () => {
+    stubApi({ '/api/tasks/mine': { items: [SOON] } });
+    const { container } = renderApp(<TasksPage />, { path: '/taken' });
+    await waitFor(() => expect(container.querySelector('nldd-list')).not.toBeNull());
+    const tabs = [...container.querySelectorAll('.thing-tabs nldd-menu-bar-item')];
+    expect(tabs.map((tab) => tab.getAttribute('text'))).toEqual(['Mijn taken', 'Bord']);
+    expect(tabs.map((tab) => tab.getAttribute('href'))).toEqual(['/taken', '/taken?weergave=bord']);
+    expect(tabs.map((tab) => tab.hasAttribute('current'))).toEqual([true, false]);
+    expect(container.querySelector('select, nldd-dropdown')).toBeNull();
+  });
+
+  it('marks the board as the current view and keeps the filters of the board only', async () => {
+    stubApi({ '/api/tasks': { items: [LATE] } });
+    const { container } = renderApp(<TasksPage />, { path: '/taken?weergave=bord&spoor=Uitvoering' });
+    await waitFor(() => expect(container.querySelector('nldd-card')).not.toBeNull());
+    const current = container.querySelector('.thing-tabs nldd-menu-bar-item[current]');
+    expect(current).toHaveAttribute('text', 'Bord');
+    const filters = [...container.querySelectorAll('nldd-dropdown')].map((el) =>
+      el.getAttribute('accessible-label'),
+    );
+    expect(filters).toEqual(['Opdracht of vacature', 'Voor wie', 'Soort werk']);
+  });
+
+  it('leads a task of mine to its work and opens any other to be read', async () => {
+    stubApi({ '/api/tasks/mine': { items: [LATE, WAITING] } });
+    const { container } = renderApp(<TasksPage />, { path: '/taken' });
+    await waitFor(() => expect(container.querySelectorAll('nldd-list-item')).toHaveLength(2));
+    const [mine, waiting] = [...container.querySelectorAll('nldd-list-item-segment')];
+    expect(mine).toHaveAttribute('href', '/opdrachten/a-1/afsluiten?bij-taak=t-late');
+    expect(waiting).not.toHaveAttribute('href');
+    expect(waiting).toHaveAttribute('button');
+  });
+
+  it('offers the way to the work in the menu of who only looks on', async () => {
+    stubApi({ '/api/tasks/mine': { items: [WAITING] } });
+    const { container } = renderApp(<TasksPage />, { path: '/taken' });
+    await waitFor(() => expect(container.querySelectorAll('nldd-list-item')).toHaveLength(1));
+    expect(
+      container.querySelector('nldd-menu-item[text="Ga naar de plek van het werk"]'),
+    ).toHaveAttribute('href', '/opdrachten/a-2/offerte?bij-taak=t-wait');
+  });
+
+  it('gives no way to the work to a reader who may not go there', async () => {
+    const closed = { ...WAITING, work_href: null };
+    stubApi({ '/api/tasks/mine': { items: [closed] }, '/api/tasks/t-wait': closed });
+    const { container } = renderApp(<TasksPage />, { path: '/taken?taak=t-wait' });
+    await waitFor(() => expect(container.querySelectorAll('nldd-list-item')).toHaveLength(1));
+    await waitFor(() =>
+      expect(document.querySelector('nldd-sheet')).toHaveTextContent('Je wacht op het akkoord'),
+    );
+    expect(
+      container.querySelector('nldd-menu-item[text="Ga naar de plek van het werk"]'),
+    ).toBeNull();
+    expect(document.querySelector('nldd-link[text="Ga naar de plek van het werk"]')).toBeNull();
+    expect(document.querySelector('nldd-sheet nldd-button[href]')).toBeNull();
   });
 
   it('says so when there is nothing to do', async () => {
@@ -272,7 +341,7 @@ describe('TasksPage', () => {
       'Opdracht Alfa 2026',
     );
     const labels = [
-      ...(sheet?.querySelectorAll('nldd-list-item nldd-text-cell[color="secondary"]') ?? []),
+      ...(sheet?.querySelectorAll('nldd-list-item nldd-text-cell[width]') ?? []),
     ];
     expect(labels.map((el) => el.getAttribute('text'))).toEqual([
       'Waarover',
@@ -296,7 +365,7 @@ describe('TasksPage', () => {
   it('says why nobody can do a task and who can change that', async () => {
     const blocked = {
       ...AWAITED,
-      blocked: 'Niemand heeft het recht Planner in grip. Een beheerder geeft dat recht bij Team.',
+      blocked: 'Niemand heeft het recht Planner in grip. Een beheerder geeft dat recht onder Mensen.',
     };
     stubApi({ '/api/tasks/mine': { awaited: [blocked] }, '/api/tasks/t-awaited': blocked });
     renderApp(<TasksPage />, { path: '/taken?taak=t-awaited' });
@@ -358,26 +427,23 @@ describe('the Taken tab of a case', () => {
 
   function renderTab(body: CaseTasksData) {
     stubApi({ '/api/tasks/cases/assignment/a-1': body });
-    return renderApp(
-      <Routes>
-        <Route path="/opdrachten/:assignmentId/taken" element={<AssignmentTasksTab />} />
-      </Routes>,
-      { path: '/opdrachten/a-1/taken' },
-    );
+    return renderApp(<CaseTasks kind="assignment" caseId="a-1" />, {
+      path: '/opdrachten/a-1/taken',
+    });
   }
 
   it('shows the tasks per track, once', async () => {
     const { container } = renderTab(CASE);
-    await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
+    await waitFor(() => expect(container.querySelector('nldd-list')).not.toBeNull());
     // The tasks themselves say where each track stands; no summary repeats them.
-    expect(container.querySelector('nldd-list[accessible-label="Stand per spoor"]')).toBeNull();
-    expect(container.querySelectorAll('nldd-table')).toHaveLength(1);
+    expect(container.querySelector('nldd-list[accessible-label="Stand per soort werk"]')).toBeNull();
+    expect(container.querySelectorAll('nldd-list')).toHaveLength(1);
     expect(container.querySelector('nldd-button[text="Nieuwe taak"]')).not.toBeNull();
   });
 
   it('offers no new task to a reader who may only read', async () => {
     const { container } = renderTab({ ...CASE, can_add: false });
-    await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
+    await waitFor(() => expect(container.querySelector('nldd-list')).not.toBeNull());
     expect(container.querySelector('nldd-button[text="Nieuwe taak"]')).toBeNull();
   });
 });
@@ -385,55 +451,14 @@ describe('the Taken tab of a case', () => {
 describe('the Taken tab when the API fails', () => {
   it('shows one calm notice and no table', async () => {
     stubApi({});
-    const { container } = renderApp(
-      <Routes>
-        <Route path="/opdrachten/:assignmentId/taken" element={<AssignmentTasksTab />} />
-      </Routes>,
-      { path: '/opdrachten/a-1/taken' },
-    );
+    const { container } = renderApp(<CaseTasks kind="assignment" caseId="a-1" />, {
+      path: '/opdrachten/a-1/taken',
+    });
     await waitFor(() =>
       expect(container.querySelector('nldd-inline-dialog, nldd-banner')).not.toBeNull(),
     );
-    expect(container.querySelector('nldd-table')).toBeNull();
+    expect(container.querySelector('nldd-list')).toBeNull();
     expect(container.querySelector('nldd-button[text="Nieuwe taak"]')).toBeNull();
-  });
-});
-
-describe('MyTasksBlock', () => {
-  it('shows what I must do first, each as a link to its work, and a link to the rest', async () => {
-    const third = task({
-      id: 't-3',
-      title: 'Bied de offerte aan',
-      work_href: '/opdrachten/a-1/offerte',
-    });
-    stubApi({ '/api/tasks/mine': { items: [SOON, WAITING, third, LATE] } });
-    const { container } = renderApp(<MyTasksBlock limit={2} />);
-    await waitFor(() => expect(container.querySelectorAll('nldd-link')).toHaveLength(3));
-    const links = [...container.querySelectorAll('nldd-link')];
-    // What waits on someone else is not on the start page.
-    expect(links.map((link) => link.getAttribute('text'))).toEqual([
-      LATE.title,
-      SOON.title,
-      'Alle taken (3)',
-    ]);
-    expect(links[0]).toHaveAttribute(
-      'href',
-      '/opdrachten/a-1/maandafsluiting?maand=2026-09&bij-taak=t-late',
-    );
-    expect(links[2]).toHaveAttribute('href', '/taken');
-    expect(container).toHaveTextContent('Opdracht Alfa 2026 · Te laat: vóór 7 okt 2026');
-  });
-
-  it('is calm when there is nothing, and when the API fails', async () => {
-    stubApi({ '/api/tasks/mine': {} });
-    const empty = renderApp(<MyTasksBlock />);
-    await waitFor(() => expect(empty.container).toHaveTextContent('Niets te doen'));
-    empty.unmount();
-    stubApi({});
-    const failed = renderApp(<MyTasksBlock />);
-    await waitFor(() =>
-      expect(failed.container).toHaveTextContent('De taken zijn nu niet te laden.'),
-    );
   });
 });
 
@@ -449,20 +474,19 @@ describe('TaskBar', () => {
 
   it('says on the page of the work which task the reader came to do', async () => {
     stubApi({ '/api/tasks/t-late': LATE });
-    const { container } = renderBar(
-      '/opdrachten/a-1/maandafsluiting?maand=2026-09&bij-taak=t-late',
-    );
+    const { container } = renderBar('/opdrachten/a-1/afsluiten?maand=2026-09&bij-taak=t-late');
     await waitFor(() => expect(container.querySelector('nldd-banner')).not.toBeNull());
     const bar = container.querySelector('nldd-banner');
     expect(bar).toHaveAttribute('text', 'Taak: Sluit september 2026 af');
     expect(bar?.getAttribute('supporting-text')).toContain('Stel vast wie in september 2026');
     expect(bar?.getAttribute('supporting-text')).toContain('Te laat: vóór 7 okt 2026.');
+    expect(bar?.querySelector('nldd-button')).toHaveAttribute('text', 'Terug naar Taken');
     expect(bar?.querySelector('nldd-button')).toHaveAttribute('href', '/taken');
   });
 
   it('says so when the work is done', async () => {
     stubApi({ '/api/tasks/t-late': { ...LATE, status: 'done' } });
-    const { container } = renderBar('/opdrachten/a-1/maandafsluiting?bij-taak=t-late');
+    const { container } = renderBar('/opdrachten/a-1/afsluiten?bij-taak=t-late');
     await waitFor(() =>
       expect(container.querySelector('nldd-banner')).toHaveAttribute(
         'text',
@@ -474,27 +498,7 @@ describe('TaskBar', () => {
 
   it('draws nothing on a page that was not opened for a task', () => {
     stubApi({});
-    const { container } = renderBar('/opdrachten/a-1/maandafsluiting');
+    const { container } = renderBar('/opdrachten/a-1/afsluiten');
     expect(container.querySelector('nldd-banner')).toBeNull();
-  });
-});
-
-describe('the navigation', () => {
-  it('counts what I must do, not what waits on others', async () => {
-    stubApi({ '/api/tasks/count': { open: 3, to_do: 2, overdue: 1 } });
-    const { container } = renderApp(<MainNavigation />, { path: '/' });
-    const item = () => container.querySelector('nldd-menu-bar-item[href="/taken"]');
-    await waitFor(() => expect(item()?.querySelector('nldd-badge')).toHaveAttribute('number', '2'));
-    expect(item()).toHaveAttribute('text', 'Taken');
-    expect(item()).toHaveAttribute('accessible-label', 'Taken, 2 taken te doen');
-  });
-
-  it('shows the plain word when there is nothing', async () => {
-    stubApi({ '/api/tasks/count': {} });
-    const { container } = renderApp(<MainNavigation />, { path: '/' });
-    const item = container.querySelector('nldd-menu-bar-item[href="/taken"]');
-    expect(item).toHaveAttribute('text', 'Taken');
-    expect(item?.querySelector('nldd-badge')).toBeNull();
-    expect(item).not.toHaveAttribute('accessible-label');
   });
 });

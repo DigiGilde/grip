@@ -32,7 +32,7 @@ const { number, title, status, date } = entry.data;
   <Fragment slot="meta">
     <nldd-container layout="wrap" gap="8" vertical-alignment="center">
       <nldd-tag color={STATUS_COLOR[status]} text={status}></nldd-tag>
-      {date && <nldd-text size="sm" color="secondary">{date}</nldd-text>}
+      {date && <nldd-text size="sm" color="secondary"><span>{date}</span></nldd-text>}
     </nldd-container>
   </Fragment>
   <Outline slot="sidebar" headings={headings} />

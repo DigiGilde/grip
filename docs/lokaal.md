@@ -228,7 +228,7 @@ De federatielistener van grip leest de database die je opgeeft met `GRIP_DATABAS
 
 Wat je ziet:
 
-- In grip, op het tabblad Context van een opdracht: de nodes uit Bouwmeester met hun keten naar de politieke input.
+- In grip, onder Context op Gegevens van een opdracht: de nodes uit Bouwmeester met hun keten naar de politieke input.
 - In Bouwmeester, op de pagina van een doel, instrument of maatregel: de kaart "Opdrachten in grip" met fase, periode, begroot en besteed.
 
 Een beperking: Bouwmeester toont alleen opdrachten waarvan opdrachtgever en opdrachtnemer een TOOI-URI hebben, want het contract eist die. De voorbeeldgegevens van `just seed` gebruiken eigen fictieve adressen voor organisaties; daarmee weigert de listener van grip het eigen antwoord.

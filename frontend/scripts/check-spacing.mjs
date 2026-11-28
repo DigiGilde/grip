@@ -28,7 +28,8 @@
  * --shots saves a picture of every page next to the findings. Look at them:
  * the measure finds gaps and overlaps, the eye finds what reads badly.
  *
- * Exit code 1 when there are findings, so it can guard a change.
+ * Exit code 1 when there are findings, when a page could not be measured, or
+ * when there was nothing to measure, so it can guard a change.
  */
 import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -57,6 +58,9 @@ const SHOTS = typeof args.shots === 'string' ? args.shots : null;
 const DEV_PERSON_COOKIE = 'grip_dev_person';
 
 const src = path.resolve(import.meta.dirname, '../src');
+
+/** Addresses left out because an id they need is not in the example data. */
+const skipped = new Set();
 
 /** `key: 'value'` pairs of an object literal in a source file, so routes cannot drift. */
 function literal(file, name) {
@@ -105,10 +109,11 @@ async function api(pathname, personId) {
 async function routes(personId) {
   const paths = literal('paths.ts', 'PATHS');
   const assignmentTabs = Object.values(
-    literal('features/assignments/paths.ts', 'ASSIGNMENT_TAB_SEGMENTS'),
+    literal('features/assignments/paths.ts', 'ASSIGNMENT_PART_SEGMENTS'),
   );
-  const vacancyTabs = Object.values(literal('features/vacancies/paths.ts', 'VACANCY_TAB_SEGMENTS'));
-  const topics = Object.keys(literal('features/reports/topics.ts', 'TOPICS'));
+  const vacancyTabs = Object.values(
+    literal('features/vacancies/paths.ts', 'VACANCY_PART_SEGMENTS'),
+  );
 
   const own = (await api('/api/assignments', personId)) ?? [];
   const assignments = own.length > 0 ? own : ((await api('/api/assignments')) ?? []);
@@ -133,15 +138,7 @@ async function routes(personId) {
     ':quoteId': quote?.id,
   };
   const out = [];
-  const skipKeys = new Set([
-    'assignmentFinance',
-    'assignmentStaffing',
-    'assignmentBudget',
-    'assignmentQuote',
-    'assignmentMonthClose',
-    'ratesLegacy',
-    'login',
-  ]);
+  const skipKeys = new Set(['login']);
   for (const [key, template] of Object.entries(paths)) {
     if (skipKeys.has(key)) continue;
     if (template.includes(':assignmentId')) {
@@ -158,16 +155,18 @@ async function routes(personId) {
           out.push({ name: `${key} (${assignment.phase})`, url: base });
         }
       }
-    } else if (template.includes(':topic')) {
-      for (const topic of topics)
-        out.push({ name: `rapportage /${topic}`, url: template.replace(':topic', topic) });
-    } else if (key === 'vacancyDetail' && vacancy) {
+    } else if (key === 'vacancyDetail' && !vacancy) {
+      skipped.add(template);
+    } else if (key === 'vacancyDetail') {
       const base = template.replace(':vacancyId', vacancy.id);
       for (const tab of vacancyTabs)
         out.push({ name: `vacature /${tab}`, url: tab ? `${base}/${tab}` : base });
     } else {
       const param = template.match(/:\w+/)?.[0];
-      if (param && !fill[param]) continue;
+      if (param && !fill[param]) {
+        skipped.add(template);
+        continue;
+      }
       out.push({ name: template, url: param ? template.replace(param, fill[param]) : template });
     }
   }
@@ -518,6 +517,7 @@ async function main() {
   const results = [];
   for (const person of persons) {
     const list = await routes(person.id);
+    if (list.length === 0) console.error(`Geen adressen om te meten voor ${person.name}.`);
     for (const width of WIDTHS) {
       const context = await browser.newContext({
         viewport: { width, height: 1400 },
@@ -608,7 +608,14 @@ async function main() {
     `\n${results.length} metingen, ${clean} zonder bevinding. Totaal: ${KINDS.map((k) => `${k} ${totals[k]}`).join(', ')}`,
   );
   if (typeof args.json === 'string') writeFileSync(args.json, JSON.stringify(results, null, 2));
-  process.exit(results.some((r) => r.findings.length > 0) ? 1 : 0);
+  if (skipped.size > 0)
+    console.error(`Overgeslagen, geen id in de voorbeeldgegevens: ${[...skipped].join(', ')}`);
+  const failed = results.filter((r) => r.error).length;
+  if (results.length === 0) console.error('FOUT: er is niets gemeten (nul adressen).');
+  if (failed > 0) console.error(`FOUT: ${failed} metingen mislukt, zie FOUT in de lijst.`);
+  process.exit(
+    results.length === 0 || failed > 0 || results.some((r) => r.findings.length > 0) ? 1 : 0,
+  );
 }
 
 await main();

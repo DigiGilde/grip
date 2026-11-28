@@ -14,7 +14,7 @@ const label = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 <Base title={intro.data.title}>
   <nldd-simple-section>
     <nldd-container slot="header">
-      <nldd-title size="2" heading-level="1" text={intro.data.title}></nldd-title>
+      <nldd-title size="display-2" heading-level="1" text={intro.data.title}></nldd-title>
       <nldd-spacer size="16"></nldd-spacer>
       <div
         data-pagefind-body
@@ -41,8 +41,8 @@ const label = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
           {statuses.map((s) => <nldd-segmented-control-item value={s} text={label(s)} />)}
         </nldd-segmented-control>
       </nldd-container>
-      <nldd-text id="besluiten-aantal" size="sm" color="secondary" aria-live="polite">
-        {adrs.length} besluiten
+      <nldd-text size="sm" color="secondary">
+        <p id="besluiten-aantal" aria-live="polite">{adrs.length} besluiten</p>
       </nldd-text>
       <nldd-list type="navigation" appearance="box-tinted" aria-label="Besluiten">
         {

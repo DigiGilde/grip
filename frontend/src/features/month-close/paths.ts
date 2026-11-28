@@ -1,13 +1,15 @@
+import { assignmentPartPath } from '@/features/assignments/paths';
+
 /**
- * Addresses of the steps on the monthly close tab, so a task or a link can
- * land someone on exactly the step to take.
+ * Addresses of the steps on the monthly close, so a task or a link can land
+ * someone on exactly the step to take.
  */
 export const MONTH_PARAM = 'maand';
 export const INVOICE_PARAM = 'factuur';
 export const PERIOD_PARAM = 'periode';
 
 function tab(assignmentId: string): string {
-  return `/opdrachten/${assignmentId}/maandafsluiting`;
+  return assignmentPartPath(assignmentId, 'close');
 }
 
 /** The tab with one month open: the place to close it, or to see how it was closed. */

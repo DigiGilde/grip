@@ -19,10 +19,10 @@ Een scherm is af als het aan deze eisen voldoet. Meet ze in een browser; een tes
 
 **Mooi**
 
-- Eén accent, voor de ene hoofdactie van het scherm. De rest is neutraal.
+- Eén accent in de inhoud: de hoofdknop is het enige gevulde vlak. De rest is neutraal. De hoofdbalk is navigatie en volgt het designsysteem.
 - Ruimte laat zien wat bij elkaar hoort: veel ruimte om een groep, weinig erbinnen. Een rand of een vlak is daar niet voor nodig.
 - De typografie heeft weinig stappen, en elke stap heeft één taak.
-- Ondersteunende tekst is gedempt.
+- Alle tekst die grip zelf schrijft staat in de gewone kleur; wat minder belangrijk is, is kleiner. Grijs is alleen wat het designsysteem zelf tekent, zoals de tweede regel van een rij. Een kleur met een betekenis, zoals rood bij een overschrijding, blijft (ADR 0059).
 - Een status staat in een label uit een kleine, vaste set.
 
 **Rustig**
@@ -38,13 +38,29 @@ Een scherm is af als het aan deze eisen voldoet. Meet ze in een browser; een tes
 - Lijsten en formulieren ruim.
 - Tabellen met gegevens compact, en uitgelijnd.
 
+## Soorten scherm
+
+Elke pagina zegt wat ze is, met `kind` op `Page`. Dat bepaalt hoe breed de inhoud leest: een lijst en een stuk staan in een leeskolom van 720 pixels aan de linkerrand, een werkblad gebruikt de volle breedte. Titel, terugverwijzing en inhoud beginnen zo op elk scherm op dezelfde linkerrand.
+
+| Soort | `kind` | Schermen |
+|---|---|---|
+| Lijst | `list` | Start, Taken, Opdrachten, Vacatures, Aanvragen, Geld, Beheer, Kosten, Factureren, Zoeken, Ik, Wat is er gebeurd, de landing van een opdracht en van een vacature, Geschiedenis, Alle taken van een zaak |
+| Werkblad | `worksheet` | Begroting, Team, Afsluiten en factureren, het rapport van een opdracht, Lopende opdrachten, Omzet, Investeerruimte, Potentieel, Jaarverantwoording, de lijst Mensen, het bord, Bezetting, Declarabiliteit, het bord van Taken, Tarieven |
+| Stuk | `document` | Offerte en tekenpagina, ontvangen offerte, aanvraag, persoon, kostenpost, factuurverzoek, vacaturetekst, Gegevens, Advies en akkoord, Tekst en openstellen, Vervullen |
+
+Een lijst heeft rijen en één hoofdknop, zoals een dienst voor burgers. Een werkblad zet alle kolommen van een rekenregel in één rij, met een totaalrij. Een stuk is één ding dat je als geheel leest. De toets bij de hoofdvraag van een scherm: kun je het antwoord uit één rij lezen, zonder iets op te tellen of te vergelijken? Dan is het een lijst, anders een werkblad. Een nieuw scherm krijgt een plek in deze tabel.
+
 ## De bouwstenen
 
 Ze staan in `frontend/src/ui/layout/` en `frontend/src/ui/`.
 
 | Bouwsteen | Waarvoor |
 |---|---|
-| `Page` | Een pagina in de schil: de titel in de kop van de sectie, daaronder de inhoud op één ritme. Eén per route. |
+| `Page` | Een pagina in de schil: de titel in de kop van de sectie, daaronder de inhoud op één ritme. Eén per route. `kind` is verplicht; zie "Soorten scherm". |
+| `lead` op `Page` | Eén zin onder de regel van de titel over waar de pagina voor is, in de gewone kleur; laat haar weg als de titel het zegt. Ze staat altijd onder die regel, zodat een lange zin een knop niet van zijn regel duwt. |
+| `action` op `Page` | De ene hoofdknop van de pagina, rechts op de regel van de titel (smal: eronder). |
+| `tabs` op `Page` | De onderdelen van een ding of de weergaven van een lijst, onder de titel, via `TabNav`. |
+| `tabName` op `Page` | Wat het tabblad van de browser zegt als de titel niet zegt welk ding dit is: "Team, Opdracht Alfa 2026". De h1 blijft de titel. |
 | `Section` | Een deel van een pagina met een eigen kop en hooguit één regel uitleg. |
 | `Stack` | Onderdelen onder elkaar, met een afstand uit de schaal. |
 | `Facts` | Feiten als "label: waarde", met de labels in één kolom. Voor lezen. |
@@ -53,18 +69,19 @@ Ze staan in `frontend/src/ui/layout/` en `frontend/src/ui/`.
 | `FormFields` | De velden van een formulier op één afstand, ook op een pagina. |
 | `FilterSelect` | Eén keuzelijst op de gewone maat. |
 | `OpenRow`, `OpenCell`, `RowActions` (`@/ui/RowActions`) | Een rij die opent, en één stille knop met een menu voor de overige acties. |
-| `ActionBar` (`@/ui/ActionBar`) | Filters links, de hoofdactie rechts, alles op één maat. |
+| `ActionBar` (`@/ui/ActionBar`) | Filters links, acties rechts, alles op één maat. De hoofdknop staat hier of op de regel van de titel, niet op beide. |
 | `search` op `ActionBar` | Zoeken in de lijst onder de balk: één zoekveld, vóór de filters. Op een smal scherm staat het op een eigen regel over de volle breedte, want een zoekveld past niet in het menu van de balk. De woorden staan in het adres (`?zoek=`). |
 | `PageRange`, `Pager` (`@/ui/Pager`), `usePaging` (`@/ui/paging`) | Een lange lijst in pagina's van vijftig. Boven de rijen staat welke het zijn ("51 tot en met 100 van 300 opdrachten"), eronder de weg naar de andere pagina's. De pagina staat in het adres (`?pagina=2`). Een lijst van één pagina toont geen van beide. |
-| `NameLine` | Een naam met zijn status: het label staat op de regel van de naam, in het midden ervan, met hooguit één gedempte regel eronder. |
-| `TitleBlock`, en `back` op `Page` | De ene terugverwijzing boven de titel: `back={{ href, text }}`. |
-| `KeyFigures` | Een paar cijfers die een pagina samenvatten: een gedempt label boven de waarde, zonder kader. Een tabel is voor rijen van één soort. |
+| `NameLine` | Een naam met zijn status: het label staat op de regel van de naam, in het midden ervan, met hooguit één kleine regel eronder. |
+| `back` op `Page` | De ene terugverwijzing boven de titel: `back={{ href, text }}`. |
+| `KeyFigures` | Een paar cijfers die een pagina samenvatten: een klein label boven de waarde, zonder kader. Een tabel is voor rijen van één soort. |
 | `SignalList` | Wat aandacht vraagt, als één lijst: een zin per punt, met eronder waar het over gaat. Geen stapel balken. |
-| `TabNav` | De tabs van één geopend ding. Op een smal scherm één keuzelijst, zodat labels niet tot een letter worden afgekapt. |
+| `LinkRows` (`@/ui/LinkRows`) | Rijen die elk ergens heen leiden: de onderdelen van een ding, de blokken van Start, de pagina's van Geld en Ik. Per rij een regel tekst, gedempt eronder wat er speelt (`notice`), een stand als badge (`tag`) en een korte waarde aan het eind (`end`). Een rij met een adres eindigt met het icoon `open`. |
+| `UpdateTimeline` (`features/history`) | Het nieuws als tijdlijn, op Start en op Wat is er gebeurd: per dag een kop, en de berichten van die dag op één spoor (`nldd-step-cell` met `level="minor"`), nieuwste boven, elk een zin met zijn links en de tijd rechts. Op Wat is er gebeurd staan de filters Opdracht en Persoon in de `ActionBar` en in het adres (`?opdracht=&persoon=`). Een filter staat er alleen als het de lijst kan veranderen, een gefilterde lijst zet het nieuws niet op gezien, en leeg na een filter is "Niets gevonden". |
+| `TabNav` | De onderdelen van één geopend ding of de weergaven van een lijst, elk een pagina met een eigen adres: gewone tekst op één regel, een haarlijn onder de rij en een lijn onder waar je bent. `narrow="hide"` voor onderdelen (op een smal scherm wissel je via de landing), `narrow="bar"` voor weergaven, met korte tekst in `short`. Past de balk niet, dan staat de rest achter zijn knop Meer. Nooit een keuzelijst. |
 | `omitEmpty` op `Facts` | Laat een feit zonder waarde weg, waar een lege waarde geen nieuws is. Op een smal scherm staat het label boven de waarde, zodat een waarde nooit midden in een woord breekt. |
-| `hideBelow`, `hideAbove`, `narrowText` op `OpenCell` | Een kolom die op smal wegvalt, vouw je in de naam: `narrowText` is de gedempte regel die alleen smal verschijnt. |
+| `hideBelow`, `hideAbove`, `narrowText` op `OpenCell` | Een kolom die op smal wegvalt, vouw je in de naam: `narrowText` is de kleine regel die alleen smal verschijnt. |
 | `TOP_ALIGNED` (`@/ui/layout`), `verticalAlignment` op `OpenCell` | Voor een rij waarvan de cellen in hoogte verschillen: elke cel begint bovenaan. |
-| `ThingHead` | De kop van één geopend ding met tabs (een opdracht, een vacature): `title`, `back`, `action` (de ene volgende stap, rechts van de titel), als inhoud de regel met de stand en de kerncijfers, `course` (de stappenbalk) en `tabs={{ label, items, current }}`. |
 | `href` op `OpenCell` | Het echte adres van de rij, zodat openen in een nieuw tabblad werkt. |
 | `useNarrow` | Waar de smalle opbouw een andere structuur is en niet alleen een andere maat. |
 | `more` op `ActionBar` | Wat zelden gebeurt of niet terug kan, in één menu aan het eind van de balk, met bevestiging. |
@@ -92,7 +109,7 @@ Schrijf geen marge of padding in pixels. Kies een bouwsteen, of een `nldd-contai
 | Kop van een sectie, h2 | `nldd-title` maat 4, via `Section` |
 | Kop binnen een sectie, h3 | `nldd-title` maat 5 |
 | Tekst | De standaard |
-| Ondersteunend | `nldd-text` met `color="secondary"` en `size="sm"` |
+| Klein | `nldd-text` met `size="sm"` (`Quiet`), in de gewone kleur |
 
 Een rij in een lijst of tabel is nooit een kop.
 
@@ -116,13 +133,13 @@ Een rij in een lijst of tabel is nooit een kop.
 
 | Rang | Wanneer |
 |---|---|
-| Primair | De ene volgende stap van een pagina of een stand. Het enige accent op het scherm |
+| Primair | De ene volgende stap van een pagina of een stand. Het enige gevulde vlak in de inhoud |
 | Secundair | Elke andere actie: een echte knopvorm, neutraal. Dit is de standaard |
 | Destructief | Wat niet terug kan, in de dialoog of het paneel dat er eerst om vraagt |
 
 Een actie als kale tekst leest naast een knop met een rand als een label; die vorm is er daarom niet om te kiezen. `QuietButton` is de uitzondering met een vaste lijst van plekken: de weg uit een formulier ("Annuleer") en een kleine actie binnen een regel van een gesprek (antwoord op een opmerking). In een tabelrij staat geen knop: de rij opent en de rest zit in het menu.
 
-Ergens heen gaan is een link, nooit een knop. Een actie is nooit als link vormgegeven. De ene uitzondering: de volgende stap in de kop van een vacature mag een knop zijn die naar een tabblad leidt, en is dan secundair; het accent ligt op het tabblad waar de stap wordt gedaan.
+Ergens heen gaan is een link, nooit een knop. Een actie is nooit als link vormgegeven. De ene uitzondering: de volgende stap op de landing van een opdracht of een vacature is de hoofdknop, ook als hij naar het onderdeel leidt waar de stap wordt gezet. Op dat onderdeel staat de stap in de kop als het adres iets opent, zoals het paneel van een maand; anders zet de eigen knop van het onderdeel hem.
 
 Kan iets nu niet, dan staat de knop er niet, of hij staat uit met de reden ernaast. De volgende stap volgt uit de stand: een tekst met plekken die nog ingevuld moeten worden biedt "Schrijf verder" en niet "Vraag om een oordeel".
 
@@ -138,11 +155,11 @@ De test `ui/controls.guard.test.ts` faalt op de kale tekstknop buiten de basis e
 
 De editor staat alleen waar de tekst opmaak kan bevatten en ergens opgemaakt wordt getoond. Een veld dat als platte tekst wordt getoond krijgt hem niet: de tekens voor opmaak zouden als sterretjes op het scherm of in een pdf komen, en een werkbalk bij een veld "Reden" is ruis. De motivatie voor het aanvraagformulier is daarom plat: ze komt in een formulierveld dat alleen platte tekst kan bevatten.
 
-De editor is die van het designsysteem (`nldd-text-editor`): de tekst blijft platte tekst met een paar tekens, de opmaak is tijdens het schrijven te zien en de tekens staan er gedimd bij. De werkbalk biedt precies wat de tekst kan bevatten (`@/ui/text/marks`): een vacaturetekst kent een kop, een lijst en cursief; een onderdeel van een offerte ook een genummerde lijst en vet. Wat iemand typt of plakt wordt naar die set teruggebracht. Een plek die nog ingevuld moet worden, "[vul aan: ...]", is in de editor gemarkeerd en geteld, met een stap naar de volgende.
+De editor is die van het designsysteem (`nldd-text-editor`): de tekst blijft platte tekst met een paar tekens, de opmaak is tijdens het schrijven te zien en een teken verschijnt alleen waar de cursor het raakt. De werkbalk biedt precies wat de tekst kan bevatten (`@/ui/text/marks`): een vacaturetekst kent een kop, een lijst en cursief; een onderdeel van een offerte ook een genummerde lijst en vet. Wat iemand typt of plakt wordt naar die set teruggebracht. Een plek die nog ingevuld moet worden, "[vul aan: ...]", is in de editor gemarkeerd en geteld, met een stap naar de volgende.
 
 Een bewaarde tekst wordt overal getoond met `RichText` uit `@/ui/RichText`, uit dezelfde vorm: wat je bewerkt is wat je ziet. De test `ui/controls.guard.test.ts` faalt op een kaal `textarea`, `input` of `contenteditable` in een scherm.
 
-**Een status is een label.** Gebruik `nldd-tag` of `nldd-badge` met de kleur uit de bestaande toewijzing. De kleur draagt nooit als enige de betekenis.
+**Een status is een badge.** Een stand die het systeem bijhoudt ("Te laat", "Klaar", "Nu aan de beurt", "Overschrijding") is een `nldd-badge`, met de kleur uit de bestaande toewijzing; in een rij zet `LinkRows` hem met `tag`. Een eigenschap die iemand toekent (een soort, een rol) is een `nldd-tag`. Zo onderscheidt het designsysteem ze. De kleur draagt nooit als enige de betekenis. Zegt de zin van een rij het al, dan staat er geen label: de rijen van Geld zeggen tekort en ongedekt in hun zin.
 
 **Schrijf gewoon Nederlands.** Lees elke zin als iemand die het systeem niet heeft gebouwd. Zinnen beginnen met een hoofdletter en hebben verder kleine letters, zonder uitroepteken. Je schrijft "je". Een knop zegt wat er gebeurt.
 
@@ -152,11 +169,14 @@ Een bewaarde tekst wordt overal getoond met `RichText` uit `@/ui/RichText`, uit 
 
 | Woord | Betekenis |
 |---|---|
-| Begroot, Gerealiseerd, Nog gepland, Kosten, Verwacht totaal, Afwijking | De bedragen van een opdracht |
-| Uitputting | Het deel van de begroting dat is gerealiseerd, als percentage |
+| Begroot, Gerealiseerde inzet, Nog gepland, Kosten, Verwacht totaal, Afwijking | De kolommen van een opdracht. Gerealiseerde inzet, nog gepland en kosten tellen op tot het verwacht totaal |
+| Gerealiseerd | Gerealiseerde inzet plus gerealiseerde kosten: wat werkelijk is besteed. Bij kosten het deel dat op ontvangen facturen rust ("€ 3.000 gerealiseerd, € 1.500 ingeschat"); dat is hetzelfde begrip. Heet de inzet apart, dan is het "Gerealiseerde inzet" |
+| Uitputting | Gerealiseerd als deel van de begroting, als percentage. Op een totaalrij staat het bedrag eronder ("€ 73.450 gerealiseerd") |
+| Niets gepland, Nog geen inzet gepland | Een regel of opdracht zonder inzet: "Niets gepland" in een tabel, "Nog geen inzet gepland" op de landing. Nooit "100%, ruimte" |
 | Aangeleverd | Factuurgegevens zijn doorgegeven aan de financiële administratie |
 | Gefactureerd | Er is een factuur verstuurd en vastgelegd |
-| Potentiële opdracht, Potentieel | Een opdracht tot het akkoord, ook na een afgewezen offerte. Nooit "pijplijn" |
+| Potentiële opdracht, Potentieel | Een opdracht tot het akkoord, ook na een afgewezen offerte. Potentieel is ook een weergave van Opdrachten en een pagina onder Geld. Nooit "pijplijn" |
+| Open rol | Een rol zonder persoon, ook als er een vacature voor loopt. Een opengestelde vacature heet vacature |
 | Offerte maken | De begroting vastleggen als offerte. Daarna wijzigt de offerte niet meer; ze krijgt een kenmerk |
 | Aanbieden | Een gemaakte offerte naar de opdrachtgever brengen |
 | Getekend, afgewezen | De beslissing van de opdrachtgever over een aangeboden offerte |
@@ -167,65 +187,107 @@ Een bewaarde tekst wordt overal getoond met `RichText` uit `@/ui/RichText`, uit 
 | Echtheidskenmerk, bestandskenmerk | De code over de inhoud van een offerte, en die over haar pdf. Nooit "hash" of "vingerafdruk" |
 | Bekijk pdf | De ene link naar het document van een offerte |
 | Stand | Waar een zaak staat en wie aan zet is: "Jij: ..." of "Wacht op ..." |
-| Moment | Eén vastgelegd feit van een opdracht in tab Geschiedenis. De lijst heet Momenten; "verloop" blijft de stappen van een zaak |
+| Moment | Eén vastgelegd feit van een opdracht, op het onderdeel Geschiedenis. De lijst heet Momenten; "verloop" blijft de stappen van een zaak |
 | Stand op ... | Hoe opdracht, begroting en offerte er op een moment voorstonden. De kop van een stand noemt de dag en het uur van het moment |
 | Besluit | Het merkteken op een moment waarop wie het vastlegde zelf besloot. Nooit "decretogram", "uitvoering" of "regel" |
 | Later vastgelegd | Wat na een moment is vastgelegd maar al telde vanaf een dag die dat moment had gezien, onder de stand van dat moment |
 | Later verwijderd, Tekst verwijderd | Een getypte tekst die een beheerder later uit een moment haalde, onder de stand van dat moment; "Tekst verwijderd" staat waar een naam of omschrijving niet leeg mag zijn |
 | Te doen, Wacht op anderen | De twee groepen taken |
-| Start, Taken, Opdrachten, Team, Vacatures, Financieel, Rapportage, Beheer | De plekken in de hoofdbalk. Onder Team: Mensen en Inzet. Onder Financieel: Kosten en Factureren |
+| Start, Taken, Opdrachten, Aanvragen, Vacatures, Mensen, Geld, Beheer | De plekken in de hoofdbalk; op een smal scherm ook Ik, het account |
+| Team, Mensen | Team is wie op een opdracht werkt: een onderdeel van de opdracht. Mensen is de plek met iedereen die kan worden ingezet. Nooit "Bemensing" |
+| Meldingen instellen, Mijn aanvragen | De regel in het account naar de meldingen, en de eigen aanvragen van een opdrachtgever |
 | Geschiedenis, Activiteit, Wat is er gebeurd | Wat er met een zaak gebeurde, wat er in de instantie gebeurde, en het nieuws voor de lezer |
 | Aanvraag voorbereiden, aanvragen, advies en akkoord, openstellen, vervullen | De stappen van een vacature |
 
 ## Navigatie
 
-De hoofdbalk staat in `frontend/src/layout`; welke onderdelen er zijn, voor wie en welke pagina's erbij horen staat in `frontend/src/routes.ts`. Het waarom staat in ADR 0033 en ADR 0042.
+De schil staat in `frontend/src/layout`; welke plekken er zijn, voor wie en waar ze openen staat in `frontend/src/routes.ts`. Het waarom staat in ADR 0055 en ADR 0059.
+
+**De plekken.** Start, Taken, Opdrachten, Aanvragen, Vacatures, Mensen en Geld, en apart aan het eind Beheer. De balk biedt alleen aan wat iets voor de lezer kan bevatten (`for` in de routetabel). Dat is een hulp voor de balk en geen toegangsregel: de server beslist per pagina en per veld, en een adres dat je intikt opent gewoon. Een plek staat voor iedereen op dezelfde plaats; op welke pagina ze opent mag de lezer volgen (`landing`): Mensen opent voor een planner op het bord. Een pagina die bij een plek hoort zonder onder haar adres te staan, staat bij `also`: de offertes ter goedkeuring horen bij Taken, Wat is er gebeurd bij Start.
+
+**Een plek verdien je.** Een pagina krijgt een plek als iemand haar minstens wekelijks nodig heeft én het een plek is waar je heen gaat, niet iets dat je vanuit een opdracht of vacature bereikt. Wat over hetzelfde gaat, is een weergave van één plek.
 
 **Een nieuw onderdeel van Beheer** voeg je toe met één regel in de lijst van `pages/AdminPage.tsx`. Het adres begint met `/beheer/`, dan blijft Beheer actief. Kan dat niet, zet het adres dan bij `also` van Beheer in de routetabel.
 
-**Binnen een onderdeel kies je één middel:**
+**De balk komt uit het designsysteem en staat alleen in de schil.** Vanaf `md` staat bovenaan één werkbalk: het merk, de plekken in `nldd-tab-bar` met `navigation`, het zoekveld in het midden, en aan het eind Beheer en het account. Op een smal scherm staan de plekken onderaan, als icoon met hun woord, met als laatste Ik: het account als pagina (`/ik`), met Mijn gegevens, Meldingen instellen, Beveiliging en Uitloggen. De plek waar je bent is een gevuld vlak, zoals het designsysteem het tekent. Wat niet past staat achter "Meer tabs"; de plek waar je bent blijft in de balk. De balk heeft één tabstop, de andere plekken bereik je met de pijlen. Het aantal taken staat bij Taken: breed in de tekst ("Taken (10)"), smal als badge op de hoek van het icoon, en in woorden in de naam van de balk ("Plekken in Grip, 10 taken te doen"). Het merk staat met de naam van de organisatie vanaf 1200 pixels, daaronder alleen het merk, en op een smal scherm niet. Schrijf `nldd-tab-bar` niet in een scherm; daar is `TabNav`.
 
-| Middel | Wanneer |
-|---|---|
-| Tabs | Meerdere kanten van één ding dat je open hebt: een opdracht, een vacature. Elk tabblad heeft een eigen adres. Gebruik `TabNav` (of `ThingHead`, die hem meebrengt): gewone tekst op één regel, een haarlijn onder de rij en een lijn onder het tabblad waar je bent |
-| Overzichtspagina | Losse pagina's die bij elkaar horen maar niet over hetzelfde ding gaan: Beheer, Rapportage. De pagina zelf is het menu |
-| Tweede balk | Pagina's van één onderdeel die naast elkaar staan en waar je even vaak direct heen wilt: Mensen en Inzet onder Team, Kosten en Factureren onder Financieel. De balk staat in de schil, onder de hoofdbalk, en komt uit `views` in de routetabel. Hooguit drie pagina's; worden het er meer, dan is het een overzichtspagina. Ze is rustig: kleiner dan de hoofdbalk, tekstkleur, een dunne lijn onder de pagina waar je bent, geen gevuld vlak |
-| Keuze in de `ActionBar` | Een andere weergave van dezelfde lijst, zoals "Open rollen" bij Vacatures, als keuze in de balk met een eigen adres. Een link naar een andere pagina staat er hooguit één; worden het er meer, dan zijn het tabs of hoort de pagina onder Beheer |
+**Zoeken.** Het zoekveld in de balk (`SearchField`) zoekt op naam in opdrachten, vacatures en mensen. Enter opent `/zoeken?q=` met de treffers per soort; er wordt niet bij elke toets gezocht, en korter dan twee tekens vraagt niets. Past het veld niet in de balk, dan staat "Zoek op naam" in het menu van de balk en heeft `/zoeken` een eigen veld; op een smal scherm staat het veld boven de titel van Start. Zoeken vervangt geen plek. Een lijst filteren is iets anders: dat doet `search` op een `ActionBar`.
 
-**Tabs zijn nooit gevuld; het enige gevulde accent op een pagina is de hoofdknop.** Tabs lezen als kanten van het ding, niet als knoppen. De tabbalk van het designsysteem (`nldd-tab-bar`) is een gesegmenteerde keuze: het huidige tabblad is een gevuld vlak in de accentkleur, even hoog en even rond als de hoofdknop. Onder een hoofdknop zijn dat twee dezelfde dingen boven elkaar. Grip gebruikt daarom voor tabs de menubalk van het designsysteem, die links in een navigatiegebied tekent met een lijn onder de huidige pagina. Schrijf `nldd-tab-bar` niet in een scherm.
+**Binnen een plek of een ding wissel je met `TabNav`.** Eén vorm, de balk met onderlijn, en elke keuze is een pagina met een eigen adres:
 
-**De hoofdknop staat nooit op de tabs.** De ene volgende stap van een ding staat in de kop, rechts op de regel van de titel (smal: onder de titel), via `action` op `ThingHead`. Het verloop van het ding (een stappenbalk) staat via `course` tussen de kop en de tabs. Voor de tabs staat de afstand tussen secties.
+| Wat | Hoe | Waar |
+|---|---|---|
+| De onderdelen van een geopend ding | `narrow="hide"`: op een breed scherm de wisselbalk onder de titel, op een smal scherm niets; daar wissel je via de landing | Een opdracht, een vacature |
+| De weergaven van een lijst | `narrow="bar"`: ook op een smal scherm, met korte tekst in `short` | Opdrachten (Potentieel, Lopend, Afgesloten), Vacatures (Alle vacatures, Opengesteld), Mensen (Lijst, Bord, Bezetting, Declarabiliteit), Taken (Mijn taken, Bord), Aanvragen (Mijn aanvragen, Ontvangen offertes, Ontvangen aanvragen) |
+| Losse pagina's die bij elkaar horen | Een overzichtspagina met `LinkRows` die melden wat ertoe doet; de pagina zelf is het menu | Geld, Beheer, Ik |
 
-**Drie lagen, drie soorten.** De hoofdbalk en de tweede balk zeggen waar je in grip bent en staan in de schil. De tabs zeggen welke kant van het ding je ziet en staan onder de kop, over de breedte van de inhoud, met een haarlijn. De hoofdknop is het enige gevulde vlak.
+Een weergave die de lezer niet heeft staat er niet; Mensen vraagt de server welke dat zijn (`/api/people/views`) en toont bij één weergave geen balk. Er is geen keuzelijst voor een weergave en geen tweede balk. In een `ActionBar` staat hooguit één link naar een andere pagina.
 
-**Voorstel voor het designsysteem.** De tabbalk kent alleen de gevulde vorm. Een variant met een onderlijn (`variant="underline"`, of een eigen onderdeel voor navigatie tussen de kanten van één ding) zou dit oplossen zonder dat een toepassing de menubalk leent. De menubalk heeft daarnaast geen eigen maat of toon voor een onderdeel: grip zet nu op twee plekken (`.section-views` in `layout/shell.css` en `.thing-tabs` in `index.css`) de interne waarden `--_menu-bar-item-font` en `--_menu-bar-item-content-color`. Een `size` en een `tone` op `nldd-menu-bar-item` maken dat overbodig.
+**Tabs zijn nooit gevuld.** `TabNav` leest als de kanten van het ding, niet als knoppen. De tabbalk van het designsysteem (`nldd-tab-bar`) tekent het huidige tabblad als een gevuld vlak in de accentkleur, even hoog en even rond als de hoofdknop; onder een hoofdknop zijn dat twee dezelfde dingen boven elkaar. `TabNav` gebruikt daarom de menubalk van het designsysteem, die links tekent in een navigatiegebied met een lijn onder de huidige pagina. In de hoofdbalk speelt dat niet: daar staat geen hoofdknop.
 
-**De hoofdbalk telt hooguit zeven plekken voor het werk.** Een pagina krijgt een plek als iemand haar minstens wekelijks nodig heeft én het een plek is waar je heen gaat, niet iets dat je vanuit een opdracht of vacature bereikt. Twee pagina's over hetzelfde delen één plek en staan in de tweede balk. Een onderdeel staat voor iedereen op dezelfde plaats; op welke pagina het opent mag de lezer volgen (`landingFor`): Team opent voor een planner op Inzet. Een pagina houdt haar adres, ook als de balk haar niet noemt. Het waarom staat in ADR 0042 en in `docs/navigatie-evaluatie.md`.
+**Twee lagen.** De hoofdbalk zegt waar je in grip bent en staat in de schil. `TabNav` zegt welk onderdeel of welke weergave je ziet en staat onder de titel, over de breedte van de kop, met een haarlijn. In de inhoud is de hoofdknop het enige gevulde vlak.
 
-**Waar je bent.** Een pagina onder een overzicht of een lijst heeft boven de titel één link terug: "Terug naar" met de naam van het onderdeel zoals die in de balk staat, bijvoorbeeld "Terug naar Opdrachten". Geen kruimelpad: grip is twee lagen diep. Staat de pagina onder een onderdeel met een tweede balk en wijst de link naar precies de pagina die die balk markeert, dan vervalt de link: de balk zegt het al (een persoon onder Mensen, een kostenpost onder Kosten).
+**De hoofdknop staat op de regel van de titel**, rechts (smal: onder de titel), via `action` op `Page`, of rechts in de `ActionBar`; nooit op de wisselbalk. Met een knop staat de `lead` onder de regel van de titel.
+
+**Voorstel voor het designsysteem.** De tabbalk kent alleen de gevulde vorm. Een variant met een onderlijn (`variant="underline"`, of een eigen onderdeel voor navigatie tussen de kanten van één ding) zou dit oplossen zonder dat een toepassing de menubalk leent. De menubalk heeft daarnaast geen eigen maat of toon voor een onderdeel: grip zet in `.thing-tabs` in `index.css` de interne waarden `--_menu-bar-item-font` en `--_menu-bar-item-content-color`. Een `size` en een `tone` op `nldd-menu-bar-item` maken dat overbodig.
+
+**Waar je bent.** Een pagina onder een plek, een overzicht of een ding heeft boven de titel één link terug: "Terug naar" met de naam van de plek of van het ding, bijvoorbeeld "Terug naar Geld" of "Terug naar Opdracht Alfa 2026". Geen kruimelpad: grip is twee lagen diep. Wie voor een taak op een pagina is, leest in de taakbalk "Terug naar Start".
 
 Deze pagina's volgen dat nog niet:
 
 | Pagina | Wat er nog moet gebeuren |
 |---|---|
-| `features/team/PersonPage.tsx` | Een kruimelpad in plaats van de link |
-| De pagina's onder Beheer (tarieven, offertes, afzender, koppelingen, organisaties, rollen, activiteit, functiegebouw) | Geen link terug naar Beheer |
-| `features/wies/WiesProposalsPage.tsx` | Staat onder Beheer en linkt terug naar "team" |
-| `features/reports` | "Terug naar de rapportage" naast "Terug naar Rapportage" |
-| `features/vacancies/VacanciesPage.tsx` | Twee links in de `ActionBar`; "Formulier en taalmodel" hoort alleen onder Beheer |
+| `features/rates/RatesPage.tsx` | Geen link terug, zoals de andere pagina's onder Beheer die hebben (`useAdminBack`) |
+| Wat is er gebeurd in `features/history/UpdateFeed.tsx` | Hoort bij Start, zonder link terug naar Start |
 | `features/signing/SigningLayout.tsx` | Een eigen kop met losse tekst; de naam van de instantie als link naar het begin en het account als knop met een menu, zoals in de hoofdbalk |
+
+## Een geopend ding
+
+Een opdracht en een vacature openen op hun landing: wat er nu moet, en daaronder hun onderdelen als rijen. Het patroon van de zin en de knop staat onder Werkstromen hieronder.
+
+**De landing van een opdracht** heeft van boven naar beneden: de link terug naar Opdrachten, de naam met de ene knop, een `lead` met voor wie en wanneer ("Voorbeeldministerie, 1 jan t/m 31 dec 2026."), de zin wat er nu moet, de stappen van het verloop, de kerncijfers Begroot, Verwacht totaal en Afwijking over de hele looptijd, de link naar de taken, voor een teamlid "Jij: Developer, 100%, tot 31 dec 2026", en de rijen. De kerncijfers staan alleen hier. Een potentiële opdracht zegt dat in woorden, zonder label.
+
+**Een rij meldt, ze rapporteert niet.** Een rij noemt het onderdeel en zegt eronder gedempt wat er speelt ("8 maanden af te sluiten", "1 rol open", "Getekend op 18 dec 2025"); heeft ze niets te melden, dan staat er alleen de naam. Geen bedrag uit de kop komt er nog eens in. De rijen staan altijd in deze volgorde: Afsluiten en factureren, Begroting, Offerte, Team, Eindrapport, Gegevens, Geschiedenis. Ze komen en gaan met de fase; de volgorde verspringt niet. Welke rijen er zijn en wat ze zeggen, beslist de server per gegevensklasse (`/api/assignments/{id}/parts`; zie `docs/toegang.md`). Een taak wijst nooit naar een onderdeel zonder rij.
+
+**Een onderdeel is een eigen pagina** (`AssignmentPartPage`, `VacancyPartPage`): de link terug naar het ding, de naam van het onderdeel als titel, de ene knop van het onderdeel, op een breed scherm de wisselbalk, en de inhoud. Het tabblad van de browser noemt onderdeel en ding (`tabName`). Een onderdeel zonder rij geeft geen toegang, ook als iemand het adres intikt. De ene uitzondering is het rapport van een lopende opdracht: wie het geld leest, opent het via Begroting en Jaarverantwoording, met de titel "Rapport".
+
+**Begroting heeft een vorm per fase.** Tot het akkoord is het de invoer: regels met FTE, schaal en bedrag. Een mondeling akkoord valt daar nog onder. Daarna per regel zeven kolommen, met een totaalrij die gelijk is aan de kop en de offerte. Begroting opent op de hele looptijd; een jaar kiezen kan alleen als de opdracht over meer jaren loopt. Een rij opent de regel voor wie mag wijzigen.
+
+**De landing van een vacature** toont haar stappen als rijen: Aanvraag, Advies en akkoord, Tekst en openstellen, Vervullen, elk met haar stand als badge ("Klaar", "Nu aan de beurt") of in de zin ("Wacht op ..."). Twee stappen mogen tegelijk aan de beurt zijn. Daaronder Gegevens en Geschiedenis. Een vacature voor een gerede kandidaat wordt niet opengesteld en heeft die rij niet, tenzij er toch een tekst te schrijven is; dan heet ze Tekst. Een stappenbalk is er niet. Wie alleen de opengestelde tekst mag lezen, ziet die tekst en geen rijen. Een taak die bij de aanvraag hoort, opent de aanvraag zelf.
+
+## Start
+
+Start zegt wat er voor de lezer ligt, in één kolom en voor iedereen in dezelfde volgorde, zonder filters, jaarkeuze of volgordekeuze. Wat er staat beslist de server (`/api/start`); een blok zonder inhoud of zonder recht ontbreekt.
+
+| Blok | Voor wie | Wat er staat |
+|---|---|---|
+| Te doen | Iedereen | Per zaak één rij: de eerstvolgende taak, de zaak, de termijn en wat erna komt ("Opdracht Alfa, vóór 7 apr 2026, daarna nog 7 maanden en 1 taak"), met "Te laat" als badge. Hooguit vijf zaken, op volgorde van termijn; de laatste plek gaat naar de eerste zaak zonder termijn als die anders wegvalt. Altijd "Alle taken (10)" eronder, met hetzelfde getal als bij Taken in de balk. Niets te doen is één regel |
+| Je werkt aan | Wie zelf inzet heeft | Per opdracht de eigen inzet ("Developer, 100%, tot 31 dec 2026"), "Geen inzet vanaf januari 2027" als die binnenkort stopt, en een rij naar Mijn gegevens |
+| Planning | Planner | De open rollen met hun FTE, en hoeveel mensen zonder inzet zijn vanaf welke maand; beide naar het bord |
+| Mijn opdrachten | Eigenaar of manager | Per opdracht de stand en de eerste rij die iets vraagt ("Uitvoeren, 8 maanden af te sluiten"), met Ruimte of Overschrijding als badge; een overschrijding bovenaan |
+| Mijn mensen | Leidinggevende | Per persoon de inzet nu en vanaf wanneer hij vrij is. Het oordeel over de declarabiliteit staat één klik verder |
+| Hoe staan we ervoor | Wie het geld van alle opdrachten leest | Het verwacht totaal van begroot, de investeerruimte en het potentieel, elk met het jaar of "hele looptijd" |
+| Mijn aanvragen | Aanvrager | Per eigen aanvraag de stand in haar woorden |
+| Verbindingen | Beheerder, alleen bij een probleem | Hoeveel berichten niet aankomen bij een andere instantie |
+| Nieuw | Wie er nieuws heeft | De laatste vijf berichten als tijdlijn, per dag een kop, en "Alles wat er gebeurd is" |
+
+Elk ander blok toont hooguit acht rijen, wat aandacht vraagt bovenaan, met "Alle 50" naar de plek met de rest. Binnenkort is deze maand en de drie maanden erna, het venster van Bezetting: daarbinnen waarschuwt Je werkt aan voor inzet die stopt, en telt Planning wie leeg valt. Wie nu al geen inzet heeft telt daarbij mee, zodat het getal klopt met het bord. Op Start staat niets van de klassen D, E en F: zo'n veld zou bij elk bezoek een inzage vastleggen, en het scherm wordt in overleg gedeeld.
 
 ## Werkstromen
 
-Een zaak met een verloop (een opdracht, een vacature) zegt overal op dezelfde plek: onder de titel in een zin wat er nu gebeurt en wie aan zet is, rechts van de titel de ene knop die de stap zet, daaronder klein het verloop. De server beslist het; een scherm tekent het met `CourseNow` en `CourseBar` uit `@/ui/Workflow` en de gegevens van `useCaseCourse`. Een lijst toont dezelfde stand met `courseLine`. Draagt de kop de volgende stap, dan zet zij `PrimaryTakenContext`; de gedeelde knop en actiebalk tekenen een hoofdknop eronder dan als gewone knop. Op het scherm staat geen woord van het systeem. Het patroon, de regels en de praktijkgevallen staan in [werkstromen.md](werkstromen.md).
+Een zaak met een verloop (een opdracht, een vacature) zegt overal op dezelfde plek: onder de titel in een zin wat er nu gebeurt en wie aan zet is, rechts van de titel de ene knop die de stap zet. Op een opdracht staat het verloop onder die zin als stappenbalk van het designsysteem, elke stap met haar stand; op een smal scherm de stap waar ze staat en de stap daarna in woorden. De `lead` herhaalt het niet. Op een vacature zijn de stappen de rijen van de landing. De server beslist het; een scherm tekent het met `CourseNow` en `CourseBar` uit `@/ui/Workflow` en de gegevens van `useCaseCourse`. Een lijst toont dezelfde stand met `courseLine`. Draagt de kop de volgende stap, dan zet zij `PrimaryTakenContext`; de gedeelde knop en actiebalk tekenen een hoofdknop eronder dan als gewone knop. Op het scherm staat geen woord van het systeem. Het patroon, de regels en de praktijkgevallen staan in [werkstromen.md](werkstromen.md).
 
-## Drie valkuilen in het designsysteem
+## Vijf valkuilen in het designsysteem
 
 **`nldd-form` verplaatst zijn kinderen.** Het zet zijn directe kinderen in een eigen formulierelement. Verschijnt er daarna een veld, dan vindt React de plek niet meer en wordt de pagina leeg. Zet de velden daarom in één vast element: `FormSheet` en `FormFields` doen dat.
 
-**Een keuzelijst in `nldd-dropdown` verstuurt zijn eigen gebeurtenis.** De dropdown houdt de `change` van de `select` erin tegen en verstuurt er zelf een. Een `onChange` op de `select` alleen gaat dus nooit af. Luister met `useNlddEvent` op de dropdown: `FilterSelect` en `ActionBar` doen dat.
+**Een keuze in `nldd-dropdown` komt binnen via de `select`.** Sinds 0.21.0 laat de dropdown de `change` van de `select` door, zonder `detail` en met de `select` als `target`. Een `onChange` op de `select` is genoeg; luister niet ook op de dropdown, want dan komt elke keuze twee keer binnen. `FilterSelect` en `ActionBar` doen het zo.
+
+**Een keuze in een menu die een paneel of dialoog opent, wacht tot het menu dicht is.** Sinds 0.24.0 knippert een gekozen menu-item voordat het menu sluit, terwijl `select` meteen komt. Een paneel dat dan al opent, geeft bij het sluiten de focus aan de pagina in plaats van aan de knop van het menu. Dat geldt voor een menu onder een knop of een icoonknop; het menu Meer van een werkbalk geeft de focus sinds 0.26.2 zelf terug. Luister in zo'n menu daarom met `useMenuSelect` uit `@/components/nldd/events`; `RowActions` doet het zo.
 
 **Een cel hoort in een rij.** `nldd-text-cell` en `nldd-cell` krijgen hun hoogte van de rij van een tabel of lijst. Los op een pagina heeft zo'n cel geen hoogte: de tekst wordt wel getekend, maar valt over wat eronder staat. Gebruik buiten een rij `Quiet`, `Facts` of gewone tekst.
+
+**Een stip op een spoor staat midden in de rij.** Een `nldd-step-cell` naast tekst die kan afbreken, zet zijn stip halverwege de hoogte van de rij, en dus naast de tweede regel. Geef hem `vertical-alignment="top"` en `marker-offset` op de helft van de eerste regel, zoals `UpdateTimeline` doet; dan blijft de stip naast de eerste regel staan.
 
 ## Meten in een browser
 
@@ -260,13 +322,13 @@ Een getekend raster dat zijn eigen cellen plaatst, zoals de tijdbalk, krijgt `da
 
 Twee meetfouten om te kennen. In een verborgen tabblad van een gewone browser vuurt geen `ResizeObserver`: de schil denkt dan dat het scherm smal is. En een afbeelding van de hele pagina in plaats van het venster doet hetzelfde. Het commando meet en fotografeert daarom in een eigen venster van vaste maat.
 
-Naast de meting bewaakt een test de bron (`ui/layout/spacing.guard.test.ts`): een `gap` buiten de schaal of een marge in pixels in een nieuw bestand laat de build falen. De bestaande uitzonderingen staan er met hun aantal in en mogen alleen minder worden.
+Naast de meting bewaakt een test de bron (`ui/layout/spacing.guard.test.ts`): een `gap` buiten de schaal of een marge in pixels in een nieuw bestand laat de build falen. De bestaande uitzonderingen staan er met hun aantal in en mogen alleen minder worden. `ui/layout/text.guard.test.ts` faalt op grijze tekst: `color="secondary"` in een scherm of een grijze tekstkleur in onze stylesheets.
 
 ## Controlelijst voor een nieuw scherm
 
 1. Eén regel: wat komt iemand hier doen?
-2. `Page` met een titel. Meerdere delen: `spacing="sections"` en per deel een `Section`.
-3. Filters en de hoofdactie in een `ActionBar`.
+2. `Page` met een titel en een soort (`kind`) uit de tabel onder "Soorten scherm". Meerdere delen: `spacing="sections"` en per deel een `Section`.
+3. Filters in een `ActionBar`; de ene hoofdknop op de regel van de titel (`action`) of rechts in die balk.
 4. Gegevens in een `nldd-table` met `columns`, feiten in `Facts`.
 5. Toevoegen en wijzigen in een `FormSheet`.
 6. Laden, fout en leeg met de drie vaste onderdelen.
@@ -281,6 +343,7 @@ De meeste schermen zijn bij de doorloop op visuele hiërarchie overgezet op de b
 |---|---|
 | `features/assignments/ui.tsx` | Geeft door naar de basis, op de eigen invoervelden (`TextInput`, `DateInput`, `SelectInput`) na; die kunnen naar `@/ui/fields`. |
 | `features/team/ui/` | De eigen `Sheet` en `Form` samenvoegen met `FormSheet`. Dat vraagt dat de toestand van elk formulier eerst uit het paneel wordt gehaald, omdat `FormSheet` zijn inhoud aangekoppeld houdt. |
+| `features/team/PersonPage.tsx`, `features/client/ClientAssignmentPage.tsx` | Tekenen hun kop zelf, zonder `Page`, en hebben daardoor geen `kind`. Op de aanvraag staat de link terug onder de titel. |
 
 `index.css` houdt tot dan twee noodregels aan: een afstand tussen de kinderen van een sectie, en een afstand tussen de velden in een `div.form-fields`. Of ze weg kunnen is niet beproefd.
 
@@ -295,7 +358,7 @@ Alle iconen komen uit het designsysteem. Heeft een begrip daar geen passend beel
 | | Plek |
 |---|---|
 | Verplicht | Een knop zonder tekst (het rijmenu, sluiten). Een link die de pagina verlaat: nieuw tabblad, document, andere site. Een download. Een stand of signaal dat los staat van tekst. |
-| Toegestaan | De terugverwijzing boven een titel. Een rij die opent. Een keuze "voeg toe" onder in een keuzelijst. Het ingeklapte hoofdmenu, waar elk onderdeel zijn beeld heeft. |
+| Toegestaan | De terugverwijzing boven een titel. Een rij die opent. Een keuze "voeg toe" onder in een keuzelijst. De balk onderaan op een smal scherm en het menu van een balk, waar elke plek haar beeld heeft. |
 | Verboden | Naast een kop. In lopende tekst. Op een knop met een werkwoord ("Wijzig", "Nieuwe opdracht", "Bewaar"), ook de hoofdknop. In een menu met acties: het woord zegt het, verwijderen heeft zijn kleur. Op elke rij van een tabel wat de kolomkop kan zeggen. Twee iconen op een element. Een icoon dat alleen de tekst van een label herhaalt. |
 
 ### Plek, maat en naam
@@ -304,7 +367,7 @@ Alle iconen komen uit het designsysteem. Heeft een begrip daar geen passend beel
 - Een maat per plek: 16 in of naast tekst, 20 in een cel, 24 los. Nooit schalen met CSS.
 - Een icoon naast tekst is versiering en onzichtbaar voor hulpsoftware. Een knop zonder tekst heet naar het vaste werkwoord van zijn begrip plus waar het over gaat: "Meer acties voor Developer", "Download offerte.pdf, 120 kB".
 - Betekenis hangt nooit alleen aan beeld of kleur: een stand heeft ook een woord.
-- Verwijderen heeft overal dezelfde vorm: het woord "Verwijder", de kleur van een onomkeerbare actie en een vraag om bevestiging. Het icoon (prullenbak) alleen waar geen plaats is voor het woord.
+- Verwijderen heeft overal dezelfde vorm: het woord "Verwijder", de kleur van een onomkeerbare actie en een vraag om bevestiging. In die vraag is "Annuleer" de hoofdknop, zodat wie zonder lezen klikt bij de veilige keuze uitkomt; zo vraagt het designsysteem het sinds 0.29.0. Het icoon (prullenbak) alleen waar geen plaats is voor het woord.
 
 ### Begrippen
 
@@ -333,7 +396,7 @@ Alle iconen komen uit het designsysteem. Heeft een begrip daar geen passend beel
 | `person`, `account`, `logout`, `menu` | person, person-circle, logout, list | Het accountmenu en de menuknop |
 | `document`, `history`, `proof`, `security`, `organisation`, `node`, `mail` | document, clock-arrow-counter-clockwise, seal-check-mark, key, building, tree-structure, mail | Het ding zelf, waar het een beeld nodig heeft |
 
-De meldingen (`nldd-inline-dialog` met `variant`), de stappenbalk en de bevestigingsdialoog tekenen hun eigen icoon; grip zet daar niets overheen.
+De meldingen (`nldd-inline-dialog` met `variant`) en de bevestigingsdialoog tekenen hun eigen icoon; grip zet daar niets overheen.
 
 ### In code
 

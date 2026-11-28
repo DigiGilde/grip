@@ -12,7 +12,7 @@ const items = Astro.props.headings.filter((h) => h.depth === 2);
 {
   items.length > 0 && (
     <Fragment>
-      <nldd-title size="5" heading-level="2" text="Op deze pagina" />
+      <nldd-title size="display-5" heading-level="2" text="Op deze pagina" />
       <nldd-spacer size="4" />
       <nldd-list type="navigation" appearance="simple" aria-label="Op deze pagina">
         {items.map((h) => (

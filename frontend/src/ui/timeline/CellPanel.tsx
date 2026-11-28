@@ -38,8 +38,12 @@ export function CellPanel({ cellKey, title, summary, items, action }: CellPanelP
   return (
     <div ref={ref} tabIndex={-1} role="region" aria-label="Inzet in de gekozen maand">
       <nldd-container gap="8">
-        <nldd-title size={4} heading-level={2} text={title} />
-        {summary && <nldd-text color="secondary">{summary}</nldd-text>}
+        <nldd-title size="display-4" heading-level={2} text={title} />
+        {summary && (
+          <nldd-text>
+            <p>{summary}</p>
+          </nldd-text>
+        )}
         {items.length > 0 && (
           <nldd-table accessible-label="Inzet in deze maand" columns="minmax(280px,1fr) 160px">
             <nldd-table-row slot="header">

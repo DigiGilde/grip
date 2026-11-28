@@ -5,14 +5,14 @@ import { errorMessage } from '@/api/client';
 import { useAuth } from '@/auth/context';
 import { PATHS } from '@/paths';
 import { Button, DateInput, TextInput } from '@/features/assignments/ui';
-import { useAssignmentShell } from '@/features/assignments/shell';
+import { useAssignmentFrame, useAssignmentShell } from '@/features/assignments/shell';
+import { receivedQuotePath } from '@/features/client/paths';
 import type { BillingDetails } from '@/features/month-close/billingApi';
 import { BillingDetailsFields } from '@/features/month-close/BillingDetailFields';
 import { filledDetails, startDetails } from '@/features/month-close/billingDetails';
-import { useInstance } from '@/layout/useInstance';
+import { RouterLinks } from '@/layout/RouterLinks';
 import { dayOf, formatEuro } from '@/lib/format';
 import { todayIso } from '@/lib/today';
-import { PageHeading } from '@/pages/PageHeading';
 import { staleConflictOf } from '@/ui/stale';
 import {
   EmptyNotice,
@@ -74,10 +74,9 @@ function differenceText(preview: QuotePreview): string | null {
  * above it only when there is none to wait for, or when the budget no longer
  * says what the quote says. Earlier quotes are one line each.
  */
-export function QuotePage() {
+function ContractorQuote() {
   const { assignmentId = '' } = useParams();
   const shell = useAssignmentShell();
-  const instance = useInstance();
   const queryClient = useQueryClient();
   const preview = useQuery({
     queryKey: quoteKeys.preview(assignmentId),
@@ -188,7 +187,7 @@ export function QuotePage() {
     else if (action.kind === 'new-quote')
       navigate(quoteDraftPath(assignmentId, undefined, { fresh: true }));
     else if (action.kind === 'review') navigate(approvalPath(current.id));
-    else if (action.kind === 'grant-right') navigate(PATHS.team);
+    else if (action.kind === 'grant-right') navigate(PATHS.people);
     else if (action.kind === 'correct-signed-date') {
       setCorrectedDay(dayOf(current.acceptance?.signed_at ?? ''));
       setCorrectionReason('');
@@ -203,7 +202,6 @@ export function QuotePage() {
   };
 
   const data = preview.data;
-  const title = data ? `Offerte ${data.assignment_name}` : 'Offerte';
   const waiting = current?.status === 'issued';
   // A new quote is in order when none is out, or the budget moved since.
   // The server compares the content, so a change that keeps the total counts too.
@@ -222,88 +220,84 @@ export function QuotePage() {
 
   return (
     <>
-      <nldd-simple-section>
-        {/* Inside the tabs of an assignment the shell shows the name and the way back. */}
-        {shell ? null : <PageHeading text={title} instanceName={instance?.name} />}
-        <Stack gap="group">
-          {list.isPending || preview.isPending ? <Loading /> : null}
-          {list.isError ? <LoadError error={list.error} retry={() => void list.refetch()} /> : null}
-          {preview.isError ? <ErrorNotice message={errorMessage(preview.error)} /> : null}
-          {pageError ? <ErrorNotice message={pageError} /> : null}
+      <Stack gap="group">
+        {list.isPending || preview.isPending ? <Loading /> : null}
+        {list.isError ? <LoadError error={list.error} retry={() => void list.refetch()} /> : null}
+        {preview.isError ? <ErrorNotice message={errorMessage(preview.error)} /> : null}
+        {pageError ? <ErrorNotice message={pageError} /> : null}
 
-          {showPreview && data ? (
-            <Section title="Nieuwe offerte" level={2}>
-              {data.problem ? (
-                <nldd-banner
-                  variant="warning"
-                  size="sm"
-                  text="De offerte kan nog niet worden opgesteld"
-                  supporting-text={data.problem}
-                />
-              ) : null}
-              {data.content ? (
-                <QuoteContentTable
-                  content={data.content}
-                  label="Regels van de nieuwe offerte, uit de begroting"
-                />
-              ) : null}
-              {difference ? <Quiet>{difference}</Quiet> : null}
-              {partMonth ? <Quiet>{partMonth}</Quiet> : null}
-              {canIssue ? (
-                <Stack gap="close">
-                  <nldd-button-group>
-                    <Button
-                      text={draft.data?.saved ? 'Ga verder met de offerte' : 'Maak offerte'}
-                      appearance="primary"
-                      onClick={() => navigate(quoteDraftPath(assignmentId))}
-                    />
-                  </nldd-button-group>
-                </Stack>
-              ) : null}
-            </Section>
-          ) : null}
-
-          {current ? (
-            <Stack gap="related">
-              <QuoteCard
-                quote={current}
-                detail={detail.data}
-                approval={approvals.isPending ? undefined : approval}
-                mayManage={mayManage}
-                mayChange={mayChange}
-                isAdmin={isAdmin}
-                outdated={budgetMoved && canIssue}
-                {...(evidence.data ? { evidence: evidence.data.items } : {})}
-                ownerName={shell?.owner_name ?? null}
-                busy={run.isPending}
-                onAction={onCard}
+        {showPreview && data ? (
+          <Section title="Nieuwe offerte" level={2}>
+            {data.problem ? (
+              <nldd-banner
+                variant="warning"
+                size="sm"
+                text="De offerte kan nog niet worden opgesteld"
+                supporting-text={data.problem}
               />
-              {budgetMoved && canIssue && data?.content ? (
-                // The card's own next step is the new quote; this says why.
-                <Quiet>
-                  {data.content.total_cents === current.total_cents
-                    ? 'De begroting is gewijzigd sinds deze offerte; het totaal is gelijk gebleven.'
-                    : `De begroting is gewijzigd sinds deze offerte en staat nu op ${formatEuro(data.content.total_cents)}.`}
-                </Quiet>
-              ) : null}
-            </Stack>
-          ) : null}
+            ) : null}
+            {data.content ? (
+              <QuoteContentTable
+                content={data.content}
+                label="Regels van de nieuwe offerte, uit de begroting"
+              />
+            ) : null}
+            {difference ? <Quiet>{difference}</Quiet> : null}
+            {partMonth ? <Quiet>{partMonth}</Quiet> : null}
+            {canIssue ? (
+              <Stack gap="close">
+                <nldd-button-group>
+                  <Button
+                    text={draft.data?.saved ? 'Ga verder met de offerte' : 'Maak offerte'}
+                    appearance="primary"
+                    onClick={() => navigate(quoteDraftPath(assignmentId))}
+                  />
+                </nldd-button-group>
+              </Stack>
+            ) : null}
+          </Section>
+        ) : null}
 
-          {list.data && quotes.length === 0 && !showPreview ? (
-            <EmptyNotice text="Er is nog geen offerte gemaakt" />
-          ) : null}
+        {current ? (
+          <Stack gap="related">
+            <QuoteCard
+              quote={current}
+              detail={detail.data}
+              approval={approvals.isPending ? undefined : approval}
+              mayManage={mayManage}
+              mayChange={mayChange}
+              isAdmin={isAdmin}
+              outdated={budgetMoved && canIssue}
+              {...(evidence.data ? { evidence: evidence.data.items } : {})}
+              ownerName={shell?.owner_name ?? null}
+              busy={run.isPending}
+              onAction={onCard}
+            />
+            {budgetMoved && canIssue && data?.content ? (
+              // The card's own next step is the new quote; this says why.
+              <Quiet>
+                {data.content.total_cents === current.total_cents
+                  ? 'De begroting is gewijzigd sinds deze offerte; het totaal is gelijk gebleven.'
+                  : `De begroting is gewijzigd sinds deze offerte en staat nu op ${formatEuro(data.content.total_cents)}.`}
+              </Quiet>
+            ) : null}
+          </Stack>
+        ) : null}
 
-          {earlier.length > 0 ? (
-            <Section title="Eerdere offertes" level={2}>
-              <nldd-list accessible-label="Eerdere offertes">
-                {earlier.map((quote) => (
-                  <EarlierQuoteRow key={quote.id} quote={quote} />
-                ))}
-              </nldd-list>
-            </Section>
-          ) : null}
-        </Stack>
-      </nldd-simple-section>
+        {list.data && quotes.length === 0 && !showPreview ? (
+          <EmptyNotice text="Er is nog geen offerte gemaakt" />
+        ) : null}
+
+        {earlier.length > 0 ? (
+          <Section title="Eerdere offertes" level={2}>
+            <nldd-list accessible-label="Eerdere offertes">
+              {earlier.map((quote) => (
+                <EarlierQuoteRow key={quote.id} quote={quote} />
+              ))}
+            </nldd-list>
+          </Section>
+        ) : null}
+      </Stack>
 
       <OfferSheet
         open={dialog === 'offer'}
@@ -333,9 +327,11 @@ export function QuotePage() {
         }}
       >
         <nldd-text>
-          Een collega met het recht om offertes goed te keuren beoordeelt offerte{' '}
-          {current?.reference ?? ''}. Daarna kun je haar aanbieden. De opdrachtgever ziet hier niets
-          van.
+          <p>
+            Een collega met het recht om offertes goed te keuren beoordeelt offerte{' '}
+            {current?.reference ?? ''}. Daarna kun je haar aanbieden. De opdrachtgever ziet hier
+            niets van.
+          </p>
         </nldd-text>
         <TextInput
           label="Toelichting voor wie goedkeurt"
@@ -377,8 +373,10 @@ export function QuotePage() {
         }}
       >
         <nldd-text>
-          Hiermee leg je vast dat de opdrachtgever deze offerte heeft getekend. Dat is niet terug te
-          draaien.
+          <p>
+            Hiermee leg je vast dat de opdrachtgever deze offerte heeft getekend. Dat is niet terug
+            te draaien.
+          </p>
         </nldd-text>
         <FileInput
           label="Getekende offerte"
@@ -427,8 +425,10 @@ export function QuotePage() {
         }}
       >
         <nldd-text>
-          Hiermee leg je vast dat de opdrachtgever deze offerte heeft afgewezen. Daarna kun je een
-          nieuwe offerte maken.
+          <p>
+            Hiermee leg je vast dat de opdrachtgever deze offerte heeft afgewezen. Daarna kun je een
+            nieuwe offerte maken.
+          </p>
         </nldd-text>
         <TextInput label="Reden" value={reason} onChange={setReason} optional multiline />
       </FormSheet>
@@ -476,4 +476,32 @@ export function QuotePage() {
       </FormSheet>
     </>
   );
+}
+
+/** On an assignment this instance asked for, the quote is judged where quotes come in. */
+function ClientQuote() {
+  const { assignmentId = '' } = useParams();
+  const list = useQuery({
+    queryKey: quoteKeys.list(assignmentId),
+    queryFn: () => fetchQuotes(assignmentId),
+  });
+  if (list.isPending) return <Loading />;
+  if (list.isError) return <LoadError error={list.error} retry={() => void list.refetch()} />;
+  const received = list.data.quotes[0];
+  if (!received) return <Quiet>Je wacht op de offerte van de opdrachtnemer.</Quiet>;
+  return (
+    <Stack gap="related">
+      <Quiet>De opdrachtnemer heeft een offerte uitgebracht.</Quiet>
+      <RouterLinks>
+        <div>
+          <nldd-link href={receivedQuotePath(received.id)} text="Bekijk de offerte" />
+        </div>
+      </RouterLinks>
+    </Stack>
+  );
+}
+
+export function QuotePage() {
+  const isClient = useAssignmentFrame()?.parts.is_client ?? false;
+  return isClient ? <ClientQuote /> : <ContractorQuote />;
 }

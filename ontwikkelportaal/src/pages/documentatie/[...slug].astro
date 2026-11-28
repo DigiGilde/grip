@@ -97,7 +97,7 @@ const hasOutline = (rendered?.headings ?? []).some((h) => h.depth === 2);
     <Base title={chapter.title} crumbs={[docsCrumb]}>
       <nldd-one-third-two-thirds-section>
         <div slot="left">
-          <nldd-title size="2" heading-level="1" text={chapter.title} />
+          <nldd-title size="display-2" heading-level="1" text={chapter.title} />
           <nldd-spacer size="16" />
           <nldd-rich-text>
             <p>{chapter.description}</p>
@@ -109,7 +109,7 @@ const hasOutline = (rendered?.headings ?? []).some((h) => h.depth === 2);
               {i > 0 && <nldd-spacer size="24" />}
               {group.title && (
                 <Fragment>
-                  <nldd-title size="5" heading-level="2" text={group.title} />
+                  <nldd-title size="display-5" heading-level="2" text={group.title} />
                   <nldd-spacer size="8" />
                 </Fragment>
               )}

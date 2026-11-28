@@ -52,7 +52,7 @@ Geen financieel mandaat [aanname]. Een beheerder wijzigt geen begroting, inzet o
 
 ## In Grip
 
-**DigiGilde voorbeeld** (account, beheerder). Zij landt op Start en ziet alle plekken, ook Beheer, en leest alle gegevensklassen. "De dag van de beheerder" uit de rondgang is haar reis. In "Een opdracht uitvoeren en factureren" is zij de enige die een maand heropent. In "Iemand werven" kan zij een vacature maken en een advies vastleggen. Onder Beheer zet zij per koppeling of de tegenpartij de uitputting mag opvragen.
+**DigiGilde voorbeeld** (account, beheerder). Zij landt op Start en ziet alle plekken behalve Aanvragen, met Beheer apart aan het eind, en leest alle gegevensklassen. "De dag van de beheerder" uit de rondgang is haar reis. In "Een opdracht uitvoeren en factureren" is zij de enige die een maand heropent. In "Iemand werven" kan zij een vacature maken en een advies vastleggen. Onder Beheer zet zij per koppeling of de tegenpartij de uitputting mag opvragen.
 
 ## Wat Grip nog niet kan
 

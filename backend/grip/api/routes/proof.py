@@ -309,7 +309,7 @@ async def create_decision_intent(
             quote, _details(body.billing_details), form="own_instance"
         )
     default = (
-        f"/ontvangen-offertes/{quote.id}"
+        f"/aanvragen/offerte/{quote.id}"
         if channel == "own_instance"
         else f"/opdrachten/{quote.assignment_id}/offerte"
     )

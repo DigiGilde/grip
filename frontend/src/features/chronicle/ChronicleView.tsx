@@ -1,11 +1,12 @@
 import { useEffect, useRef, type RefObject } from 'react';
 import { orUndef } from '@/components/nldd/events';
 import { STATUS_COLORS } from '@/features/assignments/labels';
-import { assignmentTabPath } from '@/features/assignments/paths';
+import { assignmentPartPath } from '@/features/assignments/paths';
 import { formatMoment } from '@/features/history/words';
 import { RouterLinks } from '@/layout/RouterLinks';
 import { IconCell } from '@/ui/Icon';
 import { LoadError, Loading, NameLine, Quiet, Section, SectionHeading, Stack } from '@/ui/layout';
+import { placeOf } from '@/ui/track';
 import { CourseBar, CourseNow } from '@/ui/Workflow';
 import { MOMENT_PARAM, useStand, type Moment, type Stand } from './api';
 import { StandAssignmentPart } from './StandAssignmentPart';
@@ -13,21 +14,17 @@ import { StandBudgetPart } from './StandBudgetPart';
 import { StandQuotesPart } from './StandQuotesPart';
 import { laterKnownText, momentByline, momentText, restatedText, standTitle } from './words';
 
+// The step cells are registered with the elements of an assignment. Tests leave
+// the nldd-* elements unregistered on purpose.
+if (import.meta.env.MODE !== 'test') void import('@/features/assignments/register');
+
 const DECISION = 'Besluit';
 
 // Focus lands here from script, not as a tab stop: no ring, as on the page heading.
 const FOCUS_TARGET = { outline: 'none' };
 
 function momentHref(assignmentId: string, seq: number): string {
-  return `${assignmentTabPath(assignmentId, 'history')}?${MOMENT_PARAM}=${seq}`;
-}
-
-type Place = 'first' | 'between' | 'last' | 'only';
-
-function placeOf(index: number, count: number): Place {
-  if (count === 1) return 'only';
-  if (index === 0) return 'first';
-  return index === count - 1 ? 'last' : 'between';
+  return `${assignmentPartPath(assignmentId, 'history')}?${MOMENT_PARAM}=${seq}`;
 }
 
 function statusOf(seq: number, current: number | null): 'past' | 'current' | 'future' {
@@ -46,7 +43,7 @@ function MomentList({
   seq: number | null;
 }) {
   return (
-    <nldd-list type="navigation" aria-label="Momenten van deze opdracht">
+    <nldd-list type="navigation" accessible-label="Momenten van deze opdracht">
       {moments.map((moment, index) => (
         <nldd-list-item
           key={moment.seq}
@@ -98,7 +95,7 @@ function StandCourse({ stand }: { stand: Stand }) {
 
 function BackToNow({ assignmentId }: { assignmentId: string }) {
   return (
-    <nldd-link href={assignmentTabPath(assignmentId, 'history')} text="Terug naar nu" size="md" />
+    <nldd-link href={assignmentPartPath(assignmentId, 'history')} text="Terug naar nu" size="md" />
   );
 }
 
@@ -147,7 +144,9 @@ function StandAtMoment({
         <NameLine
           badges={moment.decision ? <nldd-badge color="neutral" text={DECISION} /> : undefined}
         >
-          <nldd-text>{momentText(moment)}</nldd-text>
+          <nldd-text>
+            <p>{momentText(moment)}</p>
+          </nldd-text>
         </NameLine>
         {(moment.lines ?? []).map((line) => (
           <Quiet key={line}>{line}</Quiet>

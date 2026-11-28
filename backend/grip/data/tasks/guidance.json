@@ -4,17 +4,17 @@
     "assignment.overview": "/opdrachten/{assignment_id}",
     "assignment.budget": "/opdrachten/{assignment_id}/begroting",
     "assignment.quote": "/opdrachten/{assignment_id}/offerte",
-    "assignment.staffing": "/opdrachten/{assignment_id}/bemensing",
-    "assignment.month": "/opdrachten/{assignment_id}/maandafsluiting?maand={repeat_key}",
-    "assignment.period": "/opdrachten/{assignment_id}/maandafsluiting?periode={repeat_key}",
-    "assignment.invoice": "/opdrachten/{assignment_id}/maandafsluiting?factuur={subject_id}",
-    "assignment.report": "/rapportage/opdrachten/{assignment_id}",
+    "assignment.staffing": "/opdrachten/{assignment_id}/team",
+    "assignment.month": "/opdrachten/{assignment_id}/afsluiten?maand={repeat_key}",
+    "assignment.period": "/opdrachten/{assignment_id}/afsluiten?periode={repeat_key}",
+    "assignment.invoice": "/opdrachten/{assignment_id}/afsluiten?factuur={subject_id}",
+    "assignment.report": "/opdrachten/{assignment_id}/rapport",
     "quote.approval": "/goedkeuren/{subject_id}",
     "received.quote": "/aanvragen/offerte/{subject_id}",
-    "vacancy.request": "/vacatures/{vacancy_id}",
+    "vacancy.request": "/vacatures/{vacancy_id}/aanvraag",
     "vacancy.decisions": "/vacatures/{vacancy_id}/advies",
     "vacancy.text": "/vacatures/{vacancy_id}/tekst",
-    "vacancy.procedure": "/vacatures/{vacancy_id}/procedure",
+    "vacancy.procedure": "/vacatures/{vacancy_id}/tekst",
     "vacancy.fulfilment": "/vacatures/{vacancy_id}/vervulling",
     "vacancy.text.write": "/vacatures/{vacancy_id}/tekst?schrijf={repeat_key}",
     "vacancy.decision.hr": "/vacatures/{vacancy_id}/advies?besluit=hr_advice",
@@ -25,28 +25,28 @@
     "offerte.aanvraag_uitwerken": {
       "title": "Maak de begroting",
       "awaited": "De begroting",
-      "do": "Maak de begroting van {opdracht}: voeg de rollen en de vaste bedragen toe. Zonder begroting kan er geen offerte komen.",
-      "wait": "Je wacht op {wie}, die de begroting van {opdracht} maakt. Jij hoeft nu niets te doen.",
+      "do": "Maak de begroting: voeg de rollen en de vaste bedragen toe. Zonder begroting kan er geen offerte komen.",
+      "wait": "Je wacht op {wie}, die de begroting maakt. Jij hoeft nu niets te doen.",
       "action": "Maak de begroting",
-      "why": "{opdracht} is een potentiële opdracht voor {opdrachtgever} en heeft nog geen begroting.",
+      "why": "Dit is een potentiële opdracht voor {opdrachtgever} en heeft nog geen begroting.",
       "then": "Daarna maak je de offerte.",
       "destination": "assignment.budget"
     },
     "offerte.opstellen": {
       "title": "Maak de offerte",
       "awaited": "De offerte",
-      "do": "Maak de offerte voor {opdrachtgever} uit de begroting van {opdracht}.",
+      "do": "Maak de offerte voor {opdrachtgever} uit de begroting.",
       "wait": "Je wacht op {wie}, die de offerte voor {opdrachtgever} maakt. Jij hoeft nu niets te doen.",
       "action": "Maak offerte",
-      "why": "{opdracht} heeft een begroting en nog geen offerte die geldt.",
+      "why": "De opdracht heeft een begroting en nog geen offerte die geldt.",
       "then": "Daarna bied je de offerte aan.",
       "destination": "assignment.quote",
       "situations": {
         "quote_outdated": {
           "title": "Maak een nieuwe offerte",
           "awaited": "Een nieuwe offerte",
-          "do": "De begroting van {opdracht} is gewijzigd nadat de offerte is gemaakt. Maak een nieuwe offerte; de oude vervalt.",
-          "wait": "De begroting van {opdracht} is gewijzigd na de offerte. Je wacht op {wie}, die een nieuwe offerte maakt. Jij hoeft nu niets te doen.",
+          "do": "De begroting is gewijzigd nadat de offerte is gemaakt. Maak een nieuwe offerte; de oude vervalt.",
+          "wait": "De begroting is gewijzigd na de offerte. Je wacht op {wie}, die een nieuwe offerte maakt. Jij hoeft nu niets te doen.",
           "action": "Maak een nieuwe offerte"
         },
         "quote_expired": {
@@ -64,14 +64,14 @@
       "do": "De offerte voor {opdrachtgever} heeft interne goedkeuring nodig voordat zij naar de opdrachtgever kan. Vraag die aan.",
       "wait": "Je wacht op {wie}, die interne goedkeuring vraagt voor de offerte. Jij hoeft nu niets te doen.",
       "action": "Vraag goedkeuring",
-      "why": "De offerte voor {opdracht} is gemaakt en mag pas na interne goedkeuring worden aangeboden.",
+      "why": "De offerte is gemaakt en mag pas na interne goedkeuring worden aangeboden.",
       "then": "Na goedkeuring bied je de offerte aan.",
       "destination": "assignment.quote",
       "situations": {
         "no_approver": {
           "title": "Laat het recht geven om offertes goed te keuren",
-          "do": "De offerte voor {opdrachtgever} heeft interne goedkeuring nodig, en nog niemand heeft het recht Interne goedkeurder van offertes. Een beheerder geeft dat recht bij Team, op de pagina van een persoon. Daarna vraag je goedkeuring.",
-          "wait": "De offerte voor {opdrachtgever} heeft interne goedkeuring nodig, en nog niemand heeft het recht Interne goedkeurder van offertes. Een beheerder geeft dat recht bij Team.",
+          "do": "De offerte voor {opdrachtgever} heeft interne goedkeuring nodig, en nog niemand heeft het recht Interne goedkeurder van offertes. Een beheerder geeft dat recht onder Mensen, op de pagina van een persoon. Daarna vraag je goedkeuring.",
+          "wait": "De offerte voor {opdrachtgever} heeft interne goedkeuring nodig, en nog niemand heeft het recht Interne goedkeurder van offertes. Een beheerder geeft dat recht onder Mensen.",
           "action": "Bekijk de offerte"
         }
       }
@@ -89,7 +89,7 @@
     "offerte.na_terugsturen_opnieuw_maken": {
       "title": "Maak een nieuwe offerte",
       "awaited": "Een nieuwe offerte",
-      "do": "Offerte {kenmerk} is bij de interne goedkeuring teruggestuurd.{reden_terugsturen} Verwerk dat in de begroting of de tekst van {opdracht} en maak daarna een nieuwe offerte.",
+      "do": "Offerte {kenmerk} is bij de interne goedkeuring teruggestuurd.{reden_terugsturen} Verwerk dat in de begroting of de tekst en maak daarna een nieuwe offerte.",
       "wait": "Je wacht op {wie}, die na het terugsturen van offerte {kenmerk} een nieuwe offerte maakt. Jij hoeft nu niets te doen.",
       "action": "Pas de begroting aan",
       "why": "Offerte {kenmerk} is teruggestuurd bij de interne goedkeuring.",
@@ -102,7 +102,7 @@
       "do": "De offerte voor {opdrachtgever} is gemaakt. Bied haar aan: via grip, met een tekenlink of als document.",
       "wait": "Je wacht op {wie}, die de offerte aan {opdrachtgever} aanbiedt. Jij hoeft nu niets te doen.",
       "action": "Bied de offerte aan",
-      "why": "De offerte voor {opdracht} is gemaakt en nog niet aangeboden.",
+      "why": "De offerte is gemaakt en nog niet aangeboden.",
       "then": "Daarna wacht je op het akkoord van de opdrachtgever.",
       "destination": "assignment.quote"
     },
@@ -112,7 +112,7 @@
       "do": "De offerte ligt bij {opdrachtgever}. Kreeg je het akkoord buiten grip, leg het dan vast bij de offerte.",
       "wait": "Je wacht op het akkoord van {opdrachtgever} op de offerte. Jij hoeft nu niets te doen. Kreeg je het akkoord buiten grip, leg het dan vast bij de offerte.",
       "action": "Bekijk de offerte",
-      "why": "De offerte voor {opdracht} is aangeboden aan {opdrachtgever}.",
+      "why": "De offerte is aangeboden aan {opdrachtgever}.",
       "then": "Na het akkoord kan de opdracht in uitvoering.",
       "destination": "assignment.quote",
       "situations": {
@@ -129,55 +129,55 @@
       "do": "{opdrachtgever} heeft offerte {kenmerk} afgewezen{afgewezen_op}.{reden_afwijzing} Verwerk de reactie in de begroting en maak een nieuwe offerte.",
       "wait": "{opdrachtgever} heeft offerte {kenmerk} afgewezen{afgewezen_op}. Je wacht op {wie}, die een nieuwe offerte maakt. Jij hoeft nu niets te doen.",
       "action": "Maak een nieuwe offerte",
-      "why": "De offerte voor {opdracht} is afgewezen.",
+      "why": "De offerte is afgewezen.",
       "destination": "assignment.quote"
     },
     "offerte.beoordelen_en_tekenen": {
       "title": "Beoordeel de ontvangen offerte",
       "awaited": "Het besluit over de ontvangen offerte",
-      "do": "Lees de offerte die je organisatie voor {opdracht} heeft ontvangen en geef akkoord, of wijs haar af.",
+      "do": "Lees de offerte die je organisatie heeft ontvangen en geef akkoord, of wijs haar af.",
       "wait": "Je wacht op {wie}, die de ontvangen offerte beoordeelt. Jij hoeft nu niets te doen.",
       "action": "Beoordeel de offerte",
-      "why": "Je organisatie heeft een offerte ontvangen voor {opdracht}.",
+      "why": "Je organisatie heeft een offerte ontvangen.",
       "then": "Na het akkoord gaat de opdrachtnemer aan het werk.",
       "destination": "received.quote"
     },
     "bemensing.rol_invullen": {
       "title": "Vul de rol {rol} in",
       "awaited": "De invulling van de rol {rol}",
-      "do": "De rol {rol} op {opdracht} is nog niet ingevuld. Plan iemand in, of open een vacature voor de rol.",
-      "wait": "Je wacht op {wie}, die de rol {rol} op {opdracht} invult. Jij hoeft nu niets te doen.",
+      "do": "De rol {rol} is nog niet ingevuld. Plan iemand in, of open een vacature voor de rol.",
+      "wait": "Je wacht op {wie}, die de rol {rol} invult. Jij hoeft nu niets te doen.",
       "action": "Vul de rol in",
-      "why": "De rol {rol} staat op de begroting van {opdracht} en is nog niet helemaal ingevuld.",
+      "why": "De rol {rol} staat op de begroting en is nog niet helemaal ingevuld.",
       "destination": "assignment.staffing"
     },
     "uitvoering.starten": {
       "title": "Zet de opdracht in uitvoering",
       "awaited": "De start van de opdracht",
-      "do": "Er is akkoord op {opdracht}. Zet de opdracht in uitvoering, zodat je maanden kunt afsluiten.",
-      "wait": "Je wacht op {wie}, die {opdracht} in uitvoering zet. Jij hoeft nu niets te doen.",
+      "do": "Er is akkoord. Zet de opdracht in uitvoering, zodat je maanden kunt afsluiten.",
+      "wait": "Je wacht op {wie}, die de opdracht in uitvoering zet. Jij hoeft nu niets te doen.",
       "action": "Zet in uitvoering",
-      "why": "Er is akkoord gegeven op de offerte voor {opdracht}.",
+      "why": "Er is akkoord gegeven op de offerte.",
       "then": "Daarna sluit je elke maand de inzet af.",
       "destination": "assignment.overview"
     },
     "uitvoering.maand_afsluiten": {
       "title": "Sluit {maand} af",
       "awaited": "De afsluiting van {maand}",
-      "do": "Stel vast wie in {maand} hoeveel heeft gewerkt op {opdracht}, en sluit de maand af.",
-      "wait": "Je wacht op {wie}, die {maand} afsluit voor {opdracht}. Jij hoeft nu niets te doen.",
+      "do": "Stel vast wie in {maand} hoeveel heeft gewerkt, en sluit de maand af.",
+      "wait": "Je wacht op {wie}, die {maand} afsluit. Jij hoeft nu niets te doen.",
       "action": "Sluit {maand} af",
-      "why": "{maand} is voorbij en er was inzet gepland op {opdracht}.",
+      "why": "{maand} is voorbij en er was inzet gepland.",
       "then": "Daarna lever je de factuurgegevens aan.",
       "destination": "assignment.month"
     },
     "uitvoering.eindrapport": {
       "title": "Lever het eindrapport op",
       "awaited": "Het eindrapport",
-      "do": "{opdracht} is afgerond. Maak het eindrapport voor {opdrachtgever} en lever het op.",
-      "wait": "Je wacht op {wie}, die het eindrapport van {opdracht} oplevert. Jij hoeft nu niets te doen.",
+      "do": "De opdracht is afgerond. Maak het eindrapport voor {opdrachtgever} en lever het op.",
+      "wait": "Je wacht op {wie}, die het eindrapport oplevert. Jij hoeft nu niets te doen.",
       "action": "Maak het eindrapport",
-      "why": "{opdracht} is afgerond en het eindrapport is nog niet opgeleverd.",
+      "why": "De opdracht is afgerond en het eindrapport is nog niet opgeleverd.",
       "destination": "assignment.report"
     },
     "uitvoering.dossier_sluiten": {
@@ -193,10 +193,10 @@
     "financien.factuurgegevens_aanleveren": {
       "title": "Lever {periode} aan",
       "awaited": "De aanlevering van {periode}",
-      "do": "Alle maanden van {periode} zijn afgesloten. Lever de factuurgegevens van {opdracht} aan bij de financiële administratie.",
-      "wait": "Je wacht op {wie}, die {periode} aanlevert voor {opdracht}. Jij hoeft nu niets te doen.",
+      "do": "Alle maanden van {periode} zijn afgesloten. Lever de factuurgegevens aan bij de financiële administratie.",
+      "wait": "Je wacht op {wie}, die {periode} aanlevert. Jij hoeft nu niets te doen.",
       "action": "Lever aan",
-      "why": "Alle maanden van {periode} zijn afgesloten voor {opdracht}.",
+      "why": "Alle maanden van {periode} zijn afgesloten.",
       "then": "Daarna leg je de factuur vast.",
       "destination": "assignment.period"
     },
@@ -206,13 +206,13 @@
       "do": "De factuurgegevens over {periode} zijn aangeleverd. Leg vast dat de factuur aan {opdrachtgever} is verstuurd, met het factuurnummer.",
       "wait": "Je wacht op {wie}, die de factuur over {periode} vastlegt. Jij hoeft nu niets te doen.",
       "action": "Leg factuur vast",
-      "why": "De factuurgegevens over {periode} zijn aangeleverd voor {opdracht}.",
+      "why": "De factuurgegevens over {periode} zijn aangeleverd.",
       "destination": "assignment.invoice"
     },
     "financien.naverrekening_aanleveren": {
       "title": "Lever de naverrekening over {periode} aan",
       "awaited": "De naverrekening over {periode}",
-      "do": "Na de aanlevering van {periode} is er iets gewijzigd: {oorzaak}. Het verschil is {bedrag}. Lever de naverrekening van {opdracht} aan.",
+      "do": "Na de aanlevering van {periode} is er iets gewijzigd: {oorzaak}. Het verschil is {bedrag}. Lever de naverrekening aan.",
       "wait": "Na de aanlevering van {periode} is er iets gewijzigd; het verschil is {bedrag}. Je wacht op {wie}, die de naverrekening aanlevert. Jij hoeft nu niets te doen.",
       "action": "Lever de naverrekening aan",
       "why": "Na de aanlevering van {periode} is er iets gewijzigd; het verschil is {bedrag}.",
@@ -444,20 +444,20 @@
     "intern.begroten": {
       "title": "Maak de begroting",
       "awaited": "De begroting",
-      "do": "Maak de begroting van {opdracht}: voeg de rollen en de vaste bedragen toe.",
-      "wait": "Je wacht op {wie}, die de begroting van {opdracht} maakt. Jij hoeft nu niets te doen.",
+      "do": "Maak de begroting: voeg de rollen en de vaste bedragen toe.",
+      "wait": "Je wacht op {wie}, die de begroting maakt. Jij hoeft nu niets te doen.",
       "action": "Maak de begroting",
-      "why": "{opdracht} is een interne opdracht en heeft nog geen begroting.",
+      "why": "Dit is een interne opdracht en heeft nog geen begroting.",
       "then": "Daarna start je de opdracht.",
       "destination": "assignment.budget"
     },
     "intern.starten": {
       "title": "Start de opdracht",
       "awaited": "De start van de opdracht",
-      "do": "De begroting van {opdracht} staat. Start de opdracht, zodat je inzet kunt plannen en maanden kunt afsluiten. Een interne opdracht heeft geen offerte nodig.",
-      "wait": "Je wacht op {wie}, die {opdracht} start. Jij hoeft nu niets te doen.",
+      "do": "De begroting staat. Start de opdracht, zodat je inzet kunt plannen en maanden kunt afsluiten. Een interne opdracht heeft geen offerte nodig.",
+      "wait": "Je wacht op {wie}, die de opdracht start. Jij hoeft nu niets te doen.",
       "action": "Start de opdracht",
-      "why": "{opdracht} is een interne opdracht met een begroting.",
+      "why": "Dit is een interne opdracht met een begroting.",
       "then": "Daarna sluit je elke maand de inzet af.",
       "destination": "assignment.overview"
     }

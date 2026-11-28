@@ -12,7 +12,7 @@ import { TO_START } from '@/layout/useAdminBack';
 import { useInstance } from '@/layout/useInstance';
 import { NoAccess, Page } from '@/ui/layout';
 
-export const FOR_BEHEERDERS = 'Beheer is voor beheerders. Wie dat zijn zie je onder Team.';
+export const FOR_BEHEERDERS = 'Beheer is voor beheerders. Wie dat zijn zie je onder Mensen.';
 
 export function AdminOnly({ title, children }: { title: string; children: ReactNode }) {
   const { state } = useAuth();
@@ -21,7 +21,7 @@ export function AdminOnly({ title, children }: { title: string; children: ReactN
     return <>{children}</>;
   }
   return (
-    <Page title={title} instanceName={instance?.name} back={TO_START}>
+    <Page kind="list" title={title} instanceName={instance?.name} back={TO_START}>
       <NoAccess who={FOR_BEHEERDERS} />
     </Page>
   );

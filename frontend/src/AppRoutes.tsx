@@ -8,10 +8,10 @@ import { LoginPage } from '@/pages/LoginPage';
 import { NoAccessPage } from '@/pages/NoAccessPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { PATHS } from '@/paths';
-import { ASSIGNMENT_TAB_SEGMENTS } from '@/features/assignments/paths';
-import { OverviewPage } from '@/features/overview/OverviewPage';
+import { ASSIGNMENT_PART_SEGMENTS } from '@/features/assignments/paths';
+import { StartPage } from '@/features/start/StartPage';
 import { TasksPage } from '@/features/tasks/TasksPage';
-import { VACANCY_TAB_SEGMENTS } from '@/features/vacancies/paths';
+import { VACANCY_PART_SEGMENTS } from '@/features/vacancies/paths';
 import { page, preloadFor } from '@/pageChunks';
 import type { ReactElement } from 'react';
 
@@ -20,14 +20,14 @@ import type { ReactElement } from 'react';
 // `pageChunks`): the patterns say for which addresses.
 const ASSIGNMENT = `${PATHS.assignmentDetail}/*`;
 const VACANCY = `${PATHS.vacancyDetail}/*`;
-const assignmentTab = (segment: string) => `${PATHS.assignmentDetail}/${segment}`;
-const vacancyTab = (segment: string) => `${PATHS.vacancyDetail}/${segment}`;
+const assignmentPart = (segment: string) => `${PATHS.assignmentDetail}/${segment}`;
+const vacancyPart = (segment: string) => `${PATHS.vacancyDetail}/${segment}`;
 
 const AdminPage = page(() => import('@/pages/AdminPage'), 'AdminPage', PATHS.admin);
 const AllocationsPage = page(
   () => import('@/features/allocations/AllocationsPage'),
   'AllocationsPage',
-  PATHS.allocations,
+  PATHS.peopleBoard,
 );
 const AssignmentsPage = page(
   () => import('@/features/assignments/AssignmentsPage'),
@@ -39,59 +39,55 @@ const AssignmentLayout = page(
   'AssignmentLayout',
   ASSIGNMENT,
 );
-const AssignmentTab = page(
-  () => import('@/features/assignments/TabGuard'),
-  'AssignmentTab',
-  ASSIGNMENT,
-);
-const OverviewTab = page(
-  () => import('@/features/assignments/tabs/OverviewTab'),
-  'OverviewTab',
+const AssignmentLanding = page(
+  () => import('@/features/assignments/AssignmentLanding'),
+  'AssignmentLanding',
   PATHS.assignmentDetail,
 );
-const FinanceTab = page(
-  () => import('@/features/assignments/tabs/FinanceTab'),
-  'FinanceTab',
-  assignmentTab(ASSIGNMENT_TAB_SEGMENTS.finance),
+const ClosePart = page(
+  () => import('@/features/assignments/parts/ClosePart'),
+  'ClosePart',
+  assignmentPart(ASSIGNMENT_PART_SEGMENTS.close),
 );
-const StaffingTab = page(
-  () => import('@/features/assignments/tabs/StaffingTab'),
-  'StaffingTab',
-  assignmentTab(ASSIGNMENT_TAB_SEGMENTS.staffing),
+const BudgetPart = page(
+  () => import('@/features/assignments/parts/BudgetPart'),
+  'BudgetPart',
+  assignmentPart(ASSIGNMENT_PART_SEGMENTS.budget),
 );
-const BudgetTab = page(
-  () => import('@/features/assignments/tabs/BudgetTab'),
-  'BudgetTab',
-  assignmentTab(ASSIGNMENT_TAB_SEGMENTS.budget),
+const QuotePart = page(
+  () => import('@/features/assignments/parts/QuotePart'),
+  'QuotePart',
+  assignmentPart(ASSIGNMENT_PART_SEGMENTS.quote),
 );
-const QuotePage = page(
-  () => import('@/features/quotes/QuotePage'),
-  'QuotePage',
-  assignmentTab(ASSIGNMENT_TAB_SEGMENTS.quote),
+const TeamPart = page(
+  () => import('@/features/assignments/parts/TeamPart'),
+  'TeamPart',
+  assignmentPart(ASSIGNMENT_PART_SEGMENTS.team),
 );
-const MonthClosePage = page(
-  () => import('@/features/month-close/MonthClosePage'),
-  'MonthClosePage',
-  assignmentTab(ASSIGNMENT_TAB_SEGMENTS.monthClose),
+const ReportPart = page(
+  () => import('@/features/assignments/parts/ReportPart'),
+  'ReportPart',
+  assignmentPart(ASSIGNMENT_PART_SEGMENTS.report),
 );
-const caseTasks = () => import('@/features/tasks/CaseTasks');
-const AssignmentTasksTab = page(
-  caseTasks,
-  'AssignmentTasksTab',
-  assignmentTab(ASSIGNMENT_TAB_SEGMENTS.tasks),
+const AssignmentDetailsPart = page(
+  () => import('@/features/assignments/parts/DetailsPart'),
+  'DetailsPart',
+  assignmentPart(ASSIGNMENT_PART_SEGMENTS.details),
 );
-const VacancyTasksTab = page(caseTasks, 'VacancyTasksTab', vacancyTab(VACANCY_TAB_SEGMENTS.tasks));
-const history = () => import('@/features/history/History');
-const ActivityPage = page(history, 'ActivityPage', PATHS.activity);
-const AssignmentHistoryTab = page(
-  history,
-  'AssignmentHistoryTab',
-  assignmentTab(ASSIGNMENT_TAB_SEGMENTS.history),
+const AssignmentHistoryPart = page(
+  () => import('@/features/assignments/parts/HistoryPart'),
+  'HistoryPart',
+  assignmentPart(ASSIGNMENT_PART_SEGMENTS.history),
 );
-const VacancyHistoryTab = page(
-  history,
-  'VacancyHistoryTab',
-  vacancyTab(VACANCY_TAB_SEGMENTS.history),
+const AssignmentTasksPart = page(
+  () => import('@/features/assignments/parts/TasksPart'),
+  'TasksPart',
+  assignmentPart(ASSIGNMENT_PART_SEGMENTS.tasks),
+);
+const ActivityPage = page(
+  () => import('@/features/history/History'),
+  'ActivityPage',
+  PATHS.activity,
 );
 const UpdatesPage = page(
   () => import('@/features/history/UpdateFeed'),
@@ -204,23 +200,46 @@ const RolesAdminPage = page(
 );
 const PeersPage = page(() => import('@/features/peers/PeersPage'), 'PeersPage', PATHS.peers);
 const RatesPage = page(() => import('@/features/rates/RatesPage'), 'RatesPage', PATHS.rates);
-const AssignmentReportPage = page(
-  () => import('@/features/reports/AssignmentReportPage'),
-  'AssignmentReportPage',
-  PATHS.reportAssignment,
+const MePage = page(() => import('@/layout/MePage'), 'MePage', PATHS.me);
+const SearchPage = page(() => import('@/features/search/SearchPage'), 'SearchPage', PATHS.search);
+const MoneyPage = page(() => import('@/features/money/MoneyPage'), 'MoneyPage', PATHS.money);
+const RunningAssignmentsPage = page(
+  () => import('@/features/money/RunningAssignmentsPage'),
+  'RunningAssignmentsPage',
+  PATHS.moneyAssignments,
 );
-const ReportsPage = page(
-  () => import('@/features/reports/ReportsPage'),
-  'ReportsPage',
-  PATHS.reports,
+const TurnoverPage = page(
+  () => import('@/features/money/TurnoverPage'),
+  'TurnoverPage',
+  PATHS.moneyTurnover,
 );
-const ReportTopicPage = page(
-  () => import('@/features/reports/ReportTopicPage'),
-  'ReportTopicPage',
-  PATHS.reportTopic,
+const InvestmentPage = page(
+  () => import('@/features/money/InvestmentPage'),
+  'InvestmentPage',
+  PATHS.moneyInvestment,
 );
-const PersonPage = page(() => import('@/features/team/PersonPage'), 'PersonPage', PATHS.teamPerson);
-const TeamPage = page(() => import('@/features/team/TeamPage'), 'TeamPage', PATHS.team);
+const PotentialPage = page(
+  () => import('@/features/money/PotentialPage'),
+  'PotentialPage',
+  PATHS.moneyPotential,
+);
+const YearAccountPage = page(
+  () => import('@/features/money/YearAccountPage'),
+  'YearAccountPage',
+  PATHS.yearAccount,
+);
+const PeoplePage = page(() => import('@/features/team/PeoplePage'), 'PeoplePage', PATHS.people);
+const OccupancyPage = page(
+  () => import('@/features/team/OccupancyPage'),
+  'OccupancyPage',
+  PATHS.peopleOccupancy,
+);
+const BillabilityPage = page(
+  () => import('@/features/team/BillabilityPage'),
+  'BillabilityPage',
+  PATHS.peopleBillability,
+);
+const PersonPage = page(() => import('@/features/team/PersonPage'), 'PersonPage', PATHS.person);
 const VacancySetupPage = page(
   () => import('@/features/form-templates/VacancySetupPage'),
   'VacancySetupPage',
@@ -246,10 +265,10 @@ const WiesProposalsPage = page(
   'WiesProposalsPage',
   PATHS.wiesProposals,
 );
-const OpenRolesPage = page(
-  () => import('@/features/vacancies/OpenRolesPage'),
-  'OpenRolesPage',
-  PATHS.vacancyOpenRoles,
+const PublishedPage = page(
+  () => import('@/features/vacancies/PublishedPage'),
+  'PublishedPage',
+  PATHS.vacancyPublished,
 );
 const StandardTextsPage = page(
   () => import('@/features/vacancies/StandardTextsPage'),
@@ -261,13 +280,46 @@ const VacanciesPage = page(
   'VacanciesPage',
   PATHS.vacancies,
 );
-const vacancyTabs = () => import('@/features/vacancies/tabs/VacancyTabs');
-const RequestTab = page(vacancyTabs, 'RequestTab', VACANCY);
-const DecisionsTab = page(vacancyTabs, 'DecisionsTab', VACANCY);
-const TextTab = page(vacancyTabs, 'TextTab', VACANCY);
-const ProcedureTab = page(vacancyTabs, 'ProcedureTab', VACANCY);
-const FulfilmentTab = page(vacancyTabs, 'FulfilmentTab', VACANCY);
-const VacancyTab = page(() => import('@/features/vacancies/TabGuard'), 'VacancyTab', VACANCY);
+const VacancyLanding = page(
+  () => import('@/features/vacancies/VacancyLanding'),
+  'VacancyLanding',
+  PATHS.vacancyDetail,
+);
+const RequestPart = page(
+  () => import('@/features/vacancies/parts/RequestPart'),
+  'RequestPart',
+  vacancyPart(VACANCY_PART_SEGMENTS.request),
+);
+const DecisionsPart = page(
+  () => import('@/features/vacancies/parts/DecisionsPart'),
+  'DecisionsPart',
+  vacancyPart(VACANCY_PART_SEGMENTS.decisions),
+);
+const TextPart = page(
+  () => import('@/features/vacancies/parts/TextPart'),
+  'TextPart',
+  vacancyPart(VACANCY_PART_SEGMENTS.text),
+);
+const FulfilmentPart = page(
+  () => import('@/features/vacancies/parts/FulfilmentPart'),
+  'FulfilmentPart',
+  vacancyPart(VACANCY_PART_SEGMENTS.fulfilment),
+);
+const VacancyDetailsPart = page(
+  () => import('@/features/vacancies/parts/DetailsPart'),
+  'DetailsPart',
+  vacancyPart(VACANCY_PART_SEGMENTS.details),
+);
+const VacancyHistoryPart = page(
+  () => import('@/features/vacancies/parts/HistoryPart'),
+  'HistoryPart',
+  vacancyPart(VACANCY_PART_SEGMENTS.history),
+);
+const VacancyTasksPart = page(
+  () => import('@/features/vacancies/parts/TasksPart'),
+  'TasksPart',
+  vacancyPart(VACANCY_PART_SEGMENTS.tasks),
+);
 const VacancyLayout = page(
   () => import('@/features/vacancies/VacancyLayout'),
   'VacancyLayout',
@@ -285,15 +337,12 @@ const VacancyTextPage = page(
  * never what exists.
  */
 const SCREENS: Record<string, ReactElement> = {
-  [PATHS.statusOverview]: <OverviewPage />,
+  [PATHS.start]: <StartPage />,
   [PATHS.tasks]: <TasksPage />,
   [PATHS.assignments]: <AssignmentsPage />,
-  [PATHS.allocations]: <AllocationsPage />,
-  [PATHS.costs]: <CostsPage />,
-  [PATHS.billing]: <BillingPage />,
-  [PATHS.team]: <TeamPage />,
+  [PATHS.people]: <PeoplePage />,
   [PATHS.vacancies]: <VacanciesPage />,
-  [PATHS.reports]: <ReportsPage />,
+  [PATHS.money]: <MoneyPage />,
   [PATHS.client]: <ClientPage />,
   [PATHS.admin]: <AdminPage />,
 };
@@ -318,7 +367,7 @@ export function AppRoutes() {
   }
 
   return (
-    <PageBoundary resetKey={pathname} fallback={null}>
+    <PageBoundary resetKey={pathname}>
       <Routes>
         <Route path={PATHS.login} element={<LoginPage />} />
         <Route path={PATHS.noAccess} element={<NoAccessPage />} />
@@ -332,78 +381,50 @@ export function AppRoutes() {
           {Object.entries(SCREENS).map(([path, element]) => (
             <Route key={path} path={path} element={element} />
           ))}
-          {/* One assignment: a shared header and tabs around one page per concern. */}
+          {/* One assignment: a shared header around one page per part. */}
           <Route path={PATHS.assignmentDetail} element={<AssignmentLayout />}>
-            <Route index element={<OverviewTab />} />
-            <Route path={ASSIGNMENT_TAB_SEGMENTS.tasks} element={<AssignmentTasksTab />} />
-            <Route
-              path={ASSIGNMENT_TAB_SEGMENTS.finance}
-              element={
-                <AssignmentTab tab="finance">
-                  <FinanceTab />
-                </AssignmentTab>
-              }
-            />
-            <Route
-              path={ASSIGNMENT_TAB_SEGMENTS.staffing}
-              element={
-                <AssignmentTab tab="staffing">
-                  <StaffingTab />
-                </AssignmentTab>
-              }
-            />
-            <Route
-              path={ASSIGNMENT_TAB_SEGMENTS.budget}
-              element={
-                <AssignmentTab tab="budget">
-                  <BudgetTab />
-                </AssignmentTab>
-              }
-            />
-            <Route
-              path={ASSIGNMENT_TAB_SEGMENTS.quote}
-              element={
-                <AssignmentTab tab="quote">
-                  <QuotePage />
-                </AssignmentTab>
-              }
-            />
-            <Route
-              path={ASSIGNMENT_TAB_SEGMENTS.monthClose}
-              element={
-                <AssignmentTab tab="monthClose">
-                  <MonthClosePage />
-                </AssignmentTab>
-              }
-            />
-            <Route path={ASSIGNMENT_TAB_SEGMENTS.history} element={<AssignmentHistoryTab />} />
+            <Route index element={<AssignmentLanding />} />
+            <Route path={ASSIGNMENT_PART_SEGMENTS.close} element={<ClosePart />} />
+            <Route path={ASSIGNMENT_PART_SEGMENTS.budget} element={<BudgetPart />} />
+            <Route path={ASSIGNMENT_PART_SEGMENTS.quote} element={<QuotePart />} />
+            <Route path={ASSIGNMENT_PART_SEGMENTS.team} element={<TeamPart />} />
+            <Route path={ASSIGNMENT_PART_SEGMENTS.report} element={<ReportPart />} />
+            <Route path={ASSIGNMENT_PART_SEGMENTS.details} element={<AssignmentDetailsPart />} />
+            <Route path={ASSIGNMENT_PART_SEGMENTS.history} element={<AssignmentHistoryPart />} />
+            <Route path={ASSIGNMENT_PART_SEGMENTS.tasks} element={<AssignmentTasksPart />} />
           </Route>
           <Route path={PATHS.activity} element={<ActivityPage />} />
           <Route path={PATHS.updates} element={<UpdatesPage />} />
-          <Route path={PATHS.vacancyOpenRoles} element={<OpenRolesPage />} />
+          <Route path={PATHS.search} element={<SearchPage />} />
+          <Route path={PATHS.me} element={<MePage />} />
+          <Route path={PATHS.peopleBoard} element={<AllocationsPage />} />
+          <Route path={PATHS.peopleOccupancy} element={<OccupancyPage />} />
+          <Route path={PATHS.peopleBillability} element={<BillabilityPage />} />
+          <Route path={PATHS.moneyAssignments} element={<RunningAssignmentsPage />} />
+          <Route path={PATHS.moneyTurnover} element={<TurnoverPage />} />
+          <Route path={PATHS.moneyInvestment} element={<InvestmentPage />} />
+          <Route path={PATHS.moneyPotential} element={<PotentialPage />} />
+          <Route path={PATHS.costs} element={<CostsPage />} />
+          <Route path={PATHS.billing} element={<BillingPage />} />
+          <Route path={PATHS.yearAccount} element={<YearAccountPage />} />
+          <Route path={PATHS.vacancyPublished} element={<PublishedPage />} />
           <Route path={PATHS.vacancySetup} element={<VacancySetupPage />} />
           <Route path={PATHS.languageModel} element={<LanguageModelPage />} />
           <Route path={PATHS.vacancyStandardTexts} element={<StandardTextsPage />} />
           <Route path={PATHS.formTemplate} element={<FormTemplatePage />} />
           <Route path={PATHS.functionFramework} element={<FunctionFrameworkPage />} />
-          {/* One vacancy: a shared header with the steps, and a tab per concern. */}
+          {/* One vacancy: a shared header with the steps, and a page per part. */}
           <Route path={PATHS.vacancyDetail} element={<VacancyLayout />}>
-            <Route index element={<RequestTab />} />
-            <Route path={VACANCY_TAB_SEGMENTS.tasks} element={<VacancyTasksTab />} />
-            <Route path={VACANCY_TAB_SEGMENTS.decisions} element={<DecisionsTab />} />
-            <Route path={VACANCY_TAB_SEGMENTS.text} element={<TextTab />} />
-            <Route path={VACANCY_TAB_SEGMENTS.procedure} element={<ProcedureTab />} />
-            <Route
-              path={VACANCY_TAB_SEGMENTS.fulfilment}
-              element={
-                <VacancyTab tab="fulfilment">
-                  <FulfilmentTab />
-                </VacancyTab>
-              }
-            />
-            <Route path={VACANCY_TAB_SEGMENTS.history} element={<VacancyHistoryTab />} />
+            <Route index element={<VacancyLanding />} />
+            <Route path={VACANCY_PART_SEGMENTS.request} element={<RequestPart />} />
+            <Route path={VACANCY_PART_SEGMENTS.decisions} element={<DecisionsPart />} />
+            <Route path={VACANCY_PART_SEGMENTS.text} element={<TextPart />} />
+            <Route path={VACANCY_PART_SEGMENTS.fulfilment} element={<FulfilmentPart />} />
+            <Route path={VACANCY_PART_SEGMENTS.details} element={<VacancyDetailsPart />} />
+            <Route path={VACANCY_PART_SEGMENTS.history} element={<VacancyHistoryPart />} />
+            <Route path={VACANCY_PART_SEGMENTS.tasks} element={<VacancyTasksPart />} />
           </Route>
-          {/* Writing the vacancy text is a page of its own, outside the tabs. */}
+          {/* Writing the vacancy text is a page of its own, outside the parts. */}
           <Route path={PATHS.vacancyTextWrite} element={<VacancyTextPage />} />
           <Route path={PATHS.clientRequest} element={<RequestQuotePage />} />
           <Route path={PATHS.clientAssignment} element={<ClientAssignmentPage />} />
@@ -439,15 +460,12 @@ export function AppRoutes() {
             }
           />
           <Route path={PATHS.rates} element={<RatesPage />} />
-          <Route path={PATHS.teamPerson} element={<PersonPage />} />
+          <Route path={PATHS.person} element={<PersonPage />} />
           <Route path={PATHS.costItem} element={<CostItemPage />} />
           <Route path={PATHS.billingDelivery} element={<DeliveryPage />} />
           <Route path={PATHS.security} element={<SecurityPage />} />
           <Route path={PATHS.notifications} element={<NotificationsPage />} />
-          <Route path={PATHS.ratesLegacy} element={<Navigate to={PATHS.rates} replace />} />
           <Route path={PATHS.wiesProposals} element={<WiesProposalsPage />} />
-          <Route path={PATHS.reportAssignment} element={<AssignmentReportPage />} />
-          <Route path={PATHS.reportTopic} element={<ReportTopicPage />} />
         </Route>
         <Route
           element={

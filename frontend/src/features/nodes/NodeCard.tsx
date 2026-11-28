@@ -46,26 +46,34 @@ export function NodeCard({ item, onOpen, pending, hideReason, action }: NodeCard
       ref={ref}
       button={orUndef(clickable)}
       accessible-label={
-        pending ? 'Bezig met ophalen van een node' : clickable ? `Bekijk ${name}` : name
+        pending ? 'Bezig met ophalen van een stuk' : clickable ? `Bekijk ${name}` : name
       }
       data-node-uri={item.uri}
       aria-busy={pending ? 'true' : undefined}
     >
       <nldd-container padding="16" gap="8" style={BODY}>
         {pending ? (
-          <nldd-text size="sm">Bezig met ophalen</nldd-text>
+          <nldd-text size="sm">
+            <p>Bezig met ophalen</p>
+          </nldd-text>
         ) : node ? (
           <>
             <nldd-container layout="wrap" gap="8">
               <nldd-badge color="accent" text={nodeTypeLabel(node.type)} />
               {status ? <nldd-badge color="warning" text={status} /> : null}
             </nldd-container>
-            <nldd-title size={5} text={node.title} heading-level={3} />
-            {organisation ? <nldd-text size="sm">{organisation}</nldd-text> : null}
+            <nldd-title size="display-5" text={node.title} heading-level={3} />
+            {organisation ? (
+              <nldd-text size="sm">
+                <span>{organisation}</span>
+              </nldd-text>
+            ) : null}
             {origin ? (
               <nldd-text size="sm">
-                {origin}
-                {steps ? ` (${steps})` : ''}
+                <span>
+                  {origin}
+                  {steps ? ` (${steps})` : ''}
+                </span>
               </nldd-text>
             ) : null}
           </>
@@ -74,11 +82,19 @@ export function NodeCard({ item, onOpen, pending, hideReason, action }: NodeCard
             <div>
               <nldd-badge color="neutral" text="Niet op te halen" />
             </div>
-            <nldd-title size={5} text={uriHost(item.uri) || 'Verwijzing'} heading-level={3} />
+            <nldd-title
+              size="display-5"
+              text={uriHost(item.uri) || 'Verwijzing'}
+              heading-level={3}
+            />
             <nldd-text size="sm" style={{ overflowWrap: 'anywhere' }}>
-              {item.uri}
+              <span>{item.uri}</span>
             </nldd-text>
-            {!hideReason && item.problem ? <nldd-text size="sm">{item.problem}</nldd-text> : null}
+            {!hideReason && item.problem ? (
+              <nldd-text size="sm">
+                <p>{item.problem}</p>
+              </nldd-text>
+            ) : null}
           </>
         )}
       </nldd-container>
@@ -96,7 +112,7 @@ export function NodeCard({ item, onOpen, pending, hideReason, action }: NodeCard
 /** Node cards in a responsive grid; the cards of a row are equally high. */
 export function NodeCardGrid({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <nldd-collection layout="grid" item-width="280px" gap="16" role="group" aria-label={label}>
+    <nldd-collection layout="grid" item-min-width="280px" gap="16" role="group" aria-label={label}>
       {children}
     </nldd-collection>
   );

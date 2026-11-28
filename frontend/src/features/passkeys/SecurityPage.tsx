@@ -88,6 +88,7 @@ export function SecurityPage() {
   return (
     <>
       <Page
+        kind="list"
         title="Beveiliging"
         instanceName={instance?.name}
         {...(list?.available ? { lead: purpose(list) } : {})}
@@ -111,7 +112,9 @@ export function SecurityPage() {
                   // Nothing yet: the one thing to do stands with the words, not
                   // alone at the far side of an empty page.
                   <Stack gap="related">
-                    <nldd-text>Je hebt nog geen passkey.</nldd-text>
+                    <nldd-text>
+                      <p>Je hebt nog geen passkey.</p>
+                    </nldd-text>
                     {mayAdd ? (
                       <nldd-container layout="row">
                         <Button text="Leg een passkey vast" appearance="primary" onClick={start} />
@@ -150,6 +153,7 @@ export function SecurityPage() {
                             actions={[
                               {
                                 text: 'Trek in',
+                                withdraws: true,
                                 destructive: true,
                                 confirm: {
                                   text: `Passkey '${passkey.label}' intrekken?`,

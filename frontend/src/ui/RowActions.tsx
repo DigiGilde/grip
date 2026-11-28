@@ -12,8 +12,8 @@
  */
 import { useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { orUndef, useNlddEvent } from '@/components/nldd/events';
-import { MoreButton } from './Icon';
+import { orUndef, useMenuSelect, useNlddEvent } from '@/components/nldd/events';
+import { MoreButton, RemoveButton } from './Icon';
 import './hidden.css';
 
 // The confirmation of a destructive action. A page loads its own files, so
@@ -43,17 +43,45 @@ export interface RowAction {
   href?: string;
   /** Marks the item as destructive in the menu. */
   destructive?: boolean;
+  /** Takes back a right or a registration: alone, it gets the picture of going back, not a trash can. */
+  withdraws?: boolean;
   /** Asked before `onSelect`: what happens, and what goes with it. */
   confirm?: { text: string; supportingText?: string; confirmText: string };
 }
 
 function MenuItem({ action, onChoose }: { action: RowAction; onChoose: () => void }) {
   const ref = useRef<HTMLElement>(null);
-  useNlddEvent(ref, 'select', action.href ? undefined : onChoose);
+  useMenuSelect(ref, action.href ? undefined : onChoose);
   return (
     <nldd-menu-item
       ref={ref}
       text={action.text}
+      destructive={orUndef(action.destructive)}
+      {...(action.href ? { href: action.href } : {})}
+    />
+  );
+}
+
+/**
+ * The same action in the overflow menu of the toolbar the menu stands in. That
+ * menu gives the focus back by itself, so `select` needs no waiting.
+ */
+function OverflowItem({
+  action,
+  text,
+  onChoose,
+}: {
+  action: RowAction;
+  text: string;
+  onChoose: () => void;
+}) {
+  const ref = useRef<HTMLElement>(null);
+  useNlddEvent(ref, 'select', action.href ? undefined : onChoose);
+  return (
+    <nldd-menu-item
+      ref={ref}
+      slot="overflow"
+      text={text}
       destructive={orUndef(action.destructive)}
       {...(action.href ? { href: action.href } : {})}
     />
@@ -66,7 +94,7 @@ function DialogButton({
   onClick,
 }: {
   text: string;
-  appearance: 'secondary' | 'destructive';
+  appearance: 'primary' | 'destructive';
   onClick: () => void;
 }) {
   const ref = useRef<HTMLElement>(null);
@@ -99,8 +127,14 @@ export function RowMenu({
   name,
   actions,
   size,
+  overflow = false,
 }: RowActionsProps & {
   /** The size of the bar it stands in; a row uses the small one. */ size?: 'sm' | 'md';
+  /**
+   * In an `nldd-toolbar-item`: every action also as an item of the toolbar's
+   * overflow menu. Without one the toolbar drops the item when it has no room.
+   */
+  overflow?: boolean;
 }) {
   const [asking, setAsking] = useState<RowAction | null>(null);
   const dialogRef = useRef<HTMLElement>(null);
@@ -111,42 +145,70 @@ export function RowMenu({
   const shown = asking ?? lastAsked;
 
   if (actions.length === 0) return null;
+  const choose = (action: RowAction) => (action.confirm ? setAsking(action) : action.onSelect?.());
+  const ordinary = actions.filter((action) => !action.destructive);
+  const destructive = actions.filter((action) => action.destructive);
+  // A removal on its own is its icon button; any other single action keeps the
+  // menu, because a word does not fit in the fixed width of the column.
+  const only = actions.length === 1 && actions[0]?.destructive ? actions[0] : undefined;
   return (
     <>
-      <MoreButton name={name} {...(size ? { size } : {})}>
-        <nldd-menu slot="popup" placement="bottom-end">
-          {actions.map((action) => (
-            <MenuItem
+      {only ? (
+        <RemoveButton
+          text={only.text}
+          name={name}
+          size={size ?? 'sm'}
+          withdraws={only.withdraws === true}
+          onClick={() => choose(only)}
+        />
+      ) : (
+        <MoreButton name={name} {...(size ? { size } : {})}>
+          <nldd-menu slot="popup" placement="bottom-end">
+            {ordinary.map((action) => (
+              <MenuItem key={action.text} action={action} onChoose={() => choose(action)} />
+            ))}
+            {ordinary.length > 0 && destructive.length > 0 ? <nldd-menu-divider /> : null}
+            {destructive.map((action) => (
+              <MenuItem key={action.text} action={action} onChoose={() => choose(action)} />
+            ))}
+          </nldd-menu>
+        </MoreButton>
+      )}
+      {overflow
+        ? [...ordinary, ...destructive].map((action) => (
+            <OverflowItem
               key={action.text}
               action={action}
-              onChoose={() => (action.confirm ? setAsking(action) : action.onSelect?.())}
+              text={only ? `${action.text} ${name}` : action.text}
+              onChoose={() => choose(action)}
             />
-          ))}
-        </nldd-menu>
-      </MoreButton>
-      {createPortal(
-        <nldd-modal-dialog
-          ref={dialogRef}
-          variant="alert"
-          open={orUndef(asking !== null)}
-          text={shown?.confirm?.text ?? ''}
-          {...(shown?.confirm?.supportingText
-            ? { 'supporting-text': shown.confirm.supportingText }
-            : {})}
-        >
-          <DialogButton text="Annuleer" appearance="secondary" onClick={() => setAsking(null)} />
-          <DialogButton
-            text={shown?.confirm?.confirmText ?? ''}
-            appearance="destructive"
-            onClick={() => {
-              const action = asking;
-              setAsking(null);
-              action?.onSelect?.();
-            }}
-          />
-        </nldd-modal-dialog>,
-        document.body,
-      )}
+          ))
+        : null}
+      {shown?.confirm
+        ? createPortal(
+            <nldd-modal-dialog
+              ref={dialogRef}
+              variant="alert"
+              open={orUndef(asking !== null)}
+              text={shown.confirm.text}
+              {...(shown.confirm.supportingText
+                ? { 'supporting-text': shown.confirm.supportingText }
+                : {})}
+            >
+              <DialogButton text="Annuleer" appearance="primary" onClick={() => setAsking(null)} />
+              <DialogButton
+                text={shown.confirm.confirmText}
+                appearance="destructive"
+                onClick={() => {
+                  const action = asking;
+                  setAsking(null);
+                  action?.onSelect?.();
+                }}
+              />
+            </nldd-modal-dialog>,
+            document.body,
+          )
+        : null}
     </>
   );
 }
@@ -249,26 +311,31 @@ export function OpenCell({
   );
   return (
     <nldd-cell
+      row-header
       {...(hideBelow ? { 'hide-below': hideBelow } : {})}
       {...(hideAbove ? { 'hide-above': hideAbove } : {})}
       {...(verticalAlignment ? { 'vertical-alignment': verticalAlignment } : {})}
     >
-      <nldd-container gap="4">
-        {onOpen || href ? (
-          <nldd-link
-            ref={ref}
-            href={href ?? '#'}
-            text={text}
-            {...(accessibleLabel ? { 'accessible-label': accessibleLabel } : {})}
-          />
-        ) : (
-          <nldd-text>{text}</nldd-text>
-        )}
+      <nldd-container>
+        <nldd-text line-height="tight">
+          <span>
+            {onOpen || href ? (
+              <nldd-link
+                ref={ref}
+                href={href ?? '#'}
+                text={text}
+                {...(accessibleLabel ? { 'accessible-label': accessibleLabel } : {})}
+              />
+            ) : (
+              text
+            )}
+          </span>
+        </nldd-text>
         {(supportingText || children) && (
           <nldd-container layout="row" gap="8">
             {supportingText && (
-              <nldd-text color="secondary" size="sm">
-                {supportingText}
+              <nldd-text size="xs" line-height="tight">
+                <span>{supportingText}</span>
               </nldd-text>
             )}
             {children}
@@ -276,8 +343,8 @@ export function OpenCell({
         )}
         {narrowText && (
           <span className="narrow-only">
-            <nldd-text color="secondary" size="sm">
-              {narrowText}
+            <nldd-text size="xs" line-height="tight">
+              <span>{narrowText}</span>
             </nldd-text>
           </span>
         )}

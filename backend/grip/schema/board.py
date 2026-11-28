@@ -76,6 +76,10 @@ class BoardOpenRoleOut(BaseModel):
     start_date: Annotated[date | None, in_class(C)]
     end_date: Annotated[date | None, in_class(C)]
     can_fill: Annotated[bool, in_class(C)]
+    # The vacancy that runs for the role; empty when none does or when the
+    # reader may not open it.
+    vacancy_id: Annotated[UUID | None, in_class(C)]
+    vacancy_status: Annotated[str | None, in_class(C)]
 
 
 class BoardOut(BaseModel):

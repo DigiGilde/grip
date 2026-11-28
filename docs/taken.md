@@ -21,15 +21,18 @@ Een taak zegt wat jij moet doen, niet hoe de takenlaag werkt ([ADR 0038](adr/003
 4. vóór wanneer, en wat erna komt;
 5. één knop, met dezelfde naam als de knop op de pagina waar het werk gebeurt.
 
-De naam van een taak die jij moet doen, brengt je naar die pagina. Bovenaan staat dan voor welke taak je er bent, en na het werk dat de taak gedaan is. Een taak waarop je wacht, opent als paneel om te lezen.
+De naam van een taak die jij moet doen, brengt je naar die pagina. Bovenaan staat dan voor welke taak je er bent, en na het werk dat de taak gedaan is. De pagina opent daarbij niets vanzelf: de stap zet je met haar knop (`work_href`). Alleen de knop in de kop van een opdracht of vacature opent het paneel van de stap meteen (`step_href`, ADR 0059). Een taak waarop je wacht, opent als paneel om te lezen.
 
 ## Waar je taken ziet
 
 | Plek | Wat er staat |
 |---|---|
-| Taken, in de navigatie | Twee groepen. "Te doen": wat jij nu moet doen, wat het eerst af moet bovenaan. "Wacht op anderen": wat van jou is en op een ander wacht, en de taken van anderen op de opdrachten waarvan je eigenaar bent en de vacatures die je hebt aangevraagd. Het getal in de navigatie telt alleen "Te doen". |
+| Start, Te doen | Je taken per zaak: één rij per opdracht of vacature, met de eerstvolgende taak, de zaak en wat erna komt ("daarna nog 7 maanden en 1 taak"), en "Te laat" als de termijn voorbij is. De zaken staan op volgorde van hun eerste taak: wat het eerst af moet bovenaan, zonder termijn achteraan. Hooguit vijf zaken; de laatste plek gaat naar de eerste zaak zonder termijn als die anders wegvalt, zodat late maanden "Bied de offerte aan" niet verdringen. Daaronder altijd "Alle taken" met het aantal. Het getal bij Taken in de balk is hetzelfde getal. |
+| Taken (`/taken`, een plek in de balk), weergave Mijn taken | Twee groepen. "Te doen": wat jij nu moet doen, wat het eerst af moet bovenaan. "Wacht op anderen": wat van jou is en op een ander wacht, en de taken van anderen op de opdrachten waarvan je eigenaar bent en de vacatures die je hebt aangevraagd. Het getal bij Taken in de balk telt alleen "Te doen". Wie offertes mag goedkeuren, vindt hier "Offertes ter goedkeuring". |
 | Taken, weergave Bord | Alle taken van de zaken die je mag inzien, in de kolommen te doen, bezig, wacht op een ander en klaar. Te filteren op opdracht of vacature, op persoon en op spoor. |
-| Tabblad Taken van een opdracht of vacature | De stand per spoor in één regel, en de taken per spoor. Wie de zaak mag bewerken, kan een eigen taak toevoegen. |
+| Alle taken van een opdracht of vacature | De taken per soort werk. Wie de taken van de zaak mag wijzigen, kan een eigen taak toevoegen met "Nieuwe taak", en vindt de link op de landing: bij een opdracht "En nog 2 taken voor jou" als die er zijn, anders "Alle taken van deze opdracht"; bij een vacature "Alle taken van deze vacature". |
+
+Taken staat niet in de balk: je komt er vanaf Start. Van de maanden die op afsluiten wachten is er steeds één taak, voor de eerste; "daarna nog 7 maanden" telt de maanden zelf, en alleen voor wie het geld of de inzet van de opdracht mag lezen.
 
 Een taak verplaats je met het menu aan het eind van de rij of op de kaart. Slepen is niet nodig. In hetzelfde menu staat "Bekijk de taak", met de notities.
 
@@ -175,7 +178,7 @@ Versie 2026.4, in `backend/grip/data/tasks/plan.json`; 33 sjablonen. De titels h
 | Offerte | Leg het akkoord van de opdrachtgever vast | Feit: de opdrachtgever heeft akkoord gegeven | Eigenaar |  |
 | Offerte | Maak een nieuwe offerte na de afwijzing | Feit: er is een nieuwe offerte uitgegeven | Eigenaar |  |
 | Offerte | Beoordeel de ontvangen offerte | Feit: er is akkoord gegeven of afgewezen | Tekenbevoegde |  |
-| Bemensing | Vul de rol (rol) in | Feit: de rol is ingevuld | Planner |  |
+| Team | Vul de rol (rol) in | Feit: de rol is ingevuld | Planner |  |
 | Uitvoering | Zet de opdracht in uitvoering | Feit: de opdracht is in uitvoering | Eigenaar |  |
 | Uitvoering | Sluit (maand) af | Feit: de maand is afgesloten | Eigenaar of manager | 5 werkdagen na het einde van de maand |
 | Uitvoering | Lever het eindrapport op | Feit: het eindrapport is uitgegeven | Eigenaar |  |
@@ -186,7 +189,7 @@ Versie 2026.4, in `backend/grip/data/tasks/plan.json`; 33 sjablonen. De titels h
 
 Afsluiten gaat per maand. Aanleveren en de factuur vastleggen gaan per factuurperiode van de opdracht: een maand of een kalenderkwartaal. Een periode is klaar om aan te leveren als elke maand met inzet erin is afgesloten.
 
-"Sluit het dossier" is het voorstel uit ADR 0057: een opdracht die is afgerond, verantwoord of geannuleerd en een jaar niet is gewijzigd. Inzien telt niet als wijziging, wat grip zelf doet ook niet, en een taak oppakken of doorgeven evenmin. Wie in het menu van de opdracht "Houd dossier open" kiest, laat de taak vervallen; de klok begint dan opnieuw. Staat de taak `dossier.close_after_proposal_days` dagen open en is er sinds het voorstel niets veranderd, dan sluit grip het dossier zelf. Die dagen tellen vanaf de laatste wijziging aan de taak; zonder taak sluit grip niets. In het verloop staat de stap "Dossier sluiten" alleen zolang het voorstel geldt.
+"Sluit het dossier" is het voorstel uit ADR 0057: een opdracht die is afgerond, verantwoord of geannuleerd en een jaar niet is gewijzigd. Inzien telt niet als wijziging, wat grip zelf doet ook niet, en een taak oppakken of doorgeven evenmin. Wie op Gegevens van de opdracht "Houd dossier open" kiest, laat de taak vervallen; de klok begint dan opnieuw. Staat de taak `dossier.close_after_proposal_days` dagen open en is er sinds het voorstel niets veranderd, dan sluit grip het dossier zelf. Die dagen tellen vanaf de laatste wijziging aan de taak; zonder taak sluit grip niets. In het verloop staat de stap "Dossier sluiten" alleen zolang het voorstel geldt.
 
 Daarvoor kijkt de takenmotor ook naar verantwoorde en geannuleerde opdrachten, tot hun dossier gesloten is. Zo'n opdracht krijgt daardoor geen ander nieuw werk: elke andere taak van een opdracht vraagt `not at_rest`. Een gesloten dossier beëindigt zo ook de open taken van de opdracht; ze vervallen, en het verloop zegt "Dossier gesloten". Wie het dossier heropent van een opdracht die nog niet verantwoord is, krijgt die taken terug.
 

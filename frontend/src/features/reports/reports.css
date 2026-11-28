@@ -28,7 +28,7 @@
 
 .grip-figure dt {
   font-size: 0.875rem;
-  color: var(--primitives-color-neutral-650);
+  color: var(--semantics-content-color);
 }
 
 .grip-figure dd {
@@ -44,16 +44,12 @@
 
 .grip-figure__detail {
   font-size: 0.875rem;
-  color: var(--primitives-color-neutral-650);
-}
-
-.grip-figures__note {
-  margin: var(--primitives-space-8) 0 0;
+  color: var(--semantics-content-color);
 }
 
 /* Nothing to report: the figure steps back. */
 .grip-figure--quiet .grip-figure__value {
-  color: var(--primitives-color-neutral-600);
+  color: var(--semantics-content-color);
   font-weight: 400;
 }
 
@@ -63,6 +59,8 @@
   border-left-width: 4px;
 }
 
+/* An nldd-icon takes --context-content-color, not the color around it: a rule
+   here that colours an icon sets both. */
 .grip-figure__flag {
   display: inline-flex;
   align-items: center;
@@ -70,6 +68,7 @@
   font-size: 0.8125rem;
   font-weight: 700;
   color: var(--primitives-color-critical-700);
+  --context-content-color: var(--primitives-color-critical-700);
 }
 
 .grip-mark {
@@ -106,7 +105,6 @@
   --occ-over: var(--primitives-color-rood-600);
   --occ-ink: var(--primitives-color-neutral-950);
   --occ-inverse: var(--primitives-color-neutral-0);
-  --occ-muted: var(--primitives-color-neutral-650);
   --occ-line: var(--primitives-color-neutral-150);
   --occ-hatch: var(--primitives-color-neutral-400);
   --occ-surface: var(--semantics-surfaces-base-background-color);
@@ -140,7 +138,7 @@
 .grip-occ__table thead th {
   padding: 8px 3px 6px;
   font-size: 0.8125rem;
-  color: var(--occ-muted);
+  color: var(--semantics-content-color);
   border-bottom: 1px solid var(--occ-line);
   vertical-align: bottom;
 }
@@ -264,6 +262,7 @@
 .grip-occ__cell[data-state='over'] {
   background: var(--occ-over);
   color: var(--occ-inverse);
+  --context-content-color: var(--occ-inverse);
   font-weight: 700;
   font-size: 0.75rem;
   box-shadow: inset 0 0 0 2px var(--occ-ink);
@@ -355,7 +354,7 @@
 }
 
 .grip-occ__table tfoot td.grip-occ__zero {
-  color: var(--occ-muted);
+  color: var(--semantics-content-color);
   font-weight: 400;
 }
 
@@ -368,7 +367,7 @@
   margin: 0;
   padding: 0;
   font-size: 0.8125rem;
-  color: var(--occ-muted);
+  color: var(--semantics-content-color);
 }
 
 .grip-occ__legend li {
@@ -423,88 +422,6 @@
   }
 }
 
-/* -- landing view: one tile per topic, each the way into its detail --------- */
-
-.grip-tiles {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  /* Every row as tall as the tallest, so all tiles are equal. */
-  grid-auto-rows: 1fr;
-  gap: 16px;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.grip-tiles > li {
-  display: flex;
-}
-
-.grip-tile {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-height: 148px;
-  padding: 16px 20px;
-  border: 1px solid var(--primitives-color-neutral-150);
-  border-radius: 8px;
-  background: var(--semantics-surfaces-base-background-color);
-  color: var(--primitives-color-neutral-950);
-  text-decoration: none;
-}
-
-.grip-tile:hover {
-  border-color: var(--primitives-color-accent-600);
-}
-
-.grip-tile:focus-visible {
-  outline: 3px solid var(--primitives-color-accent-600);
-  outline-offset: 2px;
-}
-
-.grip-tile--attention {
-  /* Only the edge is marked: with a whole border, a page where most tiles
-     need attention has nothing left that stands out. */
-  border-left-color: var(--primitives-color-critical-600);
-  border-left-width: 4px;
-  padding-left: 17px;
-}
-
-.grip-tile__topic {
-  font-size: 0.8125rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  color: var(--primitives-color-accent-700);
-}
-
-.grip-tile__label {
-  font-size: 0.875rem;
-  color: var(--primitives-color-neutral-650);
-}
-
-.grip-tile__value {
-  font-size: 1.75rem;
-  line-height: 1.2;
-  font-weight: 700;
-}
-
-.grip-tile__context {
-  font-size: 0.875rem;
-  color: var(--primitives-color-neutral-650);
-}
-
-.grip-tile__flag {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: auto;
-  font-size: 0.8125rem;
-  font-weight: 700;
-  color: var(--primitives-color-critical-700);
-}
-
 /* -- something secondary, behind a disclosure -------------------------------- */
 
 .grip-disclosure > summary {
@@ -521,66 +438,6 @@
 
 .grip-disclosure[open] > summary {
   margin-bottom: 8px;
-}
-
-/* -- occupancy: figures that open their rows --------------------------------- */
-
-.grip-tiles--compact {
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  gap: 12px;
-}
-
-.grip-tiles--compact .grip-tile {
-  min-height: 0;
-  padding: 12px 16px;
-}
-
-.grip-tiles--compact .grip-tile--attention {
-  padding-left: 13px;
-}
-
-/* A tile without rows behind it is a figure, not a link. */
-div.grip-tile:hover {
-  border-color: var(--primitives-color-neutral-150);
-}
-
-div.grip-tile--attention:hover {
-  border-color: var(--primitives-color-critical-600);
-}
-
-.grip-tile--quiet .grip-tile__value {
-  color: var(--primitives-color-neutral-600);
-  font-weight: 400;
-}
-
-/* The tile whose rows the table shows now. */
-.grip-tile[aria-current='true'] {
-  border-color: var(--primitives-color-accent-600);
-  box-shadow: inset 0 0 0 1px var(--primitives-color-accent-600);
-}
-
-.grip-tile__months {
-  display: flex;
-  gap: 12px;
-  margin: 0;
-  font-size: 0.875rem;
-  color: var(--primitives-color-neutral-650);
-  font-variant-numeric: tabular-nums;
-}
-
-.grip-tile__months > div {
-  display: flex;
-  gap: 4px;
-}
-
-.grip-tile__months dt {
-  font-weight: 400;
-}
-
-.grip-tile__months dd {
-  margin: 0;
-  font-weight: 700;
-  color: var(--primitives-color-neutral-950);
 }
 
 .grip-occ__name {
@@ -603,7 +460,7 @@ div.grip-tile--attention:hover {
   display: block;
   font-size: 0.75rem;
   font-weight: 400;
-  color: var(--occ-muted);
+  color: var(--semantics-content-color);
   white-space: normal;
 }
 
@@ -613,17 +470,11 @@ div.grip-tile--attention:hover {
 
 /* -- investeerruimte: a derivation to follow line by line -------------------- */
 
-.grip-invest {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 24px;
-  align-items: start;
-}
-
 .grip-derivation {
   width: 100%;
   border-collapse: collapse;
   color: var(--primitives-color-neutral-950);
+  --context-content-color: var(--primitives-color-neutral-950);
 }
 
 .grip-derivation caption {
@@ -661,7 +512,7 @@ div.grip-tile--attention:hover {
 .grip-derivation__sub {
   display: block;
   font-size: 0.8125rem;
-  color: var(--primitives-color-neutral-650);
+  color: var(--semantics-content-color);
 }
 
 .grip-derivation__total th,
@@ -675,11 +526,6 @@ div.grip-tile--attention:hover {
 .grip-derivation__apart th,
 .grip-derivation__apart td {
   border-bottom: 0;
-  color: var(--primitives-color-neutral-650);
+  color: var(--semantics-content-color);
   font-size: 0.875rem;
-}
-
-.grip-derivation__zero td,
-.grip-derivation__zero th {
-  color: var(--primitives-color-neutral-650);
 }

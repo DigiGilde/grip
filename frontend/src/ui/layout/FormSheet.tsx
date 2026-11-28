@@ -13,7 +13,7 @@
  *   - One primary action. "Annuleer" sits in the title bar, away from it.
  */
 import { PrimaryTakenContext } from '@/ui/primary';
-import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { orUndef, useNlddEvent } from '@/components/nldd/events';
 import { announce, prepareAnnouncer } from '@/ui/announce';
@@ -23,6 +23,34 @@ if (import.meta.env.MODE !== 'test') void import('./register');
 
 /** Native validation bubbles would appear before submit; the form validates itself. */
 const NO_NATIVE_VALIDATION: object = { novalidate: '' };
+
+// `validity` is documented on the field but absent in 0.29.0; `ownValidity` has the flags.
+type DateField = HTMLElement & {
+  invalid: boolean;
+  ownValidity?: () => { flags: { badInput?: boolean } } | null;
+};
+
+const NOT_A_DATE = 'Dit is geen datum';
+
+/**
+ * Date fields in the sheet whose text is no date. Their value reads as empty,
+ * so a form cannot tell them from a field left blank. Marks them invalid until
+ * the reader changes them.
+ */
+function markBadDates(holder: HTMLElement | null): boolean {
+  const bad = [...(holder?.querySelectorAll<DateField>('nldd-date-field') ?? [])].filter(
+    (field) => field.ownValidity?.()?.flags.badInput,
+  );
+  for (const field of bad) {
+    field.invalid = true;
+    const clear = () => {
+      field.invalid = false;
+    };
+    field.addEventListener('input', clear, { once: true });
+    field.addEventListener('change', clear, { once: true });
+  }
+  return bad.length > 0;
+}
 
 /** Width per kind of content, so sheets of one kind are equally wide. */
 const WIDTH = {
@@ -95,10 +123,14 @@ export function FormSheet({
   };
   useNlddEvent(sheetRef, 'close', dismiss);
   useNlddEvent(barRef, 'dismiss', dismiss);
-  const message = useFormMessage(sheetRef, error);
+  const [dateProblem, setDateProblem] = useState<string | null>(null);
+  const message = useFormMessage(sheetRef, dateProblem ?? error);
   useNlddEvent(formRef, 'submit', (event) => {
     event.preventDefault();
     message.submitted();
+    const badDate = markBadDates(sheetRef.current);
+    setDateProblem(badDate ? NOT_A_DATE : null);
+    if (badDate) return;
     if (!busy && !submitDisabled) {
       sent.current = true;
       onSubmit();
@@ -118,8 +150,14 @@ export function FormSheet({
   const shownError = message.shown;
 
   return createPortal(
-    <nldd-sheet ref={sheetRef} open={orUndef(open)} placement="right" width={WIDTH[size]}>
-      <nldd-page>
+    <nldd-sheet
+      ref={sheetRef}
+      open={orUndef(open)}
+      placement="right"
+      width={WIDTH[size]}
+      accessible-label={title}
+    >
+      <nldd-page sticky-header>
         <nldd-top-title-bar
           ref={barRef}
           slot="header"
@@ -128,7 +166,7 @@ export function FormSheet({
           collapse-anchor={titleId}
         />
         <nldd-simple-section>
-          <nldd-title id={titleId} slot="header" size={2} text={title} heading-level={1} />
+          <nldd-title id={titleId} slot="header" size="display-2" text={title} heading-level={1} />
           <nldd-container gap="24">
             {shownError ? (
               <nldd-banner variant="critical" size="sm" text={shownError} data-state="error" />

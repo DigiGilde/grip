@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react';
+import { act, fireEvent, render } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ActionBar } from './ActionBar';
 
@@ -8,6 +8,14 @@ const OPTIONS = [
 ];
 
 describe('ActionBar', () => {
+  it('shows a single control without a toolbar', () => {
+    const { container } = render(
+      <ActionBar label="x" actions={[{ text: 'Wijzig de looptijd', onClick: () => {} }]} />,
+    );
+    expect(container.querySelector('nldd-toolbar')).toBeNull();
+    expect(container.querySelector('nldd-button')).toHaveAttribute('size', 'md');
+  });
+
   it('draws every control at the same size step, inside one toolbar', () => {
     const { container } = render(
       <ActionBar
@@ -17,7 +25,7 @@ describe('ActionBar', () => {
       />,
     );
     const toolbar = container.querySelector('nldd-toolbar');
-    expect(toolbar).toHaveAttribute('label', 'Inzet: weergave');
+    expect(toolbar).toHaveAttribute('accessible-label', 'Inzet: weergave');
     const sizes = [toolbar, ...container.querySelectorAll('nldd-dropdown, nldd-button')].map((el) =>
       el?.getAttribute('size'),
     );
@@ -56,6 +64,48 @@ describe('ActionBar', () => {
     expect(radios.map((r) => r.hasAttribute('selected'))).toEqual([false, true]);
   });
 
+  it('gives the rare actions an alternative too, behind the same confirmation', () => {
+    const onSelect = vi.fn();
+    const { container } = render(
+      <ActionBar
+        label="x"
+        filters={[{ label: 'Jaar', value: 'all', onChange: () => {}, options: OPTIONS }]}
+        more={{
+          name: 'kostenpost Zaal',
+          actions: [
+            {
+              text: 'Verwijder',
+              destructive: true,
+              confirm: { text: 'Deze kostenpost verwijderen?', confirmText: 'Verwijder kostenpost' },
+              onSelect,
+            },
+          ],
+        }}
+      />,
+    );
+    for (const item of container.querySelectorAll('nldd-toolbar-item')) {
+      expect(item.querySelector('[slot="overflow"]')).not.toBeNull();
+    }
+    const item = container.querySelector(
+      'nldd-menu-item[slot="overflow"][text="Verwijder kostenpost Zaal"]',
+    );
+    expect(item?.hasAttribute('destructive')).toBe(true);
+    act(() => {
+      item?.dispatchEvent(new Event('select'));
+    });
+    expect(onSelect).not.toHaveBeenCalled();
+    const dialog = document.body.querySelector(
+      'nldd-modal-dialog[text="Deze kostenpost verwijderen?"]',
+    );
+    expect(dialog?.hasAttribute('open')).toBe(true);
+    act(() => {
+      dialog
+        ?.querySelector('nldd-button[text="Verwijder kostenpost"]')
+        ?.dispatchEvent(new Event('click'));
+    });
+    expect(onSelect).toHaveBeenCalledTimes(1);
+  });
+
   it('reports a chosen filter value and a clicked action', () => {
     const onChange = vi.fn();
     const onClick = vi.fn();
@@ -66,9 +116,10 @@ describe('ActionBar', () => {
         actions={[{ text: 'Nieuw', onClick }]}
       />,
     );
-    container
-      .querySelector('nldd-dropdown')
-      ?.dispatchEvent(new CustomEvent('change', { detail: { value: 'all' } }));
+    fireEvent.change(container.querySelector('nldd-dropdown select') as HTMLSelectElement, {
+      target: { value: 'all' },
+    });
+    expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange).toHaveBeenCalledWith('all');
     container.querySelector('nldd-button')?.dispatchEvent(new Event('click'));
     container.querySelector('nldd-menu-item[slot="overflow"]')?.dispatchEvent(new Event('select'));

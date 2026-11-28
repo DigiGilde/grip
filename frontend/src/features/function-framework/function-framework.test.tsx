@@ -1,9 +1,7 @@
 import { waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderApp } from '@/test/utils';
-import type { Vacancy } from '@/features/vacancies/api';
 import { budgetLineWarning, missingRequestDetails } from '@/features/vacancies/labels';
-import { requestPrepared, vacancySteps } from '@/features/vacancies/steps';
 import { VacanciesPage } from '@/features/vacancies/VacanciesPage';
 import {
   groupChoices,
@@ -86,39 +84,6 @@ const OPTIONS = {
   can_manage_setup: false,
 };
 
-const VACANCY: Vacancy = {
-  id: 'v-1',
-  function_title: 'Backend-ontwikkelaar',
-  fgr_function_name: 'Testadviseur',
-  scale: 11,
-  fte: '0.80',
-  status: 'draft',
-  declarable: true,
-  vacancy_type: 'regulier',
-  channels: [],
-  assignment_name: 'Opdracht Alfa',
-  has_openings: true,
-  function_group_id: 'g-1',
-  function_family_name: 'Testadvisering',
-  function_group_scales: [11, 12, 13],
-  suggested_function_group_ids: ['g-1', 'g-2'],
-  budget_line_scales: [12, 13],
-  scale_fits_budget_line: false,
-  procedure: [],
-  decisions: [],
-  texts: [],
-  requester_name: 'Fictieve Eigenaar',
-  addressee_name: null,
-  addressee_has_account: false,
-  permissions: {
-    can_edit: true,
-    can_record_hr_advice: false,
-    can_record_control_advice: false,
-    can_record_approval: false,
-    can_download_form: false,
-  },
-};
-
 function stubApi(routes: Record<string, unknown>) {
   vi.stubGlobal(
     'fetch',
@@ -193,68 +158,6 @@ describe('helpers', () => {
         addressee_name: 'Fictief Directielid',
       }),
     ).toEqual([]);
-  });
-});
-
-describe('the steps of a vacancy', () => {
-  const prepared: Vacancy = {
-    ...VACANCY,
-    contract_type: 'temporary_project',
-    addressee_name: 'Fictief Directielid',
-  };
-
-  it('starts at preparing the request and moves on when it is filled', () => {
-    expect(requestPrepared(VACANCY)).toBe(false);
-    expect(vacancySteps(VACANCY)).toMatchObject({ current: 1, action: 'prepare' });
-    // The motivation is printed on the form: without a settled one the
-    // request is not prepared. The server's list decides when it is there.
-    expect(requestPrepared(prepared)).toBe(false);
-    expect(
-      requestPrepared({
-        ...prepared,
-        request_missing: ['een vastgestelde aanleiding en motivatie'],
-      }),
-    ).toBe(false);
-    const complete = { ...prepared, request_missing: [] };
-    expect(requestPrepared(complete)).toBe(true);
-    expect(vacancySteps(complete)).toMatchObject({ current: 2, action: 'submit' });
-  });
-
-  it('follows the procedure of the type', () => {
-    expect(vacancySteps({ ...prepared, status: 'requested' })).toMatchObject({
-      current: 3,
-      action: 'decide',
-    });
-    expect(vacancySteps({ ...prepared, status: 'approved' })).toMatchObject({
-      current: 4,
-      action: 'open',
-    });
-    const ready: Vacancy = {
-      ...prepared,
-      status: 'approved',
-      has_openings: false,
-      permissions: { ...prepared.permissions, can_fill: true },
-    };
-    const steps = vacancySteps(ready)!;
-    expect(steps.items).toEqual([
-      'Aanvraag voorbereiden',
-      'Aanvragen',
-      'Advies en akkoord',
-      'Vervullen',
-    ]);
-    expect(steps).toMatchObject({ current: 4, action: 'fill' });
-    expect(vacancySteps({ ...prepared, status: 'open' })).toMatchObject({ current: 5 });
-  });
-
-  it('has no action for a reader who may not take it, and no steps once it ended', () => {
-    const reader: Vacancy = {
-      ...VACANCY,
-      permissions: { ...VACANCY.permissions, can_edit: false },
-    };
-    expect(vacancySteps(reader)).toMatchObject({ current: 1, action: null });
-    expect(vacancySteps({ ...VACANCY, status: 'filled' })).toBeNull();
-    expect(vacancySteps({ ...VACANCY, status: 'withdrawn' })).toBeNull();
-    expect(vacancySteps({ ...VACANCY, status: 'rejected' })).toBeNull();
   });
 });
 

@@ -1,5 +1,4 @@
-import { useCourses } from '@/features/tasks/course';
-import { courseLine } from '@/ui/course';
+import { standingText, useCourses } from '@/features/tasks/course';
 import { useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -34,13 +33,14 @@ import {
   roleLabel,
   typeConsequence,
 } from './newVacancy';
-import { DateInput, SelectInput, TextInput, Note } from './ui';
-import { FormSheet, LoadError, Loading, Page } from '@/ui/layout';
-import { useVacancyViewFilter } from './views';
-import { OpenRow } from '@/ui/RowActions';
+import { Button, DateInput, SelectInput, TextInput, Note } from './ui';
+import { EmptyNotice, FormSheet, LoadError, Loading, Page } from '@/ui/layout';
+import { vacancyViewTabs } from './views';
+import { LinkRows, type LinkRow } from '@/ui/LinkRows';
 
 const NO_BUDGET_LINE = 'none';
 
+/** What the vacancy is for, and when: the line under its name. */
 function summaryLine(vacancy: VacancySummary): string {
   return [
     vacancy.assignment_name,
@@ -52,87 +52,44 @@ function summaryLine(vacancy: VacancySummary): string {
 }
 
 /**
- * The vacancies as a table: every column starts at the same place on every
- * row, so status and next step can be read down the page. On a narrow
- * screen the type and the status column go, and the status moves above the
- * next step.
+ * The vacancies as rows: what it is for, then where it stands and whose move
+ * it is. The usual kind says nothing; a candidate who is already known does.
  */
-function VacancyTable({
-  vacancies,
-  emptyText,
-}: {
-  vacancies: VacancySummary[];
-  emptyText: string;
-}) {
-  const navigate = useNavigate();
-  const open = (id: string) => navigate(PATHS.vacancyDetail.replace(':vacancyId', id));
+function VacancyRows({ vacancies, emptyText }: { vacancies: VacancySummary[]; emptyText: string }) {
   // A reader who only gets the published vacancies has no type or step.
-  const withType = vacancies.some((vacancy) => vacancy.vacancy_type !== undefined);
   const withStep = vacancies.some((vacancy) => vacancy.step !== undefined);
   // Where each vacancy stands and whose move it is, in the words of its page.
   const courses = useCourses(
     'vacancy',
     withStep ? vacancies.map((vacancy) => vacancy.id) : [],
   ).byId;
-  const wide = [
-    'minmax(240px,2fr)',
-    ...(withType ? ['150px'] : []),
-    ...(withStep ? ['minmax(260px,1.6fr)'] : ['150px']),
-  ].join(' ');
-  // The name gets the larger share: a long function name must fit beside the step.
-  const narrow = withStep ? 'minmax(0,1.3fr) minmax(0,1fr)' : 'minmax(0,1fr) 130px';
-  return (
-    <nldd-table accessible-label="Vacatures" columns={wide} sm-columns={narrow}>
-      <nldd-table-row slot="header">
-        <nldd-text-cell text="Vacature" />
-        {withType && <nldd-text-cell text="Type" hide-below="md" />}
-        {withStep ? <nldd-text-cell text="Stand" /> : <nldd-text-cell text="Status" />}
-      </nldd-table-row>
-      {vacancies.map((vacancy) => {
-        const line = courseLine(courses.get(vacancy.id)?.course);
-        const fallback = standingOf(vacancy);
-        // The course when it is known; until then what the list itself says.
-        const standing = line
-          ? { step: line.step, detail: line.who }
-          : { step: fallback.step || statusWord(vacancy), detail: fallback.detail };
-        const status = statusWord(vacancy);
-        return (
-          <OpenRow key={vacancy.id} onOpen={() => open(vacancy.id)}>
-            {/* A real address on the name, so it opens in a new tab too; a
-                click anywhere else in the row goes to the same place. */}
-            <nldd-cell>
-              <nldd-container gap="4">
-                <nldd-link
-                  href={PATHS.vacancyDetail.replace(':vacancyId', vacancy.id)}
-                  text={vacancy.function_title}
-                />
-                <nldd-text size="sm" color="secondary">
-                  {summaryLine(vacancy)}
-                </nldd-text>
-              </nldd-container>
-            </nldd-cell>
-            {withType && (
-              <nldd-text-cell
-                hide-below="md"
-                text={vacancy.vacancy_type ? VACANCY_TYPE_LABELS[vacancy.vacancy_type] : ''}
-              />
-            )}
-            {withStep ? (
-              <nldd-text-cell
-                text={standing.step}
-                {...(standing.detail ? { 'supporting-text': standing.detail } : {})}
-              />
-            ) : (
-              <nldd-cell>
-                <nldd-badge color={STATUS_COLORS[vacancy.status]} text={status} />
-              </nldd-cell>
-            )}
-          </OpenRow>
-        );
-      })}
-      <nldd-inline-dialog slot="empty" text="Nog geen vacatures" supporting-text={emptyText} />
-    </nldd-table>
-  );
+  if (vacancies.length === 0) {
+    return <EmptyNotice text="Nog geen vacatures" supportingText={emptyText} />;
+  }
+  const rows: LinkRow[] = vacancies.map((vacancy) => {
+    const course = standingText(courses.get(vacancy.id)?.course);
+    const fallback = standingOf(vacancy);
+    // The course when it is known; until then what the list itself says.
+    const standing =
+      course || [fallback.step, fallback.detail].filter(Boolean).join('. ') || statusWord(vacancy);
+    const kind =
+      vacancy.vacancy_type && vacancy.vacancy_type !== 'regulier'
+        ? VACANCY_TYPE_LABELS[vacancy.vacancy_type]
+        : undefined;
+    const notice = [summaryLine(vacancy), kind, withStep ? standing : undefined]
+      .filter(Boolean)
+      .join(' · ');
+    return {
+      key: vacancy.id,
+      text: vacancy.function_title,
+      href: PATHS.vacancyDetail.replace(':vacancyId', vacancy.id),
+      ...(notice ? { notice } : {}),
+      ...(withStep
+        ? {}
+        : { tag: { text: statusWord(vacancy), color: STATUS_COLORS[vacancy.status] } }),
+    };
+  });
+  return <LinkRows label="Vacatures" rows={rows} />;
 }
 
 interface CreateSheetProps {
@@ -328,7 +285,6 @@ export function VacanciesPage() {
   const requestedLine = searchParams.get(ROLE_PARAM);
   const [creating, setCreating] = useState(requestedLine !== null);
   const [order, setOrder] = useState<ListOrder>('waiting');
-  const viewFilter = useVacancyViewFilter('list');
 
   const vacancies = useQuery({ queryKey: VACANCY_KEYS.list, queryFn: fetchVacancies });
   const roles = useQuery({ queryKey: VACANCY_KEYS.unfilledRoles, queryFn: fetchUnfilledRoles });
@@ -348,11 +304,20 @@ export function VacanciesPage() {
 
   return (
     <div ref={containerRef}>
-      <Page title="Vacatures" instanceName={instance?.name}>
+      <Page
+        kind="list"
+        title="Vacatures"
+        instanceName={instance?.name}
+        action={
+          canCreate ? (
+            <Button text="Nieuwe vacature" appearance="primary" onClick={() => setCreating(true)} />
+          ) : undefined
+        }
+        tabs={vacancyViewTabs('list')}
+      >
         <ActionBar
-          label="Vacatures ordenen en acties"
+          label="Vacatures ordenen"
           filters={[
-            viewFilter,
             {
               label: 'Volgorde',
               value: order,
@@ -361,18 +326,13 @@ export function VacanciesPage() {
               width: '200px',
             },
           ]}
-          actions={[
-            ...(canCreate
-              ? [{ text: 'Nieuwe vacature', onClick: () => setCreating(true), primary: true }]
-              : []),
-          ]}
         />
         {vacancies.isPending && <Loading />}
         {vacancies.isError && (
           <LoadError error={vacancies.error} retry={() => void vacancies.refetch()} />
         )}
         {vacancies.data && (
-          <VacancyTable
+          <VacancyRows
             vacancies={orderVacancies(vacancies.data, order)}
             emptyText={
               canCreate

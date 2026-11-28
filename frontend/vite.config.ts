@@ -34,7 +34,7 @@ export default defineConfig({
                   'components[\\\\/](' +
                   'actions[\\\\/](button|button-group|icon-button|menu|toolbar)|' +
                   'content[\\\\/](avatar|avatar-group|icon|identity|keyboard-shortcut|title|tooltip)|' +
-                  'layout[\\\\/](app-view|container|page|page-sections|popover|split-views)|' +
+                  'layout[\\\\/](shell|container|page|page-sections|popover|split-views)|' +
                   'lists-and-tables[\\\\/](cells|list|list-item)|' +
                   'navigation[\\\\/](menu-bar|menu-bar-item|skip-link|tab-bar)|' +
                   'status-and-feedback[\\\\/](activity-indicator|badge|banner|inline-dialog)' +

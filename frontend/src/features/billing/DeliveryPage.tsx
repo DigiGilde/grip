@@ -60,8 +60,10 @@ export function DeliveryPage() {
   const inForce = data?.in_force_cents ?? data?.total_cents ?? 0;
   return (
     <Page
+      kind="document"
       title={data ? `Factuurverzoek ${data.reference}` : 'Factuurverzoek'}
       instanceName={instance?.name}
+      back={{ href: PATHS.billing, text: 'Terug naar Factureren' }}
       spacing="sections"
     >
       {delivery.isPending ? <Loading /> : null}
@@ -73,7 +75,7 @@ export function DeliveryPage() {
           <nldd-card background="tinted" accessible-label="Te factureren">
             <nldd-container padding="24">
               <nldd-title
-                size={2}
+                size="display-2"
                 heading-level={2}
                 overline={`Te factureren over ${data.period_label}`}
                 text={formatEuro(inForce)}
@@ -99,11 +101,13 @@ export function DeliveryPage() {
           ) : null}
           {(data.replaces ?? []).map((item) => (
             <nldd-text key={`${item.month_label}-${item.reference}`}>
-              {replacesText(item)}
+              <p>{replacesText(item)}</p>
             </nldd-text>
           ))}
           {(data.corrections ?? []).map((item) => (
-            <nldd-text key={`correction-${item.month}`}>{correctionText(item)}</nldd-text>
+            <nldd-text key={`correction-${item.month}`}>
+              <p>{correctionText(item)}</p>
+            </nldd-text>
           ))}
           {data.has_document ? (
             <ActionBar

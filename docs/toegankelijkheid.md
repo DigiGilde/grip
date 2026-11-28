@@ -131,7 +131,7 @@ Voldoet betekent: in dit eigen onderzoek geen afwijking gevonden. Het is geen ve
 | 1.3.3 Zintuiglijke eigenschappen | Voldoet | Geen aanwijzing die alleen op plaats of kleur leunt gevonden |
 | 1.3.4 Weergavestand | Voldoet | Geen vergrendeling |
 | 1.3.5 Doel van de invoer | Niet getest | Grip vraagt nauwelijks gegevens over de gebruiker zelf; de velden die dat doen zijn niet nagelopen op `autocomplete` |
-| 1.4.1 Gebruik van kleur | Voldoet | Toestanden hebben een woord of teken naast de kleur. Niet elk scherm is hierop met het oog nagelopen |
+| 1.4.1 Gebruik van kleur | Voldoet | Toestanden hebben een woord of teken naast de kleur. Na het weghalen van grijs (ADR 0059, 28 november 2026) is elke plek nagelopen waar grijs een stand aangaf. Elke stand heeft een woord, een badge, een icoon of een patroon: een verwachte factuur "Verwacht", een periode haar stand en "afgesloten", een stap "Nog niet gestart", een leeg veld "Nog niet ingevuld" met een open vinkje, een rol het aantal keer dat ze gebruikt wordt, ongedekt een arcering. Niet elk scherm is hierop met het oog nagelopen |
 | 1.4.2 Geluidsbediening | Niet van toepassing | |
 | 1.4.3 Contrast (minimum) | Voldoet | Gemeten, zie "Contrast" |
 | 1.4.4 Herschalen van tekst | Voldoet | Afgeleid uit de meting op 320 pixels, wat gelijk is aan 400 procent zoom op 1280. Niet apart met alleen tekstvergroting getest |
@@ -149,7 +149,7 @@ Voldoet betekent: in dit eigen onderzoek geen afwijking gevonden. Het is geen ve
 | 2.4.1 Blokken omzeilen | Voldoet | Een link "Direct naar de inhoud" en oriëntatiepunten |
 | 2.4.2 Paginatitel | Voldoet | Pagina, organisatie, grip |
 | 2.4.3 Focusvolgorde | Voldoet | Niet getest: waar de focus staat nadat een rij is verwijderd en na "Neem deze stap over" |
-| 2.4.4 Linkdoel | Voldoet | Een taak heet naar wat er moet gebeuren; "Bekijk pdf" staat in de kaart van de offerte waar het bij hoort |
+| 2.4.4 Linkdoel | Voldoet | Een taak heet naar wat er moet gebeuren; "Bekijk pdf" staat in de kaart van de offerte waar het bij hoort. Een kostenpost bij een andere partij die niet op te halen is, heet "Kostenpost bij" de partij; zonder omschrijving had de link geen naam (gevonden met axe, 28 november 2026) |
 | 2.4.5 Meerdere manieren | Voldoet | Het menu, de taken, links tussen de onderdelen. Er is geen zoekfunctie over alles |
 | 2.4.6 Koppen en labels | Voldoet | |
 | 2.4.7 Focus zichtbaar | Voldoet | |

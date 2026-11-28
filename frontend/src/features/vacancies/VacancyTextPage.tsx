@@ -30,7 +30,7 @@ import { VACANCY_TEXT_MARKS } from '@/ui/text/marks';
 import { TextEditor, type TextEditorHandle } from '@/ui/TextEditor';
 import { VACANCY_KEYS, fetchVacancy } from './api';
 import { factHref } from './factHref';
-import { vacancyTabPath } from './paths';
+import { vacancyPartPath } from './paths';
 import { TailoredSheet } from './TailoredSheet';
 import {
   TEXT_WORK_KEY,
@@ -87,7 +87,7 @@ export function VacancyTextPage() {
   const root = useRef<HTMLDivElement>(null);
   useRouterLinks(root);
   const editor = useRef<TextEditorHandle>(null);
-  const back = vacancyTabPath(vacancyId, 'text');
+  const back = vacancyPartPath(vacancyId, 'text');
 
   const vacancy = useQuery({
     queryKey: VACANCY_KEYS.detail(vacancyId),
@@ -187,9 +187,9 @@ export function VacancyTextPage() {
   return (
     <div ref={root}>
       <Page
+        kind="document"
         title={title}
         instanceName={instance?.name}
-        width="760px"
         back={{ href: back, text: 'Terug naar de vacature' }}
       >
         {work.isPending && <Loading />}
@@ -209,10 +209,12 @@ export function VacancyTextPage() {
         {text && text.may_write && choosing && standard && (
           <Stack gap="group">
             <nldd-text>
-              {standard.match === 'function_group'
-                ? `Voor deze rol is geen standaardtekst. De tekst van ${standard.role} lijkt er het meest op.`
-                : `Er is een standaardtekst voor ${standard.role}.`}
-              {standard.unread ? ' Die tekst is afgeleid en nog niet nagelezen.' : ''}
+              <p>
+                {standard.match === 'function_group'
+                  ? `Voor deze rol is geen standaardtekst. De tekst van ${standard.role} lijkt er het meest op.`
+                  : `Er is een standaardtekst voor ${standard.role}.`}
+                {standard.unread ? ' Die tekst is afgeleid en nog niet nagelezen.' : ''}
+              </p>
             </nldd-text>
             {start.isError && <ErrorNotice message={errorMessage(start.error)} />}
             <nldd-button-group>
@@ -270,7 +272,9 @@ export function VacancyTextPage() {
                   {proposed && (
                     <Stack gap="close">
                       <Quiet>Voorstel voor: {proposed.place.what}</Quiet>
-                      <nldd-text>{proposed.text}</nldd-text>
+                      <nldd-text>
+                        <p>{proposed.text}</p>
+                      </nldd-text>
                       <nldd-container layout="wrap" gap="8">
                         <Button
                           size="sm"

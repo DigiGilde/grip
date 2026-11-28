@@ -141,3 +141,57 @@ async def test_year_without_rate_card_says_why(client, world, as_person, db_sess
     kpi = by_id((await _kpi(client, 2028))["items"], world.report)
     assert kpi["unavailable_reason"]
     assert kpi["realisation_cents"] is None
+    assert kpi["gap_cents"] is None
+
+
+async def test_gap_orders_those_below_target_first_with_a_total(
+    client, world, as_person
+):
+    as_person(world.beheerder)
+    for person, pct in ((world.report, "90"), (world.outsider, "50")):
+        resp = await client.put(f"/api/kpi/{person.id}/2026", json={"target_pct": pct})
+        assert resp.status_code == 200
+    body = await _kpi(client)
+    items = body["items"]
+    below = by_id(items, world.outsider)
+    above = by_id(items, world.report)
+    assert above["gap_cents"] == 21600000 - 19440000
+    assert below["gap_cents"] == below["realisation_cents"] - below["target_cents"]
+    assert below["gap_cents"] < 0
+    assert items.index(below) < items.index(above)
+    # Those without a target come after everyone with one.
+    no_target = [i for i in items if i["gap_cents"] is None]
+    assert no_target and items[-len(no_target) :] == no_target
+    assert body["scope"] == "all"
+    assert body["totals"]["target_cents"] == sum(i["target_cents"] or 0 for i in items)
+    assert body["totals"]["realisation_cents"] == sum(
+        i["realisation_cents"] or 0 for i in items
+    )
+    assert (
+        body["totals"]["gap_cents"]
+        == body["totals"]["realisation_cents"] - body["totals"]["target_cents"]
+    )
+
+
+async def test_gap_and_totals_cover_only_what_the_reader_may_see(
+    client, world, as_person
+):
+    as_person(world.beheerder)
+    await client.put(f"/api/kpi/{world.report.id}/2026", json={"target_pct": "90"})
+    for person in (world.lead, world.report):
+        as_person(person)
+        body = await _kpi(client)
+        assert body["scope"] == "own"
+        assert str(world.outsider.id) not in [i["person_id"] for i in body["items"]]
+        assert body["totals"]["target_cents"] == sum(
+            i["target_cents"] or 0 for i in body["items"]
+        )
+        assert body["totals"]["gap_cents"] == sum(
+            i["realisation_cents"] or 0 for i in body["items"]
+        ) - sum(i["target_cents"] or 0 for i in body["items"])
+    as_person(world.report)
+    one = by_id((await _kpi(client))["items"], world.report)
+    assert one["gap_cents"] == 21600000 - 19440000
+    # Not the gap of someone else, which would give away the target.
+    resp = await client.get(f"/api/kpi/{world.outsider.id}", params={"year": 2026})
+    assert resp.status_code == 404

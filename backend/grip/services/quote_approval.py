@@ -96,7 +96,7 @@ EVENT_WITHDRAWN = events.QUOTE_APPROVAL_WITHDRAWN
 
 NO_APPROVER = (
     f"Niemand heeft het recht '{APPROVER_LABEL}'. De beheerder kent het toe "
-    "bij Team, onder Rechten in grip van een persoon."
+    "onder Mensen, bij Rechten in grip van een persoon."
 )
 
 

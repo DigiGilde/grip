@@ -1,6 +1,5 @@
-import { useCourses } from '@/features/tasks/course';
-import { courseLine } from '@/ui/course';
-import { LoadError, NameLine, Page, Stack, TabNav } from '@/ui/layout';
+import { standingText, useCourses } from '@/features/tasks/course';
+import { LoadError, Page, Stack } from '@/ui/layout';
 import { useRef, useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
@@ -8,6 +7,8 @@ import { useInstance } from '@/layout/useInstance';
 import { useRouterLinks } from '@/layout/useRouterLinks';
 import { formatEuro, formatPeriod } from '@/lib/format';
 import { ActionBar } from '@/ui/ActionBar';
+import { Button } from '@/ui/Button';
+import { LinkRows, type LinkRow } from '@/ui/LinkRows';
 import { PageRange, Pager } from '@/ui/Pager';
 import { usePaging, useSearchWords } from '@/ui/paging';
 import {
@@ -44,91 +45,40 @@ const VIEW_DEFAULT_STATUS: Record<Phase, string | undefined> = {
   closed: 'completed',
 };
 
-function NameCell({ item, phase }: { item: AssignmentSummary; phase?: Phase }) {
-  const told = phase !== undefined && item.status !== VIEW_DEFAULT_STATUS[phase];
-  return (
-    <nldd-cell>
-      <NameLine
-        badges={
-          told ? (
-            <nldd-badge
-              size="sm"
-              color={STATUS_COLORS[item.status] ?? 'neutral'}
-              text={statusLabel(item.status)}
-            />
-          ) : undefined
-        }
-      >
-        <nldd-link size="md" href={assignmentPath(item.id)} text={item.name} />
-      </NameLine>
-    </nldd-cell>
-  );
-}
+const AMOUNT_SOURCE = {
+  quote: 'bedrag uit de laatste offerte',
+  budget: 'bedrag uit de begroting, nog geen offerte',
+} as const;
 
 type Courses = ReturnType<typeof useCourses>['byId'];
 
-/**
- * Where the assignment stands and whose move it is: the same words as its
- * page and its tasks. Until that is known, the status as a word.
- */
-function StandingCell({ item, courses }: { item: AssignmentSummary; courses: Courses }) {
-  const line = courseLine(courses.get(item.id)?.course);
-  return (
-    <nldd-text-cell
-      text={line ? line.step : statusLabel(item.status)}
-      {...(line?.who ? { 'supporting-text': line.who } : {})}
-    />
-  );
+/** One assignment as a row: what it is, for whom and when, and where it stands. */
+function rowOf(item: AssignmentSummary, phase: Phase, courses: Courses): LinkRow {
+  const amount =
+    item.pipeline_amount_cents == null ? undefined : formatEuro(item.pipeline_amount_cents);
+  const source =
+    amount && item.pipeline_amount_source ? AMOUNT_SOURCE[item.pipeline_amount_source] : undefined;
+  const notice = [
+    item.client_name,
+    formatPeriod(item.start_date, item.end_date),
+    standingText(courses.get(item.id)?.course),
+    source,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  return {
+    key: item.id,
+    text: item.name,
+    href: assignmentPath(item.id),
+    ...(notice ? { notice } : {}),
+    ...(item.status !== VIEW_DEFAULT_STATUS[phase]
+      ? { tag: { text: statusLabel(item.status), color: STATUS_COLORS[item.status] ?? 'neutral' } }
+      : {}),
+    ...(amount ? { end: amount } : {}),
+  };
 }
 
-/** What an account manager needs: client, where it stands, what it may be worth, how long. */
-function PipelineTable({ items }: { items: AssignmentSummary[] }) {
-  const showAmounts = items.some((item) => 'pipeline_amount_cents' in item);
-  const courses = useCourses(
-    'assignment',
-    items.map((item) => item.id),
-  ).byId;
-  return (
-    <nldd-table
-      accessible-label="Potentiële opdrachten"
-      columns={`minmax(220px,1.6fr) minmax(160px,1fr) minmax(240px,1.6fr)${showAmounts ? ' 170px' : ''}`}
-    >
-      <nldd-table-row slot="header">
-        <nldd-text-cell text="Potentiële opdracht" />
-        <nldd-text-cell text="Opdrachtgever" />
-        <nldd-text-cell text="Stand" />
-        {showAmounts && <nldd-text-cell text="Bedrag" horizontal-alignment="right" />}
-      </nldd-table-row>
-      {items.map((item) => (
-        <nldd-table-row key={item.id}>
-          <NameCell item={item} />
-          <nldd-text-cell text={item.client_name ?? ''} />
-          <StandingCell item={item} courses={courses} />
-          {showAmounts && (
-            <nldd-text-cell
-              text={
-                item.pipeline_amount_cents == null
-                  ? 'Nog geen bedrag'
-                  : formatEuro(item.pipeline_amount_cents)
-              }
-              {...(item.pipeline_amount_source
-                ? {
-                    'supporting-text':
-                      item.pipeline_amount_source === 'quote'
-                        ? 'Laatste offerte'
-                        : 'Begroting, nog geen offerte',
-                  }
-                : {})}
-              horizontal-alignment="right"
-            />
-          )}
-        </nldd-table-row>
-      ))}
-    </nldd-table>
-  );
-}
-
-function AssignmentTable({
+function AssignmentRows({
   items,
   label,
   phase,
@@ -141,29 +91,7 @@ function AssignmentTable({
     'assignment',
     items.map((item) => item.id),
   ).byId;
-  return (
-    <nldd-table
-      accessible-label={label}
-      columns="minmax(240px,1.6fr) minmax(160px,1fr) minmax(240px,1.6fr) minmax(200px,1fr)"
-      sm-columns="minmax(0,1fr) minmax(0,1fr)"
-    >
-      <nldd-table-row slot="header">
-        <nldd-text-cell text="Opdracht" />
-        <nldd-text-cell text="Opdrachtgever" hide-below="md" />
-        <nldd-text-cell text="Stand" />
-        <nldd-text-cell text="Periode" hide-below="md" />
-      </nldd-table-row>
-      {items.map((item) => (
-        <nldd-table-row key={item.id}>
-          {/* The view says the status; a row names it only when it differs. */}
-          <NameCell item={item} phase={phase} />
-          <nldd-text-cell text={item.client_name ?? ''} hide-below="md" />
-          <StandingCell item={item} courses={courses} />
-          <nldd-text-cell text={formatPeriod(item.start_date, item.end_date)} hide-below="md" />
-        </nldd-table-row>
-      ))}
-    </nldd-table>
-  );
+  return <LinkRows label={label} rows={items.map((item) => rowOf(item, phase, courses))} />;
 }
 
 /** The assignments in three views: pipeline, running work, and what is closed. */
@@ -197,40 +125,43 @@ export function AssignmentsPage() {
     : EMPTY_TEXT[phase];
 
   return (
-    <Page title="Opdrachten" instanceName={instance?.name}>
+    <Page
+      kind="list"
+      title="Opdrachten"
+      instanceName={instance?.name}
+      action={
+        query.data?.can_create ? (
+          <Button
+            text="Nieuwe opdracht"
+            appearance="primary"
+            onClick={() => setSheet((current) => ({ open: true, session: current.session + 1 }))}
+          />
+        ) : undefined
+      }
+      // Each view has its own address, so this is navigation between pages.
+      tabs={{
+        label: 'Weergave van de opdrachten',
+        current: phase,
+        narrow: 'bar',
+        items: VIEWS.map((view) => ({
+          key: view.phase,
+          href: viewHref(pathname, view.phase, search),
+          text: counts
+            ? `${PHASE_VIEW_LABELS[view.phase]} (${counts[view.phase]})`
+            : PHASE_VIEW_LABELS[view.phase],
+          short: PHASE_VIEW_LABELS[view.phase],
+        })),
+      }}
+    >
       <div ref={contentRef}>
         <Stack gap="group">
           <ActionBar
-            label="Opdrachten zoeken en acties"
+            label="Opdrachten zoeken"
             search={{
               label: 'Zoek op opdracht of opdrachtgever',
               value: words,
               onChange: setWords,
             }}
-            actions={
-              query.data?.can_create
-                ? [
-                    {
-                      text: 'Nieuwe opdracht',
-                      primary: true,
-                      onClick: () =>
-                        setSheet((current) => ({ open: true, session: current.session + 1 })),
-                    },
-                  ]
-                : []
-            }
-          />
-          {/* Each view has its own address, so this is navigation between pages. */}
-          <TabNav
-            label="Weergave van de opdrachten"
-            current={phase}
-            items={VIEWS.map((view) => ({
-              key: view.phase,
-              href: viewHref(pathname, view.phase, search),
-              text: counts
-                ? `${PHASE_VIEW_LABELS[view.phase]} (${counts[view.phase]})`
-                : PHASE_VIEW_LABELS[view.phase],
-            }))}
           />
           {query.isPending && <Loading />}
           {query.isError && <LoadError error={query.error} retry={() => void query.refetch()} />}
@@ -240,11 +171,7 @@ export function AssignmentsPage() {
           {items.length > 0 && (
             <Stack gap="related">
               <PageRange paging={paging} noun="opdrachten" />
-              {phase === 'potential' ? (
-                <PipelineTable items={items} />
-              ) : (
-                <AssignmentTable items={items} label={PHASE_VIEW_LABELS[phase]} phase={phase} />
-              )}
+              <AssignmentRows items={items} label={PHASE_VIEW_LABELS[phase]} phase={phase} />
               <Pager paging={paging} label="Pagina's van de opdrachten" />
             </Stack>
           )}

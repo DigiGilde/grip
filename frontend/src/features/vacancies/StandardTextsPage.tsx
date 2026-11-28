@@ -394,6 +394,7 @@ export function StandardTextsPage() {
   return (
     <RouterLinks>
       <Page
+        kind="document"
         title="Standaardteksten voor vacatures"
         instanceName={instance?.name}
         spacing="sections"
@@ -427,9 +428,11 @@ export function StandardTextsPage() {
               )}
               {manage && unread ? (
                 <nldd-text>
-                  {unread === 1
-                    ? 'Eén tekst is afgeleid en nog niet nagelezen.'
-                    : `${unread} teksten zijn afgeleid en nog niet nagelezen.`}
+                  <p>
+                    {unread === 1
+                      ? 'Eén tekst is afgeleid en nog niet nagelezen.'
+                      : `${unread} teksten zijn afgeleid en nog niet nagelezen.`}
+                  </p>
                 </nldd-text>
               ) : null}
             </Stack>
@@ -496,8 +499,8 @@ export function StandardTextsPage() {
                         ) : template.status === 'derived_unread' ? (
                           <nldd-tag color="warning" text="Nog nalezen" />
                         ) : (
-                          <nldd-text color="secondary" size="sm">
-                            {changed}
+                          <nldd-text size="sm">
+                            <span>{changed}</span>
                           </nldd-text>
                         )}
                       </nldd-cell>

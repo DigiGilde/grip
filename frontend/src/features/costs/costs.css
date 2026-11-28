@@ -15,7 +15,6 @@
   --cost-hidden: var(--primitives-color-neutral-500);
   --cost-attention: var(--primitives-color-critical-600);
   --cost-ink: var(--primitives-color-neutral-950);
-  --cost-muted: var(--primitives-color-neutral-650);
   --cost-track: var(--primitives-color-neutral-150);
   --cost-surface: var(--semantics-surfaces-base-background-color);
 }
@@ -40,7 +39,7 @@
   position: relative;
   font-size: 0.875rem;
   line-height: 1.25rem;
-  color: var(--cost-muted);
+  color: var(--semantics-content-color);
 }
 
 .cost-bar__mark-label {
@@ -146,7 +145,7 @@
   padding: 0;
   font-size: 0.875rem;
   line-height: 1.25rem;
-  color: var(--cost-muted);
+  color: var(--semantics-content-color);
 }
 
 .cost-legend li {
@@ -160,9 +159,11 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* An nldd-icon takes --context-content-color, not the color around it. */
 .cost-legend__attention,
 .cost-legend__attention strong {
   color: var(--primitives-color-critical-700);
+  --context-content-color: var(--primitives-color-critical-700);
   font-weight: 700;
 }
 

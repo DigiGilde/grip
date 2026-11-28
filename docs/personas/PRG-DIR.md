@@ -65,7 +65,7 @@ Het Functiegebouw Rijk zegt dat een programmadirecteur werkt "binnen geldende af
 
 ## In Grip
 
-**MOZa voorbeeld** (account, aanvrager en tekenbevoegde, eigenaar van de opdracht van het programma). Ze landt op Start en ziet Start, Taken, Opdrachten, Team, Vacatures, Financieel, Rapportage en Aanvragen.
+**MOZa voorbeeld** (account, aanvrager en tekenbevoegde, eigenaar van de opdracht van het programma). Ze landt op Start en ziet Start, Taken, Opdrachten, Aanvragen, Vacatures, Mensen en Geld.
 
 - Als eigenaar loopt ze "Een opdracht winnen" voor het jaarbudget: begroting, offerte, aanbieden aan het ministerie, akkoord, starten.
 - In "Een opdracht uitvoeren en factureren" kan zij maanden afsluiten en aanleveren; in de dataset doet de controller dat.

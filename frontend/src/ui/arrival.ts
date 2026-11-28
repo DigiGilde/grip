@@ -1,7 +1,8 @@
 /**
  * "Open this on arrival": an address can ask a page to open one of its
- * panels or sheets, so the button in a head, a task and a link from outside
- * all lead to the thing itself and not only to the tab it is on.
+ * panels or sheets, so the button in a head leads to the thing itself and
+ * not only to the part it is on. A task leads to the page and asks nothing:
+ * its reader takes the step with the page's own button.
  *
  * The page reads the intent, opens what it names and then takes it out of
  * the address, so going back or reloading does not open the panel again.

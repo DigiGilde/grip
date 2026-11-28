@@ -52,7 +52,7 @@ Naar het voorbeeld van het Mandaatbesluit BZK 2025 gaat een DG verplichtingen aa
 
 ## In Grip
 
-**Ministerie van BZK voorbeeld** (account, lezer). Ze landt op Start en ziet Start, Taken, Opdrachten, Vacatures, Financieel en Rapportage. Als lezer leest ze de basis en de bedragen van alle opdrachten in de grip van het ministerie, maar niet wie erop werkt of tegen welk tarief. Aanvragen, de plek waar de ontvangen offertes en aanvragen van het ministerie staan, staat niet in haar balk. Ze doet geen stap in een werkstroom; ze kijkt mee zoals de lezer in "Een opdracht winnen".
+**Ministerie van BZK voorbeeld** (account, lezer). Ze landt op Start en ziet Start, Taken, Opdrachten, Vacatures en Geld. Als lezer leest ze de basis en de bedragen van alle opdrachten in de grip van het ministerie, maar niet wie erop werkt of tegen welk tarief. Aanvragen, de plek waar de ontvangen offertes en aanvragen van het ministerie staan, staat niet in haar balk. Ze doet geen stap in een werkstroom; ze kijkt mee zoals de lezer in "Een opdracht winnen".
 
 ## Wat Grip nog niet kan
 

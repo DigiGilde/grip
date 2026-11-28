@@ -119,13 +119,13 @@ export function QuoteSettingsPage() {
 
   return (
     <>
-      <Page title="Offertes" instanceName={instance?.name} spacing="sections" back={adminBack}>
+      <Page kind="document" title="Offertes" instanceName={instance?.name} spacing="sections" back={adminBack}>
         {query.isPending ? <Loading /> : null}
         {query.isError ? (
           <LoadError
             error={query.error}
             retry={() => void query.refetch()}
-            who="Beheer is voor beheerders. Wie dat zijn zie je onder Team."
+            who="Beheer is voor beheerders. Wie dat zijn zie je onder Mensen."
           />
         ) : null}
         {query.data ? (
@@ -149,8 +149,8 @@ export function QuoteSettingsPage() {
             />
             {mode === 'never' ? null : (
               <Quiet>
-                Goedkeuren kan wie het recht "{APPROVER_RIGHT}" heeft. Je kent het toe bij Team,
-                onder Rechten in grip van een persoon.
+                Goedkeuren kan wie het recht "{APPROVER_RIGHT}" heeft. Je kent het toe onder Mensen,
+                bij Rechten in grip van een persoon.
               </Quiet>
             )}
             <nldd-button-group>
@@ -215,8 +215,10 @@ export function QuoteSettingsPage() {
       >
         {conflictPanel}
         <nldd-text>
-          Geldt voor offertes die je hierna maakt. Het kenmerk van een bestaande offerte verandert
-          niet, en de nummering loopt door.
+          <p>
+            Geldt voor offertes die je hierna maakt. Het kenmerk van een bestaande offerte verandert
+            niet, en de nummering loopt door.
+          </p>
         </nldd-text>
         <TextInput
           label="Voorvoegsel"

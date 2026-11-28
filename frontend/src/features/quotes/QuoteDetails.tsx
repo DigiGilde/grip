@@ -73,7 +73,7 @@ export function QuoteDetails({
       <nldd-button ref={buttonRef} size="sm" text="Details" />
       {createPortal(
         <nldd-sheet ref={sheetRef} open={orUndef(open)} placement="right" width="480px">
-          <nldd-page>
+          <nldd-page sticky-header>
             <nldd-top-title-bar
               ref={barRef}
               slot="header"
@@ -85,7 +85,7 @@ export function QuoteDetails({
               <nldd-title
                 id={titleId}
                 slot="header"
-                size={2}
+                size="display-2"
                 text="Details van de offerte"
                 heading-level={1}
               />
@@ -94,19 +94,23 @@ export function QuoteDetails({
                   <Facts label="Gegevens van de offerte" facts={facts} labelWidth="140px" />
                 ) : null}
                 <Stack gap="related">
-                  <nldd-title size={5} heading-level={2} text="Echtheidskenmerk" />
+                  <nldd-title size="display-5" heading-level={2} text="Echtheidskenmerk" />
                   <nldd-text>
-                    Een code die uit de inhoud van deze offerte is berekend. Verandert er ook maar
-                    één teken, dan is de code anders.
+                    <p>
+                      Een code die uit de inhoud van deze offerte is berekend. Verandert er ook maar
+                      één teken, dan is de code anders.
+                    </p>
                   </nldd-text>
                   <nldd-text>
-                    Dezelfde code staat in het akkoord van de opdrachtgever. Zo staat vast dat er
-                    voor precies deze offerte is getekend.
+                    <p>
+                      Dezelfde code staat in het akkoord van de opdrachtgever. Zo staat vast dat er
+                      voor precies deze offerte is getekend.
+                    </p>
                   </nldd-text>
                   <Stack gap="tight">
                     {codeLines(hash).map((line) => (
                       <nldd-text key={line} size="sm" style={CODE} data-code-line>
-                        {line}
+                        <span>{line}</span>
                       </nldd-text>
                     ))}
                   </Stack>
@@ -117,15 +121,17 @@ export function QuoteDetails({
                 </Stack>
                 {shownFileHash ? (
                   <Stack gap="related">
-                    <nldd-title size={5} heading-level={2} text="Bestandskenmerk" />
+                    <nldd-title size="display-5" heading-level={2} text="Bestandskenmerk" />
                     <nldd-text>
-                      Een code die uit het pdf-bestand van deze offerte is berekend. Zo ga je na dat
-                      een pdf die je hebt precies dit bestand is.
+                      <p>
+                        Een code die uit het pdf-bestand van deze offerte is berekend. Zo ga je na
+                        dat een pdf die je hebt precies dit bestand is.
+                      </p>
                     </nldd-text>
                     <Stack gap="tight">
                       {codeLines(shownFileHash).map((line) => (
                         <nldd-text key={line} size="sm" style={CODE} data-file-line>
-                          {line}
+                          <span>{line}</span>
                         </nldd-text>
                       ))}
                     </Stack>

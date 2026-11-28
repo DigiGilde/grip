@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { errorMessage } from '@/api/client';
+import { Loading } from '@/ui/layout';
 import './nldd';
 
 interface QueryLike {
@@ -16,7 +17,7 @@ interface QueryStateProps {
 /** Loading and error states of a query; the children once there is data. */
 export function QueryState({ query, children }: QueryStateProps) {
   if (query.isPending) {
-    return <nldd-inline-dialog variant="loading" text="Gegevens worden geladen" />;
+    return <Loading text="Gegevens worden geladen" />;
   }
   if (query.isError) {
     return (

@@ -45,7 +45,7 @@ function element(tag: string, attributes: Record<string, string> = {}, ...childr
 }
 
 function instanceCard(instance: Instance): HTMLElement {
-  const title = element('nldd-title', { size: '5', 'heading-level': '3', text: instance.naam });
+  const title = element('nldd-title', { size: 'display-5', 'heading-level': '3', text: instance.naam });
   if (instance.rol) title.setAttribute('supporting-text', instance.rol);
   const card = element(
     'nldd-card',

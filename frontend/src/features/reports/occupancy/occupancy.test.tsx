@@ -10,7 +10,10 @@ import { OccupancyBlock } from './OccupancyBlock';
 import { cellState, fillLevel } from './scale';
 import { groupPersons } from './view';
 
-const MONTHS = Array.from({ length: 12 }, (_, index) => `2026-${String(index + 1).padStart(2, '0')}`);
+const MONTHS = Array.from(
+  { length: 12 },
+  (_, index) => `2026-${String(index + 1).padStart(2, '0')}`,
+);
 
 function cell(month: string, overrides: Partial<OccupancyCell> = {}): OccupancyCell {
   return {
@@ -161,7 +164,9 @@ function renderHeatmap(persons = [MILA, CAS], currentMonth = '2026-10') {
 }
 
 const cellOf = (container: HTMLElement, personId: string, monthName: string) =>
-  container.querySelector<HTMLElement>(`tr[data-person="${personId}"] td[data-month="${monthName}"]`)!;
+  container.querySelector<HTMLElement>(
+    `tr[data-person="${personId}"] td[data-month="${monthName}"]`,
+  )!;
 
 describe('the scale', () => {
   it('tells not deployable from deployable and empty', () => {
@@ -180,7 +185,9 @@ describe('describeCell', () => {
   it('says every state in words', () => {
     expect(describeCell(cell('2026-01', { available: false }))).toBe('niet inzetbaar');
     expect(describeCell(cell('2026-02'))).toBe('geen inzet');
-    expect(describeCell(cell('2026-07', { pct: '80', established: true }))).toBe('80%, vastgesteld');
+    expect(describeCell(cell('2026-07', { pct: '80', established: true }))).toBe(
+      '80%, vastgesteld',
+    );
     expect(describeCell(cell('2026-09', { pct: '130', tentative_pct: '30' }))).toBe(
       '130%, boven 100%, waarvan 30% onder voorbehoud, gepland',
     );
@@ -221,21 +228,22 @@ describe('Heatmap', () => {
       'Verstreken',
       'Lopend en komend',
       'Persoon',
-      ...MONTHS.map((_, index) =>
-        [
-          'januari',
-          'februari',
-          'maart',
-          'april',
-          'mei',
-          'juni',
-          'juli',
-          'augustus',
-          'september',
-          'oktober',
-          'november',
-          'december',
-        ][index] + ' 2026',
+      ...MONTHS.map(
+        (_, index) =>
+          [
+            'januari',
+            'februari',
+            'maart',
+            'april',
+            'mei',
+            'juni',
+            'juli',
+            'augustus',
+            'september',
+            'oktober',
+            'november',
+            'december',
+          ][index] + ' 2026',
       ),
       'Gemiddeld',
     ]);
@@ -247,7 +255,7 @@ describe('Heatmap', () => {
     // A name is the way to the Inzet board of that person.
     expect(container.querySelector('tr[data-person="p2"] th a')).toHaveAttribute(
       'href',
-      '/inzet?persoon=p2',
+      '/mensen/bord?persoon=p2',
     );
     for (const header of container.querySelectorAll('tbody th')) {
       expect(header).toHaveAttribute('scope', 'row');
@@ -425,7 +433,7 @@ function renderBlock(occupancy: Occupancy = OCCUPANCY, search = '?jaar=2026') {
   return renderApp(
     <Routes>
       <Route
-        path="/rapportage/bezetting"
+        path="/mensen/bezetting"
         element={
           <>
             <OccupancyBlock occupancy={occupancy} year={2026} />
@@ -434,7 +442,7 @@ function renderBlock(occupancy: Occupancy = OCCUPANCY, search = '?jaar=2026') {
         }
       />
     </Routes>,
-    { path: `/rapportage/bezetting${search}` },
+    { path: `/mensen/bezetting${search}` },
   );
 }
 
@@ -446,8 +454,9 @@ describe('OccupancyBlock', () => {
 
   it('leads with the figures and opens on the people with inzet', () => {
     const { container } = renderBlock();
-    const figures = screen.getByRole('list', { name: 'Bezetting in het kort' });
-    expect(tile('over')).toHaveTextContent('Boven 100%1 persoon');
+    const figures = screen.getByLabelText('Bezetting in het kort');
+    const words = [...tile('over').querySelectorAll('nldd-text')].map((el) => el.textContent);
+    expect(words.slice(0, 2)).toEqual(['Boven 100%', '1 persoon']);
     expect(tile('over')).toHaveTextContent('Te veel ingepland');
     const table = screen.getByRole('grid');
     expect(figures.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -460,25 +469,25 @@ describe('OccupancyBlock', () => {
 
   it('makes each figure a link to exactly the people it counts', () => {
     const { container } = renderBlock();
-    expect(tile('idle')).toHaveAttribute('href', '/rapportage/bezetting?jaar=2026&toon=zonder-inzet');
+    expect(tile('idle')).toHaveAttribute('href', '/mensen/bezetting?jaar=2026&toon=zonder-inzet');
     expect(tile('over')).toHaveAttribute(
       'href',
-      '/rapportage/bezetting?jaar=2026&toon=boven-100&maand=2026-09',
+      '/mensen/bezetting?jaar=2026&toon=boven-100&maand=2026-09',
     );
     expect(tile('free')).toHaveAttribute(
       'href',
-      '/rapportage/bezetting?jaar=2026&toon=vrij&volgorde=ruimte',
+      '/mensen/bezetting?jaar=2026&toon=vrij&volgorde=ruimte',
     );
-    expect(tile('average')).toHaveAttribute('href', '/rapportage/bezetting?jaar=2026&toon=iedereen');
+    expect(tile('average')).toHaveAttribute('href', '/mensen/bezetting?jaar=2026&toon=iedereen');
 
     fireEvent.click(tile('idle'));
-    expect(address()).toBe('/rapportage/bezetting?jaar=2026&toon=zonder-inzet');
+    expect(address()).toBe('/mensen/bezetting?jaar=2026&toon=zonder-inzet');
     // The one person the tile counted, as a row, with since when she is free.
     expect(rowIds(container)).toEqual(['p4']);
     expect(tile('idle')).toHaveAttribute('aria-current', 'true');
     const row = container.querySelector('tr[data-person="p4"] th')!;
     expect(row).toHaveTextContent('Vrij, laatste inzet tot 30 nov 2025');
-    expect(row.querySelector('a')).toHaveAttribute('href', '/inzet?persoon=p4');
+    expect(row.querySelector('a')).toHaveAttribute('href', '/mensen/bord?persoon=p4');
   });
 
   it('offers the way back to everyone while a figure filters the table', () => {
@@ -486,7 +495,7 @@ describe('OccupancyBlock', () => {
     expect(rowIds(container)).toEqual(['p4']);
     const everyone = container.querySelector('nldd-toolbar nldd-button[text="Toon iedereen"]')!;
     fireEvent(everyone, new MouseEvent('click'));
-    expect(address()).toBe('/rapportage/bezetting?jaar=2026&toon=iedereen');
+    expect(address()).toBe('/mensen/bezetting?jaar=2026&toon=iedereen');
     expect(rowIds(container)).toHaveLength(4);
     expect(container.querySelector('nldd-toolbar nldd-button[text="Toon iedereen"]')).toBeNull();
   });
@@ -498,7 +507,9 @@ describe('OccupancyBlock', () => {
     const cellInSeptember = cellOf(container, 'p1', '2026-09');
     expect(cellInSeptember).toHaveAttribute('aria-selected', 'true');
     expect(cellInSeptember).toHaveFocus();
-    expect(screen.getByTestId('occupancy-detail')).toHaveTextContent('Mila Medewerker, september 2026');
+    expect(screen.getByTestId('occupancy-detail')).toHaveTextContent(
+      'Mila Medewerker, september 2026',
+    );
   });
 
   it('sorts on room this month when the free figure is opened', () => {
@@ -506,7 +517,9 @@ describe('OccupancyBlock', () => {
     fireEvent.click(tile('free'));
     // Most room first: Noor is fully free, then Anna (80), then Cas (50).
     expect(rowIds(container)).toEqual(['p4', 'p3', 'p2']);
-    expect(container.querySelector('tr[data-person="p3"] th')).toHaveTextContent('Nu 20%, 80% vrij');
+    expect(container.querySelector('tr[data-person="p3"] th')).toHaveTextContent(
+      'Nu 20%, 80% vrij',
+    );
   });
 
   it('reads the view from the address, so it can be linked to', () => {
@@ -518,7 +531,9 @@ describe('OccupancyBlock', () => {
 
   it('says it once when both groups without inzet are the same people', () => {
     const { container } = renderBlock();
-    const options = [...container.querySelectorAll('nldd-toolbar select')][0]!.querySelectorAll('option');
+    const options = [...container.querySelectorAll('nldd-toolbar select')][0]!.querySelectorAll(
+      'option',
+    );
     const labels = [...options].map((option) => option.textContent);
     expect(labels).toEqual([
       'Met inzet in 2026 (3)',
@@ -533,7 +548,9 @@ describe('OccupancyBlock', () => {
     // Stef had inzet in March and has none ahead: counted by the figure, but
     // not without inzet in the whole year.
     const { container } = renderBlock({ ...OCCUPANCY, persons: [MILA, CAS, ANNA, NOOR, STEF] });
-    const options = [...container.querySelectorAll('nldd-toolbar select')][0]!.querySelectorAll('option');
+    const options = [...container.querySelectorAll('nldd-toolbar select')][0]!.querySelectorAll(
+      'option',
+    );
     const labels = [...options].map((option) => option.textContent);
     expect(labels).toContain('Zonder inzet de komende 3 maanden (2)');
     expect(labels).toContain('Zonder inzet in 2026 (1)');
@@ -544,11 +561,10 @@ describe('OccupancyBlock', () => {
   it('keeps the line at the bottom for who is truly left out', () => {
     const { container } = renderBlock();
     const line = screen.getByTestId('occupancy-left-out');
-    expect(line.querySelector('summary')).toHaveTextContent(
-      '2 mensen staan er niet in: zonder inzetschaal en zonder inzet in 2026',
+    expect(line).toHaveTextContent(
+      '2 mensen staan er niet in: zonder inzetschaal en zonder inzet in 2026: Bea Beheer, Lex Lezer.',
     );
-    expect(line).not.toHaveAttribute('open');
-    expect(line).toHaveTextContent('Bea Beheer, Lex Lezer');
+    expect(line.querySelector('details')).toBeNull();
     expect(container.querySelector('tbody')).not.toHaveTextContent('Bea Beheer');
     // No second line about people who are deployable: the figures lead to them.
     expect(screen.getByTestId('occupancy')).not.toHaveTextContent('Toon ze in de tabel');
@@ -583,7 +599,7 @@ describe('OccupancyBlock', () => {
   it('states the full-time assumption quietly, not in the introduction', () => {
     renderBlock();
     const block = screen.getByTestId('occupancy');
-    const quiet = [...block.querySelectorAll('nldd-text[color="secondary"]')].map(
+    const quiet = [...block.querySelectorAll('nldd-text[size="sm"]')].map(
       (text) => text.textContent,
     );
     expect(quiet.some((text) => text?.includes('Beschikbaar is 1 FTE per persoon per maand'))).toBe(
@@ -595,7 +611,13 @@ describe('OccupancyBlock', () => {
   it('explains every state in a legend with words', () => {
     renderBlock();
     const legend = screen.getByRole('list', { name: 'Legenda van de bezetting' });
-    for (const text of ['boven 100%', 'onder voorbehoud', 'vastgesteld', 'geen inzet', 'niet inzetbaar']) {
+    for (const text of [
+      'boven 100%',
+      'onder voorbehoud',
+      'vastgesteld',
+      'geen inzet',
+      'niet inzetbaar',
+    ]) {
       expect(legend).toHaveTextContent(text);
     }
   });

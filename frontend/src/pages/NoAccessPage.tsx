@@ -28,7 +28,7 @@ export function NoAccessPage() {
     return <StatusPage variant="loading" title="Grip wordt geladen" />;
   }
   if (state.status === 'authenticated') {
-    return <Navigate to={PATHS.statusOverview} replace />;
+    return <Navigate to={PATHS.start} replace />;
   }
   if (state.status === 'guest') {
     return <Navigate to={PATHS.signing} replace />;

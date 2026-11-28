@@ -100,8 +100,44 @@ describe('SigningPage', () => {
     // The echtheidskenmerk is there, behind "Details".
     expect(texts(container, 'nldd-button')).toContain('Details');
     expect(document.body.querySelectorAll('nldd-sheet [data-code-line]').length).toBe(2);
-    // No form is open by default.
+    // No form is open by default, and "Je functie" is not on the page: it waits in the sheet.
     expect(openSheet()).toBeUndefined();
+    expect(container.querySelector('nldd-form-field')).toBeNull();
+    expect(
+      document.body.querySelector('nldd-sheet nldd-form-field[label="Je functie"]'),
+    ).not.toBeNull();
+  });
+
+  it('sends the function that was written in the sheet with the intent', async () => {
+    const go = vi.spyOn(navigation, 'go').mockImplementation(() => {});
+    const { container, calls } = renderSigning({
+      '/api/signing/quotes/q-1': QUOTE,
+      'POST /api/signing/quotes/q-1/intents': {
+        id: 'in-1',
+        authorize_url: '/api/signing/intents/in-1/authorize',
+        expires_at: '2026-02-03T10:05:00Z',
+        reauthentication: true,
+      },
+    });
+    await waitFor(() => expect(container.querySelector('nldd-table')).not.toBeNull());
+    clickButton(container, 'Geef akkoord');
+    await waitFor(() => expect(openSheet()).toBeDefined());
+    const sheet = openSheet() as Element;
+    sheet
+      .querySelector('nldd-form-field[label="Je functie"] nldd-text-field')
+      ?.dispatchEvent(new CustomEvent('input', { detail: { value: '  Directeur ' } }));
+    sheet
+      .querySelector('nldd-checkbox-field')
+      ?.dispatchEvent(new CustomEvent('change', { detail: { checked: true } }));
+    await waitFor(() =>
+      expect(sheet.querySelector('nldd-checkbox-field')?.hasAttribute('checked')).toBe(true),
+    );
+    sheet.querySelector('nldd-form')?.dispatchEvent(new Event('submit', { cancelable: true }));
+    await waitFor(() => expect(go).toHaveBeenCalled());
+    const posts = calls.filter((call) => call.method === 'POST');
+    expect(posts[0]?.body).toMatchObject({ signer_function: 'Directeur', confirm_mandate: true });
+    go.mockRestore();
+    sessionStorage.clear();
   });
 
   it('does not send an acceptance without the mandate confirmation', async () => {
@@ -307,10 +343,7 @@ describe('SigningPage', () => {
     it('asks where the invoice goes, with the reference of the client filled in', async () => {
       const { sheet } = await openAccept({ '/api/signing/quotes/q-1': ANNEX });
       expect(texts(sheet, 'nldd-title')).toEqual(
-        expect.arrayContaining([
-          'Waar gaat de factuur heen?',
-          'Contact bij de financiële afdeling',
-        ]),
+        expect.arrayContaining(['Adres voor de factuur', 'Contact bij de financiële afdeling']),
       );
       const labels = [...sheet.querySelectorAll('nldd-form-field')].map((el) =>
         el.getAttribute('label'),

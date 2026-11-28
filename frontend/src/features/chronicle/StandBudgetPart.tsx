@@ -43,7 +43,9 @@ export function StandBudgetPart({ budget }: { budget: StandBudget }) {
                       }
                       detail={summary || undefined}
                     >
-                      <nldd-text>{line.description}</nldd-text>
+                      <nldd-text>
+                        <span>{line.description}</span>
+                      </nldd-text>
                     </NameLine>
                   </nldd-cell>
                   {showMoney && (

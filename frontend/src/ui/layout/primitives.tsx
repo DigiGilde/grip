@@ -15,11 +15,13 @@
  * Do not add a border or a box to show that things belong together.
  *
  * Type scale (few steps, each with one job):
- *   page title     nldd-title size 2, the one h1 of the page
- *   section title  nldd-title size 4, h2
- *   block title    nldd-title size 5, h3, only inside a section
+ *   page title     nldd-title size display-2, the one h1 of the page
+ *   section title  nldd-title size display-4, h2
+ *   block title    nldd-title size display-5, h3, only inside a section
  *   body           the default text
- *   secondary      nldd-text color="secondary" size="sm": labels, hints, dates
+ *   small          nldd-text size="sm" (`Quiet`): hints, dates, the context of a figure
+ * All text we write is the normal text color; what matters less is smaller,
+ * not grey. Grey is only what the design system draws itself.
  * A row in a list or table is never a heading. Numbers are right-aligned in
  * tabular figures; the table and cell components do that.
  */
@@ -62,7 +64,7 @@ export interface PageBack {
   text: string;
 }
 
-interface TitleBlockProps {
+interface HeadProps {
   /** The h1, the document title and the text a screen reader announces. */
   title: string;
   /** One sentence that says what the page is for. Leave out when the title says it. */
@@ -70,115 +72,105 @@ interface TitleBlockProps {
   instanceName?: string;
   /** The page this one belongs to. Stands above the title, never under it. */
   back?: PageBack;
+  /** What the tab says when the title alone does not say which thing this is. */
+  tabName?: string;
 }
 
-/**
- * The head of a page, in the header slot of the `nldd-simple-section` it sits
- * in: where the page belongs, then its title. `Page` uses it; a shell that
- * lays out its own section (a thing with tabs) uses it directly.
- */
-export function TitleBlock({ title, lead, instanceName, back }: TitleBlockProps) {
-  if (!back) return <PageHeading text={title} lead={lead} instanceName={instanceName} />;
-  return (
-    <nldd-container slot="header" gap={GAP.close}>
-      <BackLink href={back.href} text={back.text} />
-      <PageHeading text={title} lead={lead} instanceName={instanceName} inline />
-    </nldd-container>
-  );
+/** What a page is: decides how wide its content reads. */
+export type PageKind = 'list' | 'worksheet' | 'document';
+
+/** The tabs of a page, as `TabNav` takes them. */
+export interface PageTabs {
+  label: string;
+  items: readonly TabNavItem[];
+  current: string;
+  narrow?: 'hide' | 'bar';
 }
 
-interface PageProps extends TitleBlockProps {
+/** The width of the column a list or a document reads in. */
+const READING_WIDTH = '720px';
+
+interface PageProps extends HeadProps {
+  /**
+   * 'list': rows in a reading column. 'document': one thing read as a whole,
+   * in the same column. 'worksheet': dense columns over the full width. The
+   * column stands at the left edge, on the same line as a worksheet.
+   */
+  kind: PageKind;
   /**
    * 'blocks' for a page that is one thing (a filter row and a table);
    * 'sections' for a page made of Section parts.
    */
   spacing?: 'blocks' | 'sections';
-  /** Body width, for a page that reads better narrow (a form, a notice). */
-  width?: string;
+  /**
+   * The one next step of the page, as its primary button. It stands on the
+   * title line at the right (under the title on a narrow screen).
+   */
+  action?: ReactNode;
+  /** The parts of the page's thing, or the views of a list, under the title. */
+  tabs?: PageTabs;
   children: ReactNode;
 }
 
 /**
- * A page inside the application shell: the title in the section's header,
- * then the content at one rhythm. One Page per route.
+ * A page inside the application shell: its head in the section's header
+ * (where it belongs, its title with its one action, its tabs), then the
+ * content at one rhythm. One Page per route. The section is always full
+ * width and a list or a document puts head and content in a reading column
+ * inside it, so every screen has one left edge.
  */
 export function Page({
   title,
   lead,
   instanceName,
   back,
+  tabName,
+  kind,
   spacing = 'blocks',
-  width,
+  action,
+  tabs,
   children,
 }: PageProps) {
-  return (
-    <nldd-simple-section {...(width ? { width } : {})}>
-      <TitleBlock title={title} lead={lead} instanceName={instanceName} back={back} />
-      <Stack gap={spacing === 'sections' ? 'section' : 'group'}>{children}</Stack>
-    </nldd-simple-section>
+  const column = kind === 'worksheet' ? {} : { 'max-width': READING_WIDTH };
+  const heading = (
+    <PageHeading
+      text={title}
+      tabName={tabName}
+      instanceName={instanceName}
+      inline
+    />
   );
-}
-
-interface ThingHeadProps extends TitleBlockProps {
-  /**
-   * What says what state the thing is in, right under its name: one line of
-   * status and facts, its key figures.
-   */
-  children?: ReactNode;
-  /**
-   * The one next step on the thing, as its primary button. It stands on the
-   * title line at the right (under the title on a narrow screen): part of
-   * the head, never on top of the tabs.
-   */
-  action?: ReactNode;
-  /** The course of the thing (a step bar), between the head and the tabs. */
-  course?: ReactNode;
-  /** The tabs of the thing; left out while it is loading or was not found. */
-  tabs?: { label: string; items: readonly TabNavItem[]; current: string };
-}
-
-/** Spread as plain attributes; the package types do not list the padding overrides. */
-const NO_BOTTOM_PADDING: object = { 'padding-bottom': '0' };
-
-/**
- * The head of one open thing with tabs (an assignment, a vacancy): where it
- * belongs, its name with its one next step, what state it is in, its course,
- * and its tabs. Three kinds of thing stay apart: the action in the head, the
- * course, and the tabs after a clear distance. Each tab below is a section
- * of its own with its own top padding, so this section has none at the
- * bottom: the two would add up under the tabs.
- */
-export function ThingHead({
-  title,
-  lead,
-  instanceName,
-  back,
-  children,
-  action,
-  course,
-  tabs,
-}: ThingHeadProps) {
   return (
-    <nldd-simple-section {...NO_BOTTOM_PADDING}>
-      {/* The back link is an in-app link; the wrapper carries the header slot. */}
-      <RouterLinks slot="header">
+    <nldd-simple-section width="full">
+      <nldd-container slot="header" gap={GAP.related} {...column}>
         <nldd-container gap={GAP.close}>
-          {back && <BackLink href={back.href} text={back.text} />}
-          <div className="thing-title-line">
-            <PageHeading text={title} lead={lead} instanceName={instanceName} inline />
-            {action ? <div className="thing-action">{action}</div> : null}
-          </div>
+          {back && (
+            <RouterLinks>
+              <BackLink href={back.href} text={back.text} />
+            </RouterLinks>
+          )}
+          {action ? (
+            <div className="thing-title-line">
+              {heading}
+              <div className="thing-action">{action}</div>
+            </div>
+          ) : (
+            heading
+          )}
+          {/* Beside the action a long lead would push the step off the title line. */}
+          {lead && (
+            <nldd-text>
+              <p>{lead}</p>
+            </nldd-text>
+          )}
         </nldd-container>
-      </RouterLinks>
-      <Stack gap="section">
-        {children || course ? (
-          <Stack gap="group">
-            {children}
-            {course}
-          </Stack>
-        ) : null}
-        {tabs && <TabNav label={tabs.label} items={tabs.items} current={tabs.current} />}
-      </Stack>
+        {tabs && (
+          <TabNav label={tabs.label} items={tabs.items} current={tabs.current} narrow={tabs.narrow} />
+        )}
+      </nldd-container>
+      <nldd-container gap={GAP[spacing === 'sections' ? 'section' : 'group']} {...column}>
+        {children}
+      </nldd-container>
     </nldd-simple-section>
   );
 }
@@ -197,7 +189,7 @@ export function Section({ title, description, level = 2, children }: SectionProp
   return (
     <nldd-container gap={GAP.related}>
       <nldd-title
-        size={level === 2 ? 4 : 5}
+        size={level === 2 ? 'display-4' : 'display-5'}
         heading-level={level}
         text={title}
         {...(description ? { 'supporting-text': description } : {})}
@@ -219,9 +211,15 @@ export function SectionHeading({
    * How large it is drawn, when that differs from its level: in a sheet the
    * title is the only level above, so a small heading there is still level 2.
    */
-  size?: 4 | 5;
+  size?: 'display-4' | 'display-5';
 }) {
-  return <nldd-title size={size ?? (level === 2 ? 4 : 5)} text={text} heading-level={level} />;
+  return (
+    <nldd-title
+      size={size ?? (level === 2 ? 'display-4' : 'display-5')}
+      text={text}
+      heading-level={level}
+    />
+  );
 }
 
 export interface Fact {
@@ -268,7 +266,6 @@ export function Facts({ label, facts, labelWidth = '220px', omitEmpty }: FactsPr
                 <nldd-text-cell
                   overline={fact.label}
                   text={empty ? 'Nog niet ingevuld' : String(fact.value)}
-                  {...(empty ? { color: 'secondary' } : {})}
                 />
               ) : (
                 <nldd-cell width="full">
@@ -283,9 +280,9 @@ export function Facts({ label, facts, labelWidth = '220px', omitEmpty }: FactsPr
         }
         return (
           <nldd-list-item key={fact.label}>
-            <nldd-text-cell width={labelWidth} color="secondary" text={fact.label} />
+            <nldd-text-cell width={labelWidth} text={fact.label} />
             {empty ? (
-              <nldd-text-cell color="secondary" text="Nog niet ingevuld" />
+              <nldd-text-cell text="Nog niet ingevuld" />
             ) : plain ? (
               <nldd-text-cell text={String(fact.value)} />
             ) : (
@@ -307,7 +304,7 @@ interface CardGridProps {
 /** Cards in rows of equal height. */
 export function CardGrid({ itemWidth = '280px', children }: CardGridProps) {
   return (
-    <nldd-collection layout="grid" item-width={itemWidth} gap={GAP.related}>
+    <nldd-collection layout="grid" item-min-width={itemWidth} gap={GAP.related}>
       {children}
     </nldd-collection>
   );
@@ -346,11 +343,11 @@ export function NameLine({ children, badges, detail }: NameLineProps) {
   );
 }
 
-/** Secondary text: a hint, a date, the context of a figure. */
+/** Small text: a hint, a date, the context of a figure. The color of all text. */
 export function Quiet({ children }: { children: ReactNode }) {
   return (
-    <nldd-text size="sm" color="secondary">
-      {children}
+    <nldd-text size="sm">
+      <p>{children}</p>
     </nldd-text>
   );
 }
@@ -388,8 +385,6 @@ interface KeyFiguresProps {
   /** Accessible name of the group. */
   label: string;
   figures: readonly KeyFigure[];
-  /** One quiet line under all figures: what they have in common, e.g. that they are incomplete. */
-  note?: ReactNode;
 }
 
 /**
@@ -397,22 +392,19 @@ interface KeyFiguresProps {
  * each value, no box, wrapping to as many columns as fit. For the head of a
  * page; a table is for rows of the same kind.
  */
-export function KeyFigures({ label, figures, note }: KeyFiguresProps) {
+export function KeyFigures({ label, figures }: KeyFiguresProps) {
   return (
-    <>
-      <dl className="key-figures" aria-label={label}>
-        {figures.map((figure) => (
-          <div key={figure.label} className="key-figure">
-            <dt>{figure.label}</dt>
-            <dd className={figure.critical ? 'key-figure-value critical' : 'key-figure-value'}>
-              {figure.value}
-            </dd>
-            {figure.detail ? <dd className="key-figure-detail">{figure.detail}</dd> : null}
-          </div>
-        ))}
-      </dl>
-      {note ? <p className="key-figure-detail key-figures-note">{note}</p> : null}
-    </>
+    <dl className="key-figures" aria-label={label}>
+      {figures.map((figure) => (
+        <div key={figure.label} className="key-figure">
+          <dt>{figure.label}</dt>
+          <dd className={figure.critical ? 'key-figure-value critical' : 'key-figure-value'}>
+            {figure.value}
+          </dd>
+          {figure.detail ? <dd className="key-figure-detail">{figure.detail}</dd> : null}
+        </div>
+      ))}
+    </dl>
   );
 }
 
@@ -441,7 +433,9 @@ export function SignalList({ label, signals }: { label: string; signals: readonl
           {signal.href ? (
             <nldd-link href={signal.href} text={signal.text} size="md" />
           ) : (
-            <nldd-text>{signal.text}</nldd-text>
+            <nldd-text>
+              <p>{signal.text}</p>
+            </nldd-text>
           )}
           {signal.detail ? <Quiet>{signal.detail}</Quiet> : null}
         </li>

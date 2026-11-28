@@ -14,7 +14,7 @@ const groups = [
 <Base title="Zoeken">
   <nldd-sidebar-section sidebar-label="Filters" id="zoeken">
     <nldd-container slot="header">
-      <nldd-title size="2" heading-level="1" text="Zoeken"></nldd-title>
+      <nldd-title size="display-2" heading-level="1" text="Zoeken"></nldd-title>
       <nldd-spacer size="16"></nldd-spacer>
       <nldd-search-field
         id="zoekveld"
@@ -31,7 +31,7 @@ const groups = [
         groups.map((group, i) => (
           <Fragment>
             {i > 0 && <nldd-spacer size="24" />}
-            <nldd-title size="5" heading-level="2" text={group.title} />
+            <nldd-title size="display-5" heading-level="2" text={group.title} />
             <nldd-spacer size="4" />
             <nldd-list appearance="simple" dividers="never" accessible-label={group.title}>
               {group.values.map((value) => (
@@ -52,7 +52,7 @@ const groups = [
     </nldd-container>
 
     <nldd-container gap="16">
-      <nldd-text id="zoeken-stand" size="sm" color="secondary" aria-live="polite"></nldd-text>
+      <nldd-text size="sm" color="secondary"><p id="zoeken-stand" aria-live="polite"></p></nldd-text>
       <nldd-list id="zoekresultaten" type="navigation" aria-label="Zoekresultaten"></nldd-list>
     </nldd-container>
   </nldd-sidebar-section>

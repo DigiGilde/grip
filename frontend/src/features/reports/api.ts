@@ -156,6 +156,8 @@ export interface CostCoverage {
   forecast_cents: number;
   covered_cents: number;
   uncovered_cents: number;
+  /** Received invoices of the year with no document attached. */
+  without_document_count: number;
   items: CostCoverageItem[];
 }
 
@@ -182,23 +184,6 @@ export interface Billability {
   below_target_count: number;
 }
 
-export interface OpenRole {
-  assignment_id: string | null;
-  assignment_name: string | null;
-  budget_line_id: string | null;
-  description: string;
-  unfilled_fte: string;
-  start_date: string | null;
-  end_date: string | null;
-  vacancy_status: string | null;
-}
-
-export interface OpenRoles {
-  scope: Scope;
-  unfilled_fte: string;
-  roles: OpenRole[];
-}
-
 export interface Steering {
   year: number;
   turnover?: Turnover;
@@ -206,7 +191,6 @@ export interface Steering {
   pipeline?: Pipeline;
   costs?: CostCoverage;
   billability?: Billability;
-  open_roles?: OpenRoles;
 }
 
 // -- investeerruimte --------------------------------------------------------

@@ -93,11 +93,13 @@ export function VerifyProofPage() {
   };
 
   return (
-    <Page title="Controleer een bewijs" instanceName={instance?.name} width="960px">
+    <Page kind="document" title="Controleer een bewijs" instanceName={instance?.name}>
       <Stack gap="related">
         <nldd-text>
-          Kies het bewijs dat je bij een besluit hebt gedownload. Je ziet wat het aantoont en wat
-          niet. Er wordt niets bewaard.
+          <p>
+            Kies het bewijs dat je bij een besluit hebt gedownload. Je ziet wat het aantoont en wat
+            niet. Er wordt niets bewaard.
+          </p>
         </nldd-text>
         <FormFields>
           <FileInput

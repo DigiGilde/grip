@@ -23,7 +23,12 @@ import { StatusPage } from './StatusPage';
 /** Where to go after login: the page the guard sent the visitor away from. */
 function returnPath(state: unknown): string {
   const from = (state as { from?: unknown } | null)?.from;
-  return safeReturnPath(from) ?? PATHS.statusOverview;
+  return safeReturnPath(from) ?? PATHS.start;
+}
+
+/** A link from a mail to sign a quote: the visitor comes to sign, not to work here. */
+function isSigningLink(path: string): boolean {
+  return path.startsWith(`${PATHS.signing}/`);
 }
 
 /** Set when the backend sent the visitor back after a login that failed. */
@@ -69,6 +74,7 @@ export function LoginPage() {
   }
 
   const { organisation } = instanceNames(instance?.name);
+  const signing = isSigningLink(next);
   const loginAvailable = state.status === 'unauthenticated' && state.oidcConfigured;
   // Offered only where it can work: the instance allows it, the browser can,
   // and a passkey was once made in this browser.
@@ -79,17 +85,31 @@ export function LoginPage() {
     passkeyMadeHere();
 
   return (
-    <nldd-app-view background="tinted">
+    <nldd-shell background="tinted">
       <nldd-page landmarks="page">
         <ExampleStatusBar slot="header" />
         <nldd-simple-section width="400px" vertical-alignment="center">
           <nldd-container gap="24">
             <Brand variant="login" />
             <PageHeading
-              text={organisation ? `Inloggen bij ${organisation}` : 'Inloggen'}
+              text={
+                signing
+                  ? 'Inloggen om de offerte te tekenen'
+                  : organisation
+                    ? `Inloggen bij ${organisation}`
+                    : 'Inloggen'
+              }
               instanceName={instance?.name}
               inline
             />
+            {signing && (
+              <nldd-text>
+                <p>
+                  Je logt in met de organisatie waar je werkt. Daarna zie je de offerte en kun je
+                  akkoord geven.
+                </p>
+              </nldd-text>
+            )}
 
             {loginFailed(location.state) && (
               <nldd-banner
@@ -133,6 +153,6 @@ export function LoginPage() {
           </nldd-container>
         </nldd-simple-section>
       </nldd-page>
-    </nldd-app-view>
+    </nldd-shell>
   );
 }

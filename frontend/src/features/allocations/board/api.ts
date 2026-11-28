@@ -3,6 +3,7 @@
  * amounts. A field of a data class the reader may not see is absent.
  */
 import { apiGet } from '@/api/client';
+import type { VacancyStatus } from '@/features/vacancies/api';
 
 export interface BoardCell {
   /** First day of the month. */
@@ -65,6 +66,9 @@ export interface BoardOpenRole {
   start_date: string | null;
   end_date: string | null;
   can_fill: boolean;
+  /** The running vacancy of the role; null when there is none or the reader may not open it. */
+  vacancy_id?: string | null;
+  vacancy_status?: VacancyStatus | null;
 }
 
 export interface Board {

@@ -100,8 +100,10 @@ function FieldSheet({ detail, field, onClose }: FieldSheetProps) {
       {save.panel}
       {gone ? (
         <nldd-text>
-          Dit veld staat in de koppeling, maar niet meer in het formulier. Er wordt niets mee
-          ingevuld.
+          <p>
+            Dit veld staat in de koppeling, maar niet meer in het formulier. Er wordt niets mee
+            ingevuld.
+          </p>
         </nldd-text>
       ) : (
         <>
@@ -160,6 +162,7 @@ export function FormTemplatePage() {
   return (
     <div ref={containerRef}>
       <Page
+        kind="document"
         title={data?.name ?? 'Formulier'}
         instanceName={instance?.name}
         spacing="sections"
@@ -170,7 +173,7 @@ export function FormTemplatePage() {
           <LoadError
             error={detail.error}
             retry={() => void detail.refetch()}
-            who="Beheer is voor beheerders. Wie dat zijn zie je onder Team."
+            who="Beheer is voor beheerders. Wie dat zijn zie je onder Mensen."
           />
         ) : null}
 

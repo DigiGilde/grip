@@ -164,7 +164,7 @@ async def test_the_csv_has_the_documented_columns(as_person, world):
     assert alfa["year"] == "2026"
     assert alfa["assignment_uri"] == world.alfa.uri
     assert alfa["agreed"] == "153000.00"
-    assert alfa["realised"] == "21900.00"
+    assert alfa["realised_effort"] == "21900.00"
     assert alfa["delivered"] == "21900.00"
     assert alfa["to_deliver"] == "0.00"
     assert alfa["currency"] == "EUR"
