@@ -65,7 +65,7 @@ De server dwingt de scheiding af. Een voorbeeldinstantie start niet op een datab
 
 1. De wijzigingen staan op `main`. De workflow `Build and deploy` bouwt en rolt alleen uit bij een push naar `main` of een tag `v*`.
 2. De workflow `CI` is groen op die commit.
-3. De twee images komen in `ghcr.io/digigilde/grip/backend` en `ghcr.io/digigilde/grip/frontend`, met het label `sha-<zeven tekens>`. Het platform moet ze kunnen ophalen. Een pakket dat de workflow voor het eerst publiceert, krijgt de zichtbaarheid van de repo en is hier dus openbaar; een pakket dat iemand vanaf de eigen machine pusht, is privé (zie stap 1 van [de voorbeeldgroep](#stappen)). Een ophaalgeheim voor het project is nog niet geprobeerd.
+3. De twee images komen in `ghcr.io/digigilde/grip-poc/backend` en `ghcr.io/digigilde/grip-poc/frontend`, met het label `sha-<zeven tekens>`. Het platform moet ze kunnen ophalen. Een pakket dat de workflow voor het eerst publiceert, krijgt de zichtbaarheid van de repo en is hier dus openbaar; een pakket dat iemand vanaf de eigen machine pusht, is privé (zie stap 1 van [de voorbeeldgroep](#stappen)). Een ophaalgeheim voor het project is nog niet geprobeerd.
 
 ## 2. Het project op ZAD
 
@@ -152,16 +152,16 @@ De frontend heeft bij één adres met twee paden geen instellingen nodig.
 De workflow rolt uit zodra de variabele `ZAD_PROJECT_ID` bestaat. Voer deze regels zelf uit; de sleutel wordt gevraagd en komt in geen logboek.
 
 ```sh
-gh secret set ZAD_API_KEY --repo DigiGilde/grip
-gh variable set ZAD_PROJECT_ID --repo DigiGilde/grip --body "<project-id>"
-gh variable set ZAD_DEPLOYMENT_NAME --repo DigiGilde/grip --body "main"
+gh secret set ZAD_API_KEY --repo DigiGilde/grip-poc
+gh variable set ZAD_PROJECT_ID --repo DigiGilde/grip-poc --body "<project-id>"
+gh variable set ZAD_DEPLOYMENT_NAME --repo DigiGilde/grip-poc --body "main"
 ```
 
 De workflow kent één project. Zolang de voorbeeldinstantie het doel is, wijst `ZAD_PROJECT_ID` naar dat project. Daar draait elke instantie in een eigen uitrol. `ZAD_DEPLOYMENTS` noemt die uitrollen als JSON-lijst; zonder die variabele rolt de workflow alleen naar `ZAD_DEPLOYMENT_NAME` uit. Een uitrol met FSC staat ook in `ZAD_FSC_DEPLOYMENTS`, met de sleutel van haar peer; de directory heeft de sleutel `dir` (zie [Hoe het project van de voorbeelden staat na de uitrol](#hoe-het-project-van-de-voorbeelden-staat-na-de-uitrol)):
 
 ```sh
-gh variable set ZAD_DEPLOYMENTS --repo DigiGilde/grip --body '["gilde","programma"]'
-gh variable set ZAD_FSC_DEPLOYMENTS --repo DigiGilde/grip --body '{"directory":"dir","gilde":"a","programma":"d"}'
+gh variable set ZAD_DEPLOYMENTS --repo DigiGilde/grip-poc --body '["gilde","programma"]'
+gh variable set ZAD_FSC_DEPLOYMENTS --repo DigiGilde/grip-poc --body '{"directory":"dir","gilde":"a","programma":"d"}'
 ```
 
 De workflow rolt in elke uitrol van `ZAD_DEPLOYMENTS` de frontend (`component-1`) en de backend (`component-2`) uit, en in een uitrol met FSC ook de listener (`federation`). De listener is hetzelfde image als de backend en gebruikt het schema dat de backend migreert, dus ze gaan samen. De onderdelen van FSC (manager, controller, transactielog, inway, outway en de bootstrap; in de directory `dirmgr` en `dirui`) gaan alleen mee bij een push naar `main` die hun images of de workflow verandert: een nieuw image herstart het netwerk van de groep. Zet een uitrol pas in een van de twee lijsten als haar onderdelen bestaan en hun instellingen hebben. De eerste uitrol van een onderdeel voegt het toe aan de uitrol, met of zonder instellingen. De eerste keer staat onder [Stappen](#stappen). `ZAD_FSC_DEPLOYMENTS` is een JSON-object van uitrol naar peer (`dir`, `a`, `b` of `d`); is het iets anders, zoals een lijst, dan stopt de uitrol van grip en FSC met een melding daarover.
@@ -210,7 +210,7 @@ Het staat in het project van de voorbeeldinstantie, in een eigen uitrol `portaal
 
 | Onderdeel | Image | Poort | Pad | Gezondheidscontrole |
 |---|---|---|---|---|
-| `ontwikkelportaal` | `ghcr.io/digigilde/grip/ontwikkelportaal` | 8080 | `/` | HTTP `GET /` |
+| `ontwikkelportaal` | `ghcr.io/digigilde/grip-poc/ontwikkelportaal` | 8080 | `/` | HTTP `GET /` |
 
 Het image bouwt de site met de zoekindex in de bouwfase en controleert daar de links; het uiteindelijke image is nginx met alleen de uitkomst. Het draait als gewone gebruiker en schrijft alleen in `/tmp`. De beveiligingskop staat `'wasm-unsafe-eval'` toe, anders start zoeken niet, en verder geen script uit de pagina zelf. Het is een proefomgeving: `robots.txt` en de kop `X-Robots-Tag` houden het buiten zoekmachines, en `/.well-known/security.txt` zegt dat het geen productie is en verwijst voor meldingen naar de repository. De container schrijft dat bestand bij het starten, zodat `Expires` binnen een jaar blijft.
 
@@ -321,7 +321,7 @@ Het platform kent geen init-containers. Daarom draaien manager, controller en tr
 
 De eerste keer gaat in deze volgorde. Het image van de bootstrap bestaat pas na een push naar `main`, dus de merge komt eerst. Daarna krijgt elke uitrol een eigen venster: `zadctl config set rollout false` slaat elke wijziging op zonder haar uit te rollen, `zadctl project pending` laat zien wat wacht, `zadctl project refresh` rolt alles in één keer uit en `zadctl config set rollout true` sluit het venster. Zo start geen onderdeel met de helft van zijn instellingen en herstart `gilde` één keer. Van de merge tot en met stap 10 gaat er verder niets naar `main`: een push tijdens een venster faalt op wat nog wacht (zie [Wat op het platform bleek](#wat-op-het-platform-bleek)).
 
-1. **Merge, en controleer dat het image van de bootstrap op te halen is.** Merge met `ZAD_DEPLOYMENTS` en `ZAD_FSC_DEPLOYMENTS` nog niet gezet en niets in `zadctl project pending`. De workflow bouwt dan alle images, ook `fsc-bootstrap`, en rolt grip uit zoals voorheen, naar `ZAD_DEPLOYMENT_NAME`; de onderdelen van FSC laat hij staan. Het label van die push, `sha-<merge>`, geldt hieronder voor elk image van grip en FSC; de images van OpenFSC zelf staan met hun digest in de workflow (`OPENFSC_INWAY`, `OPENFSC_OUTWAY`, `OPENFSC_DIRECTORY_UI`). Een pakket dat de workflow met `GITHUB_TOKEN` voor het eerst publiceert, krijgt de zichtbaarheid van de repo ("The package inherits the visibility and permissions model of the repository where the workflow is run", in de documentatie van GitHub over pakketten uit een workflow). Bij deze openbare repo was `fsc-bootstrap` daarom meteen openbaar. Een pakket dat iemand vanaf de eigen machine pusht, is wel privé. Controleer het: `curl -s -o /dev/null -w '%{http_code}' 'https://ghcr.io/token?scope=repository:digigilde/grip/fsc-bootstrap:pull'` geeft 200 voor een openbaar pakket en 403 voor een privé pakket. Is het privé, maak het dan in het scherm openbaar: op de pagina van de organisatie onder Packages, `fsc-bootstrap`, Package settings, Danger Zone, Change visibility, Public. De API van GitHub kan dat niet, en het is niet terug te draaien. Privé houden kan ook: de dienst `image-registries` (`zadctl registry add`) haalt het pakket op met een persoonlijk token met `read:packages`. Dat token verloopt op productie na 90 dagen en geldt voor elk image onder het pad dat je opgeeft.
+1. **Merge, en controleer dat het image van de bootstrap op te halen is.** Merge met `ZAD_DEPLOYMENTS` en `ZAD_FSC_DEPLOYMENTS` nog niet gezet en niets in `zadctl project pending`. De workflow bouwt dan alle images, ook `fsc-bootstrap`, en rolt grip uit zoals voorheen, naar `ZAD_DEPLOYMENT_NAME`; de onderdelen van FSC laat hij staan. Het label van die push, `sha-<merge>`, geldt hieronder voor elk image van grip en FSC; de images van OpenFSC zelf staan met hun digest in de workflow (`OPENFSC_INWAY`, `OPENFSC_OUTWAY`, `OPENFSC_DIRECTORY_UI`). Een pakket dat de workflow met `GITHUB_TOKEN` voor het eerst publiceert, krijgt de zichtbaarheid van de repo ("The package inherits the visibility and permissions model of the repository where the workflow is run", in de documentatie van GitHub over pakketten uit een workflow). Bij deze openbare repo was `fsc-bootstrap` daarom meteen openbaar. Een pakket dat iemand vanaf de eigen machine pusht, is wel privé. Controleer het: `curl -s -o /dev/null -w '%{http_code}' 'https://ghcr.io/token?scope=repository:digigilde/grip-poc/fsc-bootstrap:pull'` geeft 200 voor een openbaar pakket en 403 voor een privé pakket. Is het privé, maak het dan in het scherm openbaar: op de pagina van de organisatie onder Packages, `fsc-bootstrap`, Package settings, Danger Zone, Change visibility, Public. De API van GitHub kan dat niet, en het is niet terug te draaien. Privé houden kan ook: de dienst `image-registries` (`zadctl registry add`) haalt het pakket op met een persoonlijk token met `read:packages`. Dat token verloopt op productie na 90 dagen en geldt voor elk image onder het pad dat je opgeeft.
 2. **Certificaten.** `deploy/zad/fsc/pki.sh` met `BASE_DOMAIN`, `PROJECT` en de uitrol per peer (`DEPLOYMENT_DIR`, `DEPLOYMENT_A`, `DEPLOYMENT_B`, `DEPLOYMENT_D`; ook `DEPLOYMENT_B` als het ministerie nog niet meedoet). Het maakt de test-CA van de groep, per peer een interne CA, en per onderdeel in een uitrol een map onder `state/pki/upload/<uitrol>/<onderdeel>/` met de bijlagen; `MANIFEST.tsv` zegt welk bestand op welk pad in de pod hoort, onder `/etc/fsc/<k>/`. Een bijlage is ten hoogste 64 KB; het script controleert dat. De sleutel van de groeps-CA gaat nooit in de repo en niet mee naar het platform. Bewaren hoeft niet: de groep is een voorbeeld, en `pki.sh --fresh` maakt een nieuwe. Dan gaan alle bijlagen opnieuw en moeten de FSC-databases leeg, want de contracten zijn met de oude sleutels getekend.
 3. **Instellingen invullen.** Per onderdeel en peer staat een sjabloon in `deploy/zad/fsc/env/`: `directory-manager.env`, `directory-ui.env` en per instantie (`a`, `b`, `d`) `-frontend` (voor `component-1`), `-grip` (voor `component-2`), `-federation`, `-manager`, `-controller`, `-inway`, `-outway`, `-txlog` en `-bootstrap` (voor `fscboot-<k>`). `just zad-fsc-env <uitrol>` vult ze in, met dezelfde zes variabelen als `pki.sh`, en schrijft per onderdeel `state/env/<uitrol>/<onderdeel>.env`, met het adres van de database in `<onderdeel>.alias`. Het stopt als er een plaatshouder overblijft of als een `TLS_*`-pad niet in `MANIFEST.tsv` staat, en drukt aan het eind de opdrachten voor `zadctl` af; `--dry-run` toont de bestanden alleen. Een gewone `envsubst` maakt ook `$DATABASE_*` leeg; wie het met de hand doet, geeft hem de lijst uit de kop van een sjabloon.
 
@@ -354,7 +354,7 @@ De eerste keer gaat in deze volgorde. Het image van de bootstrap bestaat pas na 
    just zad-fsc-attachments gilde
    just zad-fsc-attachments programma
    zadctl deployment create directory --domain-format component-deployment-project \
-     -c dirmgr --image ghcr.io/digigilde/grip/fsc-manager:sha-<merge>
+     -c dirmgr --image ghcr.io/digigilde/grip-poc/fsc-manager:sha-<merge>
    zadctl deployment assign directory dirui --image <OPENFSC_DIRECTORY_UI>
    ```
 
@@ -391,13 +391,13 @@ De eerste keer gaat in deze volgorde. Het image van de bootstrap bestaat pas na 
 
    ```sh
    zadctl config set rollout false
-   zadctl deployment assign gilde federation --image ghcr.io/digigilde/grip/backend:sha-<merge>
-   zadctl deployment assign gilde manager --image ghcr.io/digigilde/grip/fsc-manager:sha-<merge>
-   zadctl deployment assign gilde controller --image ghcr.io/digigilde/grip/fsc-controller:sha-<merge>
-   zadctl deployment assign gilde txlog --image ghcr.io/digigilde/grip/fsc-txlog:sha-<merge>
+   zadctl deployment assign gilde federation --image ghcr.io/digigilde/grip-poc/backend:sha-<merge>
+   zadctl deployment assign gilde manager --image ghcr.io/digigilde/grip-poc/fsc-manager:sha-<merge>
+   zadctl deployment assign gilde controller --image ghcr.io/digigilde/grip-poc/fsc-controller:sha-<merge>
+   zadctl deployment assign gilde txlog --image ghcr.io/digigilde/grip-poc/fsc-txlog:sha-<merge>
    zadctl deployment assign gilde inway --image <OPENFSC_INWAY>
    zadctl deployment assign gilde outway --image <OPENFSC_OUTWAY>
-   zadctl deployment assign gilde fscboot-a --image ghcr.io/digigilde/grip/fsc-bootstrap:sha-<merge>
+   zadctl deployment assign gilde fscboot-a --image ghcr.io/digigilde/grip-poc/fsc-bootstrap:sha-<merge>
    ```
 
    Dan de opdrachten die `just zad-fsc-env gilde --existing ...` afdrukte (`env add` en `env set`, en de aliassen van manager, controller en transactielog, die daarna ook voor `programma` gelden), `zadctl attachment unassign instance-signing-key component-2` en de geheimen uit stap 5 hierboven voor `gilde`, en:
@@ -415,15 +415,15 @@ De eerste keer gaat in deze volgorde. Het image van de bootstrap bestaat pas na 
    ```sh
    zadctl config set rollout false
    zadctl deployment create programma --domain-format component-deployment-project \
-     -c component-2 --image ghcr.io/digigilde/grip/backend:sha-<merge>
-   zadctl deployment assign programma component-1 --image ghcr.io/digigilde/grip/frontend:sha-<merge>
-   zadctl deployment assign programma federation --image ghcr.io/digigilde/grip/backend:sha-<merge>
-   zadctl deployment assign programma manager --image ghcr.io/digigilde/grip/fsc-manager:sha-<merge>
-   zadctl deployment assign programma controller --image ghcr.io/digigilde/grip/fsc-controller:sha-<merge>
-   zadctl deployment assign programma txlog --image ghcr.io/digigilde/grip/fsc-txlog:sha-<merge>
+     -c component-2 --image ghcr.io/digigilde/grip-poc/backend:sha-<merge>
+   zadctl deployment assign programma component-1 --image ghcr.io/digigilde/grip-poc/frontend:sha-<merge>
+   zadctl deployment assign programma federation --image ghcr.io/digigilde/grip-poc/backend:sha-<merge>
+   zadctl deployment assign programma manager --image ghcr.io/digigilde/grip-poc/fsc-manager:sha-<merge>
+   zadctl deployment assign programma controller --image ghcr.io/digigilde/grip-poc/fsc-controller:sha-<merge>
+   zadctl deployment assign programma txlog --image ghcr.io/digigilde/grip-poc/fsc-txlog:sha-<merge>
    zadctl deployment assign programma inway --image <OPENFSC_INWAY>
    zadctl deployment assign programma outway --image <OPENFSC_OUTWAY>
-   zadctl deployment assign programma fscboot-d --image ghcr.io/digigilde/grip/fsc-bootstrap:sha-<merge>
+   zadctl deployment assign programma fscboot-d --image ghcr.io/digigilde/grip-poc/fsc-bootstrap:sha-<merge>
    ```
 
    Dan de opdrachten `env add` die `just zad-fsc-env programma` afdrukte (de aliassen staan er sinds venster 2), de geheimen uit stap 5 hierboven voor `programma`, met de regel voor `component-2`, en:
