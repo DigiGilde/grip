@@ -1,0 +1,5 @@
+# NL GOV API Design Rules. The ruleset is vendored so that linting is reproducible and works offline.
+# Source: https://github.com/logius-standaarden/API-Design-Rules (media/linter.yaml).
+# Refresh with: just update-ruleset
+extends:
+  - ./spectral/adr-linter.yaml
